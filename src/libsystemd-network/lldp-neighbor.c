@@ -800,3 +800,29 @@ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_
         *ret = triple_timestamp_by_clock(&n->timestamp, clock);
         return 0;
 }
+
+int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
+        const char *chassis_id = NULL, *port_id = NULL, *port_description = NULL,
+                *system_name = NULL, *system_description = NULL;
+        uint16_t cc = 0;
+        bool valid_cc;
+
+        assert(n);
+        assert(ret);
+
+        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+        (void) sd_lldp_neighbor_get_system_description(n, &system_description);
+
+        valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
+                                JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", JSON_BUILD_UNSIGNED(cc))));
+}
