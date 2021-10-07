@@ -2,6 +2,7 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -315,3 +316,12 @@ typedef enum ManagedOOMPreference {
 
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
+
+/* The structure to pass to name_to_handle_at() on cgroupfs2 */
+typedef union {
+        struct file_handle file_handle;
+        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+} cg_file_handle;
+
+#define CG_FILE_HANDLE_INIT { .file_handle.handle_bytes = sizeof(uint64_t) }
+#define CG_FILE_HANDLE_CGROUPID(fh) (*(uint64_t*) (fh).file_handle.f_handle)

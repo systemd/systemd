@@ -18,31 +18,84 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
-int getxattr_malloc(
+int getxattr_at_malloc(
+                int fd,
                 const char *path,
                 const char *name,
-                char **ret,
-                bool allow_symlink) {
+                int flags,
+                char **ret) {
 
+        _cleanup_close_ int opened_fd = -1;
+        unsigned n_attempts = 7;
+        bool by_procfs = false;
         size_t l = 100;
 
-        assert(path);
+        assert(fd >= 0 || fd == AT_FDCWD);
         assert(name);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
         assert(ret);
+
+        /* So, this is single function that does what getxattr()/lgetxattr()/fgetxattr() does, but in one go,
+         * and with additional bells and whistles. Specifically:
+         *
+         * 1. This works on O_PATH fds (which fgetxattr() does not)
+         * 2. Provides full openat()-style semantics, i.e. by-fd, by-path and combination thereof
+         * 3. As extension to openat()-style semantics implies AT_EMPTY_PATH if path is NULL.
+         * 4. Does a malloc() loop, automatically sizing the allocation
+         * 5. NUL-terminates the returned buffer (for safety)
+         */
+
+        if (!path) /* If path is NULL, imply AT_EMPTY_PATH. – But if it's "", don't — for safety reasons. */
+                flags |= AT_EMPTY_PATH;
+
+        if (isempty(path)) {
+                if (!FLAGS_SET(flags, AT_EMPTY_PATH))
+                        return -EINVAL;
+
+                if (fd == AT_FDCWD) /* Both unspecified? Then operate on current working directory */
+                        path = ".";
+                else
+                        path = NULL;
+
+        } else if (fd != AT_FDCWD) {
+
+                /* If both have been specified, then we go via O_PATH */
+                opened_fd = openat(fd, path, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+                path = NULL;
+                by_procfs = true; /* fgetxattr() is not going to work, go via /proc/ link right-away */
+        }
 
         for(;;) {
                 _cleanup_free_ char *v = NULL;
                 ssize_t n;
 
+                if (n_attempts == 0) /* If someone is racing against us, give up eventually */
+                        return -EBUSY;
+                n_attempts--;
+
                 v = new0(char, l+1);
                 if (!v)
                         return -ENOMEM;
 
-                if (allow_symlink)
-                        n = lgetxattr(path, name, v, l);
+                l = MALLOC_ELEMENTSOF(v) - 1;
+
+                if (path)
+                        n = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? getxattr(path, name, v, l) : lgetxattr(path, name, v, l);
                 else
-                        n = getxattr(path, name, v, l);
+                        n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, v, l) : fgetxattr(fd, name, v, l);
                 if (n < 0) {
+                        if (errno == EBADF) {
+                                if (by_procfs || path)
+                                        return -EBADF;
+
+                                by_procfs = true; /* Might be an O_PATH fd, try again via /proc/ link */
+                                continue;
+                        }
+
                         if (errno != ERANGE)
                                 return -errno;
                 } else {
@@ -51,10 +104,10 @@ int getxattr_malloc(
                         return (int) n;
                 }
 
-                if (allow_symlink)
-                        n = lgetxattr(path, name, NULL, 0);
+                if (path)
+                        n = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? getxattr(path, name, NULL, 0) : lgetxattr(path, name, NULL, 0);
                 else
-                        n = getxattr(path, name, NULL, 0);
+                        n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, NULL, 0) : fgetxattr(fd, name, NULL, 0);
                 if (n < 0)
                         return -errno;
                 if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
@@ -62,126 +115,6 @@ int getxattr_malloc(
 
                 l = (size_t) n;
         }
-}
-
-int fgetxattr_malloc(
-                int fd,
-                const char *name,
-                char **ret) {
-
-        size_t l = 100;
-
-        assert(fd >= 0);
-        assert(name);
-        assert(ret);
-
-        for (;;) {
-                _cleanup_free_ char *v = NULL;
-                ssize_t n;
-
-                v = new(char, l+1);
-                if (!v)
-                        return -ENOMEM;
-
-                n = fgetxattr(fd, name, v, l);
-                if (n < 0) {
-                        if (errno != ERANGE)
-                                return -errno;
-                } else {
-                        v[n] = 0; /* NUL terminate */
-                        *ret = TAKE_PTR(v);
-                        return (int) n;
-                }
-
-                n = fgetxattr(fd, name, NULL, 0);
-                if (n < 0)
-                        return -errno;
-                if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
-                        return -E2BIG;
-
-                l = (size_t) n;
-        }
-}
-
-/* Note: ret_fn should already be allocated for the usual xsprintf and /proc/self/fd/%i pattern. */
-static int getxattrat_fake_prepare(
-                int dirfd,
-                const char *filename,
-                int flags,
-                char ret_fn[static PROC_FD_PATH_MAX],
-                int *ret_fd) {
-
-        _cleanup_close_ int fd = -1;
-        assert(ret_fn);
-        assert(ret_fd);
-
-        /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
-
-        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
-                return -EINVAL;
-
-        if (isempty(filename)) {
-                if (!(flags & AT_EMPTY_PATH))
-                        return -EINVAL;
-
-                assert(dirfd >= 0);
-
-                format_proc_fd_path(ret_fn, dirfd);
-        } else {
-                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
-                if (fd < 0)
-                        return -errno;
-
-                format_proc_fd_path(ret_fn, fd);
-        }
-
-        /* Pass the FD to the caller, since in case we do openat() the filename depends on it. */
-        *ret_fd = TAKE_FD(fd);
-
-        return 0;
-}
-
-int fgetxattrat_fake(
-                int dirfd,
-                const char *filename,
-                const char *attribute,
-                void *value, size_t size,
-                int flags,
-                size_t *ret_size) {
-
-        _cleanup_close_ int fd = -1;
-        char fn[PROC_FD_PATH_MAX];
-        ssize_t l;
-        int r;
-
-        r = getxattrat_fake_prepare(dirfd, filename, flags, fn, &fd);
-        if (r < 0)
-                return r;
-
-        l = getxattr(fn, attribute, value, size);
-        if (l < 0)
-                return -errno;
-
-        *ret_size = l;
-        return 0;
-}
-
-int fgetxattrat_fake_malloc(
-                int dirfd,
-                const char *filename,
-                const char *attribute,
-                int flags,
-                char **value) {
-
-        _cleanup_close_ int fd = -1;
-        char fn[PROC_FD_PATH_MAX];
-        int r;
-
-        r = getxattrat_fake_prepare(dirfd, filename, flags, fn, &fd);
-        if (r < 0)
-                return r;
-
-        return getxattr_malloc(fn, attribute, value, false);
 }
 
 static int parse_crtime(le64_t le, usec_t *usec) {
@@ -197,17 +130,23 @@ static int parse_crtime(le64_t le, usec_t *usec) {
         return 0;
 }
 
-int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
+int fd_getcrtime_at(
+                int fd,
+                const char *path,
+                int flags,
+                usec_t *ret) {
+
+        _cleanup_free_ le64_t *le = NULL;
         STRUCT_STATX_DEFINE(sx);
         usec_t a, b;
-        le64_t le;
-        size_t n;
         int r;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
         assert(ret);
 
-        if (flags & ~(AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW))
-                return -EINVAL;
+        if (!path)
+                flags |= AT_EMPTY_PATH;
 
         /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
          * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
@@ -219,7 +158,10 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
          * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
          * most sense. */
 
-        if (statx(dirfd, strempty(name), flags|AT_STATX_DONT_SYNC, STATX_BTIME, &sx) >= 0 &&
+        if (statx(fd, strempty(path),
+                  (flags & ~AT_SYMLINK_FOLLOW)|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW)|AT_STATX_DONT_SYNC,
+                  STATX_BTIME,
+                  &sx) >= 0 &&
             (sx.stx_mask & STATX_BTIME) &&
             sx.stx_btime.tv_sec != 0)
                 a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC +
@@ -227,12 +169,12 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
         else
                 a = USEC_INFINITY;
 
-        r = fgetxattrat_fake(dirfd, name, "user.crtime_usec", &le, sizeof(le), flags, &n);
+        r = getxattr_at_malloc(fd, path, "user.crtime_usec", flags, (char**) &le);
         if (r >= 0) {
-                if (n != sizeof(le))
+                if (r != sizeof(*le))
                         r = -EIO;
                 else
-                        r = parse_crtime(le, &b);
+                        r = parse_crtime(*le, &b);
         }
         if (r < 0) {
                 if (a != USEC_INFINITY) {
@@ -251,10 +193,6 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
         return 0;
 }
 
-int fd_getcrtime(int fd, usec_t *ret) {
-        return fd_getcrtime_at(fd, NULL, ret, AT_EMPTY_PATH);
-}
-
 int fd_setcrtime(int fd, usec_t usec) {
         le64_t le;
 
@@ -270,22 +208,73 @@ int fd_setcrtime(int fd, usec_t usec) {
         return 0;
 }
 
-int flistxattr_malloc(int fd, char **ret) {
+int listxattr_at_malloc(
+                int fd,
+                const char *path,
+                int flags,
+                char **ret) {
+
+        _cleanup_close_ int opened_fd = -1;
+        bool by_procfs = false;
+        unsigned n_attempts = 7;
         size_t l = 100;
 
-        assert(fd >= 0);
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
         assert(ret);
+
+        /* This is to listxattr()/llistattr()/flistattr() what getxattr_at_malloc() is to getxattr()/… */
+
+        if (!path) /* If path is NULL, imply AT_EMPTY_PATH. – But if it's "", don't. */
+                flags |= AT_EMPTY_PATH;
+
+        if (isempty(path)) {
+                if (!FLAGS_SET(flags, AT_EMPTY_PATH))
+                        return -EINVAL;
+
+                if (fd == AT_FDCWD) /* Both unspecified? Then operate on current working directory */
+                        path = ".";
+                else
+                        path = NULL;
+
+        } else if (fd != AT_FDCWD) {
+                /* If both have been specified, then we go via O_PATH */
+                opened_fd = openat(fd, path, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+                path = NULL;
+                by_procfs = true;
+        }
 
         for (;;) {
                 _cleanup_free_ char *v = NULL;
                 ssize_t n;
 
+                if (n_attempts == 0) /* If someone is racing against us, give up eventually */
+                        return -EBUSY;
+                n_attempts--;
+
                 v = new(char, l+1);
                 if (!v)
                         return -ENOMEM;
 
-                n = flistxattr(fd, v, l);
+                l = MALLOC_ELEMENTSOF(v) - 1;
+
+                if (path)
+                        n = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? listxattr(path, v, l) : llistxattr(path, v, l);
+                else
+                        n = by_procfs ? listxattr(FORMAT_PROC_FD_PATH(fd), v, l) : flistxattr(fd, v, l);
                 if (n < 0) {
+                        if (errno == EBADF) {
+                                if (by_procfs || path)
+                                        return -EBADF;
+
+                                by_procfs = true; /* Might be an O_PATH fd, try again via /proc/ link */
+                                continue;
+                        }
+
                         if (errno != ERANGE)
                                 return -errno;
                 } else {
@@ -294,7 +283,10 @@ int flistxattr_malloc(int fd, char **ret) {
                         return (int) n;
                 }
 
-                n = flistxattr(fd, NULL, 0);
+                if (path)
+                        n = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? listxattr(path, NULL, 0) : llistxattr(path, NULL, 0);
+                else
+                        n = by_procfs ? listxattr(FORMAT_PROC_FD_PATH(fd), NULL, 0) : flistxattr(fd, NULL, 0);
                 if (n < 0)
                         return -errno;
                 if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
