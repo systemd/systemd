@@ -1129,12 +1129,12 @@ static int determine_default_storage(UserStorage *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in a container: %m");
         if (r == 0) {
-                r = path_is_encrypted("/home");
+                r = path_is_encrypted(get_home_root());
                 if (r > 0)
-                        log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                        log_info("%s is encrypted, not using '%s' storage, in order to avoid double encryption.", get_home_root(), user_storage_to_string(USER_LUKS));
                 else {
                         if (r < 0)
-                                log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
+                                log_warning_errno(r, "Failed to determine if %s is encrypted, ignoring: %m", get_home_root());
 
                         r = dlopen_cryptsetup();
                         if (r < 0)
@@ -1148,14 +1148,14 @@ static int determine_default_storage(UserStorage *ret) {
         } else
                 log_info("Running in container, not using '%s' storage.", user_storage_to_string(USER_LUKS));
 
-        r = path_is_fs_type("/home", BTRFS_SUPER_MAGIC);
+        r = path_is_fs_type(get_home_root(), BTRFS_SUPER_MAGIC);
         if (r < 0)
-                log_warning_errno(r, "Failed to determine file system of /home, ignoring: %m");
+                log_warning_errno(r, "Failed to determine file system of %s, ignoring: %m", get_home_root());
         if (r > 0) {
-                log_info("/home is on btrfs, using '%s' as storage.", user_storage_to_string(USER_SUBVOLUME));
+                log_info("%s is on btrfs, using '%s' as storage.", get_home_root(), user_storage_to_string(USER_SUBVOLUME));
                 *ret = USER_SUBVOLUME;
         } else {
-                log_info("/home is on simple file system, using '%s' as storage.", user_storage_to_string(USER_DIRECTORY));
+                log_info("%s is on simple file system, using '%s' as storage.", get_home_root(), user_storage_to_string(USER_DIRECTORY));
                 *ret = USER_DIRECTORY;
         }
 
