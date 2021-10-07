@@ -14,9 +14,10 @@ typedef UINTN   sd_size_t;
 #else
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-typedef bool    sd_bool;
-typedef char    sd_char;
-typedef int     sd_int;
-typedef size_t  sd_size_t;
+typedef bool     sd_bool;
+typedef char     sd_char;
+typedef int      sd_int;
+typedef size_t   sd_size_t;
 #endif

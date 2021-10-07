@@ -12,7 +12,6 @@ efi_headers = files('''
         missing_efi.h
         pe.h
         random-seed.h
-        sha256.h
         shim.h
         splash.h
         util.h
@@ -34,7 +33,6 @@ systemd_boot_sources = '''
         devicetree.c
         drivers.c
         random-seed.c
-        sha256.c
         shim.c
 '''.split()
 
