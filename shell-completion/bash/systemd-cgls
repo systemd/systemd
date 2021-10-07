@@ -41,7 +41,7 @@ _systemd_cgls() {
     local i verb comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version --all -l --full -k --no-pager'
+        [STANDALONE]='-h --help --version --all -l --full -k --no-pager --xattr=no --cgroup-id=no'
         [ARG]='-M --machine -u --unit --user-unit'
     )
 

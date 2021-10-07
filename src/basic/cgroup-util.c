@@ -669,7 +669,7 @@ int cg_get_xattr_malloc(const char *controller, const char *path, const char *na
         if (r < 0)
                 return r;
 
-        r = getxattr_malloc(fs, name, ret, false);
+        r = lgetxattr_malloc(fs, name, ret);
         if (r < 0)
                 return r;
 
@@ -1368,25 +1368,18 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 }
 
 int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
         int mnt_id = -1;
 
         assert(path);
         assert(ret);
 
-        union {
-                struct file_handle f_handle;
-                uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-        } buf = {
-                .f_handle.handle_bytes = sizeof(uint64_t),
-        };
-
         /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
          * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(AT_FDCWD, path, &buf.f_handle, &mnt_id, 0) < 0)
+        if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
                 return -errno;
 
-        *ret = *(uint64_t *) buf.f_handle.f_handle;
-
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
         return 0;
 }
 
