@@ -6,10 +6,12 @@ fundamental_headers = files(
         'efi-loader-features.h',
         'macro-fundamental.h',
         'string-util-fundamental.h',
+        'sha256.h',
         'type.h')
 
 sources = '''
         string-util-fundamental.c
+        sha256.c
 '''.split()
 
 # for sd-boot
