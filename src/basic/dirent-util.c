@@ -5,10 +5,12 @@
 
 #include "dirent-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 static int dirent_ensure_type(DIR *d, struct dirent *de) {
-        struct stat st;
+        STRUCT_STATX_DEFINE(sx);
+        int r;
 
         assert(d);
         assert(de);
@@ -21,10 +23,17 @@ static int dirent_ensure_type(DIR *d, struct dirent *de) {
                 return 0;
         }
 
-        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                return -errno;
+        /* Let's ask only for the type, nothing else. */
+        r = statx_fallback(dirfd(d), de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
+        if (r < 0)
+                return r;
 
-        de->d_type = IFTODT(st.st_mode);
+        assert(FLAGS_SET(sx.stx_mask, STATX_TYPE));
+        de->d_type = IFTODT(sx.stx_mode);
+
+        /* If the inode is passed too, update the field, i.e. report most recent data */
+        if (FLAGS_SET(sx.stx_mask, STATX_INO))
+                de->d_ino = sx.stx_ino;
 
         return 0;
 }
