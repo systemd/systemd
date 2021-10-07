@@ -8,8 +8,6 @@
 #include "macro.h"
 #include "path-util.h"
 
-int stat_mode_to_dirent_type(mode_t mode);
-
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 

@@ -7,18 +7,6 @@
 #include "path-util.h"
 #include "string-util.h"
 
-int stat_mode_to_dirent_type(mode_t mode) {
-        return
-                S_ISREG(mode)  ? DT_REG  :
-                S_ISDIR(mode)  ? DT_DIR  :
-                S_ISLNK(mode)  ? DT_LNK  :
-                S_ISFIFO(mode) ? DT_FIFO :
-                S_ISSOCK(mode) ? DT_SOCK :
-                S_ISCHR(mode)  ? DT_CHR  :
-                S_ISBLK(mode)  ? DT_BLK  :
-                                 DT_UNKNOWN;
-}
-
 static int dirent_ensure_type(DIR *d, struct dirent *de) {
         struct stat st;
 
@@ -36,7 +24,7 @@ static int dirent_ensure_type(DIR *d, struct dirent *de) {
         if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
-        de->d_type = stat_mode_to_dirent_type(st.st_mode);
+        de->d_type = IFTODT(st.st_mode);
 
         return 0;
 }
