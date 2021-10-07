@@ -1408,11 +1408,11 @@ int user_record_build_image_path(UserStorage storage, const char *user_name_and_
                 return 0;
         }
 
-        z = strjoin("/home/", user_name_and_realm, suffix);
+        z = strjoin(get_home_root(), "/", user_name_and_realm, suffix);
         if (!z)
                 return -ENOMEM;
 
-        *ret = z;
+        *ret = path_simplify(z);
         return 1;
 }
 
@@ -1437,7 +1437,7 @@ static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
                 return 0;
 
         if (!h->home_directory && !h->home_directory_auto) {
-                h->home_directory_auto = path_join("/home/", h->user_name);
+                h->home_directory_auto = path_join(get_home_root(), h->user_name);
                 if (!h->home_directory_auto)
                         return json_log_oom(h->json, json_flags);
         }
