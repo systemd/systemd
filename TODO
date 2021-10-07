@@ -352,11 +352,9 @@ Features:
 
 * unify on openssl (as soon as OpenSSL 3.0 is out, and the Debian license
   confusion is gone)
-  - port sd_id128_get_machine_app_specific() over from khash
   - port resolved over from libgcrypt (DNSSEC code)
   - port journald + fsprg over from libgcrypt
   - port importd over from libgcrypt
-  - when that's done: kill khash.c
   - when that's done: kill gnutls support in resolved
 
 * add growvol and makevol options for /etc/crypttab, similar to

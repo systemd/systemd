@@ -592,8 +592,6 @@ tests += [
 
         [['src/test/test-id128.c']],
 
-        [['src/test/test-hash.c']],
-
         [['src/test/test-gcrypt-util.c'],
          [], [], [], 'HAVE_GCRYPT'],
 
