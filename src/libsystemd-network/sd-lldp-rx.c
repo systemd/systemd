@@ -10,6 +10,7 @@
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "json.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "lldp-rx-internal.h"
@@ -488,6 +489,38 @@ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
         *ret = TAKE_PTR(l);
 
         return k;
+}
+
+int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        sd_lldp_neighbor **l;
+        size_t n;
+        int r;
+
+        assert(lldp_rx);
+        assert(ret);
+
+        r = sd_lldp_rx_get_neighbors(lldp_rx, &l);
+        if (r < 0)
+                return r;
+
+        n = r;
+        CLEANUP_ARRAY(l, n, lldp_neighbor_unref_many);
+
+        FOREACH_ARRAY(i, l, n) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                r = lldp_neighbor_build_json(*i, &w);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&v, w);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }
 
 int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m) {
