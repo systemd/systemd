@@ -3269,6 +3269,15 @@ int dissect_image_and_warn(
         case -EPROTONOSUPPORT:
                 return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
 
+        case -EBADR:
+                return log_error_errno(r,
+                                       "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
+                                       "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
+                                       name, strna(verity ? verity->data_path : NULL));
+
+        case -ENOTBLK:
+                return log_error_errno(r, "Specified image '%s' is not a block device.", name);
+
         default:
                 if (r < 0)
                         return log_error_errno(r, "Failed to dissect image '%s': %m", name);
