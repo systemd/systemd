@@ -23,8 +23,18 @@
 
 /* Written by Ulrich Drepper <drepper@redhat.com>, 2007.  */
 
+#ifndef SD_BOOT
+#include <string.h>
+#endif
+
 #include "macro-fundamental.h"
 #include "sha256.h"
+
+#ifdef SD_BOOT
+#define sd_memcpy(a, b, c) CopyMem((a), (b), (c))
+#else
+#define sd_memcpy(a, b, c) memcpy((a), (b), (c))
+#endif
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \
@@ -45,12 +55,12 @@
 
 /* This array contains the bytes used to pad the buffer to the next
    64-byte boundary.  (FIPS 180-2:5.1.1)  */
-static const UINT8 fillbuf[64] = {
+static const sd_uint8_t fillbuf[64] = {
         0x80, 0 /* , 0, 0, ...  */
 };
 
 /* Constants for SHA256 from FIPS 180-2:4.2.2.  */
-static const UINT32 K[64] = {
+static const sd_uint32_t K[64] = {
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
         0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -69,7 +79,7 @@ static const UINT32 K[64] = {
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-static void sha256_process_block(const void *, UINTN, struct sha256_ctx *);
+static void sha256_process_block(const void *, sd_size_t, struct sha256_ctx *);
 
 /* Initialize structure containing state of computation.
    (FIPS 180-2:5.3.2)  */
@@ -96,8 +106,8 @@ void sha256_init_ctx(struct sha256_ctx *ctx) {
    aligned for a 32 bits value.  */
 void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         /* Take yet unprocessed bytes into account.  */
-        UINT32 bytes = ctx->buflen;
-        UINTN pad;
+        sd_uint32_t bytes = ctx->buflen;
+        sd_size_t pad;
 
         assert(ctx);
         assert(resbuf);
@@ -106,7 +116,7 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         ctx->total64 += bytes;
 
         pad = bytes >= 56 ? 64 + 56 - bytes : 56 - bytes;
-        CopyMem(&ctx->buffer[bytes], fillbuf, pad);
+        sd_memcpy(&ctx->buffer[bytes], fillbuf, pad);
 
         /* Put the 64-bit file length in *bits* at the end of the buffer.  */
         ctx->buffer32[(bytes + pad + 4) / 4] = SWAP(ctx->total[TOTAL64_low] << 3);
@@ -117,13 +127,13 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         sha256_process_block(ctx->buffer, bytes + pad + 8, ctx);
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
-        for (UINTN i = 0; i < 8; ++i)
-                ((UINT32 *) resbuf)[i] = SWAP(ctx->H[i]);
+        for (sd_size_t i = 0; i < 8; ++i)
+                ((sd_uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
 
         return resbuf;
 }
 
-void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx) {
+void sha256_process_bytes(const void *buffer, sd_size_t len, struct sha256_ctx *ctx) {
         assert(buffer);
         assert(ctx);
 
@@ -131,10 +141,10 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
            both inputs first.  */
 
         if (ctx->buflen != 0) {
-                UINTN left_over = ctx->buflen;
-                UINTN add = 128 - left_over > len ? len : 128 - left_over;
+                sd_size_t left_over = ctx->buflen;
+                sd_size_t add = 128 - left_over > len ? len : 128 - left_over;
 
-                CopyMem(&ctx->buffer[left_over], buffer, add);
+                sd_memcpy(&ctx->buffer[left_over], buffer, add);
                 ctx->buflen += add;
 
                 if (ctx->buflen > 64) {
@@ -142,7 +152,7 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
                         ctx->buflen &= 63;
                         /* The regions in the following copy operation cannot overlap.  */
-                        CopyMem(ctx->buffer, &ctx->buffer[(left_over + add) & ~63],
+                        sd_memcpy(ctx->buffer, &ctx->buffer[(left_over + add) & ~63],
                                 ctx->buflen);
                 }
 
@@ -159,13 +169,13 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
 /* To check alignment gcc has an appropriate operator. Other compilers don't.  */
 # if __GNUC__ >= 2
-#  define UNALIGNED_P(p) (((UINTN) p) % __alignof__(UINT32) != 0)
+#  define UNALIGNED_P(p) (((sd_size_t) p) % __alignof__(sd_uint32_t) != 0)
 # else
-#  define UNALIGNED_P(p) (((UINTN) p) % sizeof(UINT32) != 0)
+#  define UNALIGNED_P(p) (((sd_size_t) p) % sizeof(sd_uint32_t) != 0)
 # endif
                 if (UNALIGNED_P(buffer))
                         while (len > 64) {
-                                CopyMem(ctx->buffer, buffer, 64);
+                                sd_memcpy(ctx->buffer, buffer, 64);
                                 sha256_process_block(ctx->buffer, 64, ctx);
                                 buffer = (const char *) buffer + 64;
                                 len -= 64;
@@ -181,14 +191,14 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
         /* Move remaining bytes into internal buffer.  */
         if (len > 0) {
-                UINTN left_over = ctx->buflen;
+                sd_size_t left_over = ctx->buflen;
 
-                CopyMem(&ctx->buffer[left_over], buffer, len);
+                sd_memcpy(&ctx->buffer[left_over], buffer, len);
                 left_over += len;
                 if (left_over >= 64) {
                         sha256_process_block(ctx->buffer, 64, ctx);
                         left_over -= 64;
-                        CopyMem(ctx->buffer, &ctx->buffer[64], left_over);
+                        sd_memcpy(ctx->buffer, &ctx->buffer[64], left_over);
                 }
                 ctx->buflen = left_over;
         }
@@ -197,21 +207,21 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
 /* Process LEN bytes of BUFFER, accumulating context into CTX.
    It is assumed that LEN % 64 == 0.  */
-static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ctx *ctx) {
-        const UINT32 *words = buffer;
-        UINTN nwords = len / sizeof(UINT32);
+static void sha256_process_block(const void *buffer, sd_size_t len, struct sha256_ctx *ctx) {
+        const sd_uint32_t *words = buffer;
+        sd_size_t nwords = len / sizeof(sd_uint32_t);
 
         assert(buffer);
         assert(ctx);
 
-        UINT32 a = ctx->H[0];
-        UINT32 b = ctx->H[1];
-        UINT32 c = ctx->H[2];
-        UINT32 d = ctx->H[3];
-        UINT32 e = ctx->H[4];
-        UINT32 f = ctx->H[5];
-        UINT32 g = ctx->H[6];
-        UINT32 h = ctx->H[7];
+        sd_uint32_t a = ctx->H[0];
+        sd_uint32_t b = ctx->H[1];
+        sd_uint32_t c = ctx->H[2];
+        sd_uint32_t d = ctx->H[3];
+        sd_uint32_t e = ctx->H[4];
+        sd_uint32_t f = ctx->H[5];
+        sd_uint32_t g = ctx->H[6];
+        sd_uint32_t h = ctx->H[7];
 
         /* First increment the byte count.  FIPS 180-2 specifies the possible
            length of the file up to 2^64 bits.  Here we only compute the
@@ -221,15 +231,15 @@ static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ct
         /* Process all bytes in the buffer with 64 bytes in each round of
            the loop.  */
         while (nwords > 0) {
-                UINT32 W[64];
-                UINT32 a_save = a;
-                UINT32 b_save = b;
-                UINT32 c_save = c;
-                UINT32 d_save = d;
-                UINT32 e_save = e;
-                UINT32 f_save = f;
-                UINT32 g_save = g;
-                UINT32 h_save = h;
+                sd_uint32_t W[64];
+                sd_uint32_t a_save = a;
+                sd_uint32_t b_save = b;
+                sd_uint32_t c_save = c;
+                sd_uint32_t d_save = d;
+                sd_uint32_t e_save = e;
+                sd_uint32_t f_save = f;
+                sd_uint32_t g_save = g;
+                sd_uint32_t h_save = h;
 
                 /* Operators defined in FIPS 180-2:4.1.2.  */
 #define Ch(x, y, z) ((x & y) ^ (~x & z))
@@ -244,17 +254,17 @@ static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ct
 #define CYCLIC(w, s) ((w >> s) | (w << (32 - s)))
 
                 /* Compute the message schedule according to FIPS 180-2:6.2.2 step 2.  */
-                for (UINTN t = 0; t < 16; ++t) {
+                for (sd_size_t t = 0; t < 16; ++t) {
                         W[t] = SWAP (*words);
                         ++words;
                 }
-                for (UINTN t = 16; t < 64; ++t)
+                for (sd_size_t t = 16; t < 64; ++t)
                         W[t] = R1 (W[t - 2]) + W[t - 7] + R0 (W[t - 15]) + W[t - 16];
 
                 /* The actual computation according to FIPS 180-2:6.2.2 step 3.  */
-                for (UINTN t = 0; t < 64; ++t) {
-                        UINT32 T1 = h + S1 (e) + Ch (e, f, g) + K[t] + W[t];
-                        UINT32 T2 = S0 (a) + Maj (a, b, c);
+                for (sd_size_t t = 0; t < 64; ++t) {
+                        sd_uint32_t T1 = h + S1 (e) + Ch (e, f, g) + K[t] + W[t];
+                        sd_uint32_t T2 = S0 (a) + Maj (a, b, c);
                         h = g;
                         g = f;
                         f = e;

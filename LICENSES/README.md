@@ -58,3 +58,9 @@ The following exceptions apply:
    **BSD-3-Clause** license.
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
+
+## OpenSSL Notes
+
+Note that building the systemd project with OpenSSL does not affect the libsystemd.so
+shared library, which will not link with the OpenSSL library under any circumstance and
+thus is not affected by its license.
