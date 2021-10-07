@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <ftw.h>
 #include <langinfo.h>
 #include <libintl.h>
 #include <stddef.h>
