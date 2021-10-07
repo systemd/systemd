@@ -2504,21 +2504,27 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         assert_se(cell = table_get_cell(table, 0, 0));
         table_set_minimum_width(table, cell, 16);
+        table_set_maximum_width(table, cell, 16);
 
         assert_se(cell = table_get_cell(table, 0, 1));
         table_set_minimum_width(table, cell, 17);
+        table_set_maximum_width(table, cell, 17);
 
         assert_se(cell = table_get_cell(table, 0, 2));
         table_set_minimum_width(table, cell, 16);
+        table_set_maximum_width(table, cell, 16);
 
         assert_se(cell = table_get_cell(table, 0, 3));
         table_set_minimum_width(table, cell, 11);
+        table_set_maximum_width(table, cell, 11);
 
         assert_se(cell = table_get_cell(table, 0, 4));
         table_set_minimum_width(table, cell, 17);
+        table_set_maximum_width(table, cell, 17);
 
         assert_se(cell = table_get_cell(table, 0, 5));
         table_set_minimum_width(table, cell, 16);
+        table_set_maximum_width(table, cell, 16);
 
         if (table_set_empty_string(table, "n/a") < 0)
                 return log_oom();
@@ -2535,7 +2541,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 }
 
                 for (;;) {
-                        _cleanup_free_ char *cid = NULL, *pid = NULL, *sname = NULL, *pdesc = NULL, *capabilities = NULL;
+                        _cleanup_free_ char *capabilities = NULL;
                         const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
                         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
                         uint16_t cc;
@@ -2552,30 +2558,6 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
                         (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                         (void) sd_lldp_neighbor_get_port_description(n, &port_description);
-
-                        if (chassis_id) {
-                                cid = ellipsize(chassis_id, 17, 100);
-                                if (cid)
-                                        chassis_id = cid;
-                        }
-
-                        if (port_id) {
-                                pid = ellipsize(port_id, 17, 100);
-                                if (pid)
-                                        port_id = pid;
-                        }
-
-                        if (system_name) {
-                                sname = ellipsize(system_name, 16, 100);
-                                if (sname)
-                                        system_name = sname;
-                        }
-
-                        if (port_description) {
-                                pdesc = ellipsize(port_description, 16, 100);
-                                if (pdesc)
-                                        port_description = pdesc;
-                        }
 
                         if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
                                 capabilities = lldp_capabilities_to_string(cc);
