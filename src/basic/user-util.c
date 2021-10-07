@@ -1085,3 +1085,14 @@ int is_this_me(const char *username) {
 
         return uid == getuid();
 }
+
+const char *get_home_root(void) {
+        const char *e;
+
+        /* For debug purposes allow overriding where we look for home dirs */
+        e = secure_getenv("SYSTEMD_HOME_ROOT");
+        if (e && path_is_absolute(e) && path_is_normalized(e))
+                return e;
+
+        return "/home";
+}

@@ -83,35 +83,38 @@ static void manager_watch_home(Manager *m) {
         m->inotify_event_source = sd_event_source_disable_unref(m->inotify_event_source);
         m->scan_slash_home = false;
 
-        if (statfs("/home/", &sfs) < 0) {
+        if (statfs(get_home_root(), &sfs) < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to statfs() /home/ directory, disabling automatic scanning.");
+                               "Failed to statfs() %s directory, disabling automatic scanning.", get_home_root());
                 return;
         }
 
         if (is_network_fs(&sfs)) {
-                log_info("/home/ is a network file system, disabling automatic scanning.");
+                log_info("%s is a network file system, disabling automatic scanning.", get_home_root());
                 return;
         }
 
         if (is_fs_type(&sfs, AUTOFS_SUPER_MAGIC)) {
-                log_info("/home/ is on autofs, disabling automatic scanning.");
+                log_info("%s is on autofs, disabling automatic scanning.", get_home_root());
                 return;
         }
 
         m->scan_slash_home = true;
 
-        r = sd_event_add_inotify(m->event, &m->inotify_event_source, "/home/",
+        r = sd_event_add_inotify(m->event, &m->inotify_event_source, get_home_root(),
                                  IN_CREATE|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_ONLYDIR|IN_MOVED_TO|IN_MOVED_FROM|IN_DELETE,
                                  on_home_inotify, m);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to create inotify watch on /home/, ignoring.");
+                               "Failed to create inotify watch on %s, ignoring.", get_home_root());
 
         (void) sd_event_source_set_description(m->inotify_event_source, "home-inotify");
+
+        log_info("Watching %s.", get_home_root());
 }
 
 static int on_home_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        _cleanup_free_ char *j = NULL;
         Manager *m = userdata;
         const char *e, *n;
 
@@ -121,15 +124,15 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
         if ((event->mask & (IN_Q_OVERFLOW|IN_MOVE_SELF|IN_DELETE_SELF|IN_IGNORED|IN_UNMOUNT)) != 0) {
 
                 if (FLAGS_SET(event->mask, IN_Q_OVERFLOW))
-                        log_debug("/home/ inotify queue overflow, rescanning.");
+                        log_debug("%s inotify queue overflow, rescanning.", get_home_root());
                 else if (FLAGS_SET(event->mask, IN_MOVE_SELF))
-                        log_info("/home/ moved or renamed, recreating watch and rescanning.");
+                        log_info("%s moved or renamed, recreating watch and rescanning.", get_home_root());
                 else if (FLAGS_SET(event->mask, IN_DELETE_SELF))
-                        log_info("/home/ deleted, recreating watch and rescanning.");
+                        log_info("%s deleted, recreating watch and rescanning.", get_home_root());
                 else if (FLAGS_SET(event->mask, IN_UNMOUNT))
-                        log_info("/home/ unmounted, recreating watch and rescanning.");
+                        log_info("%s unmounted, recreating watch and rescanning.", get_home_root());
                 else if (FLAGS_SET(event->mask, IN_IGNORED))
-                        log_info("/home/ watch invalidated, recreating watch and rescanning.");
+                        log_info("%s watch invalidated, recreating watch and rescanning.", get_home_root());
 
                 manager_watch_home(m);
                 (void) manager_gc_images(m);
@@ -150,15 +153,19 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
         if (!suitable_user_name(n))
                 return 0;
 
+        j = path_join(get_home_root(), event->name);
+        if (!j)
+                return log_oom();
+
         if ((event->mask & (IN_CREATE|IN_CLOSE_WRITE|IN_MOVED_TO)) != 0) {
                 if (FLAGS_SET(event->mask, IN_CREATE))
-                        log_debug("/home/%s has been created, having a look.", event->name);
+                        log_debug("%s has been created, having a look.", j);
                 else if (FLAGS_SET(event->mask, IN_CLOSE_WRITE))
-                        log_debug("/home/%s has been modified, having a look.", event->name);
+                        log_debug("%s has been modified, having a look.", j);
                 else if (FLAGS_SET(event->mask, IN_MOVED_TO))
-                        log_debug("/home/%s has been moved in, having a look.", event->name);
+                        log_debug("%s has been moved in, having a look.", j);
 
-                (void) manager_assess_image(m, -1, "/home/", event->name);
+                (void) manager_assess_image(m, -1, get_home_root(), event->name);
                 (void) bus_manager_emit_auto_login_changed(m);
         }
 
@@ -166,11 +173,11 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                 Home *h;
 
                 if (FLAGS_SET(event->mask, IN_DELETE))
-                        log_debug("/home/%s has been deleted, revalidating.", event->name);
+                        log_debug("%s has been deleted, revalidating.", j);
                 else if (FLAGS_SET(event->mask, IN_CLOSE_WRITE))
-                        log_debug("/home/%s has been closed after writing, revalidating.", event->name);
+                        log_debug("%s has been closed after writing, revalidating.", j);
                 else if (FLAGS_SET(event->mask, IN_MOVED_FROM))
-                        log_debug("/home/%s has been moved away, revalidating.", event->name);
+                        log_debug("%s has been moved away, revalidating.", j);
 
                 h = hashmap_get(m->homes_by_name, n);
                 if (h) {
@@ -487,7 +494,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
          * comprehensive, but should cover most cases. Note that in an ideal world every user would be
          * registered in NSS and avoid our own UID range, but for all other cases, it's a good idea to be
          * paranoid and check quota if we can. */
-        FOREACH_STRING(where, "/home/", "/tmp/", "/var/", "/var/mail/", "/var/tmp/", "/var/spool/") {
+        FOREACH_STRING(where, get_home_root(), "/tmp/", "/var/", "/var/mail/", "/var/tmp/", "/var/spool/") {
                 struct dqblk req;
                 struct stat st;
 
@@ -914,13 +921,13 @@ int manager_enumerate_images(Manager *m) {
         if (!m->scan_slash_home)
                 return 0;
 
-        d = opendir("/home/");
+        d = opendir(get_home_root());
         if (!d)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open /home/: %m");
+                                      "Failed to open %s: %m", get_home_root());
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read /home/ directory: %m"))
-                (void) manager_assess_image(m, dirfd(d), "/home", de->d_name);
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s directory: %m", get_home_root()))
+                (void) manager_assess_image(m, dirfd(d), get_home_root(), de->d_name);
 
         return 0;
 }
