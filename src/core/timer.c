@@ -884,7 +884,7 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
-static int timer_test_start_limit(Unit *u) {
+static int timer_test_start_inhibitors(Unit *u) {
         Timer *t = TIMER(u);
         int r;
 
@@ -959,5 +959,5 @@ const UnitVTable timer_vtable = {
 
         .bus_set_property = bus_timer_set_property,
 
-        .test_start_limit = timer_test_start_limit,
+        .test_start_inhibitors = timer_test_start_inhibitors,
 };

@@ -1058,7 +1058,7 @@ static bool automount_supported(void) {
         return supported;
 }
 
-static int automount_test_start_limit(Unit *u) {
+static int automount_test_start_inhibitors(Unit *u) {
         Automount *a = AUTOMOUNT(u);
         int r;
 
@@ -1136,5 +1136,5 @@ const UnitVTable automount_vtable = {
                 },
         },
 
-        .test_start_limit = automount_test_start_limit,
+        .test_start_inhibitors = automount_test_start_inhibitors,
 };

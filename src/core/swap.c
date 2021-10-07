@@ -1582,7 +1582,7 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_test_start_limit(Unit *u) {
+static int swap_test_start_inhibitors(Unit *u) {
         Swap *s = SWAP(u);
         int r;
 
@@ -1693,5 +1693,5 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .test_start_limit = swap_test_start_limit,
+        .test_start_inhibitors = swap_test_start_inhibitors,
 };

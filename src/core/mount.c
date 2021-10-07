@@ -1839,6 +1839,16 @@ static bool mount_is_mounted(Mount *m) {
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
 }
 
+static int mount_dispatch_run_queue(sd_event_source *s, void *userdata) {
+        Manager *m = (Manager*) userdata;
+
+        assert(m);
+
+        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so let's
+         * make sure we dispatch them in the next iteration. */
+        return sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_ONESHOT);
+}
+
 static void mount_enumerate(Manager *m) {
         int r;
 
@@ -1890,6 +1900,12 @@ static void mount_enumerate(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
                         goto fail;
+                }
+
+                r = sd_event_source_set_ratelimit_expire_callback(m->mount_event_source, mount_dispatch_run_queue);
+                if (r < 0) {
+                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
+                         goto fail;
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
@@ -2136,7 +2152,7 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_test_start_limit(Unit *u) {
+static int mount_test_start_inhibitors(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
 
@@ -2147,6 +2163,9 @@ static int mount_test_start_limit(Unit *u) {
                 mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
                 return r;
         }
+
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
 
         return 0;
 }
@@ -2249,5 +2268,5 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .test_start_limit = mount_test_start_limit,
+        .test_start_inhibitors = mount_test_start_inhibitors,
 };
