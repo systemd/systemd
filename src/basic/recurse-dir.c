@@ -290,7 +290,7 @@ int recurse_dir(
                         /* Copy over the data we acquired through statx() if we acquired any */
                         if (sx.stx_mask & STATX_TYPE) {
                                 assert(!!subdir == !!S_ISDIR(sx.stx_mode));
-                                de[i]->d_type = stat_mode_to_dirent_type(sx.stx_mode);
+                                de[i]->d_type = IFTODT(sx.stx_mode);
                         }
 
                         if (sx.stx_mask & STATX_INO)
