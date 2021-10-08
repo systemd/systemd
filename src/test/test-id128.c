@@ -12,19 +12,20 @@
 #include "id128-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
 
-int main(int argc, char *argv[]) {
+static void test_id128(void) {
         sd_id128_t id, id2;
         char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
-        int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(sd_id128_randomize(&id) == 0);
         printf("random: %s\n", sd_id128_to_string(id, t));
@@ -151,6 +152,13 @@ int main(int argc, char *argv[]) {
         assert_se(sd_id128_equal(id, id2));
         assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
         assert_se(!sd_id128_equal(id, id2));
+}
+
+static void test_sd_id128_get_invocation(void) {
+        sd_id128_t id;
+        int r;
+
+        log_info("/* %s */", __func__);
 
         /* Query the invocation ID */
         r = sd_id128_get_invocation(&id);
@@ -158,6 +166,13 @@ int main(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
         else
                 log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
+}
+
+int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_INFO);
+
+        test_id128();
+        test_sd_id128_get_invocation();
 
         return 0;
 }
