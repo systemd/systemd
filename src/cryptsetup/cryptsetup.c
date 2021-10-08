@@ -18,6 +18,7 @@
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -82,6 +83,7 @@ static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static bool arg_headless = false;
+static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -409,7 +411,15 @@ static int parse_one_option(const char *option) {
         } else if (streq(option, "headless"))
                 arg_headless = true;
 
-        else if (!streq(option, "x-initrd.attach"))
+        else if ((val = startswith(option, "token-timeout="))) {
+
+                r = parse_sec_fix_0(val, &arg_token_timeout_usec);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+        } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -710,11 +720,25 @@ static char *make_bindname(const char *volume) {
         return s;
 }
 
-static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret) {
+static int make_security_device_monitor(
+                sd_event **ret_event,
+                sd_device_monitor **ret_monitor) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
-        assert(ret);
+        assert(ret_event);
+        assert(ret_monitor);
+
+        /* Waits for a device with "security-device" tag to show up in udev */
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, INT_TO_PTR(-ETIMEDOUT));
+        if (r < 0)
+                return log_error_errno(r, "Failed to install timeout event source: %m");
 
         r = sd_device_monitor_new(&monitor);
         if (r < 0)
@@ -732,13 +756,61 @@ static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        *ret = TAKE_PTR(monitor);
+        *ret_event = TAKE_PTR(event);
+        *ret_monitor = TAKE_PTR(monitor);
         return 0;
+}
+
+static int run_security_device_monitor(
+                sd_event *event,
+                sd_device_monitor *monitor) {
+        bool processed = false;
+        int r;
+
+        assert(event);
+        assert(monitor);
+
+        /* Runs the event loop for the device monitor until either something happens, or the time-out is
+         * hit. */
+
+        for (;;) {
+                int x;
+
+                r = sd_event_get_exit_code(event, &x);
+                if (r < 0) {
+                        if (r != -ENODATA)
+                                return log_error_errno(r, "Failed to query exit code from event loop: %m");
+
+                        /* On ENODATA we aren't told to exit yet. */
+                } else {
+                        assert(x == -ETIMEDOUT);
+                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                "Timed out waiting for security device, aborting security device based authentication attempt.");
+                }
+
+                /* Wait for one event, and then eat all subsequent events until there are no further ones */
+                r = sd_event_run(event, processed ? 0 : UINT64_MAX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
+                if (r == 0) /* no events queued anymore */
+                        return 0;
+
+                processed = true;
+        }
 }
 
 static bool libcryptsetup_plugins_support(void) {
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        return crypt_token_external_path() != NULL;
+        int r;
+
+        /* Permit a way to disable libcryptsetup token module support, for debugging purposes. */
+        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE env var: %m");
+        if (r == 0)
+                return false;
+
+        return crypt_token_external_path();
 #else
         return false;
 #endif
@@ -776,11 +848,11 @@ static int attach_luks2_by_fido2(
                 void *usrptr,
                 uint32_t activation_flags) {
 
-        int r = -EOPNOTSUPP;
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        char **p;
-        _cleanup_strv_free_erase_ char **pins = NULL;
         AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        _cleanup_strv_free_erase_ char **pins = NULL;
+        char **p;
+        int r;
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
@@ -803,20 +875,6 @@ static int attach_luks2_by_fido2(
         if (headless)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
-        pins = strv_free_erase(pins);
-        r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
-                if (r > 0) /* returns unlocked keyslot id on success */
-                        r = 0;
-                if (r != -ENOANO) /* needs pin or pin is wrong */
-                        return r;
-        }
-
-        flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         for (;;) {
                 pins = strv_free_erase(pins);
                 r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
@@ -830,9 +888,13 @@ static int attach_luks2_by_fido2(
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
                 }
+
+                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }
-#endif
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int attach_luks_or_plain_or_bitlk_by_fido2(
@@ -908,8 +970,6 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 return log_oom();
 
         for (;;) {
-                bool processed = false;
-
                 if (use_libcryptsetup_plugin && !arg_fido2_cid) {
                         r = attach_luks2_by_fido2(cd, name, until, arg_headless, arg_fido2_device, flags);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
@@ -943,11 +1003,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
                         assert(!event);
 
-                        r = sd_event_default(&event);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-                        r = make_security_device_monitor(event, &monitor);
+                        r = make_security_device_monitor(&event, &monitor);
                         if (r < 0)
                                 return r;
 
@@ -958,17 +1014,9 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                         continue;
                 }
 
-                for (;;) {
-                        /* Wait for one event, and then eat all subsequent events until there are no
-                         * further ones */
-                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to run event loop: %m");
-                        if (r == 0)
-                                break;
-
-                        processed = true;
-                }
+                r = run_security_device_monitor(event, monitor);
+                if (r < 0)
+                        return r;
 
                 log_debug("Got one or more potentially relevant udev events, rescanning FIDO2...");
         }
@@ -1004,9 +1052,10 @@ static int attach_luks2_by_pkcs11(
                 bool headless,
                 uint32_t flags) {
 
-        int r = -EOPNOTSUPP;
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        if (!crypt_get_type(cd) || strcmp(crypt_get_type(cd), CRYPT_LUKS2))
+        int r;
+
+        if (!streq_ptr(crypt_get_type(cd), CRYPT_LUKS2))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Automatic PKCS#11 metadata requires LUKS2 device.");
 
         systemd_pkcs11_plugin_params params = {
@@ -1018,8 +1067,11 @@ static int attach_luks2_by_pkcs11(
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
-#endif
+
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int attach_luks_or_plain_or_bitlk_by_pkcs11(
@@ -1071,8 +1123,6 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 return log_oom();
 
         for (;;) {
-                bool processed = false;
-
                 if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
                         r = attach_luks2_by_pkcs11(cd, name, friendly, until, arg_headless, flags);
                 else {
@@ -1098,11 +1148,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
                         assert(!event);
 
-                        r = sd_event_default(&event);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-                        r = make_security_device_monitor(event, &monitor);
+                        r = make_security_device_monitor(&event, &monitor);
                         if (r < 0)
                                 return r;
 
@@ -1114,17 +1160,9 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                         continue;
                 }
 
-                for (;;) {
-                        /* Wait for one event, and then eat all subsequent events until there are no
-                         * further ones */
-                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to run event loop: %m");
-                        if (r == 0)
-                                break;
-
-                        processed = true;
-                }
+                r = run_security_device_monitor(event, monitor);
+                if (r < 0)
+                        return r;
 
                 log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
         }
@@ -1159,11 +1197,24 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         return 0;
 }
 
-static int make_tpm2_device_monitor(sd_event *event, sd_device_monitor **ret) {
+static int make_tpm2_device_monitor(
+                sd_event **ret_event,
+                sd_device_monitor **ret_monitor) {
+
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
-        assert(ret);
+        assert(ret_event);
+        assert(ret_monitor);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, INT_TO_PTR(-ETIMEDOUT));
+        if (r < 0)
+                return log_error_errno(r, "Failed to install timeout event source: %m");
 
         r = sd_device_monitor_new(&monitor);
         if (r < 0)
@@ -1181,7 +1232,8 @@ static int make_tpm2_device_monitor(sd_event *event, sd_device_monitor **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        *ret = TAKE_PTR(monitor);
+        *ret_event = TAKE_PTR(event);
+        *ret_monitor = TAKE_PTR(monitor);
         return 0;
 }
 
@@ -1238,8 +1290,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 return log_oom();
 
         for (;;) {
-                bool processed = false;
-
                 if (key_file || key_data) {
                         /* If key data is specified, use that */
 
@@ -1343,11 +1393,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                         "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unocking.");
 
-                        r = sd_event_default(&event);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-                        r = make_tpm2_device_monitor(event, &monitor);
+                        r = make_tpm2_device_monitor(&event, &monitor);
                         if (r < 0)
                                 return r;
 
@@ -1358,17 +1404,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         continue;
                 }
 
-                for (;;) {
-                        /* Wait for one event, and then eat all subsequent events until there are no
-                         * further ones */
-                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to run event loop: %m");
-                        if (r == 0)
-                                break;
-
-                        processed = true;
-                }
+                r = run_security_device_monitor(event, monitor);
+                if (r < 0)
+                        return r;
 
                 log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
         }
