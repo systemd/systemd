@@ -119,3 +119,5 @@ int fido2_generate_hmac_hash(
 
 int fido2_list_devices(void);
 int fido2_find_device_auto(char **ret);
+
+int fido2_have_device(const char *device);
