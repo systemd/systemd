@@ -1412,7 +1412,7 @@ static int verb_log_control(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(argc == 1 || argc == 2);
+        assert(IN_SET(argc, 1, 2));
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
@@ -2284,7 +2284,7 @@ static int do_security(int argc, char *argv[], void *userdata) {
                 if (r < 0 && r != -ENOENT)
                         return r;
 
-                if (f != NULL) {
+                if (f) {
                         r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
                         if (r < 0)
                                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
