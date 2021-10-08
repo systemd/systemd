@@ -116,6 +116,21 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>set-timeout</option> <replaceable>TIMEOUT</replaceable></term>
+        <term><option>set-timeout-oneshot</option> <replaceable>TIMEOUT</replaceable></term>
+
+        <listitem><para>Sets the boot loader menu timeout in seconds. The <option>set-timeout-oneshot</option>
+        command will set the timeout only for the next boot. See
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details about the syntax of time spans.</para>
+
+        <para>If this is set to <option>menu-hidden</option> or <option>0</option> no menu is shown and
+        the default entry will be booted immediately, while setting this to <option>menu-force</option>
+        disables the timeout while always showing the menu. When an empty string ("") is specified the
+        bootloader will revert to its default menu timeout.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
