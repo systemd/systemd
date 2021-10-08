@@ -7,7 +7,7 @@
 typedef BOOLEAN sd_bool;
 typedef CHAR16  sd_char;
 typedef INTN    sd_int;
-typedef UINTN   sd_size_t;
+typedef UINTN   size_t;
 
 #define true    TRUE
 #define false   FALSE
@@ -18,5 +18,4 @@ typedef UINTN   sd_size_t;
 typedef bool    sd_bool;
 typedef char    sd_char;
 typedef int     sd_int;
-typedef size_t  sd_size_t;
 #endif
