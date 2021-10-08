@@ -150,6 +150,85 @@ DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
 
+static bool contains_instance_specifier_superset(const char *s) {
+        const char *p, *q;
+        bool percent = false;
+
+        assert(s);
+
+        p = strchr(s, '@');
+        if (!p)
+                return false;
+
+        p++; // Skip '@'
+
+        q = strchrnul(p, '.');
+
+        /* If the string is just the instance specifier, it's not a superset of the instance. */
+        if (memcmp_nn(p, q - p, "%i", strlen("%i")) == 0)
+                return false;
+
+        /* %i, %n and %N all expand to the instance or a superset of it. */
+        for (; *p != '\0' && *p != '.'; p++) {
+                if (*p == '%')
+                        percent = !percent;
+                else if (percent && (*p == 'n' || *p == 'N' || *p == 'i'))
+                        return true;
+        }
+
+        return false;
+}
+
+int unit_is_recursive_template_dependency(Unit *u, const char *name, const char *format) {
+        const char *fragment_path;
+        _cleanup_set_free_ Set *names = NULL;
+        int r;
+
+        assert(u);
+        assert(name);
+
+        /* If a template unit has a direct dependency on itself that includes the unit instance as part of
+         * the template instance via a unit specifier (%i, %n or %N), this will almost certainly lead to
+         * infinite recursion as systemd will keep instantiating new instances of the template unit.
+         * https://github.com/systemd/systemd/issues/17602 shows a good example of how this can happen in
+         * practice. To guard against this, we check for templates that depend on themselves and have the
+         * instantiated unit instance included as part of the template instance of the dependency via a
+         * specifier.
+         *
+         * For example, if systemd-notify@.service depends on systemd-notify@%n.service, this will result in
+         * infinite recursion.
+         */
+
+        if (!unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+                return 0;
+
+        if (!unit_name_prefix_equal(u->id, name))
+                return 0;
+
+        if (u->type != unit_name_to_type(name))
+                return 0;
+
+        if (!u->fragment_path)
+                return 0;
+
+        r = unit_file_find_fragment(u->manager->unit_id_map, u->manager->unit_name_map, name, &fragment_path, &names);
+        if (r < 0)
+                return r;
+
+        if (!fragment_path)
+                return 0;
+
+        /* Fragment paths should also be equal as a custom fragment for a specific template instance
+         * wouldn't necessarily lead to infinite recursion. */
+        if (!path_equal(u->fragment_path, fragment_path))
+                return 0;
+
+        if (!contains_instance_specifier_superset(format))
+                return 0;
+
+        return 1;
+}
+
 int config_parse_unit_deps(
                 const char *unit,
                 const char *filename,
@@ -187,6 +266,16 @@ int config_parse_unit_deps(
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
                         continue;
+                }
+
+                r = unit_is_recursive_template_dependency(u, k, word);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_syntax(unit, LOG_DEBUG, filename, line, r,
+                                   "Dropping dependency %s=%s that likely leads to infinite recursion.",
+                                   unit_dependency_to_string(d), word);
+                        return 0;
                 }
 
                 r = unit_add_dependency_by_name(u, d, k, true, UNIT_DEPENDENCY_FILE);
