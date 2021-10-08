@@ -2537,9 +2537,19 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install_rpath : rootlibexecdir,
                 install : true)
 
+	executable(
+                'systemd-integritysetup',
+                ['src/integritysetup/integritysetup.c', 'src/integritysetup/integrity_common.c'],
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libcryptsetup],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
         executable(
                 'systemd-integritysetup-generator',
-                'src/integritysetup/integritysetup-generator.c',
+                ['src/integritysetup/integritysetup-generator.c', 'src/integritysetup/integrity_common.c'],
                 include_directories : includes,
                 link_with : [libshared],
                 install_rpath : rootlibexecdir,

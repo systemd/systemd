@@ -54,11 +54,6 @@ All tools:
   `/etc/integritytab`. Only useful for debugging. Currently only supported by
   `systemd-integritysetup-generator`.
 
-* `$SYSTEMD_INTEGRITYSETUPBIN` — if set, use this path instead of
-  `/usr/sbin/integritysetup`. Useful for debugging or if binary in
-   non-standard location. Currently only supported by
-  `systemd-integritysetup-generator`.
-
 * `$SYSTEMD_VERITYTAB` — if set, use this path instead of
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
   `systemd-veritysetup-generator`.
