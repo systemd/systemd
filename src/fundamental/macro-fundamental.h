@@ -5,6 +5,7 @@
 #include <assert.h>
 #endif
 
+#include <limits.h>
 #include "type.h"
 
 #define _align_(x) __attribute__((__aligned__(x)))
@@ -264,3 +265,33 @@
  * @x: a string literal.
  */
 #define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
+
+static inline sd_size_t ALIGN_TO(sd_size_t l, sd_size_t ali) {
+        /* sd-boot uses UINTN for size_t. */
+        assert_cc(SIZE_MAX == (sd_size_t)-1);
+
+        /* Check that alignment is exponent of 2 */
+#if SIZE_MAX == UINT_MAX
+        assert(__builtin_popcount(ali) == 1);
+#elif SIZE_MAX == ULONG_MAX
+        assert(__builtin_popcountl(ali) == 1);
+#elif SIZE_MAX == ULONGLONG_MAX
+        assert(__builtin_popcountll(ali) == 1);
+#else
+        #error Unexpected size_t
+#endif
+
+        if (l > SIZE_MAX - (ali - 1))
+                return SIZE_MAX; /* indicate overflow */
+
+        return ((l + ali - 1) & ~(ali - 1));
+}
+
+/* Same as ALIGN_TO but callable in constant contexts. Does not handle overflow! */
+#define CONST_ALIGN_TO(l, ali)                    \
+        __builtin_choose_expr(                    \
+                __builtin_constant_p(l) &&        \
+                __builtin_constant_p(ali) &&      \
+                __builtin_popcountll(ali) == 1,   \
+                ((l) + (ali) - 1) & ~((ali) - 1), \
+                VOID_0)
