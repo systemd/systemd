@@ -698,7 +698,7 @@ static int luks_validate_home_record(
         assert(cd);
         assert(h);
 
-        for (int token = 0;; token++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *rr = NULL;
                 _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
@@ -894,7 +894,7 @@ int home_store_header_identity_luks(
 
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL;
         _cleanup_free_ char *text = NULL;
-        int token = 0, r;
+        int r;
 
         assert(h);
 
@@ -924,7 +924,7 @@ int home_store_header_identity_luks(
         if (r < 0)
                 return r;
 
-        for (;; token++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 crypt_token_info state;
                 const char *type;
 
