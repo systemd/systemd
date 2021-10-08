@@ -592,8 +592,6 @@ tests += [
 
         [['src/test/test-id128.c']],
 
-        [['src/test/test-hash.c']],
-
         [['src/test/test-gcrypt-util.c'],
          [], [], [], 'HAVE_GCRYPT'],
 
@@ -629,6 +627,8 @@ tests += [
 
         [['src/test/test-nscd-flush.c'],
          [], [], [], 'ENABLE_NSCD', 'manual'],
+
+        [['src/test/test-hmac.c']],
 ]
 
 ############################################################
