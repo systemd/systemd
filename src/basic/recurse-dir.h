@@ -67,9 +67,14 @@ typedef enum RecurseDirFlags {
         RECURSE_DIR_INODE_FD     = 1 << 4,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
 } RecurseDirFlags;
 
-struct dirent** readdir_all_free(struct dirent **array);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct dirent **, readdir_all_free);
-int readdir_all(DIR *d, RecurseDirFlags flags, struct dirent ***ret);
+typedef struct DirectoryEntries {
+        size_t n_entries;
+        struct dirent** entries;
+        size_t buffer_size;
+        uint8_t buffer[] _alignas_(struct dirent);
+} DirectoryEntries;
 
-int recurse_dir(DIR *d, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
+int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
+
+int recurse_dir(int dir_fd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
 int recurse_dir_at(int atfd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
