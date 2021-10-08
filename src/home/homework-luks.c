@@ -946,7 +946,6 @@ int home_store_header_identity_luks(
                 /* Now, let's free the text so that for all further matching tokens we all crypt_json_token_set()
                  * with a NULL text in order to invalidate the tokens. */
                 text = mfree(text);
-                token++;
         }
 
         if (text)
