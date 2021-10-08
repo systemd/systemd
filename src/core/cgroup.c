@@ -2240,7 +2240,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 return -EINVAL;
 
         if (set_isempty(pids))
-                return 0;
+                return u->type == UNIT_SCOPE ? -ENODATA : 0;
 
         /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
          * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
