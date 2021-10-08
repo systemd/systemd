@@ -226,9 +226,6 @@ Features:
 
 * introduce a new group to own TPM devices
 
-* cryptenroll: politely refuse enrolling new keys to homed volumes, since we
-  we cannot update identity info
-
 * cryptsetup: if only recovery keys are registered and no regular passphrases,
   ask user for "recovery key", not "passphrase"
 
