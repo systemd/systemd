@@ -168,11 +168,33 @@ static void test_sd_id128_get_invocation(void) {
                 log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 }
 
+static void benchmark_sd_id128_get_machine_app_specific(void) {
+        unsigned iterations = slow_tests_enabled() ? 1000000 : 1000;
+        usec_t t, q;
+
+        log_info("/* %s (%u iterations) */", __func__, iterations);
+
+        sd_id128_t id = ID128_WALDI, id2;
+
+        t = now(CLOCK_MONOTONIC);
+
+        for (unsigned i = 0; i < iterations; i++) {
+                id.qwords[1] = i;
+
+                assert_se(sd_id128_get_machine_app_specific(id, &id2) >= 0);
+        }
+
+        q = now(CLOCK_MONOTONIC) - t;
+
+        log_info("%lf µs each\n", (double) q / iterations);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_id128();
         test_sd_id128_get_invocation();
+        benchmark_sd_id128_get_machine_app_specific();
 
         return 0;
 }
