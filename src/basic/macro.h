@@ -151,7 +151,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         assert(__builtin_popcount(ali) == 1);
 #elif SIZE_MAX == ULONG_MAX
         assert(__builtin_popcountl(ali) == 1);
-#elif SIZE_MAX == ULONGLONG_MAX
+#elif SIZE_MAX == ULLONG_MAX
         assert(__builtin_popcountll(ali) == 1);
 #else
 #error "Unexpected size_t"
