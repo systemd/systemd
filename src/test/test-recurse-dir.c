@@ -120,6 +120,7 @@ static int recurse_dir_callback(
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **list_recurse_dir = NULL;
         const char *p;
+        usec_t t1, t2, t3, t4;
         int r;
 
         log_show_color(true);
@@ -131,14 +132,20 @@ int main(int argc, char *argv[]) {
                 p = "/usr/share/man"; /* something hopefully reasonably stable while we run (and limited in size) */
 
         /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the results are identical */
+        t1 = now(CLOCK_MONOTONIC);
         r = recurse_dir_at(AT_FDCWD, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir);
+        t2 = now(CLOCK_MONOTONIC);
         if (r == -ENOENT) {
                 log_warning_errno(r, "Couldn't open directory %s, ignoring: %m", p);
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
 
+        t3 = now(CLOCK_MONOTONIC);
         assert_se(nftw(p, nftw_cb, 64, FTW_PHYS|FTW_MOUNT) >= 0);
+        t4 = now(CLOCK_MONOTONIC);
+
+        log_info("recurse_dir(): %s – nftw(): %s", FORMAT_TIMESPAN(t2 - t1, 1), FORMAT_TIMESPAN(t4 - t3, 1));
 
         strv_sort(list_recurse_dir);
         strv_sort(list_nftw);
