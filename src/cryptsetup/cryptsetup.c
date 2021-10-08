@@ -803,20 +803,6 @@ static int attach_luks2_by_fido2(
         if (headless)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
-        pins = strv_free_erase(pins);
-        r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
-                if (r > 0) /* returns unlocked keyslot id on success */
-                        r = 0;
-                if (r != -ENOANO) /* needs pin or pin is wrong */
-                        return r;
-        }
-
-        flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         for (;;) {
                 pins = strv_free_erase(pins);
                 r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
@@ -830,6 +816,8 @@ static int attach_luks2_by_fido2(
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
                 }
+
+                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }
 #endif
         return r;
