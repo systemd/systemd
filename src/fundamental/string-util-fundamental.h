@@ -68,10 +68,10 @@ static inline const sd_char *yes_no(sd_bool b) {
 sd_int strverscmp_improved(const sd_char *a, const sd_char *b);
 
 /* Like startswith(), but operates on arbitrary memory blocks */
-static inline void *memory_startswith(const void *p, sd_size_t sz, const sd_char *token) {
+static inline void *memory_startswith(const void *p, size_t sz, const sd_char *token) {
         assert(token);
 
-        sd_size_t n = strlen(token) * sizeof(sd_char);
+        size_t n = strlen(token) * sizeof(sd_char);
         if (sz < n)
                 return NULL;
 

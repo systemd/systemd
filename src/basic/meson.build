@@ -72,6 +72,8 @@ basic_sources = files('''
         hashmap.h
         hexdecoct.c
         hexdecoct.h
+        hmac.c
+        hmac.h
         hostname-util.c
         hostname-util.h
         in-addr-util.c
@@ -80,8 +82,6 @@ basic_sources = files('''
         inotify-util.h
         io-util.c
         io-util.h
-        khash.c
-        khash.h
         limits-util.c
         limits-util.h
         linux/btrfs.h

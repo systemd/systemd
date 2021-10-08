@@ -59,6 +59,8 @@
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
         #endif
+
+        #define memcpy(a, b, c) CopyMem((a), (b), (c))
 #endif
 
 #if defined(static_assert)
