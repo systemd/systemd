@@ -8,7 +8,7 @@
 #include "string-util-fundamental.h"
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) {
-        sd_size_t l;
+        size_t l;
 
         assert(s);
         assert(prefix);
@@ -22,7 +22,7 @@ sd_char *startswith(const sd_char *s, const sd_char *prefix) {
 
 #ifndef SD_BOOT
 sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
-        sd_size_t l;
+        size_t l;
 
         assert(s);
         assert(prefix);
@@ -36,7 +36,7 @@ sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
 #endif
 
 sd_char* endswith(const sd_char *s, const sd_char *postfix) {
-        sd_size_t sl, pl;
+        size_t sl, pl;
 
         assert(s);
         assert(postfix);
@@ -57,7 +57,7 @@ sd_char* endswith(const sd_char *s, const sd_char *postfix) {
 }
 
 sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
-        sd_size_t sl, pl;
+        size_t sl, pl;
 
         assert(s);
         assert(postfix);
