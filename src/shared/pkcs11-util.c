@@ -219,9 +219,9 @@ int pkcs11_token_login_by_pin(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
 
-        log_notice("PIN for token '%s' is incorrect, please try again.", token_label);
-
-        return -ENOLCK;
+        return log_notice_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                "PIN for token '%s' is incorrect, please try again.",
+                                token_label);
 }
 
 int pkcs11_token_login(

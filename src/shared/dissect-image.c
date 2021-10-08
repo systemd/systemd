@@ -1596,7 +1596,7 @@ int dissect_image(
                         }
 
                         if (m->verity_ready)
-                                m->verity_sig_ready = !!verity->root_hash_sig;
+                                m->verity_sig_ready = verity->root_hash_sig;
 
                 } else if (m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found) {
 
