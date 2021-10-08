@@ -5,8 +5,6 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
 
-This is based on crypttab(5).
-
 -->
 <refentry id="integritytab" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -42,7 +40,7 @@ This is based on crypttab(5).
     white space.</para>
 
     <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>data-device</replaceable> <replaceable>options</replaceable></programlisting>
-    The first two fields are mandatory, the remaining one is optional.</para>
+    The first two fields are mandatory, the remaining one is optional and only required if user specified non-default options during integrity format.</para>
 
     <para>The first field contains the name of the resulting integrity volume; its block device is set up
     below <filename>/dev/mapper/</filename>.</para>
@@ -54,9 +52,52 @@ This is based on crypttab(5).
     <literal>PARTLABEL=</literal> followed by the partition label,
     </para>
 
-    <para>The third field, if present, is a comma-delimited list of integritysetup options.  Please refer to section  <literal>open</literal> for
-    <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    </para>
+     <para>The third field, if present, is a comma-delimited list of options. The following options are
+    recognized:</para>
+      <variablelist>
+
+      <varlistentry>
+        <term><option>allow-discards</option></term>
+
+        <listitem><para>
+        Allow the use of discard (TRIM) requests for the device.
+        This option is available since the Linux kernel version 5.7.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>journal-watermark=[0..100]</option></term>
+
+        <listitem><para>
+        Journal watermark in percent. When the journal percentage exceeds this watermark, the journal flush will be started.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>journal-commit-time=[0..N]</option></term>
+
+        <listitem><para>
+        Commit time in milliseconds. When this time passes (and no explicit flush operation was issued), the journal is written.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>data-device=/dev/disk/by-...</option></term>
+
+        <listitem><para>
+        Specify a separate data device that contains existing data. The second field specified in the
+         integritytab for block device then will contain calculated integrity tags and journal for this data device.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>integrity=[crc32c|crc32|sha1|sha256]</option></term>
+
+        <listitem><para>
+        The algorithm used for integrity checking.  The default is crc32c. Must match option used during format.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
 
     <para>At early boot and when the system manager configuration is
     reloaded, this file is translated into native systemd units by
@@ -66,13 +107,28 @@ This is based on crypttab(5).
   <refsect1>
     <title>Examples</title>
     <example>
-      <title>/etc/integritytab example</title>
+      <title>/etc/integritytab</title>
       <para>Set up two integrity protected block devices. </para>
 
       <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 journal-commit-time=10,allow-discards
 data PARTUUID=5d4b1808-be76-774d-88af-03c4c3a41761 allow-discards
 </programlisting>
     </example>
+
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up 1 integrity protected block device using defaults </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up 1 integrity device using existing data block device which contains user data </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 data-device=/dev/disk/by-uuid/9276d9c0-d4e3-4297-b4ff-3307cd0d092f</programlisting>
+    </example>
+
   </refsect1>
 
   <refsect1>

@@ -13,6 +13,7 @@
 #include "generator.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
+#include "integrity_common.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -24,70 +25,15 @@
 
 static const char *arg_dest = NULL;
 static const char *arg_integritytab = NULL;
-static const char *arg_integritysetupbin = NULL;
 static char *arg_options = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_options, freep);
-
-static void option(
-                FILE *o,
-                char *token) {
-
-        char *save_ptr = NULL, *match = NULL;
-
-        assert(o);
-        assert(token);
-
-        match = strtok_r(token, "=", &save_ptr);
-        if (match) {
-                if (strlen(match) > 1)
-                        fprintf(o, "-");
-
-                fprintf(o, "-%s ", match);
-                match = strtok_r(NULL, "=", &save_ptr);
-                if (match)
-                        fprintf(o, "%s ", match);
-        }
-}
-
-static int options_string(
-                char *options,
-                char **options_formatted) {
-
-        char *buff = NULL, *save_ptr = NULL, *token = NULL;
-        size_t len = 0;
-        int r;
-        FILE *out = NULL;
-
-        if (!(options && options_formatted  && *options_formatted == NULL && strlen(options) > 0)) {
-               return -EINVAL;
-        }
-
-        out = open_memstream(&buff, &len);
-        if (!out)
-                return log_oom();
-
-        token = strtok_r(options, ",", &save_ptr);
-        while (token != NULL) {
-                option(out, token);
-                token = strtok_r(NULL, ",", &save_ptr);
-        }
-
-        r = fclose(out);
-        if (r != 0)
-                return log_error_errno(r, "fclose failure on opened memstream: %m");
-
-        if (len > 0) {
-                *options_formatted = buff;
-        }
-        return 0;
-}
 
 static int create_disk(
                 const char *name,
                 const char *device,
                 char *options) {
 
-        _cleanup_free_ char *n = NULL, *dd = NULL, *e = NULL, *name_escaped = NULL, *options_convert = NULL;
+        _cleanup_free_ char *n = NULL, *dd = NULL, *e = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
         char *dmname = NULL;
@@ -116,7 +62,7 @@ static int create_disk(
                 return r;
 
         if (options) {
-                r = options_string(options, &options_convert);
+                r = parse_integrity_options(options, NULL, NULL, NULL, NULL);
                 if (r < 0)
                         return r;
         }
@@ -128,7 +74,7 @@ static int create_disk(
                 "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=systemd-udevd-kernel.socket\n"
+                "After=integritysetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "Conflicts=umount.target\n"
@@ -145,10 +91,10 @@ static int create_disk(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "TimeoutSec=0\n"
-                "ExecStart=%s open '%s' '%s' %s\n"
-                "ExecStop=%s close '%s'\n",
-                arg_integritysetupbin, device, name_escaped, (options_convert) ? options_convert: "",
-                arg_integritysetupbin, name_escaped);
+                "ExecStart=" ROOTLIBEXECDIR "/systemd-integritysetup attach '%s' '%s' %s\n"
+                "ExecStop=" ROOTLIBEXECDIR "/systemd-integritysetup detach '%s'\n",
+                name_escaped, device, (options) ? options: "",
+                name_escaped);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -218,7 +164,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         assert_se(arg_dest = dest);
 
         arg_integritytab = getenv("SYSTEMD_INTEGRITYTAB") ?: "/etc/integritytab";
-        arg_integritysetupbin = getenv("SYSTEMD_INTEGRITYSETUPBIN") ?: "/usr/sbin/integritysetup";
 
         return add_integritytab_devices();
 }
