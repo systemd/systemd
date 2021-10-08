@@ -18,6 +18,7 @@
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -738,7 +739,16 @@ static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret
 
 static bool libcryptsetup_plugins_support(void) {
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        return crypt_token_external_path() != NULL;
+        int r;
+
+        /* Permit a way to disable libcryptsetup token module support, for debugging purposes. */
+        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE env var: %m");
+        if (r == 0)
+                return false;
+
+        return crypt_token_external_path();
 #else
         return false;
 #endif
