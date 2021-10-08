@@ -2540,7 +2540,7 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
 
         assert(bus);
-        assert(argc == 1 || argc == 2);
+        assert(IN_SET(argc, 1, 2));
 
         return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
