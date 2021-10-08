@@ -1004,7 +1004,7 @@ static int attach_luks2_by_pkcs11(
                 bool headless,
                 uint32_t flags) {
 
-        int r = -ENOTSUP;
+        int r = -EOPNOTSUPP;
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         if (!crypt_get_type(cd) || strcmp(crypt_get_type(cd), CRYPT_LUKS2))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Automatic PKCS#11 metadata requires LUKS2 device.");
@@ -1198,7 +1198,7 @@ static int attach_luks2_by_tpm2(
                 .device = arg_tpm2_device
         };
 
-        if (crypt_token_external_path() == NULL)
+        if (!crypt_token_external_path())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Libcryptsetup has external plugins support disabled.");
 

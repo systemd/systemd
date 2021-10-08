@@ -529,7 +529,7 @@ int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, 
                  * stdin around. */
                 fd = open("/dev/tty", O_WRONLY);
                 if (fd < 0) {
-                        if (errno != -ENXIO) {
+                        if (errno != ENXIO) {
                                 log_error_errno(errno, "Failed to open /dev/tty: %m");
                                 _exit(EXIT_FAILURE);
                         }
