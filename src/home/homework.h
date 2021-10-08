@@ -32,6 +32,7 @@ typedef struct HomeSetup {
         bool do_offline_fitrim;
         bool do_offline_fallocate;
         bool do_mark_clean;
+        bool do_drop_caches;
 
         uint64_t partition_offset;
         uint64_t partition_size;
