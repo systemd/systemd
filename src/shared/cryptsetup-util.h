@@ -54,11 +54,12 @@ extern int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const
 extern int (*sym_crypt_token_max)(const char *type);
 #else
 /* As a fallback, use the same hard-coded value libcryptsetup uses internally. */
-static inline int sym_crypt_token_max(_unused_ const char *type) {
+static inline int crypt_token_max(_unused_ const char *type) {
     assert(streq(type, CRYPT_LUKS2));
 
     return 32;
 }
+#define sym_crypt_token_max(type) crypt_token_max(type)
 #endif
 extern crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
