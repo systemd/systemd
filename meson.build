@@ -546,6 +546,7 @@ foreach ident : [
         ['mount_setattr',     '''#include <sys/mount.h>'''],
         ['move_mount',        '''#include <sys/mount.h>'''],
         ['open_tree',         '''#include <sys/mount.h>'''],
+        ['getdents64',        '''#include <dirent.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
