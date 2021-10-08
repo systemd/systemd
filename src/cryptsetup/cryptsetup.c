@@ -848,11 +848,11 @@ static int attach_luks2_by_fido2(
                 void *usrptr,
                 uint32_t activation_flags) {
 
-        int r = -EOPNOTSUPP;
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        char **p;
-        _cleanup_strv_free_erase_ char **pins = NULL;
         AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        _cleanup_strv_free_erase_ char **pins = NULL;
+        char **p;
+        int r;
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
@@ -891,8 +891,10 @@ static int attach_luks2_by_fido2(
 
                 flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }
-#endif
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int attach_luks_or_plain_or_bitlk_by_fido2(
@@ -1050,9 +1052,10 @@ static int attach_luks2_by_pkcs11(
                 bool headless,
                 uint32_t flags) {
 
-        int r = -EOPNOTSUPP;
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        if (!crypt_get_type(cd) || strcmp(crypt_get_type(cd), CRYPT_LUKS2))
+        int r;
+
+        if (!streq_ptr(crypt_get_type(cd), CRYPT_LUKS2))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Automatic PKCS#11 metadata requires LUKS2 device.");
 
         systemd_pkcs11_plugin_params params = {
@@ -1064,8 +1067,11 @@ static int attach_luks2_by_pkcs11(
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
-#endif
+
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int attach_luks_or_plain_or_bitlk_by_pkcs11(
