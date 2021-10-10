@@ -19,6 +19,19 @@ static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
+/* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
+ * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds).
+ * Also, the kernel's userspace API for the watchdog uses signed integers
+ * (which seems wrong for timeout values and bit flags) but this is why we must
+ * use signed integer types for the ioctl values and consider the INT_MAX here.
+ */
+#define WATCHDOG_TIMEOUT_MAX_SEC CONST_MIN(UINT_MAX/1000U, INT_MAX)
+
+static int saturated_usec_to_sec(usec_t val) {
+        usec_t t = DIV_ROUND_UP(val, USEC_PER_SEC);
+        return (int)MIN(WATCHDOG_TIMEOUT_MAX_SEC, t); /* Saturate to watchdog max */
+}
+
 static int update_timeout(void) {
         if (watchdog_fd < 0)
                 return 0;
@@ -35,8 +48,7 @@ static int update_timeout(void) {
                 int sec, flags;
                 usec_t t;
 
-                t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-                sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
+                sec = saturated_usec_to_sec(watchdog_timeout);
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                         return log_warning_errno(errno, "Failed to set timeout to %is, ignoring: %m", sec);
 
