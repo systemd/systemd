@@ -464,14 +464,6 @@ static int tree_one(sd_bus *bus, const char *service) {
         if (r < 0)
                 return log_oom();
 
-        done = set_new(&string_hash_ops_free);
-        if (!done)
-                return log_oom();
-
-        failed = set_new(&string_hash_ops_free);
-        if (!failed)
-                return log_oom();
-
         for (;;) {
                 _cleanup_free_ char *p = NULL;
                 int q;
@@ -488,7 +480,7 @@ static int tree_one(sd_bus *bus, const char *service) {
                 if (q < 0 && r >= 0)
                         r = q;
 
-                q = set_consume(q < 0 ? failed : done, TAKE_PTR(p));
+                q = set_ensure_consume(q < 0 ? &failed : &done, &string_hash_ops_free, TAKE_PTR(p));
                 assert(q != 0);
                 if (q < 0)
                         return log_oom();
