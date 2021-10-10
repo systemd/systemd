@@ -9,6 +9,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -20,6 +21,7 @@ static char *watchdog_device;
 static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
 static usec_t watchdog_pretimeout; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
+static bool watchdog_supports_pretimeout = false; /* Depends on kernel state that might change at runtime */
 
 /* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
  * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds
@@ -30,9 +32,48 @@ static usec_t watchdog_last_ping = USEC_INFINITY;
  */
 #define WATCHDOG_TIMEOUT_MAX_SEC (CONST_MIN(UINT_MAX/1000U, (unsigned)INT_MAX))
 
+#define WATCHDOG_GOV_NAME_MAXLEN 20 /* From the kernel watchdog driver */
+
 static int saturated_usec_to_sec(usec_t val) {
         usec_t t = DIV_ROUND_UP(val, USEC_PER_SEC);
         return MIN(t, (usec_t) WATCHDOG_TIMEOUT_MAX_SEC); /* Saturate to watchdog max */
+}
+
+static int get_watchdog_sysfs_path(const char *filename, char **ret_path) {
+        struct stat st;
+
+        if (watchdog_fd < 0)
+                return -EBADF;
+
+        if (fstat(watchdog_fd, &st))
+                return -errno;
+
+        if (!S_ISCHR(st.st_mode))
+                return -EBADF;
+
+        if (asprintf(ret_path, "/sys/dev/char/%d:%d/%s", major(st.st_rdev), minor(st.st_rdev), filename) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int get_pretimeout_governor(char **ret_gov) {
+        _cleanup_free_ char *sys_fn = NULL;
+        int r;
+
+        r = get_watchdog_sysfs_path("pretimeout_governor", &sys_fn);
+        if (r < 0)
+                return r;
+
+        log_info("Watchdog: reading from %s", sys_fn);
+
+        r = read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN - 1, ret_gov, NULL);
+        if (r < 0)
+                return r;
+
+        delete_trailing_chars(*ret_gov, WHITESPACE);
+
+        return 0;
 }
 
 static int watchdog_set_enable(bool enable) {
@@ -137,6 +178,7 @@ static int watchdog_ping_now(void) {
 }
 
 static int update_pretimeout(void) {
+        _cleanup_free_ char *governor = NULL;
         int r, t_sec, pt_sec;
 
         if (watchdog_fd < 0)
@@ -144,6 +186,26 @@ static int update_pretimeout(void) {
 
         if (watchdog_timeout == USEC_INFINITY || watchdog_pretimeout == USEC_INFINITY)
                 return 0;
+
+        if (!watchdog_supports_pretimeout && watchdog_pretimeout == 0)
+                return 0; /* Nothing to do */
+
+        /* The configuration changed, do not assume it can still work, as the module(s)
+         * might have been unloaded. */
+        watchdog_supports_pretimeout = false;
+
+        r = get_pretimeout_governor(&governor);
+        if (r < 0)
+                return log_warning_errno(r, "Watchdog: failed to read pretimeout governor: %m");
+        if (isempty(governor))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Watchdog: no pretimeout governor detected - is the required kernel module loaded?");
+
+        /* If we have a pretimeout governor, then pretimeout is supported. Without a governor
+         * pretimeout does not work at all.
+         * Note that this might require a kernel module that is not autoloaded, so we don't
+         * cache this, but we check everytime the configuration changes. */
+        watchdog_supports_pretimeout = true;
 
         /* Determine if the pretimeout is valid for the current watchdog timeout. */
         t_sec = saturated_usec_to_sec(watchdog_timeout);
@@ -159,7 +221,9 @@ static int update_pretimeout(void) {
         if (watchdog_pretimeout == 0)
                 log_info("Watchdog pretimeout is disabled.");
         else
-                log_info("Watchdog running with a pretimeout of %s.", FORMAT_TIMESPAN(watchdog_pretimeout, 0));
+                log_info("Watchdog running with a pretimeout of %s with governor '%s'.",
+                         FORMAT_TIMESPAN(watchdog_pretimeout, 0),
+                         governor);
 
         return r;
 }
@@ -301,7 +365,7 @@ int watchdog_setup_pretimeout(usec_t timeout) {
 static usec_t calc_timeout(void) {
         /* Calculate the effective timeout which accounts for the watchdog
          * pretimeout if configured and supported. */
-        if (timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
+        if (watchdog_supports_pretimeout && timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
                 return watchdog_timeout - watchdog_pretimeout;
         else
                 return watchdog_timeout;
