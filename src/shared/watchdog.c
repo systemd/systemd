@@ -9,6 +9,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -19,8 +20,9 @@ static char *watchdog_device;
 static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
 static usec_t watchdog_pretimeout; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
+static bool supports_pretimeout = false;
 
-#define DEFAULT_WATCHDOG_DEV "/dev/watchdog"
+#define WATCHDOG_GOV_NAME_MAXLEN 20     /* From kernel */
 
 /* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
  * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds
@@ -34,6 +36,31 @@ static usec_t watchdog_last_ping = USEC_INFINITY;
 static int saturated_usec_to_sec(usec_t val) {
         usec_t t = DIV_ROUND_UP(val, USEC_PER_SEC);
         return MIN(t, (usec_t) WATCHDOG_TIMEOUT_MAX_SEC); /* Saturate to watchdog max */
+}
+
+static int get_watchdog_sysfs_path(const char *filename, char **ret_path) {
+        struct stat st;
+        if (fstat(watchdog_fd, &st))
+                return -errno;
+
+        if (asprintf(ret_path, "/sys/dev/char/%d:%d/%s", major(st.st_rdev), minor(st.st_rdev), filename) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int get_pretimeout_governor(char **ret_gov) {
+        _cleanup_free_ char *sys_fn;
+        size_t size;
+        int r;
+
+        r = get_watchdog_sysfs_path("pretimeout_governor", &sys_fn);
+        if (r < 0)
+                return r;
+
+        log_info("Watchdog: reading from %s", sys_fn);
+
+        return read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN, ret_gov, &size);
 }
 
 static int watchdog_set_enable(bool enable) {
@@ -77,7 +104,7 @@ static int watchdog_set_timeout(void) {
         assert(watchdog_fd >= 0);
         assert(timestamp_is_set(watchdog_timeout));
 
-	sec = saturated_usec_to_sec(watchdog_timeout);
+        sec = saturated_usec_to_sec(watchdog_timeout);
 
         if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                 return -errno;
@@ -107,7 +134,7 @@ static int watchdog_set_pretimeout(void) {
         assert(watchdog_fd >= 0);
         assert(watchdog_pretimeout != USEC_INFINITY);
 
-	sec = saturated_usec_to_sec(watchdog_timeout);
+        sec = saturated_usec_to_sec(watchdog_timeout);
 
         r = ioctl(watchdog_fd, WDIOC_SETPRETIMEOUT, &sec) < 0;
 
@@ -131,7 +158,7 @@ static int watchdog_ping_now(void) {
 static int update_pretimeout(void) {
         int r, t_sec, pt_sec;
 
-        if (watchdog_fd < 0)
+        if (watchdog_fd < 0 || !supports_pretimeout)
                 return 0;
 
         if (watchdog_pretimeout == USEC_INFINITY)
@@ -214,18 +241,31 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        fn = watchdog_device ?: DEFAULT_WATCHDOG_DEV;
+        fn = watchdog_device ?: "/dev/watchdog";
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
                 log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", fn);
-        else
+        else {
+                supports_pretimeout = (ident.options & WDIOF_PRETIMEOUT);
                 log_info("Using hardware watchdog '%s', version %x, device %s",
                          ident.identity,
                          ident.firmware_version,
                          fn);
+        }
+
+        if (supports_pretimeout) {
+                char *governor = NULL;
+
+                r = get_pretimeout_governor(&governor);
+                if (r < 0)
+                        log_warning_errno(r, "Watchdog: failed to read pretimeout governor: %m");
+
+                log_info("Hardware watchdog '%s' supports pretimeout (default: %s)",
+                         ident.identity, (r >= 0 && governor) ? governor : "(unknown)");
+        }
 
         r = update_timeout();
         if (r < 0)
@@ -299,7 +339,8 @@ static usec_t calc_timeout(void) {
         /* Calculate the effective timeout which accounts for the watchdog
          * pretimeout if configured and supported.
          */
-        if (timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
+        if (timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout &&
+            supports_pretimeout)
                 return usec_sub_unsigned(watchdog_timeout, watchdog_pretimeout);
         else
                 return watchdog_timeout;
