@@ -516,12 +516,13 @@ static int dhcp6_get_preferred_delegated_prefix(
         return log_link_warning_errno(link, SYNTHETIC_ERRNO(ERANGE), "Couldn't find a suitable prefix. Ran out of address space.");
 }
 
-static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
-                                      const struct in6_addr *pd_prefix,
-                                      uint8_t pd_prefix_len,
-                                      uint32_t lifetime_preferred,
-                                      uint32_t lifetime_valid,
-                                      bool assign_preferred_subnet_id) {
+static int dhcp6_pd_prefix_distribute(
+                Link *dhcp6_link,
+                const struct in6_addr *pd_prefix,
+                uint8_t pd_prefix_len,
+                uint32_t lifetime_preferred,
+                uint32_t lifetime_valid,
+                bool assign_preferred_subnet_id) {
 
         Link *link;
         int r;
@@ -532,13 +533,13 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
         assert(pd_prefix_len <= 64);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                _cleanup_free_ char *assigned_buf = NULL;
+                _cleanup_free_ char *buf = NULL;
                 struct in6_addr assigned_prefix;
 
-                if (link == dhcp6_link)
+                if (!link_dhcp6_pd_is_enabled(link))
                         continue;
 
-                if (!link_dhcp6_pd_is_enabled(link))
+                if (link == dhcp6_link && !link->network->dhcp6_pd_assign)
                         continue;
 
                 if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -554,15 +555,24 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                                 continue;
                 }
 
-                (void) in6_addr_to_string(&assigned_prefix, &assigned_buf);
-                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
-                if (r < 0) {
-                        log_link_error_errno(link, r, "Unable to assign/update prefix %s/64: %m",
-                                             strna(assigned_buf));
-                        link_enter_failed(link);
-                } else
-                        log_link_debug(link, "Assigned prefix %s/64", strna(assigned_buf));
+                (void) in6_addr_prefix_to_string(&assigned_prefix, 64, &buf);
+                if (link == dhcp6_link) {
+                        r = dhcp6_pd_request_address(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Failed to assign addresses in prefix %s: %m", strna(buf));
+
+                        log_link_debug(link, "Assigned addresses in prefix %s: %m", strna(buf));
+                } else {
+                        r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
+                        if (r < 0) {
+                                log_link_error_errno(link, r, "Failed to assign/update prefix %s: %m", strna(buf));
+                                link_enter_failed(link);
+                        } else
+                                log_link_debug(link, "Assigned prefix %s", strna(buf));
+                }
         }
+
+        return 0;
 }
 
 static int dhcp6_pd_prepare(Link *link) {
@@ -876,19 +886,23 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                                        n_prefixes, strna(buf));
                 }
 
-                dhcp6_pd_prefix_distribute(dhcp6_link,
-                                           &prefix.in6,
-                                           pd_prefix_len,
-                                           lifetime_preferred,
-                                           lifetime_valid,
-                                           true);
+                r = dhcp6_pd_prefix_distribute(dhcp6_link,
+                                               &prefix.in6,
+                                               pd_prefix_len,
+                                               lifetime_preferred,
+                                               lifetime_valid,
+                                               true);
+                if (r < 0)
+                        return r;
 
-                dhcp6_pd_prefix_distribute(dhcp6_link,
-                                           &prefix.in6,
-                                           pd_prefix_len,
-                                           lifetime_preferred,
-                                           lifetime_valid,
-                                           false);
+                r = dhcp6_pd_prefix_distribute(dhcp6_link,
+                                               &prefix.in6,
+                                               pd_prefix_len,
+                                               lifetime_preferred,
+                                               lifetime_valid,
+                                               false);
+                if (r < 0)
+                        return r;
         }
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
