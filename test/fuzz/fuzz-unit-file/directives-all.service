@@ -727,6 +727,7 @@ LogLevel=
 LogLocation=
 LogTarget=
 RuntimeWatchdogSec=
+RuntimeWatchdogPreSec=
 ShowStatus=
 RebootWatchdogSec=
 ShutdownWatchdogSec=
