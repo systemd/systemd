@@ -228,7 +228,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "node"))) {
 
                                 if (context->ops->on_path) {
-                                        r = context->ops->on_path(node_path ? node_path : np, context->userdata);
+                                        r = context->ops->on_path(node_path ?: np, context->userdata);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -250,7 +250,6 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 if (name[0] == '/')
                                         node_path = TAKE_PTR(name);
                                 else {
-
                                         node_path = path_join(prefix, name);
                                         if (!node_path)
                                                 return log_oom();
