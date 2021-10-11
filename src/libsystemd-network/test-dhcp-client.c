@@ -45,7 +45,7 @@ static void test_request_basic(sd_event *e) {
         sd_dhcp_client *client;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         /* Initialize client without Anonymize settings. */
         r = sd_dhcp_client_new(&client, false);
@@ -105,7 +105,7 @@ static void test_request_anonymize(sd_event *e) {
         sd_dhcp_client *client;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         /* Initialize client with Anonymize settings. */
         r = sd_dhcp_client_new(&client, true);
@@ -137,7 +137,7 @@ static void test_checksum(void) {
         };
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
@@ -279,7 +279,7 @@ static void test_discover_message(sd_event *e) {
         int res, r;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
@@ -497,7 +497,7 @@ static void test_addr_acq(sd_event *e) {
         int res, r;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);

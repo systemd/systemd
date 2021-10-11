@@ -81,7 +81,7 @@ static void test_public_api_setters(sd_event *e) {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         assert_se(sd_ipv4ll_new(&ll) == 0);
         assert_se(ll);
@@ -130,7 +130,7 @@ static void test_basic_request(sd_event *e) {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         assert_se(sd_ipv4ll_new(&ll) == 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
