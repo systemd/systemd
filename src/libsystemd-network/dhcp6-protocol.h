@@ -62,22 +62,46 @@ typedef enum DHCP6State {
         _DHCP6_STATE_INVALID = -EINVAL,
 } DHCP6State;
 
-enum {
-        DHCP6_SOLICIT                           = 1,
-        DHCP6_ADVERTISE                         = 2,
-        DHCP6_REQUEST                           = 3,
-        DHCP6_CONFIRM                           = 4,
-        DHCP6_RENEW                             = 5,
-        DHCP6_REBIND                            = 6,
-        DHCP6_REPLY                             = 7,
-        DHCP6_RELEASE                           = 8,
-        DHCP6_DECLINE                           = 9,
-        DHCP6_RECONFIGURE                       = 10,
-        DHCP6_INFORMATION_REQUEST               = 11,
-        DHCP6_RELAY_FORW                        = 12,
-        DHCP6_RELAY_REPL                        = 13,
-        _DHCP6_MESSAGE_MAX                      = 14,
-};
+/* https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-1 */
+typedef enum DHCP6MessageType {
+        DHCP6_MESSAGE_SOLICIT                   = 1,  /* RFC 8415 */
+        DHCP6_MESSAGE_ADVERTISE                 = 2,  /* RFC 8415 */
+        DHCP6_MESSAGE_REQUEST                   = 3,  /* RFC 8415 */
+        DHCP6_MESSAGE_CONFIRM                   = 4,  /* RFC 8415 */
+        DHCP6_MESSAGE_RENEW                     = 5,  /* RFC 8415 */
+        DHCP6_MESSAGE_REBIND                    = 6,  /* RFC 8415 */
+        DHCP6_MESSAGE_REPLY                     = 7,  /* RFC 8415 */
+        DHCP6_MESSAGE_RELEASE                   = 8,  /* RFC 8415 */
+        DHCP6_MESSAGE_DECLINE                   = 9,  /* RFC 8415 */
+        DHCP6_MESSAGE_RECONFIGURE               = 10, /* RFC 8415 */
+        DHCP6_MESSAGE_INFORMATION_REQUEST       = 11, /* RFC 8415 */
+        DHCP6_MESSAGE_RELAY_FORWARD             = 12, /* RFC 8415 */
+        DHCP6_MESSAGE_RELAY_REPLY               = 13, /* RFC 8415 */
+        DHCP6_MESSAGE_LEASE_QUERY               = 14, /* RFC 5007 */
+        DHCP6_MESSAGE_LEASE_QUERY_REPLY         = 15, /* RFC 5007 */
+        DHCP6_MESSAGE_LEASE_QUERY_DONE          = 16, /* RFC 5460 */
+        DHCP6_MESSAGE_LEASE_QUERY_DATA          = 17, /* RFC 5460 */
+        DHCP6_MESSAGE_RECONFIGURE_REQUEST       = 18, /* RFC 6977 */
+        DHCP6_MESSAGE_RECONFIGURE_REPLY         = 19, /* RFC 6977 */
+        DHCP6_MESSAGE_DHCPV4_QUERY              = 20, /* RFC 7341 */
+        DHCP6_MESSAGE_DHCPV4_RESPONSE           = 21, /* RFC 7341 */
+        DHCP6_MESSAGE_ACTIVE_LEASE_QUERY        = 22, /* RFC 7653 */
+        DHCP6_MESSAGE_START_TLS                 = 23, /* RFC 7653 */
+        DHCP6_MESSAGE_BINDING_UPDATE            = 24, /* RFC 8156 */
+        DHCP6_MESSAGE_BINDING_REPLY             = 25, /* RFC 8156 */
+        DHCP6_MESSAGE_POOL_REQUEST              = 26, /* RFC 8156 */
+        DHCP6_MESSAGE_POOL_RESPONSE             = 27, /* RFC 8156 */
+        DHCP6_MESSAGE_UPDATE_REQUEST            = 28, /* RFC 8156 */
+        DHCP6_MESSAGE_UPDATE_REQUEST_ALL        = 29, /* RFC 8156 */
+        DHCP6_MESSAGE_UPDATE_DONE               = 30, /* RFC 8156 */
+        DHCP6_MESSAGE_CONNECT                   = 31, /* RFC 8156 */
+        DHCP6_MESSAGE_CONNECT_REPLY             = 32, /* RFC 8156 */
+        DHCP6_MESSAGE_DISCONNECT                = 33, /* RFC 8156 */
+        DHCP6_MESSAGE_STATE                     = 34, /* RFC 8156 */
+        DHCP6_MESSAGE_CONTACT                   = 35, /* RFC 8156 */
+        _DHCP6_MESSAGE_TYPE_MAX,
+        _DHCP6_MESSAGE_TYPE_INVALID = -EINVAL,
+} DHCP6MessageType;
 
 typedef enum DHCP6NTPSubOption {
         DHCP6_NTP_SUBOPTION_SRV_ADDR            = 1,

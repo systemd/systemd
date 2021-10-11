@@ -450,7 +450,7 @@ static int test_advertise_option(sd_event *e) {
 
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
-        assert_se(advertise->type == DHCP6_ADVERTISE);
+        assert_se(advertise->type == DHCP6_MESSAGE_ADVERTISE);
         assert_se((be32toh(advertise->transaction_id) & 0x00ffffff) ==
                   0x0fb4e5);
 
@@ -617,7 +617,7 @@ static int test_client_send_reply(DHCP6Message *request) {
         log_debug("/* %s */", __func__);
 
         reply.transaction_id = request->transaction_id;
-        reply.type = DHCP6_REPLY;
+        reply.type = DHCP6_MESSAGE_REPLY;
 
         memcpy(msg_reply, &reply.transaction_id, 4);
 
@@ -642,7 +642,7 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
 
         log_debug("/* %s */", __func__);
 
-        assert_se(request->type == DHCP6_REQUEST);
+        assert_se(request->type == DHCP6_MESSAGE_REQUEST);
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
         len -= sizeof(DHCP6Message);
@@ -725,7 +725,7 @@ static int test_client_send_advertise(DHCP6Message *solicit) {
         log_debug("/* %s */", __func__);
 
         advertise.transaction_id = solicit->transaction_id;
-        advertise.type = DHCP6_ADVERTISE;
+        advertise.type = DHCP6_MESSAGE_ADVERTISE;
 
         memcpy(msg_advertise, &advertise.transaction_id, 4);
 
@@ -746,7 +746,7 @@ static int test_client_verify_solicit(DHCP6Message *solicit, size_t len) {
 
         log_debug("/* %s */", __func__);
 
-        assert_se(solicit->type == DHCP6_SOLICIT);
+        assert_se(solicit->type == DHCP6_MESSAGE_SOLICIT);
 
         len -= sizeof(DHCP6Message);
 
@@ -859,7 +859,7 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
 
         log_debug("/* %s */", __func__);
 
-        assert_se(information_request->type == DHCP6_INFORMATION_REQUEST);
+        assert_se(information_request->type == DHCP6_MESSAGE_INFORMATION_REQUEST);
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
         len -= sizeof(DHCP6Message);
