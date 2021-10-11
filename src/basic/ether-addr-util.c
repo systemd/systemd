@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include "ether-addr-util.h"
+#include "hexdecoct.h"
 #include "macro.h"
 #include "string-util.h"
 
@@ -15,12 +16,13 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
         assert(buffer);
         assert(addr->length <= HW_ADDR_MAX_SIZE);
 
-        for (size_t i = 0; i < addr->length; i++) {
-                sprintf(&buffer[3*i], "%02"PRIx8, addr->bytes[i]);
-                if (i < addr->length - 1)
-                        buffer[3*i + 2] = ':';
+        for (size_t i = 0, j = 0; i < addr->length; i++) {
+                buffer[j++] = hexchar(addr->bytes[i] >> 4);
+                buffer[j++] = hexchar(addr->bytes[i] & 0x0f);
+                buffer[j++] = ':';
         }
 
+        buffer[addr->length > 0 ? addr->length * 3 - 1 : 0] = '\0';
         return buffer;
 }
 
