@@ -756,7 +756,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
 static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_usettings **ret) {
         struct ecmd {
                 struct ethtool_link_settings req;
-                __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+                uint32_t link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
         } ecmd = {
                 .req.cmd = ETHTOOL_GLINKSETTINGS,
         };
@@ -857,7 +857,7 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
 static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
         struct {
                 struct ethtool_link_settings req;
-                __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
+                uint32_t link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
         } ecmd = {};
         unsigned offset;
 
