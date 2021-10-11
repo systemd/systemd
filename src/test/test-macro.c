@@ -325,6 +325,15 @@ static void test_align_to(void) {
         assert_se(ALIGN_TO(SIZE_MAX-2, 4) == SIZE_MAX); /* overflow */
         assert_se(ALIGN_TO(SIZE_MAX-1, 4) == SIZE_MAX); /* overflow */
         assert_se(ALIGN_TO(SIZE_MAX, 4) == SIZE_MAX);   /* overflow */
+
+        assert_cc(CONST_ALIGN_TO(96, 512) == 512);
+        assert_cc(CONST_ALIGN_TO(511, 512) == 512);
+        assert_cc(CONST_ALIGN_TO(512, 512) == 512);
+        assert_cc(CONST_ALIGN_TO(513, 512) == 1024);
+        assert_cc(CONST_ALIGN_TO(sizeof(int), 64) == 64);
+
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(4, 3)), void));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(SIZE_MAX, 512)), void));
 }
 
 int main(int argc, char *argv[]) {

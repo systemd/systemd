@@ -145,24 +145,6 @@
 #define ALIGN4_PTR(p) ((void*) ALIGN4((unsigned long) (p)))
 #define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) (p)))
 
-static inline size_t ALIGN_TO(size_t l, size_t ali) {
-        /* Check that alignment is exponent of 2 */
-#if SIZE_MAX == UINT_MAX
-        assert(__builtin_popcount(ali) == 1);
-#elif SIZE_MAX == ULONG_MAX
-        assert(__builtin_popcountl(ali) == 1);
-#elif SIZE_MAX == ULLONG_MAX
-        assert(__builtin_popcountll(ali) == 1);
-#else
-#error "Unexpected size_t"
-#endif
-
-        if (l > SIZE_MAX - (ali - 1))
-                return SIZE_MAX; /* indicate overflow */
-
-        return ((l + ali - 1) & ~(ali - 1));
-}
-
 #define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) (p), (ali)))
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
