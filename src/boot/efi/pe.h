@@ -15,3 +15,5 @@ EFI_STATUS pe_file_locate_sections(
                 const CHAR8 **sections,
                 UINTN *offsets,
                 UINTN *sizes);
+
+EFI_IMAGE_ENTRY_POINT pe_entry_point(const CHAR8 *base);
