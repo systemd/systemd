@@ -37,18 +37,18 @@ enum {
         DHCP6_PORT_CLIENT                       = 546,
 };
 
-#define DHCP6_INF_TIMEOUT                       1 * USEC_PER_SEC
-#define DHCP6_INF_MAX_RT                        120 * USEC_PER_SEC
-#define DHCP6_SOL_MAX_DELAY                     1 * USEC_PER_SEC
-#define DHCP6_SOL_TIMEOUT                       1 * USEC_PER_SEC
-#define DHCP6_SOL_MAX_RT                        120 * USEC_PER_SEC
-#define DHCP6_REQ_TIMEOUT                       1 * USEC_PER_SEC
-#define DHCP6_REQ_MAX_RT                        120 * USEC_PER_SEC
+#define DHCP6_INF_TIMEOUT                       (1 * USEC_PER_SEC)
+#define DHCP6_INF_MAX_RT                        (120 * USEC_PER_SEC)
+#define DHCP6_SOL_MAX_DELAY                     (1 * USEC_PER_SEC)
+#define DHCP6_SOL_TIMEOUT                       (1 * USEC_PER_SEC)
+#define DHCP6_SOL_MAX_RT                        (120 * USEC_PER_SEC)
+#define DHCP6_REQ_TIMEOUT                       (1 * USEC_PER_SEC)
+#define DHCP6_REQ_MAX_RT                        (120 * USEC_PER_SEC)
 #define DHCP6_REQ_MAX_RC                        10
-#define DHCP6_REN_TIMEOUT                       10 * USEC_PER_SEC
-#define DHCP6_REN_MAX_RT                        600 * USEC_PER_SEC
-#define DHCP6_REB_TIMEOUT                       10 * USEC_PER_SEC
-#define DHCP6_REB_MAX_RT                        600 * USEC_PER_SEC
+#define DHCP6_REN_TIMEOUT                       (10 * USEC_PER_SEC)
+#define DHCP6_REN_MAX_RT                        (600 * USEC_PER_SEC)
+#define DHCP6_REB_TIMEOUT                       (10 * USEC_PER_SEC)
+#define DHCP6_REB_MAX_RT                        (600 * USEC_PER_SEC)
 
 typedef enum DHCP6State {
         DHCP6_STATE_STOPPED,
