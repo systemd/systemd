@@ -696,7 +696,7 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
                         assert_se(optlen == 2);
 
                         break;
-                case SD_DHCP6_OPTION_FQDN:
+                case SD_DHCP6_OPTION_CLIENT_FQDN:
                         assert_se(!found_fqdn);
                         found_fqdn = true;
 
@@ -784,7 +784,7 @@ static int test_client_verify_solicit(DHCP6Message *solicit, size_t len) {
 
                         break;
 
-                case SD_DHCP6_OPTION_FQDN:
+                case SD_DHCP6_OPTION_CLIENT_FQDN:
                         assert_se(!found_fqdn);
                         found_fqdn = true;
 

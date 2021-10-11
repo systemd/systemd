@@ -694,7 +694,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->mudurl) {
                         r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
                                                 client->mudurl);
                         if (r < 0)
                                 return r;
@@ -725,7 +725,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->mudurl) {
                         r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
                                                 client->mudurl);
                         if (r < 0)
                                 return r;
@@ -787,7 +787,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->mudurl) {
                         r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
                                                 client->mudurl);
                         if (r < 0)
                                 return r;
@@ -836,7 +836,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->mudurl) {
                         r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
                                                 client->mudurl);
                         if (r < 0)
                                 return r;
@@ -1296,7 +1296,7 @@ static int client_parse_message(
 
                         break;
 
-                case SD_DHCP6_OPTION_FQDN:
+                case SD_DHCP6_OPTION_CLIENT_FQDN:
                         r = dhcp6_lease_set_fqdn(lease, optval, optlen);
                         if (r < 0)
                                 return r;
