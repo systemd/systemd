@@ -97,19 +97,19 @@ static const uint16_t default_req_opts[] = {
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
-        [DHCP6_SOLICIT] = "SOLICIT",
-        [DHCP6_ADVERTISE] = "ADVERTISE",
-        [DHCP6_REQUEST] = "REQUEST",
-        [DHCP6_CONFIRM] = "CONFIRM",
-        [DHCP6_RENEW] = "RENEW",
-        [DHCP6_REBIND] = "REBIND",
-        [DHCP6_REPLY] = "REPLY",
-        [DHCP6_RELEASE] = "RELEASE",
-        [DHCP6_DECLINE] = "DECLINE",
-        [DHCP6_RECONFIGURE] = "RECONFIGURE",
-        [DHCP6_INFORMATION_REQUEST] = "INFORMATION-REQUEST",
-        [DHCP6_RELAY_FORW] = "RELAY-FORW",
-        [DHCP6_RELAY_REPL] = "RELAY-REPL",
+        [DHCP6_SOLICIT]             = "solicit",
+        [DHCP6_ADVERTISE]           = "advertise",
+        [DHCP6_REQUEST]             = "request",
+        [DHCP6_CONFIRM]             = "confirm",
+        [DHCP6_RENEW]               = "renew",
+        [DHCP6_REBIND]              = "rebind",
+        [DHCP6_REPLY]               = "reply",
+        [DHCP6_RELEASE]             = "release",
+        [DHCP6_DECLINE]             = "decline",
+        [DHCP6_RECONFIGURE]         = "reconfigure",
+        [DHCP6_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_RELAY_FORWORD]       = "relay-forword",
+        [DHCP6_RELAY_REPLY]         = "relay-reply",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
@@ -1435,8 +1435,8 @@ static int client_receive_message(
         case DHCP6_RELEASE:
         case DHCP6_DECLINE:
         case DHCP6_INFORMATION_REQUEST:
-        case DHCP6_RELAY_FORW:
-        case DHCP6_RELAY_REPL:
+        case DHCP6_RELAY_FORWORD:
+        case DHCP6_RELAY_REPLY:
                 return 0;
 
         case DHCP6_ADVERTISE:

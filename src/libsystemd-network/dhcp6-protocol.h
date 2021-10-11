@@ -71,8 +71,8 @@ enum {
         DHCP6_DECLINE                           = 9,
         DHCP6_RECONFIGURE                       = 10,
         DHCP6_INFORMATION_REQUEST               = 11,
-        DHCP6_RELAY_FORW                        = 12,
-        DHCP6_RELAY_REPL                        = 13,
+        DHCP6_RELAY_FORWORD                     = 12,
+        DHCP6_RELAY_REPLY                       = 13,
         _DHCP6_MESSAGE_MAX                      = 14,
 };
 
