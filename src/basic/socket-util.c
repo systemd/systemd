@@ -551,7 +551,7 @@ int getpeername_pretty(int fd, bool include_port, char **ret) {
                 return -errno;
 
         if (sa.sa.sa_family == AF_UNIX) {
-                struct ucred ucred = {};
+                struct ucred ucred = UCRED_INVALID;
 
                 /* UNIX connection sockets are anonymous, so let's use
                  * PID/UID as pretty credentials instead */
