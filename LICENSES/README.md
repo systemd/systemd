@@ -2,7 +2,7 @@
 
 ## Main License
 
-The systemd project uses single-line references to Unique Licese Identifiers as
+The systemd project uses single-line references to Unique License Identifiers as
 defined by the Linux Foundation's SPDX project (https://spdx.org/). The line in
 each individual source file identifies the license applicable to that file.
 
@@ -47,7 +47,7 @@ The following exceptions apply:
    - src/basic/siphash24.h
    - src/systemctl/systemd-sysv-install.SKELETON
    - tools/check-includes.pl
-   - all examples, code and scripts, under man/ except where otherwise noted
+   - all examples, code and scripts, under man/
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
