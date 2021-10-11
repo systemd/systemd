@@ -16,7 +16,7 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
                 r = socket_address_print(&a, &out);
                 if (r < 0)
                         log_error_errno(r, "Printing failed for \"%s\": %m", in);
-                assert(r >= 0);
+                assert_se(r >= 0);
                 assert_se(a.type == 0);
         }
 

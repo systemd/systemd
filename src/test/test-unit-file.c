@@ -65,7 +65,7 @@ static void test_unit_file_build_name_map(char **ids) {
                                              *id,
                                              &fragment,
                                              &names);
-                 assert(r == 0);
+                 assert_se(r == 0);
                  log_info("fragment: %s", fragment);
                  log_info("names:");
                  SET_FOREACH(name, names)

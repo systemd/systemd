@@ -60,7 +60,7 @@ static void test_user_and_global_paths(void) {
                         k++;
                 }
                 log_info("  %s", *p);
-                assert(u[k]); /* If NULL, we didn't find a matching entry */
+                assert_se(u[k]); /* If NULL, we didn't find a matching entry */
                 k++;
         }
         STRV_FOREACH(p, u + k)

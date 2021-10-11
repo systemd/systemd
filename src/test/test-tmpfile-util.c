@@ -14,7 +14,7 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
         r = tempfn_random(p, extra, &s);
         log_info_errno(r, "%s+%s → %s vs. %s (%i/%m vs. %i/%s)", p, strna(extra), strna(s), strna(expect), r, ret, strerror_safe(ret));
 
-        assert(!s == !expect);
+        assert_se(!s == !expect);
         if (s) {
                 const char *suffix;
 
@@ -22,7 +22,7 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
                 assert_se(in_charset(suffix, HEXDIGITS));
                 assert_se(strlen(suffix) == 16);
         }
-        assert(ret == r);
+        assert_se(ret == r);
 }
 
 static void test_tempfn_random(void) {
@@ -59,14 +59,14 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
         r = tempfn_xxxxxx(p, extra, &s);
         log_info_errno(r, "%s+%s → %s vs. %s (%i/%m vs. %i/%s)", p, strna(extra), strna(s), strna(expect), r, ret, strerror_safe(ret));
 
-        assert(!s == !expect);
+        assert_se(!s == !expect);
         if (s) {
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
                 assert_se(streq(suffix, "XXXXXX"));
         }
-        assert(ret == r);
+        assert_se(ret == r);
 }
 
 static void test_tempfn_xxxxxx(void) {

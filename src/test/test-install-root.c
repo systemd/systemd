@@ -286,7 +286,7 @@ static void test_linked_units(const char *root) {
                 else
                         assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -307,7 +307,7 @@ static void test_linked_units(const char *root) {
                 else
                         assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -328,7 +328,7 @@ static void test_linked_units(const char *root) {
                 else
                         assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -681,7 +681,7 @@ static void test_revert(const char *root) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert(root);
+        assert_se(root);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "xx.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "yy.service", NULL) == -ENOENT);
@@ -1103,13 +1103,13 @@ static void verify_one(
                        i->name, alias, r, expected,
                        alias2 ? " [" : "", strempty(alias2),
                        alias2 ? "]" : "");
-        assert(r == expected);
+        assert_se(r == expected);
 
         /* This is test for "instance propagation". This propagation matters mostly for WantedBy= and
          * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
          * an Alias=alias@.service an instantiated template template@instance. In that case the instance name
          * should be propagated into the alias as alias@instance. */
-        assert(streq_ptr(alias2, updated_name));
+        assert_se(streq_ptr(alias2, updated_name));
 }
 
 static void test_verify_alias(void) {

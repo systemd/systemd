@@ -17,7 +17,7 @@ static void test_deserialize_exec_command_one(Manager *m, const char *key, const
 
         r = service_deserialize_exec_command(u, key, line);
         log_debug("[%s] → %d (expected: %d)", line, r, expected);
-        assert(r == expected);
+        assert_se(r == expected);
 
         /* Note that the command doesn't match any command in the empty list of commands in 's', so it is
          * always rejected with "Current command vanished from the unit file", and we don't leak anything. */

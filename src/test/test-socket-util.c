@@ -26,37 +26,37 @@ assert_cc(SUN_PATH_LEN == 108);
 static void test_ifname_valid(void) {
         log_info("/* %s */", __func__);
 
-        assert( ifname_valid("foo"));
-        assert( ifname_valid("eth0"));
+        assert_se( ifname_valid("foo"));
+        assert_se( ifname_valid("eth0"));
 
-        assert(!ifname_valid("0"));
-        assert(!ifname_valid("99"));
-        assert( ifname_valid("a99"));
-        assert( ifname_valid("99a"));
+        assert_se(!ifname_valid("0"));
+        assert_se(!ifname_valid("99"));
+        assert_se( ifname_valid("a99"));
+        assert_se( ifname_valid("99a"));
 
-        assert(!ifname_valid(NULL));
-        assert(!ifname_valid(""));
-        assert(!ifname_valid(" "));
-        assert(!ifname_valid(" foo"));
-        assert(!ifname_valid("bar\n"));
-        assert(!ifname_valid("."));
-        assert(!ifname_valid(".."));
-        assert(ifname_valid("foo.bar"));
-        assert(!ifname_valid("x:y"));
+        assert_se(!ifname_valid(NULL));
+        assert_se(!ifname_valid(""));
+        assert_se(!ifname_valid(" "));
+        assert_se(!ifname_valid(" foo"));
+        assert_se(!ifname_valid("bar\n"));
+        assert_se(!ifname_valid("."));
+        assert_se(!ifname_valid(".."));
+        assert_se(ifname_valid("foo.bar"));
+        assert_se(!ifname_valid("x:y"));
 
-        assert( ifname_valid_full("xxxxxxxxxxxxxxx", 0));
-        assert(!ifname_valid_full("xxxxxxxxxxxxxxxx", 0));
-        assert( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
-        assert( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
-        assert(!ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE));
-        assert( ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
-        assert(!ifname_valid_full("0", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
+        assert_se( ifname_valid_full("xxxxxxxxxxxxxxx", 0));
+        assert_se(!ifname_valid_full("xxxxxxxxxxxxxxxx", 0));
+        assert_se( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
+        assert_se( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
+        assert_se(!ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE));
+        assert_se( ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
+        assert_se(!ifname_valid_full("0", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
 }
 
 static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
         _cleanup_free_ char *out = NULL, *c = NULL;
 
-        assert(len_in <= SUN_PATH_LEN);
+        assert_se(len_in <= SUN_PATH_LEN);
         SocketAddress a = { .sockaddr = { .un = { .sun_family = AF_UNIX } },
                             .size = offsetof(struct sockaddr_un, sun_path) + len_in,
                             .type = SOCK_STREAM,
@@ -194,7 +194,7 @@ static void test_getpeercred_getpeergroups(void) {
                         test_gid = getgid();
 
                         ngroups_max = sysconf(_SC_NGROUPS_MAX);
-                        assert(ngroups_max > 0);
+                        assert_se(ngroups_max > 0);
 
                         test_gids = newa(gid_t, ngroups_max);
 

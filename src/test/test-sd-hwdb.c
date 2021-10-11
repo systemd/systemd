@@ -45,11 +45,11 @@ static void test_basic_enumerate(void) {
 
         for (;;) {
                 r = sd_hwdb_enumerate(hwdb, &key, &value);
-                assert(IN_SET(r, 0, 1));
+                assert_se(IN_SET(r, 0, 1));
                 if (r == 0)
                         break;
-                assert(key);
-                assert(value);
+                assert_se(key);
+                assert_se(value);
                 log_debug("A: \"%s\" → \"%s\"", key, value);
                 len1 += strlen(key) + strlen(value);
         }

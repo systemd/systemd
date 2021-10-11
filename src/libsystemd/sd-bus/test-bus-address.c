@@ -16,7 +16,7 @@ static void test_one_address(sd_bus *b,
         r = bus_set_address_system_remote(b, host);
         log_info("\"%s\" → %d, \"%s\"", host, r, strna(r >= 0 ? b->address : NULL));
         if (result < 0 || expected) {
-                assert(r == result);
+                assert_se(r == result);
                 if (r >= 0)
                         assert_se(streq(b->address, expected));
         }

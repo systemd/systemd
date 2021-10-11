@@ -42,7 +42,7 @@ static void test_read_mem_pressure(void) {
         assert_se(LOADAVG_INT_SIDE(rp.avg300) == 1);
         assert_se(LOADAVG_DECIMAL_SIDE(rp.avg300) == 11);
         assert_se(rp.total == 58761459);
-        assert(read_resource_pressure(path, PRESSURE_TYPE_FULL, &rp) == 0);
+        assert_se(read_resource_pressure(path, PRESSURE_TYPE_FULL, &rp) == 0);
         assert_se(LOADAVG_INT_SIDE(rp.avg10) == 0);
         assert_se(LOADAVG_DECIMAL_SIDE(rp.avg10) == 23);
         assert_se(LOADAVG_INT_SIDE(rp.avg60) == 0);
@@ -62,7 +62,7 @@ static void test_read_mem_pressure(void) {
         assert_se(LOADAVG_INT_SIDE(rp.avg300) == 1);
         assert_se(LOADAVG_DECIMAL_SIDE(rp.avg300) == 11);
         assert_se(rp.total == 58761459);
-        assert(read_resource_pressure(path, PRESSURE_TYPE_FULL, &rp) == 0);
+        assert_se(read_resource_pressure(path, PRESSURE_TYPE_FULL, &rp) == 0);
         assert_se(LOADAVG_INT_SIDE(rp.avg10) == 0);
         assert_se(LOADAVG_DECIMAL_SIDE(rp.avg10) == 23);
         assert_se(LOADAVG_INT_SIDE(rp.avg60) == 0);

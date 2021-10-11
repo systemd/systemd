@@ -52,7 +52,7 @@ static void test_oomd_cgroup_kill(void) {
         /* Create another cgroup below this one for the pids we forked off. We need this to be managed
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         cgroup = path_join(cgroup_root, "oomdkilltest");
-        assert(cgroup);
+        assert_se(cgroup);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */

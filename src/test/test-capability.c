@@ -194,7 +194,7 @@ static void test_update_inherited_set(void) {
 
         assert_se(!capability_update_inherited_set(caps, set));
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_SET);
+        assert_se(fv == CAP_SET);
 
         cap_free(caps);
 }

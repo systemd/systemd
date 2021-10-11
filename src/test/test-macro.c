@@ -243,15 +243,15 @@ static void test_foreach_pointer(void) {
                 k++;
         }
 
-        assert(k == 3);
+        assert_se(k == 3);
 
         FOREACH_POINTER(i, &b) {
-                assert(k == 3);
-                assert(i == &b);
+                assert_se(k == 3);
+                assert_se(i == &b);
                 k = 4;
         }
 
-        assert(k == 4);
+        assert_se(k == 4);
 
         FOREACH_POINTER(i, NULL, &c, NULL, &b, NULL, &a, NULL) {
                 switch (k) {
@@ -292,7 +292,7 @@ static void test_foreach_pointer(void) {
                 k++;
         }
 
-        assert(k == 11);
+        assert_se(k == 11);
 }
 
 static void test_align_to(void) {

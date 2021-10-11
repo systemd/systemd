@@ -105,14 +105,14 @@ static void test_parse_etc_hosts(void) {
         assert_se(address_equal_4(bn->addresses[2], inet_addr("1.2.3.11")));
         assert_se(address_equal_4(bn->addresses[3], inet_addr("1.2.3.12")));
 
-        assert(!hashmap_get(hosts.by_name, "within.comment"));
-        assert(!hashmap_get(hosts.by_name, "within.comment2"));
-        assert(!hashmap_get(hosts.by_name, "within.comment3"));
-        assert(!hashmap_get(hosts.by_name, "#"));
+        assert_se(!hashmap_get(hosts.by_name, "within.comment"));
+        assert_se(!hashmap_get(hosts.by_name, "within.comment2"));
+        assert_se(!hashmap_get(hosts.by_name, "within.comment3"));
+        assert_se(!hashmap_get(hosts.by_name, "#"));
 
-        assert(!hashmap_get(hosts.by_name, "short.address"));
-        assert(!hashmap_get(hosts.by_name, "long.address"));
-        assert(!hashmap_get(hosts.by_name, "multi.colon"));
+        assert_se(!hashmap_get(hosts.by_name, "short.address"));
+        assert_se(!hashmap_get(hosts.by_name, "long.address"));
+        assert_se(!hashmap_get(hosts.by_name, "multi.colon"));
         assert_se(!set_contains(hosts.no_address, "short.address"));
         assert_se(!set_contains(hosts.no_address, "long.address"));
         assert_se(!set_contains(hosts.no_address, "multi.colon"));

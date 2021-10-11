@@ -287,7 +287,7 @@ struct test_async_object {
 };
 
 static struct test_async_object *test_async_object_free(struct test_async_object *t) {
-        assert(t);
+        assert_se(t);
 
         free(t->ifname);
         return mfree(t);
@@ -315,7 +315,7 @@ static int link_handler2(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
 static void test_async_object_destroy(void *userdata) {
         struct test_async_object *t = userdata;
 
-        assert(userdata);
+        assert_se(userdata);
 
         log_info("%s: n_ref=%u", __func__, t->n_ref);
         test_async_object_unref(t);
@@ -593,8 +593,8 @@ static int genl_ctrl_match_callback(sd_netlink *genl, sd_netlink_message *m, voi
         uint16_t id;
         uint8_t cmd;
 
-        assert(genl);
-        assert(m);
+        assert_se(genl);
+        assert_se(m);
 
         assert_se(sd_genl_message_get_family_name(genl, m, &name) >= 0);
         assert_se(streq(name, CTRL_GENL_NAME));

@@ -404,8 +404,8 @@ struct inotify_context {
 static void maybe_exit(sd_event_source *s, struct inotify_context *c) {
         unsigned n;
 
-        assert(s);
-        assert(c);
+        assert_se(s);
+        assert_se(c);
 
         if (!c->delete_self_handler_called)
                 return;

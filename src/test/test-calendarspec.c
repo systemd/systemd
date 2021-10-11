@@ -58,7 +58,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (expect != USEC_INFINITY)
                 assert_se(r >= 0 && u == expect);
         else
-                assert(r == -ENOENT);
+                assert_se(r == -ENOENT);
 
         calendar_spec_free(c);
 

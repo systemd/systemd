@@ -72,8 +72,8 @@ static int reply(Varlink *link, JsonVariant *parameters, const char *error_id, V
 static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
         uid_t uid = UID_INVALID;
 
-        assert(s);
-        assert(link);
+        assert_se(s);
+        assert_se(link);
 
         assert_se(varlink_get_peer_uid(link, &uid) >= 0);
         assert_se(getuid() == uid);
