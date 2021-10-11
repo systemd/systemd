@@ -5,14 +5,20 @@
 
 #include "macro.h"
 
+/* This is the same as glibc's internal __compar_d_fn_t type. glibc exports a public comparison_fn_t, for the
+ * external type __compar_fn_t, but doesn't do anything similar for __compar_d_fn_t. Let's hence do that
+ * ourselves, picking a name that is obvious, but likely enough to not clash with glibc's choice of naming if
+ * they should ever add one. */
+typedef int (*comparison_userdata_fn_t)(const void *, const void *, void *);
+
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 __compar_d_fn_t compar, void *arg);
+                 comparison_userdata_fn_t compar, void *arg);
 
 #define typesafe_bsearch_r(k, b, n, func, userdata)                     \
         ({                                                              \
                 const typeof(b[0]) *_k = k;                             \
                 int (*_func_)(const typeof(b[0])*, const typeof(b[0])*, typeof(userdata)) = func; \
-                xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (__compar_d_fn_t) _func_, userdata); \
+                xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_userdata_fn_t) _func_, userdata); \
         })
 
 /**
@@ -55,7 +61,7 @@ static inline void _qsort_safe(void *base, size_t nmemb, size_t size, comparison
                 _qsort_safe((p), (n), sizeof((p)[0]), (comparison_fn_t) _func_); \
         })
 
-static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *userdata) {
+static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_t compar, void *userdata) {
         if (nmemb <= 1)
                 return;
 
@@ -66,7 +72,7 @@ static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_
 #define typesafe_qsort_r(p, n, func, userdata)                          \
         ({                                                              \
                 int (*_func_)(const typeof(p[0])*, const typeof(p[0])*, typeof(userdata)) = func; \
-                qsort_r_safe((p), (n), sizeof((p)[0]), (__compar_d_fn_t) _func_, userdata); \
+                qsort_r_safe((p), (n), sizeof((p)[0]), (comparison_userdata_fn_t) _func_, userdata); \
         })
 
 int cmp_int(const int *a, const int *b);
