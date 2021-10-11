@@ -331,3 +331,12 @@ typedef struct tdEFI_TCG2_PROTOCOL {
 } EFI_TCG2;
 
 #endif
+
+#ifndef EFI_LOAD_FILE2_PROTOCOL_GUID
+#define EFI_LOAD_FILE2_PROTOCOL_GUID \
+        {0x4006c0c1, 0xfcb3, 0x403e, {0x99, 0x6d, 0x4a, 0x6c, 0x87, 0x24, 0xe0, 0x6d} }
+#define EfiLoadFile2Protocol ((EFI_GUID)EFI_LOAD_FILE2_PROTOCOL_GUID)
+#endif
+
+#define LINUX_INITRD_MEDIA_GUID \
+        {0x5568e427, 0x68fc, 0x4f3d, {0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68} }
