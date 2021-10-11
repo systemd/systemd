@@ -5,6 +5,7 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <errno.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
@@ -49,15 +50,17 @@ enum {
 #define DHCP6_REB_TIMEOUT                       10 * USEC_PER_SEC
 #define DHCP6_REB_MAX_RT                        600 * USEC_PER_SEC
 
-enum DHCP6State {
-        DHCP6_STATE_STOPPED                     = 0,
-        DHCP6_STATE_INFORMATION_REQUEST         = 1,
-        DHCP6_STATE_SOLICITATION                = 2,
-        DHCP6_STATE_REQUEST                     = 3,
-        DHCP6_STATE_BOUND                       = 4,
-        DHCP6_STATE_RENEW                       = 5,
-        DHCP6_STATE_REBIND                      = 6,
-};
+typedef enum DHCP6State {
+        DHCP6_STATE_STOPPED,
+        DHCP6_STATE_INFORMATION_REQUEST,
+        DHCP6_STATE_SOLICITATION,
+        DHCP6_STATE_REQUEST,
+        DHCP6_STATE_BOUND,
+        DHCP6_STATE_RENEW,
+        DHCP6_STATE_REBIND,
+        _DHCP6_STATE_MAX,
+        _DHCP6_STATE_INVALID = -EINVAL,
+} DHCP6State;
 
 enum {
         DHCP6_SOLICIT                           = 1,
@@ -76,17 +79,17 @@ enum {
         _DHCP6_MESSAGE_MAX                      = 14,
 };
 
-enum {
+typedef enum DHCP6NTPSubOption {
         DHCP6_NTP_SUBOPTION_SRV_ADDR            = 1,
         DHCP6_NTP_SUBOPTION_MC_ADDR             = 2,
         DHCP6_NTP_SUBOPTION_SRV_FQDN            = 3,
-};
+} DHCP6NTPSubOption;
 
 /*
  * RFC 8415, RFC 5007 and RFC 7653 status codes:
  * https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-5
  */
-enum {
+typedef enum DHCP6Status {
         DHCP6_STATUS_SUCCESS                      = 0,
         DHCP6_STATUS_UNSPEC_FAIL                  = 1,
         DHCP6_STATUS_NO_ADDRS_AVAIL               = 2,
@@ -110,11 +113,12 @@ enum {
         DHCP6_STATUS_SERVER_SHUTTING_DOWN         = 20,
         DHCP6_STATUS_DNS_UPDATE_NOT_SUPPORTED     = 21,
         DHCP6_STATUS_EXCESSIVE_TIME_SKEW          = 22,
-        _DHCP6_STATUS_MAX                         = 23,
-};
+        _DHCP6_STATUS_MAX,
+        _DHCP6_STATUS_INVALID = -EINVAL,
+} DHCP6Status;
 
-enum {
-        DHCP6_FQDN_FLAG_S = (1 << 0),
-        DHCP6_FQDN_FLAG_O = (1 << 1),
-        DHCP6_FQDN_FLAG_N = (1 << 2),
-};
+typedef enum DHCP6FQDNFlag {
+        DHCP6_FQDN_FLAG_S = 1 << 0,
+        DHCP6_FQDN_FLAG_O = 1 << 1,
+        DHCP6_FQDN_FLAG_N = 1 << 2,
+} DHCP6FQDNFlag;
