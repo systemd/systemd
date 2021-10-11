@@ -24,6 +24,13 @@
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+#define mfree(memory)                           \
+        ({                                      \
+                if (memory)                     \
+                        FreePool(memory);       \
+                (typeof(memory)) NULL;          \
+        })
+
 static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
         if (l > UINTN_MAX - (ali - 1)) /* Overflow? */
                 return UINTN_MAX;
