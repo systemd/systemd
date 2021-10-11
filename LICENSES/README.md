@@ -47,7 +47,7 @@ The following exceptions apply:
    - src/basic/siphash24.h
    - src/systemctl/systemd-sysv-install.SKELETON
    - tools/check-includes.pl
-   - all examples, code and scripts, under man/ except where otherwise noted
+   - all examples under man/
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
