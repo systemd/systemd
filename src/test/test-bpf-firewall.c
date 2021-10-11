@@ -56,10 +56,10 @@ int main(int argc, char *argv[]) {
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
-        assert(r == 0);
+        assert_se(r == 0);
 
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
-        assert(r == 0);
+        assert_se(r == 0);
 
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
                 log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
 
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         if (test_custom_filter) {
                 zero(attr);
@@ -158,8 +158,8 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
-        assert(u->ip_bpf_ingress);
-        assert(u->ip_bpf_egress);
+        assert_se(u->ip_bpf_ingress);
+        assert_se(u->ip_bpf_egress);
 
         r = bpf_program_load_kernel(u->ip_bpf_ingress, log_buf, ELEMENTSOF(log_buf));
 
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         r = bpf_program_load_kernel(u->ip_bpf_egress, log_buf, ELEMENTSOF(log_buf));
 
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         assert_se(unit_start(u) >= 0);
 

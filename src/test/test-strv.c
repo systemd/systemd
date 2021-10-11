@@ -1007,7 +1007,7 @@ static void test_strv_fnmatch(void) {
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
         assert_se(strv_fnmatch_full(v, "\\", FNM_NOESCAPE, &pos));
-        assert(pos == 1);
+        assert_se(pos == 1);
 }
 
 int main(int argc, char *argv[]) {

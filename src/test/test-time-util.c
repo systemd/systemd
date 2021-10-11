@@ -656,7 +656,7 @@ int main(int argc, char *argv[]) {
         /* Ensure TIME_T_MAX works correctly */
         uintmax_t x = TIME_T_MAX;
         x++;
-        assert((time_t) x < 0);
+        assert_se((time_t) x < 0);
 
         return 0;
 }

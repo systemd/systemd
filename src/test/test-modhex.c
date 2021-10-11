@@ -8,7 +8,7 @@ static void test_normalize_recovery_key(const char *t, const char *expected) {
         _cleanup_free_ char *z = NULL;
         int r;
 
-        assert(t);
+        assert_se(t);
 
         r = normalize_recovery_key(t, &z);
         assert_se(expected ?

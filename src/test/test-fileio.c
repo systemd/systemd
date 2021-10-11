@@ -241,7 +241,7 @@ static void test_merge_env_file(void) {
                                 "zzzz=${foobar:-${nothing}}\n"
                                 "zzzzz=${nothing:+${nothing}}\n"
                                 , WRITE_STRING_FILE_AVOID_NEWLINE);
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);
@@ -305,7 +305,7 @@ static void test_merge_env_file_invalid(void) {
                                 "#\n"
                                 "\n\n"                  /* empty line */
                                 , WRITE_STRING_FILE_AVOID_NEWLINE);
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);

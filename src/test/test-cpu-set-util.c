@@ -256,7 +256,7 @@ static void test_cpu_set_to_from_dbus(void) {
 
         assert_se(allocated <= sizeof expected);
         assert_se(allocated >= DIV_ROUND_UP(201u, 8u)); /* We need at least 201 bits for our mask */
-        assert(memcmp(array, expected, allocated) == 0);
+        assert_se(memcmp(array, expected, allocated) == 0);
 
         assert_se(cpu_set_from_dbus(array, allocated, &c2) == 0);
         assert_se(c2.set);
@@ -268,7 +268,7 @@ static void test_cpus_in_affinity_mask(void) {
         int r;
 
         r = cpus_in_affinity_mask();
-        assert(r > 0);
+        assert_se(r > 0);
         log_info("cpus_in_affinity_mask: %d", r);
 }
 

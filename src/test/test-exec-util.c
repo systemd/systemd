@@ -26,22 +26,22 @@ static void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here);
+        assert_se(fd >= 0);
+        assert_se(arg == &here);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func2(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here2);
+        assert_se(fd >= 0);
+        assert_se(arg == &here2);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func3(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here3);
+        assert_se(fd >= 0);
+        assert_se(arg == &here3);
         safe_close(fd);
 
         return 0;
