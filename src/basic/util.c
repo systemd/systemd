@@ -119,62 +119,57 @@ int on_ac_power(void) {
         bool found_offline = false, found_online = false;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        int r;
 
         d = opendir("/sys/class/power_supply");
         if (!d)
                 return errno == ENOENT ? true : -errno;
 
         FOREACH_DIRENT(de, d, return -errno) {
-                _cleanup_close_ int fd = -1, device = -1;
-                char contents[6];
-                ssize_t n;
+                _cleanup_close_ int device_fd = -1;
+                _cleanup_free_ char *contents = NULL;
+                unsigned v;
 
-                device = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (device < 0) {
+                device_fd = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                if (device_fd < 0) {
                         if (IN_SET(errno, ENOENT, ENOTDIR))
                                 continue;
 
                         return -errno;
                 }
 
-                fd = openat(device, "type", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        if (errno == ENOENT)
-                                continue;
+                r = read_virtual_file_at(device_fd, "type", SIZE_MAX, &contents, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
-                        return -errno;
-                }
+                delete_trailing_chars(contents, NEWLINE);
 
-                n = read(fd, contents, sizeof(contents));
-                if (n < 0)
-                        return -errno;
-
-                if (n != 6 || memcmp(contents, "Mains\n", 6))
+                /* We assume every power source is AC, except for batteries. See
+                 * https://github.com/torvalds/linux/blob/4eef766b7d4d88f0b984781bc1bcb574a6eafdc7/include/linux/power_supply.h#L176
+                 * for defined power source types. Also see:
+                 * https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power */
+                if (streq(contents, "Battery"))
                         continue;
 
-                safe_close(fd);
-                fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        if (errno == ENOENT)
-                                continue;
+                contents = mfree(contents);
 
-                        return -errno;
-                }
+                r = read_virtual_file_at(device_fd, "online", SIZE_MAX, &contents, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
-                n = read(fd, contents, sizeof(contents));
-                if (n < 0)
-                        return -errno;
+                delete_trailing_chars(contents, NEWLINE);
 
-                if (n != 2 || contents[1] != '\n')
-                        return -EIO;
-
-                if (contents[0] == '1') {
+                r = safe_atou(contents, &v);
+                if (r < 0)
+                        return r;
+                if (v > 0) /* At least 1 and 2 are defined as different types of 'online' */
                         found_online = true;
-                        break;
-                } else if (contents[0] == '0')
-                        found_offline = true;
                 else
-                        return -EIO;
+                        found_offline = true;
         }
 
         return found_online || !found_offline;
