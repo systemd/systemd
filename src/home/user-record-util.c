@@ -75,7 +75,7 @@ int user_record_synthesize(
         if (!ip)
                 return -ENOMEM;
 
-        hd = path_join("/home/", user_name);
+        hd = path_join(get_home_root(), user_name);
         if (!hd)
                 return -ENOMEM;
 
