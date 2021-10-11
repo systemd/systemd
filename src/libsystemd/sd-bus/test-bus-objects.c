@@ -219,6 +219,19 @@ static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
+static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+        _cleanup_strv_free_ char **v = NULL;
+
+        if (!object_path_startswith("/value/b", path))
+                return 1;
+
+        for (unsigned i = 0; i < 30; i++)
+                assert_se(strv_extendf(&v, "/value/b/%u", i) >= 0);
+
+        *nodes = TAKE_PTR(v);
+        return 1;
+}
+
 static void *server(void *p) {
         struct context *c = p;
         sd_bus *bus = NULL;
@@ -238,6 +251,7 @@ static void *server(void *p) {
         assert_se(sd_bus_add_fallback_vtable(bus, NULL, "/value", "org.freedesktop.systemd.ValueTest", vtable2, NULL, UINT_TO_PTR(20)) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value", enumerator_callback, NULL) >= 0);
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/a", enumerator2_callback, NULL) >= 0);
+        assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/b", enumerator3_callback, NULL) >= 0);
         assert_se(sd_bus_add_object_manager(bus, NULL, "/value") >= 0);
         assert_se(sd_bus_add_object_manager(bus, NULL, "/value/a") >= 0);
 
@@ -280,6 +294,7 @@ static int client(struct context *c) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **lines = NULL;
         const char *s;
         int r;
 
@@ -399,6 +414,30 @@ static int client(struct context *c) {
         r = sd_bus_message_read(reply, "s", &s);
         assert_se(r >= 0);
         fputs(s, stdout);
+
+        assert_se(lines = strv_split_newlines(s));
+        assert_se(strv_contains(lines, " <node name=\"x\"/>"));
+        assert_se(strv_contains(lines, " <node name=\"y\"/>"));
+        assert_se(strv_contains(lines, " <node name=\"z\"/>"));
+        lines = strv_free(lines);
+
+        reply = sd_bus_message_unref(reply);
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/b", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, NULL);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_read(reply, "s", &s);
+        assert_se(r >= 0);
+        fputs(s, stdout);
+
+        assert_se(lines = strv_split_newlines(s));
+        for (unsigned i = 0; i < 30; i++) {
+                _cleanup_free_ char *n = NULL;
+
+                assert_se(asprintf(&n, " <node name=\"%u\"/>", i) >= 0);
+                assert_se(strv_contains(lines, n));
+        }
+        lines = strv_free(lines);
 
         reply = sd_bus_message_unref(reply);
 
