@@ -61,6 +61,7 @@
         #endif
 
         #define memcpy(a, b, c) CopyMem((a), (b), (c))
+        #define free(a) FreePool(a)
 #endif
 
 #if defined(static_assert)
@@ -266,3 +267,9 @@
  * @x: a string literal.
  */
 #define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
+
+#define mfree(memory)                           \
+        ({                                      \
+                free(memory);                   \
+                (typeof(memory)) NULL;          \
+        })
