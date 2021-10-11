@@ -44,7 +44,7 @@ enum {
 struct sd_dhcp6_client {
         unsigned n_ref;
 
-        enum DHCP6State state;
+        DHCP6State state;
         sd_event *event;
         int event_priority;
         int ifindex;
@@ -145,7 +145,7 @@ DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
-static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
+static int client_start(sd_dhcp6_client *client, DHCP6State state);
 
 int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client *client,
@@ -849,6 +849,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_BOUND:
                 return -EINVAL;
+        default:
+                assert_not_reached();
         }
 
         r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
@@ -926,7 +928,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
-        enum DHCP6State state;
+        DHCP6State state;
 
         assert(s);
         assert(client);
@@ -1017,6 +1019,8 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_BOUND:
                 return 0;
+        default:
+                assert_not_reached();
         }
 
         if (max_retransmit_count > 0 &&
@@ -1507,6 +1511,8 @@ static int client_receive_message(
 
         case DHCP6_STATE_STOPPED:
                 return 0;
+        default:
+                assert_not_reached();
         }
 
         log_dhcp6_client(client, "Recv %s",
@@ -1537,7 +1543,7 @@ static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
         return -ENOMSG;
 }
 
-static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
+static int client_start(sd_dhcp6_client *client, DHCP6State state) {
         int r;
         usec_t timeout, time_now;
         uint32_t lifetime_t1, lifetime_t2;
@@ -1637,6 +1643,8 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 client->state = state;
 
                 return 0;
+        default:
+                assert_not_reached();
         }
 
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
@@ -1675,7 +1683,7 @@ int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_start(sd_dhcp6_client *client) {
-        enum DHCP6State state = DHCP6_STATE_SOLICITATION;
+        DHCP6State state = DHCP6_STATE_SOLICITATION;
         int r;
 
         assert_return(client, -EINVAL);
