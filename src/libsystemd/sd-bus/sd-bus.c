@@ -249,6 +249,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .original_pid = getpid_cached(),
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
+                .ucred = UCRED_INVALID,
         };
 
         /* We guarantee that wqueue always has space for at least one entry */

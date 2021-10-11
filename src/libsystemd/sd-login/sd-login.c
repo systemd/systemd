@@ -136,7 +136,7 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
 }
 
 _public_ int sd_peer_get_session(int fd, char **session) {
-        struct ucred ucred = {};
+        struct ucred ucred = UCRED_INVALID;
         int r;
 
         assert_return(fd >= 0, -EBADF);
