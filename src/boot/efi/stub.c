@@ -152,7 +152,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 NULL,
         };
 
-        UINTN cmdline_len = 0, initrd_size, credential_initrd_size = 0, sysext_initrd_size = 0;
+        UINTN cmdline_len = 0, linux_size, initrd_size, credential_initrd_size = 0, sysext_initrd_size = 0;
         _cleanup_freepool_ VOID *credential_initrd = NULL, *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base;
         EFI_LOADED_IMAGE *loaded_image;
@@ -222,6 +222,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &sysext_initrd,
                          &sysext_initrd_size);
 
+        linux_size = szs[SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
 
         initrd_size = szs[SECTION_INITRD];
@@ -250,7 +251,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         err = linux_exec(image, cmdline, cmdline_len,
-                         PHYSICAL_ADDRESS_TO_POINTER(linux_base),
+                         PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(FALSE);
         return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);

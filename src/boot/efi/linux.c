@@ -1,109 +1,186 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/*
+ * Generic Linux boot protocol using the EFI/PE entry point of the kernel. Passes
+ * initrd with the LINUX_INITRD_MEDIA_GUID DevicePath and cmdline with
+ * EFI LoadedImageProtocol.
+ *
+ * This method works for Linux 5.8 and newer on ARM/Aarch64, x86/x68_64 and RISC-V.
+ */
+
 #include <efi.h>
 #include <efilib.h>
 
-#include "linux.h"
 #include "initrd.h"
+#include "linux.h"
+#include "pe.h"
 #include "util.h"
 
-#ifdef __i386__
-#define __regparm0__ __attribute__((regparm(0)))
-#else
-#define __regparm0__
-#endif
+static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
+        if (!img)
+                return NULL;
+        mfree(img->LoadOptions);
+        return mfree(img);
+}
 
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
+static EFI_STATUS loaded_image_register(
+                const CHAR8 *cmdline, UINTN cmdline_len,
+                const VOID *linux_buffer, UINTN linux_length,
+                EFI_HANDLE *ret_image) {
 
-static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
-        handover_f handover;
-        UINTN start = (UINTN)params->hdr.code32_start;
+        EFI_LOADED_IMAGE *loaded_image = NULL;
+        EFI_STATUS err;
 
-        assert(params);
+        assert(cmdline || cmdline_len > 0);
+        assert(linux_buffer && linux_length > 0);
+        assert(ret_image);
 
-#ifdef __x86_64__
-        asm volatile ("cli");
-        start += 512;
-#endif
-        handover = (handover_f)(start + params->hdr.handover_offset);
-        handover(image, ST, params);
+        /* create and install new LoadedImage Protocol */
+        loaded_image = AllocatePool(sizeof(EFI_LOADED_IMAGE));
+        if (!loaded_image)
+                return EFI_OUT_OF_RESOURCES;
+
+        /* provide the image base address and size */
+        *loaded_image = (EFI_LOADED_IMAGE) {
+                .ImageBase = (VOID *) linux_buffer,
+                .ImageSize = linux_length
+        };
+
+        /* if a cmdline is set convert it to UTF16 */
+        if (cmdline) {
+                loaded_image->LoadOptions = stra_to_str(cmdline);
+                if (!loaded_image->LoadOptions) {
+                        loaded_image = loaded_image_free(loaded_image);
+                        return EFI_OUT_OF_RESOURCES;
+                }
+                loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
+        }
+
+        /* install a new LoadedImage protocol. ret_handle is a new image handle */
+        err = uefi_call_wrapper(BS->InstallMultipleProtocolInterfaces, 4,
+                        ret_image,
+                        &LoadedImageProtocol, loaded_image,
+                        NULL);
+        if (EFI_ERROR(err))
+                loaded_image = loaded_image_free(loaded_image);
+
+        return err;
+}
+
+static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        EFI_STATUS err;
+
+        if (!loaded_image_handle)
+                return EFI_SUCCESS;
+
+        /* get the LoadedImage protocol that we allocated earlier */
+        err = uefi_call_wrapper(
+                        BS->OpenProtocol, 6,
+                        loaded_image_handle, &LoadedImageProtocol, (VOID **) &loaded_image,
+                        NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err))
+                return err;
+
+        /* close the handle */
+        (void) uefi_call_wrapper(
+                        BS->CloseProtocol, 4,
+                        loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
+        err = uefi_call_wrapper(BS->UninstallMultipleProtocolInterfaces, 4,
+                        loaded_image_handle,
+                        &LoadedImageProtocol, loaded_image,
+                        NULL);
+        if (EFI_ERROR(err))
+                return err;
+        loaded_image_handle = NULL;
+        loaded_image = loaded_image_free(loaded_image);
+
+        return EFI_SUCCESS;
+}
+
+static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
+        (void) initrd_unregister(*initrd_handle);
+        *initrd_handle = NULL;
+}
+
+static inline void cleanup_loaded_image(EFI_HANDLE *loaded_image_handle) {
+        (void) loaded_image_unregister(*loaded_image_handle);
+        *loaded_image_handle = NULL;
+}
+
+/* struct to call cleanup_pages */
+struct pages {
+        EFI_PHYSICAL_ADDRESS addr;
+        UINTN num;
+};
+
+static inline void cleanup_pages(struct pages *p) {
+        if (p->addr == 0)
+                return;
+        (void) uefi_call_wrapper(BS->FreePages, 2, p->addr, p->num);
 }
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer,
+                const VOID *linux_buffer, UINTN linux_length,
                 const VOID *initrd_buffer, UINTN initrd_length) {
 
-        const struct boot_params *image_params;
-        struct boot_params *boot_params;
-        EFI_HANDLE initrd_handle = NULL;
-        EFI_PHYSICAL_ADDRESS addr;
-        UINT8 setup_sectors;
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
+        UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
+        EFI_IMAGE_ENTRY_POINT kernel_entry;
+        _cleanup_(cleanup_pages) struct pages kernel = {};
+        VOID *new_buffer;
         EFI_STATUS err;
 
         assert(image);
         assert(cmdline || cmdline_len == 0);
-        assert(linux_buffer);
+        assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        image_params = (const struct boot_params *) linux_buffer;
+        /* get the necessary fields from the PE header */
+        err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+        if (EFI_ERROR(err))
+                return err;
+        /* sanity check */
+        assert(kernel_size_of_image >= linux_length);
 
-        if (image_params->hdr.boot_flag != 0xAA55 ||
-            image_params->hdr.header != SETUP_MAGIC ||
-            image_params->hdr.version < 0x20b ||
-            !image_params->hdr.relocatable_kernel)
-                return EFI_LOAD_ERROR;
+        /* Linux kernel complains if it's not loaded at a properly aligned memory address. The correct alignment
+           is provided by Linux as the SegmentAlignment in the PeOptionalHeader. Additionally the kernel needs to
+           be in a memory segment thats SizeOfImage (again from PeOptionalHeader) large, so that the Kernel has
+           space for its BSS section. SizeOfImage is always larger than linux_length, which is only the size of
+           Code, (static) Data and Headers.
 
-        addr = UINT32_MAX; /* Below the 32bit boundary */
+           Interrestingly only ARM/Aarch64 and RISC-V kernel stubs check these assertions and can even boot (with warnings)
+           if they are not met. x86 and x86_64 kernel stubs don't do checks and fail if the BSS section is too small.
+        */
+        /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
+        kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
         err = uefi_call_wrapper(
-                        BS->AllocatePages, 4,
-                        AllocateMaxAddress,
-                        EfiLoaderData,
-                        EFI_SIZE_TO_PAGES(0x4000),
-                        &addr);
+                BS->AllocatePages, 4,
+                AllocateAnyPages, EfiLoaderData,
+                kernel.num, &kernel.addr);
+        if (EFI_ERROR(err))
+                return EFI_OUT_OF_RESOURCES;
+        new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
+        CopyMem(new_buffer, linux_buffer, linux_length);
+        /* zero out rest of memory (probably not needed, but BSS section should be 0) */
+        SetMem((UINT8 *)new_buffer + linux_length, kernel_size_of_image - linux_length, 0);
+
+        /* get the entry point inside the relocated kernel */
+        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)new_buffer + kernel_entry_address);
+
+        /* register a LoadedImage Protocol in order to pass on the commandline */
+        err = loaded_image_register(cmdline, cmdline_len, new_buffer, linux_length, &loaded_image_handle);
         if (EFI_ERROR(err))
                 return err;
 
-        boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
-        ZeroMem(boot_params, 0x4000);
-        boot_params->hdr = image_params->hdr;
-        boot_params->hdr.type_of_loader = 0xff;
-        setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
-        boot_params->hdr.code32_start = (UINT32) POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + (setup_sectors + 1) * 512;
-
-        if (cmdline) {
-                addr = 0xA0000;
-
-                err = uefi_call_wrapper(
-                                BS->AllocatePages, 4,
-                                AllocateMaxAddress,
-                                EfiLoaderData,
-                                EFI_SIZE_TO_PAGES(cmdline_len + 1),
-                                &addr);
-                if (EFI_ERROR(err))
-                        return err;
-
-                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (UINT32) addr;
-        }
-
-        /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
-           Until supported kernels become more established, we continue to set ramdisk in the handover struct.
-           This value is overridden by kernels that support LINUX_INITRD_MEDIA_GUID.
-           If you need to know which protocol was used by the kernel, pass "efi=debug" to the kernel,
-           this will print a line when InitrdMediaGuid was successfully used to load the initrd.
-         */
-        boot_params->hdr.ramdisk_image = (UINT32) POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer);
-        boot_params->hdr.ramdisk_size = (UINT32) initrd_length;
-
-        /* register LINUX_INITRD_MEDIA_GUID */
+        /* register a LINUX_INITRD_MEDIA DevicePath to serve the initrd */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
         if (EFI_ERROR(err))
                 return err;
-        linux_efi_handover(image, boot_params);
-        (void) initrd_unregister(initrd_handle);
-        initrd_handle = NULL;
-        return EFI_LOAD_ERROR;
+
+        /* call the kernel */
+        return uefi_call_wrapper(kernel_entry, 2, loaded_image_handle, ST);
 }

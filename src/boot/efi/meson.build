@@ -39,7 +39,6 @@ systemd_boot_sources = '''
 '''.split()
 
 stub_sources = '''
-        linux.c
         initrd.c
         splash.c
         stub.c
@@ -209,6 +208,11 @@ if have_gnu_efi
                 '-include', efi_config_h,
                 '-include', version_h,
         ]
+        if ['ia32', 'x86_64'].contains(efi_arch)
+                stub_sources += 'linux_x86.c'
+        else
+                stub_sources += 'linux.c'
+        endif
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
