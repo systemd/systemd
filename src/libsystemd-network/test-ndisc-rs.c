@@ -273,7 +273,7 @@ static void test_rs(void) {
         sd_ndisc *nd;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         send_ra_function = send_ra;
 
@@ -366,7 +366,7 @@ static void test_timeout(void) {
         sd_ndisc *nd;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         send_ra_function = test_timeout_value;
 

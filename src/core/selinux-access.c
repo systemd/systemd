@@ -126,7 +126,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_AUTH | callback_type_to_priority(type),
-                      0, PROJECT_FILE, __LINE__, __FUNCTION__,
+                      0, PROJECT_FILE, __LINE__, __func__,
                       fmt2, ap);
         REENABLE_WARNING;
         va_end(ap);
