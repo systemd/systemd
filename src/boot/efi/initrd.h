@@ -4,7 +4,7 @@
 #include <efi.h>
 
 EFI_STATUS initrd_register(
-                const VOID *initrd_address,
+                const void *initrd_address,
                 UINTN initrd_length,
                 EFI_HANDLE *ret_initrd_handle);
 
