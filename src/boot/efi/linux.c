@@ -32,7 +32,7 @@ static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer,
+                const VOID *linux_buffer, UINTN linux_length,
                 const VOID *initrd_buffer, UINTN initrd_length) {
 
         const struct boot_params *image_params;
