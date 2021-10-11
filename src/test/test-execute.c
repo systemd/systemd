@@ -174,7 +174,7 @@ static bool check_user_has_group_with_same_name(const char *name) {
         struct passwd *p;
         struct group *g;
 
-        assert(name);
+        assert_se(name);
 
         p = getpwnam(name);
         if (!p ||
@@ -510,8 +510,8 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         char buf[4096];
         ssize_t l;
 
-        assert(s);
-        assert(fd >= 0);
+        assert_se(s);
+        assert_se(fd >= 0);
 
         l = read(fd, buf, sizeof(buf) - 1);
         if (l < 0) {
@@ -538,7 +538,7 @@ reenable:
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         pid_t *pid = userdata;
 
-        assert(pid);
+        assert_se(pid);
 
         (void) kill(*pid, SIGKILL);
 
@@ -548,7 +548,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         int ret = -EIO;
 
-        assert(si);
+        assert_se(si);
 
         if (si->si_code == CLD_EXITED)
                 ret = si->si_status;
@@ -568,8 +568,8 @@ static int find_libraries(const char *exec, char ***ret) {
         pid_t pid;
         int r;
 
-        assert(exec);
-        assert(ret);
+        assert_se(exec);
+        assert_se(ret);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
@@ -653,7 +653,7 @@ static void test_exec_mount_apivfs(Manager *m) {
         _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
         int r;
 
-        assert(user_runtime_unit_dir);
+        assert_se(user_runtime_unit_dir);
 
         r = find_executable("touch", &fullpath_touch);
         if (r < 0) {

@@ -30,7 +30,7 @@ static void test_destroy_callback(void) {
         }
 
         r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
-        assert(r == 1);
+        assert_se(r == 1);
 
         assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);
         assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 0);
@@ -41,9 +41,9 @@ static void test_destroy_callback(void) {
         assert_se(t == destroy_callback);
 
         /* Force cleanup so we can look at n_called */
-        assert(n_called == 0);
+        assert_se(n_called == 0);
         sd_bus_slot_unref(slot);
-        assert(n_called == 1);
+        assert_se(n_called == 1);
 }
 
 int main(int argc, char **argv) {

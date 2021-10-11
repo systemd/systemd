@@ -23,7 +23,7 @@ static void test_file(void) {
         log_info("RELATIVE_SOURCE_PATH: %s", RELATIVE_SOURCE_PATH);
         log_info("PROJECT_FILE: %s", PROJECT_FILE);
 
-        assert(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
+        assert_se(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
 }
 
 static void test_log_struct(void) {
