@@ -15,3 +15,12 @@ EFI_STATUS pe_file_locate_sections(
                 const CHAR8 **sections,
                 UINTN *offsets,
                 UINTN *sizes);
+
+struct PeHeader {
+        UINTN image_size;
+        UINTN alignment;
+};
+
+EFI_STATUS pe_get_header_fields(const VOID *base, struct PeHeader *ret_header);
+
+EFI_IMAGE_ENTRY_POINT pe_entry_point(const VOID *base);
