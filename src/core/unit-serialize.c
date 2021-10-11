@@ -171,6 +171,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
+        (void) bpf_program_serialize_attachment(f, fds, "bpf-device-control-installed", u->bpf_device_control_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
 
@@ -407,6 +408,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                          continue;
                 } else if (streq(l, "ip-bpf-egress-installed")) {
                          (void) bpf_program_deserialize_attachment(v, fds, &u->ip_bpf_egress_installed);
+                         continue;
+                } else if (streq(l, "bpf-device-control-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->bpf_device_control_installed);
                          continue;
 
                 } else if (streq(l, "ip-bpf-custom-ingress-installed")) {
