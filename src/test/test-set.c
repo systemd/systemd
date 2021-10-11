@@ -143,7 +143,7 @@ static void test_set_copy(void) {
         copy = set_copy(s);
         assert_se(copy);
 
-        assert(set_equal(s, copy));
+        assert_se(set_equal(s, copy));
 
         set_free(s);
         set_free_free(copy);

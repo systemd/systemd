@@ -47,8 +47,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         int c;
 
-        assert(argc >= 0);
-        assert(argv);
+        assert_se(argc >= 0);
+        assert_se(argv);
 
         while ((c = getopt_long(argc, argv, "r:", options, NULL)) >= 0)
                 switch(c) {

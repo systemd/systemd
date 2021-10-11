@@ -184,7 +184,7 @@ static void test_device_path_make_canonical_one(const char *path) {
         log_debug("> %s", path);
 
         if (stat(path, &st) < 0) {
-                assert(errno == ENOENT);
+                assert_se(errno == ENOENT);
                 log_notice("Path %s not found, skipping test", path);
                 return;
         }

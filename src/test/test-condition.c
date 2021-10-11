@@ -689,12 +689,12 @@ static void test_condition_test_group(void) {
         free(gid);
 
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert(ngroups_max > 0);
+        assert_se(ngroups_max > 0);
 
         gids = newa(gid_t, ngroups_max);
 
         ngroups = getgroups(ngroups_max, gids);
-        assert(ngroups >= 0);
+        assert_se(ngroups >= 0);
 
         max_gid = getgid();
         for (i = 0; i < ngroups; i++) {

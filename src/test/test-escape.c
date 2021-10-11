@@ -58,8 +58,8 @@ static void test_xescape_full(bool eight_bits) {
                 log_info("%02d: <%s>", i, q);
                 if (i > 0)
                         assert_se(endswith(q, "."));
-                assert(strlen(q) <= i);
-                assert(strlen(q) + 3 >= strlen(t));
+                assert_se(strlen(q) <= i);
+                assert_se(strlen(q) + 3 >= strlen(t));
         }
 }
 

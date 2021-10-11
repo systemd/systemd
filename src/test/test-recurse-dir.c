@@ -63,8 +63,8 @@ static int recurse_dir_callback(
 
         char ***l = userdata;
 
-        assert(path);
-        assert(de);
+        assert_se(path);
+        assert_se(de);
 
         switch (event) {
 

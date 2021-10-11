@@ -118,7 +118,7 @@ _unused_ static void test_decompress_startswith(const char *compression,
                 compressed = compressed2 = malloc(BUFSIZE_2);
                 assert_se(compressed2);
                 r = compress(data, data_len, compressed, BUFSIZE_2, &csize);
-                assert(r == 0);
+                assert_se(r == 0);
         }
         assert_se(r == 0);
 
