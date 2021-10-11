@@ -246,6 +246,7 @@ conf.set_quoted('SYSTEMD_BINARY_PATH',                        rootlibexecdir / '
 conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
 conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 rootlibexecdir / 'systemd-cgroups-agent')
 conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    rootlibexecdir / 'systemd-cryptsetup')
+conf.set_quoted('SYSTEMD_INTEGRITYSETUP_PATH',                join_paths(rootlibexecdir, 'systemd-integritysetup'))
 conf.set_quoted('SYSTEMD_EXPORT_PATH',                        rootlibexecdir / 'systemd-export')
 conf.set_quoted('SYSTEMD_FSCK_PATH',                          rootlibexecdir / 'systemd-fsck')
 conf.set_quoted('SYSTEMD_GROWFS_PATH',                        rootlibexecdir / 'systemd-growfs')
@@ -2535,6 +2536,25 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                                 libp11kit],
                 install_rpath : rootlibexecdir,
                 install : true)
+
+	executable(
+                'systemd-integritysetup',
+                ['src/integritysetup/integritysetup.c', 'src/integritysetup/integrity_common.c'],
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libcryptsetup],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
+        executable(
+                'systemd-integritysetup-generator',
+                ['src/integritysetup/integritysetup-generator.c', 'src/integritysetup/integrity_common.c'],
+                include_directories : includes,
+                link_with : [libshared],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : systemgeneratordir)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
