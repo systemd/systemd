@@ -65,6 +65,9 @@
 #define DEFAULT_RATE_LIMIT_BURST 10000
 #define DEFAULT_MAX_FILE_USEC USEC_PER_MONTH
 
+#define DEFAULT_KMSG_OWN_INTERVAL (5 * USEC_PER_SEC)
+#define DEFAULT_KMSG_OWN_BURST 50
+
 #define RECHECK_SPACE_USEC (30*USEC_PER_SEC)
 
 #define NOTIFY_SNDBUF_SIZE (8*1024*1024)
@@ -2212,6 +2215,11 @@ int server_init(Server *s, const char *namespace) {
 
                 .runtime_storage.name = "Runtime Journal",
                 .system_storage.name = "System Journal",
+
+                .kmsg_own_ratelimit = {
+                        .interval = DEFAULT_KMSG_OWN_INTERVAL,
+                        .burst = DEFAULT_KMSG_OWN_BURST,
+                },
         };
 
         r = set_namespace(s, namespace);
