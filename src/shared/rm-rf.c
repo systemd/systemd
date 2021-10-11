@@ -322,11 +322,16 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         r = rm_rf_children(fd, flags, NULL);
 
-        if (FLAGS_SET(flags, REMOVE_ROOT) &&
-            rmdir(path) < 0 &&
-            r >= 0 &&
-            (!FLAGS_SET(flags, REMOVE_MISSING_OK) || errno != ENOENT))
-                r = -errno;
+        if (FLAGS_SET(flags, REMOVE_ROOT)) {
+
+                if (FLAGS_SET(flags, REMOVE_SYNCFS) && syncfs(fd) < 0 && r >= 0)
+                        r = -errno;
+
+                if (rmdir(path) < 0 &&
+                    r >= 0 &&
+                    (!FLAGS_SET(flags, REMOVE_MISSING_OK) || errno != ENOENT))
+                        r = -errno;
+        }
 
         return r;
 }

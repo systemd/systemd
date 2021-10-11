@@ -8,11 +8,14 @@
 #include <sys/mount.h>
 #include <sys/xattr.h>
 
+#include "sd-daemon.h"
+
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "dm-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1042,6 +1045,40 @@ int run_fallocate_by_path(const char *backing_path) {
         return run_fallocate(backing_fd, NULL);
 }
 
+static int lock_image_fd(int image_fd, const char *ip) {
+        int r;
+
+        /* If the $SYSTEMD_LUKS_LOCK environment variable is set we'll take an exclusive BSD lock on the
+         * image file, and send it to our parent. homed will keep it open to ensure no other instance of
+         * homed (across the network or such) will also mount the file. */
+
+        r = getenv_bool("SYSTEMD_LUKS_LOCK");
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse $SYSTEMD_LUKS_LOCK environment variable: %m");
+        if (r > 0) {
+                if (flock(image_fd, LOCK_EX|LOCK_NB) < 0) {
+
+                        if (errno == EWOULDBLOCK)
+                                log_error_errno(errno, "Image file '%s' already locked, can't use.", ip);
+                        else
+                                log_error_errno(errno, "Failed to lock image file '%s': %m", ip);
+
+                        return errno != EWOULDBLOCK ? -errno : -EADDRINUSE; /* Make error recognizable */
+                }
+
+                log_info("Successfully locked image file '%s'.", ip);
+
+                /* Now send it to our parent to keep safe while the home dir is active */
+                r = sd_pid_notify_with_fds(0, false, "SYSTEMD_LUKS_LOCK_FD=1", &image_fd, 1);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send LUKS lock fd to parent, ignoring: %m");
+        }
+
+        return 0;
+}
+
 int home_prepare_luks(
                 UserRecord *h,
                 bool already_activated,
@@ -1175,6 +1212,10 @@ int home_prepare_luks(
                         return log_error_errno(
                                         S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
                                         "Image file %s is not a regular file or block device: %m", ip);
+
+                r = lock_image_fd(image_fd, ip);
+                if (r < 0)
+                        return r;
 
                 r = luks_validate(image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
