@@ -364,3 +364,10 @@ disk images with `--image=` or similar:
   against any of the certificates in `/etc/verity.d/*.crt` (and similar
   directores in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
   against its built-in certificates.
+
+`systemd-cryptsetup`:
+
+* `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
+  whether to use the libcryptsetup "token" plugin module logic even when
+  activating via FIDO2, PKCS#11, TPM2, i.e. mechanisms natively supported by
+  `systemd-cryptsetup`. Defaults to enabled.

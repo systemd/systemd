@@ -678,6 +678,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>token-timeout=</option></term>
+
+        <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,
+        PKCS#11, TPM2) to show up. Takes a time value in seconds (but other time units may be specified too,
+        see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for supported formats). Defaults to 30s. Once the specified timeout elapsed authentication via
+        password is attempted. Note that this timeout applies to waiting for the security device to show up —
+        it does not apply to the PIN prompt for the device (should one be needed) or similar. Pass 0 to turn
+        off the time-out and wait forever.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>try-empty-password=</option></term>
 
         <listitem><para>Takes a boolean argument. If enabled, right before asking the user for a password it
@@ -689,13 +701,9 @@
       <varlistentry>
         <term><option>x-systemd.device-timeout=</option></term>
 
-        <listitem><para>Specifies how long systemd should wait for a device to show up
-        before giving up on the entry. The argument is a time in seconds or explicitly
-        specified units of
-        <literal>s</literal>,
-        <literal>min</literal>,
-        <literal>h</literal>,
-        <literal>ms</literal>.
+        <listitem><para>Specifies how long systemd should wait for a block device to show up before
+        giving up on the entry. The argument is a time in seconds or explicitly specified units of
+        <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>ms</literal>.
         </para></listitem>
       </varlistentry>
 

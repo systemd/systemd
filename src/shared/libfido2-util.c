@@ -12,6 +12,7 @@
 #include "memory-util.h"
 #include "random-util.h"
 #include "strv.h"
+#include "unistd.h"
 
 static void *libfido2_dl = NULL;
 
@@ -1071,6 +1072,55 @@ int fido2_find_device_auto(char **ret) {
 
 finish:
         sym_fido_dev_info_free(&di, di_size);
+        return r;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "FIDO2 tokens not supported on this build.");
+#endif
+}
+
+int fido2_have_device(const char *device) {
+#if HAVE_LIBFIDO2
+        size_t allocated = 64, found = 0;
+        fido_dev_info_t *di = NULL;
+        int r;
+
+        /* Return == 0 if not devices are found, > 0 if at least one is found */
+
+        r = dlopen_libfido2();
+        if (r < 0)
+                return log_error_errno(r, "FIDO2 support is not installed.");
+
+        if (device) {
+                if (access(device, F_OK) < 0) {
+                        if (errno == ENOENT)
+                                return 0;
+
+                        return log_error_errno(errno, "Failed to determine whether device '%s' exists: %m", device);
+                }
+
+                return 1;
+        }
+
+        di = sym_fido_dev_info_new(allocated);
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_info_manifest(di, allocated, &found);
+        if (r == FIDO_ERR_INTERNAL) {
+                /* The library returns FIDO_ERR_INTERNAL when no devices are found. I wish it wouldn't. */
+                r = 0;
+                goto finish;
+        }
+        if (r != FIDO_OK) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enumerate FIDO2 devices: %s", sym_fido_strerr(r));
+                goto finish;
+        }
+
+        r = found;
+
+finish:
+        sym_fido_dev_info_free(&di, allocated);
         return r;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
