@@ -59,7 +59,18 @@ struct CoffFileHeader {
 struct PeFileHeader {
         UINT8   Magic[4];
         struct CoffFileHeader FileHeader;
-        /* OptionalHeader omitted */
+} _packed_;
+
+struct PeOptionalHeader {
+        UINT16  Magic;
+        UINT8   LinkerMajor;
+        UINT8   LinkerMinor;
+        UINT32  SizeOfCode;
+        UINT32  SizeOfInitializedData;
+        UINT32  SizeOfUninitializeData;
+        UINT32  AddressOfEntryPoint;
+        UINT32  BaseOfCode;
+        /* 32/64 bit specific parts ommited */
 } _packed_;
 
 struct PeSectionHeader {
@@ -120,6 +131,25 @@ static VOID locate_sections(
                         sizes[j] = sect->VirtualSize;
                 }
         }
+}
+
+EFI_IMAGE_ENTRY_POINT pe_entry_point(const CHAR8 *base) {
+        const struct DosFileHeader *dos;
+        const struct PeFileHeader *pe;
+        const struct PeOptionalHeader *opt;
+
+        assert(base);
+
+        dos = (const struct DosFileHeader *) base;
+        if (!verify_dos(dos))
+                return NULL;
+
+        pe = (const struct PeFileHeader*)&base[dos->ExeHeader];
+        if (!verify_pe(pe))
+                return NULL;
+
+        opt = (const struct PeOptionalHeader *)(++pe);
+        return (EFI_IMAGE_ENTRY_POINT)&base[opt->AddressOfEntryPoint];
 }
 
 EFI_STATUS pe_memory_locate_sections(

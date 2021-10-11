@@ -37,7 +37,6 @@ systemd_boot_sources = '''
 '''.split()
 
 stub_sources = '''
-        linux.c
         initrd.c
         splash.c
         stub.c
@@ -213,9 +212,13 @@ if have_gnu_efi
                                  '-mno-mmx',
                                  '-DEFI_FUNCTION_WRAPPER',
                                  '-DGNU_EFI_USE_MS_ABI']
+                stub_sources += 'linux.c'
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
+                stub_sources += 'linux.c'
+        elif efi_arch == 'aarch64'
+                stub_sources += 'linux_aarch64.c'
         elif efi_arch == 'arm'
                 if cc.has_argument('-mgeneral-regs-only')
                         compile_args += ['-mgeneral-regs-only']
