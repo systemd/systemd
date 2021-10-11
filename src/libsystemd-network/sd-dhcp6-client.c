@@ -35,11 +35,11 @@
 #define IRT_MINIMUM (600 * USEC_PER_SEC)
 
 /* what to request from the server, addresses (IA_NA) and/or prefixes (IA_PD) */
-enum {
-        DHCP6_REQUEST_IA_NA                     = 1,
-        DHCP6_REQUEST_IA_TA                     = 2, /* currently not used */
-        DHCP6_REQUEST_IA_PD                     = 4,
-};
+typedef enum DHCP6RequestIA {
+        DHCP6_REQUEST_IA_NA = 1 << 0,
+        DHCP6_REQUEST_IA_TA = 1 << 1, /* currently not used */
+        DHCP6_REQUEST_IA_PD = 1 << 2,
+} DHCP6RequestIA;
 
 struct sd_dhcp6_client {
         unsigned n_ref;
@@ -58,7 +58,7 @@ struct sd_dhcp6_client {
         DHCP6IA ia_pd;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
-        unsigned request;
+        DHCP6RequestIA request_ia;
         be32_t transaction_id;
         usec_t transaction_start;
         struct sd_dhcp6_lease *lease;
@@ -538,7 +538,7 @@ int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegati
         assert_return(client, -EINVAL);
         assert_return(delegation, -EINVAL);
 
-        *delegation = FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD);
+        *delegation = FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD);
 
         return 0;
 }
@@ -546,7 +546,7 @@ int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegati
 int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client, int delegation) {
         assert_return(client, -EINVAL);
 
-        SET_FLAG(client->request, DHCP6_REQUEST_IA_PD, delegation);
+        SET_FLAG(client->request_ia, DHCP6_REQUEST_IA_PD, delegation);
 
         return 0;
 }
@@ -555,7 +555,7 @@ int sd_dhcp6_client_get_address_request(sd_dhcp6_client *client, int *request) {
         assert_return(client, -EINVAL);
         assert_return(request, -EINVAL);
 
-        *request = FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA);
+        *request = FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA);
 
         return 0;
 }
@@ -563,7 +563,7 @@ int sd_dhcp6_client_get_address_request(sd_dhcp6_client *client, int *request) {
 int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client, int request) {
         assert_return(client, -EINVAL);
 
-        SET_FLAG(client->request, DHCP6_REQUEST_IA_NA, request);
+        SET_FLAG(client->request_ia, DHCP6_REQUEST_IA_NA, request);
 
         return 0;
 }
@@ -688,7 +688,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA)) {
                         r = dhcp6_option_append_ia(&opt, &optlen,
                                                    &client->ia_na);
                         if (r < 0)
@@ -728,7 +728,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(&opt, &optlen, &client->ia_pd, &client->hint_pd_prefix);
                         if (r < 0)
                                 return r;
@@ -750,7 +750,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
                         r = dhcp6_option_append_ia(&opt, &optlen,
                                                    &client->lease->ia);
                         if (r < 0)
@@ -789,7 +789,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
                         r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
@@ -800,7 +800,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         case DHCP6_STATE_REBIND:
                 message->type = DHCP6_REBIND;
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA)) {
                         r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
                         if (r < 0)
                                 return r;
@@ -838,7 +838,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
@@ -1526,14 +1526,14 @@ static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
         assert_return(client, -EINVAL);
         assert_return(client->lease, -EINVAL);
 
-        if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
                 *lifetime_t1 = be32toh(client->lease->ia.ia_na.lifetime_t1);
                 *lifetime_t2 = be32toh(client->lease->ia.ia_na.lifetime_t2);
 
                 return 0;
         }
 
-        if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
                 *lifetime_t1 = be32toh(client->lease->pd.ia_pd.lifetime_t1);
                 *lifetime_t2 = be32toh(client->lease->pd.ia_pd.lifetime_t2);
 
@@ -1694,7 +1694,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (client->state != DHCP6_STATE_STOPPED)
                 return -EBUSY;
 
-        if (!client->information_request && !client->request)
+        if (!client->information_request && client->request_ia == 0)
                 return -EINVAL;
 
         r = client_reset(client);
@@ -1822,7 +1822,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ia_na.type = SD_DHCP6_OPTION_IA_NA,
                 .ia_pd.type = SD_DHCP6_OPTION_IA_PD,
                 .ifindex = -1,
-                .request = DHCP6_REQUEST_IA_NA,
+                .request_ia = DHCP6_REQUEST_IA_NA,
                 .fd = -1,
                 .req_opts_len = ELEMENTSOF(default_req_opts),
                 .hint_pd_prefix.iapdprefix.lifetime_preferred = (be32_t) -1,
