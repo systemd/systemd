@@ -1839,6 +1839,21 @@ static bool mount_is_mounted(Mount *m) {
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
 }
 
+static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+
+        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so let's
+         * make sure we dispatch them in the next iteration. */
+        r = sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable run queue event source, ignoring: %m");
+
+        return 0;
+}
+
 static void mount_enumerate(Manager *m) {
         int r;
 
@@ -1890,6 +1905,12 @@ static void mount_enumerate(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
                         goto fail;
+                }
+
+                r = sd_event_source_set_ratelimit_expire_callback(m->mount_event_source, mount_on_ratelimit_expire);
+                if (r < 0) {
+                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
+                         goto fail;
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
@@ -2136,11 +2157,14 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_test_start_limit(Unit *u) {
+static int mount_can_start(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
 
         assert(m);
+
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -2148,7 +2172,7 @@ static int mount_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
@@ -2249,5 +2273,5 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .test_start_limit = mount_test_start_limit,
+        .can_start = mount_can_start,
 };
