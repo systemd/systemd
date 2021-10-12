@@ -268,6 +268,21 @@ int close_all_fds(const int except[], size_t n_except) {
                                 return -errno;
 
                         have_close_range = false;
+
+                } else if (n_except == 1) {
+
+                        /* Close all but exactly one, then we don't need no sorting. This is a pretty common
+                         * case, hence let's handle it specially. */
+
+                        if ((except[0] <= 3 || close_range(3, except[0]-1, 0) >= 0) &&
+                            (except[0] >= INT_MAX || close_range(MAX(3, except[0]+1), -1, 0) >= 0))
+                                return 0;
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                return -errno;
+
+                        have_close_range = false;
+
                 } else {
                         _cleanup_free_ int *sorted_malloc = NULL;
                         size_t n_sorted;
