@@ -1582,7 +1582,7 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_test_start_limit(Unit *u) {
+static int swap_can_start(Unit *u) {
         Swap *s = SWAP(u);
         int r;
 
@@ -1594,7 +1594,7 @@ static int swap_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
@@ -1693,5 +1693,5 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .test_start_limit = swap_test_start_limit,
+        .can_start = swap_can_start,
 };
