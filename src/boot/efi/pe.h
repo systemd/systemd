@@ -15,3 +15,10 @@ EFI_STATUS pe_file_locate_sections(
                 const CHAR8 **sections,
                 UINTN *offsets,
                 UINTN *sizes);
+
+EFI_STATUS pe_alignment_info(
+                const VOID *base,
+                UINTN *ret_size_of_image,
+                UINTN *ret_section_alignment);
+
+EFI_IMAGE_ENTRY_POINT pe_entry_point(const VOID *base);
