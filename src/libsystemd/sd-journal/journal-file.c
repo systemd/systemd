@@ -3315,7 +3315,7 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->arena_size),
                le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
-               yes_no(journal_file_rotate_suggested(f, 0)),
+               yes_no(journal_file_rotate_suggested(f, 0, LOG_DEBUG)),
                le64toh(f->header->head_entry_seqnum), le64toh(f->header->head_entry_seqnum),
                le64toh(f->header->tail_entry_seqnum), le64toh(f->header->tail_entry_seqnum),
                FORMAT_TIMESTAMP_SAFE(le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
@@ -4105,14 +4105,14 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         return 1;
 }
 
-bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level) {
         assert(f);
         assert(f->header);
 
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
         if (le64toh(f->header->header_size) < sizeof(Header)) {
-                log_debug("%s uses an outdated header, suggesting rotation.", f->path);
+                log_full(log_level, "%s uses an outdated header, suggesting rotation.", f->path);
                 return true;
         }
 
@@ -4122,23 +4122,25 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
-                                  f->path,
-                                  100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
-                                  le64toh(f->header->n_data),
-                                  le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
-                                  (unsigned long long) f->last_stat.st_size,
-                                  f->last_stat.st_size / le64toh(f->header->n_data));
+                        log_full(log_level,
+                                 "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
+                                 f->path,
+                                 100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
+                                 le64toh(f->header->n_data),
+                                 le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+                                 (unsigned long long) f->last_stat.st_size,
+                                 f->last_stat.st_size / le64toh(f->header->n_data));
                         return true;
                 }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
-                                  f->path,
-                                  100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
-                                  le64toh(f->header->n_fields),
-                                  le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+                        log_full(log_level,
+                                 "Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
+                                 f->path,
+                                 100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
+                                 le64toh(f->header->n_fields),
+                                 le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
                         return true;
                 }
 
@@ -4146,15 +4148,17 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
          * longest chain is longer than some threshold, let's suggest rotation. */
         if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth) &&
             le64toh(f->header->data_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
-                log_debug("Data hash table of %s has deepest hash chain of length %" PRIu64 ", suggesting rotation.",
-                          f->path, le64toh(f->header->data_hash_chain_depth));
+                log_full(log_level,
+                         "Data hash table of %s has deepest hash chain of length %" PRIu64 ", suggesting rotation.",
+                         f->path, le64toh(f->header->data_hash_chain_depth));
                 return true;
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth) &&
             le64toh(f->header->field_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
-                log_debug("Field hash table of %s has deepest hash chain of length at %" PRIu64 ", suggesting rotation.",
-                          f->path, le64toh(f->header->field_hash_chain_depth));
+                log_full(log_level,
+                         "Field hash table of %s has deepest hash chain of length at %" PRIu64 ", suggesting rotation.",
+                         f->path, le64toh(f->header->field_hash_chain_depth));
                 return true;
         }
 
