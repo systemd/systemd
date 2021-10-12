@@ -451,8 +451,10 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 _noreturn_ void freeze(void) {
         log_close();
 
-        /* Make sure nobody waits for us on a socket anymore */
-        (void) close_all_fds_full(NULL, 0, false);
+        /* Make sure nobody waits for us (i.e. on one of our sockets) anymore. Note that we use
+         * close_all_fds_without_malloc() instead of plain close_all_fds() here, since we want this function
+         * to be compatible with being called from signal handlers. */
+        (void) close_all_fds_without_malloc(NULL, 0);
 
         sync();
 
@@ -494,7 +496,7 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
         return -errno;
 }
 
-int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
         size_t n, i;
         va_list ap;
