@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 
                         /* The retention time is reached, so let's vacuum! */
                         if (server.oldest_file_usec + server.max_retention_usec < n) {
-                                log_info("Retention time reached.");
+                                log_info("Retention time reached, rotating.");
                                 server_rotate(&server);
                                 server_vacuum(&server, false);
                                 continue;
