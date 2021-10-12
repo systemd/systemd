@@ -174,7 +174,6 @@ struct Network {
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
-        bool dhcp6_rapid_commit;
         bool dhcp6_route_table;
         bool dhcp6_route_table_set;
         bool dhcp6_route_table_set_explicitly;

@@ -403,7 +403,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_dns = true,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
-                .dhcp6_rapid_commit = true,
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
 
                 .dhcp6_pd = -1,
