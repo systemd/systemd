@@ -1067,8 +1067,8 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                         client->retransmit_time += init_retransmit_time / 10;
 
         } else {
-                if (max_retransmit_time > 0 &&
-                    client->retransmit_time > max_retransmit_time / 2)
+                assert(max_retransmit_time > 0);
+                if (client->retransmit_time > max_retransmit_time / 2)
                         client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
                 else
                         client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
