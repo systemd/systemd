@@ -97,19 +97,41 @@ static const uint16_t default_req_opts[] = {
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
-        [DHCP6_SOLICIT]             = "solicit",
-        [DHCP6_ADVERTISE]           = "advertise",
-        [DHCP6_REQUEST]             = "request",
-        [DHCP6_CONFIRM]             = "confirm",
-        [DHCP6_RENEW]               = "renew",
-        [DHCP6_REBIND]              = "rebind",
-        [DHCP6_REPLY]               = "reply",
-        [DHCP6_RELEASE]             = "release",
-        [DHCP6_DECLINE]             = "decline",
-        [DHCP6_RECONFIGURE]         = "reconfigure",
-        [DHCP6_INFORMATION_REQUEST] = "information-request",
-        [DHCP6_RELAY_FORWORD]       = "relay-forword",
-        [DHCP6_RELAY_REPLY]         = "relay-reply",
+        [DHCP6_MESSAGE_SOLICIT]             = "solicit",
+        [DHCP6_MESSAGE_ADVERTISE]           = "advertise",
+        [DHCP6_MESSAGE_REQUEST]             = "request",
+        [DHCP6_MESSAGE_CONFIRM]             = "confirm",
+        [DHCP6_MESSAGE_RENEW]               = "renew",
+        [DHCP6_MESSAGE_REBIND]              = "rebind",
+        [DHCP6_MESSAGE_REPLY]               = "reply",
+        [DHCP6_MESSAGE_RELEASE]             = "release",
+        [DHCP6_MESSAGE_DECLINE]             = "decline",
+        [DHCP6_MESSAGE_RECONFIGURE]         = "reconfigure",
+        [DHCP6_MESSAGE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_MESSAGE_RELAY_FORWORD]       = "relay-forword",
+        [DHCP6_MESSAGE_RELAY_REPLY]         = "relay-reply",
+        [DHCP6_MESSAGE_LEASE_QUERY]         = "lease-query",
+        [DHCP6_MESSAGE_LEASE_QUERY_REPLY]   = "lease-query-reply",
+        [DHCP6_MESSAGE_LEASE_QUERY_DONE]    = "lease-query-done",
+        [DHCP6_MESSAGE_LEASE_QUERY_DATA]    = "lease-query-data",
+        [DHCP6_MESSAGE_RECONFIGURE_REQUEST] = "reconfigure-request",
+        [DHCP6_MESSAGE_RECONFIGURE_REPLY]   = "reconfigure-reply",
+        [DHCP6_MESSAGE_DHCPV4_QUERY]        = "DHCPv4-query",
+        [DHCP6_MESSAGE_DHCPV4_RESPONSE]     = "DHCPv4-response",
+        [DHCP6_MESSAGE_ACTIVE_LEASE_QUERY]  = "active-lease-query",
+        [DHCP6_MESSAGE_START_TLS]           = "start-TLS",
+        [DHCP6_MESSAGE_BINDING_UPDATE]      = "binding-update",
+        [DHCP6_MESSAGE_BINDING_REPLY]       = "binding-reply",
+        [DHCP6_MESSAGE_POOL_REQUEST]        = "pool-request",
+        [DHCP6_MESSAGE_POOL_RESPONSE]       = "pool-response",
+        [DHCP6_MESSAGE_UPDATE_REQUEST]      = "update-request",
+        [DHCP6_MESSAGE_UPDATE_REQUEST_ALL]  = "update-request-all",
+        [DHCP6_MESSAGE_UPDATE_DONE]         = "update-done",
+        [DHCP6_MESSAGE_CONNECT]             = "connect",
+        [DHCP6_MESSAGE_CONNECT_REPLY]       = "connect-reply",
+        [DHCP6_MESSAGE_DISCONNECT]          = "disconnect",
+        [DHCP6_MESSAGE_STATE]               = "state",
+        [DHCP6_MESSAGE_CONTACT]             = "contact",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
@@ -668,7 +690,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
         switch(client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                message->type = DHCP6_INFORMATION_REQUEST;
+                message->type = DHCP6_MESSAGE_INFORMATION_REQUEST;
 
                 if (client->mudurl) {
                         r = dhcp6_option_append(&opt, &optlen,
@@ -681,7 +703,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                message->type = DHCP6_SOLICIT;
+                message->type = DHCP6_MESSAGE_SOLICIT;
 
                 r = dhcp6_option_append(&opt, &optlen,
                                         SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
@@ -740,9 +762,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         case DHCP6_STATE_RENEW:
 
                 if (client->state == DHCP6_STATE_REQUEST)
-                        message->type = DHCP6_REQUEST;
+                        message->type = DHCP6_MESSAGE_REQUEST;
                 else
-                        message->type = DHCP6_RENEW;
+                        message->type = DHCP6_MESSAGE_RENEW;
 
                 r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
@@ -798,7 +820,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 break;
 
         case DHCP6_STATE_REBIND:
-                message->type = DHCP6_REBIND;
+                message->type = DHCP6_MESSAGE_REBIND;
 
                 if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA)) {
                         r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
@@ -1327,7 +1349,7 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
         assert(client);
         assert(reply);
 
-        if (reply->type != DHCP6_REPLY)
+        if (reply->type != DHCP6_MESSAGE_REPLY)
                 return 0;
 
         r = dhcp6_lease_new(&lease);
@@ -1358,7 +1380,7 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
         uint8_t pref_advertise = 0, pref_lease = 0;
         int r;
 
-        if (advertise->type != DHCP6_ADVERTISE)
+        if (advertise->type != DHCP6_MESSAGE_ADVERTISE)
                 return 0;
 
         r = dhcp6_lease_new(&lease);
@@ -1430,26 +1452,9 @@ static int client_receive_message(
                 return 0;
         }
 
-        switch(message->type) {
-        case DHCP6_SOLICIT:
-        case DHCP6_REQUEST:
-        case DHCP6_CONFIRM:
-        case DHCP6_RENEW:
-        case DHCP6_REBIND:
-        case DHCP6_RELEASE:
-        case DHCP6_DECLINE:
-        case DHCP6_INFORMATION_REQUEST:
-        case DHCP6_RELAY_FORWORD:
-        case DHCP6_RELAY_REPLY:
-                return 0;
-
-        case DHCP6_ADVERTISE:
-        case DHCP6_REPLY:
-        case DHCP6_RECONFIGURE:
-                break;
-
-        default:
-                log_dhcp6_client(client, "Unknown message type %d", message->type);
+        if (!IN_SET(DHCP6_MESSAGE_ADVERTISE, DHCP6_MESSAGE_REPLY, DHCP6_MESSAGE_RECONFIGURE)) {
+                log_dhcp6_client(client, "Received unexpected or unsupported message, ignoring: %s(%d)",
+                                 strna(dhcp6_message_type_to_string(message->type)), message->type);
                 return 0;
         }
 
