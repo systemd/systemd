@@ -2805,11 +2805,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) RuntimeDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RuntimeDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RuntimeDirectory = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) StateDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3336,11 +3340,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RuntimeDirectoryMode is not documented!-->
 
-    <!--property RuntimeDirectory is not documented!-->
-
     <!--property StateDirectoryMode is not documented!-->
-
-    <!--property StateDirectory is not documented!-->
 
     <!--property CacheDirectoryMode is not documented!-->
 
@@ -3938,11 +3938,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
@@ -4120,6 +4124,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       the <literal>MemoryMax</literal> or <literal>MemoryHigh</literal> (whichever is lower) limit set by the cgroup
       memory controller is reached. It will take into consideration limits on all parent slices, other than the
       limits set on the unit itself.</para>
+
+      <para><varname>RuntimeDirectorySymlink</varname> and <varname>StateDirectorySymlink</varname> respectively
+      implement the destination parameter of the unit files settings <varname>RuntimeDirectory</varname> and
+      <varname>StateDirectory</varname>, which will create a symlink of the given name to the respective
+      directory. The messages take an unused <varname>flags</varname> parameter, reserved for future
+      backward-compatible changes.</para>
     </refsect2>
   </refsect1>
 
@@ -4651,11 +4661,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) RuntimeDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RuntimeDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RuntimeDirectory = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) StateDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5208,11 +5222,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property RuntimeDirectoryMode is not documented!-->
 
-    <!--property RuntimeDirectory is not documented!-->
-
     <!--property StateDirectoryMode is not documented!-->
-
-    <!--property StateDirectory is not documented!-->
 
     <!--property CacheDirectoryMode is not documented!-->
 
@@ -5806,11 +5816,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
@@ -6416,11 +6430,15 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) RuntimeDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RuntimeDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RuntimeDirectory = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) StateDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6901,11 +6919,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property RuntimeDirectoryMode is not documented!-->
 
-    <!--property RuntimeDirectory is not documented!-->
-
     <!--property StateDirectoryMode is not documented!-->
-
-    <!--property StateDirectory is not documented!-->
 
     <!--property CacheDirectoryMode is not documented!-->
 
@@ -7417,11 +7431,15 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
@@ -8148,11 +8166,15 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) RuntimeDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RuntimeDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RuntimeDirectory = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) StateDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8619,11 +8641,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property RuntimeDirectoryMode is not documented!-->
 
-    <!--property RuntimeDirectory is not documented!-->
-
     <!--property StateDirectoryMode is not documented!-->
-
-    <!--property StateDirectory is not documented!-->
 
     <!--property CacheDirectoryMode is not documented!-->
 
@@ -9121,11 +9139,15 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryPreserve"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
