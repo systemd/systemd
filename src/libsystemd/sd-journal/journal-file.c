@@ -4168,8 +4168,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
             JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
             le64toh(f->header->n_data) > 0 &&
-            le64toh(f->header->n_fields) == 0)
+            le64toh(f->header->n_fields) == 0) {
+                log_full(level,
+                         "Data objects of %s are not indexed by field objects, suggesting rotation.",
+                         f->path);
                 return true;
+        }
 
         if (max_file_usec > 0) {
                 usec_t t, h;
@@ -4177,8 +4181,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
                 h = le64toh(f->header->head_entry_realtime);
                 t = now(CLOCK_REALTIME);
 
-                if (h > 0 && t > h + max_file_usec)
+                if (h > 0 && t > h + max_file_usec) {
+                        log_full(level,
+                                "Oldest entry in %s is older than the configured file retention duration (%lu), suggesting rotation.",
+                                f->path, max_file_usec);
                         return true;
+                }
         }
 
         return false;
