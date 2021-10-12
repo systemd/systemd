@@ -56,10 +56,80 @@ struct CoffFileHeader {
         UINT16  Characteristics;
 } _packed_;
 
+#define OPTHDR32_MAGIC 0x10B
+#define OPTHDR64_MAGIC 0x20B
+
+struct PeOptionalHeader {
+        UINT16  Magic;
+        UINT8   LinkerMajor;
+        UINT8   LinkerMinor;
+        UINT32  SizeOfCode;
+        UINT32  SizeOfInitializedData;
+        UINT32  SizeOfUninitializeData;
+        UINT32  AddressOfEntryPoint;
+        UINT32  BaseOfCode;
+        /* 32bit version has BaseOfData here after BaseOfCode */
+} _packed_;
+
+struct PeOptionalHeader32 {
+        UINT32   BaseOfData;
+        UINT32   ImageBase;
+        UINT32   SectionAlignment;
+        UINT32   FileAlignment;
+        UINT16   MajorOperatingSystemVersion;
+        UINT16   MinorOperatingSystemVersion;
+        UINT16   MajorImageVersion;
+        UINT16   MinorImageVersion;
+        UINT16   MajorSubsystemVersion;
+        UINT16   MinorSubsystemVersion;
+        UINT32   Win32VersionValue;
+        UINT32   SizeOfImage;
+        UINT32   SizeOfHeaders;
+        UINT32   CheckSum;
+        UINT16   Subsystem;
+        UINT16   DllCharacteristics;
+        UINT32   SizeOfStackReserve;
+        UINT32   SizeOfStackCommit;
+        UINT32   SizeOfHeapReserve;
+        UINT32   SizeOfHeapCommit;
+        UINT32   LoaderFlags;
+        UINT32   NumberOfRvaAndSizes;
+        /* DataDirectory omitted */
+} _packed_;
+
+struct PeOptionalHeader64 {
+        UINT64   ImageBase;
+        UINT32   SectionAlignment;
+        UINT32   FileAlignment;
+        UINT16   MajorOperatingSystemVersion;
+        UINT16   MinorOperatingSystemVersion;
+        UINT16   MajorImageVersion;
+        UINT16   MinorImageVersion;
+        UINT16   MajorSubsystemVersion;
+        UINT16   MinorSubsystemVersion;
+        UINT32   Win32VersionValue;
+        UINT32   SizeOfImage;
+        UINT32   SizeOfHeaders;
+        UINT32   CheckSum;
+        UINT16   Subsystem;
+        UINT16   DllCharacteristics;
+        UINT64   SizeOfStackReserve;
+        UINT64   SizeOfStackCommit;
+        UINT64   SizeOfHeapReserve;
+        UINT64   SizeOfHeapCommit;
+        UINT32   LoaderFlags;
+        UINT32   NumberOfRvaAndSizes;
+        /* DataDirectory omitted */
+} _packed_;
+
 struct PeFileHeader {
         UINT8   Magic[4];
         struct CoffFileHeader FileHeader;
-        /* OptionalHeader omitted */
+        struct PeOptionalHeader OptionalHeaderCommon;
+        union {
+                struct PeOptionalHeader32 OptionalHeader32;
+                struct PeOptionalHeader64 OptionalHeader64;
+        };
 } _packed_;
 
 struct PeSectionHeader {
@@ -91,7 +161,7 @@ static inline BOOLEAN verify_pe(const struct PeFileHeader *pe) {
 static inline UINTN section_table_offset(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
         assert(dos);
         assert(pe);
-        return dos->ExeHeader + sizeof(struct PeFileHeader) + pe->FileHeader.SizeOfOptionalHeader;
+        return dos->ExeHeader + OFFSETOF(struct PeFileHeader, OptionalHeaderCommon) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
 static VOID locate_sections(
@@ -120,6 +190,54 @@ static VOID locate_sections(
                         sizes[j] = sect->VirtualSize;
                 }
         }
+}
+
+EFI_IMAGE_ENTRY_POINT pe_entry_point(const VOID *base) {
+        const struct DosFileHeader *dos;
+        const struct PeFileHeader *pe;
+
+        assert(base);
+
+        dos = (const struct DosFileHeader *) base;
+        if (!verify_dos(dos))
+                return NULL;
+
+        pe = (const struct PeFileHeader*) ((const UINT8 *)base + dos->ExeHeader);
+        if (!verify_pe(pe))
+                return NULL;
+
+        return (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)base + pe->OptionalHeaderCommon.AddressOfEntryPoint);
+}
+
+EFI_STATUS pe_alignment_info(
+                const VOID *base,
+                UINTN *ret_size_of_image,
+                UINTN *ret_section_alignment) {
+
+        const struct DosFileHeader *dos;
+        const struct PeFileHeader *pe;
+
+        assert(base);
+        assert(ret_size_of_image);
+        assert(ret_section_alignment);
+
+        dos = (const struct DosFileHeader *) base;
+        if (!verify_dos(dos))
+                return EFI_LOAD_ERROR;
+
+        pe = (const struct PeFileHeader*) ((const UINT8 *)base + dos->ExeHeader);
+        if (!verify_pe(pe))
+                return EFI_LOAD_ERROR;
+
+        if (pe->OptionalHeaderCommon.Magic == OPTHDR32_MAGIC) {
+                *ret_size_of_image = pe->OptionalHeader32.SizeOfImage;
+                *ret_section_alignment = pe->OptionalHeader32.SectionAlignment;
+        } else if (pe->OptionalHeaderCommon.Magic == OPTHDR64_MAGIC) {
+                *ret_size_of_image = pe->OptionalHeader64.SizeOfImage;
+                *ret_section_alignment = pe->OptionalHeader64.SectionAlignment;
+        } else
+                return EFI_UNSUPPORTED;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS pe_memory_locate_sections(
