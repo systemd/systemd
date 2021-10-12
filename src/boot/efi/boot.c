@@ -23,7 +23,9 @@
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
 #endif
 
-#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
+#define ATTR_MASK_FG 0b00001111
+#define ATTR_MASK_BG 0b11110000
+#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & ATTR_MASK_BG) >> 4, (c) & ATTR_MASK_FG)
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
@@ -545,6 +547,51 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         }
 }
 
+static void draw_box(UINTN x, UINTN y, UINTN w, UINTN h) {
+        // Full box
+        print_at(x, y, COLOR_BOX, L"┌");
+        print_at(x + w, y, COLOR_BOX, L"┐");
+        print_at(x, y + h, COLOR_BOX, L"└");
+        print_at(x + w, y + h, COLOR_BOX, L"┘");
+
+        for (UINTN i = 1; i < w; i++) {
+                print_at(x + i, y, COLOR_BOX, L"─");
+                print_at(x + i, y + h, COLOR_BOX, L"─");
+        }
+
+        for (UINTN i = 1; i < h; i++) {
+                print_at(x, y + i, COLOR_BOX, L"│");
+                print_at(x + w, y + i, COLOR_BOX, L"│");
+        }
+}
+
+static BOOLEAN boxdraw_supported(void) {
+        static INTN supported = -1;
+
+        /* Don't draw a box if it would be invisible anyway. */
+        if ((COLOR_BOX & ATTR_MASK_FG) == (COLOR_BOX & ATTR_MASK_BG) &&
+            (COLOR_BOX & ATTR_MASK_FG) == (COLOR_NORMAL & ATTR_MASK_BG))
+                return FALSE;
+
+        if (supported < 0) {
+                EFI_STATUS err;
+                EFI_SERIAL_IO_PROTOCOL *ser = NULL;
+                supported = FALSE;
+
+                /* The UEFI spec mandates support for boxdraw characters, but let's make sure. */
+                err = uefi_call_wrapper(ST->ConOut->TestString, 2, ST->ConOut, (CHAR16*)L"┌");
+                if (EFI_ERROR(err))
+                        return supported;
+
+                /* Serial consoles don't do unicode boxdraw characters. :(
+                * Note for QEMU users: You need to use "-serial none" if you want boxes. */
+                err = LibLocateProtocol(&SerialIoProtocol, (VOID**)&ser);
+                supported = EFI_ERROR(err) || !ser;
+        }
+
+        return supported;
+}
+
 static BOOLEAN menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
@@ -555,7 +602,7 @@ static BOOLEAN menu_run(
         assert(loaded_image_path);
 
         EFI_STATUS err;
-        UINTN visible_max = 0;
+        UINTN visible_max = 0, line_width = 0;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
         UINTN idx_first = 0, idx_last = 0;
@@ -589,12 +636,12 @@ static BOOLEAN menu_run(
                 UINT64 key;
 
                 if (new_mode) {
-                        UINTN line_width = 0, entry_padding = 3;
+                        UINTN entry_padding = 3;
 
                         console_query_mode(&x_max, &y_max);
 
-                        /* account for padding+status */
-                        visible_max = y_max - 2;
+                        /* account for box+status */
+                        visible_max = y_max - 3;
 
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
@@ -609,19 +656,22 @@ static BOOLEAN menu_run(
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
+                        line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
                                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
-                        line_width = MIN(line_width + 2 * entry_padding, x_max);
+                        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
                         if (config->entry_count < visible_max)
-                                y_start = ((visible_max - config->entry_count) / 2) + 1;
+                                y_start = ((visible_max - config->entry_count) / 2) + 2;
                         else
-                                y_start = 0;
+                                y_start = 1;
 
-                        /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
+                        /* Put status line after the box. Otherwise give it some breathing room. */
+                        y_status = y_start + MIN(visible_max, config->entry_count) + 1;
+                        if (!boxdraw_supported())
+                                y_status = MIN(y_status + 3, y_max - 1);
 
                         strv_free(lines);
                         FreePool(clearline);
@@ -657,6 +707,9 @@ static BOOLEAN menu_run(
 
                 if (clear) {
                         clear_screen(COLOR_NORMAL);
+                        if (boxdraw_supported())
+                                draw_box(x_start - 1, y_start - 1,
+                                         line_width + 1, MIN(visible_max, config->entry_count) + 1);
                         clear = FALSE;
                         refresh = TRUE;
                 }
@@ -669,16 +722,16 @@ static BOOLEAN menu_run(
                                 if ((INTN)i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 (CHAR16*) L"=>");
+                                                 (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if ((INTN)idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         if ((INTN)idx_highlight == config->idx_default_efivar)
-                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         highlight = FALSE;
                 }
 
