@@ -2100,19 +2100,6 @@ Table=1234</programlisting></para>
             <literal>information-request</literal>. Defaults to unset.</para>
           </listitem>
         </varlistentry>
-
-        <varlistentry>
-          <term><varname>RapidCommit=</varname></term>
-          <listitem>
-            <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
-            a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
-            the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
-            four-message exchange (solicit, advertise, request, and reply). The two-message exchange provides
-            faster client configuration and is beneficial in environments in which networks are under a heavy load.
-            See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
-            Defaults to true.</para>
-          </listitem>
-        </varlistentry>
       </variablelist>
   </refsect1>
 
