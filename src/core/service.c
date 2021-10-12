@@ -3280,7 +3280,9 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                  * because it includes return codes/signals. Which is
                  * why we ignore the cgroup events for most cases,
                  * except when we don't know pid which to expect the
-                 * SIGCHLD for. */
+                 * SIGCHLD for. In the case of ExitType=cgroup,
+                 * we don't act on the main PID exiting and
+                 * instead we listen to the cgroup event */
 
         case SERVICE_START:
                 if (s->type == SERVICE_NOTIFY &&
@@ -3306,6 +3308,13 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                         else
                                 service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
                 }
+
+                if (s->exit_type == SERVICE_EXIT_CGROUP) {
+                        if (s->state == SERVICE_START)
+                                service_enter_stop_post(s, SERVICE_SUCCESS);
+                        else
+                                service_enter_stop(s, SERVICE_SUCCESS);
+                }
                 break;
 
         case SERVICE_RUNNING:
@@ -3317,7 +3326,8 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
 
-                if (main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
+                if (s->exit_type == SERVICE_EXIT_CGROUP ||
+                    (main_pid_good(s) <= 0 && control_pid_good(s) <= 0))
                         service_enter_stop_post(s, SERVICE_SUCCESS);
 
                 break;
@@ -3326,7 +3336,8 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         case SERVICE_FINAL_WATCHDOG:
         case SERVICE_FINAL_SIGTERM:
         case SERVICE_FINAL_SIGKILL:
-                if (main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
+                if (s->exit_type == SERVICE_EXIT_CGROUP ||
+                    (main_pid_good(s) <= 0 && control_pid_good(s) <= 0))
                         service_enter_dead(s, SERVICE_SUCCESS, true);
 
                 break;
@@ -3465,9 +3476,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f == SERVICE_SUCCESS,
                                 code, status);
 
-                if (s->result == SERVICE_SUCCESS)
-                        s->result = f;
-
                 if (s->main_command &&
                     s->main_command->command_next &&
                     s->type == SERVICE_ONESHOT &&
@@ -3478,7 +3486,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         log_unit_debug(u, "Running next main command for state %s.", service_state_to_string(s->state));
                         service_run_next_main(s);
 
-                } else {
+                /* Services with ExitType=cgroup do not act on main PID exiting */
+                } else if (s->exit_type == SERVICE_EXIT_MAIN) {
+                        if (s->result == SERVICE_SUCCESS)
+                                s->result = f;
 
                         /* The service exited, so the service is officially gone. */
                         s->main_command = NULL;
@@ -4514,6 +4525,13 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
+
+static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
+        [SERVICE_EXIT_MAIN] = "main",
+        [SERVICE_EXIT_CGROUP] = "cgroup",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION]  = "ExecCondition",
