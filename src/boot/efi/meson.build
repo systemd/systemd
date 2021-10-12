@@ -107,11 +107,11 @@ if have_gnu_efi
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
 
-        foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
+        foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit', 'color-box']
                 c = get_option('efi-' + ctype).split(',')
                 fg = 'EFI_' + c[0].strip().underscorify().to_upper()
-                bg = 'EFI_BACKGROUND_' + c[1].strip().underscorify().to_upper()
-                efi_conf.set(ctype.underscorify().to_upper(), '(' + fg + '|' + bg + ')')
+                bg = 'EFI_' + c[1].strip().underscorify().to_upper()
+                efi_conf.set(ctype.underscorify().to_upper(), 'EFI_TEXT_ATTR(' + fg + ',' + bg + ')')
         endforeach
 
         if get_option('sbat-distro') != ''
