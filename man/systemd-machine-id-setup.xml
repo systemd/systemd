@@ -39,7 +39,7 @@
 
     <para>If the tool is invoked without the <option>--commit</option>
     switch, <filename>/etc/machine-id</filename> is initialized with a
-    valid, new machined ID if it is missing or empty. The new machine
+    valid, new machine ID if it is missing or empty. The new machine
     ID will be acquired in the following fashion:</para>
 
     <orderedlist>
