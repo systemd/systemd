@@ -3244,8 +3244,8 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                  * why we ignore the cgroup events for most cases,
                  * except when we don't know pid which to expect the
                  * SIGCHLD for. In the case of ExitType=cgroup,
-                 * we don't based act on the main PID exiting and
-                 * instead we do listen to the cgroup event */
+                 * we don't act on the main PID exiting and
+                 * instead we listen to the cgroup event */
 
         case SERVICE_START:
                 if (s->type == SERVICE_NOTIFY &&
