@@ -431,7 +431,8 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
                 f->compress_xz * HEADER_INCOMPATIBLE_COMPRESSED_XZ |
                 f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
                 f->compress_zstd * HEADER_INCOMPATIBLE_COMPRESSED_ZSTD |
-                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
+                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH |
+                HEADER_INCOMPATIBLE_REMOVED_ENTRY_ITEM_HASH);
 
         h.compatible_flags = htole32(
                 f->seal * HEADER_COMPATIBLE_SEALED);
@@ -496,7 +497,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
                 if (flags) {
-                        const char* strv[5];
+                        const char* strv[6];
                         unsigned n = 0;
                         _cleanup_free_ char *t = NULL;
 
@@ -512,6 +513,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                         strv[n++] = "zstd-compressed";
                                 if (flags & HEADER_INCOMPATIBLE_KEYED_HASH)
                                         strv[n++] = "keyed-hash";
+                                if (flags & HEADER_INCOMPATIBLE_REMOVED_ENTRY_ITEM_HASH)
+                                        strv[n++] = "removed-entry-item-hash";
                         }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
@@ -2172,7 +2175,6 @@ int journal_file_append_entry(
                         xor_hash ^= le64toh(o->data.hash);
 
                 items[i].object_offset = htole64(p);
-                items[i].hash = o->data.hash;
         }
 
         /* Order by the position on disk, in order to improve seek
@@ -3284,7 +3286,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential number ID: %s\n"
                "State: %s\n"
                "Compatible flags:%s%s\n"
-               "Incompatible flags:%s%s%s%s%s\n"
+               "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data hash table size: %"PRIu64"\n"
@@ -3311,6 +3313,7 @@ void journal_file_print_header(JournalFile *f) {
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
                JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
                JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
+               JOURNAL_HEADER_REMOVED_ENTRY_ITEM_HASH(f->header) ? " REMOVED-ENTRY-ITEM-HASH" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -3878,20 +3881,15 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t l, h;
-                le64_t le_hash;
                 size_t t;
                 void *data;
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[i].hash;
 
                 r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
                 if (r < 0)
                         return r;
-
-                if (le_hash != o->data.hash)
-                        return -EBADMSG;
 
                 l = le64toh(READ_NOW(o->object.size));
                 if (l < offsetof(Object, data.payload))
@@ -3934,7 +3932,6 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         xor_hash ^= le64toh(u->data.hash);
 
                 items[i].object_offset = htole64(h);
-                items[i].hash = u->data.hash;
 
                 r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
                 if (r < 0)
