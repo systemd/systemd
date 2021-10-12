@@ -353,6 +353,9 @@ int close_all_fds(const int except[], size_t n_except) {
         FOREACH_DIRENT(de, d, return -errno) {
                 int fd = -1, q;
 
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
                 if (safe_atoi(de->d_name, &fd) < 0)
                         /* Let's better ignore this, just in case */
                         continue;
