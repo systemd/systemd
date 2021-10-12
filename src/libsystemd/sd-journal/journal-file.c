@@ -4107,14 +4107,14 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         return 1;
 }
 
-bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int level) {
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level) {
         assert(f);
         assert(f->header);
 
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
         if (le64toh(f->header->header_size) < sizeof(Header)) {
-                log_debug("%s uses an outdated header, suggesting rotation.", f->path);
+                log_full(log_level, "%s uses an outdated header, suggesting rotation.", f->path);
                 return true;
         }
 
@@ -4124,25 +4124,25 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_full(level,
-                                "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
-                                f->path,
-                                100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
-                                le64toh(f->header->n_data),
-                                le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
-                                (unsigned long long) f->last_stat.st_size,
-                                f->last_stat.st_size / le64toh(f->header->n_data));
+                        log_full(log_level,
+                                 "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
+                                 f->path,
+                                 100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
+                                 le64toh(f->header->n_data),
+                                 le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+                                 (unsigned long long) f->last_stat.st_size,
+                                 f->last_stat.st_size / le64toh(f->header->n_data));
                         return true;
                 }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_full(level,
-                                "Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
-                                f->path,
-                                100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
-                                le64toh(f->header->n_fields),
-                                le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+                        log_full(log_level,
+                                 "Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
+                                 f->path,
+                                 100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
+                                 le64toh(f->header->n_fields),
+                                 le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
                         return true;
                 }
 
@@ -4150,7 +4150,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
          * longest chain is longer than some threshold, let's suggest rotation. */
         if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth) &&
             le64toh(f->header->data_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
-                log_full(level,
+                log_full(log_level,
                          "Data hash table of %s has deepest hash chain of length %" PRIu64 ", suggesting rotation.",
                          f->path, le64toh(f->header->data_hash_chain_depth));
                 return true;
@@ -4158,7 +4158,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
 
         if (JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth) &&
             le64toh(f->header->field_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
-                log_full(level,
+                log_full(log_level,
                          "Field hash table of %s has deepest hash chain of length at %" PRIu64 ", suggesting rotation.",
                          f->path, le64toh(f->header->field_hash_chain_depth));
                 return true;
@@ -4169,7 +4169,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
             JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
             le64toh(f->header->n_data) > 0 &&
             le64toh(f->header->n_fields) == 0) {
-                log_full(level,
+                log_full(log_level,
                          "Data objects of %s are not indexed by field objects, suggesting rotation.",
                          f->path);
                 return true;
@@ -4182,9 +4182,9 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int lev
                 t = now(CLOCK_REALTIME);
 
                 if (h > 0 && t > h + max_file_usec) {
-                        log_full(level,
-                                "Oldest entry in %s is older than the configured file retention duration (%lu), suggesting rotation.",
-                                f->path, max_file_usec);
+                        log_full(log_level,
+                                 "Oldest entry in %s is older than the configured file retention duration (%s), suggesting rotation.",
+                                 f->path, FORMAT_TIMESPAN(max_file_usec, USEC_PER_SEC));
                         return true;
                 }
         }
