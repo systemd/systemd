@@ -201,6 +201,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_REMOVED_ENTRY_ITEM_HASH(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_REMOVED_ENTRY_ITEM_HASH)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
