@@ -262,7 +262,7 @@ int close_all_fds(const int except[], size_t n_except) {
                         /* Close everything. Yay! */
 
                         if (close_range(3, -1, 0) >= 0)
-                                return 1;
+                                return 0;
 
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                                 return -errno;
@@ -297,8 +297,6 @@ int close_all_fds(const int except[], size_t n_except) {
                                 sorted = newa(int, n_sorted);
 
                         if (sorted) {
-                                int c = 0;
-
                                 memcpy(sorted, except, n_except * sizeof(int));
 
                                 /* Let's add fd 2 to the list of fds, to simplify the loop below, as this
@@ -326,18 +324,16 @@ int close_all_fds(const int except[], size_t n_except) {
                                                 have_close_range = false;
                                                 break;
                                         }
-
-                                        c += end - start - 1;
                                 }
 
                                 if (have_close_range) {
                                         /* The loop succeeded. Let's now close everything beyond the end */
 
                                         if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
-                                                return c;
+                                                return 0;
 
                                         if (close_range(sorted[n_sorted-1] + 1, -1, 0) >= 0)
-                                                return c + 1;
+                                                return 0;
 
                                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                                                 return -errno;
