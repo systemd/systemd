@@ -93,6 +93,7 @@ typedef struct DHCP6IA {
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;
 
+bool dhcp6_option_can_request(uint16_t option);
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
