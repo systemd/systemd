@@ -657,7 +657,9 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
         assert(u);
 
         set_clear(*set_installed);
-        set_ensure_allocated(set_installed, &bpf_program_hash_ops);
+        r = set_ensure_allocated(set_installed, &bpf_program_hash_ops);
+        if (r < 0)
+                return log_oom();
 
         SET_FOREACH_MOVE(prog, *set_installed, *set) {
                 r = bpf_program_cgroup_attach(prog, attach_type, path, BPF_F_ALLOW_MULTI);
