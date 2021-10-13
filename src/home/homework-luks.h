@@ -15,7 +15,7 @@ int home_store_header_identity_luks(UserRecord *h, HomeSetup *setup, UserRecord 
 
 int home_create_luks(UserRecord *h, PasswordCache *cache, char **effective_passwords, UserRecord **ret_home);
 
-int home_validate_update_luks(UserRecord *h, HomeSetup *setup);
+int home_get_state_luks(UserRecord *h, HomeSetup *setup);
 
 int home_resize_luks(UserRecord *h, bool already_activated, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_home);
 
