@@ -1518,10 +1518,12 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix delegation: %m");
         }
 
-        if (link->network->dhcp6_pd_length > 0) {
-                r = sd_dhcp6_client_set_prefix_delegation_hint(client, link->network->dhcp6_pd_length, &link->network->dhcp6_pd_address);
+        if (link->network->dhcp6_pd_prefix_length > 0) {
+                r = sd_dhcp6_client_set_prefix_delegation_hint(client,
+                                                               link->network->dhcp6_pd_prefix_length,
+                                                               &link->network->dhcp6_pd_prefix_hint);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix hint: %m");
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix delegation hint: %m");
         }
 
         link->dhcp6_client = TAKE_PTR(client);
@@ -1634,7 +1636,7 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
         return 0;
 }
 
-int config_parse_dhcp6_pd_hint(
+int config_parse_dhcp6_pd_prefix_hint(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -1646,7 +1648,7 @@ int config_parse_dhcp6_pd_hint(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         union in_addr_union u;
         unsigned char prefixlen;
         int r;
@@ -1654,7 +1656,7 @@ int config_parse_dhcp6_pd_hint(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &u, &prefixlen);
         if (r < 0) {
@@ -1669,8 +1671,8 @@ int config_parse_dhcp6_pd_hint(
                 return 0;
         }
 
-        network->dhcp6_pd_address = u.in6;
-        network->dhcp6_pd_length = prefixlen;
+        network->dhcp6_pd_prefix_hint = u.in6;
+        network->dhcp6_pd_prefix_length = prefixlen;
 
         return 0;
 }
