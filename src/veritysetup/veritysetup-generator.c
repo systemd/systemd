@@ -100,7 +100,7 @@ static int create_device(void) {
 
         fprintf(f,
                 "[Unit]\n"
-                "Description=Integrity Protection Setup for %%I\n"
+                "Description=Verity Protection Setup for %%I\n"
                 "Documentation=man:systemd-veritysetup-generator(8) man:systemd-veritysetup@.service(8)\n"
                 "SourcePath=/proc/cmdline\n"
                 "DefaultDependencies=no\n"

@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-veritysetup-generator</refname>
-    <refpurpose>Unit generator for integrity protected block devices</refpurpose>
+    <refpurpose>Unit generator for verity protected block devices</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -28,7 +28,7 @@
     <title>Description</title>
 
     <para><filename>systemd-veritysetup-generator</filename> is a generator that translates kernel command line options
-    configuring integrity-protected block devices (verity) into native systemd units early at boot and when
+    configuring verity protected block devices into native systemd units early at boot and when
     configuration of the system manager is reloaded. This will create
     <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
@@ -66,7 +66,7 @@
         data devices to use are automatically derived from the specified hash value. Specifically, the data partition
         device is looked for under a GPT partition UUID derived from the first 128bit of the root hash, the hash
         partition device is looked for under a GPT partition UUID derived from the last 128bit of the root hash. Hence
-        it is usually sufficient to specify the root hash to boot from an integrity protected root file system, as
+        it is usually sufficient to specify the root hash to boot from a verity protected root file system, as
         device paths are automatically determined from it — as long as the partition table is properly set up.</para>
         </listitem>
       </varlistentry>
@@ -76,7 +76,7 @@
         <term><varname>systemd.verity_root_hash=</varname></term>
 
         <listitem><para>These two settings take block device paths as arguments and may be used to explicitly
-        configure the data partition and hash partition to use for setting up the integrity protection for the root file
+        configure the data partition and hash partition to use for setting up the verity protection for the root file
         system. If not specified, these paths are automatically derived from the <varname>roothash=</varname> argument
         (see above).</para></listitem>
       </varlistentry>
