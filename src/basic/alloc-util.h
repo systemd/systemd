@@ -148,7 +148,7 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
                 char *_new_;                            \
                 size_t _len_ = n;                       \
                 _new_ = alloca_safe(_len_);             \
-                (void *) memset(_new_, 0, _len_);       \
+                memset(_new_, 0, _len_);                \
         })
 
 /* It's not clear what alignment glibc/gcc alloca() guarantee, hence provide a guaranteed safe version */
@@ -166,7 +166,7 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
                 void *_new_;                                            \
                 size_t _xsize_ = (size);                                \
                 _new_ = alloca_align(_xsize_, (align));                 \
-                (void*)memset(_new_, 0, _xsize_);                       \
+                memset(_new_, 0, _xsize_);                              \
         })
 
 #if HAS_FEATURE_MEMORY_SANITIZER
