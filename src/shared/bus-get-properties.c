@@ -130,7 +130,7 @@ int bus_property_get_rlimit(
                 int z;
 
                 /* Chop off "Soft" suffix */
-                s = is_soft ? strndupa(property, is_soft - property) : property;
+                s = is_soft ? strndupa_safe(property, is_soft - property) : property;
 
                 /* Skip over any prefix, such as "Default" */
                 assert_se(p = strstr(s, "Limit"));

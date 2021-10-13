@@ -1407,7 +1407,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                 rbracket = strchr(host, ']');
                 if (!rbracket)
                         return -EINVAL;
-                t = strndupa(host + 1, rbracket - host - 1);
+                t = strndupa_safe(host + 1, rbracket - host - 1);
                 e = bus_address_escape(t);
                 if (!e)
                         return -ENOMEM;
@@ -1440,7 +1440,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 
                 t = strchr(p, '/');
                 if (t) {
-                        p = strndupa(p, t - p);
+                        p = strndupa_safe(p, t - p);
                         got_forward_slash = true;
                 }
 
@@ -1467,7 +1467,7 @@ interpret_port_as_machine_old_syntax:
         if (!e) {
                 char *t;
 
-                t = strndupa(host, strcspn(host, ":/"));
+                t = strndupa_safe(host, strcspn(host, ":/"));
 
                 e = bus_address_escape(t);
                 if (!e)
