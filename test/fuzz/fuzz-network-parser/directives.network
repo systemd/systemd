@@ -130,6 +130,7 @@ RouteMTUBytes=
 FallbackLeaseLifetimeSec=
 [DHCPv6]
 UseAddress=
+UseDelegatedPrefix=
 UseNTP=
 UseDNS=
 UseHostname=
