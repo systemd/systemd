@@ -106,15 +106,11 @@ static int link_get_by_dhcp6_pd_prefix(Manager *manager, const struct in6_addr *
 }
 
 static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_prefix, uint8_t pd_prefix_len, struct in6_addr *ret) {
-        union in_addr_union u;
-
         assert(link);
         assert(pd_prefix);
 
         if (!link_dhcp6_pd_is_enabled(link))
                 return -ENOENT;
-
-        u.in6 = *pd_prefix;
 
         if (link->network->dhcp6_pd_assign) {
                 Address *address;
@@ -124,14 +120,14 @@ static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_pr
                                 continue;
                         assert(address->family == AF_INET6);
 
-                        if (in_addr_prefix_covers(AF_INET6, &u, pd_prefix_len, &address->in_addr) <= 0)
+                        if (in6_addr_prefix_covers(pd_prefix, pd_prefix_len, &address->in_addr.in6) <= 0)
                                 continue;
 
                         if (ret) {
-                                union in_addr_union prefix = address->in_addr;
+                                struct in6_addr prefix = address->in_addr.in6;
 
-                                in_addr_mask(AF_INET6, &prefix, 64);
-                                *ret = prefix.in6;
+                                in6_addr_mask(&prefix, 64);
+                                *ret = prefix;
                         }
                         return 0;
                 }
@@ -143,7 +139,7 @@ static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_pr
                                 continue;
                         assert(route->family == AF_INET6);
 
-                        if (in_addr_prefix_covers(AF_INET6, &u, pd_prefix_len, &route->dst) > 0) {
+                        if (in6_addr_prefix_covers(pd_prefix, pd_prefix_len, &route->dst.in6) > 0) {
                                 if (ret)
                                         *ret = route->dst.in6;
                                 return 0;
@@ -494,7 +490,7 @@ static int dhcp6_get_preferred_delegated_prefix(
 
                 /* Verify that the prefix we did calculate fits in the pd prefix.
                  * This should not fail as we checked the prefix size beforehand */
-                assert_se(in_addr_prefix_covers(AF_INET6, (const union in_addr_union*) pd_prefix, pd_prefix_len, &prefix) > 0);
+                assert_se(in6_addr_prefix_covers(pd_prefix, pd_prefix_len, &prefix.in6) > 0);
 
                 if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix.in6, &assigned_link) >= 0 &&
                     assigned_link != link) {
@@ -854,7 +850,6 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         for (sd_dhcp6_lease_reset_pd_prefix_iter(dhcp6_link->dhcp6_lease);;) {
                 uint32_t lifetime_preferred, lifetime_valid;
                 struct in6_addr pd_prefix;
-                union in_addr_union prefix;
                 uint8_t pd_prefix_len;
 
                 r = sd_dhcp6_lease_get_pd(dhcp6_link->dhcp6_lease, &pd_prefix, &pd_prefix_len,
@@ -883,8 +878,8 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
 
                 assert(pd_prefix_len <= 64);
 
-                prefix.in6 = pd_prefix;
-                r = in_addr_mask(AF_INET6, &prefix, pd_prefix_len);
+                /* Mask prefix for safety. */
+                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
                 if (r < 0)
                         return log_link_error_errno(dhcp6_link, r, "Failed to mask DHCPv6 PD prefix: %m");
 
@@ -892,13 +887,13 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                         uint64_t n_prefixes = UINT64_C(1) << (64 - pd_prefix_len);
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in6_addr_prefix_to_string(&prefix.in6, pd_prefix_len, &buf);
+                        (void) in6_addr_prefix_to_string(&pd_prefix, pd_prefix_len, &buf);
                         log_link_debug(dhcp6_link, "Assigning up to %" PRIu64 " prefixes from %s",
                                        n_prefixes, strna(buf));
                 }
 
                 r = dhcp6_pd_prefix_distribute(dhcp6_link,
-                                               &prefix.in6,
+                                               &pd_prefix,
                                                pd_prefix_len,
                                                lifetime_preferred,
                                                lifetime_valid,
@@ -907,7 +902,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                         return r;
 
                 r = dhcp6_pd_prefix_distribute(dhcp6_link,
-                                               &prefix.in6,
+                                               &pd_prefix,
                                                pd_prefix_len,
                                                lifetime_preferred,
                                                lifetime_valid,
