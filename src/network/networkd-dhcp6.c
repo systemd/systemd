@@ -1274,59 +1274,37 @@ int dhcp6_request_prefix_delegation(Link *link) {
         log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
 
         HASHMAP_FOREACH(l, link->manager->links_by_index) {
-                int r, enabled;
-
                 if (l == link)
+                        continue;
+
+                if (!l->network)
+                        continue;
+
+                if (!l->network->dhcp6_use_pd_prefix)
+                        continue;
+
+                if (!IN_SET(l->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
                 if (!l->dhcp6_client)
                         continue;
 
-                r = sd_dhcp6_client_get_prefix_delegation(l->dhcp6_client, &enabled);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot get prefix delegation when adding new link: %m");
+                if (sd_dhcp6_client_is_running(l->dhcp6_client) <= 0)
+                        continue;
+
+                if (!l->dhcp6_lease)
+                        continue;
+
+                if (!dhcp6_lease_has_pd_prefix(l->dhcp6_lease))
+                        continue;
+
+                /* Found the upstream link. */
+                log_link_debug(l, "Requesting re-assignment of delegated prefixes after adding new link");
+                if (dhcp6_pd_prefix_acquired(l) < 0)
                         link_enter_failed(l);
-                        continue;
-                }
 
-                if (enabled == 0) {
-                        r = sd_dhcp6_client_set_prefix_delegation(l->dhcp6_client, 1);
-                        if (r < 0) {
-                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link: %m");
-                                link_enter_failed(l);
-                                continue;
-                        }
-                }
-
-                r = sd_dhcp6_client_is_running(l->dhcp6_client);
-                if (r <= 0)
-                        continue;
-
-                if (enabled != 0) {
-                        if (dhcp6_lease_has_pd_prefix(l->dhcp6_lease)) {
-                                log_link_debug(l, "Requesting re-assignment of delegated prefixes after adding new link");
-                                r = dhcp6_pd_prefix_acquired(l);
-                                if (r < 0)
-                                        link_enter_failed(l);
-                        }
-                        continue;
-                }
-
-                r = sd_dhcp6_client_stop(l->dhcp6_client);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot stop DHCPv6 prefix delegation client after adding new link: %m");
-                        link_enter_failed(l);
-                        continue;
-                }
-
-                r = sd_dhcp6_client_start(l->dhcp6_client);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot restart DHCPv6 prefix delegation client after adding new link: %m");
-                        link_enter_failed(l);
-                        continue;
-                }
-
-                log_link_debug(l, "Restarted DHCPv6 client to acquire prefix delegations after adding new link");
+                /* Assume that there exists at most one link which acquired delegated prefixes. */
+                break;
         }
 
         /* dhcp6_pd_prefix_acquired() may make the link in failed state. */
