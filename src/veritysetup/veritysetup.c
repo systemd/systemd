@@ -30,7 +30,7 @@ static int help(void) {
 
         printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]\n"
                "%s detach VOLUME\n\n"
-               "Attach or detach an integrity protected block device.\n"
+               "Attach or detach a verity protected block device.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
