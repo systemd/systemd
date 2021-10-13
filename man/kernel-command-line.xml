@@ -386,8 +386,9 @@
         <term><varname>systemd.default_timeout_start_sec=</varname></term>
 
         <listitem>
-          <para>Overwrites the default start job timeout <varname>DefaultTimeoutStartSec=</varname> at boot. For details,
-          see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          <para>Overrrides the default start job timeout <varname>DefaultTimeoutStartSec=</varname> at
+          boot. For details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -395,7 +396,20 @@
         <term><varname>systemd.watchdog_device=</varname></term>
 
         <listitem>
-          <para>Overwrites the watchdog device path <varname>WatchdogDevice=</varname>. For details, see
+          <para>Overrrides the watchdog device path <varname>WatchdogDevice=</varname>. For details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.watchdog_sec=</varname></term>
+
+        <listitem>
+          <para>Overrrides the watchdog timeout settings otherwise configured with
+          <varname>RuntimeWatchdog=</varname>, <varname>RebootWatchdog=</varname> and
+          <varname>KExecWatchdogSec=</varname>. Takes a time value (if no unit is specified, seconds is the
+          implicitly assumed time unit) or the special strings <literal>off</literal> or
+          <literal>default</literal>. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
