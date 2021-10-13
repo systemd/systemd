@@ -429,6 +429,18 @@ static int detect_vm_zvm(void) {
 #endif
 }
 
+static int detect_vm_hv(void)
+{
+        /* Detect Hyper-V guests by the existence of /dev/vmbus */
+        if (access("/dev/vmbus", F_OK) < 0) {
+                log_debug("/dev/vmbus not found, assuming no Hyper-V virtualization.");
+                return VIRTUALIZATION_NONE;
+        }
+
+        log_debug("Virtualization Microsoft Hv found (/dev/vmbus exists)");
+        return VIRTUALIZATION_MICROSOFT;
+}
+
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
@@ -467,6 +479,15 @@ int detect_vm(void) {
 
         /* Detect Xen */
         r = detect_vm_xen();
+        if (r < 0)
+                return r;
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
+
+        /* Detect Microsoft Hyper-V */
+        r = detect_vm_hv();
         if (r < 0)
                 return r;
         if (r == VIRTUALIZATION_VM_OTHER)
