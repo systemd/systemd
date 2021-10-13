@@ -85,7 +85,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
                         l = strlen(s);
 
                 assert_se(hex = hexmem(mem, len));
-                answer = strndupa(strempty(s), l);
+                answer = strndupa_safe(strempty(s), l);
                 assert_se(streq(delete_chars(answer, WHITESPACE), hex));
         }
 }
@@ -191,7 +191,7 @@ static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, c
         if (retval == 0) {
                 char *str;
 
-                str = strndupa(mem, len);
+                str = strndupa_safe(mem, len);
                 assert_se(streq(str, ans));
         }
 }
