@@ -2064,6 +2064,15 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseDelegatedPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the delegated prefixes provided by the DHCPv6 server will be
+            used. See also <varname>DHCPv6PrefixDelegation=</varname> in [Network] section and
+            [DHCPv6PrefixDelegation] section.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
