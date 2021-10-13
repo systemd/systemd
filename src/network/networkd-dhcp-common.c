@@ -1281,6 +1281,7 @@ int config_parse_uplink(
                 void *userdata) {
 
         Network *network = userdata;
+        bool accept_none = true;
         int *index, r;
         char **name;
 
@@ -1288,6 +1289,7 @@ int config_parse_uplink(
         assert(section);
         assert(lvalue);
         assert(rvalue);
+        assert(userdata);
 
         if (streq(section, "DHCPServer")) {
                 index = &network->dhcp_server_uplink_index;
@@ -1295,6 +1297,10 @@ int config_parse_uplink(
         } else if (streq(section, "IPv6SendRA")) {
                 index = &network->router_uplink_index;
                 name = &network->router_uplink_name;
+        } else if (streq(section, "DHCPv6PrefixDelegation")) {
+                index = &network->dhcp6_pd_uplink_index;
+                name = &network->dhcp_server_uplink_name;
+                accept_none = false;
         } else
                 assert_not_reached();
 
@@ -1304,8 +1310,14 @@ int config_parse_uplink(
                 return 0;
         }
 
-        if (streq(rvalue, ":none")) {
+        if (accept_none && streq(rvalue, ":none")) {
                 *index = UPLINK_INDEX_NONE;
+                *name = mfree(*name);
+                return 0;
+        }
+
+        if (!accept_none && streq(rvalue, ":self")) {
+                *index = UPLINK_INDEX_SELF;
                 *name = mfree(*name);
                 return 0;
         }

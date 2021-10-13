@@ -241,6 +241,8 @@ struct Network {
         int64_t dhcp6_pd_subnet_id;
         uint32_t dhcp6_pd_route_metric;
         Set *dhcp6_pd_tokens;
+        int dhcp6_pd_uplink_index;
+        char *dhcp6_pd_uplink_name;
 
         /* Bridge Support */
         int use_bpdu;
