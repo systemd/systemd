@@ -178,7 +178,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
 
                 netns = ioctl(m->sock, SIOCGSKNS);
                 if (netns < 0)
-                        log_debug_errno(errno, "sd-device-monitor: Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns: %m");
+                        log_debug_errno(errno, "sd-device-monitor: Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns, ignoring: %m");
                 else {
                         struct stat a, b;
 
@@ -191,9 +191,9 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                                 if (ERRNO_IS_PRIVILEGE(errno))
                                         /* If we can't access PID1's netns info due to permissions, it's fine, this is a
                                          * safety check only after all. */
-                                        log_debug_errno(errno, "sd-device-monitor: No permission to stat PID1's netns, unable to determine if we are in host netns: %m");
+                                        log_debug_errno(errno, "sd-device-monitor: No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
                                 else
-                                        log_debug_errno(errno, "sd-device-monitor: Failed to stat PID1's netns: %m");
+                                        log_debug_errno(errno, "sd-device-monitor: Failed to stat PID1's netns, ignoring: %m");
 
                         } else if (a.st_dev != b.st_dev || a.st_ino != b.st_ino)
                                 log_debug("sd-device-monitor: Netlink socket we listen on is not from host netns, we won't see device events.");
