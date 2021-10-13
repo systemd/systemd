@@ -2064,6 +2064,19 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseDelegatedPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the client will request the DHCPv6 server to delegate
+            prefixes. If the server provides prefixes to be delegated, then subnets of the prefixes are
+            assigned to the interfaces which enables <varname>DHCPv6PrefixDelegation=</varname>.
+            See also <varname>DHCPv6PrefixDelegation=</varname> in [Network] section,
+            [DHCPv6PrefixDelegation] section, and
+            <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>

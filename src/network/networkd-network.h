@@ -169,6 +169,7 @@ struct Network {
 
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
+        bool dhcp6_use_pd_prefix;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
         bool dhcp6_use_hostname;

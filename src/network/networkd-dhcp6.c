@@ -1423,25 +1423,6 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
         return 0;
 }
 
-static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
-        Link *link;
-
-        assert(dhcp6_link);
-        assert(dhcp6_link->manager);
-
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
-                        continue;
-
-                if (!link_dhcp6_pd_is_enabled(link))
-                        continue;
-
-                return true;
-        }
-
-        return false;
-}
-
 static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         const DUID *duid;
         int r;
@@ -1559,11 +1540,10 @@ static int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set callback: %m");
 
-        if (dhcp6_enable_prefix_delegation(link)) {
-                r = sd_dhcp6_client_set_prefix_delegation(client, true);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix delegation: %m");
-        }
+        r = sd_dhcp6_client_set_prefix_delegation(client, link->network->dhcp6_use_pd_prefix);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to %s prefix delegation: %m",
+                                            enable_disable(link->network->dhcp6_use_pd_prefix));
 
         if (link->network->dhcp6_pd_prefix_length > 0) {
                 r = sd_dhcp6_client_set_prefix_delegation_hint(client,
