@@ -183,11 +183,11 @@ struct Network {
         bool dhcp6_iaid_set;
         bool dhcp6_iaid_set_explicitly;
         DUID dhcp6_duid;
-        uint8_t dhcp6_pd_length;
+        uint8_t dhcp6_pd_prefix_length;
+        struct in6_addr dhcp6_pd_prefix_hint;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
-        struct in6_addr dhcp6_pd_address;
         DHCP6ClientStartMode dhcp6_without_ra;
         OrderedHashmap *dhcp6_client_send_options;
         OrderedHashmap *dhcp6_client_send_vendor_options;
