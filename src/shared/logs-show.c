@@ -190,7 +190,7 @@ static int field_set_test(const Set *fields, const char *name, size_t n) {
         if (!fields)
                 return 1;
 
-        s = strndupa(name, n);
+        s = strndupa_safe(name, n);
         return set_contains(fields, s);
 }
 
@@ -972,7 +972,7 @@ static int update_json_data_split(
         if (!journal_field_valid(data, fieldlen, true))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-        name = strndupa(data, fieldlen);
+        name = strndupa_safe(data, fieldlen);
         if (output_fields && !set_contains(output_fields, name))
                 return 0;
 

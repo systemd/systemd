@@ -718,7 +718,7 @@ static int unit_file_is_active(
                 at = strchr(name, '@');
                 assert(at);
 
-                prefix = strndupa(name, at + 1 - name);
+                prefix = strndupa_safe(name, at + 1 - name);
                 joined = strjoina(prefix, "*", at + 1);
 
                 r = sd_bus_message_append_strv(m, STRV_MAKE(joined));

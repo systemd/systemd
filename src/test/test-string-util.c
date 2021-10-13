@@ -13,13 +13,13 @@ static void test_string_erase(void) {
         log_info("/* %s */", __func__);
 
         char *x;
-        x = strdupa("");
+        x = strdupa_safe("");
         assert_se(streq(string_erase(x), ""));
 
-        x = strdupa("1");
+        x = strdupa_safe("1");
         assert_se(streq(string_erase(x), ""));
 
-        x = strdupa("123456789");
+        x = strdupa_safe("123456789");
         assert_se(streq(string_erase(x), ""));
 
         assert_se(x[1] == '\0');
