@@ -1408,7 +1408,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
                 break;
 
         case USER_LUKS: {
-                r = home_validate_update_luks(h, setup);
+                r = home_get_state_luks(h, setup);
                 if (r < 0)
                         return r;
                 if ((r > 0) != has_mount)
