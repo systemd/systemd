@@ -56,51 +56,53 @@ static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred, &lifetime_valid) >= 0;
 }
 
-static int dhcp6_pd_get_link_by_prefix(Manager *manager, const struct in6_addr *prefix, Link **ret) {
-        union in_addr_union u;
+static void link_remove_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
+        void *key;
+
+        assert(link);
+        assert(link->manager);
+        assert(prefix);
+
+        if (hashmap_get(link->manager->links_by_dhcp6_pd_prefix, prefix) != link)
+                return;
+
+        hashmap_remove2(link->manager->links_by_dhcp6_pd_prefix, prefix, &key);
+        free(key);
+}
+
+static int link_add_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
+        _cleanup_free_ struct in6_addr *copy = NULL;
+        int r;
+
+        assert(link);
+        assert(prefix);
+
+        copy = newdup(struct in6_addr, prefix, 1);
+        if (!copy)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&link->manager->links_by_dhcp6_pd_prefix, &in6_addr_hash_ops_free, copy, link);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                TAKE_PTR(copy);
+
+        return 0;
+}
+
+static int link_get_by_dhcp6_pd_prefix(Manager *manager, const struct in6_addr *prefix, Link **ret) {
         Link *link;
 
         assert(manager);
         assert(prefix);
 
-        u.in6 = *prefix;
+        link = hashmap_get(manager->links_by_dhcp6_pd_prefix, prefix);
+        if (!link)
+                return -ENODEV;
 
-        HASHMAP_FOREACH(link, manager->links_by_index) {
-                if (!link_dhcp6_pd_is_enabled(link))
-                        continue;
-
-                if (link->network->dhcp6_pd_assign) {
-                        Address *address;
-
-                        SET_FOREACH(address, link->addresses) {
-                                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
-                                        continue;
-                                assert(address->family == AF_INET6);
-
-                                if (in_addr_prefix_covers(AF_INET6, &u, 64, &address->in_addr) > 0) {
-                                        if (ret)
-                                                *ret = link;
-                                        return 0;
-                                }
-                        }
-                } else {
-                        Route *route;
-
-                        SET_FOREACH(route, link->routes) {
-                                if (route->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
-                                        continue;
-                                assert(route->family == AF_INET6);
-
-                                if (in6_addr_equal(&route->dst.in6, prefix)) {
-                                        if (ret)
-                                                *ret = link;
-                                        return 0;
-                                }
-                        }
-                }
-        }
-
-        return -ENOENT;
+        if (ret)
+                *ret = link;
+        return 0;
 }
 
 static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_prefix, uint8_t pd_prefix_len, struct in6_addr *ret) {
@@ -175,6 +177,8 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
                 if (link->radv)
                         (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
 
+                link_remove_dhcp6_pd_prefix(link, &route->dst.in6);
+
                 k = route_remove(route);
                 if (k < 0)
                         r = k;
@@ -183,17 +187,20 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
         }
 
         SET_FOREACH(address, link->addresses) {
+                struct in6_addr prefix;
+
                 if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
                         continue;
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                if (link->radv) {
-                        union in_addr_union prefix = address->in_addr;
+                prefix = address->in_addr.in6;
+                in6_addr_mask(&prefix, 64);
 
-                        in_addr_mask(AF_INET6, &prefix, 64);
-                        (void) sd_radv_remove_prefix(link->radv, &prefix.in6, 64);
-                }
+                if (link->radv)
+                        (void) sd_radv_remove_prefix(link->radv, &prefix, 64);
+
+                link_remove_dhcp6_pd_prefix(link, &prefix);
 
                 k = address_remove(address);
                 if (k < 0)
@@ -440,7 +447,7 @@ static int dhcp6_pd_assign_prefix(
         if (r < 0)
                 return r;
 
-        return 0;
+        return link_add_dhcp6_pd_prefix(link, prefix);
 }
 
 static bool link_has_preferred_subnet_id(Link *link) {
@@ -489,7 +496,7 @@ static int dhcp6_get_preferred_delegated_prefix(
                  * This should not fail as we checked the prefix size beforehand */
                 assert_se(in_addr_prefix_covers(AF_INET6, (const union in_addr_union*) pd_prefix, pd_prefix_len, &prefix) > 0);
 
-                if (dhcp6_pd_get_link_by_prefix(link->manager, &prefix.in6, &assigned_link) >= 0 &&
+                if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix.in6, &assigned_link) >= 0 &&
                     assigned_link != link) {
                         _cleanup_free_ char *assigned_buf = NULL;
 
@@ -506,7 +513,7 @@ static int dhcp6_get_preferred_delegated_prefix(
         for (uint64_t n = 0; n < n_prefixes; n++) {
                 /* If we do not have an allocation preference just iterate
                  * through the address space and return the first free prefix. */
-                if (dhcp6_pd_get_link_by_prefix(link->manager, &prefix.in6, &assigned_link) < 0 ||
+                if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix.in6, &assigned_link) < 0 ||
                     assigned_link == link) {
                         *ret = prefix.in6;
                         return 0;
