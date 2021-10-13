@@ -368,7 +368,7 @@ int home_setup_undo(HomeSetup *setup) {
         return r;
 }
 
-int home_prepare(
+int home_setup(
                 UserRecord *h,
                 bool already_activated,
                 PasswordCache *cache,
@@ -393,19 +393,19 @@ int home_prepare(
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_prepare_luks(h, already_activated, NULL, cache, setup, ret_header_home);
+                return home_setup_luks(h, already_activated, NULL, cache, setup, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
-                r = home_prepare_directory(h, already_activated, setup);
+                r = home_setup_directory(h, already_activated, setup);
                 break;
 
         case USER_FSCRYPT:
-                r = home_prepare_fscrypt(h, already_activated, cache, setup);
+                r = home_setup_fscrypt(h, already_activated, cache, setup);
                 break;
 
         case USER_CIFS:
-                r = home_prepare_cifs(h, already_activated, setup);
+                r = home_setup_cifs(h, already_activated, setup);
                 break;
 
         default:
@@ -1445,7 +1445,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -1541,7 +1541,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -1613,7 +1613,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 

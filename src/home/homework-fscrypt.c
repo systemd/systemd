@@ -278,7 +278,7 @@ static int fscrypt_setup(
         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to set up home directory with provided passwords.");
 }
 
-int home_prepare_fscrypt(
+int home_setup_fscrypt(
                 UserRecord *h,
                 bool already_activated,
                 PasswordCache *cache,

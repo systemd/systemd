@@ -5,7 +5,7 @@
 #include "homework.h"
 #include "user-record.h"
 
-int home_prepare_luks(UserRecord *h, bool already_activated, const char *force_image_path, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_luks_home);
+int home_setup_luks(UserRecord *h, bool already_activated, const char *force_image_path, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_luks_home);
 
 int home_activate_luks(UserRecord *h, PasswordCache *cache, UserRecord **ret_home);
 int home_deactivate_luks(UserRecord *h);

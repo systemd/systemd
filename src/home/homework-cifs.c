@@ -12,7 +12,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-int home_prepare_cifs(
+int home_setup_cifs(
                 UserRecord *h,
                 bool already_activated,
                 HomeSetup *setup) {
@@ -117,7 +117,7 @@ int home_activate_cifs(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_prepare_cifs(h, false, &setup);
+        r = home_setup_cifs(h, false, &setup);
         if (r < 0)
                 return r;
 
@@ -160,7 +160,7 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
                 return log_error_errno(errno, "Unable to detect whether /sbin/mount.cifs exists: %m");
         }
 
-        r = home_prepare_cifs(h, false, &setup);
+        r = home_setup_cifs(h, false, &setup);
         if (r < 0)
                 return r;
 
