@@ -2802,9 +2802,11 @@ int home_resize_luks(
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
+                r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+                if (r < 0)
+                        return r;
+        }
 
         log_info("offset = %" PRIu64 ", size = %" PRIu64 ", image = %" PRIu64, setup->partition_offset, setup->partition_size, old_image_size);
 
@@ -2910,9 +2912,11 @@ int home_resize_luks(
 
                 log_info("LUKS device growing completed.");
         } else {
-                r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
-                if (r < 0)
-                        return r;
+                if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
+                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (S_ISREG(st.st_mode)) {
                         if (user_record_luks_discard(h))
@@ -2979,19 +2983,21 @@ int home_resize_luks(
 
                 if (S_ISBLK(st.st_mode) && ioctl(image_fd, BLKRRPART, 0) < 0)
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
-        } else {
+        } else if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
                 r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
                 if (r < 0)
                         return r;
         }
 
-        r = home_store_header_identity_luks(new_home, setup, header_home);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
+                r = home_store_header_identity_luks(new_home, setup, header_home);
+                if (r < 0)
+                        return r;
 
-        r = home_extend_embedded_identity(new_home, h, setup);
-        if (r < 0)
-                return r;
+                r = home_extend_embedded_identity(new_home, h, setup);
+                if (r < 0)
+                        return r;
+        }
 
         if (user_record_luks_discard(h))
                 (void) run_fitrim(setup->root_fd);

@@ -53,10 +53,13 @@ typedef struct HomeSetup {
 
 /* Various flags for the operation of setting up a home directory */
 typedef enum HomeSetupFlags {
-        HOME_SETUP_ALREADY_ACTIVATED = 1 << 0, /* Open an already activated home, rather than activate it afresh */
+        HOME_SETUP_ALREADY_ACTIVATED           = 1 << 0, /* Open an already activated home, rather than activate it afresh */
 
         /* CIFS backend: */
-        HOME_SETUP_CIFS_MKDIR        = 1 << 1, /* Create CIFS subdir when missing */
+        HOME_SETUP_CIFS_MKDIR                  = 1 << 1, /* Create CIFS subdir when missing */
+
+        /* Applies only for resize operations */
+        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES = 1 << 2, /* Don't sync identity records into home and LUKS header */
 } HomeSetupFlags;
 
 int home_setup_done(HomeSetup *setup);
