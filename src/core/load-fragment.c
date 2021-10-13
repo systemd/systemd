@@ -6347,6 +6347,8 @@ int config_parse_watchdog_sec(
                 void *data,
                 void *userdata) {
 
+        usec_t *usec = data;
+
         assert(filename);
         assert(lvalue);
         assert(rvalue);
@@ -6354,12 +6356,12 @@ int config_parse_watchdog_sec(
         /* This is called for {Runtime,Reboot,KExec}WatchdogSec= where "default" maps to
          * USEC_INFINITY internally. */
 
-        if (streq(rvalue, "default")) {
-                usec_t *usec = data;
-
+        if (streq(rvalue, "default"))
                 *usec = USEC_INFINITY;
-                return 0;
-        }
+        else if (streq(rvalue, "off"))
+                *usec = 0;
+        else
+                return config_parse_sec(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 
-        return config_parse_sec(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        return 0;
 }
