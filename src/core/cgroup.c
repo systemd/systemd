@@ -3437,7 +3437,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         if (u)
                 return u;
 
-        p = strdupa(cgroup);
+        p = strdupa_safe(cgroup);
         for (;;) {
                 char *e;
 

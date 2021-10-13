@@ -609,7 +609,7 @@ int config_parse_private_users(
 
                 range = strchr(rvalue, ':');
                 if (range) {
-                        shift = strndupa(rvalue, range - rvalue);
+                        shift = strndupa_safe(rvalue, range - rvalue);
                         range++;
 
                         r = safe_atou32(range, &rn);

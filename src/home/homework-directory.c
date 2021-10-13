@@ -39,10 +39,10 @@ int home_activate_directory(
         assert(ret_home);
 
         assert_se(ipo = user_record_image_path(h));
-        ip = strdupa(ipo); /* copy out, since reconciliation might cause changing of the field */
+        ip = strdupa_safe(ipo); /* copy out, since reconciliation might cause changing of the field */
 
         assert_se(hdo = user_record_home_directory(h));
-        hd = strdupa(hdo);
+        hd = strdupa_safe(hdo);
 
         r = home_prepare(h, false, cache, &setup, &header_home);
         if (r < 0)

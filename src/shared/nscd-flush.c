@@ -35,7 +35,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
         l = strlen(database);
         req_size = offsetof(struct nscdInvalidateRequest, dbname) + l + 1;
 
-        req = alloca(req_size);
+        req = alloca_safe(req_size);
         *req = (struct nscdInvalidateRequest) {
                 .version = 2,
                 .type = 10,

@@ -309,8 +309,8 @@ int show_man_page(const char *desc, bool null_stdio) {
         if (e) {
                 char *page = NULL, *section = NULL;
 
-                page = strndupa(desc, e - desc);
-                section = strndupa(e + 1, desc + k - e - 2);
+                page = strndupa_safe(desc, e - desc);
+                section = strndupa_safe(e + 1, desc + k - e - 2);
 
                 args[1] = section;
                 args[2] = page;

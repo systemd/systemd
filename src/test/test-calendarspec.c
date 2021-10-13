@@ -40,7 +40,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
 
         old_tz = getenv("TZ");
         if (old_tz)
-                old_tz = strdupa(old_tz);
+                old_tz = strdupa_safe(old_tz);
 
         if (!isempty(new_tz))
                 new_tz = strjoina(":", new_tz);
