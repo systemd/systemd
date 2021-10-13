@@ -680,7 +680,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         }
 
         /* Found it! Now generate the new name */
-        prefix = strndupa(name, saved_before - name);
+        prefix = strndupa_safe(name, saved_before - name);
 
         r = dns_name_concat(prefix, new_suffix, 0, ret);
         if (r < 0)
@@ -1028,7 +1028,7 @@ static bool dns_service_name_label_is_valid(const char *label, size_t n) {
         if (memchr(label, 0, n))
                 return false;
 
-        s = strndupa(label, n);
+        s = strndupa_safe(label, n);
         return dns_service_name_is_valid(s);
 }
 

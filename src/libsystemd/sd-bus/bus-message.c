@@ -4636,7 +4636,7 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                 if (r < 0)
                         return r;
 
-                types = strndupa(c->signature + c->index, l);
+                types = strndupa_safe(c->signature + c->index, l);
         }
 
         switch (*types) {

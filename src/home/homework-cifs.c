@@ -115,7 +115,7 @@ int home_activate_cifs(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks CIFS service, refusing.");
 
         assert_se(hdo = user_record_home_directory(h));
-        hd = strdupa(hdo); /* copy the string out, since it might change later in the home record object */
+        hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
         r = home_prepare_cifs(h, false, &setup);
         if (r < 0)

@@ -114,7 +114,7 @@ int uid_range_add_str(UidRange **p, unsigned *n, const char *s) {
                 char *b;
                 uid_t end;
 
-                b = strndupa(s, t - s);
+                b = strndupa_safe(s, t - s);
                 r = parse_uid(b, &start);
                 if (r < 0)
                         return r;
