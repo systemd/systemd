@@ -555,12 +555,9 @@ static int dhcp6_pd_prefix_distribute(
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
 
-                r = dhcp6_pd_get_assigned_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix);
-                if (r < 0) {
-                        r = dhcp6_get_preferred_delegated_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix);
-                        if (r < 0)
-                                continue;
-                }
+                if (dhcp6_pd_get_assigned_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix) < 0 &&
+                    dhcp6_get_preferred_delegated_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix) < 0)
+                        continue;
 
                 (void) in6_addr_prefix_to_string(&assigned_prefix, 64, &buf);
                 r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
