@@ -9,6 +9,10 @@
 #include "set.h"
 #include "time-util.h"
 
+/* Special values for *_uplink_index. */
+#define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
+#define UPLINK_INDEX_NONE -1 /* uplink will not be selected automatically */
+
 #define DHCP_ROUTE_METRIC 1024
 #define DHCP6PD_ROUTE_METRIC 256
 
@@ -100,3 +104,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_duid_rawdata);
 CONFIG_PARSER_PROTOTYPE(config_parse_manager_duid_rawdata);
 CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_rawdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_uplink);
