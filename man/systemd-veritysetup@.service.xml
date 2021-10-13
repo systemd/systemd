@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-veritysetup@.service</refname>
     <refname>systemd-veritysetup</refname>
-    <refpurpose>Disk integrity protection logic</refpurpose>
+    <refpurpose>Disk verity protection logic</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -29,12 +29,12 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-veritysetup@.service</filename> is a service responsible for setting up integrity
-    protection (verity) block devices. It should be instantiated for each device that requires integrity
+    <para><filename>systemd-veritysetup@.service</filename> is a service responsible for setting up verity
+    protection block devices. It should be instantiated for each device that requires verity
     protection.</para>
 
     <para>At early boot and when the system manager configuration is reloaded kernel command line configuration for
-    integrity protected block devices is translated into <filename>systemd-veritysetup@.service</filename> units by
+    verity protected block devices is translated into <filename>systemd-veritysetup@.service</filename> units by
     <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para><filename>systemd-veritysetup@.service</filename> calls <command>systemd-veritysetup</command>.</para>

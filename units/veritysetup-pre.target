@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Local Verity Integrity Protected Volumes (Pre)
+Description=Local Verity Protected Volumes (Pre)
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes
 Before=veritysetup.target
