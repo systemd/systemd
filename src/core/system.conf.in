@@ -29,9 +29,9 @@
 #CPUAffinity=
 #NUMAPolicy=default
 #NUMAMask=
-#RuntimeWatchdogSec=0
+#RuntimeWatchdogSec=off
 #RebootWatchdogSec=10min
-#KExecWatchdogSec=0
+#KExecWatchdogSec=off
 #WatchdogDevice=
 #CapabilityBoundingSet=
 #NoNewPrivileges=no

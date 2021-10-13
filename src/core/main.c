@@ -544,6 +544,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (streq(value, "default"))
                         arg_runtime_watchdog = USEC_INFINITY;
+                else if (streq(value, "off"))
+                        arg_runtime_watchdog = 0;
                 else {
                         r = parse_sec(value, &arg_runtime_watchdog);
                         if (r < 0) {
