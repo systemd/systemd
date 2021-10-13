@@ -3462,7 +3462,7 @@ int bus_exec_context_set_transient_property(
                         if (soft) {
                                 const char *n;
 
-                                n = strndupa(suffix, soft - suffix);
+                                n = strndupa_safe(suffix, soft - suffix);
                                 ri = rlimit_from_string(n);
                                 if (ri >= 0)
                                         name = strjoina("Limit", n);

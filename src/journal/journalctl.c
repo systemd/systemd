@@ -280,7 +280,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         } else if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
                 char *t;
 
-                t = strndupa(x, SD_ID128_STRING_MAX - 1);
+                t = strndupa_safe(x, SD_ID128_STRING_MAX - 1);
                 r = sd_id128_from_string(t, &id);
                 if (r >= 0)
                         x += SD_ID128_STRING_MAX - 1;

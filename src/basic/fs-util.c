@@ -56,7 +56,7 @@ int rmdir_parents(const char *path, const char *stop) {
         if (!path_is_safe(stop))
                 return -EINVAL;
 
-        p = strdupa(path);
+        p = strdupa_safe(path);
 
         for (;;) {
                 char *slash = NULL;

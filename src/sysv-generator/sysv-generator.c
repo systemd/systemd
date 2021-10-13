@@ -289,7 +289,7 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
         }
 
         /* Strip ".sh" suffix from file name for comparison */
-        filename_no_sh = strdupa(filename);
+        filename_no_sh = strdupa_safe(filename);
         e = endswith(filename_no_sh, ".sh");
         if (e) {
                 *e = '\0';

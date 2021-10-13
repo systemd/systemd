@@ -929,7 +929,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         host_basename = basename(host_path);
 
         container_basename = basename(container_path);
-        t = strdupa(container_path);
+        t = strdupa_safe(container_path);
         container_dirname = dirname(t);
 
         hostfd = open_parent(host_path, O_CLOEXEC, 0);

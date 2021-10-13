@@ -647,7 +647,8 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (un->sun_path[0] == 0)
                 goto skipped;
 
-        path = strndupa(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
+        path = strndupa_safe(un->sun_path,
+                             addrlen - offsetof(struct sockaddr_un, sun_path));
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();

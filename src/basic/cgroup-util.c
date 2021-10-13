@@ -1131,7 +1131,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit) {
         if (n < 3)
                 return -ENXIO;
 
-        c = strndupa(cgroup, n);
+        c = strndupa_safe(cgroup, n);
         c = cg_unescape(c);
 
         if (!unit_name_is_valid(c, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))

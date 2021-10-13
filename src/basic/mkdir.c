@@ -126,7 +126,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         assert(*e == '/');
 
         /* drop the last component */
-        path = strndupa(path, e - path);
+        path = strndupa_safe(path, e - path);
         r = is_dir(path, true);
         if (r > 0)
                 return 0;

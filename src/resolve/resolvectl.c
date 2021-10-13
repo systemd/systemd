@@ -623,7 +623,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
         q = strchr(p, '?');
         if (q) {
-                n = strndupa(p, q - p);
+                n = strndupa_safe(p, q - p);
                 q++;
 
                 for (;;) {
@@ -1001,7 +1001,7 @@ static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid port \"%s\".", port + 1);
 
-                address = strndupa(address, port - address);
+                address = strndupa_safe(address, port - address);
         }
 
         r = asprintf(&full, "_%u._%s.%s",

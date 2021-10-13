@@ -387,7 +387,7 @@ static int run(int argc, char *argv[]) {
         if (!sysname)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Requires a subsystem and sysname pair specifying a backlight device.");
 
-        ss = strndupa(argv[2], sysname - argv[2]);
+        ss = strndupa_safe(argv[2], sysname - argv[2]);
 
         sysname++;
 

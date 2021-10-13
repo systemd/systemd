@@ -726,7 +726,8 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         }
 
         /* Make sure the path is NUL terminated */
-        p = strndupa(b->sockaddr.un.sun_path, sizeof(b->sockaddr.un.sun_path));
+        p = strndupa_safe(b->sockaddr.un.sun_path,
+                          sizeof(b->sockaddr.un.sun_path));
 
         /* Make sure the path is absolute */
         r = path_make_absolute_cwd(p, &absolute);

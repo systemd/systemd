@@ -12,7 +12,7 @@ static int parse_parts_value_whole(const char *p, const char *symbol) {
         if (!pc)
                 return -EINVAL;
 
-        n = strndupa(p, pc - p);
+        n = strndupa_safe(p, pc - p);
         r = safe_atoi(n, &v);
         if (r < 0)
                 return r;
@@ -37,10 +37,10 @@ static int parse_parts_value_with_tenths_place(const char *p, const char *symbol
                 if (dot[1] < '0' || dot[1] > '9')
                         return -EINVAL;
                 q = dot[1] - '0';
-                n = strndupa(p, dot - p);
+                n = strndupa_safe(p, dot - p);
         } else {
                 q = 0;
-                n = strndupa(p, pc - p);
+                n = strndupa_safe(p, pc - p);
         }
         r = safe_atoi(n, &v);
         if (r < 0)
@@ -81,10 +81,10 @@ static int parse_parts_value_with_hundredths_place(const char *p, const char *sy
                         /* We do not support zero or more than two places */
                         return -EINVAL;
 
-                n = strndupa(p, dot - p);
+                n = strndupa_safe(p, dot - p);
         } else {
                 q = 0;
-                n = strndupa(p, pc - p);
+                n = strndupa_safe(p, pc - p);
         }
         r = safe_atoi(n, &v);
         if (r < 0)

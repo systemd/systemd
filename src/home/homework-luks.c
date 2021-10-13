@@ -662,7 +662,7 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
 
         e = strchr(cipher_mode, '-');
         if (e)
-                cipher_mode = strndupa(cipher_mode, e - cipher_mode);
+                cipher_mode = strndupa_safe(cipher_mode, e - cipher_mode);
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
@@ -1354,7 +1354,7 @@ int home_activate_luks(
                 return r;
 
         assert_se(hdo = user_record_home_directory(h));
-        hd = strdupa(hdo); /* copy the string out, since it might change later in the home record object */
+        hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
         r = make_dm_names(h->user_name, &setup.dm_name, &setup.dm_node);
         if (r < 0)
@@ -2709,7 +2709,7 @@ int home_resize_luks(
                 return r;
 
         assert_se(ipo = user_record_image_path(h));
-        ip = strdupa(ipo); /* copy out since original might change later in home record object */
+        ip = strdupa_safe(ipo); /* copy out since original might change later in home record object */
 
         image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (image_fd < 0)

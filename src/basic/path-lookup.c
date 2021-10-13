@@ -489,7 +489,7 @@ static int get_paths_from_environ(const char *var, char ***paths, bool *append) 
 
                 k = endswith(e, ":");
                 if (k) {
-                        e = strndupa(e, k - e);
+                        e = strndupa_safe(e, k - e);
                         *append = true;
                 }
 

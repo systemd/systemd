@@ -369,7 +369,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
         }
 
         /* translate sysname back to sysfs filename */
-        name = strdupa(sysname);
+        name = strdupa_safe(sysname);
         for (size_t i = 0; name[i]; i++)
                 if (name[i] == '/')
                         name[i] = '!';

@@ -223,7 +223,7 @@ static int safe_atou_optional_plus(const char *s, unsigned *ret) {
 
         p = endswith(s, "+");
         if (p)
-                s = strndupa(s, p - s);
+                s = strndupa_safe(s, p - s);
 
         r = safe_atou(s, ret);
         if (r < 0)

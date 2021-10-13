@@ -77,7 +77,7 @@ static int print_status_info(const StatusInfo *i) {
         /* Save the old $TZ */
         tz = getenv("TZ");
         if (tz)
-                old_tz = strdupa(tz);
+                old_tz = strdupa_safe(tz);
 
         /* Set the new $TZ */
         tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);

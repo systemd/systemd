@@ -117,7 +117,7 @@ int bus_set_transient_usec_internal(
                 else
                         *p = v;
 
-                char *n = strndupa(name, strlen(name) - 4);
+                char *n = strndupa_safe(name, strlen(name) - 4);
                 unit_write_settingf(u, flags, name, "%sSec=%s", n, FORMAT_TIMESPAN(v, USEC_PER_MSEC));
         }
 

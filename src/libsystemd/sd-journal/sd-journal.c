@@ -1468,7 +1468,7 @@ static int dirname_is_machine_id(const char *fn) {
                 if (!log_namespace_name_valid(e + 1))
                         return false;
 
-                k = strndupa(fn, e - fn);
+                k = strndupa_safe(fn, e - fn);
                 r = sd_id128_from_string(k, &id);
         } else
                 r = sd_id128_from_string(fn, &id);
@@ -1493,7 +1493,7 @@ static int dirname_has_namespace(const char *fn, const char *namespace) {
                 if (!streq(e + 1, namespace))
                         return false;
 
-                k = strndupa(fn, e - fn);
+                k = strndupa_safe(fn, e - fn);
                 return id128_is_valid(k);
         }
 
@@ -1530,7 +1530,7 @@ static bool dirent_is_journal_subdir(const struct dirent *de) {
         if (!e)
                 return id128_is_valid(de->d_name); /* No namespace */
 
-        n = strndupa(de->d_name, e - de->d_name);
+        n = strndupa_safe(de->d_name, e - de->d_name);
         if (!id128_is_valid(n))
                 return false;
 

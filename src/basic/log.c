@@ -1073,8 +1073,10 @@ int log_struct_iovec_internal(
 
         for (size_t i = 0; i < n_input_iovec; i++)
                 if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE=")) {
-                        char *m = strndupa(input_iovec[i].iov_base + STRLEN("MESSAGE="),
-                                           input_iovec[i].iov_len - STRLEN("MESSAGE="));
+                        char *m;
+
+                        m = strndupa_safe((char*) input_iovec[i].iov_base + STRLEN("MESSAGE="),
+                                          input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
                         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
                 }

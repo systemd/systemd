@@ -135,7 +135,7 @@ int procfs_tasks_get_current(uint64_t *ret) {
 
         p++;
         n = strspn(p, DIGITS);
-        nr = strndupa(p, n);
+        nr = strndupa_safe(p, n);
 
         return safe_atou64(nr, ret);
 }

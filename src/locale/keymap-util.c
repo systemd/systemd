@@ -648,9 +648,10 @@ int find_legacy_keymap(Context *c, char **ret) {
                  */
                 char *l, *v = NULL, *converted;
 
-                l = strndupa(c->x11_layout, strcspn(c->x11_layout, ","));
+                l = strndupa_safe(c->x11_layout, strcspn(c->x11_layout, ","));
                 if (c->x11_variant)
-                        v = strndupa(c->x11_variant, strcspn(c->x11_variant, ","));
+                        v = strndupa_safe(c->x11_variant,
+                                          strcspn(c->x11_variant, ","));
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;

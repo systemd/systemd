@@ -337,7 +337,7 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         if (!pos)
                 return NULL;
 
-        base = strndupa(base, pos - base);
+        base = strndupa_safe(base, pos - base);
         dir = opendir(base);
         if (!dir)
                 return NULL;

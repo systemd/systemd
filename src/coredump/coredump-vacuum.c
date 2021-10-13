@@ -61,7 +61,7 @@ static int uid_from_file_name(const char *filename, uid_t *uid) {
         if (!e)
                 return -EINVAL;
 
-        u = strndupa(p, e-p);
+        u = strndupa_safe(p, e - p);
         return parse_uid(u, uid);
 }
 
