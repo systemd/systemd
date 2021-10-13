@@ -1379,15 +1379,10 @@ int home_activate_luks(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = make_dm_names(h->user_name, &setup.dm_name, &setup.dm_node);
+        r = home_get_state_luks(h, &setup);
         if (r < 0)
                 return r;
-
-        r = access(setup.dm_node, F_OK);
-        if (r < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", setup.dm_node);
-        } else
+        if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup.dm_node);
 
         r = home_prepare_luks(
@@ -2351,7 +2346,7 @@ fail:
         return r;
 }
 
-int home_validate_update_luks(UserRecord *h, HomeSetup *setup) {
+int home_get_state_luks(UserRecord *h, HomeSetup *setup) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         int r;
 
