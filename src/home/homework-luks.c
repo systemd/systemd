@@ -1098,7 +1098,7 @@ static int lock_image_fd(int image_fd, const char *ip) {
         return 0;
 }
 
-int home_prepare_luks(
+int home_setup_luks(
                 UserRecord *h,
                 bool already_activated,
                 const char *force_image_path,
@@ -1385,7 +1385,7 @@ int home_activate_luks(
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup.dm_node);
 
-        r = home_prepare_luks(
+        r = home_setup_luks(
                         h,
                         false,
                         NULL,
@@ -2797,7 +2797,7 @@ int home_resize_luks(
                 new_image_size = new_image_size_rounded;
         }
 
-        r = home_prepare_luks(h, already_activated, whole_disk, cache, setup, &header_home);
+        r = home_setup_luks(h, already_activated, whole_disk, cache, setup, &header_home);
         if (r < 0)
                 return r;
 
