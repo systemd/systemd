@@ -704,7 +704,7 @@ int parse_dev(const char *s, dev_t *ret) {
         if (s[n] != ':')
                 return -EINVAL;
 
-        major = strndupa(s, n);
+        major = strndupa_safe(s, n);
         r = safe_atou(major, &x);
         if (r < 0)
                 return r;
@@ -765,7 +765,7 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
         if (!d)
                 return -EINVAL;
 
-        i_str = strndupa(s, d - s);
+        i_str = strndupa_safe(s, d - s);
         f_str = d + 1;
 
         r = safe_atolu_full(i_str, 10, &i);

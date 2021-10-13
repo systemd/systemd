@@ -1513,7 +1513,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
                 e = strrchr(path, '/');
                 assert(e);
 
-                p = strndupa(path, MAX(1, e - path));
+                p = strndupa_safe(path, MAX(1, e - path));
 
                 parent = bus_node_allocate(bus, p);
                 if (!parent)
