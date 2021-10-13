@@ -149,7 +149,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
         if (!e)
                 return 0;
 
-        n = strndupa(event->name, e - event->name);
+        n = strndupa_safe(event->name, e - event->name);
         if (!suitable_user_name(n))
                 return 0;
 

@@ -194,3 +194,19 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
                 __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
                 MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
                 VOID_0))
+
+
+/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
+#define strdupa_safe(s)                                                 \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strlen(_t));                \
+        })
+
+#define strndupa_safe(s, n)                                             \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strnlen(_t, (n)));          \
+        })
+
+#include "memory-util.h"

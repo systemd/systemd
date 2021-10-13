@@ -475,7 +475,7 @@ static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int fa
         if (!p)
                 mtu = value;
         else
-                mtu = strndupa(value, p - value);
+                mtu = strndupa_safe(value, p - value);
 
         r = network_set_mtu(context, ifname, family, mtu);
         if (r < 0)
@@ -511,14 +511,14 @@ static int parse_ip_address_one(int family, const char **value, union in_addr_un
                 if (q[1] != ':')
                         return -EINVAL;
 
-                buf = strndupa(p + 1, q - p - 1);
+                buf = strndupa_safe(p + 1, q - p - 1);
                 p = q + 2;
         } else {
                 q = strchr(p, ':');
                 if (!q)
                         return -EINVAL;
 
-                buf = strndupa(p, q - p);
+                buf = strndupa_safe(p, q - p);
                 p = q + 1;
         }
 
@@ -549,7 +549,7 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
                 if (!p)
                         return -EINVAL;
 
-                q = strndupa(*value, p - *value);
+                q = strndupa_safe(*value, p - *value);
                 r = safe_atou8(q, ret);
                 if (r < 0)
                         return r;
@@ -588,7 +588,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
                 return -EINVAL;
 
         if (p != value) {
-                hostname = strndupa(value, p - value);
+                hostname = strndupa_safe(value, p - value);
                 if (!hostname_is_valid(hostname, 0))
                         return -EINVAL;
         }
@@ -600,7 +600,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         if (!p)
                 return -EINVAL;
 
-        ifname = strndupa(value, p - value);
+        ifname = strndupa_safe(value, p - value);
 
         value = p + 1;
 
@@ -609,7 +609,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         if (!p)
                 dhcp_type = value;
         else
-                dhcp_type = strndupa(value, p - value);
+                dhcp_type = strndupa_safe(value, p - value);
 
         r = network_set_dhcp_type(context, ifname, dhcp_type);
         if (r < 0)
@@ -644,7 +644,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
                 if (r < 0)
                         return r;
         } else {
-                dns = strndupa(value, p - value);
+                dns = strndupa_safe(value, p - value);
                 r = network_set_dns(context, ifname, dns);
                 if (r < 0)
                         return r;
@@ -666,14 +666,14 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
         if (!p)
                 return -EINVAL;
 
-        ifname = strndupa(value, p - value);
+        ifname = strndupa_safe(value, p - value);
 
         value = p + 1;
         p = strchr(value, ':');
         if (!p)
                 dhcp_type = value;
         else
-                dhcp_type = strndupa(value, p - value);
+                dhcp_type = strndupa_safe(value, p - value);
 
         r = network_set_dhcp_type(context, ifname, dhcp_type);
         if (r < 0)
@@ -726,7 +726,7 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
                 if (p[1] != ':')
                         return -EINVAL;
 
-                buf = strndupa(value + 1, p - value - 1);
+                buf = strndupa_safe(value + 1, p - value - 1);
                 value = p + 2;
                 family = AF_INET6;
         } else {
@@ -734,7 +734,7 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
                 if (!p)
                         return -EINVAL;
 
-                buf = strndupa(value, p - value);
+                buf = strndupa_safe(value, p - value);
                 value = p + 1;
                 family = AF_INET;
         }
@@ -786,7 +786,7 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
         if (!p)
                 return -EINVAL;
 
-        name = strndupa(value, p - value);
+        name = strndupa_safe(value, p - value);
 
         netdev = netdev_get(context, name);
         if (!netdev) {
@@ -810,7 +810,7 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         if (!p)
                 return -EINVAL;
 
-        name = strndupa(value, p - value);
+        name = strndupa_safe(value, p - value);
 
         netdev = netdev_get(context, name);
         if (!netdev) {
@@ -848,7 +848,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         if (!p)
                 return -EINVAL;
 
-        name = strndupa(value, p - value);
+        name = strndupa_safe(value, p - value);
 
         netdev = netdev_get(context, name);
         if (!netdev) {
@@ -862,7 +862,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         if (!p)
                 slaves = value;
         else
-                slaves = strndupa(value, p - value);
+                slaves = strndupa_safe(value, p - value);
 
         if (isempty(slaves))
                 return -EINVAL;
@@ -907,7 +907,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
         if (!p)
                 return -EINVAL;
 
-        name = strndupa(value, p - value);
+        name = strndupa_safe(value, p - value);
 
         r = ether_addr_from_string(p + 1, &mac);
         if (r < 0)

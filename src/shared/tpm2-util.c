@@ -151,7 +151,7 @@ static int tpm2_init(const char *device, struct tpm2_context *ret) {
 
                 param = strchr(device, ':');
                 if (param) {
-                        driver = strndupa(device, param - device);
+                        driver = strndupa_safe(device, param - device);
                         param++;
                 } else {
                         driver = "device";
