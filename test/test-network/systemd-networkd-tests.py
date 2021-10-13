@@ -4012,7 +4012,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-ipv4-only.network',
         'dhcp-client-ipv4-use-routes-use-gateway.network',
         'dhcp-client-ipv6-only.network',
-        'dhcp-client-ipv6-rapid-commit.network',
         'dhcp-client-keep-configuration-dhcp-on-stop.network',
         'dhcp-client-keep-configuration-dhcp.network',
         'dhcp-client-listen-port.network',
@@ -4193,8 +4192,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertNotRegex(output, r'9.9.9.9 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
 
     def test_dhcp_client_ipv4_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network',
-                                        'dhcp-client-ipv4-only.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4246,30 +4244,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertTrue(search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
         self.assertTrue(search_words_in_dnsmasq_log('client provides name: test-hostname'))
         self.assertTrue(search_words_in_dnsmasq_log('26:mtu'))
-
-    def test_dhcp6_client_settings_rapidcommit_true(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip address show dev veth99')
-        print(output)
-        self.assertRegex(output, '12:34:56:78:9a:bc')
-        self.assertTrue(search_words_in_dnsmasq_log('14:rapid-commit', True))
-
-    def test_dhcp6_client_settings_rapidcommit_false(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-rapid-commit.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip address show dev veth99')
-        print(output)
-        self.assertRegex(output, '12:34:56:78:9a:bc')
-        self.assertFalse(search_words_in_dnsmasq_log('14:rapid-commit', True))
 
     def test_dhcp_client_settings_anonymize(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
