@@ -1874,13 +1874,13 @@ static int setup_keys(void) {
                 return log_oom();
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
-        mpk = alloca(mpk_size);
+        mpk = alloca_safe(mpk_size);
 
         seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = alloca(seed_size);
+        seed = alloca_safe(seed_size);
 
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
-        state = alloca(state_size);
+        state = alloca_safe(state_size);
 
         log_info("Generating seed...");
         r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
