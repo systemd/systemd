@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Local Verity Integrity Protected Volumes
+Description=Local Verity Protected Volumes
 Documentation=man:systemd.special(7)
