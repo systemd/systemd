@@ -485,6 +485,7 @@ Manager* manager_free(Manager *m) {
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
+        m->links_by_dhcp6_pd_prefix = hashmap_free(m->links_by_dhcp6_pd_prefix);
         m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
