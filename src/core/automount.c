@@ -365,7 +365,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
         assert(where);
 
         l = sizeof(struct autofs_dev_ioctl) + strlen(where) + 1;
-        param = alloca(l);
+        param = alloca_safe(l);
 
         init_autofs_dev_ioctl(param);
         param->size = l;

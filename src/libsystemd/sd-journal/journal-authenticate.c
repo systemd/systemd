@@ -182,14 +182,13 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
         } else {
                 f->fsprg_state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
                 f->fsprg_state = malloc(f->fsprg_state_size);
-
                 if (!f->fsprg_state)
                         return -ENOMEM;
         }
 
         log_debug("Seeking FSPRG key to %"PRIu64".", goal);
 
-        msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
+        msk = alloca_safe(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
         FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
         return 0;
