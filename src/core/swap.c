@@ -1446,7 +1446,7 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
 
                 u = manager_get_unit(m, n);
                 if (u) {
-                        q = swap_set_devnode(SWAP(u), dn);
+                        q = swap_set_devnode(SWAP(u), devlink);
                         if (q < 0)
                                 r = q;
                 }
