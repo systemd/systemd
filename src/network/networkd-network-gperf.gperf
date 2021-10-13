@@ -248,7 +248,7 @@ DHCPv6.UserClass,                            config_parse_dhcp_user_or_vendor_cl
 DHCPv6.VendorClass,                          config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_vendor_class)
 DHCPv6.SendVendorOption,                     config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_vendor_options)
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
-DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
+DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_prefix_hint,                        0,                             0
 DHCPv6.WithoutRA,                            config_parse_dhcp6_client_start_mode,                     0,                             offsetof(Network, dhcp6_without_ra)
 DHCPv6.SendOption,                           config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_options)
 DHCPv6.IAID,                                 config_parse_iaid,                                        AF_INET6,                      0
