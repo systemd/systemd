@@ -63,6 +63,10 @@ static int cg_any_controller_used_for_v1(void) {
                 if (streq(enabled, "0"))
                         continue;
 
+                /* Ignore controllers we don't care about. */
+                if (cgroup_controller_from_string(name) < 0)
+                        continue;
+
                 /* Since the unified cgroup doesn't use multiple hierarchies, if any controller has a
                  * non-zero hierarchy_id that means it's in use already in a legacy (or hybrid) cgroup v1
                  * hierarchy, and can't be used in a unified cgroup. */
