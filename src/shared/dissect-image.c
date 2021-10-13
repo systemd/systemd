@@ -546,7 +546,7 @@ static int device_wait_for_initialization_harder(
 
                 (void) sd_device_get_sysname(device, &sn);
                 log_device_debug(device,
-                                 "Waiting for device '%s' to initialize for %s.", strna(sn), FORMAT_TIMESPAN(left, 0));
+                                 "Will wait up to %s for '%s' to initialize…", FORMAT_TIMESPAN(left, 0), strna(sn));
         }
 
         if (left != USEC_INFINITY)
