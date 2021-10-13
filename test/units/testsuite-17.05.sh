@@ -10,7 +10,7 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", IMPORT{program}="/bin/echo -e H
 EOF
 
 udevadm control --reload
-udevadm trigger --settle --action add /dev/null
+SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
 test -f /run/udev/data/c1:3
 udevadm info /dev/null | grep -q 'E: HOGE=aa\\x20\\x20\\x20bb'
