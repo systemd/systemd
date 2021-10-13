@@ -135,11 +135,13 @@
 
         <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in
         seconds (or in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>,
-        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>). If set to zero the watchdog logic
-        is disabled: no watchdog device is opened, configured, or pinged. If set to the special string
-        <literal>default</literal> the watchdog is opened and pinged in regular intervals, but the timeout
-        is not changed from the default. If set to any other time value the watchdog timeout is configured to
-        the specified value (or a value close to it, depending on hardware capabilities).</para>
+        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>), or the special strings
+        <literal>off</literal> or <literal>default</literal>. If set to <literal>off</literal>
+        (alternatively: <literal>0</literal>) the watchdog logic is disabled: no watchdog device is opened,
+        configured, or pinged. If set to the special string <literal>default</literal> the watchdog is opened
+        and pinged in regular intervals, but the timeout is not changed from the default. If set to any other
+        time value the watchdog timeout is configured to the specified value (or a value close to it,
+        depending on hardware capabilities).</para>
 
         <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
         (<filename>/dev/watchdog</filename> or the path specified with <varname>WatchdogDevice=</varname> or
