@@ -42,6 +42,22 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         return link->network->dhcp6_pd;
 }
 
+static int dhcp6_pd_resolve_uplink(Link *link, Link **ret) {
+        if (link->network->dhcp6_pd_uplink_name)
+                return link_get_by_name(link->manager, link->network->dhcp6_pd_uplink_name, ret);
+
+        if (link->network->dhcp6_pd_uplink_index > 0)
+                return link_get_by_index(link->manager, link->network->dhcp6_pd_uplink_index, ret);
+
+        if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF) {
+                *ret = link;
+                return 0;
+        }
+
+        assert(link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_AUTO);
+        return -ENOENT;
+}
+
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         uint32_t lifetime_preferred_sec, lifetime_valid_sec;
         struct in6_addr pd_prefix;
@@ -575,6 +591,7 @@ static int dhcp6_pd_distribute_prefix(
         assert(pd_prefix_len <= 64);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
+                Link *uplink;
 
                 if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
@@ -590,6 +607,15 @@ static int dhcp6_pd_distribute_prefix(
 
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
+
+                r = dhcp6_pd_resolve_uplink(link, &uplink);
+                if (r != -ENOENT) {
+                        if (r < 0) /* The uplink interface does not exist yet. */
+                                continue;
+
+                        if (uplink != dhcp6_link)
+                                continue;
+                }
 
                 r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0) {
@@ -1402,7 +1428,16 @@ static int dhcp6_pd_find_uplink(Link *link, Link **ret) {
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
         assert(ret);
+
+        if (dhcp6_pd_resolve_uplink(link, &l) >= 0) {
+                if (!dhcp6_pd_uplink_is_ready(l))
+                        return -EBUSY;
+
+                *ret = l;
+                return 0;
+        }
 
         HASHMAP_FOREACH(l, link->manager->links_by_index) {
                 if (!dhcp6_pd_uplink_is_ready(l))

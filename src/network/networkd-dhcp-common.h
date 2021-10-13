@@ -12,6 +12,7 @@
 /* Special values for *_uplink_index. */
 #define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
 #define UPLINK_INDEX_NONE -1 /* uplink will not be selected automatically */
+#define UPLINK_INDEX_SELF -2 /* the interface itself is uplink */
 
 #define DHCP_ROUTE_METRIC 1024
 #define DHCP6PD_ROUTE_METRIC 256

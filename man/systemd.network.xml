@@ -2124,6 +2124,17 @@ Table=1234</programlisting></para>
 
     <variablelist class='network-directives'>
       <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem>
+          <para>Specifies the name or the index of the uplink interface, or one of the special values
+          <literal>:self</literal> and <literal>:auto</literal>. When <literal>:self</literal>, the
+          interface itself is considered the uplink interface. When <literal>:auto</literal>, the first
+          link which acquired prefixes to be delegated from the DHCPv6 server is selected. Defaults to
+          <literal>:auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SubnetId=</varname></term>
         <listitem>
           <para>Configure a specific subnet ID on the interface from a (previously) received prefix

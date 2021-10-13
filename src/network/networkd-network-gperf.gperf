@@ -325,6 +325,7 @@ BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,          
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
 BridgeVLAN.VLAN,                             config_parse_brvlan_vlan,                                 0,                             0
 BridgeVLAN.EgressUntagged,                   config_parse_brvlan_untagged,                             0,                             0
+DHCPv6PrefixDelegation.UplinkInterface,      config_parse_uplink,                                      0,                             0
 DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,                          0,                             offsetof(Network, dhcp6_pd_subnet_id)
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
