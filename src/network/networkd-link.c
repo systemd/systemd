@@ -486,8 +486,11 @@ void link_check_ready(Link *link) {
                 if (!address_exists(a))
                         continue;
                 if (IN_SET(a->source,
-                           NETWORK_CONFIG_SOURCE_IPV4LL, NETWORK_CONFIG_SOURCE_DHCP4,
-                           NETWORK_CONFIG_SOURCE_DHCP6, NETWORK_CONFIG_SOURCE_NDISC)) {
+                           NETWORK_CONFIG_SOURCE_IPV4LL,
+                           NETWORK_CONFIG_SOURCE_DHCP4,
+                           NETWORK_CONFIG_SOURCE_DHCP6,
+                           NETWORK_CONFIG_SOURCE_DHCP6PD,
+                           NETWORK_CONFIG_SOURCE_NDISC)) {
                         has_dynamic_address = true;
                         break;
                 }
@@ -496,7 +499,7 @@ void link_check_ready(Link *link) {
         if ((link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) ||
              (link_dhcp6_pd_is_enabled(link) && link->network->dhcp6_pd_assign)) && !has_dynamic_address)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
-                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6 or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
+                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCPv6PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
 
         /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) ||
