@@ -4039,6 +4039,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         stop_dnsmasq()
+        remove_dnsmasq_lease_file()
+        remove_dnsmasq_log_file()
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
