@@ -96,7 +96,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 
         /* Allocate large buffer to accommodate big message */
         if (len >= LINE_MAX) {
-                buffer = alloca(len + 9);
+                buffer = alloca_safe(len + 9);
                 memcpy(buffer, "MESSAGE=", 8);
                 assert_se(vsnprintf(buffer + 8, len + 1, format, ap) == len);
         }
@@ -472,7 +472,7 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
 
         /* Allocate large buffer to accommodate big message */
         if (len >= LINE_MAX) {
-                buffer = alloca(len + 9);
+                buffer = alloca_safe(len + 9);
                 memcpy(buffer, "MESSAGE=", 8);
                 assert_se(vsnprintf(buffer + 8, len + 1, format, ap) == len);
         }

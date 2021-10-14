@@ -6524,7 +6524,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         assert(fds);
 
         n = strcspn(v, " ");
-        id = strndupa(v, n);
+        id = strndupa_safe(v, n);
         if (v[n] != ' ')
                 goto finalize;
         p = v + n + 1;
@@ -6556,7 +6556,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 char *buf;
 
                 n = strcspn(v, " ");
-                buf = strndupa(v, n);
+                buf = strndupa_safe(v, n);
 
                 r = safe_atoi(buf, &netns_fdpair[0]);
                 if (r < 0)
@@ -6575,7 +6575,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 char *buf;
 
                 n = strcspn(v, " ");
-                buf = strndupa(v, n);
+                buf = strndupa_safe(v, n);
 
                 r = safe_atoi(buf, &netns_fdpair[1]);
                 if (r < 0)
@@ -6594,7 +6594,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 char *buf;
 
                 n = strcspn(v, " ");
-                buf = strndupa(v, n);
+                buf = strndupa_safe(v, n);
 
                 r = safe_atoi(buf, &ipcns_fdpair[0]);
                 if (r < 0)
@@ -6613,7 +6613,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 char *buf;
 
                 n = strcspn(v, " ");
-                buf = strndupa(v, n);
+                buf = strndupa_safe(v, n);
 
                 r = safe_atoi(buf, &ipcns_fdpair[1]);
                 if (r < 0)
