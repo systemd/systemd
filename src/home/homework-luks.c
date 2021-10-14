@@ -1098,6 +1098,39 @@ static int lock_image_fd(int image_fd, const char *ip) {
         return 0;
 }
 
+static int open_image_file(
+                UserRecord *h,
+                const char *force_image_path,
+                struct stat *ret_stat) {
+
+        _cleanup_close_ int image_fd = -1;
+        struct stat st;
+        const char *ip;
+        int r;
+
+        ip = force_image_path ?: user_record_image_path(h);
+
+        image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open image file %s: %m", ip);
+
+        if (fstat(image_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat() image file: %m");
+        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
+                return log_error_errno(
+                                S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
+                                "Image file %s is not a regular file or block device: %m", ip);
+
+        r = lock_image_fd(image_fd, ip);
+        if (r < 0)
+                return r;
+
+        if (ret_stat)
+                *ret_stat = st;
+
+        return TAKE_FD(image_fd);
+}
+
 int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -1111,12 +1144,12 @@ int home_setup_luks(
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_close_ int root_fd = -1, image_fd = -1;
+        _cleanup_close_ int opened_image_fd = -1, root_fd = -1;
         bool dm_activated = false, mounted = false;
         size_t volume_key_size = 0;
         bool marked_dirty = false;
         uint64_t offset, size;
-        int r;
+        int r, image_fd = -1;
 
         assert(h);
         assert(setup);
@@ -1225,20 +1258,15 @@ int home_setup_luks(
                 if (!subdir)
                         return log_oom();
 
-                image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (image_fd < 0)
-                        return log_error_errno(errno, "Failed to open image file %s: %m", ip);
+                /* Reuse the image fd if it has already been opened by an earlier step */
+                if (setup->image_fd < 0) {
+                        opened_image_fd = open_image_file(h, force_image_path, &st);
+                        if (opened_image_fd < 0)
+                                return opened_image_fd;
 
-                if (fstat(image_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to fstat() image file: %m");
-                if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                        return log_error_errno(
-                                        S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
-                                        "Image file %s is not a regular file or block device: %m", ip);
-
-                r = lock_image_fd(image_fd, ip);
-                if (r < 0)
-                        return r;
+                        image_fd = opened_image_fd;
+                } else
+                        image_fd = setup->image_fd;
 
                 r = luks_validate(image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
@@ -1309,7 +1337,12 @@ int home_setup_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(root_fd);
 
-                setup->image_fd = TAKE_FD(image_fd);
+                /* And now, fill in everything */
+                if (opened_image_fd >= 0) {
+                        safe_close(setup->image_fd);
+                        setup->image_fd = TAKE_FD(opened_image_fd);
+                }
+
                 setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
                 setup->do_mark_clean = marked_dirty;
         }
@@ -2709,13 +2742,13 @@ int home_resize_luks(
         uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, new_partition_size;
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *table = NULL;
+        _cleanup_close_ int opened_image_fd = -1;
         _cleanup_free_ char *whole_disk = NULL;
-        _cleanup_close_ int image_fd = -1;
+        int r, resize_type, image_fd = -1;
         sd_id128_t disk_uuid;
         const char *ip, *ipo;
         struct statfs sfs;
         struct stat st;
-        int r, resize_type;
 
         assert(h);
         assert(user_record_storage(h) == USER_LUKS);
@@ -2729,12 +2762,17 @@ int home_resize_luks(
         assert_se(ipo = user_record_image_path(h));
         ip = strdupa_safe(ipo); /* copy out since original might change later in home record object */
 
-        image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open image file %s: %m", ip);
+        if (setup->image_fd < 0) {
+                setup->image_fd = open_image_file(h, NULL, &st);
+                if (setup->image_fd < 0)
+                        return setup->image_fd;
+        } else {
+                if (fstat(setup->image_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat image file %s: %m", ip);
+        }
 
-        if (fstat(image_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat image file %s: %m", ip);
+        image_fd = setup->image_fd;
+
         if (S_ISBLK(st.st_mode)) {
                 dev_t parent;
 
@@ -2752,11 +2790,11 @@ int home_resize_luks(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to derive whole disk path for %s: %m", ip);
 
-                        safe_close(image_fd);
-
-                        image_fd = open(whole_disk, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                        if (image_fd < 0)
+                        opened_image_fd = open(whole_disk, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                        if (opened_image_fd < 0)
                                 return log_error_errno(errno, "Failed to open whole block device %s: %m", whole_disk);
+
+                        image_fd = opened_image_fd;
 
                         if (fstat(image_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat whole block device %s: %m", whole_disk);
