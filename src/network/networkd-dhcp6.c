@@ -1312,7 +1312,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 }
 
 int dhcp6_request_information(Link *link, int ir) {
-        int r, inf_req, pd;
+        int r, inf_req;
         bool running;
 
         assert(link);
@@ -1324,20 +1324,6 @@ int dhcp6_request_information(Link *link, int ir) {
         if (r < 0)
                 return r;
         running = r;
-
-        r = sd_dhcp6_client_get_prefix_delegation(link->dhcp6_client, &pd);
-        if (r < 0)
-                return r;
-
-        if (pd && ir && link->network->dhcp6_force_pd_other_information) {
-                log_link_debug(link, "Enabling managed mode to request DHCPv6 PD with 'Other Information' set");
-
-                r = sd_dhcp6_client_set_address_request(link->dhcp6_client, false);
-                if (r < 0)
-                        return r;
-
-                ir = false;
-        }
 
         if (running) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
