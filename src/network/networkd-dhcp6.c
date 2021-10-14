@@ -777,6 +777,7 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         route->table = link_get_dhcp6_route_table(link);
         route->type = RTN_UNREACHABLE;
         route->protocol = RTPROT_DHCP;
+        route->priority = DHCP_ROUTE_METRIC;
         route->lifetime = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         if (route_get(link->manager, NULL, route, &existing) < 0)
