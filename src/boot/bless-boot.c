@@ -162,7 +162,7 @@ static int parse_counter(
                                        "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s",
                                        path);
 
-        z = strndupa(e, k);
+        z = strndupa_safe(e, k);
         r = safe_atou64(z, &left);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse 'tries left' counter from LoaderBootCountPath: %s", path);
@@ -178,7 +178,7 @@ static int parse_counter(
                                                "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s",
                                                path);
 
-                z = strndupa(e, k);
+                z = strndupa_safe(e, k);
                 r = safe_atou64(z, &done);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse 'tries done' counter from LoaderBootCountPath: %s", path);
