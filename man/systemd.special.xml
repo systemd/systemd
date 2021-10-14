@@ -48,6 +48,8 @@
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
     <filename>initrd-usr-fs.target</filename>,
+    <filename>integritysetup-pre.target</filename>,
+    <filename>integritysetup.target</filename>,
     <filename>kbrequest.target</filename>,
     <filename>kexec.target</filename>,
     <filename>local-fs-pre.target</filename>,
