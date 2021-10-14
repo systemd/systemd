@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remote Verity Integrity Protected Volumes
+Description=Remote Verity Protected Volumes
 Documentation=man:systemd.special(7)
 After=remote-fs-pre.target veritysetup-pre.target
 DefaultDependencies=no
