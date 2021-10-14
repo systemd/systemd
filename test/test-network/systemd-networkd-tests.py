@@ -478,13 +478,16 @@ def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200'
     dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile={dnsmasq_lease_file} --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
-def stop_dnsmasq(pid_file):
+def stop_by_pid_file(pid_file):
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
             pid = f.read().rstrip(' \t\r\n\0')
             os.kill(int(pid), signal.SIGTERM)
 
         os.remove(pid_file)
+
+def stop_dnsmasq():
+    stop_by_pid_file(dnsmasq_pid_file)
 
 def search_words_in_dnsmasq_log(words, show_all=False):
     if os.path.exists(dnsmasq_log_file):
@@ -4035,12 +4038,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'static.network']
 
     def setUp(self):
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         remove_dnsmasq_lease_file()
         remove_dnsmasq_log_file()
         remove_links(self.links)
@@ -4093,7 +4096,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.6 proto dhcp scope link src 192.168.5.181 metric 1024')
         self.assertRegex(output, r'192.168.5.7 proto dhcp scope link src 192.168.5.181 metric 1024')
 
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         start_dnsmasq(additional_options='--dhcp-option=option:dns-server,192.168.5.1,192.168.5.7,192.168.5.8', lease_time='2m')
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
@@ -4331,7 +4334,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.6.0/24 proto static')
         self.assertRegex(output, r'192.168.7.0/24 proto static')
 
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         start_dnsmasq(ipv4_range='192.168.5.210,192.168.5.220', lease_time='2m')
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
@@ -4364,7 +4367,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'2600::/64 proto ra metric 1024')
         self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
 
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         start_dnsmasq(ipv6_range='2600::30,2600::40', lease_time='2m')
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
@@ -4394,7 +4397,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.*')
 
         # Stopping dnsmasq as networkd won't be allowed to renew the DHCP lease.
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         print('Wait for the dynamic address to be expired')
@@ -4444,7 +4447,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         check_output('systemctl stop systemd-networkd.socket')
         check_output('systemctl stop systemd-networkd.service')
 
@@ -4687,7 +4690,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address1} metric 1024')
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 1024')
 
-        stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq()
         start_dnsmasq(ipv4_range='192.168.5.200,192.168.5.250', lease_time='2m')
 
         print('Wait for the dynamic address to be expired')
