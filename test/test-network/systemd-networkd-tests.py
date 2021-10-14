@@ -21,8 +21,9 @@ networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 
-dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
-dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
+dnsmasq_pid_file='/run/networkd-ci/test-dnsmasq.pid'
+dnsmasq_log_file='/run/networkd-ci/test-dnsmasq.log'
+dnsmasq_lease_file='/run/networkd-ci/test-dnsmasq.lease'
 
 systemd_lib_paths=['/usr/lib/systemd', '/lib/systemd']
 which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
@@ -474,7 +475,7 @@ def remove_networkd_conf_dropin(dropins):
             os.remove(os.path.join(networkd_conf_dropin_path, dropin))
 
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
-    dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
+    dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile={dnsmasq_lease_file} --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
 def stop_dnsmasq(pid_file):
@@ -498,11 +499,11 @@ def search_words_in_dnsmasq_log(words, show_all=False):
                     return True
     return False
 
-def remove_lease_file():
-    if os.path.exists(os.path.join(networkd_ci_path, 'lease')):
-        os.remove(os.path.join(networkd_ci_path, 'lease'))
+def remove_dnsmasq_lease_file():
+    if os.path.exists(dnsmasq_lease_file):
+        os.remove(dnsmasq_lease_file)
 
-def remove_log_file():
+def remove_dnsmasq_log_file():
     if os.path.exists(dnsmasq_log_file):
         os.remove(dnsmasq_log_file)
 
@@ -4040,8 +4041,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def tearDown(self):
         stop_dnsmasq(dnsmasq_pid_file)
-        remove_lease_file()
-        remove_log_file()
+        remove_dnsmasq_lease_file()
+        remove_dnsmasq_log_file()
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
@@ -4839,7 +4840,6 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=False)
 
     def tearDown(self):
-        remove_log_file()
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
@@ -4928,7 +4928,6 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=False)
 
     def tearDown(self):
-        remove_log_file()
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
