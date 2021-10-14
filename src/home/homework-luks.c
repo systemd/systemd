@@ -1058,6 +1058,21 @@ static int lock_image_fd(int image_fd, const char *ip) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_LUKS_LOCK environment variable: %m");
         if (r > 0) {
+                struct stat st;
+
+                if (fstat(image_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat image file: %m");
+                if (S_ISBLK(st.st_mode)) {
+                        /* Locking block devices doesn't really make sense, as this might interfear with
+                         * udev's workings, and these locks aren't network propagated anyway, hence not what
+                         * we are after here. */
+                        log_debug("Not locking image file '%s', since it's a block device.", ip);
+                        return 0;
+                }
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Image file to lock is not a regular file: %m");
+
                 if (flock(image_fd, LOCK_EX|LOCK_NB) < 0) {
 
                         if (errno == EWOULDBLOCK)
