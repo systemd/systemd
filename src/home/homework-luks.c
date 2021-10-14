@@ -2932,12 +2932,15 @@ int home_resize_luks(
         }
 
         /* Now resize the file system */
-        if (resize_type == CAN_RESIZE_ONLINE)
+        if (resize_type == CAN_RESIZE_ONLINE) {
                 r = resize_fs(setup->root_fd, new_fs_size, NULL);
-        else
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resize file system: %m");
+        } else {
                 r = ext4_offline_resize_fs(setup, new_fs_size, user_record_luks_discard(h), user_record_mount_flags(h));
-        if (r < 0)
-                return log_error_errno(r, "Failed to resize file system: %m");
+                if (r < 0)
+                        return r;
+        }
 
         log_info("File system resizing completed.");
 
