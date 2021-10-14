@@ -1188,7 +1188,7 @@ int home_prepare_luks(
 
                 root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (root_fd < 0) {
-                        r = log_error_errno(r, "Failed to open home directory: %m");
+                        r = log_error_errno(errno, "Failed to open home directory: %m");
                         goto fail;
                 }
         } else {
@@ -1279,7 +1279,7 @@ int home_prepare_luks(
 
                 root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (root_fd < 0) {
-                        r = log_error_errno(r, "Failed to open home directory: %m");
+                        r = log_error_errno(errno, "Failed to open home directory: %m");
                         goto fail;
                 }
 
