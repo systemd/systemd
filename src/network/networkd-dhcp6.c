@@ -1311,26 +1311,31 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         }
 }
 
-int dhcp6_request_information(Link *link, int ir) {
-        int r, inf_req;
-        bool running;
+int dhcp6_start_on_ra(Link *link, bool information_request) {
+        int r;
 
         assert(link);
         assert(link->dhcp6_client);
         assert(link->network);
         assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
+        if (link->network->dhcp6_without_ra != DHCP6_CLIENT_START_MODE_NO)
+                /* When WithoutRA= is specified, then the DHCPv6 client should be already runnging in
+                 * the requested mode. Hence, ignore the requests by RA. */
+                return 0;
+
         r = sd_dhcp6_client_is_running(link->dhcp6_client);
         if (r < 0)
                 return r;
-        running = r;
 
-        if (running) {
+        if (r > 0) {
+                int inf_req;
+
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
                 if (r < 0)
                         return r;
 
-                if (inf_req == ir)
+                if (inf_req == information_request)
                         return 0;
 
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
@@ -1342,7 +1347,7 @@ int dhcp6_request_information(Link *link, int ir) {
                         return r;
         }
 
-        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, ir);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, information_request);
         if (r < 0)
                 return r;
 
@@ -1357,6 +1362,7 @@ int dhcp6_start(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link->dhcp6_client)
                 return 0;
@@ -1370,15 +1376,24 @@ int dhcp6_start(Link *link) {
         if (link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_NO)
                 return 0;
 
+        if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
+                return 0;
+
         if (!in6_addr_is_link_local(&link->ipv6ll_address)) {
                 log_link_debug(link, "IPv6 link-local address is not set, delaying to start DHCPv6 client.");
                 return 0;
         }
 
-        if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
-                return 0;
+        r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
 
-        r = dhcp6_request_information(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
+                                                    link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_start(link->dhcp6_client);
         if (r < 0)
                 return r;
 
