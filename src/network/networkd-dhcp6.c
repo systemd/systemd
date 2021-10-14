@@ -221,33 +221,37 @@ static int dhcp6_pd_address_ready_callback(Address *address) {
 }
 
 static int dhcp6_pd_check_ready(Link *link) {
-        bool has_ready = false;
-        Address *address;
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->dhcp6_pd_messages > 0) {
                 log_link_debug(link, "%s(): DHCPv6PD addresses and routes are not set.", __func__);
                 return 0;
         }
 
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
-                        continue;
-                if (address_is_ready(address)) {
-                        has_ready = true;
-                        break;
+        if (link->network->dhcp6_pd_assign) {
+                bool has_ready = false;
+                Address *address;
+
+                SET_FOREACH(address, link->addresses) {
+                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                                continue;
+                        if (address_is_ready(address)) {
+                                has_ready = true;
+                                break;
+                        }
                 }
-        }
 
-        if (!has_ready) {
-                SET_FOREACH(address, link->addresses)
-                        if (address->source == NETWORK_CONFIG_SOURCE_DHCP6PD)
-                                address->callback = dhcp6_pd_address_ready_callback;
+                if (!has_ready) {
+                        SET_FOREACH(address, link->addresses)
+                                if (address->source == NETWORK_CONFIG_SOURCE_DHCP6PD)
+                                        address->callback = dhcp6_pd_address_ready_callback;
 
-                log_link_debug(link, "%s(): no DHCPv6PD address is ready.", __func__);
-                return 0;
+                        log_link_debug(link, "%s(): no DHCPv6PD address is ready.", __func__);
+                        return 0;
+                }
         }
 
         link->dhcp6_pd_configured = true;
