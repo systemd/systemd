@@ -15,6 +15,7 @@
 #define UPLINK_INDEX_SELF -2 /* the interface itself is uplink */
 
 #define DHCP_ROUTE_METRIC 1024
+#define DHCP6PD_ROUTE_METRIC 256
 
 typedef struct Link Link;
 typedef struct Manager Manager;
