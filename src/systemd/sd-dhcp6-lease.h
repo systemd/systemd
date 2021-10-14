@@ -21,12 +21,15 @@
 
 #include <inttypes.h>
 #include <netinet/in.h>
+#include <sys/types.h>
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+
+int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
 
 void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease);
 int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease,

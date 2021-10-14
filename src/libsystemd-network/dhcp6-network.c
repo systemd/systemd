@@ -47,6 +47,10 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
         if (r < 0)
                 return r;
 
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return r;
+
         r = bind(s, &src.sa, sizeof(src.in6));
         if (r < 0)
                 return -errno;
