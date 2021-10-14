@@ -2162,7 +2162,8 @@ Table=1234</programlisting></para>
         <term><varname>RouteMetric=</varname></term>
         <listitem>
           <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
-          the range 0…4294967295. When unset or set to 0, the kernel's default value is used.</para>
+          the range 0…4294967295. When set to 0, the kernel's default value is used. Defaults to 256.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

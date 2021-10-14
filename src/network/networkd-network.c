@@ -409,7 +409,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_pd_announce = true,
                 .dhcp6_pd_assign = true,
                 .dhcp6_pd_manage_temporary_address = true,
-                .dhcp6_pd_subnet_id = -1,
+                .dhcp6_pd_subnet_id = UINT64_MAX,
+                .dhcp6_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
                 .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
