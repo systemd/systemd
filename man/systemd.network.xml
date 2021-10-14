@@ -2092,9 +2092,13 @@ Table=1234</programlisting></para>
         <varlistentry>
           <term><varname>WithoutRA=</varname></term>
           <listitem>
-            <para>Allows DHCPv6 client to start without router advertisements's managed or other address
-            configuration flag. Takes one of <literal>solicit</literal> or
-            <literal>information-request</literal>. Defaults to unset.</para>
+            <para>Allows DHCPv6 client to start without router advertisements's managed or other
+            address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
+            or <literal>information-request</literal>. When this is not specified and
+            <varname>UplinkInterface=:self</varname> is specified, then <literal>solicit</literal> is
+            implied. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be
+            started when an RA is received. See also <varname>DHCPv6Client=</varname> setting in the
+            [IPv6AcceptRA] section.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2112,9 +2116,10 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Specifies the name or the index of the uplink interface, or one of the special values
           <literal>:self</literal> and <literal>:auto</literal>. When <literal>:self</literal>, the
-          interface itself is considered the uplink interface. When <literal>:auto</literal>, the first
-          link which acquired prefixes to be delegated from the DHCPv6 server is selected. Defaults to
-          <literal>:auto</literal>.</para>
+          interface itself is considered the uplink interface, and
+          <varname>WithoutRA=solicit</varname> is implied if the setting is not explicitly specified.
+          When <literal>:auto</literal>, the first link which acquired prefixes to be delegated from
+          the DHCPv6 server is selected. Defaults to <literal>:auto</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2366,11 +2371,13 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DHCPv6Client=</varname></term>
           <listitem>
-            <para>Takes a boolean, or the special value <literal>always</literal>. When true or
-            <literal>always</literal>, the DHCPv6 client will be started when the RA has the managed or
-            other information flag. If set to <literal>always</literal>, the DHCPv6 client will also be
-            started in managed mode when neither managed nor other information flag is set in the RA.
-            Defaults to true.</para>
+            <para>Takes a boolean, or the special value <literal>always</literal>. When true, the
+            DHCPv6 client will be started when the RA has the managed or other information flag. If set
+            to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
+            is received, even if neither managed nor other information flag is set in the RA. This will
+            be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
+            <varname>UplinkInterface=:self</varname> in the [DHCPv6PrefixDelegation] section is
+            specified. Defaults to true.</para>
           </listitem>
         </varlistentry>
       </variablelist>
