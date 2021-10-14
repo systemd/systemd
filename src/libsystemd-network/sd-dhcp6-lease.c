@@ -11,6 +11,19 @@
 #include "strv.h"
 #include "util.h"
 
+int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
+        assert_return(clock_supported(clock), -EOPNOTSUPP);
+        assert_return(ret, -EINVAL);
+
+        if (!triple_timestamp_is_set(&lease->timestamp))
+                return -ENODATA;
+
+        *ret = triple_timestamp_by_clock(&lease->timestamp, clock);
+        return 0;
+}
+
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
         DHCP6Address *addr;
         uint32_t valid = 0, t;

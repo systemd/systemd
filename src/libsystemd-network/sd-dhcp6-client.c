@@ -21,6 +21,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -1341,13 +1342,14 @@ static int client_parse_message(
         return 0;
 }
 
-static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len) {
+static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len, const triple_timestamp *t) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         bool rapid_commit;
         int r;
 
         assert(client);
         assert(reply);
+        assert(t);
 
         if (reply->type != DHCP6_MESSAGE_REPLY)
                 return 0;
@@ -1355,6 +1357,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
         r = dhcp6_lease_new(&lease);
         if (r < 0)
                 return -ENOMEM;
+
+        lease->timestamp = *t;
 
         r = client_parse_message(client, reply, len, lease);
         if (r < 0)
@@ -1375,10 +1379,14 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
         return DHCP6_STATE_BOUND;
 }
 
-static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *advertise, size_t len) {
+static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *advertise, size_t len, const triple_timestamp *t) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t pref_advertise = 0, pref_lease = 0;
         int r;
+
+        assert(client);
+        assert(advertise);
+        assert(t);
 
         if (advertise->type != DHCP6_MESSAGE_ADVERTISE)
                 return 0;
@@ -1386,6 +1394,8 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
         r = dhcp6_lease_new(&lease);
         if (r < 0)
                 return r;
+
+        lease->timestamp = *t;
 
         r = client_parse_message(client, advertise, len, lease);
         if (r < 0)
@@ -1417,6 +1427,17 @@ static int client_receive_message(
 
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
+        /* This needs to be initialized with zero. See #20741. */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
+        struct iovec iov;
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        triple_timestamp t = {};
         _cleanup_free_ DHCP6Message *message = NULL;
         ssize_t buflen, len;
         int r = 0;
@@ -1427,9 +1448,8 @@ static int client_receive_message(
 
         buflen = next_datagram_size_fd(fd);
         if (buflen == -ENETDOWN)
-                /* the link is down. Don't return an error or the I/O event
-                   source will be disconnected and we won't be able to receive
-                   packets again when the link comes back. */
+                /* the link is down. Don't return an error or the I/O event source will be disconnected
+                 * and we won't be able to receive packets again when the link comes back. */
                 return 0;
         if (buflen < 0)
                 return buflen;
@@ -1438,7 +1458,9 @@ static int client_receive_message(
         if (!message)
                 return -ENOMEM;
 
-        len = recv(fd, message, buflen, 0);
+        iov = IOVEC_MAKE(message, buflen);
+
+        len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
         if (len < 0) {
                 /* see comment above for why we shouldn't error out on ENETDOWN. */
                 if (IN_SET(errno, EAGAIN, EINTR, ENETDOWN))
@@ -1451,6 +1473,16 @@ static int client_receive_message(
                 log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");
                 return 0;
         }
+
+        CMSG_FOREACH(cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SO_TIMESTAMP &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                        triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+        }
+
+        if (!triple_timestamp_is_set(&t))
+                triple_timestamp_get(&t);
 
         if (!IN_SET(message->type, DHCP6_MESSAGE_ADVERTISE, DHCP6_MESSAGE_REPLY, DHCP6_MESSAGE_RECONFIGURE)) {
                 const char *type_str = dhcp6_message_type_to_string(message->type);
@@ -1466,7 +1498,7 @@ static int client_receive_message(
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                r = client_receive_reply(client, message, len);
+                r = client_receive_reply(client, message, len, &t);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
@@ -1479,7 +1511,7 @@ static int client_receive_message(
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                r = client_receive_advertise(client, message, len);
+                r = client_receive_advertise(client, message, len, &t);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received advertise message, ignoring: %m");
                         return 0;
@@ -1495,7 +1527,7 @@ static int client_receive_message(
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:
 
-                r = client_receive_reply(client, message, len);
+                r = client_receive_reply(client, message, len, &t);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
