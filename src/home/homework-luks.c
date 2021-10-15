@@ -2881,7 +2881,7 @@ int home_resize_luks(
                 if (r > 0)
                         log_info("Growing of partition completed.");
 
-                if (ioctl(image_fd, BLKRRPART, 0) < 0)
+                if (S_ISBLK(st.st_mode) && ioctl(image_fd, BLKRRPART, 0) < 0)
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
 
                 /* Tell LUKS about the new bigger size too */
@@ -2955,7 +2955,7 @@ int home_resize_luks(
                 if (r > 0)
                         log_info("Shrinking of partition completed.");
 
-                if (ioctl(image_fd, BLKRRPART, 0) < 0)
+                if (S_ISBLK(st.st_mode) && ioctl(image_fd, BLKRRPART, 0) < 0)
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
         } else {
                 r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
