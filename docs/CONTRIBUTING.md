@@ -44,3 +44,49 @@ See [reporting of security vulnerabilities](SECURITY.md).
 We'd like to apologize in advance if we are not able to process and reply to your issue or PR right-away. We have a lot of work to do, but we are trying our best!
 
 Thank you very much for your contributions!
+
+# Backward Compatibility And External Dependencies
+
+We strive to keep backward compatibility where possible and reasonable. The following are general guidelines, not hard
+rules, and case-by-case exceptions might be applied at the discretion of the maintainers. The current set of build time
+and runtime dependencies are documented in the [README](../README).
+
+## New features
+
+It is fine for new features/functionality/tools/daemons to require bleeding edge external dependencies, provided there
+are runtime and build time graceful fallbacks (e.g.: daemon will not be built, runtime functionality will be skipped with
+clear log message).
+In case a new feature is added to both `systemd` and one of its dependencies, we expect the corresponding feature code to
+be merged upstream in the dependency before accepting our side of the implementation.
+Making use of new kernel syscalls can be achieved through compat wrappers in our tree (see: `src/basic/missing_syscall_def.h`),
+and does not need to wait for glibc support.
+
+## External Build/Runtime Dependencies
+
+It is often tempting to bump external dependencies minimum versions to cut cruft, and in general it's an essential part
+of the maintenance process. But as a generic rule, existing dependencies should not be bumped without very strong
+reasons. When possible, we try to keep compatibility with the most recent LTS releases of each mainstream distribution
+for optional components, and with all currently maintained (i.e.: not EOL) LTS releases for core components. When in
+doubt, ask before committing time to work on contributions if it's not clear that cutting support would be obviously
+acceptable.
+
+## Kernel Requirements
+
+Same principles as with other dependencies should be applied. It is fine to require newer kernel versions for additional
+functionality or optional features, but very strong reasons should be required for breaking compatibility for existing
+functionality, especially for core components. It is not uncommon, for example, for embedded systems to be stuck on older
+kernel versions due to hardware requirements, so do not assume everybody is running with latest and greatest at all times.
+In general, [currently maintained LTS branches](https://www.kernel.org/category/releases.html) should keep being supported
+for existing functionality, especially for core components.
+
+## `libsystemd.so`
+
+`libsystemd.so` is a shared public library, so breaking ABI/API compatibility creates a lot of work for its users, and should
+always be avoided apart from the most extreme circumstances. For example, always add a new interface instead of modifying
+the signature of an existing function. It is fine to mark an interface as deprecated to gently nudge users toward a newer one,
+but in general support for the old one should be maintained whenever possible.
+Symbol versioning and the compiler's deprecated attribute should be used when managing the lifetime of a public interface.
+
+## `libudev.so`
+
+`libudev.so` is a shared public library, and is still maintained, but should not gain new symbols at this point.
