@@ -1,0 +1,6 @@
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=no
+Address=3ffe:501:ffff:100::1/64
