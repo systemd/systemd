@@ -1391,7 +1391,7 @@ static int route_configure(
 
         if (route->lifetime != USEC_INFINITY && kernel_route_expiration_supported()) {
                 r = sd_netlink_message_append_u32(req, RTA_EXPIRES,
-                        DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC));
+                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_EXPIRES attribute: %m");
         }
