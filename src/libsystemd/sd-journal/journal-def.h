@@ -25,6 +25,7 @@ typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
 
 typedef struct EntryItem EntryItem;
+typedef struct EntryItemCompact EntryItemCompact;
 typedef struct HashItem HashItem;
 
 typedef struct FSSHeader FSSHeader;
@@ -91,14 +92,21 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
-#define EntryObject__contents { \
-        ObjectHeader object;    \
-        le64_t seqnum;          \
-        le64_t realtime;        \
-        le64_t monotonic;       \
-        sd_id128_t boot_id;     \
-        le64_t xor_hash;        \
-        EntryItem items[];      \
+struct EntryItemCompact {
+        le32_t object_offset;
+} _packed_;
+
+#define EntryObject__contents {                \
+        ObjectHeader object;                   \
+        le64_t seqnum;                         \
+        le64_t realtime;                       \
+        le64_t monotonic;                      \
+        sd_id128_t boot_id;                    \
+        le64_t xor_hash;                       \
+        union {                                \
+                EntryItem items[0];            \
+                EntryItemCompact compact[0];   \
+        };                                     \
         }
 
 struct EntryObject EntryObject__contents;
@@ -118,7 +126,10 @@ struct HashTableObject {
 struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t items[0];
+                le32_t compact[0];
+        };
 } _packed_;
 
 #define TAG_LENGTH (256/8)
@@ -153,30 +164,32 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 #define HEADER_INCOMPATIBLE_ANY               \
         (HEADER_INCOMPATIBLE_COMPRESSED_XZ |  \
          HEADER_INCOMPATIBLE_COMPRESSED_LZ4 | \
          HEADER_INCOMPATIBLE_KEYED_HASH |     \
-         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
+         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD | \
+         HEADER_INCOMPATIBLE_COMPACT)
 
 #if HAVE_XZ && HAVE_LZ4 && HAVE_ZSTD
 #  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
 #elif HAVE_XZ && HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4 && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #else
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_KEYED_HASH
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #endif
 
 enum {
