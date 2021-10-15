@@ -512,7 +512,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(r, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
 
-                if (connect(fd, &sockaddr.un, sockaddr_len) < 0) {
+                if (connect(fd, &sockaddr.sa, sockaddr_len) < 0) {
                         no = strjoin("No (", errno_to_name(errno), ")");
                         if (!no)
                                 return log_oom();
