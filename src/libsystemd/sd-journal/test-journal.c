@@ -51,9 +51,7 @@ static void test_non_empty(void) {
         iovec = IOVEC_MAKE_STRING(test);
         assert_se(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
 
-#if HAVE_GCRYPT
         journal_file_append_tag(f);
-#endif
         journal_file_dump(f);
 
         assert_se(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p) == 1);
@@ -182,9 +180,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         iovec = IOVEC_MAKE(data, data_size);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
-#if HAVE_GCRYPT
         journal_file_append_tag(f);
-#endif
         journal_file_dump(f);
 
         /* We have to partially reimplement some of the dump logic, because the normal next_entry does the

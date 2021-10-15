@@ -4,14 +4,11 @@
 #include <inttypes.h>
 #include <sys/uio.h>
 
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
-#endif
-
 #include "sd-event.h"
 #include "sd-id128.h"
 
 #include "hashmap.h"
+#include "hmac.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
@@ -110,8 +107,7 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-#if HAVE_GCRYPT
-        gcry_md_hd_t hmac;
+        Hmac hmac;
         bool hmac_running;
 
         FSSHeader *fss_file;
@@ -125,7 +121,6 @@ typedef struct JournalFile {
 
         void *fsprg_seed;
         size_t fsprg_seed_size;
-#endif
 } JournalFile;
 
 int journal_file_open(
