@@ -140,8 +140,6 @@ AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
 const char *dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
 sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
 
-int kernel_route_expiration_supported(void);
-
 static inline NetworkConfigSection* network_config_section_free(NetworkConfigSection *cs) {
         return mfree(cs);
 }
