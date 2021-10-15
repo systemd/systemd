@@ -355,7 +355,6 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
-#if HAVE_GCRYPT
         /* Write the final tag */
         if (f->seal && f->writable) {
                 int r;
@@ -364,7 +363,6 @@ JournalFile* journal_file_close(JournalFile *f) {
                 if (r < 0)
                         log_error_errno(r, "Failed to append tag when closing journal: %m");
         }
-#endif
 
         if (f->post_change_timer) {
                 if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
@@ -402,17 +400,12 @@ JournalFile* journal_file_close(JournalFile *f) {
         free(f->compress_buffer);
 #endif
 
-#if HAVE_GCRYPT
         if (f->fss_file)
                 munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
         else
                 free(f->fsprg_state);
 
         free(f->fsprg_seed);
-
-        if (f->hmac)
-                gcry_md_close(f->hmac);
-#endif
 
         return mfree(f);
 }
@@ -1639,11 +1632,9 @@ static int journal_file_append_field(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_FIELD, o, p);
         if (r < 0)
                 return r;
-#endif
 
         if (ret)
                 *ret = o;
@@ -1716,11 +1707,9 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
-#endif
 
         /* The linking might have altered the window, so let's
          * refresh our pointer */
@@ -1847,11 +1836,9 @@ static int link_entry_into_array(JournalFile *f,
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
-#endif
 
         o->entry_array.items[i] = htole64(p);
 
@@ -2000,11 +1987,9 @@ static int journal_file_append_entry_internal(
                 f->header->boot_id = *boot_id;
         o->entry.boot_id = f->header->boot_id;
 
-#if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 goto fail;
-#endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
@@ -2140,11 +2125,9 @@ int journal_file_append_entry(
                 ts = &_ts;
         }
 
-#if HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
         if (r < 0)
                 return r;
-#endif
 
         items = newa(EntryItem, n_iovec);
 
@@ -3439,9 +3422,7 @@ int journal_file_open(
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
-#if HAVE_GCRYPT
                 .seal = seal,
-#endif
         };
 
         /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
@@ -3545,7 +3526,6 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-#if HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
                  * just don't do sealing */
                 if (f->seal) {
@@ -3553,7 +3533,6 @@ int journal_file_open(
                         if (r < 0)
                                 f->seal = false;
                 }
-#endif
 
                 r = journal_file_init_header(f, template);
                 if (r < 0)
@@ -3592,13 +3571,11 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
         if (!newly_created && f->writable) {
                 r = journal_file_fss_load(f);
                 if (r < 0)
                         goto fail;
         }
-#endif
 
         if (f->writable) {
                 if (metrics) {
@@ -3612,12 +3589,6 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_setup(f);
-        if (r < 0)
-                goto fail;
-#endif
-
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
                 if (r < 0)
@@ -3627,11 +3598,9 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-#if HAVE_GCRYPT
                 r = journal_file_append_first_tag(f);
                 if (r < 0)
                         goto fail;
-#endif
         }
 
         if (mmap_cache_got_sigbus(f->mmap, f->cache_fd)) {

@@ -5,8 +5,8 @@
 
 #include "fd-util.h"
 #include "fsprg.h"
-#include "gcrypt-util.h"
 #include "hexdecoct.h"
+#include "hmac.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -37,8 +37,6 @@ int journal_file_append_tag(JournalFile *f) {
         if (!f->hmac_running)
                 return 0;
 
-        assert(f->hmac);
-
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
         if (r < 0)
                 return r;
@@ -57,7 +55,8 @@ int journal_file_append_tag(JournalFile *f) {
                 return r;
 
         /* Get the HMAC tag and store it in the object */
-        memcpy(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH);
+        hmac_sha256_end(&f->hmac);
+        memcpy(o->tag.tag, f->hmac.res, TAG_LENGTH);
         f->hmac_running = false;
 
         return 0;
@@ -65,7 +64,6 @@ int journal_file_append_tag(JournalFile *f) {
 
 int journal_file_hmac_start(JournalFile *f) {
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
-        gcry_error_t err;
 
         assert(f);
 
@@ -76,13 +74,8 @@ int journal_file_hmac_start(JournalFile *f) {
                 return 0;
 
         /* Prepare HMAC for next cycle */
-        gcry_md_reset(f->hmac);
         FSPRG_GetKey(f->fsprg_state, key, sizeof(key), 0);
-        err = gcry_md_setkey(f->hmac, key, sizeof(key));
-        if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "gcry_md_setkey() failed with error code: %d",
-                                       gcry_err_code(err));
+        hmac_sha256_start(&f->hmac, key, sizeof(key));
 
         f->hmac_running = true;
 
@@ -241,25 +234,25 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
                         return -EBADMSG;
         }
 
-        gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+        hmac_sha256_add(&f->hmac, o, offsetof(ObjectHeader, payload));
 
         switch (o->object.type) {
 
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
-                gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
+                hmac_sha256_add(&f->hmac, &o->data.hash, sizeof(o->data.hash));
+                hmac_sha256_add(&f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
                 break;
 
         case OBJECT_FIELD:
                 /* Same here */
-                gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
+                hmac_sha256_add(&f->hmac, &o->field.hash, sizeof(o->field.hash));
+                hmac_sha256_add(&f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
                 break;
 
         case OBJECT_ENTRY:
                 /* All */
-                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
+                hmac_sha256_add(&f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:
@@ -270,8 +263,8 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
 
         case OBJECT_TAG:
                 /* All but the tag itself */
-                gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
-                gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
+                hmac_sha256_add(&f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
+                hmac_sha256_add(&f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
                 break;
         default:
                 return -EINVAL;
@@ -299,10 +292,10 @@ int journal_file_hmac_put_header(JournalFile *f) {
          * tail_entry_monotonic, n_data, n_fields, n_tags,
          * n_entry_arrays. */
 
-        gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
-        gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
-        gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
-        gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+        hmac_sha256_add(&f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
+        hmac_sha256_add(&f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
+        hmac_sha256_add(&f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
+        hmac_sha256_add(&f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
 
         return 0;
 }
@@ -413,21 +406,6 @@ finish:
         free(p);
 
         return r;
-}
-
-int journal_file_hmac_setup(JournalFile *f) {
-        gcry_error_t e;
-
-        if (!f->seal)
-                return 0;
-
-        initialize_libgcrypt(true);
-
-        e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-        if (e != 0)
-                return -EOPNOTSUPP;
-
-        return 0;
 }
 
 int journal_file_append_first_tag(JournalFile *f) {
