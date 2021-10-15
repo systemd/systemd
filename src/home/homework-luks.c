@@ -8,6 +8,10 @@
 #include <sys/mount.h>
 #include <sys/xattr.h>
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
@@ -1132,6 +1136,10 @@ int home_prepare_luks(
                                 offset *= 512U;
                         }
                 } else {
+#if HAVE_VALGRIND_MEMCHECK_H
+                        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
                         offset = info.lo_offset;
                         size = info.lo_sizelimit;
                 }
