@@ -15,6 +15,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -409,6 +413,10 @@ static int delete_loopback(const char *device) {
                         return -EBUSY; /* propagate original error */
                 }
 
+#if HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
                 if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR)) /* someone else already set LO_FLAGS_AUTOCLEAR for us? fine by us */
                         return -EBUSY; /* propagate original error */
 
@@ -433,6 +441,10 @@ static int delete_loopback(const char *device) {
 
                 return 1;
         }
+
+#if HAVE_VALGRIND_MEMCHECK_H
+        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
 
         /* Linux makes LOOP_CLR_FD succeed whenever LO_FLAGS_AUTOCLEAR is set without actually doing
          * anything. Very confusing. Let's hence not claim we did anything in this case. */
