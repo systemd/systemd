@@ -359,8 +359,7 @@ int home_setup_undo(HomeSetup *setup) {
                 setup->crypt_device = NULL;
         }
 
-        explicit_bzero_safe(setup->volume_key, setup->volume_key_size);
-        setup->volume_key = mfree(setup->volume_key);
+        setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
 
         if (setup->do_drop_caches)
