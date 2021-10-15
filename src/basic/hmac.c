@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "hmac.h"
+#include "memory-util.h"
 #include "sha256.h"
 
 #define HMAC_BLOCK_SIZE 64
@@ -47,6 +48,8 @@ void hmac_sha256_start(Hmac *hmac,
         /* First pass: hash the inner padding array. */
         sha256_init_ctx(&hmac->hash);
         sha256_process_bytes(inner_padding, HMAC_BLOCK_SIZE, &hmac->hash);
+
+        explicit_bzero_safe(inner_padding, HMAC_BLOCK_SIZE);
 }
 
 void hmac_sha256_add(Hmac *hmac,
@@ -85,6 +88,9 @@ static void hmac_sha256_end_internal(Hmac *hmac,
         sha256_process_bytes(outer_padding, HMAC_BLOCK_SIZE, &hmac->hash);
         sha256_process_bytes(hmac->res, SHA256_DIGEST_SIZE, &hmac->hash);
         sha256_finish_ctx(&hmac->hash, res ?: hmac->res);
+
+        explicit_bzero_safe(hmac->key, hmac->key_size);
+        explicit_bzero_safe(outer_padding, HMAC_BLOCK_SIZE);
 }
 
 void hmac_sha256_end(Hmac *hmac) {
