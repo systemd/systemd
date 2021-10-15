@@ -5,6 +5,7 @@
 #include <linux/nexthop.h>
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4ll.h"
@@ -1230,10 +1231,9 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
         return 1;
 }
 
-static int route_setup_timer(Route *route) {
+static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo) {
         Manager *manager;
-
-        /* TODO: drop expiration handling once it can be pushed into the kernel */
+        int r;
 
         assert(route);
         assert(route->manager || (route->link && route->link->manager));
@@ -1243,13 +1243,16 @@ static int route_setup_timer(Route *route) {
         if (route->lifetime == USEC_INFINITY)
                 return 0;
 
-        if (kernel_route_expiration_supported())
+        if (cacheinfo && cacheinfo->rta_expires != 0)
+                /* Assume that non-zero rta_expires means kernel will handle the route expiration. */
                 return 0;
 
-        sd_event_source_disable_unref(route->expire);
+        r = event_reset_time(manager->event, &route->expire, clock_boottime_or_monotonic(),
+                             route->lifetime, 0, route_expire_handler, route, 0, "route-expiration", true);
+        if (r < 0)
+                return r;
 
-        return sd_event_add_time(manager->event, &route->expire, clock_boottime_or_monotonic(),
-                                 route->lifetime, 0, route_expire_handler, route);
+        return 1;
 }
 
 static int append_nexthop_one(const Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
@@ -1389,7 +1392,7 @@ static int route_configure(
         if (r < 0)
                 return r;
 
-        if (route->lifetime != USEC_INFINITY && kernel_route_expiration_supported()) {
+        if (route->lifetime != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, RTA_EXPIRES,
                         MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
@@ -1730,10 +1733,6 @@ int request_process_route(Request *req) {
                                 existing->provider = converted->routes[i]->provider;
                         }
                 }
-        } else {
-                r = route_setup_timer(route);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to setup timer for route: %m");
         }
 
         r = route_configure(route, link, req->netlink_handler);
@@ -1753,7 +1752,13 @@ int request_process_route(Request *req) {
         return 1;
 }
 
-static int process_route_one(Manager *manager, Link *link, uint16_t type, Route *in) {
+static int process_route_one(
+                Manager *manager,
+                Link *link,
+                uint16_t type,
+                Route *in,
+                const struct rta_cacheinfo *cacheinfo) {
+
         _cleanup_(route_freep) Route *tmp = in;
         Route *route = NULL;
         int r;
@@ -1771,6 +1776,12 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, Route 
                 if (route) {
                         route_enter_configured(route);
                         log_route_debug(route, "Received remembered", link, manager);
+
+                        r = route_setup_timer(route, cacheinfo);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
+                        if (r > 0)
+                                log_route_debug(route, "Configured expiration timer for", link, manager);
 
                 } else if (!manager->manage_foreign_routes) {
                         route_enter_configured(tmp);
@@ -1816,6 +1827,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         _cleanup_(route_freep) Route *tmp = NULL;
         _cleanup_free_ void *rta_multipath = NULL;
+        struct rta_cacheinfo cacheinfo;
+        bool has_cacheinfo;
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
@@ -2012,6 +2025,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
         }
 
+        r = sd_netlink_message_read(message, RTA_CACHEINFO, sizeof(cacheinfo), &cacheinfo);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: failed to read RTA_CACHEINFO attribute, ignoring: %m");
+                return 0;
+        }
+        has_cacheinfo = r >= 0;
+
         /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
          * fib6_nh_init() in net/ipv6/route.c. However, we'd like to manage them by Manager. Hence, set
          * link to NULL here. */
@@ -2019,7 +2039,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 link = NULL;
 
         if (!route_needs_convert(tmp))
-                return process_route_one(m, link, type, TAKE_PTR(tmp));
+                return process_route_one(m, link, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
 
         r = route_convert(m, tmp, &converted);
         if (r < 0) {
@@ -2031,7 +2051,11 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         assert(converted);
 
         for (size_t i = 0; i < converted->n; i++)
-                (void) process_route_one(m, converted->links[i] ?: link, type, TAKE_PTR(converted->routes[i]));
+                (void) process_route_one(m,
+                                         converted->links[i] ?: link,
+                                         type,
+                                         TAKE_PTR(converted->routes[i]),
+                                         has_cacheinfo ? &cacheinfo : NULL);
 
         return 1;
 }
