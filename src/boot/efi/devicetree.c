@@ -109,6 +109,31 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
+EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
+                const VOID *dtb_buffer, UINTN dtb_length) {
+
+        EFI_STATUS err;
+
+        assert(state);
+        assert(dtb_buffer && dtb_length > 0);
+
+        err = LibGetSystemConfigurationTable(&EfiDtbTableGuid, &state->orig);
+        if (EFI_ERROR(err))
+                return EFI_UNSUPPORTED;
+
+        err = devicetree_allocate(state, dtb_length);
+        if (EFI_ERROR(err))
+                return err;
+
+        CopyMem(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
+
+        err = devicetree_fixup(state, dtb_length);
+        if (EFI_ERROR(err))
+                return err;
+
+        return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+}
+
 void devicetree_cleanup(struct devicetree_state *state) {
         EFI_STATUS err;
 

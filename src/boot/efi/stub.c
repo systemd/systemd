@@ -4,6 +4,7 @@
 #include <efilib.h>
 
 #include "cpio.h"
+#include "devicetree.h"
 #include "disk.h"
 #include "graphics.h"
 #include "linux.h"
@@ -141,6 +142,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 SECTION_LINUX,
                 SECTION_INITRD,
                 SECTION_SPLASH,
+                SECTION_DTB,
                 _SECTION_MAX,
         };
 
@@ -149,12 +151,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 [SECTION_LINUX]   = (const CHAR8*) ".linux",
                 [SECTION_INITRD]  = (const CHAR8*) ".initrd",
                 [SECTION_SPLASH]  = (const CHAR8*) ".splash",
+                [SECTION_DTB]     = (const CHAR8*) ".dtb",
                 NULL,
         };
 
-        UINTN cmdline_len = 0, linux_size, initrd_size, credential_initrd_size = 0, sysext_initrd_size = 0;
+        UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
+        UINTN credential_initrd_size = 0, sysext_initrd_size = 0;
         _cleanup_freepool_ VOID *credential_initrd = NULL, *sysext_initrd = NULL;
-        EFI_PHYSICAL_ADDRESS linux_base, initrd_base;
+        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
+        _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE *loaded_image;
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
@@ -228,6 +233,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         initrd_size = szs[SECTION_INITRD];
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_INITRD] : 0;
 
+        dt_size = szs[SECTION_DTB];
+        dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_DTB] : 0;
+
         if (credential_initrd || sysext_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
@@ -248,6 +256,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         FreePool(sysext_initrd);
                         sysext_initrd = NULL;
                 }
+        }
+
+        if (dt_size > 0) {
+                err = devicetree_install_from_memory(
+                                &dt_state, PHYSICAL_ADDRESS_TO_POINTER(dt_base), dt_size);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
 
         err = linux_exec(image, cmdline, cmdline_len,
