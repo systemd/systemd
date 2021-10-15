@@ -20,6 +20,7 @@ efi_headers = files('''
 
 common_sources = '''
         assert.c
+        devicetree.c
         disk.c
         graphics.c
         measure.c
@@ -31,7 +32,6 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
-        devicetree.c
         drivers.c
         random-seed.c
         shim.c
