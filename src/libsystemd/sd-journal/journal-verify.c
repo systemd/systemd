@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hmac.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -845,21 +846,15 @@ int journal_file_verify(
         bool found_last = false;
         const char *tmp_dir = NULL;
 
-#if HAVE_GCRYPT
         uint64_t last_tag = 0;
-#endif
         assert(f);
 
         if (key) {
-#if HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
                         return r;
                 }
-#else
-                return -EOPNOTSUPP;
-#endif
         } else if (f->seal)
                 return -ENOKEY;
 
@@ -1139,7 +1134,6 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-#if HAVE_GCRYPT
                         if (f->seal) {
                                 uint64_t q, rt;
 
@@ -1189,7 +1183,8 @@ int journal_file_verify(
                                 if (r < 0)
                                         goto fail;
 
-                                if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                hmac_sha256_end(&f->hmac);
+                                if (memcmp(o->tag.tag, f->hmac.res, TAG_LENGTH) != 0) {
                                         error(p, "Tag failed verification");
                                         r = -EBADMSG;
                                         goto fail;
@@ -1201,7 +1196,6 @@ int journal_file_verify(
                         }
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
-#endif
 
                         last_epoch = le64toh(o->tag.epoch);
 
