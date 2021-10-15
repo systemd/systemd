@@ -13,3 +13,5 @@ int resize_fs(int fd, uint64_t sz, uint64_t *ret_size);
 
 uint64_t minimal_size_by_fs_magic(statfs_f_type_t magic);
 uint64_t minimal_size_by_fs_name(const char *str);
+
+bool fs_can_online_shrink_and_grow(statfs_f_type_t magic);
