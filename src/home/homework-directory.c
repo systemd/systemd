@@ -13,7 +13,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int home_prepare_directory(UserRecord *h, bool already_activated, HomeSetup *setup) {
+int home_setup_directory(UserRecord *h, bool already_activated, HomeSetup *setup) {
         assert(h);
         assert(setup);
 
@@ -30,7 +30,7 @@ int home_activate_directory(
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         const char *hdo, *hd, *ipo, *ip;
         int r;
 
@@ -44,7 +44,7 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_prepare(h, false, cache, &setup, &header_home);
+        r = home_setup(h, false, cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -205,7 +205,7 @@ int home_resize_directory(
         assert(ret_home);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
 
-        r = home_prepare(h, already_activated, cache, setup, NULL);
+        r = home_setup(h, already_activated, cache, setup, NULL);
         if (r < 0)
                 return r;
 
@@ -231,7 +231,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(setup);
+        r = home_setup_done(setup);
         if (r < 0)
                 return r;
 
