@@ -80,6 +80,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -92,7 +93,6 @@
 #include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -2547,29 +2547,26 @@ static int write_credential(
         return 0;
 }
 
-static int pathname_callback(PathVisitHookType hook, int node_fd, void *userdata) {
+static int append_path_recurse_dir_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
         int r;
-        ssize_t bufsize = 256;
-        char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)], fn[bufsize];
-        char *ret, ***credpaths = userdata;
+        char ***credpaths = userdata;
 
-        if (hook != PATH_VISIT_HOOK_FILE)
-                return 2;
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
 
-        xsprintf(procfs, "/proc/self/fd/%i", node_fd);
-        bufsize = readlink(procfs, fn, bufsize);
-        if (bufsize < 0)
-                return -errno;
-
-        ret = strdup(fn);
-        if (!ret)
-                return -ENOMEM;
-
-        r = strv_push(credpaths, ret);
+        r = strv_extend(credpaths, path);
         if (r < 0)
                 return r;
 
-        return 2;
+        return RECURSE_DIR_CONTINUE;
 }
 
 static int load_credential(
@@ -2708,7 +2705,14 @@ static int acquire_credentials(
                         char **path;
                         _cleanup_strv_free_ char **credpaths = NULL;
 
-                        r = path_breadth_first_visit(lc->path, pathname_callback, &credpaths);
+                        r = recurse_dir_at(
+                                        dfd,
+                                        lc->path,
+                                        /* statx_mask= */ 0,
+                                        /* n_depth_max= */ UINT_MAX,
+                                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                                        append_path_recurse_dir_cb,
+                                        &credpaths);
                         if (r < 0)
                                 return r;
 
