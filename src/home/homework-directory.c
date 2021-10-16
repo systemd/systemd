@@ -30,7 +30,7 @@ int home_activate_directory(
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         const char *hdo, *hd, *ipo, *ip;
         int r;
 
@@ -231,7 +231,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(setup);
+        r = home_setup_done(setup);
         if (r < 0)
                 return r;
 

@@ -1362,7 +1362,7 @@ int home_activate_luks(
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *luks_home_record = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         uint64_t host_size, encrypted_size;
         const char *hdo, *hd;
         struct statfs sfs;
@@ -2999,7 +2999,7 @@ int home_resize_luks(
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(setup);
+        r = home_setup_done(setup);
         if (r < 0)
                 return r;
 
