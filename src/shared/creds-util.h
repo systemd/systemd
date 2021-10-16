@@ -24,8 +24,6 @@
  * space for headers, IVs, exported TPM2 key material and so on. */
 #define CREDENTIAL_ENCRYPTED_SIZE_MAX (CREDENTIAL_SIZE_MAX + 128U*1024U)
 
-bool credential_name_valid(const char *s);
-
 int get_credentials_dir(const char **ret);
 
 int read_credential(const char *name, void **ret, size_t *ret_size);
