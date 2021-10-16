@@ -1,5 +1,6 @@
 src/boot/efi/boot.c
 src/boot/efi/secure-boot.c
+src/boot/efi/stub.c
 src/core/dbus-automount.c
 src/core/dbus-device.c
 src/core/dbus-job.c
