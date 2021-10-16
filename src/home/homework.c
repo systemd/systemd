@@ -298,7 +298,7 @@ static void drop_caches_now(void) {
                 log_debug("Dropped caches.");
 }
 
-int home_setup_undo(HomeSetup *setup) {
+int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
         assert(setup);
@@ -1426,7 +1426,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
 
 static int home_update(UserRecord *h, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
@@ -1469,7 +1469,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 
@@ -1480,7 +1480,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
 }
 
 static int home_resize(UserRecord *h, UserRecord **ret) {
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
@@ -1520,7 +1520,7 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
@@ -1583,7 +1583,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 
@@ -1595,7 +1595,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 
 static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *new_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
@@ -1625,7 +1625,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 

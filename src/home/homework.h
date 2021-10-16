@@ -54,7 +54,7 @@ void password_cache_free(PasswordCache *cache);
                 .partition_size = UINT64_MAX,           \
         }
 
-int home_setup_undo(HomeSetup *setup);
+int home_setup_done(HomeSetup *setup);
 
 int home_setup(UserRecord *h, bool already_activated, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
 

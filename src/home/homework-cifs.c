@@ -102,7 +102,7 @@ int home_activate_cifs(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         const char *hdo, *hd;
         int r;
@@ -140,7 +140,7 @@ int home_activate_cifs(
 }
 
 int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(closedirp) DIR *d = NULL;
         _cleanup_close_ int copy = -1;
