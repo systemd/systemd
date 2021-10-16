@@ -52,6 +52,9 @@
       <listitem><para>The initial RAM disk (initrd) will be looked for in the <literal>.initrd</literal> PE
       section.</para></listitem>
 
+      <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
+      section.</para></listitem>
+
       <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
       <literal>.cmdline</literal> PE section.</para></listitem>
 
@@ -65,6 +68,10 @@
     SecureBoot, or don't include a kernel command line PE section in the kernel image file. If a command line
     is accepted via EFI invocation parameters to the EFI binary it is measured into TPM PCR 8 (if a TPM is
     present).</para>
+
+    <para>If a DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing
+    DeviceTree in the corresponding EFI configuration table. systemd-stub will ask the firmware via the
+    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
   </refsect1>
 
   <refsect1>
@@ -163,7 +170,8 @@
     <programlisting>objcopy \
     --add-section .osrel=os-release --change-section-vma .osrel=0x20000 \
     --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x40000 \
+    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
+    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
     --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
     --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
     /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
