@@ -370,7 +370,7 @@ int home_setup_done(HomeSetup *setup) {
 
 int home_setup(
                 UserRecord *h,
-                bool already_activated,
+                HomeSetupFlags flags,
                 PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_header_home) {
@@ -387,25 +387,25 @@ int home_setup(
 
         /* Makes a home directory accessible (through the root_fd file descriptor, not by path!). */
 
-        if (!already_activated) /* If we set up the directory, we should also drop caches once we are done */
+        if (!FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) /* If we set up the directory, we should also drop caches once we are done */
                 setup->do_drop_caches = setup->do_drop_caches || user_record_drop_caches(h);
 
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_setup_luks(h, already_activated, NULL, cache, setup, ret_header_home);
+                return home_setup_luks(h, flags, NULL, cache, setup, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
-                r = home_setup_directory(h, already_activated, setup);
+                r = home_setup_directory(h, setup);
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, already_activated, cache, setup);
+                r = home_setup_fscrypt(h, cache, setup);
                 break;
 
         case USER_CIFS:
-                r = home_setup_cifs(h, already_activated, setup);
+                r = home_setup_cifs(h, flags, setup);
                 break;
 
         default:
@@ -1373,7 +1373,7 @@ static int home_remove(UserRecord *h) {
         return 0;
 }
 
-static int home_validate_update(UserRecord *h, HomeSetup *setup) {
+static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
 
@@ -1421,6 +1421,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
                 assert_not_reached();
         }
 
+        if (flags)
+                SET_FLAG(*flags, HOME_SETUP_ALREADY_ACTIVATED, has_mount);
+
         return has_mount; /* return true if the home record is already active */
 }
 
@@ -1428,7 +1431,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1439,13 +1442,11 @@ static int home_update(UserRecord *h, UserRecord **ret) {
                 return r;
         assert(r > 0); /* Insist that a password was verified */
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_setup(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -1482,7 +1483,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
 static int home_resize(UserRecord *h, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1496,21 +1497,19 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
                 return r;
         assert(r > 0); /* Insist that a password was verified */
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
-
-        already_activated = r > 0;
 
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, already_activated, &cache, &setup, ret);
+                return home_resize_luks(h, flags, &cache, &setup, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
-                return home_resize_directory(h, already_activated, &cache, &setup, ret);
+                return home_resize_directory(h, flags, &cache, &setup, ret);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Resizing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
@@ -1522,7 +1521,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1535,13 +1534,11 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_setup(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -1597,7 +1594,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *new_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1607,13 +1604,11 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_setup(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
