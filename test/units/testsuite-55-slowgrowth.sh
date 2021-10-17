@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # Don't use set -x here, since it generates a lot of output and slows
 # the script down, causing unexpected test fails.
 set -eu

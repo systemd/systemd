@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 TEST_REQUIRE_INSTALL_TESTS=0
