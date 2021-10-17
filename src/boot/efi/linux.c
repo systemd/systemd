@@ -25,7 +25,7 @@ static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
 
 static EFI_STATUS loaded_image_register(
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
+                const void *linux_buffer, UINTN linux_length,
                 EFI_HANDLE *ret_image) {
 
         EFI_LOADED_IMAGE *loaded_image = NULL;
@@ -42,7 +42,7 @@ static EFI_STATUS loaded_image_register(
 
         /* provide the image base address and size */
         *loaded_image = (EFI_LOADED_IMAGE) {
-                .ImageBase = (VOID *) linux_buffer,
+                .ImageBase = (void *) linux_buffer,
                 .ImageSize = linux_length
         };
 
@@ -57,7 +57,7 @@ static EFI_STATUS loaded_image_register(
         }
 
         /* install a new LoadedImage protocol. ret_handle is a new image handle */
-        err = uefi_call_wrapper(BS->InstallMultipleProtocolInterfaces, 4,
+        err = BS->InstallMultipleProtocolInterfaces(
                         ret_image,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
@@ -75,18 +75,15 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
                 return EFI_SUCCESS;
 
         /* get the LoadedImage protocol that we allocated earlier */
-        err = uefi_call_wrapper(
-                        BS->OpenProtocol, 6,
-                        loaded_image_handle, &LoadedImageProtocol, (VOID **) &loaded_image,
+        err = BS->OpenProtocol(
+                        loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return err;
 
         /* close the handle */
-        (void) uefi_call_wrapper(
-                        BS->CloseProtocol, 4,
-                        loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
-        err = uefi_call_wrapper(BS->UninstallMultipleProtocolInterfaces, 4,
+        (void) BS->CloseProtocol(loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
+        err = BS->UninstallMultipleProtocolInterfaces(
                         loaded_image_handle,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
@@ -117,21 +114,21 @@ struct pages {
 static inline void cleanup_pages(struct pages *p) {
         if (p->addr == 0)
                 return;
-        (void) uefi_call_wrapper(BS->FreePages, 2, p->addr, p->num);
+        (void) BS->FreePages(p->addr, p->num);
 }
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
-                const VOID *initrd_buffer, UINTN initrd_length) {
+                const void *linux_buffer, UINTN linux_length,
+                const void *initrd_buffer, UINTN initrd_length) {
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
         UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
         EFI_IMAGE_ENTRY_POINT kernel_entry;
         _cleanup_(cleanup_pages) struct pages kernel = {};
-        VOID *new_buffer;
+        void *new_buffer;
         EFI_STATUS err;
 
         assert(image);
@@ -157,10 +154,7 @@ EFI_STATUS linux_exec(
         */
         /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
         kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
-        err = uefi_call_wrapper(
-                BS->AllocatePages, 4,
-                AllocateAnyPages, EfiLoaderData,
-                kernel.num, &kernel.addr);
+        err = BS->AllocatePages(AllocateAnyPages, EfiLoaderData, kernel.num, &kernel.addr);
         if (EFI_ERROR(err))
                 return EFI_OUT_OF_RESOURCES;
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
@@ -182,5 +176,5 @@ EFI_STATUS linux_exec(
                 return err;
 
         /* call the kernel */
-        return uefi_call_wrapper(kernel_entry, 2, loaded_image_handle, ST);
+        return kernel_entry(loaded_image_handle, ST);
 }
