@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Testsuite: Fail Start (EXTEND_TIMEOUT_USEC Didn't occur in sufficient time after TimeoutStartSec.)
 

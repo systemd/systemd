@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Test for SystemCallFilter updating errno
 # test for issue #9939 which is fixed by a5404992cc7724ebf7572a0aa89d9fdb26ce0b62 (#9942)
