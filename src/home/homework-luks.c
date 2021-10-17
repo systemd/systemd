@@ -1100,7 +1100,7 @@ static int lock_image_fd(int image_fd, const char *ip) {
 
 int home_setup_luks(
                 UserRecord *h,
-                bool already_activated,
+                HomeSetupFlags flags,
                 const char *force_image_path,
                 PasswordCache *cache,
                 HomeSetup *setup,
@@ -1129,7 +1129,7 @@ int home_setup_luks(
         if (r < 0)
                 return r;
 
-        if (already_activated) {
+        if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
                 struct loop_info64 info;
                 const char *n;
 
@@ -1387,7 +1387,7 @@ int home_activate_luks(
 
         r = home_setup_luks(
                         h,
-                        false,
+                        0,
                         NULL,
                         cache,
                         &setup,
@@ -2701,7 +2701,7 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
 
 int home_resize_luks(
                 UserRecord *h,
-                bool already_activated,
+                HomeSetupFlags flags,
                 PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_home) {
@@ -2797,7 +2797,7 @@ int home_resize_luks(
                 new_image_size = new_image_size_rounded;
         }
 
-        r = home_setup_luks(h, already_activated, whole_disk, cache, setup, &header_home);
+        r = home_setup_luks(h, flags, whole_disk, cache, setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -2852,7 +2852,7 @@ int home_resize_luks(
         resize_type = can_resize_fs(setup->root_fd, old_fs_size, new_fs_size);
         if (resize_type < 0)
                 return resize_type;
-        if (resize_type == CAN_RESIZE_OFFLINE && already_activated)
+        if (resize_type == CAN_RESIZE_OFFLINE && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
                 return log_error_errno(SYNTHETIC_ERRNO(ETXTBSY), "File systems of this type can only be resized offline, but is currently online.");
 
         log_info("Ready to resize image size %s → %s, partition size %s → %s, file system size %s → %s.",

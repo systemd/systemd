@@ -280,7 +280,6 @@ static int fscrypt_setup(
 
 int home_setup_fscrypt(
                 UserRecord *h,
-                bool already_activated,
                 PasswordCache *cache,
                 HomeSetup *setup) {
 
