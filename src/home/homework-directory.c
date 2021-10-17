@@ -13,7 +13,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int home_setup_directory(UserRecord *h, bool already_activated, HomeSetup *setup) {
+int home_setup_directory(UserRecord *h, HomeSetup *setup) {
         assert(h);
         assert(setup);
 
@@ -44,7 +44,7 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_setup(h, false, cache, &setup, &header_home);
+        r = home_setup(h, 0, cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
@@ -192,7 +192,7 @@ int home_create_directory_or_subvolume(UserRecord *h, UserRecord **ret_home) {
 
 int home_resize_directory(
                 UserRecord *h,
-                bool already_activated,
+                HomeSetupFlags flags,
                 PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_home) {
@@ -205,7 +205,7 @@ int home_resize_directory(
         assert(ret_home);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
 
-        r = home_setup(h, already_activated, cache, setup, NULL);
+        r = home_setup(h, flags, cache, setup, NULL);
         if (r < 0)
                 return r;
 

@@ -54,9 +54,14 @@ void password_cache_free(PasswordCache *cache);
                 .partition_size = UINT64_MAX,           \
         }
 
+/* Various flags for the operation of setting up a home directory */
+typedef enum HomeSetupFlags {
+        HOME_SETUP_ALREADY_ACTIVATED = 1 << 0, /* Open an already activated home, rather than activate it afresh */
+} HomeSetupFlags;
+
 int home_setup_done(HomeSetup *setup);
 
-int home_setup(UserRecord *h, bool already_activated, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
+int home_setup(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
 
 int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, PasswordCache *cache, struct statfs *ret_statfs, UserRecord **ret_new_home);
 
