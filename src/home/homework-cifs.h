@@ -4,7 +4,7 @@
 #include "homework.h"
 #include "user-record.h"
 
-int home_setup_cifs(UserRecord *h, bool already_activated, HomeSetup *setup);
+int home_setup_cifs(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup);
 
 int home_activate_cifs(UserRecord *h, PasswordCache *cache, UserRecord **ret_home);
 
