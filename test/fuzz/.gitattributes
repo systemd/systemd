@@ -5,3 +5,4 @@
 /fuzz-fido-id-desc/ binary
 /fuzz-lldp-rx/*     binary
 /fuzz-ndisc-rs/*    binary
+/*/*                generated
