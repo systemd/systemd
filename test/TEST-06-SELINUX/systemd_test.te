@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 policy_module(systemd_test, 0.0.1)
 
 # declarations
