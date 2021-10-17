@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 TEST_DESCRIPTION="Resource limits-related tests"

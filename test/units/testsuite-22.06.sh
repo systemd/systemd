@@ -1,8 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Inspired by https://github.com/systemd/systemd/issues/9508
-#
-
 set -eux
 set -o pipefail
 
