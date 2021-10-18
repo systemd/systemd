@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "watchdog.h"
@@ -127,7 +128,13 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        fn = watchdog_device ?: "/dev/watchdog";
+        /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
+         * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
+         * sysfs attributes can only be found via /sys/dev/char/<major>:<minor> if the new-style device
+         * major/minor is used, not the old-style. */
+        fn = !watchdog_device || path_equal(watchdog_device, "/dev/watchdog") ?
+                "/dev/watchdog0" : watchdog_device;
+
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
