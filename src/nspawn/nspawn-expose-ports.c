@@ -174,7 +174,7 @@ int expose_port_send_rtnl(int send_fd) {
 
         assert(send_fd >= 0);
 
-        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
+        fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate container netlink: %m");
 
