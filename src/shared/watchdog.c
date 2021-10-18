@@ -22,12 +22,10 @@ static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
         int flags = enable ? WDIOS_ENABLECARD : WDIOS_DISABLECARD;
-        int r;
 
         assert(watchdog_fd >= 0);
 
-        r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
-        if (r < 0) {
+        if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {
                 if (!enable)
                         return log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
 
