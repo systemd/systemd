@@ -21,6 +21,7 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
+#include <linux/filter.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 
@@ -68,6 +69,7 @@ int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t ma
 
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
+int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_filter *filter);
 
 /* message */
 int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type, const char *data);
