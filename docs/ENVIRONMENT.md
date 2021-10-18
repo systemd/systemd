@@ -369,6 +369,11 @@ disk images with `--image=` or similar:
   directores in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
   against its built-in certificates.
 
+* `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
+  LO_FLAGS_DIRECT_IO (i.e. direct IO + asynchronous IO) on loopback block
+  devices when opening them. Defaults to on, set this to "0" to disable this
+  feature.
+
 `systemd-cryptsetup`:
 
 * `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
