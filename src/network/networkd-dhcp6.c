@@ -548,28 +548,22 @@ static int dhcp6_pd_prefix_distribute(
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
 
-                r = dhcp6_pd_get_assigned_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix);
-                if (r < 0) {
-                        r = dhcp6_get_preferred_delegated_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix);
-                        if (r < 0)
-                                continue;
-                }
+                if (dhcp6_pd_get_assigned_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix) < 0 &&
+                    dhcp6_get_preferred_delegated_prefix(link, pd_prefix, pd_prefix_len, &assigned_prefix) < 0)
+                        continue;
 
                 (void) in6_addr_prefix_to_string(&assigned_prefix, 64, &buf);
-                if (link == dhcp6_link) {
-                        r = dhcp6_pd_request_address(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Failed to assign addresses in prefix %s: %m", strna(buf));
+                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to assign/update prefix %s: %m", strna(buf));
+                        if (link == dhcp6_link)
+                                return r;
 
-                        log_link_debug(link, "Assigned addresses in prefix %s: %m", strna(buf));
-                } else {
-                        r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred, lifetime_valid);
-                        if (r < 0) {
-                                log_link_error_errno(link, r, "Failed to assign/update prefix %s: %m", strna(buf));
-                                link_enter_failed(link);
-                        } else
-                                log_link_debug(link, "Assigned prefix %s", strna(buf));
+                        link_enter_failed(link);
+                        continue;
                 }
+
+                log_link_debug(link, "Assigned prefix %s", strna(buf));
         }
 
         return 0;
