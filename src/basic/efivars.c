@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -159,12 +160,29 @@ int efi_get_variable_string(const char *variable, char **p) {
         return 0;
 }
 
+static int efi_verify_variable(const char *variable, uint32_t attr, const void *value, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        size_t n;
+        uint32_t a;
+        int r;
+
+        assert(variable);
+        assert(value || size == 0);
+
+        r = efi_get_variable(variable, &a, &buf, &n);
+        if (r < 0)
+                return r;
+
+        return a == attr && memcmp_nn(buf, n, value, size) == 0;
+}
+
 int efi_set_variable(const char *variable, const void *value, size_t size) {
         struct var {
                 uint32_t attr;
                 char buf[];
         } _packed_ * _cleanup_free_ buf = NULL;
         _cleanup_close_ int fd = -1;
+        uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         bool saved_flags_valid = false;
         unsigned saved_flags;
         int r;
@@ -173,6 +191,12 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
         assert(value || size == 0);
 
         const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
+
+        /* size 0 means removal, empty variable would not be enough for that */
+        if (size > 0 && efi_verify_variable(variable, attr, value, size) > 0) {
+                log_debug("Variable '%s' is already in wanted state, skipping write.", variable);
+                return 0;
+        }
 
         /* Newer efivarfs protects variables that are not in an allow list with FS_IMMUTABLE_FL by default,
          * to protect them for accidental removal and modification. We are not changing these variables
@@ -205,7 +229,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
                 goto finish;
         }
 
-        buf->attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
+        buf->attr = attr;
         memcpy(buf->buf, value, size);
 
         r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
