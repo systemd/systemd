@@ -144,7 +144,7 @@
         depending on hardware capabilities).</para>
 
         <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
-        (<filename>/dev/watchdog</filename> or the path specified with <varname>WatchdogDevice=</varname> or
+        (<filename>/dev/watchdog0</filename> or the path specified with <varname>WatchdogDevice=</varname> or
         the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
         reboot the system if it is not contacted within the specified timeout interval. The system manager
         will ensure to contact it at least once in half the specified timeout interval. This feature requires
@@ -182,7 +182,7 @@
 
         <listitem><para>Configure the hardware watchdog device that the
         runtime and shutdown watchdog timers will open and use. Defaults
-        to <filename>/dev/watchdog</filename>. This setting has no
+        to <filename>/dev/watchdog0</filename>. This setting has no
         effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
