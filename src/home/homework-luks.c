@@ -384,7 +384,7 @@ static int luks_setup(
 static int luks_open(
                 const char *dm_name,
                 char **passwords,
-                PasswordCache *cache,
+                const PasswordCache *cache,
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
@@ -1986,7 +1986,7 @@ static int home_truncate(
 
 int home_create_luks(
                 UserRecord *h,
-                PasswordCache *cache,
+                const PasswordCache *cache,
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
@@ -3053,7 +3053,7 @@ int home_resize_luks(
 int home_passwd_luks(
                 UserRecord *h,
                 HomeSetup *setup,
-                PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                const PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
                 char **effective_passwords /* new passwords */) {
 
         size_t volume_key_size, max_key_slots, n_effective;
@@ -3218,7 +3218,7 @@ static int luks_try_resume(
         return -ENOKEY;
 }
 
-int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
+int home_unlock_luks(UserRecord *h, const PasswordCache *cache) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         char **list;
