@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "watchdog.h"
@@ -21,12 +22,10 @@ static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
         int flags = enable ? WDIOS_ENABLECARD : WDIOS_DISABLECARD;
-        int r;
 
         assert(watchdog_fd >= 0);
 
-        r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
-        if (r < 0) {
+        if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {
                 if (!enable)
                         return log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
 
@@ -43,7 +42,7 @@ static int watchdog_set_enable(bool enable) {
 static int watchdog_get_timeout(void) {
         int sec = 0;
 
-        assert(watchdog_fd > 0);
+        assert(watchdog_fd >= 0);
 
         if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
                 return -errno;
@@ -107,7 +106,7 @@ static int update_timeout(void) {
         if (watchdog_timeout == USEC_INFINITY) {
                 r = watchdog_get_timeout();
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to query watchdog HW timeout: %m");
+                        return log_error_errno(r, "Failed to query watchdog HW timeout: %m");
         }
 
         r = watchdog_set_enable(true);
@@ -127,7 +126,13 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        fn = watchdog_device ?: "/dev/watchdog";
+        /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
+         * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
+         * sysfs attributes can only be found via /sys/dev/char/<major>:<minor> if the new-style device
+         * major/minor is used, not the old-style. */
+        fn = !watchdog_device || path_equal(watchdog_device, "/dev/watchdog") ?
+                "/dev/watchdog0" : watchdog_device;
+
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
