@@ -184,11 +184,7 @@ enum {
 };
 
 #define HEADER_COMPATIBLE_ANY HEADER_COMPATIBLE_SEALED
-#if HAVE_GCRYPT
-#  define HEADER_COMPATIBLE_SUPPORTED HEADER_COMPATIBLE_SEALED
-#else
-#  define HEADER_COMPATIBLE_SUPPORTED 0
-#endif
+#define HEADER_COMPATIBLE_SUPPORTED HEADER_COMPATIBLE_SEALED
 
 #define HEADER_SIGNATURE                                                \
         ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })

@@ -98,7 +98,6 @@ int main(int argc, char *argv[]) {
                         t = server.oldest_file_usec + server.max_retention_usec - n;
                 }
 
-#if HAVE_GCRYPT
                 if (server.system_journal) {
                         usec_t u;
 
@@ -109,7 +108,6 @@ int main(int argc, char *argv[]) {
                                         t = MIN(t, u - n);
                         }
                 }
-#endif
 
                 r = sd_event_run(server.event, t);
                 if (r < 0) {

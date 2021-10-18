@@ -7,6 +7,8 @@ sd_journal_sources = files(
         'sd-journal/catalog.h',
         'sd-journal/compress.c',
         'sd-journal/compress.h',
+        'sd-journal/journal-authenticate.c',
+        'sd-journal/journal-authenticate.h',
         'sd-journal/journal-def.h',
         'sd-journal/journal-file.c',
         'sd-journal/journal-file.h',
@@ -25,9 +27,7 @@ sd_journal_sources = files(
 if conf.get('HAVE_GCRYPT') == 1
         sd_journal_sources += files(
                 'sd-journal/fsprg.c',
-                'sd-journal/fsprg.h',
-                'sd-journal/journal-authenticate.c',
-                'sd-journal/journal-authenticate.h')
+                'sd-journal/fsprg.h')
 endif
 
 audit_type_includes = [config_h,

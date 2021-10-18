@@ -782,15 +782,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
-#if HAVE_GCRYPT
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_SETUP_KEYS:
-                        arg_action = ACTION_SETUP_KEYS;
-                        break;
-
                 case ARG_VERIFY_KEY:
                         r = free_and_strdup(&arg_verify_key, optarg);
                         if (r < 0)
@@ -803,6 +794,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_merge = false;
                         break;
 
+#if HAVE_GCRYPT
+                case ARG_FORCE:
+                        arg_force = true;
+                        break;
+
+                case ARG_SETUP_KEYS:
+                        arg_action = ACTION_SETUP_KEYS;
+                        break;
+
                 case ARG_INTERVAL:
                         r = parse_sec(optarg, &arg_interval);
                         if (r < 0 || arg_interval <= 0)
@@ -811,7 +811,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 #else
                 case ARG_SETUP_KEYS:
-                case ARG_VERIFY_KEY:
                 case ARG_INTERVAL:
                 case ARG_FORCE:
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -2002,10 +2001,8 @@ static int verify(sd_journal *j) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
-#if HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
-#endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
                 if (k == -EINVAL)

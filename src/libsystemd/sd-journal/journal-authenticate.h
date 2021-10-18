@@ -9,7 +9,6 @@ int journal_file_append_tag(JournalFile *f);
 int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime);
 int journal_file_append_first_tag(JournalFile *f);
 
-int journal_file_hmac_setup(JournalFile *f);
 int journal_file_hmac_start(JournalFile *f);
 int journal_file_hmac_put_header(JournalFile *f);
 int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p);
