@@ -2433,7 +2433,6 @@ int server_init(Server *s, const char *namespace) {
 }
 
 void server_maybe_append_tags(Server *s) {
-#if HAVE_GCRYPT
         JournalFile *f;
         usec_t n;
 
@@ -2444,7 +2443,6 @@ void server_maybe_append_tags(Server *s) {
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals)
                 journal_file_maybe_append_tag(f, n);
-#endif
 }
 
 void server_done(Server *s) {
