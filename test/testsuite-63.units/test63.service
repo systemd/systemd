@@ -1,5 +1,5 @@
 [Unit]
-ConditionPathExists=!/tmp/nonexistent
+ConditionPathExists=/tmp/nonexistent
 
 [Service]
 ExecStart=true
