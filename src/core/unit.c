@@ -5865,6 +5865,16 @@ Condition *unit_find_failed_condition(Unit *u) {
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
 }
 
+bool unit_has_failed_condition_or_assert(Unit *u) {
+        if (dual_timestamp_is_set(&u->condition_timestamp) && !u->condition_result)
+                return true;
+
+        if (dual_timestamp_is_set(&u->assert_timestamp) && !u->assert_result)
+                return true;
+
+        return false;
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
