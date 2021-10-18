@@ -349,7 +349,10 @@ static int luks_setup(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, passwords) {
+        FOREACH_POINTER(list,
+                        cache ? cache->pkcs11_passwords : NULL,
+                        cache ? cache->fido2_passwords : NULL,
+                        passwords) {
                 r = luks_try_passwords(cd, list, vk, &vks);
                 if (r != -ENOKEY)
                         break;
@@ -384,7 +387,7 @@ static int luks_setup(
 static int luks_open(
                 const char *dm_name,
                 char **passwords,
-                PasswordCache *cache,
+                const PasswordCache *cache,
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
@@ -435,7 +438,10 @@ static int luks_open(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, passwords) {
+        FOREACH_POINTER(list,
+                        cache ? cache->pkcs11_passwords : NULL,
+                        cache ? cache->fido2_passwords : NULL,
+                        passwords) {
                 r = luks_try_passwords(cd, list, vk, &vks);
                 if (r != -ENOKEY)
                         break;
@@ -1614,8 +1620,7 @@ static int luks_format(
 
         STRV_FOREACH(pp, effective_passwords) {
 
-                if (strv_contains(cache->pkcs11_passwords, *pp) ||
-                    strv_contains(cache->fido2_passwords, *pp)) {
+                if (password_cache_contains(cache, *pp)) { /* is this a fido2 or pkcs11 password? */
                         log_debug("Using minimal PBKDF for slot %i", slot);
                         r = sym_crypt_set_pbkdf_type(cd, &minimal_pbkdf);
                 } else {
@@ -1952,7 +1957,7 @@ static int home_truncate(
 
 int home_create_luks(
                 UserRecord *h,
-                PasswordCache *cache,
+                const PasswordCache *cache,
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
@@ -3014,7 +3019,7 @@ int home_resize_luks(
 int home_passwd_luks(
                 UserRecord *h,
                 HomeSetup *setup,
-                PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                const PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
                 char **effective_passwords /* new passwords */) {
 
         size_t volume_key_size, max_key_slots, n_effective;
@@ -3051,7 +3056,11 @@ int home_passwd_luks(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, h->password) {
+        FOREACH_POINTER(list,
+                        cache ? cache->pkcs11_passwords : NULL,
+                        cache ? cache->fido2_passwords : NULL,
+                        h->password) {
+
                 r = luks_try_passwords(setup->crypt_device, list, volume_key, &volume_key_size);
                 if (r != -ENOKEY)
                         break;
@@ -3077,8 +3086,7 @@ int home_passwd_luks(
                         continue;
                 }
 
-                if (strv_contains(cache->pkcs11_passwords, effective_passwords[i]) ||
-                    strv_contains(cache->fido2_passwords, effective_passwords[i])) {
+                if (password_cache_contains(cache, effective_passwords[i])) { /* Is this a FIDO2 or PKCS#11 password? */
                         log_debug("Using minimal PBKDF for slot %zu", i);
                         r = sym_crypt_set_pbkdf_type(setup->crypt_device, &minimal_pbkdf);
                 } else {
@@ -3179,7 +3187,7 @@ static int luks_try_resume(
         return -ENOKEY;
 }
 
-int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
+int home_unlock_luks(UserRecord *h, const PasswordCache *cache) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         char **list;
@@ -3203,7 +3211,10 @@ int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
         cryptsetup_enable_logging(cd);
 
         r = -ENOKEY;
-        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, h->password) {
+        FOREACH_POINTER(list,
+                        cache ? cache->pkcs11_passwords : NULL,
+                        cache ? cache->fido2_passwords : NULL,
+                        h->password) {
                 r = luks_try_resume(cd, dm_name, list);
                 if (r != -ENOKEY)
                         break;
