@@ -598,6 +598,11 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
+        if (unit_has_failed_condition_or_assert(trigger)) {
+                timer_enter_dead(t, TIMER_FAILURE_UNIT_CONDITION_FAILED);
+                return;
+        }
+
         r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
@@ -911,9 +916,10 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
-        [TIMER_SUCCESS]                 = "success",
-        [TIMER_FAILURE_RESOURCES]       = "resources",
-        [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [TIMER_SUCCESS]                       = "success",
+        [TIMER_FAILURE_RESOURCES]             = "resources",
+        [TIMER_FAILURE_START_LIMIT_HIT]       = "start-limit-hit",
+        [TIMER_FAILURE_UNIT_CONDITION_FAILED] = "unit-condition-failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
