@@ -2618,18 +2618,17 @@ endif
 
 if conf.get('ENABLE_LOCALED') == 1
         if conf.get('HAVE_XKBCOMMON') == 1
-                # logind will load libxkbcommon.so dynamically on its own
-                deps = [libdl]
-                extra_includes = [libxkbcommon.get_pkgconfig_variable('includedir')]
+                # logind will load libxkbcommon.so dynamically on its own, but we still
+                # need to specify where the headers are
+                deps = [libdl, libxkbcommon.partial_dependency(compile_args: true)]
         else
                 deps = []
-                extra_includes = []
         endif
 
         executable(
                 'systemd-localed',
                 systemd_localed_sources,
-                include_directories : includes + extra_includes,
+                include_directories : includes,
                 link_with : [libshared],
                 dependencies : deps,
                 install_rpath : rootlibexecdir,
