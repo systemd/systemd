@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -159,6 +160,7 @@ static int loop_configure(
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
+        struct loop_info64 info_copy;
         uint64_t seqnum;
         usec_t timestamp;
         int r;
@@ -305,8 +307,13 @@ static int loop_configure(
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                 return -errno;
 
+        /* Only some of the flags LOOP_CONFIGURE can set are also settable via LOOP_SET_STATUS64, hence mask
+         * them out. */
+        info_copy = c->info;
+        info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
+
         for (unsigned n_attempts = 0;;) {
-                if (ioctl(fd, LOOP_SET_STATUS64, &c->info) >= 0)
+                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
                         break;
                 if (errno != EAGAIN || ++n_attempts >= 64) {
                         r = log_debug_errno(errno, "Failed to configure loopback device: %m");
@@ -317,6 +324,14 @@ static int loop_configure(
                  * failed attempts we see */
                 (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
                               random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
+        }
+
+        /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
+        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO)) {
+                unsigned long b = 1;
+
+                if (ioctl(fd, LOOP_SET_DIRECT_IO, b) < 0)
+                        log_debug_errno(errno, "Failed to enable direct IO mode on loopback device /dev/loop%i, ignoring: %m", nr);
         }
 
         if (ret_seqnum_not_before)
@@ -369,7 +384,7 @@ static int attach_empty_file(int loop, int nr) {
         return 0;
 }
 
-int loop_device_make(
+static int loop_device_make_internal(
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -377,14 +392,15 @@ int loop_device_make(
                 uint32_t loop_flags,
                 LoopDevice **ret) {
 
+        _cleanup_close_ int direct_io_fd = -1;
         _cleanup_free_ char *loopdev = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
         uint64_t seqnum = UINT64_MAX;
         usec_t timestamp = USEC_INFINITY;
+        int nr = -1, r, f_flags;
         struct stat st;
-        int nr = -1, r;
 
         assert(fd >= 0);
         assert(ret);
@@ -442,6 +458,30 @@ int loop_device_make(
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return r;
+        }
+
+        f_flags = fcntl(fd, F_GETFL);
+        if (f_flags < 0)
+                return -errno;
+
+        if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) != FLAGS_SET(f_flags, O_DIRECT)) {
+                /* If LO_FLAGS_DIRECT_IO is requested, then make sure we have the fd open with O_DIRECT, as
+                 * that's required. Conversely, if it's off require that O_DIRECT is off too (that's because
+                 * new kernels will implicitly enable LO_FLAGS_DIRECT_IO if O_DIRECT is set).
+                 *
+                 * Our intention here is that LO_FLAGS_DIRECT_IO is the primary knob, and O_DIRECT derived
+                 * from that automatically. */
+
+                direct_io_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
+                if (direct_io_fd < 0) {
+                        if (!FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO))
+                                return log_debug_errno(errno, "Failed to reopen file descriptor without O_DIRECT: %m");
+
+                        /* Some file systems might not support O_DIRECT, let's gracefully continue without it then. */
+                        log_debug_errno(errno, "Failed to enable O_DIRECT for backing file descriptor for loopback device. Continuing without.");
+                        loop_flags &= ~LO_FLAGS_DIRECT_IO;
+                } else
+                        fd = direct_io_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
         _cleanup_close_ int control = -1;
@@ -505,6 +545,28 @@ int loop_device_make(
                                                UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
+        if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO)) {
+                struct loop_info64 info;
+
+                if (ioctl(loop_with_fd, LOOP_GET_STATUS64, &info) < 0)
+                        return -errno;
+
+#if HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
+                /* On older kernels (<= 5.3) it was necessary to set the block size of the loopback block
+                 * device to the logical block size of the underlying file system. Since there was no nice
+                 * way to query the value, we are not bothering to do this however. On newer kernels the
+                 * block size is propagated automatically and does not require intervention from us. We'll
+                 * check here if enabling direct IO worked, to make this easily debuggable however.
+                 *
+                 * (Should anyone really care and actually wants direct IO on old kernels: it might be worth
+                 * enabling direct IO with iteratively larger block sizes until it eventually works.) */
+                if (!FLAGS_SET(info.lo_flags, LO_FLAGS_DIRECT_IO))
+                        log_debug("Could not enable direct IO mode, proceeding in buffered IO mode.");
+        }
+
         if (fstat(loop_with_fd, &st) < 0)
                 return -errno;
         assert(S_ISBLK(st.st_mode));
@@ -531,14 +593,48 @@ int loop_device_make(
         return d->fd;
 }
 
+static uint32_t loop_flags_mangle(uint32_t loop_flags) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_LOOP_DIRECT_IO");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_LOOP_DIRECT_IO, ignoring: %m");
+
+        SET_FLAG(loop_flags, LO_FLAGS_DIRECT_IO, r != 0); /* Turn on LO_FLAGS_DIRECT_IO by default, unless explicitly configured to off. */
+        return loop_flags;
+}
+
+int loop_device_make(
+                int fd,
+                int open_flags,
+                uint64_t offset,
+                uint64_t size,
+                uint32_t loop_flags,
+                LoopDevice **ret) {
+
+        assert(fd >= 0);
+        assert(ret);
+        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+
+        loop_flags = loop_flags_mangle(loop_flags);
+
+        return loop_device_make_internal(
+                        fd,
+                        open_flags,
+                        offset,
+                        size,
+                        loop_flags,
+                        ret);
+}
+
 int loop_device_make_by_path(
                 const char *path,
                 int open_flags,
                 uint32_t loop_flags,
                 LoopDevice **ret) {
 
+        int r, basic_flags, direct_flags, rdwr_flags;
         _cleanup_close_ int fd = -1;
-        int r;
 
         assert(path);
         assert(ret);
@@ -547,7 +643,18 @@ int loop_device_make_by_path(
         /* Passing < 0 as open_flags here means we'll try to open the device writable if we can, retrying
          * read-only if we cannot. */
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(open_flags >= 0 ? open_flags : O_RDWR));
+        loop_flags = loop_flags_mangle(loop_flags);
+
+        /* Let's open with O_DIRECT if we can. But not all file systems support that, hence fall back to
+         * non-O_DIRECT mode automatically, if it fails. */
+
+        basic_flags = O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+        direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
+        rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
+
+        fd = open(path, basic_flags|direct_flags|rdwr_flags);
+        if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
+                fd = open(path, basic_flags|rdwr_flags);
         if (fd < 0) {
                 r = -errno;
 
@@ -555,7 +662,9 @@ int loop_device_make_by_path(
                 if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
                         return r;
 
-                fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                fd = open(path, basic_flags|direct_flags|O_RDONLY);
+                if (fd < 0 && direct_flags != 0) /* as above */
+                        fd = open(path, basic_flags|O_RDONLY);
                 if (fd < 0)
                         return r; /* Propagate original error */
 
@@ -626,6 +735,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         int nr;
 
         assert(loop_path);
+        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
 
         loop_fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
