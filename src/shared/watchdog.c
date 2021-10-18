@@ -107,7 +107,7 @@ static int update_timeout(void) {
         if (watchdog_timeout == USEC_INFINITY) {
                 r = watchdog_get_timeout();
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to query watchdog HW timeout: %m");
+                        return log_error_errno(r, "Failed to query watchdog HW timeout: %m");
         }
 
         r = watchdog_set_enable(true);
