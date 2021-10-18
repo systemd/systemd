@@ -6,6 +6,6 @@
 
 int home_setup_cifs(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup);
 
-int home_activate_cifs(UserRecord *h, PasswordCache *cache, UserRecord **ret_home);
+int home_activate_cifs(UserRecord *h, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 
-int home_create_cifs(UserRecord *h, UserRecord **ret_home);
+int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home);
