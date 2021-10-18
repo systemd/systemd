@@ -263,6 +263,75 @@ static int manager_connect_genl(Manager *m) {
         return 0;
 }
 
+static int manager_setup_rtnl_filter(Manager *manager) {
+        struct sock_filter filter[] = {
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                     /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr), 1, 0),        /* A (packet length) >= sizeof(struct nlmsghdr) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                              /* reject */
+                /* Check the system endian. */
+                BPF_STMT(BPF_LDX + BPF_W + BPF_IMM, htobe32(1)),                           /* X <- BE(1) */
+                BPF_STMT(BPF_LD + BPF_W + BPF_IMM, 1),                                     /* A <- 1 */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 2),                              /* A == X ? */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_len)),  /* A <- message length */
+                BPF_JUMP(BPF_JMP + BPF_JA, 0, 16, 0),                                      /* JUMP */
+                /* Convert the message length into HOST format. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_len)),  /* A <- message length */
+                BPF_STMT(BPF_ALU + BPF_RSH + BPF_K, 24),                                   /* A >>= 24 */
+                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                           /* X <- A */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_len)),  /* A <- message length */
+                BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0x00ff0000),                           /* A &= 0x00ff0000 */
+                BPF_STMT(BPF_ALU + BPF_RSH + BPF_K, 8),                                    /* A >>= 8 */
+                BPF_STMT(BPF_ALU + BPF_OR + BPF_X, 0),                                     /* A |= X */
+                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                           /* X <- A */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_len)),  /* A <- message length */
+                BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0x0000ff00),                           /* A &= 0x0000ff00 */
+                BPF_STMT(BPF_ALU + BPF_LSH + BPF_K, 8),                                    /* A <<= 8 */
+                BPF_STMT(BPF_ALU + BPF_OR + BPF_X, 0),                                     /* A |= X */
+                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                           /* X <- A */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_len)),  /* A <- message length */
+                BPF_STMT(BPF_ALU + BPF_LSH + BPF_K, 24),                                   /* A <<= 24 */
+                BPF_STMT(BPF_ALU + BPF_OR + BPF_X, 0),                                     /* A |= X */
+                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                           /* X <- A */
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                     /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_X, 0, 1, 0),                              /* A (packet length) >= X (message length) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                              /* reject */
+                /* When the packet contains multiple messages, accept the packet. Assume that the
+                 * packet contains multiple messages when
+                 * NLMSG_ALIGN(nlmsg_len) + sizeof(struct nlmsghdr) >= packet length. */
+                BPF_STMT(BPF_MISC + BPF_TXA, 0),                                           /* A <- X */
+                BPF_STMT(BPF_ALU + BPF_ADD + BPF_K, NLMSG_ALIGNTO - 1),                    /* A += NLMSG_ALIGNTO - 1 */
+                BPF_STMT(BPF_ALU + BPF_AND + BPF_K, ~(NLMSG_ALIGNTO - 1)),                 /* A &= ~(NLMSG_ALIGNTO - 1) */
+                BPF_STMT(BPF_ALU + BPF_ADD + BPF_K, sizeof(struct nlmsghdr)),              /* A += sizeof(struct nlmsghdr) */
+                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                           /* X <- A */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                     /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_X, 0, 0, 1),                              /* A (packet length) >= X (NLMSG_ALIGN(nlmsg_len) + sizeof(struct nlmsghdr)) ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                     /* accept */
+                /* Accept all message types except for RTM_NEWNEIGH or RTM_DELNEIGH. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_type)), /* A <- message type */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_NEWNEIGH), 2, 0),          /* message type == RTM_NEWNEIGH ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_DELNEIGH), 1, 0),          /* message type == RTM_DELNEIGH ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                     /* accept */
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                     /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr) + sizeof(struct ndmsg), 1, 0),
+                                                                                           /* packet length >= sizeof(struct nlmsghdr) + sizeof(struct ndmsg) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                              /* reject */
+                /* Reject the message when the neighbor state does not have NUD_PERMANENT flag. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, sizeof(struct nlmsghdr) + offsetof(struct ndmsg, ndm_state)),
+                                                                                           /* A <- neighbor state */
+                BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, NUD_PERMANENT, 1, 0),                 /* neighbor state has NUD_PERMANENT ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                              /* reject */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                     /* accept */
+        };
+
+        assert(manager);
+        assert(manager->rtnl);
+
+        return sd_netlink_attach_filter(manager->rtnl, ELEMENTSOF(filter), filter);
+}
+
 static int manager_connect_rtnl(Manager *m) {
         int fd, r;
 
@@ -337,7 +406,7 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return manager_setup_rtnl_filter(m);
 }
 
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
