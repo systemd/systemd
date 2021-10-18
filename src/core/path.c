@@ -479,8 +479,14 @@ static void path_enter_dead(Path *p, PathResult f) {
         if (p->result == PATH_SUCCESS)
                 p->result = f;
 
-        unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));
-        path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
+        if (p->result == PATH_SUCCESS)
+                unit_log_success(UNIT(p));
+        else if (p->result == PATH_UNIT_CONDITION_FAILED)
+                unit_log_skip(UNIT(p), path_result_to_string(p->result));
+        else
+                unit_log_failure(UNIT(p), path_result_to_string(p->result));
+
+        path_set_state(p, IN_SET(p->result, PATH_SUCCESS, PATH_UNIT_CONDITION_FAILED) ? PATH_DEAD : PATH_FAILED);
 }
 
 static void path_enter_running(Path *p) {
@@ -589,6 +595,12 @@ static int path_start(Unit *u) {
         r = unit_test_trigger_loaded(u);
         if (r < 0)
                 return r;
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
@@ -780,6 +792,11 @@ static void path_trigger_notify(Unit *u, Unit *other) {
                 return;
         }
 
+        if (!other->condition_result) {
+                path_enter_dead(p, PATH_UNIT_CONDITION_FAILED);
+                return;
+        }
+
         /* Don't propagate anything if there's still a job queued */
         if (other->job)
                 return;
@@ -806,21 +823,6 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static int path_test_start_limit(Unit *u) {
-        Path *p = PATH(u);
-        int r;
-
-        assert(p);
-
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
-        return 0;
-}
-
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS]              = "PathExists",
         [PATH_EXISTS_GLOB]         = "PathExistsGlob",
@@ -836,6 +838,7 @@ static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_FAILURE_RESOURCES]            = "resources",
         [PATH_FAILURE_START_LIMIT_HIT]      = "start-limit-hit",
         [PATH_FAILURE_UNIT_START_LIMIT_HIT] = "unit-start-limit-hit",
+        [PATH_UNIT_CONDITION_FAILED]        = "unit-condition-failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
@@ -875,6 +878,4 @@ const UnitVTable path_vtable = {
         .reset_failed = path_reset_failed,
 
         .bus_set_property = bus_path_set_property,
-
-        .test_start_limit = path_test_start_limit,
 };
