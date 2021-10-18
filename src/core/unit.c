@@ -1852,12 +1852,13 @@ static bool unit_verify_deps(Unit *u) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
-        /* Check start rate limiting early so that failure conditions don't cause us to enter a busy loop. */
-        if (UNIT_VTABLE(u)->test_start_limit) {
-                int r = UNIT_VTABLE(u)->test_start_limit(u);
+        /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
+        if (UNIT_VTABLE(u)->can_start) {
+                r = UNIT_VTABLE(u)->can_start(u);
                 if (r < 0)
                         return r;
         }
