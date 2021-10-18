@@ -286,7 +286,7 @@ following contents:
         {
             "type": "cppdbg",
             "program": "/usr/lib/systemd/systemd",
-            "processId": "${command:pickProcess}",
+            "processId": "${command:pickRemoteProcess}",
             "request": "attach",
             "name": "systemd",
             "pipeTransport": {
