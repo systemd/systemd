@@ -42,7 +42,7 @@ static int watchdog_set_enable(bool enable) {
 static int watchdog_get_timeout(void) {
         int sec = 0;
 
-        assert(watchdog_fd > 0);
+        assert(watchdog_fd >= 0);
 
         if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
                 return -errno;
