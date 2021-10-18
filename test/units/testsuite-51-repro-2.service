@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Issue 16115 Repro with on-failure
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Match]
 Name=*tun98 *tap98 ip6tnl98 erspan98
 

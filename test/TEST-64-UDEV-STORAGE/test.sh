@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # vi: ts=4 sw=4 tw=0 et:
 #
 # TODO:

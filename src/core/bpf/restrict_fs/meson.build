@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 if conf.get('BPF_FRAMEWORK') == 1
         restrict_fs_skel_h = custom_target(
