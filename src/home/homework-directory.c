@@ -26,16 +26,17 @@ int home_setup_directory(UserRecord *h, HomeSetup *setup) {
 
 int home_activate_directory(
                 UserRecord *h,
+                HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         const char *hdo, *hd, *ipo, *ip;
         int r;
 
         assert(h);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
+        assert(setup);
         assert(ret_home);
 
         assert_se(ipo = user_record_image_path(h));
@@ -44,15 +45,15 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_setup(h, 0, cache, &setup, &header_home);
+        r = home_setup(h, 0, cache, setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, &setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, setup, header_home, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 
-        setup.root_fd = safe_close(setup.root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         /* Create mount point to mount over if necessary */
         if (!path_equal(ip, hd))

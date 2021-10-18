@@ -99,16 +99,17 @@ int home_setup_cifs(
 
 int home_activate_cifs(
                 UserRecord *h,
+                HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         const char *hdo, *hd;
         int r;
 
         assert(h);
         assert(user_record_storage(h) == USER_CIFS);
+        assert(setup);
         assert(ret_home);
 
         if (!h->cifs_service)
@@ -117,21 +118,21 @@ int home_activate_cifs(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_setup_cifs(h, 0, &setup);
+        r = home_setup_cifs(h, 0, setup);
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, &setup, NULL, cache, NULL, &new_home);
+        r = home_refresh(h, setup, NULL, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 
-        setup.root_fd = safe_close(setup.root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         r = home_move_mount(NULL, hd);
         if (r < 0)
                 return r;
 
-        setup.undo_mount = false;
+        setup->undo_mount = false;
 
         log_info("Everything completed.");
 
@@ -139,8 +140,7 @@ int home_activate_cifs(
         return 1;
 }
 
-int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(closedirp) DIR *d = NULL;
         _cleanup_close_ int copy = -1;
@@ -148,6 +148,7 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
 
         assert(h);
         assert(user_record_storage(h) == USER_CIFS);
+        assert(setup);
         assert(ret_home);
 
         if (!h->cifs_service)
@@ -160,11 +161,11 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
                 return log_error_errno(errno, "Unable to detect whether /sbin/mount.cifs exists: %m");
         }
 
-        r = home_setup_cifs(h, 0, &setup);
+        r = home_setup_cifs(h, 0, setup);
         if (r < 0)
                 return r;
 
-        copy = fcntl(setup.root_fd, F_DUPFD_CLOEXEC, 3);
+        copy = fcntl(setup->root_fd, F_DUPFD_CLOEXEC, 3);
         if (copy < 0)
                 return -errno;
 
@@ -178,11 +179,11 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
         if (errno != 0)
                 return log_error_errno(errno, "Failed to detect if CIFS directory is empty: %m");
 
-        r = home_populate(h, setup.root_fd);
+        r = home_populate(h, setup->root_fd);
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup.root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, NULL);
         if (r < 0)
                 return r;
 

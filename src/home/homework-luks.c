@@ -1391,11 +1391,11 @@ static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, stru
 
 int home_activate_luks(
                 UserRecord *h,
+                HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *luks_home_record = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         uint64_t host_size, encrypted_size;
         const char *hdo, *hd;
         struct statfs sfs;
@@ -1403,6 +1403,7 @@ int home_activate_luks(
 
         assert(h);
         assert(user_record_storage(h) == USER_LUKS);
+        assert(setup);
         assert(ret_home);
 
         r = dlopen_cryptsetup();
@@ -1412,33 +1413,33 @@ int home_activate_luks(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_get_state_luks(h, &setup);
+        r = home_get_state_luks(h, setup);
         if (r < 0)
                 return r;
         if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup.dm_node);
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup->dm_node);
 
         r = home_setup_luks(
                         h,
                         0,
                         NULL,
                         cache,
-                        &setup,
+                        setup,
                         &luks_home_record);
         if (r < 0)
                 return r;
 
-        r = block_get_size_by_fd(setup.loop->fd, &host_size);
+        r = block_get_size_by_fd(setup->loop->fd, &host_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to get loopback block device size: %m");
 
-        r = block_get_size_by_path(setup.dm_node, &encrypted_size);
+        r = block_get_size_by_path(setup->dm_node, &encrypted_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to get LUKS block device size: %m");
 
         r = home_refresh(
                         h,
-                        &setup,
+                        setup,
                         luks_home_record,
                         cache,
                         &sfs,
@@ -1446,28 +1447,28 @@ int home_activate_luks(
         if (r < 0)
                 return r;
 
-        r = home_extend_embedded_identity(new_home, h, &setup);
+        r = home_extend_embedded_identity(new_home, h, setup);
         if (r < 0)
                 return r;
 
-        setup.root_fd = safe_close(setup.root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         r = home_move_mount(user_record_user_name_and_realm(h), hd);
         if (r < 0)
                 return r;
 
-        setup.undo_mount = false;
-        setup.do_offline_fitrim = false;
+        setup->undo_mount = false;
+        setup->do_offline_fitrim = false;
 
-        loop_device_relinquish(setup.loop);
+        loop_device_relinquish(setup->loop);
 
-        r = sym_crypt_deactivate_by_name(NULL, setup.dm_name, CRYPT_DEACTIVATE_DEFERRED);
+        r = sym_crypt_deactivate_by_name(NULL, setup->dm_name, CRYPT_DEACTIVATE_DEFERRED);
         if (r < 0)
                 log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
-        setup.undo_dm = false;
-        setup.do_offline_fallocate = false;
-        setup.do_mark_clean = false;
+        setup->undo_dm = false;
+        setup->do_offline_fallocate = false;
+        setup->do_mark_clean = false;
 
         log_info("Everything completed.");
 

@@ -759,8 +759,9 @@ int home_refresh(
 }
 
 static int home_activate(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
         assert(h);
@@ -791,7 +792,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_activate_luks(h, &cache, &new_home);
+                r = home_activate_luks(h, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -800,14 +801,14 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
         case USER_FSCRYPT:
-                r = home_activate_directory(h, &cache, &new_home);
+                r = home_activate_directory(h, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
                 break;
 
         case USER_CIFS:
-                r = home_activate_cifs(h, &cache, &new_home);
+                r = home_activate_cifs(h, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -1163,6 +1164,7 @@ static int determine_default_storage(UserStorage *ret) {
 
 static int home_create(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         UserStorage new_storage = _USER_STORAGE_INVALID;
@@ -1238,7 +1240,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         case USER_CIFS:
-                r = home_create_cifs(h, &new_home);
+                r = home_create_cifs(h, &setup, &new_home);
                 break;
 
         default:
