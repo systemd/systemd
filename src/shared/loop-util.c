@@ -326,6 +326,21 @@ static int loop_configure(
                               random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
+        /* Work around a kernel bug, where changing offset/size of the loopback device doesn't correctly
+         * invalidate the buffer cache. For details see:
+         *
+         *     https://android.googlesource.com/platform/system/apex/+/bef74542fbbb4cd629793f4efee8e0053b360570
+         *
+         * This was fixed in kernel 5.0, see:
+         *
+         *     https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5db470e229e22b7eda6e23b5566e532c96fb5bc3
+         *
+         * We'll run the work-around here in the legacy LOOP_SET_STATUS64 codepath. In the LOOP_CONFIGURE
+         * codepath above it should not be necessary. */
+        if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
+                if (ioctl(fd, BLKFLSBUF, 0) < 0)
+                        log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
+
         /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
         if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO)) {
                 unsigned long b = 1;
