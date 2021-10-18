@@ -48,6 +48,7 @@ struct Manager {
         Hashmap *links_by_index;
         Hashmap *links_by_name;
         Hashmap *links_by_hw_addr;
+        Hashmap *links_by_dhcp6_pd_prefix;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         OrderedSet *address_pools;
