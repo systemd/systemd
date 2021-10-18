@@ -13,16 +13,16 @@ int home_trim_luks(UserRecord *h);
 
 int home_store_header_identity_luks(UserRecord *h, HomeSetup *setup, UserRecord *old_home);
 
-int home_create_luks(UserRecord *h, PasswordCache *cache, char **effective_passwords, UserRecord **ret_home);
+int home_create_luks(UserRecord *h, const PasswordCache *cache, char **effective_passwords, UserRecord **ret_home);
 
 int home_get_state_luks(UserRecord *h, HomeSetup *setup);
 
 int home_resize_luks(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_home);
 
-int home_passwd_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache, char **effective_passwords);
+int home_passwd_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
 
 int home_lock_luks(UserRecord *h);
-int home_unlock_luks(UserRecord *h, PasswordCache *cache);
+int home_unlock_luks(UserRecord *h, const PasswordCache *cache);
 
 static inline uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
         int k;
