@@ -59,6 +59,7 @@ Exec.CPUAffinity,             config_parse_cpu_affinity,   0,                 0
 Exec.ResolvConf,              config_parse_resolv_conf,    0,                 offsetof(Settings, resolv_conf)
 Exec.LinkJournal,             config_parse_link_journal,   0,                 0
 Exec.Timezone,                config_parse_timezone,       0,                 offsetof(Settings, timezone)
+Exec.SuppressSync,            config_parse_bool,           0,                 offsetof(Settings, suppress_sync)
 Files.ReadOnly,               config_parse_tristate,       0,                 offsetof(Settings, read_only)
 Files.Volatile,               config_parse_volatile_mode,  0,                 offsetof(Settings, volatile_mode)
 Files.Bind,                   config_parse_bind,           0,                 0

@@ -138,6 +138,12 @@ All tools:
 * `$SYSTEMD_NSPAWN_TMPFS_TMP=0` — if set, do not overmount `/tmp/` in the
   container with a tmpfs, but leave the directory from the image in place.
 
+* `$SYSTEMD_SUPPRESS_SYNC=1` — if set, all disk synchronization syscalls are
+  blocked to the container payload (e.g. `sync()`, `fsync()`, `syncfs()`, …)
+  and the `O_SYNC`/`O_DSYNC` flags are made unavailable to `open()` and
+  friends. This is equivalent to passing `--suppress-sync=yes` on the
+  `systemd-nspawn` command line.
+
 `systemd-logind`:
 
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that

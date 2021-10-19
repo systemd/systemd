@@ -150,3 +150,5 @@ static inline const char *seccomp_errno_or_action_to_string(int num) {
 }
 
 int parse_syscall_and_errno(const char *in, char **name, int *error);
+
+int seccomp_suppress_sync(void);

@@ -365,6 +365,16 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SuppressSync=</varname></term>
+
+        <listitem><para>Configures whether to suppress disk synchronization for the container payload. This
+        is equivalent to the <option>--suppress-sync=</option> command line switch, and takes the same
+        parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

@@ -229,6 +229,7 @@ static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static Credential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static char **arg_bind_user = NULL;
+static bool arg_suppress_sync = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -342,7 +343,9 @@ static int help(void) {
                "  -E --setenv=NAME[=VALUE]  Pass an environment variable to PID 1\n"
                "  -u --user=USER            Run the command under specified user or UID\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
-               "     --notify-ready=BOOLEAN Receive notifications from the child init process\n\n"
+               "     --notify-ready=BOOLEAN Receive notifications from the child init process\n"
+               "     --suppress-sync=BOOLEAN\n"
+               "                            Suppress any form of disk data synchronization\n\n"
                "%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --hostname=NAME        Override the hostname for the container\n"
@@ -654,6 +657,12 @@ static int parse_environment(void) {
         if (e)
                 arg_container_service_name = e;
 
+        r = getenv_bool("SYSTEMD_SUPPRESS_SYNC");
+        if (r >= 0)
+                arg_suppress_sync = r;
+        else if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SUPPRESS_SYNC, ignoring: %m");
+
         return detect_unified_cgroup_hierarchy_from_environment();
 }
 
@@ -713,6 +722,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_BIND_USER,
+                ARG_SUPPRESS_SYNC,
         };
 
         static const struct option options[] = {
@@ -785,6 +795,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "set-credential",         required_argument, NULL, ARG_SET_CREDENTIAL         },
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
+                { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
                 {}
         };
 
@@ -1666,6 +1677,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         arg_settings_mask |= SETTING_BIND_USER;
+                        break;
+
+                case ARG_SUPPRESS_SYNC:
+                        r = parse_boolean_argument("--suppress-sync=", optarg, &arg_suppress_sync);
+                        if (r < 0)
+                                return r;
+
+                        arg_settings_mask |= SETTING_SUPPRESS_SYNC;
                         break;
 
                 case '?':
@@ -3385,6 +3404,12 @@ static int inner_child(
                         return r;
         }
 
+        if (arg_suppress_sync) {
+                r = seccomp_suppress_sync();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to install sync() suppression seccomp filter, ignoring: %m");
+        }
+
 #if HAVE_SELINUX
         if (arg_selinux_context)
                 if (setexeccon(arg_selinux_context) < 0)
@@ -4551,6 +4576,9 @@ static int merge_settings(Settings *settings, const char *path) {
                 else
                         arg_console_mode = settings->console_mode;
         }
+
+        if ((arg_settings_mask & SETTING_SUPPRESS_SYNC) == 0)
+                arg_suppress_sync = settings->suppress_sync;
 
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
          * don't consult arg_settings_mask for them. */
