@@ -242,26 +242,6 @@ int config_parse_mud_url(
         return free_and_replace(*url, unescaped);
 }
 
-/* Router lifetime can be set with netlink interface since kernel >= 4.5
- * so for the supported kernel we don't need to expire routes in userspace */
-int kernel_route_expiration_supported(void) {
-        static int cached = -1;
-        int r;
-
-        if (cached < 0) {
-                Condition c = {
-                        .type = CONDITION_KERNEL_VERSION,
-                        .parameter = (char *) ">= 4.5"
-                };
-                r = condition_test(&c, NULL);
-                if (r < 0)
-                        return r;
-
-                cached = r;
-        }
-        return cached;
-}
-
 static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
         siphash24_compress_string(c->filename, state);
         siphash24_compress(&c->line, sizeof(c->line), state);
