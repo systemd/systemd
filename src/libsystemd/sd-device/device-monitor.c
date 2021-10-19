@@ -811,8 +811,6 @@ _public_ int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_
 }
 
 _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
-        static const struct sock_fprog filter = { 0, NULL };
-
         assert_return(m, -EINVAL);
 
         m->subsystem_filter = hashmap_free(m->subsystem_filter);
@@ -822,7 +820,7 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
         m->match_parent_filter = set_free(m->match_parent_filter);
         m->nomatch_parent_filter = set_free(m->nomatch_parent_filter);
 
-        if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
+        if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, NULL, 0) < 0)
                 return -errno;
 
         m->filter_uptodate = true;
