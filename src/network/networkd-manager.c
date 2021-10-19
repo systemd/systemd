@@ -263,6 +263,40 @@ static int manager_connect_genl(Manager *m) {
         return 0;
 }
 
+static int manager_setup_rtnl_filter(Manager *manager) {
+        struct sock_filter filter[] = {
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                      /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr), 1, 0),         /* A (packet length) >= sizeof(struct nlmsghdr) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                /* Always accept multipart message. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_flags)), /* A <- message flags */
+                BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, htobe16(NLM_F_MULTI), 0, 1),           /* message flags has NLM_F_MULTI ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+                /* Accept all message types except for RTM_NEWNEIGH or RTM_DELNEIGH. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_type)),  /* A <- message type */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_NEWNEIGH), 2, 0),           /* message type == RTM_NEWNEIGH ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_DELNEIGH), 1, 0),           /* message type == RTM_DELNEIGH ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                      /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr) + sizeof(struct ndmsg), 1, 0),
+                                                                                            /* packet length >= sizeof(struct nlmsghdr) + sizeof(struct ndmsg) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                /* Reject the message when the neighbor state does not have NUD_PERMANENT flag. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, sizeof(struct nlmsghdr) + offsetof(struct ndmsg, ndm_state)),
+                                                                                            /* A <- neighbor state */
+                BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, htobe16(NUD_PERMANENT), 1, 0),         /* neighbor state has NUD_PERMANENT ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+        };
+
+        assert(manager);
+        assert(manager->rtnl);
+
+        return sd_netlink_attach_filter(manager->rtnl, ELEMENTSOF(filter), filter);
+}
+
 static int manager_connect_rtnl(Manager *m) {
         int fd, r;
 
@@ -337,7 +371,7 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return manager_setup_rtnl_filter(m);
 }
 
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
