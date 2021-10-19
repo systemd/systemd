@@ -2205,3 +2205,98 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
 
         return 0;
 }
+
+static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
+        bool any = false;
+        int r;
+
+        /* Blocks open() with the specified flag, where flag is O_SYNC or so. This makes these calls return
+         * EINVAL, in the hope the client code will retry without O_SYNC then.  */
+
+#if SCMP_SYS(open) > 0
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EINVAL),
+                        SCMP_SYS(open),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, flag, flag));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for open: %m");
+        else
+                any = true;
+#endif
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EINVAL),
+                        SCMP_SYS(openat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, flag, flag));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat: %m");
+        else
+                any = true;
+
+#if defined(__SNR_openat2)
+        /* The new openat2() system call can't be filtered sensibly, see above. */
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(ENOSYS),
+                        SCMP_SYS(openat2),
+                        0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat2: %m");
+        else
+                any = true;
+#endif
+
+        return any ? 0 : r;
+}
+
+int seccomp_suppress_sync(void) {
+        uint32_t arch;
+        int r;
+
+        /* This is mostly identical to SystemCallFilter=~@sync:0, but simpler to use, and separately
+         * manageable, and also masks O_SYNC/O_DSYNC */
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                const char *c;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                NULSTR_FOREACH(c, syscall_filter_sets[SYSCALL_FILTER_SET_SYNC].value) {
+                        int id;
+
+                        id = seccomp_syscall_resolve_name(c);
+                        if (id == __NR_SCMP_ERROR) {
+                                log_debug("System call %s is not known, ignoring.", c);
+                                continue;
+                        }
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
+                                        id,
+                                        0);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to add filter for system call %s, ignoring: %m", c);
+                }
+
+                (void) block_open_flag(seccomp, O_SYNC);
+#if O_DSYNC != O_SYNC
+                (void) block_open_flag(seccomp, O_DSYNC);
+#endif
+
+                r = seccomp_load(seccomp);
+                if (ERRNO_IS_SECCOMP_FATAL(r))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to apply sync() suppression for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
+}
