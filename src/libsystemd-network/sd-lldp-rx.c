@@ -492,7 +492,7 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
 
 _public_ int sd_lldp_rx_get_neighbors_json(sd_lldp_rx *lldp, JsonVariant ***ret) {
         int i, j, r, n = 0;
-        sd_lldp_neighbor **l = NULL;
+        _cleanup_free_ sd_lldp_neighbor **l = NULL;
         JsonVariant **v = NULL;
 
         assert_return(lldp, -EINVAL);
@@ -512,13 +512,20 @@ _public_ int sd_lldp_rx_get_neighbors_json(sd_lldp_rx *lldp, JsonVariant ***ret)
                 r = sd_lldp_neighbor_build_json(l[i], v + i);
                 if (r < 0)
                         goto clear;
+                else
+                        sd_lldp_neighbor_unref(l[i]);
         }
 
         *ret = v;
 
+        for (i = 0; i < n; j++)
+
         return n;
 
 clear:
+        for (j = i; j < n; j++)
+                sd_lldp_neighbor_unref(l[j]);
+
         for (j = 0; j < i; j++)
                 json_variant_unrefp(v + j);
 
