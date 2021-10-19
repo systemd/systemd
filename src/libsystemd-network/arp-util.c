@@ -14,7 +14,7 @@
 #include "unaligned.h"
 #include "util.h"
 
-int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *eth_mac) {
+int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *mac) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                         /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct ether_arp), 1, 0),           /* packet >= arp packet ? */
@@ -36,30 +36,22 @@ int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPOP_REPLY, 1, 0),                        /* protocol == reply ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
                 /* Sender Hardware Address must be different from our own */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),/* A <- 4 bytes of client's MAC */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be32(&mac->ether_addr_octet[0])),   /* X <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_sha)),       /* A <- 4 bytes of SHA */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 6),                                  /* A == 0 ? */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),/* A <- remainder of client's MAC */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 4),                                  /* A == X ? */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be16(&mac->ether_addr_octet[4])),   /* X <- remainder of client's MAC */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, arp_sha) + 4),   /* A <- remainder of SHA */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 1),                                  /* A == X ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
                 /* Sender Protocol Address or Target Protocol Address must be equal to the one we care about */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(a->s_addr)),                                /* A <- clients IP */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
+                BPF_STMT(BPF_LDX + BPF_IMM, htobe32(a->s_addr)),                               /* X <- clients IP */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_spa)),       /* A <- SPA */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* X xor A */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
-                BPF_STMT(BPF_RET + BPF_K, 65535),                                              /* return all */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(a->s_addr)),                                /* A <- clients IP */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 1),                                  /* A == X ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                         /* accept */
+                BPF_STMT(BPF_LDX + BPF_IMM, htobe32(a->s_addr)),                               /* A <- clients IP */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_tpa)),       /* A <- TPA */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* X xor A */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
-                BPF_STMT(BPF_RET + BPF_K, 65535),                                              /* return all */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 1),                                  /* A == 0 ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                         /* accept */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
         };
         struct sock_fprog fprog = {
@@ -75,7 +67,7 @@ int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *
         return 0;
 }
 
-int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac) {
+int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *mac) {
         union sockaddr_union link = {
                 .ll.sll_family   = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_ARP),
@@ -87,12 +79,13 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
         int r;
 
         assert(ifindex > 0);
+        assert(mac);
 
         s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
 
-        r = arp_update_filter(s, a, eth_mac);
+        r = arp_update_filter(s, a, mac);
         if (r < 0)
                 return r;
 
