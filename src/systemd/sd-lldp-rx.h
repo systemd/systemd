@@ -32,6 +32,8 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
+typedef struct JsonVariant JsonVariant;
+
 typedef enum sd_lldp_rx_event_t {
         SD_LLDP_RX_EVENT_ADDED,
         SD_LLDP_RX_EVENT_REMOVED,
@@ -67,10 +69,12 @@ int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask);
 int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *address);
 
 int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***neighbors);
+int sd_lldp_rx_get_neighbors_json(sd_lldp_rx *lldp, JsonVariant ***neighbors);
 
 int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size);
 sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
 sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
+int sd_lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret);
 
 /* Access to LLDP frame metadata */
 int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address);
