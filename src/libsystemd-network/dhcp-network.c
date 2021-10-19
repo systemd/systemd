@@ -172,7 +172,6 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                 r = setsockopt_int(s, IPPROTO_IP, IP_TOS, ip_service_type);
         else
                 r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
-
         if (r < 0)
                 return r;
 
@@ -204,8 +203,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                         return r;
         }
 
-        r = bind(s, &src.sa, sizeof(src.in));
-        if (r < 0)
+        if (bind(s, &src.sa, sizeof(src.in)) < 0)
                 return -errno;
 
         return TAKE_FD(s);
@@ -213,14 +211,12 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
 
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len) {
-        int r;
 
         assert(link);
         assert(packet);
         assert(len);
 
-        r = sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll));
-        if (r < 0)
+        if (sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll)) < 0)
                 return -errno;
 
         return 0;
@@ -233,14 +229,12 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
                 .in.sin_port = htobe16(port),
                 .in.sin_addr.s_addr = address,
         };
-        int r;
 
         assert(s >= 0);
         assert(packet);
         assert(len);
 
-        r = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in));
-        if (r < 0)
+        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
                 return -errno;
 
         return 0;
