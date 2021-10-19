@@ -135,7 +135,7 @@ static EFI_STATUS bmp_parse_header(
         return EFI_SUCCESS;
 }
 
-static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
+static void pixel_blend(UINT32 *dst, const UINT32 source) {
         UINT32 alpha, src, src_rb, src_g, dst_rb, dst_g, rb, g;
 
         assert(dst);
@@ -256,13 +256,12 @@ static EFI_STATUS bmp_to_blt(
 
 EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
-        static const EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
         struct bmp_map *map;
         const UINT8 *pixmap;
         UINT64 blt_size;
-        _cleanup_freepool_ VOID *blt = NULL;
+        _cleanup_freepool_ void *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
@@ -281,7 +280,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                 background = &pixel;
         }
 
-        err = LibLocateProtocol((EFI_GUID*) &GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol(&GraphicsOutputProtocol, (void **)&GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
 
@@ -294,11 +293,13 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (dib->y < GraphicsOutput->Mode->Info->VerticalResolution)
                 y_pos = (GraphicsOutput->Mode->Info->VerticalResolution - dib->y) / 2;
 
-        uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                          (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
-                          EfiBltVideoFill, 0, 0, 0, 0,
-                          GraphicsOutput->Mode->Info->HorizontalResolution,
-                          GraphicsOutput->Mode->Info->VerticalResolution, 0);
+        err = GraphicsOutput->Blt(
+                        GraphicsOutput, (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
+                        EfiBltVideoFill, 0, 0, 0, 0,
+                        GraphicsOutput->Mode->Info->HorizontalResolution,
+                        GraphicsOutput->Mode->Info->VerticalResolution, 0);
+        if (EFI_ERROR(err))
+                return err;
 
         /* EFI buffer */
         blt_size = sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * dib->x * dib->y;
@@ -306,9 +307,10 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (!blt)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
-                                dib->x, dib->y, 0);
+        err = GraphicsOutput->Blt(
+                        GraphicsOutput, blt,
+                        EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
+                        dib->x, dib->y, 0);
         if (EFI_ERROR(err))
                 return err;
 
@@ -320,7 +322,8 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                 blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
-                                 dib->x, dib->y, 0);
+        return GraphicsOutput->Blt(
+                        GraphicsOutput, blt,
+                        EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
+                        dib->x, dib->y, 0);
 }
