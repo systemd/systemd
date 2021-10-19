@@ -9,7 +9,6 @@
 #include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
-
         static const struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ethhdr, h_dest)),      /* A <- 4 bytes of destination MAC */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0180c200, 1, 0),                    /* A != 01:80:c2:00 */
@@ -24,26 +23,21 @@ int lldp_network_bind_raw_socket(int ifindex) {
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
                 BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                    /* accept packet */
         };
-
         static const struct sock_fprog fprog = {
                 .len = ELEMENTSOF(filter),
                 .filter = (struct sock_filter*) filter,
         };
-
         struct packet_mreq mreq = {
                 .mr_ifindex = ifindex,
                 .mr_type = PACKET_MR_MULTICAST,
                 .mr_alen = ETH_ALEN,
                 .mr_address = { 0x01, 0x80, 0xC2, 0x00, 0x00, 0x00 }
         };
-
         union sockaddr_union saddrll = {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_ifindex = ifindex,
         };
-
         _cleanup_close_ int fd = -1;
-        int r;
 
         assert(ifindex > 0);
 
@@ -52,29 +46,24 @@ int lldp_network_bind_raw_socket(int ifindex) {
         if (fd < 0)
                 return -errno;
 
-        r = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
-        if (r < 0)
+        if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
                 return -errno;
 
         /* customer bridge */
-        r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        if (r < 0)
+        if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                 return -errno;
 
         /* non TPMR bridge */
         mreq.mr_address[ETH_ALEN - 1] = 0x03;
-        r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        if (r < 0)
+        if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                 return -errno;
 
         /* nearest bridge */
         mreq.mr_address[ETH_ALEN - 1] = 0x0E;
-        r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        if (r < 0)
+        if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                 return -errno;
 
-        r = bind(fd, &saddrll.sa, sizeof(saddrll.ll));
-        if (r < 0)
+        if (bind(fd, &saddrll.sa, sizeof(saddrll.ll)) < 0)
                 return -errno;
 
         return TAKE_FD(fd);
