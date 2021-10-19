@@ -1855,13 +1855,6 @@ int unit_start(Unit *u) {
 
         assert(u);
 
-        /* Check start rate limiting early so that failure conditions don't cause us to enter a busy loop. */
-        if (UNIT_VTABLE(u)->test_start_limit) {
-                int r = UNIT_VTABLE(u)->test_start_limit(u);
-                if (r < 0)
-                        return r;
-        }
-
         /* If this is already started, then this will succeed. Note that this will even succeed if this unit
          * is not startable by the user. This is relied on to detect when we need to wait for units and when
          * waiting is finished. */
@@ -1909,6 +1902,13 @@ int unit_start(Unit *u) {
         if (following) {
                 log_unit_debug(u, "Redirecting start request from %s to %s.", u->id, following->id);
                 return unit_start(following);
+        }
+
+        /* Check start rate limiting early so that failure conditions don't cause us to enter a busy loop. */
+        if (UNIT_VTABLE(u)->test_start_limit) {
+                int r = UNIT_VTABLE(u)->test_start_limit(u);
+                if (r < 0)
+                        return r;
         }
 
         /* If it is stopped, but we cannot start it, then fail */
@@ -5863,6 +5863,16 @@ Condition *unit_find_failed_condition(Unit *u) {
                         return c;
 
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
+}
+
+bool unit_has_failed_condition_or_assert(Unit *u) {
+        if (dual_timestamp_is_set(&u->condition_timestamp) && !u->condition_result)
+                return true;
+
+        if (dual_timestamp_is_set(&u->assert_timestamp) && !u->assert_result)
+                return true;
+
+        return false;
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
