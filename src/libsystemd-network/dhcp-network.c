@@ -212,9 +212,12 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len) {
 
+        /* Do not add assert(s >= 0) here, as this is called in fuzz-dhcp-server, and in that case this
+         * function should fail with negative errno. */
+
         assert(link);
         assert(packet);
-        assert(len);
+        assert(len > 0);
 
         if (sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll)) < 0)
                 return -errno;
@@ -232,7 +235,7 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
 
         assert(s >= 0);
         assert(packet);
-        assert(len);
+        assert(len > 0);
 
         if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
                 return -errno;
