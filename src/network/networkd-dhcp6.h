@@ -21,7 +21,7 @@ bool link_dhcp6_pd_is_enabled(Link *link);
 int dhcp6_pd_remove(Link *link, bool only_marked);
 int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
-int dhcp6_request_information(Link *link, int ir);
+int dhcp6_start_on_ra(Link *link, bool information_request);
 int dhcp6_request_prefix_delegation(Link *link);
 
 int request_process_dhcp6_client(Request *req);
@@ -29,7 +29,7 @@ int link_request_dhcp6_client(Link *link);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_prefix_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_client_start_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_subnet_id);

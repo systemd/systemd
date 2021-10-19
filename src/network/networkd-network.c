@@ -400,6 +400,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_broadcast = -1,
 
                 .dhcp6_use_address = true,
+                .dhcp6_use_pd_prefix = true,
                 .dhcp6_use_dns = true,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
@@ -409,7 +410,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_pd_announce = true,
                 .dhcp6_pd_assign = true,
                 .dhcp6_pd_manage_temporary_address = true,
-                .dhcp6_pd_subnet_id = -1,
+                .dhcp6_pd_subnet_id = UINT64_MAX,
+                .dhcp6_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
                 .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
@@ -1240,73 +1242,6 @@ int config_parse_link_group(
         }
 
         network->group_set = true;
-        return 0;
-}
-
-
-int config_parse_uplink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        int *index, r;
-        char **name;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (streq(section, "DHCPServer")) {
-                index = &network->dhcp_server_uplink_index;
-                name = &network->dhcp_server_uplink_name;
-        } else if (streq(section, "IPv6SendRA")) {
-                index = &network->router_uplink_index;
-                name = &network->router_uplink_name;
-        } else
-                assert_not_reached();
-
-        if (isempty(rvalue) || streq(rvalue, ":auto")) {
-                *index = UPLINK_INDEX_AUTO;
-                *name = mfree(*name);
-                return 0;
-        }
-
-        if (streq(rvalue, ":none")) {
-                *index = UPLINK_INDEX_NONE;
-                *name = mfree(*name);
-                return 0;
-        }
-
-        r = parse_ifindex(rvalue);
-        if (r > 0) {
-                *index = r;
-                *name = mfree(*name);
-                return 0;
-        }
-
-        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid interface name in %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        /* The interface name will be resolved later. */
-        r = free_and_strdup_warn(name, rvalue);
-        if (r < 0)
-                return r;
-
-        /* Note, if uplink_name is set, then uplink_index will be ignored. So, the below does not mean
-         * an uplink interface will be selected automatically. */
-        *index = UPLINK_INDEX_AUTO;
         return 0;
 }
 
