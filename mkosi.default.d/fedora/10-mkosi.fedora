@@ -72,3 +72,4 @@ Packages=
         strace
         tpm2-tss
         less
+        netcat
