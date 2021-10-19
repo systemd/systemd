@@ -159,6 +159,25 @@ int efi_get_variable_string(const char *variable, char **p) {
         return 0;
 }
 
+static int efi_verify_variable(const char *variable, uint32_t attr, const void *value, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        size_t n = 0;
+        uint32_t a = 0;
+        int r;
+
+        assert(variable);
+        assert(value || size == 0);
+
+        r = efi_get_variable(variable, &a, &buf, &n);
+        if (r < 0)
+                return r;
+
+        if (n != size || a != attr || memcmp(value, buf, size) != 0)
+                return 0;
+
+        return 1;
+}
+
 int efi_set_variable(const char *variable, const void *value, size_t size) {
         struct var {
                 uint32_t attr;
@@ -193,12 +212,6 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
                 return 0;
         }
 
-        fd = open(p, O_WRONLY|O_CREAT|O_NOCTTY|O_CLOEXEC, 0644);
-        if (fd < 0) {
-                r = -errno;
-                goto finish;
-        }
-
         buf = malloc(sizeof(uint32_t) + size);
         if (!buf) {
                 r = -ENOMEM;
@@ -207,6 +220,18 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
 
         buf->attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         memcpy(buf->buf, value, size);
+
+        if (efi_verify_variable(variable, buf->attr, value, size) == 1) {
+                log_debug("Variable '%s' is already in wanted state, skipping write.", variable);
+                r = 0;
+                goto finish;
+        }
+
+        fd = open(p, O_WRONLY|O_CREAT|O_NOCTTY|O_CLOEXEC, 0644);
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
 
         r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
         if (r < 0)
