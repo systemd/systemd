@@ -115,10 +115,17 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         return TAKE_FD(s);
 }
 
-int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, uint32_t xid,
-                                 const uint8_t *mac_addr, size_t mac_addr_len,
-                                 const uint8_t *bcast_addr, size_t bcast_addr_len,
-                                 uint16_t arp_type, uint16_t port) {
+int dhcp_network_bind_raw_socket(
+                int ifindex,
+                union sockaddr_union *link,
+                uint32_t xid,
+                const uint8_t *mac_addr,
+                size_t mac_addr_len,
+                const uint8_t *bcast_addr,
+                size_t bcast_addr_len,
+                uint16_t arp_type,
+                uint16_t port) {
+
         static const uint8_t eth_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
         /* Default broadcast address for IPoIB */
         static const uint8_t ib_bcast[] = {
@@ -209,8 +216,11 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
         return TAKE_FD(s);
 }
 
-int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
-                                 const void *packet, size_t len) {
+int dhcp_network_send_raw_socket(
+                int s,
+                const union sockaddr_union *link,
+                const void *packet,
+                size_t len) {
 
         assert(s >= 0);
         assert(link);
@@ -223,8 +233,13 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         return 0;
 }
 
-int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
-                                 const void *packet, size_t len) {
+int dhcp_network_send_udp_socket(
+                int s,
+                be32_t address,
+                uint16_t port,
+                const void *packet,
+                size_t len) {
+
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
