@@ -1023,3 +1023,18 @@ int sd_netlink_add_match(
         return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, 0, callback,
                                           destroy_callback, userdata, description);
 }
+
+int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_filter *filter) {
+        assert_return(nl, -EINVAL);
+        assert_return(len == 0 || filter, -EINVAL);
+
+        if (setsockopt(nl->fd, SOL_SOCKET,
+                       len == 0 ? SO_DETACH_FILTER : SO_ATTACH_FILTER,
+                       &(struct sock_fprog) {
+                               .len = len,
+                               .filter = filter,
+                       }, sizeof(struct sock_fprog)) < 0)
+                return -errno;
+
+        return 0;
+}
