@@ -543,7 +543,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         case RTM_NEWNEIGH:
                 if (neighbor) {
                         neighbor_enter_configured(neighbor);
-                        log_neighbor_debug(tmp, "Received remembered", link);
+                        log_neighbor_debug(neighbor, "Received remembered", link);
                 } else {
                         neighbor_enter_configured(tmp);
                         log_neighbor_debug(tmp, "Remembering", link);
