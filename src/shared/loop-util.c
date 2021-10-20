@@ -646,6 +646,7 @@ int loop_device_make_by_path(
 
         int r, basic_flags, direct_flags, rdwr_flags;
         _cleanup_close_ int fd = -1;
+        bool direct = false;
 
         assert(path);
         assert(ret);
@@ -666,6 +667,8 @@ int loop_device_make_by_path(
         fd = open(path, basic_flags|direct_flags|rdwr_flags);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
                 fd = open(path, basic_flags|rdwr_flags);
+        else
+                direct = direct_flags != 0;
         if (fd < 0) {
                 r = -errno;
 
@@ -676,12 +679,21 @@ int loop_device_make_by_path(
                 fd = open(path, basic_flags|direct_flags|O_RDONLY);
                 if (fd < 0 && direct_flags != 0) /* as above */
                         fd = open(path, basic_flags|O_RDONLY);
+                else
+                        direct = direct_flags != 0;
                 if (fd < 0)
                         return r; /* Propagate original error */
 
                 open_flags = O_RDONLY;
         } else if (open_flags < 0)
                 open_flags = O_RDWR;
+
+        log_debug("Opened '%s' in %s access mode%s, with O_DIRECT %s%s.",
+                  path,
+                  open_flags == O_RDWR ? "O_RDWR" : "O_RDONLY",
+                  open_flags != rdwr_flags ? " (O_RDWR was requested but not allowed)" : "",
+                  direct ? "enabled" : "disabled",
+                  direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
         return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
 }
