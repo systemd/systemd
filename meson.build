@@ -1507,12 +1507,23 @@ else
 endif
 conf.set10('ENABLE_REPART', have)
 
+# We support one or the other. If gcrypt is available, we assume it's there to
+# be used, and use it in preference.
+opt = get_option('cryptolib')
+if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
+        error('openssl requested as the default cryptolib, but not available')
+endif
+conf.set10('PREFER_OPENSSL',
+           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
+have_openssl_or_gcrypt = conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1
+lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
+                have_openssl_or_gcrypt and
                 conf.get('HAVE_ZLIB') == 1 and
-                conf.get('HAVE_XZ') == 1 and
-                conf.get('HAVE_GCRYPT') == 1)
+                conf.get('HAVE_XZ') == 1)
         if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
@@ -2731,10 +2742,10 @@ if conf.get('ENABLE_IMPORTD') == 1
                 link_with : [libshared],
                 dependencies : [versiondep,
                                 libcurl,
+                                lib_openssl_or_gcrypt,
                                 libz,
                                 libbzip2,
-                                libxz,
-                                libgcrypt],
+                                libxz],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -4038,6 +4049,14 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if have_openssl_or_gcrypt and conf.get('PREFER_OPENSSL') == 1
+        found += 'cryptolib(openssl)'
+elif have_openssl_or_gcrypt
+        found += 'cryptolib(gcrypt)'
+else
+        missing += cryptolib
 endif
 
 if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
