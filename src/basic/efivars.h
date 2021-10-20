@@ -10,6 +10,7 @@
 
 #include "sd-id128.h"
 
+#include "efivars-fundamental.h"
 #include "time-util.h"
 
 #define EFI_VENDOR_LOADER      SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
@@ -48,7 +49,7 @@ int efi_set_variable_string(const char *variable, const char *p);
 
 bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
-bool is_efi_secure_boot_setup_mode(void);
+SecureBootMode efi_get_secure_boot_mode(void);
 
 int cache_efi_options_variable(void);
 int systemd_efi_options_variable(char **line);
@@ -80,8 +81,8 @@ static inline bool is_efi_secure_boot(void) {
         return false;
 }
 
-static inline bool is_efi_secure_boot_setup_mode(void) {
-        return false;
+static inline SecureBootMode efi_get_secure_boot_mode(void) {
+        return SECURE_BOOT_UNKNOWN;
 }
 
 static inline int cache_efi_options_variable(void) {

@@ -293,13 +293,26 @@ bool is_efi_secure_boot(void) {
         return cache > 0;
 }
 
-bool is_efi_secure_boot_setup_mode(void) {
-        static int cache = -1;
+SecureBootMode efi_get_secure_boot_mode(void) {
+        static SecureBootMode cache = _SECURE_BOOT_INVALID;
 
-        if (cache < 0)
-                cache = read_flag(EFI_GLOBAL_VARIABLE(SetupMode));
+        if (cache != _SECURE_BOOT_INVALID)
+                return cache;
 
-        return cache > 0;
+        int secure = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+        if (secure < 0) {
+                if (secure != -ENOENT)
+                        log_debug_errno(secure, "Error reading SecureBoot EFI variable: %m");
+                return (cache = SECURE_BOOT_UNSUPPORTED);
+        }
+
+        /* We can assume false for all these if they are abscent (AuditMode and
+         * DeployedMode may not exist on older firmware). */
+        bool audit    = read_flag(EFI_GLOBAL_VARIABLE(AuditMode)) > 0;
+        bool deployed = read_flag(EFI_GLOBAL_VARIABLE(DeployedMode)) > 0;
+        bool setup    = read_flag(EFI_GLOBAL_VARIABLE(SetupMode)) > 0;
+
+        return (cache = decode_secure_boot_mode(secure, audit, deployed, setup));
 }
 
 static int read_efi_options_variable(char **line) {
