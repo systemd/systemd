@@ -169,7 +169,7 @@ static void test_bind_remount_recursive(void) {
                         assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Now mark the path we currently run for read-only */
-                        assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, STRV_MAKE("/sys/kernel")) >= 0);
+                        assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >= 0);
 
                         /* Ensure that this worked on the top-level */
                         assert_se(statvfs(p, &svfs) >= 0);
