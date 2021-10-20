@@ -448,29 +448,6 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
                 return 1 << idx;
 }
 
-_noreturn_ void freeze(void) {
-        log_close();
-
-        /* Make sure nobody waits for us on a socket anymore */
-        (void) close_all_fds_full(NULL, 0, false);
-
-        sync();
-
-        /* Let's not freeze right away, but keep reaping zombies. */
-        for (;;) {
-                int r;
-                siginfo_t si = {};
-
-                r = waitid(P_ALL, 0, &si, WEXITED);
-                if (r < 0 && errno != EINTR)
-                        break;
-        }
-
-        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
-        for (;;)
-                pause();
-}
-
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
 #if ENABLE_FEXECVE
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);

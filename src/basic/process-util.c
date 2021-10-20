@@ -1618,6 +1618,27 @@ bool invoked_as(char *argv[], const char *token) {
         return strstr(last_path_component(argv[0]), token);
 }
 
+_noreturn_ void freeze(void) {
+        log_close();
+
+        /* Make sure nobody waits for us on a socket anymore */
+        (void) close_all_fds_full(NULL, 0, false);
+
+        sync();
+
+        /* Let's not freeze right away, but keep reaping zombies. */
+        for (;;) {
+                siginfo_t si = {};
+
+                if (waitid(P_ALL, 0, &si, WEXITED) < 0 && errno != EINTR)
+                        break;
+        }
+
+        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
+        for (;;)
+                pause();
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
