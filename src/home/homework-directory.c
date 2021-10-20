@@ -13,13 +13,16 @@
 #include "rm-rf.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "user-util.h"
 
 int home_setup_directory(UserRecord *h, HomeSetup *setup) {
         const char *ip;
         int r;
 
         assert(h);
+        assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME));
         assert(setup);
+        assert(!setup->undo_mount);
         assert(setup->root_fd < 0);
 
         /* We'll bind mount the image directory to a new mount point where we'll start adjusting it. Only
@@ -104,7 +107,9 @@ int home_activate_directory(
 int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_close_ int mount_fd = -1;
         _cleanup_free_ char *d = NULL;
+        bool is_subvolume = false;
         const char *ip;
         int r;
 
@@ -129,6 +134,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
 
                 if (r >= 0) {
                         log_info("Subvolume created.");
+                        is_subvolume = true;
 
                         if (h->disk_size != UINT64_MAX) {
 
@@ -170,9 +176,38 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
 
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */
 
+        /* Let's decouple namespaces now, so that we can possibly mount a UID map mount into
+         * /run/systemd/user-home-mount/ that noone will see but us. */
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
         setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open temporary home directory: %m");
+
+        /* Try to apply a UID shift, so that the directory is actually owned by "nobody", and is only mapped
+         * to the proper UID while active. — Well, that's at least the theory. Unfortunately, only btrfs does
+         * per-subvolume quota. The others do per-uid quota. Which means mapping all home directories to the
+         * same UID of "nobody" makes quota impossible. Hence unless we actually managed to create a btrfs
+         * subvolume for this user we'll map the user's UID to itself. Now you might ask: why bother mapping
+         * at all? It's because we want to restrict the UIDs used on the home directory: we leave all other
+         * UIDs of the homed UID range unmapped, thus making them unavailable to programs accessing the
+         * mount. */
+        r = home_shift_uid(setup->root_fd, HOME_RUNTIME_WORK_DIR, is_subvolume ? UID_NOBODY : h->uid, h->uid, &mount_fd);
+        if (r > 0)
+                setup->undo_mount = true; /* If uidmaps worked we have a mount to undo again */
+
+        if (mount_fd >= 0) {
+                /* If we have established a new mount, then we can use that as new root fd to our home directory. */
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
+
+                mount_fd = safe_close(mount_fd);
+        }
 
         r = home_populate(h, setup->root_fd);
         if (r < 0)
@@ -202,6 +237,17 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                         (gid_t) h->uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add binding to record: %m");
+
+        setup->root_fd = safe_close(setup->root_fd);
+
+        /* Unmount mapped mount before we move the dir into place */
+        if (setup->undo_mount) {
+                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        return r;
+
+                setup->undo_mount = false;
+        }
 
         if (rename(temporary, ip) < 0)
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
@@ -234,6 +280,10 @@ int home_resize_directory(
                 return r;
 
         r = home_load_embedded_identity(h, setup->root_fd, NULL, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+        if (r < 0)
+                return r;
+
+        r = home_maybe_shift_uid(h, setup);
         if (r < 0)
                 return r;
 
