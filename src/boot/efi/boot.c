@@ -8,7 +8,7 @@
 #include "devicetree.h"
 #include "disk.h"
 #include "drivers.h"
-#include "efi-loader-features.h"
+#include "efivars-fundamental.h"
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"
@@ -434,7 +434,7 @@ static void ps_bool(const CHAR16 *fmt, BOOLEAN value) {
 static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN x_max, y_max;
-        BOOLEAN setup_mode = FALSE;
+        SecureBootMode secure;
         _cleanup_freepool_ CHAR16 *device_part_uuid = NULL, *default_efivar = NULL;
 
         assert(config);
@@ -443,9 +443,9 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
 
+        secure = secure_boot_mode();
         (void) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
         (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &default_efivar);
-        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup_mode);
 
         /* We employ some unusual indentation here for readability. */
 
@@ -457,8 +457,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         ps_string(L"       firmware vendor: %s\n",      ST->FirmwareVendor);
             Print(L"      firmware version: %u.%02u\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
             Print(L"        OS indications: %lu\n",     get_os_indications_supported());
-          ps_bool(L"           secure boot: %s\n",      secure_boot_enabled());
-          ps_bool(L"            setup mode: %s\n",      setup_mode);
+            Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
             Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
