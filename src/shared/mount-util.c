@@ -168,12 +168,12 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
         assert(prefix);
-        assert(proc_self_mountinfo);
 
         if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list) && !skip_mount_set_attr) {
                 /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
@@ -197,6 +197,14 @@ int bind_remount_recursive_with_mountinfo(
                                 skip_mount_set_attr = true;
                 } else
                         return 0; /* Nice, this worked! */
+        }
+
+        if (!proc_self_mountinfo) {
+                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
+                if (r < 0)
+                        return r;
+
+                proc_self_mountinfo = proc_self_mountinfo_opened;
         }
 
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
@@ -390,22 +398,6 @@ int bind_remount_recursive_with_mountinfo(
                         log_debug("Remounted %s.", x);
                 }
         }
-}
-
-int bind_remount_recursive(
-                const char *prefix,
-                unsigned long new_flags,
-                unsigned long flags_mask,
-                char **deny_list) {
-
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        int r;
-
-        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
-        if (r < 0)
-                return r;
-
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, proc_self_mountinfo);
 }
 
 int bind_remount_one_with_mountinfo(
