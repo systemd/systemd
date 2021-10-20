@@ -150,8 +150,6 @@ static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_pr
 }
 
 int dhcp6_pd_remove(Link *link, bool only_marked) {
-        Address *address;
-        Route *route;
         int k, r = 0;
 
         assert(link);
@@ -163,45 +161,51 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
         if (!only_marked)
                 link->dhcp6_pd_configured = false;
 
-        SET_FOREACH(route, link->routes) {
-                if (route->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
-                        continue;
-                if (only_marked && !route_is_marked(route))
-                        continue;
+        if (!link->network->dhcp6_pd_assign) {
+                Route *route;
 
-                if (link->radv)
-                        (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                SET_FOREACH(route, link->routes) {
+                        if (route->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                                continue;
+                        if (only_marked && !route_is_marked(route))
+                                continue;
 
-                link_remove_dhcp6_pd_prefix(link, &route->dst.in6);
+                        if (link->radv)
+                                (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
 
-                k = route_remove(route);
-                if (k < 0)
-                        r = k;
+                        link_remove_dhcp6_pd_prefix(link, &route->dst.in6);
 
-                route_cancel_request(route);
-        }
+                        k = route_remove(route);
+                        if (k < 0)
+                                r = k;
 
-        SET_FOREACH(address, link->addresses) {
-                struct in6_addr prefix;
+                        route_cancel_request(route);
+                }
+        } else {
+                Address *address;
 
-                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
-                        continue;
-                if (only_marked && !address_is_marked(address))
-                        continue;
+                SET_FOREACH(address, link->addresses) {
+                        struct in6_addr prefix;
 
-                prefix = address->in_addr.in6;
-                in6_addr_mask(&prefix, 64);
+                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                                continue;
+                        if (only_marked && !address_is_marked(address))
+                                continue;
 
-                if (link->radv)
-                        (void) sd_radv_remove_prefix(link->radv, &prefix, 64);
+                        prefix = address->in_addr.in6;
+                        in6_addr_mask(&prefix, 64);
 
-                link_remove_dhcp6_pd_prefix(link, &prefix);
+                        if (link->radv)
+                                (void) sd_radv_remove_prefix(link->radv, &prefix, 64);
 
-                k = address_remove(address);
-                if (k < 0)
-                        r = k;
+                        link_remove_dhcp6_pd_prefix(link, &prefix);
 
-                address_cancel_request(address);
+                        k = address_remove(address);
+                        if (k < 0)
+                                r = k;
+
+                        address_cancel_request(address);
+                }
         }
 
         return r;
