@@ -105,7 +105,7 @@
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:*
- KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
@@ -195,7 +195,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:*
 # Packard Bell and Gateway models
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*:*
- KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
 
 ###########################################################
 # Alienware
@@ -1496,7 +1496,7 @@ evdev:input:b0003v047FpC006*
 
 # If you're using an us layout keyboard in one of the below models of
 # Purism Librem 13 consider copying this file to /etc/systemd/hwdb.d/
-# to enable the following rule acording to your model.
+# to enable the following rule according to your model.
 #
 # There's a bug in the keyboards firmware and the additional rule
 # will make your keyboard behave as expected.

@@ -2872,7 +2872,7 @@ static int help(void) {
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-legend         Do not show the headers and footers\n"
                "  -a --all               Show status for all links\n"
-               "  -s --stats             Show detailed link statics\n"
+               "  -s --stats             Show detailed link statistics\n"
                "  -l --full              Do not ellipsize output\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "     --json=pretty|short|off\n"

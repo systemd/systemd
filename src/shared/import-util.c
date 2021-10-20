@@ -90,7 +90,7 @@ int import_url_change_suffix(
         /* This drops the specified number of path components of the specified URI, i.e. the specified number
          * of non-empty substring between two "/" characters from the end of the string, and then append the
          * specified suffix instead. Before doing all this it chops off the "Query" and "Fragment" suffixes
-         * (they are *not* readded to the final URL). Note that n_drop_components may be 0 (in which case the
+         * (they are *not* re-added to the final URL). Note that n_drop_components may be 0 (in which case the
          * component are simply added to the end). The suffix may be specified as NULL or empty string in
          * which case nothing is appended, only the specified number of components chopped off. Note that the
          * function may be called with n_drop_components == 0 and suffix == NULL, in which case the "Query"

@@ -440,7 +440,7 @@ static void home_start_retry_deactivate(Home *h) {
         assert(h);
         assert(h->manager);
 
-        /* Alrady allocated? */
+        /* Already allocated? */
         if (h->retry_deactivate_event_source)
                 return;
 

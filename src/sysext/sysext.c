@@ -591,7 +591,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         continue;
                 }
 
-                /* Noice! This one is an extension we want. */
+                /* Nice! This one is an extension we want. */
                 r = strv_extend(&extensions, img->name);
                 if (r < 0)
                         return log_oom();

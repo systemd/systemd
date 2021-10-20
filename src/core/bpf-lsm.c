@@ -368,7 +368,7 @@ int lsm_bpf_parse_filesystem(
                                 case -ENOMEM:
                                         return flags & FILESYSTEM_PARSE_LOG ? log_oom() : -ENOMEM;
                                 case -EEXIST:
-                                        /* Alredy in set, ignore */
+                                        /* Already in set, ignore */
                                         break;
                                 default:
                                         return r;

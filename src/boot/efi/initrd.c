@@ -80,9 +80,9 @@ EFI_STATUS initrd_register(
         if (!initrd_address || initrd_length == 0)
                 return EFI_SUCCESS;
 
-        /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registed.
+        /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.
            LocateDevicePath checks for the "closest DevicePath" and returns its handle,
-           where as InstallMultipleProtocolInterfaces only maches identical DevicePaths.
+           where as InstallMultipleProtocolInterfaces only matches identical DevicePaths.
          */
         err = BS->LocateDevicePath(&EfiLoadFile2Protocol, &dp, &handle);
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */

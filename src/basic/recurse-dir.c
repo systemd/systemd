@@ -42,7 +42,7 @@ int readdir_all(int dir_fd,
          * array with readdir_all_freep(). */
 
         /* Only if 64bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require
-         * this, and we want them to be interchangable, hence verify that. */
+         * this, and we want them to be interchangeable, hence verify that. */
         assert_cc(_FILE_OFFSET_BITS == 64);
         assert_cc(sizeof(struct dirent) == sizeof(struct dirent64));
         assert_cc(offsetof(struct dirent, d_ino) == offsetof(struct dirent64, d_ino));
@@ -273,7 +273,7 @@ int recurse_dir(
                                 if (S_ISDIR(sx.stx_mode)) {
                                         /* What? It's a directory now? Then someone must have quickly
                                          * replaced it. Let's handle that gracefully: convert it to a
-                                         * directory fd — which sould be riskless now that we pinned the
+                                         * directory fd — which should be riskless now that we pinned the
                                          * inode. */
 
                                         subdir_fd = openat(AT_FDCWD, FORMAT_PROC_FD_PATH(inode_fd), O_DIRECTORY|O_CLOEXEC);

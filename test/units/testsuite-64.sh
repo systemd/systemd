@@ -226,7 +226,7 @@ EOF
     # Initial partition table
     sfdisk -q -X gpt "$blockdev" <"$partscript"
 
-    # Delete the partitions, immediatelly recreate them, wait for udev to settle
+    # Delete the partitions, immediately recreate them, wait for udev to settle
     # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse
     # and repeat.
     #

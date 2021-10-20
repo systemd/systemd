@@ -366,7 +366,7 @@ disk images with `--image=` or similar:
   to validate the signature of the Verity root hash if available. If enabled
   (which is the default), the signature of suitable disk images is validated
   against any of the certificates in `/etc/verity.d/*.crt` (and similar
-  directores in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
+  directories in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
   against its built-in certificates.
 
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable

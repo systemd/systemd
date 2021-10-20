@@ -121,7 +121,7 @@ test_run() {
     for testcase in "${TESTCASES[@]}"; do
         _image_cleanup
         echo "------ $testcase: BEGIN ------"
-        # Note for my future frustrated self: `fun && xxx` (as wel as ||, if, while,
+        # Note for my future frustrated self: `fun && xxx` (as well as ||, if, while,
         # until, etc.) _DISABLES_ the `set -e` behavior in _ALL_ nested function
         # calls made from `fun()`, i.e. the function _CONTINUES_ even when a called
         # command returned non-zero EC. That may unexpectedly hide failing commands

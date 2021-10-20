@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
 
         r = get_keymaps(&maps);
         if (r < 0) {
-                log_error_errno(r, "Failed to aquire keymaps: %m");
+                log_error_errno(r, "Failed to acquire keymaps: %m");
                 return 0;
         }
 

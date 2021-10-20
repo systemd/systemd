@@ -54,7 +54,7 @@
         </term>
 
         <listitem>
-          <para>Show a list of existing links and their status. If one ore more
+          <para>Show a list of existing links and their status. If one or more
           <replaceable>PATTERN</replaceable>s are specified, only links matching one of them are shown.
           If no further arguments are specified shows all links,
           otherwise just the specified links. Produces output similar to:
@@ -179,7 +179,7 @@
 
         <listitem>
           <para>Show information about the specified links: type, state, kernel module driver, hardware and
-          IP address, configured DNS servers, etc. If one ore more <replaceable>PATTERN</replaceable>s are
+          IP address, configured DNS servers, etc. If one or more <replaceable>PATTERN</replaceable>s are
           specified, only links matching one of them are shown.</para>
 
           <para>When no links are specified, an overall network status is shown. Also see the option
