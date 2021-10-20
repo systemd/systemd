@@ -188,8 +188,9 @@
       <varlistentry>
         <term>auto-firmware</term>
 
-        <listitem><para>Takes a boolean argument. Enable (the default) or disable
-        the "Reboot into firmware" entry.</para></listitem>
+        <listitem><para>A boolean controlling the presence of the "Reboot into firmware" entry
+        (enabled by default). If this is disabled, the firmware interface may still be reached
+        by using the <keycap>f</keycap> key.</para></listitem>
       </varlistentry>
 
       <varlistentry>
