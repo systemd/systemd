@@ -562,7 +562,7 @@ struct ethtool_channels {
  * @tx_pause: Flag to enable transmission of pause frames
  *
  * Drivers should reject a non-zero setting of @autoneg when
- * autoneogotiation is disabled (or not supported) for the link.
+ * autonegotiation is disabled (or not supported) for the link.
  *
  * If the link is autonegotiated, drivers should use
  * mii_advertise_flowctrl() or similar code to set the advertised
@@ -1387,7 +1387,7 @@ struct ethtool_per_queue_op {
  * @rsvd: Reserved for future extensions. i.e FEC bypass feature.
  *
  * Drivers should reject a non-zero setting of @autoneg when
- * autoneogotiation is disabled (or not supported) for the link.
+ * autonegotiation is disabled (or not supported) for the link.
  *
  */
 struct ethtool_fecparam {

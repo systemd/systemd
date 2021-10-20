@@ -43,7 +43,7 @@ static CHAR8* pad4(CHAR8 *p, const CHAR8* start) {
         assert(start);
         assert(p >= start);
 
-        /* Appends NUL bytes to 'p', until the address is divisable by 4, when taken relative to 'start' */
+        /* Appends NUL bytes to 'p', until the address is divisible by 4, when taken relative to 'start' */
 
         while ((p - start) % 4 != 0)
                 *(p++) = 0;

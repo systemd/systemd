@@ -21,7 +21,7 @@ and they are managed by the `systemd-portabled` service.
 
 Portable services don't bring anything inherently new to the table. All they do
 is put together known concepts to cover a specific set of use-cases in a
-sligtly nicer way.
+slightly nicer way.
 
 ## So, what *is* a "Portable Service"?
 
