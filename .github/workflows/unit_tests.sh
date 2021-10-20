@@ -9,7 +9,6 @@ ADDITIONAL_DEPS=(
     expect
     fdisk
     jekyll
-    lcov
     libfdisk-dev
     libfido2-dev
     libp11-kit-dev
@@ -48,17 +47,9 @@ for phase in "${PHASES[@]}"; do
                 # The docs build is slow and is not affected by compiler/flags, so do it just once
                 MESON_ARGS+=(-Dman=true)
             fi
-            if [[ "$phase" = "RUN_GCC" ]]; then
-                MESON_ARGS+=(-Db_coverage=true)
-                # See FIXME below
-                (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            fi
             meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
-            if [[ "$phase" = "RUN_GCC" ]]; then
-                ninja -C build coverage
-            fi
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
             MESON_ARGS=(--optimization=1)
