@@ -88,7 +88,7 @@ struct dirent *readdir_ensure_type(DIR *d) {
                         return NULL;
                 }
 
-                /* Vanished by now? Then skip immedately to next */
+                /* Vanished by now? Then skip immediately to next */
         }
 }
 

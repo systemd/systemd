@@ -145,7 +145,7 @@ EFI_STATUS linux_exec(
 
         /* Linux kernel complains if it's not loaded at a properly aligned memory address. The correct alignment
            is provided by Linux as the SegmentAlignment in the PeOptionalHeader. Additionally the kernel needs to
-           be in a memory segment thats SizeOfImage (again from PeOptionalHeader) large, so that the Kernel has
+           be in a memory segment that's SizeOfImage (again from PeOptionalHeader) large, so that the Kernel has
            space for its BSS section. SizeOfImage is always larger than linux_length, which is only the size of
            Code, (static) Data and Headers.
 
