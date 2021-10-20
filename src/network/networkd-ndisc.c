@@ -382,19 +382,17 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
-        uint32_t lifetime_valid, lifetime_preferred;
+        uint32_t lifetime_valid_sec, lifetime_preferred_sec;
+        usec_t lifetime_valid_usec, lifetime_preferred_usec, timestamp_usec;
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr prefix, *a;
         unsigned prefixlen;
-        usec_t time_now;
         int r;
 
         assert(link);
         assert(rt);
 
-        /* Do not use clock_boottime_or_monotonic() here, as the kernel internally manages cstamp and
-         * tstamp with jiffies, and it is not increased while the system is suspended. */
-        r = sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -415,22 +413,25 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return 0;
         }
 
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid);
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix valid lifetime: %m");
 
-        if (lifetime_valid == 0) {
+        if (lifetime_valid_sec == 0) {
                 log_link_debug(link, "Ignoring prefix as its valid lifetime is zero.");
                 return 0;
         }
 
-        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
+        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
 
         /* The preferred lifetime is never greater than the valid lifetime */
-        if (lifetime_preferred > lifetime_valid)
+        if (lifetime_preferred_sec > lifetime_valid_sec)
                 return 0;
+
+        lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
+        lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
 
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
@@ -448,8 +449,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-                address->cinfo.ifa_valid = lifetime_valid;
-                address->cinfo.ifa_prefered = lifetime_preferred;
+                address->lifetime_valid_usec = lifetime_valid_usec;
+                address->lifetime_preferred_usec = lifetime_preferred_usec;
 
                 /* See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by
                  * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
@@ -458,9 +459,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (r > 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
                          * update the address, and it will be removed. */
-                        if (e->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME &&
-                            usec_add(e->cinfo.tstamp / 100 * USEC_PER_SEC,
-                                     e->cinfo.ifa_valid * USEC_PER_SEC) < time_now)
+                        if (e->lifetime_valid_usec < timestamp_usec)
                                 continue;
                 }
 

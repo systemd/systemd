@@ -11,8 +11,7 @@
 #include "in-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
-
-#define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
+#include "time-util.h"
 
 typedef struct Address Address;
 typedef struct Manager Manager;
@@ -37,10 +36,14 @@ struct Address {
 
         int set_broadcast;
         struct in_addr broadcast;
-        struct ifa_cacheinfo cinfo;
 
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
+
+        /* These are absolute points in time, and NOT timespans/durations.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_valid_usec;
+        usec_t lifetime_preferred_usec;
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
@@ -51,7 +54,7 @@ struct Address {
         address_ready_callback_t callback;
 };
 
-const char* format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_result_;
+const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */

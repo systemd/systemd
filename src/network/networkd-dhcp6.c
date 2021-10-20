@@ -43,7 +43,7 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
 }
 
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
-        uint32_t lifetime_preferred, lifetime_valid;
+        uint32_t lifetime_preferred_sec, lifetime_valid_sec;
         struct in6_addr pd_prefix;
         uint8_t pd_prefix_len;
 
@@ -52,7 +52,7 @@ static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
 
         sd_dhcp6_lease_reset_pd_prefix_iter(lease);
 
-        return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred, &lifetime_valid) >= 0;
+        return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred_sec, &lifetime_valid_sec) >= 0;
 }
 
 static void link_remove_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
@@ -287,7 +287,7 @@ static int dhcp6_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, usec_t timestamp_usec, uint32_t lifetime_sec) {
+static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, usec_t lifetime_usec) {
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;
         int r;
@@ -309,7 +309,7 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, use
         route->dst_prefixlen = 64;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp6_pd_route_metric;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = lifetime_usec;
 
         if (route_get(NULL, link, route, &existing) < 0)
                 link->dhcp6_pd_configured = false;
@@ -359,15 +359,15 @@ static void log_dhcp6_pd_address(Link *link, const Address *address) {
 
         log_link_full(link, log_level, "DHCPv6-PD address %s (valid %s, preferred %s)",
                       strna(buffer),
-                      FORMAT_LIFETIME(address->cinfo.ifa_valid),
-                      FORMAT_LIFETIME(address->cinfo.ifa_prefered));
+                      FORMAT_LIFETIME(address->lifetime_valid_usec),
+                      FORMAT_LIFETIME(address->lifetime_preferred_usec));
 }
 
 static int dhcp6_pd_request_address(
                 Link *link,
                 const struct in6_addr *prefix,
-                uint32_t lifetime_preferred,
-                uint32_t lifetime_valid) {
+                usec_t lifetime_preferred_usec,
+                usec_t lifetime_valid_usec) {
 
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr *a;
@@ -396,8 +396,8 @@ static int dhcp6_pd_request_address(
                 address->family = AF_INET6;
                 address->in_addr.in6 = *a;
                 address->prefixlen = 64;
-                address->cinfo.ifa_prefered = lifetime_preferred;
-                address->cinfo.ifa_valid = lifetime_valid;
+                address->lifetime_preferred_usec = lifetime_preferred_usec;
+                address->lifetime_valid_usec = lifetime_valid_usec;
                 SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
                 address->route_metric = link->network->dhcp6_pd_route_metric;
 
@@ -420,9 +420,8 @@ static int dhcp6_pd_request_address(
 static int dhcp6_pd_assign_prefix(
                 Link *link,
                 const struct in6_addr *prefix,
-                usec_t timestamp_usec,
-                uint32_t lifetime_preferred,
-                uint32_t lifetime_valid) {
+                usec_t lifetime_preferred_usec,
+                usec_t lifetime_valid_usec) {
 
         int r;
 
@@ -431,16 +430,16 @@ static int dhcp6_pd_assign_prefix(
         assert(prefix);
 
         if (link->network->dhcp6_pd_announce) {
-                r = radv_add_prefix(link, prefix, 64, lifetime_preferred, lifetime_valid);
+                r = radv_add_prefix(link, prefix, 64, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0)
                         return r;
         }
 
-        r = dhcp6_pd_request_route(link, prefix, timestamp_usec, lifetime_valid);
+        r = dhcp6_pd_request_route(link, prefix, lifetime_valid_usec);
         if (r < 0)
                 return r;
 
-        r = dhcp6_pd_request_address(link, prefix, lifetime_preferred, lifetime_valid);
+        r = dhcp6_pd_request_address(link, prefix, lifetime_preferred_usec, lifetime_valid_usec);
         if (r < 0)
                 return r;
 
@@ -528,9 +527,8 @@ static int dhcp6_pd_prefix_distribute(
                 Link *dhcp6_link,
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
-                usec_t timestamp_usec,
-                uint32_t lifetime_preferred,
-                uint32_t lifetime_valid,
+                usec_t lifetime_preferred_usec,
+                usec_t lifetime_valid_usec,
                 bool assign_preferred_subnet_id) {
 
         Link *link;
@@ -562,7 +560,7 @@ static int dhcp6_pd_prefix_distribute(
                         continue;
 
                 (void) in6_addr_prefix_to_string(&assigned_prefix, 64, &buf);
-                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, timestamp_usec, lifetime_preferred, lifetime_valid);
+                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to assign/update prefix %s: %m", strna(buf));
                         if (link == dhcp6_link)
@@ -748,7 +746,7 @@ static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *addr, uint8_t prefixlen, usec_t timestamp_usec, uint32_t lifetime_sec) {
+static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *addr, uint8_t prefixlen, usec_t lifetime_usec) {
         _cleanup_(route_freep) Route *route = NULL;
         _cleanup_free_ char *buf = NULL;
         Route *existing;
@@ -777,7 +775,7 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         route->type = RTN_UNREACHABLE;
         route->protocol = RTPROT_DHCP;
         route->priority = DHCP_ROUTE_METRIC;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = lifetime_usec;
 
         if (route_get(link->manager, NULL, route, &existing) < 0)
                 link->dhcp6_configured = false;
@@ -851,14 +849,18 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         }
 
         for (sd_dhcp6_lease_reset_pd_prefix_iter(dhcp6_link->dhcp6_lease);;) {
-                uint32_t lifetime_preferred, lifetime_valid;
+                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
                 r = sd_dhcp6_lease_get_pd(dhcp6_link->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred, &lifetime_valid);
+                                          &lifetime_preferred_sec, &lifetime_valid_sec);
                 if (r < 0)
                         break;
+
+                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
                 r = dhcp6_pd_prefix_add(dhcp6_link, &pd_prefix, pd_prefix_len);
                 if (r < 0)
@@ -866,7 +868,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 if (r == 0)
                         continue;
 
-                r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, timestamp_usec, lifetime_valid);
+                r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, lifetime_valid_usec);
                 if (r < 0)
                         return r;
 
@@ -898,9 +900,8 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 r = dhcp6_pd_prefix_distribute(dhcp6_link,
                                                &pd_prefix,
                                                pd_prefix_len,
-                                               timestamp_usec,
-                                               lifetime_preferred,
-                                               lifetime_valid,
+                                               lifetime_preferred_usec,
+                                               lifetime_valid_usec,
                                                true);
                 if (r < 0)
                         return r;
@@ -908,9 +909,8 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 r = dhcp6_pd_prefix_distribute(dhcp6_link,
                                                &pd_prefix,
                                                pd_prefix_len,
-                                               timestamp_usec,
-                                               lifetime_preferred,
-                                               lifetime_valid,
+                                               lifetime_preferred_usec,
+                                               lifetime_valid_usec,
                                                false);
                 if (r < 0)
                         return r;
@@ -975,8 +975,8 @@ static void log_dhcp6_address(Link *link, const Address *address) {
 
         log_link_warning(link, "DHCPv6 address %s/%u (valid %s, preferred %s) conflicts the address %s/%u%s.",
                          strna(buffer), address->prefixlen,
-                         FORMAT_LIFETIME(address->cinfo.ifa_valid),
-                         FORMAT_LIFETIME(address->cinfo.ifa_prefered),
+                         FORMAT_LIFETIME(address->lifetime_valid_usec),
+                         FORMAT_LIFETIME(address->lifetime_preferred_usec),
                          strna(buffer), existing->prefixlen,
                          by_ndisc ? " assigned by NDisc. Please try to use or update IPv6Token= setting "
                          "to change the address generated by NDISC, or disable UseAutonomousPrefix=" : "");
@@ -985,15 +985,15 @@ static void log_dhcp6_address(Link *link, const Address *address) {
 simple_log:
         log_link_full(link, log_level, "DHCPv6 address %s/%u (valid %s, preferred %s)",
                       strna(buffer), address->prefixlen,
-                      FORMAT_LIFETIME(address->cinfo.ifa_valid),
-                      FORMAT_LIFETIME(address->cinfo.ifa_prefered));
+                      FORMAT_LIFETIME(address->lifetime_valid_usec),
+                      FORMAT_LIFETIME(address->lifetime_preferred_usec));
 }
 
 static int dhcp6_request_address(
                 Link *link,
                 const struct in6_addr *ip6_addr,
-                uint32_t lifetime_preferred,
-                uint32_t lifetime_valid) {
+                usec_t lifetime_preferred_usec,
+                usec_t lifetime_valid_usec) {
 
         _cleanup_(address_freep) Address *addr = NULL;
         Address *existing;
@@ -1008,8 +1008,8 @@ static int dhcp6_request_address(
         addr->in_addr.in6 = *ip6_addr;
         addr->flags = IFA_F_NOPREFIXROUTE;
         addr->prefixlen = 128;
-        addr->cinfo.ifa_prefered = lifetime_preferred;
-        addr->cinfo.ifa_valid = lifetime_valid;
+        addr->lifetime_preferred_usec = lifetime_preferred_usec;
+        addr->lifetime_valid_usec = lifetime_valid_usec;
 
         log_dhcp6_address(link, addr);
 
@@ -1031,6 +1031,7 @@ static int dhcp6_request_address(
 }
 
 static int dhcp6_address_acquired(Link *link) {
+        usec_t timestamp_usec;
         int r;
 
         assert(link);
@@ -1040,15 +1041,21 @@ static int dhcp6_address_acquired(Link *link) {
         if (!link->network->dhcp6_use_address)
                 return 0;
 
+        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get timestamp of DHCPv6 lease: %m");
+
         for (sd_dhcp6_lease_reset_address_iter(link->dhcp6_lease);;) {
-                uint32_t lifetime_preferred, lifetime_valid;
+                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
                 struct in6_addr ip6_addr;
 
-                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr, &lifetime_preferred, &lifetime_valid);
+                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr, &lifetime_preferred_sec, &lifetime_valid_sec);
                 if (r < 0)
                         break;
 
-                r = dhcp6_request_address(link, &ip6_addr, lifetime_preferred, lifetime_valid);
+                r = dhcp6_request_address(link, &ip6_addr,
+                                          usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec),
+                                          usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec));
                 if (r < 0)
                         return r;
         }
