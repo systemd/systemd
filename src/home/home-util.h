@@ -8,6 +8,9 @@
 #include "time-util.h"
 #include "user-record.h"
 
+#define HOME_UID_MIN 60001
+#define HOME_UID_MAX 60513
+
 bool suitable_user_name(const char *name);
 int suitable_realm(const char *realm);
 int suitable_image_path(const char *path);
