@@ -615,8 +615,7 @@ static uint32_t loop_flags_mangle(uint32_t loop_flags) {
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_LOOP_DIRECT_IO, ignoring: %m");
 
-        SET_FLAG(loop_flags, LO_FLAGS_DIRECT_IO, r != 0); /* Turn on LO_FLAGS_DIRECT_IO by default, unless explicitly configured to off. */
-        return loop_flags;
+        return UPDATE_FLAG(loop_flags, LO_FLAGS_DIRECT_IO, r != 0); /* Turn on LO_FLAGS_DIRECT_IO by default, unless explicitly configured to off. */
 }
 
 int loop_device_make(
@@ -629,16 +628,13 @@ int loop_device_make(
 
         assert(fd >= 0);
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
-
-        loop_flags = loop_flags_mangle(loop_flags);
 
         return loop_device_make_internal(
                         fd,
                         open_flags,
                         offset,
                         size,
-                        loop_flags,
+                        loop_flags_mangle(loop_flags),
                         ret);
 }
 
