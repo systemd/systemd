@@ -138,6 +138,9 @@ EFI_STATUS linux_exec(
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
 
+        if (linux_length < sizeof(struct boot_params))
+                return EFI_LOAD_ERROR;
+
         image_params = (const struct boot_params *) linux_buffer;
 
         if (image_params->hdr.boot_flag != 0xAA55 ||
