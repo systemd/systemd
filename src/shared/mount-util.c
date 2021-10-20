@@ -175,6 +175,30 @@ int bind_remount_recursive_with_mountinfo(
         assert(prefix);
         assert(proc_self_mountinfo);
 
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list) && !skip_mount_set_attr) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, prefix, AT_SYMLINK_NOFOLLOW|AT_RECURSIVE,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        log_debug_errno(errno, "mount_setattr() failed, falling back to classic remounting: %m");
+
+                        /* We fall through to classic behaviour if not supported (i.e. kernel < 5.12). We
+                         * also do this for all other kinds of errors since they are so many different, and
+                         * mount_setattr() has no graceful mode where it continues despite seeing errors one
+                         * some mounts, but we want that. Moreover mount_setattr() only works on the mount
+                         * point inode itself, not a non-mount point inode, and we want to support arbitrary
+                         * prefixes here. */
+
+                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                                skip_mount_set_attr = true;
+                } else
+                        return 0; /* Nice, this worked! */
+        }
+
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
          * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
          * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write operation), ditto for other flags. If it
