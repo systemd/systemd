@@ -2,21 +2,26 @@
 
 #include "networkd-address.h"
 #include "tests.h"
+#include "time-util.h"
 
-static void test_FORMAT_LIFETIME_one(uint32_t lifetime, const char *expected) {
+static void test_FORMAT_LIFETIME_one(usec_t lifetime, const char *expected) {
         const char *t = FORMAT_LIFETIME(lifetime);
 
-        log_debug("%"PRIu32 " → \"%s\" (expected \"%s\")", lifetime, t, expected);
+        log_debug(USEC_FMT " → \"%s\" (expected \"%s\")", lifetime, t, expected);
         assert_se(streq(t, expected));
 }
 
 static void test_FORMAT_LIFETIME(void) {
+        usec_t now_usec;
+
         log_info("/* %s */", __func__);
 
-        test_FORMAT_LIFETIME_one(0, "for 0");
-        test_FORMAT_LIFETIME_one(1, "for 1s");
-        test_FORMAT_LIFETIME_one(3 * (USEC_PER_WEEK/USEC_PER_SEC), "for 3w");
-        test_FORMAT_LIFETIME_one(CACHE_INFO_INFINITY_LIFE_TIME, "forever");
+        now_usec = now(CLOCK_MONOTONIC);
+
+        test_FORMAT_LIFETIME_one(now_usec, "for 0");
+        test_FORMAT_LIFETIME_one(usec_add(now_usec, 2 * USEC_PER_SEC - 1), "for 1s");
+        test_FORMAT_LIFETIME_one(usec_add(now_usec, 3 * USEC_PER_WEEK + USEC_PER_SEC - 1), "for 3w");
+        test_FORMAT_LIFETIME_one(USEC_INFINITY, "forever");
 }
 
 int main(int argc, char *argv[]) {
