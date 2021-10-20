@@ -5,6 +5,7 @@
 #include "btrfs-util.h"
 #include "fd-util.h"
 #include "homework-directory.h"
+#include "homework-mount.h"
 #include "homework-quota.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -14,10 +15,38 @@
 #include "umask-util.h"
 
 int home_setup_directory(UserRecord *h, HomeSetup *setup) {
+        const char *ip;
+        int r;
+
         assert(h);
         assert(setup);
+        assert(setup->root_fd < 0);
 
-        setup->root_fd = open(user_record_image_path(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        /* We'll bind mount the image directory to a new mount point where we'll start adjusting it. Only
+         * once that's complete we'll move the thing to its final place eventually. */
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        assert_se(ip = user_record_image_path(h));
+
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        setup->undo_mount = true;
+
+        /* Turn off any form of propagation for this */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        if (r < 0)
+                return r;
+
+        /* Adjust MS_SUID and similar flags */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        if (r < 0)
+                return r;
+
+        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
@@ -31,16 +60,13 @@ int home_activate_directory(
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
-        const char *hdo, *hd, *ipo, *ip;
+        const char *hd, *hdo;
         int r;
 
         assert(h);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
         assert(setup);
         assert(ret_home);
-
-        assert_se(ipo = user_record_image_path(h));
-        ip = strdupa_safe(ipo); /* copy out, since reconciliation might cause changing of the field */
 
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
@@ -57,24 +83,15 @@ int home_activate_directory(
         if (r < 0)
                 return r;
 
+        /* Close fd to private mount before moving mount */
         setup->root_fd = safe_close(setup->root_fd);
 
-        /* Create mount point to mount over if necessary */
-        if (!path_equal(ip, hd))
-                (void) mkdir_p(hd, 0700);
-
-        /* Create a mount point (even if the directory is already placed correctly), as a way to indicate
-         * this mount point is now "activated". Moreover, we want to set per-user
-         * MS_NOSUID/MS_NOEXEC/MS_NODEV. */
-        r = mount_nofollow_verbose(LOG_ERR, ip, hd, NULL, MS_BIND, NULL);
+        /* We are now done with everything, move the mount into place */
+        r = home_move_mount(NULL, hd);
         if (r < 0)
                 return r;
 
-        r = mount_nofollow_verbose(LOG_ERR, NULL, hd, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
-        if (r < 0) {
-                (void) umount_verbose(LOG_ERR, hd, UMOUNT_NOFOLLOW);
-                return r;
-        }
+        setup->undo_mount = false;
 
         setup->do_drop_caches = false;
 
