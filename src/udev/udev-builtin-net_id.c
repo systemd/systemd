@@ -49,6 +49,7 @@ typedef enum NetNameType {
         NET_VIRTIO,
         NET_CCW,
         NET_VIO,
+        NET_XENVIF,
         NET_PLATFORM,
         NET_NETDEVSIM,
 } NetNameType;
@@ -66,6 +67,7 @@ typedef struct NetNames {
         char bcma_core[ALTIFNAMSIZ];
         char ccw_busid[ALTIFNAMSIZ];
         char vio_slot[ALTIFNAMSIZ];
+        char xen_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
 } NetNames;
@@ -813,6 +815,42 @@ static int names_netdevsim(sd_device *dev, const LinkInfo *info, NetNames *names
         return 0;
 }
 
+static int names_xen(sd_device *dev, NetNames *names) {
+        sd_device *parent;
+        unsigned id;
+        const char *syspath, *subsystem;
+        int r;
+
+        if (!naming_scheme_has(NAMING_XEN_VIF))
+                return 0;
+
+        assert(dev);
+        assert(names);
+
+        /* check if our direct parent is a VIO device with no other bus in-between */
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(parent, &subsystem);
+        if (r < 0)
+                return r;
+        if (!streq("xen", subsystem))
+                return -ENOENT;
+
+        /* Use the vif-n name to extract "n" */
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        if (sscanf(syspath, "/sys/devices/vif-%u", &id) != 1)
+                return -EINVAL;
+
+        xsprintf(names->xen_slot, "xv%u", id);
+        names->type = NET_XENVIF;
+        return 0;
+}
+
 /* IEEE Organizationally Unique Identifier vendor string */
 static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
         char str[32];
@@ -942,6 +980,15 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
+                return 0;
+        }
+
+        /* get xen vif "slot" based names. */
+        if (names_xen(dev, &names) >= 0 && names.type == NET_XENVIF) {
+                char str[ALTIFNAMSIZ];
+
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.xen_slot))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 return 0;
         }
 
