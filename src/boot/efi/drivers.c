@@ -82,7 +82,6 @@ EFI_STATUS load_drivers(
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE drivers_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
-        _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
         UINTN dirent_size = 0, n_succeeded = 0;
         EFI_STATUS err;
 
@@ -96,8 +95,6 @@ EFI_STATUS load_drivers(
                 return log_error_status_stall(err, L"Failed to open \\EFI\\systemd\\drivers: %r", err);
 
         for (;;) {
-                _cleanup_freepool_ CHAR16 *d = NULL;
-
                 err = readdir_harder(drivers_dir, &dirent, &dirent_size);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
