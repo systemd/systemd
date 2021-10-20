@@ -61,7 +61,10 @@ typedef struct Route {
         union in_addr_union prefsrc;
         OrderedSet *multipath_routes;
 
-        usec_t lifetime;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec;
+        /* Used when kernel does not support RTA_EXPIRES attribute. */
         sd_event_source *expire;
 } Route;
 

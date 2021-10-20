@@ -186,7 +186,7 @@ int route_new(Route **ret) {
                 .protocol = RTPROT_UNSPEC,
                 .type = RTN_UNICAST,
                 .table = RT_TABLE_MAIN,
-                .lifetime = USEC_INFINITY,
+                .lifetime_usec = USEC_INFINITY,
                 .quickack = -1,
                 .fast_open_no_cookie = -1,
                 .gateway_onlink = -1,
@@ -1240,7 +1240,7 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
 
         manager = route->manager ?: route->link->manager;
 
-        if (route->lifetime == USEC_INFINITY)
+        if (route->lifetime_usec == USEC_INFINITY)
                 return 0;
 
         if (cacheinfo && cacheinfo->rta_expires != 0)
@@ -1248,7 +1248,7 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
                 return 0;
 
         r = event_reset_time(manager->event, &route->expire, clock_boottime_or_monotonic(),
-                             route->lifetime, 0, route_expire_handler, route, 0, "route-expiration", true);
+                             route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
         if (r < 0)
                 return r;
 
@@ -1392,9 +1392,9 @@ static int route_configure(
         if (r < 0)
                 return r;
 
-        if (route->lifetime != USEC_INFINITY) {
+        if (route->lifetime_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, RTA_EXPIRES,
-                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
+                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_EXPIRES attribute: %m");
         }
@@ -3039,7 +3039,7 @@ static int route_section_verify(Route *route, Network *network) {
                 return -EINVAL;
 
         /* Currently, we do not support static route with finite lifetime. */
-        assert(route->lifetime == USEC_INFINITY);
+        assert(route->lifetime_usec == USEC_INFINITY);
 
         if (route->gateway_from_dhcp_or_ra) {
                 if (route->gw_family == AF_UNSPEC) {

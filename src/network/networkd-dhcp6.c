@@ -309,7 +309,7 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, use
         route->dst_prefixlen = 64;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp6_pd_route_metric;
-        route->lifetime = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         if (route_get(NULL, link, route, &existing) < 0)
                 link->dhcp6_pd_configured = false;
@@ -777,7 +777,7 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         route->type = RTN_UNREACHABLE;
         route->protocol = RTPROT_DHCP;
         route->priority = DHCP_ROUTE_METRIC;
-        route->lifetime = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         if (route_get(link->manager, NULL, route, &existing) < 0)
                 link->dhcp6_configured = false;

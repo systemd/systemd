@@ -291,22 +291,28 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
+        usec_t lifetime_usec, timestamp_usec;
         struct in6_addr gateway;
-        uint32_t mtu = 0;
+        uint16_t lifetime_sec;
         unsigned preference;
-        uint16_t lifetime;
-        usec_t time_now;
+        uint32_t mtu = 0;
         int r;
 
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway lifetime from RA: %m");
 
-        if (lifetime == 0) /* not a default router */
+        if (lifetime_sec == 0) /* not a default router */
                 return 0;
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
@@ -327,10 +333,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router preference from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
-
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
@@ -345,7 +347,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->gw_family = AF_INET6;
         route->gw.in6 = gateway;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = lifetime_usec;
         route->mtu = mtu;
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
@@ -367,7 +369,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->gw.in6 = gateway;
                 if (!route->pref_set)
                         route->pref = preference;
-                route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+                route->lifetime_usec = lifetime_usec;
                 if (route->mtu == 0)
                         route->mtu = mtu;
 
@@ -472,15 +474,15 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        usec_t time_now;
-        uint32_t lifetime;
+        usec_t timestamp_usec;
+        uint32_t lifetime_sec;
         unsigned prefixlen;
         int r;
 
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -488,7 +490,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
 
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
 
@@ -499,7 +501,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
         if (r < 0)
@@ -514,19 +516,19 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in6_addr gateway, dst;
-        uint32_t lifetime;
         unsigned preference, prefixlen;
-        usec_t time_now;
+        struct in6_addr gateway, dst;
+        uint32_t lifetime_sec;
+        usec_t timestamp_usec;
         int r;
 
         assert(link);
 
-        r = sd_ndisc_router_route_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_route_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route lifetime from RA: %m");
 
-        if (lifetime == 0)
+        if (lifetime_sec == 0)
                 return 0;
 
         r = sd_ndisc_router_route_get_address(rt, &dst);
@@ -568,7 +570,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router preference from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -582,7 +584,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->gw_family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
