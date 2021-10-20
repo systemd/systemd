@@ -134,6 +134,31 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+
+static uint64_t ms_flags_to_mount_attr(unsigned long a) {
+        uint64_t f = 0;
+
+        if (FLAGS_SET(a, MS_RDONLY))
+                f |= MOUNT_ATTR_RDONLY;
+
+        if (FLAGS_SET(a, MS_NOSUID))
+                f |= MOUNT_ATTR_NOSUID;
+
+        if (FLAGS_SET(a, MS_NODEV))
+                f |= MOUNT_ATTR_NODEV;
+
+        if (FLAGS_SET(a, MS_NOEXEC))
+                f |= MOUNT_ATTR_NOEXEC;
+
+        if (FLAGS_SET(a, MS_NOSYMFOLLOW))
+                f |= MOUNT_ATTR_NOSYMFOLLOW;
+
+        return f;
+}
+
+static bool skip_mount_set_attr = false;
+
 /* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
@@ -373,6 +398,23 @@ int bind_remount_one_with_mountinfo(
 
         assert(path);
         assert(proc_self_mountinfo);
+
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && !skip_mount_set_attr) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        log_debug_errno(errno, "mount_setattr() didn't work, falling back to classic remounting: %m");
+
+                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                                skip_mount_set_attr = true;
+                } else
+                        return 0; /* Nice, this worked! */
+        }
 
         rewind(proc_self_mountinfo);
 

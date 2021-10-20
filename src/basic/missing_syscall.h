@@ -465,8 +465,16 @@ struct mount_attr;
 #define MOUNT_ATTR_IDMAP 0x00100000
 #endif
 
+#ifndef MOUNT_ATTR_NOSYMFOLLOW
+#define MOUNT_ATTR_NOSYMFOLLOW 0x00200000
+#endif
+
 #ifndef AT_RECURSIVE
 #define AT_RECURSIVE 0x8000
+#endif
+
+#ifndef MOUNT_ATTR_SIZE_VER0
+#define MOUNT_ATTR_SIZE_VER0 32
 #endif
 
 static inline int missing_mount_setattr(
