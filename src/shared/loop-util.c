@@ -695,7 +695,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
+        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
