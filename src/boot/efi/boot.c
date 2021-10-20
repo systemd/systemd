@@ -74,6 +74,7 @@ typedef struct {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN force_menu;
+        BOOLEAN save_default;
         INT64 console_mode;
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
@@ -487,7 +488,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"     timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
         }
 
-        ps_string(L"               default: %s\n", config->entry_default_pattern);
+        ps_string(L"               default: %s\n", config->save_default ? L"last-booted" : config->entry_default_pattern);
         ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
         ps_string(L"     default (EFI var): %s\n", default_efivar);
           ps_bool(L"                editor: %s\n", config->editor);
@@ -1072,8 +1073,14 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                 if (strcmpa((CHAR8 *)"default", key) == 0) {
                         FreePool(config->entry_default_pattern);
-                        config->entry_default_pattern = stra_to_str(value);
-                        StrLwr(config->entry_default_pattern);
+                        if (strcmpa((CHAR8 *)"last-booted", value) == 0) {
+                                config->save_default = TRUE;
+                                config->entry_default_pattern = NULL;
+                        } else {
+                                config->save_default = FALSE;
+                                config->entry_default_pattern = stra_to_str(value);
+                                StrLwr(config->entry_default_pattern);
+                        }
                         continue;
                 }
 
@@ -1499,6 +1506,21 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
         if (!EFI_ERROR(err))
                 config->console_mode_efivar = value;
+
+        if (config->save_default) {
+                _cleanup_freepool_ CHAR8 *saved = NULL;
+                UINTN size;
+
+                err = file_read(root_dir, L"\\loader\\last-booted", 0, 0, &saved, &size);
+                if (!EFI_ERROR(err) && size >= sizeof(CHAR16)) {
+                        /* The stored value is expected to be a NUL-terminated CHAR16 string.
+                         * Note that file_read adds an extra byte for a CHAR8 NUL at the end,
+                         * so we just chop it off. */
+                        size -= size % sizeof(CHAR16);
+                        config->entry_default_pattern = (CHAR16*) TAKE_PTR(saved);
+                        config->entry_default_pattern[size / sizeof(CHAR16)] = 0;
+                }
+        }
 }
 
 static void config_load_entries(
@@ -2236,6 +2258,33 @@ static void config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
+static EFI_STATUS save_default_entry(EFI_FILE *root_dir, const Config *config, const ConfigEntry *entry) {
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        EFI_STATUS err;
+        UINTN size;
+
+        assert(root_dir);
+        assert(config);
+        assert(entry);
+
+        if (!config->save_default || entry->call || streq_ptr(config->entry_default_pattern, entry->id))
+                return EFI_SUCCESS;
+
+        err = root_dir->Open(
+                        root_dir, &handle,
+                        (CHAR16 *)L"\\loader\\last-booted",
+                        EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|EFI_FILE_MODE_CREATE, 0ULL);
+        if (EFI_ERROR(err))
+                return err;
+
+        size = StrSize(entry->id);
+        err = handle->Write(handle, &size, entry->id);
+        if (EFI_ERROR(err))
+                return err;
+
+        return handle->Flush(handle);
+}
+
 static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
@@ -2417,6 +2466,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 /* Export the selected boot entry to the system */
                 (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+
+                err = save_default_entry(root_dir, &config, entry);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Error saving default entry: %r", err);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
