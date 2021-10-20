@@ -69,11 +69,13 @@ typedef struct {
         UINT32 timeout_sec_efivar;
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
+        CHAR16 *entry_last_booted;
         CHAR16 *options_edit;
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN force_menu;
+        BOOLEAN save_default;
         INT64 console_mode;
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
@@ -487,8 +489,9 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         }
 
         ps_string(L"               default: %s\n", config->entry_default_pattern);
-        ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
         ps_string(L"     default (EFI var): %s\n", default_efivar);
+        ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
+        ps_string(L"           last booted: %s\n", config->entry_last_booted);
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
@@ -1111,7 +1114,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 if (strcmpa((CHAR8 *)"default", key) == 0) {
                         FreePool(config->entry_default_pattern);
                         config->entry_default_pattern = stra_to_str(value);
-                        StrLwr(config->entry_default_pattern);
+                        config->save_default = streq_ptr(config->entry_default_pattern, L"last-booted");
                         continue;
                 }
 
@@ -1662,11 +1665,26 @@ static void config_default_entry_select(Config *config) {
          */
         err = efivar_get(LOADER_GUID, L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
-                i = config_entry_find(config, entry_default);
-                if (i >= 0) {
-                        config->idx_default = i;
-                        config->idx_default_efivar = i;
-                        return;
+                config->save_default = streq_ptr(entry_default, L"last-booted");
+                if (!config->save_default) {
+                        i = config_entry_find(config, entry_default);
+                        if (i >= 0) {
+                                config->idx_default = i;
+                                config->idx_default_efivar = i;
+                                return;
+                        }
+                }
+        }
+
+        /* Load the previously booted entry if requested. */
+        if (config->save_default) {
+                err = efivar_get(LOADER_GUID, L"LoaderEntryLastBooted", &config->entry_last_booted);
+                if (!EFI_ERROR(err)) {
+                        i = config_entry_find(config, config->entry_last_booted);
+                        if (i >= 0) {
+                                config->idx_default = i;
+                                return;
+                        }
                 }
         }
 
@@ -1677,7 +1695,7 @@ static void config_default_entry_select(Config *config) {
          * Match the pattern from the end of the list to the start, find last
          * entry (largest number) matching the given pattern.
          */
-        if (config->entry_default_pattern) {
+        if (config->entry_default_pattern && !streq_ptr(config->entry_default_pattern, L"last-booted")) {
                 i = config->entry_count;
                 while (i--) {
                         if (MetaiMatch(config->entries[i]->id, config->entry_default_pattern)) {
@@ -2256,6 +2274,31 @@ static void config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
+static void save_selected_entry(const Config *config, const ConfigEntry *entry) {
+        assert(config);
+        assert(entry);
+        assert(!entry->call);
+
+        /* Always export the selected boot entry to the system in a volatile var. */
+        (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+
+        /* Do not save or delete if this was a oneshot boot. */
+        if (streq_ptr(config->entry_oneshot, entry->id))
+                return;
+
+        if (!config->save_default) {
+                /* Delete the non-volatile var if not needed. */
+                (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", NULL, EFI_VARIABLE_NON_VOLATILE);
+                return;
+        }
+
+        /* Avoid unnecessary NVRAM writes. */
+        if (streq_ptr(config->entry_last_booted, entry->id))
+                return;
+
+        (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
+}
+
 static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
@@ -2434,9 +2477,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
 
                 config_entry_bump_counters(entry, root_dir);
-
-                /* Export the selected boot entry to the system */
-                (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+                save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
