@@ -384,15 +384,13 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr prefix, *a;
         unsigned prefixlen;
-        usec_t time_now;
+        usec_t timestamp_usec;
         int r;
 
         assert(link);
         assert(rt);
 
-        /* Do not use clock_boottime_or_monotonic() here, as the kernel internally manages cstamp and
-         * tstamp with jiffies, and it is not increased while the system is suspended. */
-        r = sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -446,8 +444,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-                address->cinfo.ifa_valid = lifetime_valid;
-                address->cinfo.ifa_prefered = lifetime_preferred;
+                address->lifetime_valid = usec_add(lifetime_valid * USEC_PER_SEC, timestamp_usec);
+                address->lifetime_preferred = usec_add(lifetime_preferred * USEC_PER_SEC, timestamp_usec);
 
                 /* See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by
                  * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
@@ -456,9 +454,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (r > 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
                          * update the address, and it will be removed. */
-                        if (e->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME &&
-                            usec_add(e->cinfo.tstamp / 100 * USEC_PER_SEC,
-                                     e->cinfo.ifa_valid * USEC_PER_SEC) < time_now)
+                        if (e->lifetime_valid < timestamp_usec)
                                 continue;
                 }
 
