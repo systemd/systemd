@@ -188,8 +188,10 @@
       <varlistentry>
         <term>auto-firmware</term>
 
-        <listitem><para>Takes a boolean argument. Enable (the default) or disable
-        the "Reboot into firmware" entry.</para></listitem>
+        <listitem><para>A boolean controlling the presence of the "Reboot into firmware" entry
+        (enabled by default). If this is disabled, the firmware interface may still be reached
+        by using <keycap>F2</keycap> (among others, see <refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum>)
+        in the boot menu.</para></listitem>
       </varlistentry>
 
       <varlistentry>
