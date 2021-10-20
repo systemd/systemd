@@ -178,6 +178,14 @@
         <term><keycap>F1</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><keycap>F2</keycap></term>
+        <term><keycap>F10</keycap></term>
+        <term><keycap>Del</keycap></term>
+        <term><keycap>Esc</keycap></term>
+        <listitem><para>Reboot into firmware interface.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The following keys may be pressed during bootup or in the boot menu to directly boot a specific
