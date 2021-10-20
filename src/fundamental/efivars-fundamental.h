@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+#include "string-util-fundamental.h"
+
 #ifndef UINT64_C
 #  define UINT64_C(c) (c ## ULL)
 #endif
@@ -13,3 +16,21 @@
 #define EFI_LOADER_FEATURE_XBOOTLDR                (UINT64_C(1) << 5)
 #define EFI_LOADER_FEATURE_RANDOM_SEED             (UINT64_C(1) << 6)
 #define EFI_LOADER_FEATURE_LOAD_DRIVER             (UINT64_C(1) << 7)
+
+typedef enum SecureBootMode {
+        SECURE_BOOT_UNSUPPORTED,
+        SECURE_BOOT_UNKNOWN,
+        SECURE_BOOT_AUDIT,
+        SECURE_BOOT_DEPLOYED,
+        SECURE_BOOT_SETUP,
+        SECURE_BOOT_USER,
+        _SECURE_BOOT_MAX,
+        _SECURE_BOOT_INVALID = -EINVAL,
+} SecureBootMode;
+
+const sd_char *secure_boot_mode_to_string(SecureBootMode m);
+SecureBootMode decode_secure_boot_mode(
+                sd_bool secure,
+                sd_bool audit,
+                sd_bool deployed,
+                sd_bool setup);

@@ -1322,10 +1322,12 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (k < 0 && k != -ENOENT)
                         r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
+                SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("System:\n");
                 printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
-                printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
-                printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
+                printf("  Secure Boot: %sd (%s)\n",
+                       enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
+                       secure_boot_mode_to_string(secure));
                 printf(" TPM2 Support: %s\n", yes_no(efi_has_tpm2()));
 
                 k = efi_get_reboot_to_firmware();

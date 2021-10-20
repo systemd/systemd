@@ -12,6 +12,23 @@ BOOLEAN secure_boot_enabled(void) {
         return !EFI_ERROR(err) && secure;
 }
 
+SecureBootMode secure_boot_mode(void) {
+        BOOLEAN secure, audit = FALSE, deployed = FALSE, setup = FALSE;
+        EFI_STATUS err;
+
+        err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
+        if (EFI_ERROR(err))
+                return SECURE_BOOT_UNSUPPORTED;
+
+        /* We can assume FALSE for all these if they are abscent (AuditMode and
+         * DeployedMode may not exist on older firmware). */
+        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"AuditMode", &audit);
+        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"DeployedMode", &deployed);
+        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup);
+
+        return decode_secure_boot_mode(secure, audit, deployed, setup);
+}
+
 #ifdef SBAT_DISTRO
 static const char sbat[] _used_ _section_ (".sbat") _align_ (512) =
         "sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n"
