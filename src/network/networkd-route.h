@@ -61,7 +61,9 @@ typedef struct Route {
         union in_addr_union prefsrc;
         OrderedSet *multipath_routes;
 
+        /* Must be specified with clock_boottime_or_monotonic(). */
         usec_t lifetime;
+        /* Used when kernel does not support RTA_EXPIRES attribute. */
         sd_event_source *expire;
 } Route;
 
