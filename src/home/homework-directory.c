@@ -80,16 +80,16 @@ int home_activate_directory(
         return 0;
 }
 
-int home_create_directory_or_subvolume(UserRecord *h, UserRecord **ret_home) {
+int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        _cleanup_close_ int root_fd = -1;
         _cleanup_free_ char *d = NULL;
         const char *ip;
         int r;
 
         assert(h);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME));
+        assert(setup);
         assert(ret_home);
 
         assert_se(ip = user_record_image_path(h));
@@ -149,15 +149,15 @@ int home_create_directory_or_subvolume(UserRecord *h, UserRecord **ret_home) {
 
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */
 
-        root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0)
+        setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open temporary home directory: %m");
 
-        r = home_populate(h, root_fd);
+        r = home_populate(h, setup->root_fd);
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, NULL);
         if (r < 0)
                 return r;
 
