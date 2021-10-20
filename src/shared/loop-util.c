@@ -615,8 +615,7 @@ static uint32_t loop_flags_mangle(uint32_t loop_flags) {
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_LOOP_DIRECT_IO, ignoring: %m");
 
-        SET_FLAG(loop_flags, LO_FLAGS_DIRECT_IO, r != 0); /* Turn on LO_FLAGS_DIRECT_IO by default, unless explicitly configured to off. */
-        return loop_flags;
+        return UPDATE_FLAG(loop_flags, LO_FLAGS_DIRECT_IO, r != 0); /* Turn on LO_FLAGS_DIRECT_IO by default, unless explicitly configured to off. */
 }
 
 int loop_device_make(
@@ -629,16 +628,13 @@ int loop_device_make(
 
         assert(fd >= 0);
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
-
-        loop_flags = loop_flags_mangle(loop_flags);
 
         return loop_device_make_internal(
                         fd,
                         open_flags,
                         offset,
                         size,
-                        loop_flags,
+                        loop_flags_mangle(loop_flags),
                         ret);
 }
 
@@ -650,6 +646,7 @@ int loop_device_make_by_path(
 
         int r, basic_flags, direct_flags, rdwr_flags;
         _cleanup_close_ int fd = -1;
+        bool direct = false;
 
         assert(path);
         assert(ret);
@@ -670,6 +667,8 @@ int loop_device_make_by_path(
         fd = open(path, basic_flags|direct_flags|rdwr_flags);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
                 fd = open(path, basic_flags|rdwr_flags);
+        else
+                direct = direct_flags != 0;
         if (fd < 0) {
                 r = -errno;
 
@@ -680,6 +679,8 @@ int loop_device_make_by_path(
                 fd = open(path, basic_flags|direct_flags|O_RDONLY);
                 if (fd < 0 && direct_flags != 0) /* as above */
                         fd = open(path, basic_flags|O_RDONLY);
+                else
+                        direct = direct_flags != 0;
                 if (fd < 0)
                         return r; /* Propagate original error */
 
@@ -687,7 +688,14 @@ int loop_device_make_by_path(
         } else if (open_flags < 0)
                 open_flags = O_RDWR;
 
-        return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
+        log_debug("Opened '%s' in %s access mode%s, with O_DIRECT %s%s.",
+                  path,
+                  open_flags == O_RDWR ? "O_RDWR" : "O_RDONLY",
+                  open_flags != rdwr_flags ? " (O_RDWR was requested but not allowed)" : "",
+                  direct ? "enabled" : "disabled",
+                  direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
+
+        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
