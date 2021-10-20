@@ -28,6 +28,7 @@ check_result_qemu() {
     echo "${JOURNAL_LIST:-No journals were saved}"
 
     test -s "$TESTDIR/failed" && ret=1
+    check_coverage_reports "${initdir:?}" || ret=5
     return $ret
 }
 

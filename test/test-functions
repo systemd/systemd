@@ -1458,6 +1458,7 @@ check_result_nspawn_unittests() {
     fi
 
     get_bool "${TIMED_OUT:=}" && ret=1
+    check_coverage_reports "$workspace" || ret=5
 
     save_journal "$workspace/var/log/journal" $ret
 
@@ -1490,6 +1491,7 @@ check_result_qemu_unittests() {
     fi
 
     get_bool "${TIMED_OUT:=}" && ret=1
+    check_coverage_reports "$initdir" || ret=5
 
     save_journal "$initdir/var/log/journal" $ret
 
