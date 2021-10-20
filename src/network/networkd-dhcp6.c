@@ -25,7 +25,6 @@
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "radv-internal.h"
 
 bool link_dhcp6_with_address_enabled(Link *link) {
         if (!link_dhcp6_enabled(link))
