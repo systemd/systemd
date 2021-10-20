@@ -1232,7 +1232,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
-                r = home_create_directory_or_subvolume(h, &new_home);
+                r = home_create_directory_or_subvolume(h, &setup, &new_home);
                 break;
 
         case USER_FSCRYPT:
