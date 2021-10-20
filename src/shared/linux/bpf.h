@@ -3542,7 +3542,7 @@ union bpf_attr {
  *
  *		**-EEXIST** if the option already exists.
  *
- *		**-EFAULT** on failrue to parse the existing header options.
+ *		**-EFAULT** on failure to parse the existing header options.
  *
  *		**-EPERM** if the helper cannot be used under the current
  *		*skops*\ **->op**.
@@ -4625,7 +4625,7 @@ enum {
 	BPF_SOCK_OPS_TIMEOUT_INIT,	/* Should return SYN-RTO value to use or
 					 * -1 if default value should be used
 					 */
-	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertized
+	BPF_SOCK_OPS_RWND_INIT,		/* Should return initial advertised
 					 * window (in packets) or -1 if default
 					 * value should be used
 					 */
