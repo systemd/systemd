@@ -166,7 +166,7 @@ int write_string_stream_ts(
                  * it won't be equal to the new value. */
                 if (read_virtual_file_fd(fd, strlen(line)+1, &t, NULL) > 0 &&
                     streq_skip_trailing_chars(line, t, NEWLINE)) {
-                        log_debug("No change in value '%s', supressing write", line);
+                        log_debug("No change in value '%s', suppressing write", line);
                         return 0;
                 }
 
