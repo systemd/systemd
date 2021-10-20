@@ -53,6 +53,10 @@ int home_activate_directory(
         if (r < 0)
                 return r;
 
+        r = home_extend_embedded_identity(new_home, h, setup);
+        if (r < 0)
+                return r;
+
         setup->root_fd = safe_close(setup->root_fd);
 
         /* Create mount point to mount over if necessary */
