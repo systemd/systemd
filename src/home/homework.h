@@ -74,6 +74,7 @@ int home_setup(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSe
 
 int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, PasswordCache *cache, struct statfs *ret_statfs, UserRecord **ret_new_home);
 
+int home_maybe_shift_uid(UserRecord *h, HomeSetup *setup);
 int home_populate(UserRecord *h, int dir_fd);
 
 int home_load_embedded_identity(UserRecord *h, int root_fd, UserRecord *header_home, UserReconcileMode mode, PasswordCache *cache, UserRecord **ret_embedded_home, UserRecord **ret_new_home);

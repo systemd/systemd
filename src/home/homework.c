@@ -716,6 +716,38 @@ static int chown_recursive_directory(int root_fd, uid_t uid) {
         return 0;
 }
 
+int home_maybe_shift_uid(
+                UserRecord *h,
+                HomeSetup *setup) {
+
+        _cleanup_close_ int mount_fd = -1;
+        struct stat st;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        if (fstat(setup->root_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() home directory: %m");
+
+        /* Let's shift UIDs of this mount. Hopefully this makes the later chowning unnecessary. (Note that we
+         * also prefer to do UID mapping even if the UID already matches our goal UID. That's because we want
+         * to leave UIDs in the homed managed range unmapped.) */
+        (void) home_shift_uid(setup->root_fd, NULL, st.st_uid, h->uid, &mount_fd);
+
+        /* If this worked, then we'll have a reference to the mount now, which we can also use like an O_PATH
+         * fd to the new dir. Let's convert it into a proper O_DIRECTORY fd. */
+        if (mount_fd >= 0) {
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Failed to convert mount fd into regular directory fd: %m");
+        }
+
+        return 0;
+}
+
 int home_refresh(
                 UserRecord *h,
                 HomeSetup *setup,
@@ -735,6 +767,10 @@ int home_refresh(
          * directory, reconciles it with our idea, chown()s everything. */
 
         r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (r < 0)
+                return r;
+
+        r = home_maybe_shift_uid(h, setup);
         if (r < 0)
                 return r;
 
