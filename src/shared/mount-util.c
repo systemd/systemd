@@ -173,6 +173,26 @@ int bind_remount_recursive_with_mountinfo(
         assert(prefix);
         assert(proc_self_mountinfo);
 
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list)) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, prefix, AT_SYMLINK_NOFOLLOW|AT_RECURSIVE,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                                return -errno;
+
+                        /* If not supported (i.e. kernel < 5.12), then fall through, and use traditional
+                         * mechanism. Also do this if we get EINVAL, since mount_setattr() only works on the
+                         * mount point inode itself, not a non-mount point inode, and we want to support
+                         * arbitrary prefixes here. */
+                } else
+                        return 0; /* Nice, this worked! */
+        }
+
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
          * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
          * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write operation), ditto for other flags. If it
