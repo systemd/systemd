@@ -5,6 +5,7 @@
 #include <sys/mount.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "namespace-util.h"
@@ -180,4 +181,42 @@ int detach_mount_namespace(void) {
                 return -errno;
 
         return 0;
+}
+
+int userns_acquire(const char *uid_map, const char *gid_map) {
+        char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -1;
+        int r;
+
+        assert(uid_map);
+        assert(gid_map);
+
+        /* Forks off a process in a new userns, configures the specified uidmap/gidmap, acquires an fd to it,
+         * and then kills the process again. This way we have a userns fd that is not bound to any
+         * process. We can use that for file system mounts and similar. */
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        xsprintf(path, "/proc/" PID_FMT "/uid_map", pid);
+        r = write_string_file(path, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write UID map: %m");
+
+        xsprintf(path, "/proc/" PID_FMT "/gid_map", pid);
+        r = write_string_file(path, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write GID map: %m");
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open netns fd: %m");
+
+        return TAKE_FD(userns_fd);
+
 }
