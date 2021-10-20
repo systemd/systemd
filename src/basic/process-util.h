@@ -202,3 +202,5 @@ int pidfd_get_pid(int fd, pid_t *ret);
 int setpriority_closest(int priority);
 
 bool invoked_as(char *argv[], const char *token);
+
+_noreturn_ void freeze(void);
