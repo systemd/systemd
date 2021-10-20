@@ -60,6 +60,10 @@
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
 
+        <para>If set to <literal>last-booted</literal> the selected boot entry will be saved
+        to <filename><replaceable>ESP</replaceable>/loader/last-booted</filename> and
+        automatically selected the next time systemd-boot starts.</para>
+
         <table>
           <title>Automatically detected entries will use the following names:</title>
 
