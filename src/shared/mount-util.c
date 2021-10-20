@@ -995,37 +995,18 @@ int make_mount_point(const char *path) {
 }
 
 static int make_userns(uid_t uid_shift, uid_t uid_range) {
-        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        char line[DECIMAL_STR_MAX(uid_t)*3+3+1];
         _cleanup_close_ int userns_fd = -1;
-        int r;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
-        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                /* Child. We do nothing here, just freeze until somebody kills us. */
-                freeze();
-
         xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
 
-        xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write UID map: %m");
-
         /* We always assign the same UID and GID ranges */
-        xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write GID map: %m");
-
-        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
-        if (r < 0)
-                return r;
+        userns_fd = userns_acquire(line, line);
+        if (userns_fd < 0)
+                return log_debug_errno(userns_fd, "Failed to acquire new userns: %m");
 
         return TAKE_FD(userns_fd);
 }
