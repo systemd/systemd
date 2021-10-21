@@ -1272,7 +1272,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         case USER_FSCRYPT:
-                r = home_create_fscrypt(h, effective_passwords, &new_home);
+                r = home_create_fscrypt(h, &setup, effective_passwords, &new_home);
                 break;
 
         case USER_CIFS:
