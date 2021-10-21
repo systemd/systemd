@@ -3,6 +3,7 @@
 # systemd-networkd tests
 
 import argparse
+import errno
 import itertools
 import os
 import re
@@ -483,6 +484,15 @@ def stop_by_pid_file(pid_file):
         with open(pid_file, 'r') as f:
             pid = f.read().rstrip(' \t\r\n\0')
             os.kill(int(pid), signal.SIGTERM)
+            for _ in range(25):
+                try:
+                    os.kill(int(pid), 0)
+                    print(f"PID {pid} is still alive, waiting...")
+                    time.sleep(.2)
+                except OSError as e:
+                    if e.errno == errno.ESRCH:
+                        break
+                    print(f"Unexpected exception when waiting for {pid} to die: {e.errno}")
 
         os.remove(pid_file)
 
