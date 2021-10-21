@@ -19,7 +19,9 @@ typedef struct NDiscRDNSS {
         /* Used when GC'ing old DNS servers when configuration changes. */
         bool marked;
         struct in6_addr router;
-        usec_t valid_until;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec;
         struct in6_addr address;
 } NDiscRDNSS;
 
@@ -27,7 +29,9 @@ typedef struct NDiscDNSSL {
         /* Used when GC'ing old domains when configuration changes. */
         bool marked;
         struct in6_addr router;
-        usec_t valid_until;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec;
         /* The domain name follows immediately. */
 } NDiscDNSSL;
 
