@@ -104,7 +104,7 @@ int home_activate_cifs(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
         const char *hdo, *hd;
         int r;
 
@@ -119,11 +119,11 @@ int home_activate_cifs(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_setup_cifs(h, 0, setup);
+        r = home_setup(h, 0, cache, setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, setup, NULL, cache, NULL, &new_home);
+        r = home_refresh(h, setup, header_home, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 
