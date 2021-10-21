@@ -844,12 +844,13 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 return log_link_warning_errno(dhcp6_link, r, "Failed to get timestamp of DHCPv6 lease: %m");
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
-                        continue;
-
                 r = dhcp6_pd_prepare(link);
-                if (r < 0)
+                if (r < 0) {
+                        if (link == dhcp6_link)
+                                return r;
+
                         link_enter_failed(link);
+                }
         }
 
         for (sd_dhcp6_lease_reset_pd_prefix_iter(dhcp6_link->dhcp6_lease);;) {
@@ -921,12 +922,13 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         }
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
-                        continue;
-
                 r = dhcp6_pd_finalize(link);
-                if (r < 0)
+                if (r < 0) {
+                        if (link == dhcp6_link)
+                                return r;
+
                         link_enter_failed(link);
+                }
         }
 
         return 0;
