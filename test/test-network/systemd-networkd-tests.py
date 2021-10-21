@@ -3,6 +3,7 @@
 # systemd-networkd tests
 
 import argparse
+import errno
 import itertools
 import os
 import re
@@ -42,6 +43,7 @@ env = {}
 asan_options=None
 lsan_options=None
 ubsan_options=None
+with_coverage=False
 
 running_units = []
 
@@ -304,6 +306,8 @@ def setUpModule():
         drop_in += ['SystemCallFilter=']
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
+    if with_coverage:
+        drop_in += ['ProtectSystem=no']
 
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
@@ -330,6 +334,8 @@ def setUpModule():
         drop_in += ['SystemCallFilter=']
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
+    if with_coverage:
+        drop_in += ['ProtectSystem=no']
 
     os.makedirs('/run/systemd/system/systemd-resolved.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
@@ -483,6 +489,15 @@ def stop_by_pid_file(pid_file):
         with open(pid_file, 'r') as f:
             pid = f.read().rstrip(' \t\r\n\0')
             os.kill(int(pid), signal.SIGTERM)
+            for _ in range(25):
+                try:
+                    os.kill(int(pid), 0)
+                    print(f"PID {pid} is still alive, waiting...")
+                    time.sleep(.2)
+                except OSError as e:
+                    if e.errno == errno.ESRCH:
+                        break
+                    print(f"Unexpected exception when waiting for {pid} to die: {e.errno}")
 
         os.remove(pid_file)
 
@@ -5027,6 +5042,7 @@ if __name__ == '__main__':
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
     parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
+    parser.add_argument('--with-coverage', help='Loosen certain sandbox restrictions to make gcov happy', dest='with_coverage', type=bool, nargs='?', const=True, default=with_coverage)
     ns, args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
@@ -5060,6 +5076,7 @@ if __name__ == '__main__':
     asan_options = ns.asan_options
     lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
+    with_coverage = ns.with_coverage
 
     if use_valgrind:
         networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
