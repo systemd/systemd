@@ -62,6 +62,8 @@ void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
 
+bool link_radv_enabled(Link *link);
+int radv_start(Link *link);
 int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     usec_t lifetime_preferred_usec, usec_t lifetime_valid_usec);

@@ -582,6 +582,9 @@ static int dhcp6_pd_distribute_prefix(
                 if (!link_dhcp6_pd_is_enabled(link))
                         continue;
 
+                if (link->network->dhcp6_pd_announce && !link->radv)
+                        continue;
+
                 if (link == dhcp6_link && !link->network->dhcp6_pd_assign)
                         continue;
 
@@ -608,6 +611,9 @@ static int dhcp6_pd_prepare(Link *link) {
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
+        if (link->network->dhcp6_pd_announce && !link->radv)
+                return 0;
+
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
         link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
 
@@ -621,6 +627,9 @@ static int dhcp6_pd_finalize(Link *link) {
                 return 0;
 
         if (!link_dhcp6_pd_is_enabled(link))
+                return 0;
+
+        if (link->network->dhcp6_pd_announce && !link->radv)
                 return 0;
 
         if (link->dhcp6_pd_messages == 0) {

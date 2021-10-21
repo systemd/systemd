@@ -597,16 +597,9 @@ static int link_acquire_dynamic_ipv6_conf(Link *link) {
 
         assert(link);
 
-        if (link->radv) {
-                assert(link->radv);
-                assert(in6_addr_is_link_local(&link->ipv6ll_address));
-
-                log_link_debug(link, "Starting IPv6 Router Advertisements");
-
-                r = sd_radv_start(link->radv);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
-        }
+        r = radv_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Advertisement engine: %m");
 
         r = ndisc_start(link);
         if (r < 0)
@@ -615,10 +608,6 @@ static int link_acquire_dynamic_ipv6_conf(Link *link) {
         r = dhcp6_start(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
-
-        r = dhcp6_request_prefix_delegation(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
 
         return 0;
 }
@@ -662,6 +651,7 @@ static int link_acquire_dynamic_conf(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         r = link_acquire_dynamic_ipv4_conf(link);
         if (r < 0)
@@ -671,6 +661,16 @@ static int link_acquire_dynamic_conf(Link *link) {
                 r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0)
                         return r;
+        }
+
+        if (!link_radv_enabled(link) || !link->network->dhcp6_pd_announce) {
+                /* DHCPv6PD downstream does not require IPv6LL address. But may require RADV to be
+                 * configured, and RADV may not be configured yet here. Only acquire subnet prefix when
+                 * RADV is disabled, or the announcement of the prefix is disabled. Otherwise, the
+                 * below will be called in radv_start(). */
+                r = dhcp6_request_prefix_delegation(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
         }
 
         if (link->lldp_tx) {
