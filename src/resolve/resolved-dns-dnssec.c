@@ -700,6 +700,81 @@ static int dnssec_rrset_serialize_sig(
         return 0;
 }
 
+static int dnssec_rrset_verify_sig(
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey,
+                const char *sig_data,
+                size_t sig_size) {
+
+        assert(rrsig);
+        assert(dnskey);
+        assert(sig_data);
+        assert(sig_size > 0);
+
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+        void *hash;
+        size_t hash_size;
+        int md_algorithm;
+
+        initialize_libgcrypt(false);
+
+        switch (rrsig->rrsig.algorithm) {
+        case DNSSEC_ALGORITHM_ED25519:
+#if GCRYPT_VERSION_NUMBER >= 0x010600
+                return dnssec_eddsa_verify(
+                                rrsig->rrsig.algorithm,
+                                sig_data, sig_size,
+                                rrsig,
+                                dnskey);
+#endif
+        case DNSSEC_ALGORITHM_ED448:
+                return -EOPNOTSUPP;
+        default:
+                /* OK, the RRs are now in canonical order. Let's calculate the digest */
+                md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
+                if (md_algorithm < 0)
+                        return md_algorithm;
+
+                gcry_error_t err = gcry_md_open(&md, md_algorithm, 0);
+                if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
+                        return -EIO;
+
+                hash_size = gcry_md_get_algo_dlen(md_algorithm);
+                assert(hash_size > 0);
+
+                gcry_md_write(md, sig_data, sig_size);
+
+                hash = gcry_md_read(md, 0);
+                if (!hash)
+                        return -EIO;
+        }
+
+        switch (rrsig->rrsig.algorithm) {
+
+        case DNSSEC_ALGORITHM_RSASHA1:
+        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
+        case DNSSEC_ALGORITHM_RSASHA256:
+        case DNSSEC_ALGORITHM_RSASHA512:
+                return dnssec_rsa_verify(
+                                gcry_md_algo_name(md_algorithm),
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+
+        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
+        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
+                return dnssec_ecdsa_verify(
+                                gcry_md_algo_name(md_algorithm),
+                                rrsig->rrsig.algorithm,
+                                hash, hash_size,
+                                rrsig,
+                                dnskey);
+
+        default:
+                assert_not_reached();
+        }
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 const DnsResourceKey *key,
@@ -710,14 +785,10 @@ int dnssec_verify_rrset(
 
         DnsResourceRecord **list, *rr;
         const char *source, *name;
-        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
-        int r, md_algorithm;
-        size_t n = 0;
+        size_t n = 0, sig_size;
         _cleanup_free_ char *sig_data = NULL;
-        size_t sig_size = 0;
-        size_t hash_size;
-        void *hash;
         bool wildcard;
+        int r;
 
         assert(key);
         assert(rrsig);
@@ -824,76 +895,10 @@ int dnssec_verify_rrset(
         if (r < 0)
                 return r;
 
-        initialize_libgcrypt(false);
-
-        switch (rrsig->rrsig.algorithm) {
-#if GCRYPT_VERSION_NUMBER >= 0x010600
-        case DNSSEC_ALGORITHM_ED25519:
-                break;
-#else
-        case DNSSEC_ALGORITHM_ED25519:
-#endif
-        case DNSSEC_ALGORITHM_ED448:
+        r = dnssec_rrset_verify_sig(rrsig, dnskey, sig_data, sig_size);
+        if (r == -EOPNOTSUPP) {
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
                 return 0;
-        default: {
-                gcry_error_t err;
-
-                /* OK, the RRs are now in canonical order. Let's calculate the digest */
-                md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
-                if (md_algorithm == -EOPNOTSUPP) {
-                        *result = DNSSEC_UNSUPPORTED_ALGORITHM;
-                        return 0;
-                }
-                if (md_algorithm < 0)
-                        return md_algorithm;
-
-                err = gcry_md_open(&md, md_algorithm, 0);
-                if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
-                        return -EIO;
-
-                hash_size = gcry_md_get_algo_dlen(md_algorithm);
-                assert(hash_size > 0);
-
-                gcry_md_write(md, sig_data, sig_size);
-
-                hash = gcry_md_read(md, 0);
-                if (!hash)
-                        return -EIO;
-        }
-        }
-
-        switch (rrsig->rrsig.algorithm) {
-
-        case DNSSEC_ALGORITHM_RSASHA1:
-        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
-        case DNSSEC_ALGORITHM_RSASHA256:
-        case DNSSEC_ALGORITHM_RSASHA512:
-                r = dnssec_rsa_verify(
-                                gcry_md_algo_name(md_algorithm),
-                                hash, hash_size,
-                                rrsig,
-                                dnskey);
-                break;
-
-        case DNSSEC_ALGORITHM_ECDSAP256SHA256:
-        case DNSSEC_ALGORITHM_ECDSAP384SHA384:
-                r = dnssec_ecdsa_verify(
-                                gcry_md_algo_name(md_algorithm),
-                                rrsig->rrsig.algorithm,
-                                hash, hash_size,
-                                rrsig,
-                                dnskey);
-                break;
-#if GCRYPT_VERSION_NUMBER >= 0x010600
-        case DNSSEC_ALGORITHM_ED25519:
-                r = dnssec_eddsa_verify(
-                                rrsig->rrsig.algorithm,
-                                sig_data, sig_size,
-                                rrsig,
-                                dnskey);
-                break;
-#endif
         }
         if (r < 0)
                 return r;
