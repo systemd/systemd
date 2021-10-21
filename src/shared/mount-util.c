@@ -134,6 +134,29 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+
+static uint64_t ms_flags_to_mount_attr(unsigned long a) {
+        uint64_t f = 0;
+
+        if (FLAGS_SET(a, MS_RDONLY))
+                f |= MOUNT_ATTR_RDONLY;
+
+        if (FLAGS_SET(a, MS_NOSUID))
+                f |= MOUNT_ATTR_NOSUID;
+
+        if (FLAGS_SET(a, MS_NODEV))
+                f |= MOUNT_ATTR_NODEV;
+
+        if (FLAGS_SET(a, MS_NOEXEC))
+                f |= MOUNT_ATTR_NOEXEC;
+
+        if (FLAGS_SET(a, MS_NOSYMFOLLOW))
+                f |= MOUNT_ATTR_NOSYMFOLLOW;
+
+        return f;
+}
+
 /* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
@@ -143,12 +166,40 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
         assert(prefix);
-        assert(proc_self_mountinfo);
+
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list)) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, prefix, AT_SYMLINK_NOFOLLOW|AT_RECURSIVE,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                                return -errno;
+
+                        /* If not supported (i.e. kernel < 5.12), then fall through, and use traditional
+                         * mechanism. Also do this if we get EINVAL, since mount_setattr() only works on the
+                         * mount point inode itself, not a non-mount point inode, and we want to support
+                         * arbitrary prefixes here. */
+                } else
+                        return 0; /* Nice, this worked! */
+        }
+
+        if (!proc_self_mountinfo) {
+                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
+                if (r < 0)
+                        return r;
+
+                proc_self_mountinfo = proc_self_mountinfo_opened;
+        }
 
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
          * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
@@ -343,22 +394,6 @@ int bind_remount_recursive_with_mountinfo(
         }
 }
 
-int bind_remount_recursive(
-                const char *prefix,
-                unsigned long new_flags,
-                unsigned long flags_mask,
-                char **deny_list) {
-
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        int r;
-
-        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
-        if (r < 0)
-                return r;
-
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, proc_self_mountinfo);
-}
-
 int bind_remount_one_with_mountinfo(
                 const char *path,
                 unsigned long new_flags,
@@ -373,6 +408,24 @@ int bind_remount_one_with_mountinfo(
 
         assert(path);
         assert(proc_self_mountinfo);
+
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                return -errno;
+
+                        /* If not supported (i.e. kernel < 5.12), then fall through, and use traditional
+                         * mechanism */
+                } else
+                        return 0; /* Nice, this worked! */
+        }
 
         rewind(proc_self_mountinfo);
 
