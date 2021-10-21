@@ -9,6 +9,7 @@
 #include "homework-mount.h"
 #include "mount-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 
@@ -166,19 +167,11 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        copy = fcntl(setup->root_fd, F_DUPFD_CLOEXEC, 3);
-        if (copy < 0)
-                return -errno;
-
-        d = take_fdopendir(&copy);
-        if (!d)
-                return -errno;
-
-        errno = 0;
-        if (readdir_no_dot(d))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY), "Selected CIFS directory not empty, refusing.");
-        if (errno != 0)
+        r = dir_is_empty_at(setup->root_fd, NULL);
+        if (r < 0)
                 return log_error_errno(errno, "Failed to detect if CIFS directory is empty: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY), "Selected CIFS directory not empty, refusing.");
 
         r = home_populate(h, setup->root_fd);
         if (r < 0)
