@@ -3,7 +3,7 @@
 fundamental_path = meson.current_source_dir()
 
 fundamental_headers = files(
-        'efi-loader-features.h',
+        'efivars-fundamental.h',
         'macro-fundamental.h',
         'string-util-fundamental.h',
         'sha256.h',
