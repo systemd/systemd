@@ -10,11 +10,13 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
+#include "homework-mount.h"
 #include "homework-quota.h"
 #include "memory-util.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "nulstr-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -290,8 +292,9 @@ int home_setup_fscrypt(
         int r;
 
         assert(h);
-        assert(setup);
         assert(user_record_storage(h) == USER_FSCRYPT);
+        assert(setup);
+        assert(setup->root_fd < 0);
 
         assert_se(ip = user_record_image_path(h));
 
@@ -360,6 +363,33 @@ int home_setup_fscrypt(
                         _exit(EXIT_SUCCESS);
                 }
         }
+
+        /* We'll bind mount the image directory to a new mount point where we'll start adjusting it. Only
+         * once that's complete we'll move the thing to its final place eventually. */
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        setup->undo_mount = true;
+
+        /* Turn off any form of propagation for this */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        if (r < 0)
+                return r;
+
+        /* Adjust MS_SUID and similar flags */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        if (r < 0)
+                return r;
+
+        safe_close(setup->root_fd);
+        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
+                return log_error_errno(errno, "Failed to open home directory: %m");
 
         return 0;
 }
@@ -463,6 +493,7 @@ int home_create_fscrypt(
         _cleanup_(rm_rf_physical_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_close_ int mount_fd = -1;
         struct fscrypt_policy policy = {};
         size_t volume_key_size = 512 / 8;
         _cleanup_free_ char *d = NULL;
@@ -488,6 +519,10 @@ int home_create_fscrypt(
                 return log_error_errno(errno, "Failed to create temporary home directory %s: %m", d);
 
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */
+
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
 
         setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
@@ -542,6 +577,21 @@ int home_create_fscrypt(
 
         (void) home_update_quota_classic(h, temporary);
 
+        r = home_shift_uid(setup->root_fd, HOME_RUNTIME_WORK_DIR, h->uid, h->uid, &mount_fd);
+        if (r > 0)
+                setup->undo_mount = true; /* If uidmaps worked we have a mount to undo again */
+
+        if (mount_fd >= 0) {
+                /* If we have established a new mount, then we can use that as new root fd to our home directory. */
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
+
+                mount_fd = safe_close(mount_fd);
+        }
+
         r = home_populate(h, setup->root_fd);
         if (r < 0)
                 return r;
@@ -570,6 +620,12 @@ int home_create_fscrypt(
                         (gid_t) h->uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add binding to record: %m");
+
+        setup->root_fd = safe_close(setup->root_fd);
+
+        r = home_setup_undo_mount(setup, LOG_ERR);
+        if (r < 0)
+                return r;
 
         if (rename(temporary, ip) < 0)
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
@@ -636,7 +692,6 @@ int home_passwd_fscrypt(
                         continue;
 
                 if (fremovexattr(setup->root_fd, xa) < 0)
-
                         if (errno != ENODATA)
                                 log_warning_errno(errno, "Failed to remove xattr %s: %m", xa);
         }
