@@ -70,6 +70,8 @@ typedef enum HomeSetupFlags {
 
 int home_setup_done(HomeSetup *setup);
 
+int home_setup_undo_mount(HomeSetup *setup, int level);
+
 int home_setup(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
 
 int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, PasswordCache *cache, struct statfs *ret_statfs, UserRecord **ret_new_home);
