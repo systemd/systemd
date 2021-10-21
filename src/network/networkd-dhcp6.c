@@ -547,13 +547,13 @@ static int dhcp6_pd_prefix_distribute(
                 _cleanup_free_ char *buf = NULL;
                 struct in6_addr assigned_prefix;
 
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        continue;
+
                 if (!link_dhcp6_pd_is_enabled(link))
                         continue;
 
                 if (link == dhcp6_link && !link->network->dhcp6_pd_assign)
-                        continue;
-
-                if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                         continue;
 
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
@@ -581,7 +581,7 @@ static int dhcp6_pd_prefix_distribute(
 }
 
 static int dhcp6_pd_prepare(Link *link) {
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
         if (!link_dhcp6_pd_is_enabled(link))
@@ -596,7 +596,7 @@ static int dhcp6_pd_prepare(Link *link) {
 static int dhcp6_pd_finalize(Link *link) {
         int r;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
         if (!link_dhcp6_pd_is_enabled(link))
