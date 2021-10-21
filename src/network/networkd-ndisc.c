@@ -612,10 +612,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 free);
 
 static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
-        uint32_t lifetime;
+        usec_t lifetime_usec, timestamp_usec;
+        uint32_t lifetime_sec;
         const struct in6_addr *a;
         struct in6_addr router;
-        usec_t time_now;
         bool updated = false;
         int n, r;
 
@@ -626,20 +626,22 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        r = sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RDNSS lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
         if (n < 0)
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
-
-        if (lifetime == 0)
-                return 0;
 
         if (n >= (int) NDISC_RDNSS_MAX) {
                 log_link_warning(link, "Too many RDNSS records per link. Only first %i records will be used.", NDISC_RDNSS_MAX);
@@ -656,7 +658,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (rdnss) {
                         rdnss->marked = false;
                         rdnss->router = router;
-                        rdnss->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                        rdnss->lifetime_usec = lifetime_usec;
                         continue;
                 }
 
@@ -667,7 +669,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 *x = (NDiscRDNSS) {
                         .address = a[j],
                         .router = router,
-                        .valid_until = usec_add(time_now, lifetime * USEC_PER_SEC),
+                        .lifetime_usec = lifetime_usec,
                 };
 
                 r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
@@ -701,9 +703,9 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;
+        usec_t lifetime_usec, timestamp_usec;
         struct in6_addr router;
-        uint32_t lifetime;
-        usec_t time_now;
+        uint32_t lifetime_sec;
         bool updated = false;
         char **j;
         int r;
@@ -715,20 +717,22 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        r = sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
-
-        if (lifetime == 0)
-                return 0;
 
         if (strv_length(l) >= NDISC_DNSSL_MAX) {
                 log_link_warning(link, "Too many DNSSL records per link. Only first %i records will be used.", NDISC_DNSSL_MAX);
@@ -750,12 +754,12 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (dnssl) {
                         dnssl->marked = false;
                         dnssl->router = router;
-                        dnssl->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                        dnssl->lifetime_usec = lifetime_usec;
                         continue;
                 }
 
                 s->router = router;
-                s->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                s->lifetime_usec = lifetime_usec;
 
                 r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0)
@@ -1047,11 +1051,11 @@ void ndisc_vacuum(Link *link) {
         time_now = now(clock_boottime_or_monotonic());
 
         SET_FOREACH(r, link->ndisc_rdnss)
-                if (r->valid_until < time_now)
+                if (r->lifetime_usec < time_now)
                         free(set_remove(link->ndisc_rdnss, r));
 
         SET_FOREACH(d, link->ndisc_dnssl)
-                if (d->valid_until < time_now)
+                if (d->lifetime_usec < time_now)
                         free(set_remove(link->ndisc_dnssl, d));
 }
 
