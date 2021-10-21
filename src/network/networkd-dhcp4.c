@@ -841,10 +841,10 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
 static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
-        uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
         struct in_addr address, netmask, server;
         unsigned prefixlen;
         Address *existing;
+        usec_t lifetime_usec;
         int r;
 
         assert(link);
@@ -864,10 +864,15 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
+                uint32_t lifetime_sec;
+
+                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_sec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
-        }
+
+                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+        } else
+                lifetime_usec = USEC_INFINITY;
 
         prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
@@ -908,8 +913,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->provider.in = server;
         addr->family = AF_INET;
         addr->in_addr.in.s_addr = address.s_addr;
-        addr->cinfo.ifa_prefered = lifetime;
-        addr->cinfo.ifa_valid = lifetime;
+        addr->lifetime_preferred_usec = lifetime_usec;
+        addr->lifetime_valid_usec = lifetime_usec;
         addr->prefixlen = prefixlen;
         if (prefixlen <= 30)
                 addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
@@ -1698,7 +1703,6 @@ int config_parse_dhcp_fallback_lease_lifetime(
                 void *userdata) {
 
         Network *network = userdata;
-        uint32_t k;
 
         assert(filename);
         assert(section);
@@ -1712,15 +1716,13 @@ int config_parse_dhcp_fallback_lease_lifetime(
         }
 
         /* We accept only "forever" or "infinity". */
-        if (STR_IN_SET(rvalue, "forever", "infinity"))
-                k = CACHE_INFO_INFINITY_LIFE_TIME;
-        else {
+        if (!STR_IN_SET(rvalue, "forever", "infinity")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid LeaseLifetime= value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        network->dhcp_fallback_lease_lifetime = k;
+        network->dhcp_fallback_lease_lifetime = UINT32_MAX;
 
         return 0;
 }

@@ -291,22 +291,28 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
+        usec_t lifetime_usec, timestamp_usec;
         struct in6_addr gateway;
-        uint32_t mtu = 0;
+        uint16_t lifetime_sec;
         unsigned preference;
-        uint16_t lifetime;
-        usec_t time_now;
+        uint32_t mtu = 0;
         int r;
 
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway lifetime from RA: %m");
 
-        if (lifetime == 0) /* not a default router */
+        if (lifetime_sec == 0) /* not a default router */
                 return 0;
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
@@ -327,10 +333,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router preference from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
-
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
@@ -345,7 +347,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->gw_family = AF_INET6;
         route->gw.in6 = gateway;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = lifetime_usec;
         route->mtu = mtu;
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
@@ -367,7 +369,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->gw.in6 = gateway;
                 if (!route->pref_set)
                         route->pref = preference;
-                route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+                route->lifetime_usec = lifetime_usec;
                 if (route->mtu == 0)
                         route->mtu = mtu;
 
@@ -380,19 +382,17 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
-        uint32_t lifetime_valid, lifetime_preferred;
+        uint32_t lifetime_valid_sec, lifetime_preferred_sec;
+        usec_t lifetime_valid_usec, lifetime_preferred_usec, timestamp_usec;
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr prefix, *a;
         unsigned prefixlen;
-        usec_t time_now;
         int r;
 
         assert(link);
         assert(rt);
 
-        /* Do not use clock_boottime_or_monotonic() here, as the kernel internally manages cstamp and
-         * tstamp with jiffies, and it is not increased while the system is suspended. */
-        r = sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -413,22 +413,25 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return 0;
         }
 
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid);
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix valid lifetime: %m");
 
-        if (lifetime_valid == 0) {
+        if (lifetime_valid_sec == 0) {
                 log_link_debug(link, "Ignoring prefix as its valid lifetime is zero.");
                 return 0;
         }
 
-        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
+        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
 
         /* The preferred lifetime is never greater than the valid lifetime */
-        if (lifetime_preferred > lifetime_valid)
+        if (lifetime_preferred_sec > lifetime_valid_sec)
                 return 0;
+
+        lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
+        lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
 
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
@@ -446,8 +449,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-                address->cinfo.ifa_valid = lifetime_valid;
-                address->cinfo.ifa_prefered = lifetime_preferred;
+                address->lifetime_valid_usec = lifetime_valid_usec;
+                address->lifetime_preferred_usec = lifetime_preferred_usec;
 
                 /* See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by
                  * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
@@ -456,9 +459,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (r > 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
                          * update the address, and it will be removed. */
-                        if (e->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME &&
-                            usec_add(e->cinfo.tstamp / 100 * USEC_PER_SEC,
-                                     e->cinfo.ifa_valid * USEC_PER_SEC) < time_now)
+                        if (e->lifetime_valid_usec < timestamp_usec)
                                 continue;
                 }
 
@@ -472,25 +473,28 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        usec_t time_now;
-        uint32_t lifetime;
+        usec_t timestamp_usec;
+        uint32_t lifetime_sec;
         unsigned prefixlen;
         int r;
 
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
         r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
-
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
 
         r = route_new(&route);
         if (r < 0)
@@ -499,7 +503,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
         if (r < 0)
@@ -514,19 +518,19 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in6_addr gateway, dst;
-        uint32_t lifetime;
         unsigned preference, prefixlen;
-        usec_t time_now;
+        struct in6_addr gateway, dst;
+        uint32_t lifetime_sec;
+        usec_t timestamp_usec;
         int r;
 
         assert(link);
 
-        r = sd_ndisc_router_route_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_route_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route lifetime from RA: %m");
 
-        if (lifetime == 0)
+        if (lifetime_sec == 0)
                 return 0;
 
         r = sd_ndisc_router_route_get_address(rt, &dst);
@@ -568,7 +572,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router preference from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
@@ -582,7 +586,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->gw_family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
@@ -607,10 +611,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 free);
 
 static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
-        uint32_t lifetime;
+        usec_t lifetime_usec, timestamp_usec;
+        uint32_t lifetime_sec;
         const struct in6_addr *a;
         struct in6_addr router;
-        usec_t time_now;
         bool updated = false;
         int n, r;
 
@@ -621,20 +625,22 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        r = sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RDNSS lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
         if (n < 0)
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
-
-        if (lifetime == 0)
-                return 0;
 
         if (n >= (int) NDISC_RDNSS_MAX) {
                 log_link_warning(link, "Too many RDNSS records per link. Only first %i records will be used.", NDISC_RDNSS_MAX);
@@ -651,7 +657,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (rdnss) {
                         rdnss->marked = false;
                         rdnss->router = router;
-                        rdnss->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                        rdnss->lifetime_usec = lifetime_usec;
                         continue;
                 }
 
@@ -662,7 +668,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 *x = (NDiscRDNSS) {
                         .address = a[j],
                         .router = router,
-                        .valid_until = usec_add(time_now, lifetime * USEC_PER_SEC),
+                        .lifetime_usec = lifetime_usec,
                 };
 
                 r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
@@ -696,9 +702,9 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;
+        usec_t lifetime_usec, timestamp_usec;
         struct in6_addr router;
-        uint32_t lifetime;
-        usec_t time_now;
+        uint32_t lifetime_sec;
         bool updated = false;
         char **j;
         int r;
@@ -710,20 +716,22 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &time_now);
+        r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        r = sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime);
+        r = sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
+        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
-
-        if (lifetime == 0)
-                return 0;
 
         if (strv_length(l) >= NDISC_DNSSL_MAX) {
                 log_link_warning(link, "Too many DNSSL records per link. Only first %i records will be used.", NDISC_DNSSL_MAX);
@@ -745,12 +753,12 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (dnssl) {
                         dnssl->marked = false;
                         dnssl->router = router;
-                        dnssl->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                        dnssl->lifetime_usec = lifetime_usec;
                         continue;
                 }
 
                 s->router = router;
-                s->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
+                s->lifetime_usec = lifetime_usec;
 
                 r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0)
@@ -1042,11 +1050,11 @@ void ndisc_vacuum(Link *link) {
         time_now = now(clock_boottime_or_monotonic());
 
         SET_FOREACH(r, link->ndisc_rdnss)
-                if (r->valid_until < time_now)
+                if (r->lifetime_usec < time_now)
                         free(set_remove(link->ndisc_rdnss, r));
 
         SET_FOREACH(d, link->ndisc_dnssl)
-                if (d->valid_until < time_now)
+                if (d->lifetime_usec < time_now)
                         free(set_remove(link->ndisc_dnssl, d));
 }
 
