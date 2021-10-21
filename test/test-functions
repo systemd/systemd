@@ -238,8 +238,16 @@ is_built_with_asan() {
     fi
 }
 
+is_built_with_coverage() {
+    if get_bool "${NO_BUILD:=}" || ! command -v meson >/dev/null; then
+        return 1
+    fi
+
+    meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'
+}
+
 IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
-IS_BUILT_WITH_COVERAGE=$(meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true' && echo yes || echo no)
+IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
     STRIP_BINARIES=no
