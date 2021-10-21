@@ -298,6 +298,22 @@ static void drop_caches_now(void) {
                 log_debug("Dropped caches.");
 }
 
+int home_setup_undo_mount(HomeSetup *setup, int level) {
+        int r;
+
+        assert(setup);
+
+        if (!setup->undo_mount)
+                return 0;
+
+        r = umount_verbose(level, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        if (r < 0)
+                return r;
+
+        setup->undo_mount = false;
+        return 1;
+}
+
 int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
@@ -316,11 +332,9 @@ int home_setup_done(HomeSetup *setup) {
                 setup->root_fd = safe_close(setup->root_fd);
         }
 
-        if (setup->undo_mount) {
-                q = umount_verbose(LOG_DEBUG, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_mount(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
         if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
                 q = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);

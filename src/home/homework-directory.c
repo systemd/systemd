@@ -241,13 +241,9 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         setup->root_fd = safe_close(setup->root_fd);
 
         /* Unmount mapped mount before we move the dir into place */
-        if (setup->undo_mount) {
-                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-                if (r < 0)
-                        return r;
-
-                setup->undo_mount = false;
-        }
+        r = home_setup_undo_mount(setup, LOG_ERR);
+        if (r < 0)
+                return r;
 
         if (rename(temporary, ip) < 0)
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
