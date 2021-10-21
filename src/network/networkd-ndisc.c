@@ -482,6 +482,13 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        if (lifetime_sec == 0)
+                return 0;
+
         r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
@@ -489,10 +496,6 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
-
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
 
         r = route_new(&route);
         if (r < 0)
