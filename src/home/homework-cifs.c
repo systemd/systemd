@@ -35,6 +35,9 @@ int home_setup_cifs(
                 return 0;
         }
 
+        if (!h->cifs_service)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks CIFS service, refusing.");
+
         r = home_unshare_and_mkdir();
         if (r < 0)
                 return r;
@@ -117,9 +120,6 @@ int home_activate_cifs(
         assert(user_record_storage(h) == USER_CIFS);
         assert(setup);
         assert(ret_home);
-
-        if (!h->cifs_service)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks CIFS service, refusing.");
 
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
