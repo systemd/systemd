@@ -239,6 +239,7 @@ is_built_with_asan() {
 }
 
 IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+IS_BUILT_WITH_COVERAGE=$(meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true' && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
     STRIP_BINARIES=no
@@ -1015,7 +1016,7 @@ install_compiled_systemd() {
 
     # If we are doing coverage runs, copy over the binary notes files, as lcov expects to
     # find them in the same directory as the runtime data counts
-    if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'; then
+    if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "${initdir}/${BUILD_DIR:?}/"
         rsync -am --include='*/' --include='*.gcno' --exclude='*' "${BUILD_DIR:?}/" "${initdir}/${BUILD_DIR:?}/"
     fi
@@ -1098,7 +1099,7 @@ install_systemd() {
     fi
 
     # remove unneeded documentation
-    rm -fr "$initdir"/usr/share/{man,doc}
+    rm -fr "${initdir:?}"/usr/share/{man,doc}
 
     # enable debug logging in PID1
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
@@ -1107,6 +1108,13 @@ install_systemd() {
     # Propagate SYSTEMD_UNIT_PATH to user systemd managers
     mkdir "$initdir/etc/systemd/system/user@.service.d/"
     echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
+
+    # When built with gcov, disable ProtectSystem= in the test images, since
+    # it prevents gcov to write the coverage reports (*.gcda files)
+    if get_bool "$IS_BUILT_WITH_COVERAGE"; then
+        mkdir -p "$initdir/etc/systemd/system/service.d/"
+        echo -e "[Service]\nProtectSystem=no\n" >"$initdir/etc/systemd/system/service.d/override.conf"
+    fi
 }
 
 get_ldpath() {
@@ -1177,7 +1185,7 @@ create_empty_image() {
         if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
             size=$((size+=200))
         fi
-        if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'; then
+        if get_bool "$IS_BUILT_WITH_COVERAGE"; then
             size=$((size+=250))
         fi
     fi
@@ -1288,7 +1296,7 @@ check_coverage_reports() {
     if get_bool "$NO_BUILD"; then
         return 0
     fi
-    if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'false'; then
+    if ! get_bool "$IS_BUILT_WITH_COVERAGE"; then
         return 0
     fi
 
