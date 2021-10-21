@@ -83,7 +83,7 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         } else {
                 /* Note that DUPing is not enough, as the internal pointer
                  * would still be shared and moved by FOREACH_DIRENT. */
-                fd = fd_reopen(dir_fd, O_CLOEXEC);
+                fd = fd_reopen(dir_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
         }
