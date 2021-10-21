@@ -5,6 +5,7 @@
 #include "user-record.h"
 
 int home_setup_fscrypt(UserRecord *h, const PasswordCache *cache, HomeSetup *setup);
-int home_create_fscrypt(UserRecord *h, char **effective_passwords, UserRecord **ret_home);
+
+int home_create_fscrypt(UserRecord *h, HomeSetup *setup, char **effective_passwords, UserRecord **ret_home);
 
 int home_passwd_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
