@@ -11,8 +11,8 @@
 #include "socket-util.h"
 #include "sparse-endian.h"
 
-int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *eth_mac);
-int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac);
+int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *mac);
+int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *mac);
 
 int arp_send_packet(
                 int fd,
