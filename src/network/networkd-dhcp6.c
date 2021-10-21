@@ -968,6 +968,59 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         return 0;
 }
 
+static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
+        usec_t timestamp_usec;
+        int r;
+
+        assert(link);
+        assert(uplink);
+        assert(uplink->dhcp6_lease);
+
+        /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
+         * appears later or reconfiguring the interface. */
+
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_pd_prepare(link);
+        if (r < 0)
+                return r;
+
+        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
+                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
+                struct in6_addr pd_prefix;
+                uint8_t pd_prefix_len;
+
+                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
+                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                if (r < 0)
+                        break;
+
+                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
+
+                if (pd_prefix_len > 64)
+                        continue;
+
+                /* Mask prefix for safety. */
+                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
+                if (r < 0)
+                        return r;
+
+                r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dhcp6_pd_finalize(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1374,15 +1427,8 @@ int dhcp6_request_prefix_delegation(Link *link) {
         if (dhcp6_pd_find_uplink(link, &uplink) < 0)
                 return 0;
 
-        log_link_debug(uplink, "Requesting re-assignment of delegated prefixes after adding new link %s", link->ifname);
-        if (dhcp6_pd_prefix_acquired(uplink) < 0)
-                link_enter_failed(uplink);
-
-        /* dhcp6_pd_prefix_acquired() may make the link in failed state. */
-        if (link->state == LINK_STATE_FAILED)
-                return -ENOANO;
-
-        return 0;
+        log_link_debug(link, "Requesting subnets of delegated prefixes acquired by %s", uplink->ifname);
+        return dhcp6_pd_assign_prefixes(link, uplink);
 }
 
 static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
