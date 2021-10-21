@@ -18,80 +18,85 @@ int home_setup_cifs(
                 HomeSetupFlags flags,
                 HomeSetup *setup) {
 
+        char **pw;
+        int r;
+
         assert(h);
-        assert(setup);
         assert(user_record_storage(h) == USER_CIFS);
+        assert(setup);
+        assert(!setup->undo_mount);
+        assert(setup->root_fd < 0);
 
-        if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
+        if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
                 setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        else {
-                bool mounted = false;
-                char **pw;
-                int r;
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
 
-                r = home_unshare_and_mkdir();
+                return 0;
+        }
+
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(pw, h->password) {
+                _cleanup_(unlink_and_freep) char *p = NULL;
+                _cleanup_free_ char *options = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
+                pid_t mount_pid;
+                int exit_status;
+
+                r = fopen_temporary(NULL, &f, &p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary credentials file: %m");
+
+                fprintf(f,
+                        "username=%s\n"
+                        "password=%s\n",
+                        user_record_cifs_user_name(h),
+                        *pw);
+
+                if (h->cifs_domain)
+                        fprintf(f, "domain=%s\n", h->cifs_domain);
+
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write temporary credentials file: %m");
+
+                f = safe_fclose(f);
+
+                if (asprintf(&options, "credentials=%s,uid=" UID_FMT ",forceuid,gid=" GID_FMT ",forcegid,file_mode=0%3o,dir_mode=0%3o",
+                             p, h->uid, user_record_gid(h), user_record_access_mode(h), user_record_access_mode(h)) < 0)
+                        return log_oom();
+
+                r = safe_fork("(mount)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &mount_pid);
                 if (r < 0)
                         return r;
+                if (r == 0) {
+                        /* Child */
+                        execl("/bin/mount", "/bin/mount", "-n", "-t", "cifs",
+                              h->cifs_service, HOME_RUNTIME_WORK_DIR,
+                              "-o", options, NULL);
 
-                STRV_FOREACH(pw, h->password) {
-                        _cleanup_(unlink_and_freep) char *p = NULL;
-                        _cleanup_free_ char *options = NULL;
-                        _cleanup_(fclosep) FILE *f = NULL;
-                        pid_t mount_pid;
-                        int exit_status;
-
-                        r = fopen_temporary(NULL, &f, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary credentials file: %m");
-
-                        fprintf(f,
-                                "username=%s\n"
-                                "password=%s\n",
-                                user_record_cifs_user_name(h),
-                                *pw);
-
-                        if (h->cifs_domain)
-                                fprintf(f, "domain=%s\n", h->cifs_domain);
-
-                        r = fflush_and_check(f);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write temporary credentials file: %m");
-
-                        f = safe_fclose(f);
-
-                        if (asprintf(&options, "credentials=%s,uid=" UID_FMT ",forceuid,gid=" GID_FMT ",forcegid,file_mode=0%3o,dir_mode=0%3o",
-                                     p, h->uid, user_record_gid(h), user_record_access_mode(h), user_record_access_mode(h)) < 0)
-                                return log_oom();
-
-                        r = safe_fork("(mount)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &mount_pid);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                /* Child */
-                                execl("/bin/mount", "/bin/mount", "-n", "-t", "cifs",
-                                      h->cifs_service, HOME_RUNTIME_WORK_DIR,
-                                      "-o", options, NULL);
-
-                                log_error_errno(errno, "Failed to execute mount: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        exit_status = wait_for_terminate_and_check("mount", mount_pid, WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
-                        if (exit_status < 0)
-                                return exit_status;
-                        if (exit_status != EXIT_SUCCESS)
-                                return -EPROTO;
-
-                        mounted = true;
-                        break;
+                        log_error_errno(errno, "Failed to execute mount: %m");
+                        _exit(EXIT_FAILURE);
                 }
 
-                if (!mounted)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                               "Failed to mount home directory with supplied password.");
+                exit_status = wait_for_terminate_and_check("mount", mount_pid, WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
+                if (exit_status < 0)
+                        return exit_status;
+                if (exit_status != EXIT_SUCCESS)
+                        return -EPROTO;
 
-                setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->undo_mount = true;
+                break;
         }
+
+        if (!setup->undo_mount)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Failed to mount home directory with supplied password.");
+
+        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
