@@ -99,6 +99,11 @@ int home_setup_cifs(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
                                        "Failed to mount home directory with supplied password.");
 
+        /* Adjust MS_SUID and similar flags */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        if (r < 0)
+                return r;
+
         setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
