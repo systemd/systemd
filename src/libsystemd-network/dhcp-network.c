@@ -58,24 +58,20 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
 
                 /* We only support MAC address length to be either 0 or 6 (ETH_ALEN). Optionally
                  * compare chaddr for ETH_ALEN bytes. */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 12),                                  /* A (the MAC address length) == ETH_ALEN ? */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),        /* A <- 4 bytes of client's MAC */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 8),                                   /* A (the MAC address length) == ETH_ALEN ? */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),       /* X <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                                          /* A == X ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),        /* A <- remainder of client's MAC */
-                BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),       /* X <- remainder of client's MAC */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
-                BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                                          /* A == X ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
 
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.magic)),  /* A <- DHCP magic cookie */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-                BPF_STMT(BPF_RET + BPF_K, 65535),                                      /* return all */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                 /* accept */
         };
         struct sock_fprog fprog = {
                 .len = ELEMENTSOF(filter),
@@ -115,10 +111,17 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         return TAKE_FD(s);
 }
 
-int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, uint32_t xid,
-                                 const uint8_t *mac_addr, size_t mac_addr_len,
-                                 const uint8_t *bcast_addr, size_t bcast_addr_len,
-                                 uint16_t arp_type, uint16_t port) {
+int dhcp_network_bind_raw_socket(
+                int ifindex,
+                union sockaddr_union *link,
+                uint32_t xid,
+                const uint8_t *mac_addr,
+                size_t mac_addr_len,
+                const uint8_t *bcast_addr,
+                size_t bcast_addr_len,
+                uint16_t arp_type,
+                uint16_t port) {
+
         static const uint8_t eth_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
         /* Default broadcast address for IPoIB */
         static const uint8_t ib_bcast[] = {
@@ -172,7 +175,6 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                 r = setsockopt_int(s, IPPROTO_IP, IP_TOS, ip_service_type);
         else
                 r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
-
         if (r < 0)
                 return r;
 
@@ -204,43 +206,49 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                         return r;
         }
 
-        r = bind(s, &src.sa, sizeof(src.in));
-        if (r < 0)
+        if (bind(s, &src.sa, sizeof(src.in)) < 0)
                 return -errno;
 
         return TAKE_FD(s);
 }
 
-int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
-                                 const void *packet, size_t len) {
-        int r;
+int dhcp_network_send_raw_socket(
+                int s,
+                const union sockaddr_union *link,
+                const void *packet,
+                size_t len) {
+
+        /* Do not add assert(s >= 0) here, as this is called in fuzz-dhcp-server, and in that case this
+         * function should fail with negative errno. */
 
         assert(link);
         assert(packet);
-        assert(len);
+        assert(len > 0);
 
-        r = sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll));
-        if (r < 0)
+        if (sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll)) < 0)
                 return -errno;
 
         return 0;
 }
 
-int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
-                                 const void *packet, size_t len) {
+int dhcp_network_send_udp_socket(
+                int s,
+                be32_t address,
+                uint16_t port,
+                const void *packet,
+                size_t len) {
+
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
                 .in.sin_addr.s_addr = address,
         };
-        int r;
 
         assert(s >= 0);
         assert(packet);
-        assert(len);
+        assert(len > 0);
 
-        r = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in));
-        if (r < 0)
+        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
                 return -errno;
 
         return 0;
