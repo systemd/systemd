@@ -624,6 +624,9 @@ static int dhcp6_pd_distribute_prefix(
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
 
+                if (link->network->dhcp6_pd_announce && !link->radv)
+                        continue;
+
                 r = dhcp6_pd_resolve_uplink(link, &uplink);
                 if (r != -ENOENT) {
                         if (r < 0) /* The uplink interface does not exist yet. */
@@ -653,6 +656,9 @@ static int dhcp6_pd_prepare(Link *link) {
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
+        if (link->network->dhcp6_pd_announce && !link->radv)
+                return 0;
+
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
         link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
 
@@ -666,6 +672,9 @@ static int dhcp6_pd_finalize(Link *link) {
                 return 0;
 
         if (!link_dhcp6_pd_is_enabled(link))
+                return 0;
+
+        if (link->network->dhcp6_pd_announce && !link->radv)
                 return 0;
 
         if (link->dhcp6_pd_messages == 0) {
