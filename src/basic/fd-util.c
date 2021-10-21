@@ -654,6 +654,16 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0. */
 
+        if (FLAGS_SET(flags, O_DIRECTORY)) {
+                /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
+                 * magic /proc/ directory, and make ourselves independent of that being mounted. */
+                new_fd = openat(fd, ".", flags);
+                if (new_fd < 0)
+                        return -errno;
+
+                return new_fd;
+        }
+
         new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
