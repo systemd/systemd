@@ -20,6 +20,7 @@ check_result_qemu() {
     cryptsetup luksOpen "${LOOPDEV:?}p2" varcrypt <"$TESTDIR/keyfile"
     mount /dev/mapper/varcrypt "$initdir/var"
     save_journal "$initdir/var/log/journal"
+    check_coverage_reports "${initdir:?}" || ret=5
     _umount_dir "$initdir/var"
     _umount_dir "$initdir"
     cryptsetup luksClose /dev/mapper/varcrypt
@@ -28,7 +29,6 @@ check_result_qemu() {
     echo "${JOURNAL_LIST:-No journals were saved}"
 
     test -s "$TESTDIR/failed" && ret=1
-    check_coverage_reports "${initdir:?}" || ret=5
     return $ret
 }
 
