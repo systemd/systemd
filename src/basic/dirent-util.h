@@ -56,3 +56,9 @@ assert_cc(sizeof(((struct dirent*) NULL)->d_name) == sizeof(((struct dirent64*) 
         for (void *end = (uint8_t*) ({ (de) = (buf); }) + (sz);         \
              (uint8_t*) (de) < (uint8_t*) end;                          \
              (de) = (struct dirent*) ((uint8_t*) (de) + (de)->d_reclen))
+
+#define DEFINE_DIRENT_BUFFER(name, sz)                                  \
+        union {                                                         \
+                struct dirent de;                                       \
+                uint8_t data[(sz) * DIRENT_SIZE_MAX];                   \
+        } name
