@@ -80,7 +80,13 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         ssize_t n;
 
         if (path) {
+                assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
                 fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
+        } else if (dir_fd == AT_FDCWD) {
+                fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return -errno;
         } else {
