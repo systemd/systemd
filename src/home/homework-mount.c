@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "homework-mount.h"
+#include "homework.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"
@@ -38,7 +39,7 @@ int home_mount_node(const char *node, const char *fstype, bool discard, unsigned
         } else
                 options = discard_option;
 
-        r = mount_nofollow_verbose(LOG_ERR, node, "/run/systemd/user-home-mount", fstype, flags|MS_RELATIME, strempty(options));
+        r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, strempty(options));
         if (r < 0)
                 return r;
 
@@ -52,11 +53,13 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         if (unshare(CLONE_NEWNS) < 0)
                 return log_error_errno(errno, "Couldn't unshare file system namespace: %m");
 
+        assert(path_startswith(HOME_RUNTIME_WORK_DIR, "/run"));
+
         r = mount_nofollow_verbose(LOG_ERR, "/run", "/run", NULL, MS_SLAVE|MS_REC, NULL); /* Mark /run as MS_SLAVE in our new namespace */
         if (r < 0)
                 return r;
 
-        (void) mkdir_p("/run/systemd/user-home-mount", 0700);
+        (void) mkdir_p(HOME_RUNTIME_WORK_DIR, 0700);
 
         if (node)
                 return home_mount_node(node, fstype, discard, flags);
@@ -74,13 +77,13 @@ int home_move_mount(const char *user_name_and_realm, const char *target) {
         /* If user_name_and_realm is set, then we'll mount a subdir of the source mount into the host. If
          * it's NULL we'll move the mount itself */
         if (user_name_and_realm) {
-                subdir = path_join("/run/systemd/user-home-mount/", user_name_and_realm);
+                subdir = path_join(HOME_RUNTIME_WORK_DIR, user_name_and_realm);
                 if (!subdir)
                         return log_oom();
 
                 d = subdir;
         } else
-                d = "/run/systemd/user-home-mount/";
+                d = HOME_RUNTIME_WORK_DIR;
 
         (void) mkdir_p(target, 0700);
 
@@ -88,7 +91,7 @@ int home_move_mount(const char *user_name_and_realm, const char *target) {
         if (r < 0)
                 return r;
 
-        r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
         if (r < 0)
                 return r;
 

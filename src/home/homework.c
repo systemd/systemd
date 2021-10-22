@@ -317,7 +317,7 @@ int home_setup_done(HomeSetup *setup) {
         }
 
         if (setup->undo_mount) {
-                q = umount_verbose(LOG_DEBUG, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+                q = umount_verbose(LOG_DEBUG, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
                 if (q < 0)
                         r = q;
         }
