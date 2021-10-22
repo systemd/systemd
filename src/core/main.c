@@ -222,6 +222,7 @@ _noreturn_ static void freeze_or_exit_or_reboot(void) {
         }
 
         log_emergency("Freezing execution.");
+        sync();
         freeze();
 }
 

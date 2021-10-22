@@ -1624,8 +1624,6 @@ _noreturn_ void freeze(void) {
         /* Make sure nobody waits for us on a socket anymore */
         (void) close_all_fds_full(NULL, 0, false);
 
-        sync();
-
         /* Let's not freeze right away, but keep reaping zombies. */
         for (;;) {
                 siginfo_t si = {};
