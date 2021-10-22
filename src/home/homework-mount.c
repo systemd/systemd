@@ -26,6 +26,9 @@ int home_mount_node(const char *node, const char *fstype, bool discard, unsigned
         const char *options, *discard_option;
         int r;
 
+        assert(node);
+        assert(fstype);
+
         options = mount_options_for_fstype(fstype);
 
         discard_option = discard ? "discard" : "nodiscard";
@@ -47,7 +50,7 @@ int home_mount_node(const char *node, const char *fstype, bool discard, unsigned
         return 0;
 }
 
-int home_unshare_and_mount(const char *node, const char *fstype, bool discard, unsigned long flags) {
+int home_unshare_and_mkdir(void) {
         int r;
 
         if (unshare(CLONE_NEWNS) < 0)
@@ -60,11 +63,20 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
                 return r;
 
         (void) mkdir_p(HOME_RUNTIME_WORK_DIR, 0700);
-
-        if (node)
-                return home_mount_node(node, fstype, discard, flags);
-
         return 0;
+}
+
+int home_unshare_and_mount(const char *node, const char *fstype, bool discard, unsigned long flags) {
+        int r;
+
+        assert(node);
+        assert(fstype);
+
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        return home_mount_node(node, fstype, discard, flags);
 }
 
 int home_move_mount(const char *user_name_and_realm, const char *target) {

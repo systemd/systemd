@@ -28,7 +28,7 @@ int home_setup_cifs(
                 char **pw;
                 int r;
 
-                r = home_unshare_and_mount(NULL, NULL, false, user_record_mount_flags(h));
+                r = home_unshare_and_mkdir();
                 if (r < 0)
                         return r;
 
