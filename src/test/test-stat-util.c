@@ -8,10 +8,12 @@
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "stat-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -223,6 +225,35 @@ static void test_device_path_make_canonical(void) {
         }
 }
 
+static void test_dir_is_empty(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
+        _cleanup_free_ char *j = NULL, *jj = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(dir_is_empty_at(AT_FDCWD, "/proc") == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi") == -ENOENT);
+
+        assert_se(mkdtemp_malloc("/tmp/emptyXXXXXX", &empty_dir) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+
+        j = path_join(empty_dir, "zzz");
+        assert_se(j);
+        assert_se(touch(j) >= 0);
+
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+
+        jj = path_join(empty_dir, "ppp");
+        assert_se(jj);
+        assert_se(touch(jj) >= 0);
+
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+        assert_se(unlink(j) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+        assert_se(unlink(jj) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+}
+
 int main(int argc, char *argv[]) {
         log_show_color(true);
         test_setup_logging(LOG_INFO);
@@ -235,6 +266,7 @@ int main(int argc, char *argv[]) {
         test_fd_is_ns();
         test_device_major_minor_valid();
         test_device_path_make_canonical();
+        test_dir_is_empty();
 
         return 0;
 }
