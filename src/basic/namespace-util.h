@@ -24,3 +24,5 @@ static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
 
         return true;
 }
+
+int userns_acquire(const char *uid_map, const char *gid_map);
