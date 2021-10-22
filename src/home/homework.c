@@ -365,6 +365,8 @@ int home_setup_done(HomeSetup *setup) {
         if (setup->do_drop_caches)
                 drop_caches_now();
 
+        setup->mount_suffix = mfree(setup->mount_suffix);
+
         return r;
 }
 

@@ -7,6 +7,7 @@
 #include "fs-util.h"
 #include "homework-cifs.h"
 #include "homework-mount.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -18,6 +19,7 @@ int home_setup_cifs(
                 HomeSetupFlags flags,
                 HomeSetup *setup) {
 
+        _cleanup_free_ char *chost = NULL, *cservice = NULL, *cdir = NULL, *chost_and_service = NULL, *j = NULL;
         char **pw;
         int r;
 
@@ -37,6 +39,15 @@ int home_setup_cifs(
 
         if (!h->cifs_service)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks CIFS service, refusing.");
+
+        r = parse_cifs_service(h->cifs_service, &chost, &cservice, &cdir);
+        if (r < 0)
+                return log_error_errno(r, "Failed parse CIFS service specification: %m");
+
+        /* Just the host and service part, without the directory */
+        chost_and_service = strjoin("//", chost, "/", cservice);
+        if (!chost_and_service)
+                return log_oom();
 
         r = home_unshare_and_mkdir();
         if (r < 0)
@@ -78,7 +89,7 @@ int home_setup_cifs(
                 if (r == 0) {
                         /* Child */
                         execl("/bin/mount", "/bin/mount", "-n", "-t", "cifs",
-                              h->cifs_service, HOME_RUNTIME_WORK_DIR,
+                              chost_and_service, HOME_RUNTIME_WORK_DIR,
                               "-o", options, NULL);
 
                         log_error_errno(errno, "Failed to execute mount: %m");
@@ -104,10 +115,23 @@ int home_setup_cifs(
         if (r < 0)
                 return r;
 
-        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (cdir) {
+                j = path_join(HOME_RUNTIME_WORK_DIR, cdir);
+                if (!j)
+                        return log_oom();
+
+                if (FLAGS_SET(flags, HOME_SETUP_CIFS_MKDIR)) {
+                        r = mkdir_p(j, 0700);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create CIFS subdirectory: %m");
+                }
+        }
+
+        setup->root_fd = open(j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
+        setup->mount_suffix = TAKE_PTR(cdir);
         return 0;
 }
 
@@ -139,7 +163,7 @@ int home_activate_cifs(
 
         setup->root_fd = safe_close(setup->root_fd);
 
-        r = home_move_mount(NULL, hd);
+        r = home_move_mount(setup->mount_suffix, hd);
         if (r < 0)
                 return r;
 
@@ -171,7 +195,7 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
                 return log_error_errno(errno, "Unable to detect whether /sbin/mount.cifs exists: %m");
         }
 
-        r = home_setup_cifs(h, 0, setup);
+        r = home_setup_cifs(h, HOME_SETUP_CIFS_MKDIR, setup);
         if (r < 0)
                 return r;
 
