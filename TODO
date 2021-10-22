@@ -81,6 +81,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* userdbd: implement an additional varlink service socket that provides the
+  host user db in restricted form, then allow this to be bind mounted into
+  sandboxed environments that want the host database in minimal form. All
+  records would be stripped of all meta info, except the basic UID/name
+  info. Then use this in portabled environments that do not use PrivateUsers=1.
+
 * logind introduce two types of sessions: "heavy" and "light". The former would
   be our current sessions. But the latter would be a new type of session that
   is mostly the same but does not pull in user@.service or wait for it. Then,
