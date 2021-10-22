@@ -3405,9 +3405,13 @@ static int inner_child(
         }
 
         if (arg_suppress_sync) {
+#if HAVE_SECCOMP
                 r = seccomp_suppress_sync();
                 if (r < 0)
                         log_debug_errno(r, "Failed to install sync() suppression seccomp filter, ignoring: %m");
+#else
+                log_debug("systemd is built without SECCOMP support. Ignoring --suppress-sync= command line option and SuppressSync= setting.")
+#endif
         }
 
 #if HAVE_SELINUX
