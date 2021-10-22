@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_fcntl.h"
@@ -951,4 +952,79 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size) {
         }
 
         return -EINTR;
+}
+
+int parse_cifs_service(
+                const char *s,
+                char **ret_host,
+                char **ret_service,
+                char **ret_path) {
+
+        _cleanup_free_ char *h = NULL, *ss = NULL, *x = NULL;
+        const char *p, *e, *d;
+        char delimiter;
+
+        /* Parses a CIFS service in form of //host/service/path… and splitting it in three parts. The last
+         * part is optional, in which case NULL is returned there. To maximize compatibility syntax with
+         * backslashes instead of slashes is accepted too. */
+
+        if (!s)
+                return -EINVAL;
+
+        p = startswith(s, "//");
+        if (!p) {
+                p = startswith(s, "\\\\");
+                if (!p)
+                        return -EINVAL;
+        }
+
+        delimiter = s[0];
+        e = strchr(p, delimiter);
+        if (!e)
+                return -EINVAL;
+
+        h = strndup(p, e - p);
+        if (!h)
+                return -ENOMEM;
+
+        if (!hostname_is_valid(h, 0))
+                return -EINVAL;
+
+        e++;
+
+        d = strchrnul(e, delimiter);
+
+        ss = strndup(e, d - e);
+        if (!ss)
+                return -ENOMEM;
+
+        if (!filename_is_valid(ss))
+                return -EINVAL;
+
+        if (!isempty(d)) {
+                x = strdup(skip_leading_chars(d, CHAR_TO_STR(delimiter)));
+                if (!x)
+                        return -EINVAL;
+
+                /* Make sure to convert Windows-style "\" → Unix-style / */
+                for (char *i = x; *i; i++)
+                        if (*i == delimiter)
+                                *i = '/';
+
+                if (!path_is_valid(x))
+                        return -EINVAL;
+
+                path_simplify(x);
+                if (!path_is_normalized(x))
+                        return -EINVAL;
+        }
+
+        if (ret_host)
+                *ret_host = TAKE_PTR(h);
+        if (ret_service)
+                *ret_service = TAKE_PTR(ss);
+        if (ret_path)
+                *ret_path = TAKE_PTR(x);
+
+        return 0;
 }
