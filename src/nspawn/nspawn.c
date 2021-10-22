@@ -5331,6 +5331,15 @@ static int initialize_rlimits(void) {
                                         return log_error_errno(errno, "Failed to read resource limit RLIMIT_%s of PID 1: %m", rlimit_to_string(rl));
 
                                 v = &buffer;
+                        } else if (rl == RLIMIT_NOFILE) {
+                                /* We nowadays bump RLIMIT_NOFILE's hard limit early in PID 1 for all
+                                 * userspace. Given that nspawn containers are often run without our PID 1,
+                                 * let's grant the containers a raised RLIMIT_NOFILE hard limit by default,
+                                 * so that container userspace gets similar resources as host userspace
+                                 * gets. */
+                                buffer = kernel_defaults[rl];
+                                buffer.rlim_max = MIN((rlim_t) read_nr_open(), (rlim_t) HIGH_RLIMIT_NOFILE);
+                                v = &buffer;
                         } else
                                 v = kernel_defaults + rl;
 
