@@ -28,12 +28,12 @@ typedef struct HomeSetup {
         void *volume_key;
         size_t volume_key_size;
 
-        bool undo_dm;
-        bool undo_mount;
-        bool do_offline_fitrim;
-        bool do_offline_fallocate;
-        bool do_mark_clean;
-        bool do_drop_caches;
+        bool undo_dm:1;
+        bool undo_mount:1;            /* Whether to unmount /run/systemd/user-home-mount */
+        bool do_offline_fitrim:1;
+        bool do_offline_fallocate:1;
+        bool do_mark_clean:1;
+        bool do_drop_caches:1;
 
         uint64_t partition_offset;
         uint64_t partition_size;
@@ -83,3 +83,5 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
 int user_record_authenticate(UserRecord *h, UserRecord *secret, PasswordCache *cache, bool strict_verify);
 
 int home_sync_and_statfs(int root_fd, struct statfs *ret);
+
+#define HOME_RUNTIME_WORK_DIR "/run/systemd/user-home-mount"
