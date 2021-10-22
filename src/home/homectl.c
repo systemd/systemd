@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
@@ -2446,8 +2447,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOCATION:
                 case ARG_ICON_NAME:
                 case ARG_CIFS_USER_NAME:
-                case ARG_CIFS_DOMAIN:
-                case ARG_CIFS_SERVICE: {
+                case ARG_CIFS_DOMAIN: {
 
                         const char *field =
                                 c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -2455,7 +2455,6 @@ static int parse_argv(int argc, char *argv[]) {
                                     c == ARG_ICON_NAME ? "iconName" :
                                c == ARG_CIFS_USER_NAME ? "cifsUserName" :
                                   c == ARG_CIFS_DOMAIN ? "cifsDomain" :
-                                 c == ARG_CIFS_SERVICE ? "cifsService" :
                                                          NULL;
 
                         assert(field);
@@ -2474,6 +2473,25 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_CIFS_SERVICE:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("cifsService");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = parse_cifs_service(optarg, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
+
+                        r = json_variant_set_field_string(&arg_identity_extra, "cifsService", optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set cifsService field: %m");
+
+                        break;
 
                 case ARG_PASSWORD_HINT:
                         if (isempty(optarg)) {
