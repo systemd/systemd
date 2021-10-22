@@ -645,7 +645,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        int new_fd;
+        int new_fd, r;
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
          * turn O_RDWR fds into O_RDONLY fds.
@@ -654,15 +654,28 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0. */
 
+        if (FLAGS_SET(flags, O_DIRECTORY)) {
+                /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
+                 * magic /proc/ directory, and make ourselves independent of that being mounted. */
+                new_fd = openat(fd, ".", flags);
+                if (new_fd < 0)
+                        return -errno;
+
+                return new_fd;
+        }
+
         new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
+                r = proc_mounted();
+                if (r == 0)
                         return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
 
-                return -ENOENT;
+                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                                  * not valid, otherwise let's propagate the original
+                                                  * error */
         }
 
         return new_fd;
