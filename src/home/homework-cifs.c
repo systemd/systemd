@@ -133,6 +133,7 @@ int home_activate_cifs(
                 return r;
 
         setup->undo_mount = false;
+        setup->do_drop_caches = false;
 
         log_info("Everything completed.");
 
