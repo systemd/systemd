@@ -645,7 +645,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        int new_fd;
+        int new_fd, r;
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
          * turn O_RDWR fds into O_RDONLY fds.
@@ -669,10 +669,13 @@ int fd_reopen(int fd, int flags) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
+                r = proc_mounted();
+                if (r == 0)
                         return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
 
-                return -ENOENT;
+                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                                  * not valid, otherwise let's propagate the original
+                                                  * error */
         }
 
         return new_fd;
