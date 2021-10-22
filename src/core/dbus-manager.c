@@ -13,6 +13,7 @@
 #include "bus-log-control-api.h"
 #include "chase-symlinks.h"
 #include "data-fd-util.h"
+#include "dbus-callbackdata.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -2213,6 +2214,15 @@ fail:
         return r;
 }
 
+static int mac_unit_callback_check(const char *unit_name, void *userdata) {
+        MacUnitCallbackUserdata *ud = userdata;
+
+        assert(unit_name);
+        assert(ud);
+
+        return 0;
+}
+
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
@@ -2224,6 +2234,7 @@ static int method_enable_unit_files_generic(
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = {};
         int r;
 
         assert(message);
@@ -2257,7 +2268,7 @@ static int method_enable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, NULL, NULL);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2302,6 +2313,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
+        MacUnitCallbackUserdata mcud = {};
 
         assert(message);
         assert(m);
@@ -2330,7 +2342,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes, NULL, NULL);
+        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2346,6 +2358,7 @@ static int method_disable_unit_files_generic(
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = {};
         size_t n_changes = 0;
         int r;
 
@@ -2381,7 +2394,7 @@ static int method_disable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, NULL, NULL);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2405,6 +2418,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
+        MacUnitCallbackUserdata mcud = {};
         int r;
 
         assert(message);
@@ -2420,7 +2434,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes, NULL, NULL);
+        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2465,6 +2479,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         UnitFilePresetMode preset_mode;
         const char *mode;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = {};
         int force, runtime, r;
 
         assert(message);
@@ -2494,7 +2509,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes, NULL, NULL);
+        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2510,6 +2525,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         char *target, *type;
         UnitDependency dep;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = {};
 
         assert(message);
         assert(m);
@@ -2534,7 +2550,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0)
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes, NULL, NULL);
+        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2546,6 +2562,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         UnitFileChange *changes = NULL;
         size_t n_changes = 0, i;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = {};
         const char *name;
         char **p;
         int runtime, r;
@@ -2566,7 +2583,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         flags = UNIT_FILE_DRY_RUN |
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes, NULL, NULL);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
