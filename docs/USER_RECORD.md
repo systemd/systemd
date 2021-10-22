@@ -411,7 +411,9 @@ useful when `cifs` is used as storage mechanism for the user's home directory,
 see above.
 
 `cifsService` → A string indicating the Windows File Share service (CIFS) to
-mount as home directory of the user on login.
+mount as home directory of the user on login. Should be in format
+`//<host>/<service>/<directory/…>`. The directory part is optional. If missing
+the top-level directory of the CIFS share is used.
 
 `imagePath` → A string with an absolute file system path to the file, directory
 or block device to use for storage backing the home directory. If the `luks`
