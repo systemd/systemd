@@ -6,6 +6,13 @@
 #include "install.h"
 #include "tests.h"
 
+/* Similar to core/dbus-callbackdata.h */
+typedef struct MacUnitCallbackUserdata {
+        const char *function;
+
+        const char *selinux_permission;
+} MacUnitCallbackUserdata;
+
 static void dump_changes(UnitFileChange *c, unsigned n) {
         unsigned i;
 
@@ -19,6 +26,22 @@ static void dump_changes(UnitFileChange *c, unsigned n) {
         }
 }
 
+static unsigned mac_callback_called = 0;
+
+static int mac_callback(const char *unit_name, void *userdata) {
+        MacUnitCallbackUserdata *ud = userdata;
+
+        assert_se(unit_name);
+        assert_se(STR_IN_SET(unit_name, "avahi-daemon.service", "test.service"));
+        assert_se(ud);
+
+        assert_se(strstr(ud->function, "main"));
+
+        mac_callback_called++;
+
+        return STR_IN_SET(ud->selinux_permission, "start", "stop", "status", "reload", "enable", "disable") ? 0 : -3141;
+}
+
 int main(int argc, char* argv[]) {
         Hashmap *h;
         UnitFileList *p;
@@ -28,8 +51,14 @@ int main(int argc, char* argv[]) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileState state = 0;
+        MacUnitCallbackUserdata mcud = {
+                .function = __func__,
+                .selinux_permission = "!INVALID!",
+        };
 
         test_setup_logging(LOG_DEBUG);
+
+        assert_se(mac_callback_called == 0);
 
         h = hashmap_new(&string_hash_ops);
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
@@ -52,13 +81,20 @@ int main(int argc, char* argv[]) {
 
         log_info("/*** enable **/");
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
+        assert_se(r == -3141);
+        assert_se(mac_callback_called == 1);
+
+        mcud.selinux_permission = "enable";
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 2);
 
         log_info("/*** enable2 **/");
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 3);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -71,8 +107,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 4);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -85,11 +123,14 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 5);
         log_info("/*** mask2 ***/");
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 6);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -102,11 +143,14 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "enable";
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 7);
         log_info("/*** unmask2 ***/");
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 8);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -119,8 +163,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 9);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -133,11 +179,14 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 10);
         log_info("/*** disable2 ***/");
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 11);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -150,8 +199,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        mcud.selinux_permission = "enable";
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 12);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -164,8 +215,9 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 13);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -178,8 +230,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 14);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -191,7 +245,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes, NULL, NULL);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -205,8 +259,9 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 15);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -218,7 +273,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes, NULL, NULL);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -232,8 +287,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_reenable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        mcud.selinux_permission = "enable";
+        r = unit_file_reenable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 17);
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -246,8 +303,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        mcud.selinux_permission = "disable";
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes, mac_callback, &mcud);
         assert_se(r >= 0);
+        assert_se(mac_callback_called == 18); /* disable and enable */
 
         dump_changes(changes, n_changes);
         unit_file_changes_free(changes, n_changes);
@@ -258,7 +317,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_preset(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
+        r = unit_file_preset(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes, NULL, NULL);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
