@@ -25,9 +25,6 @@ static bool ignore_dirent(const struct dirent *de, RecurseDirFlags flags) {
                 dot_or_dot_dot(de->d_name);
 }
 
-/* Maximum space one direent structure might require at most */
-#define DIRENT_SIZE_MAX MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
-
 int readdir_all(int dir_fd,
                 RecurseDirFlags flags,
                 DirectoryEntries **ret) {
@@ -39,24 +36,9 @@ int readdir_all(int dir_fd,
         assert(dir_fd >= 0);
 
         /* Returns an array with pointers to "struct dirent" directory entries, optionally sorted. Free the
-         * array with readdir_all_freep(). */
-
-        /* Only if 64bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require
-         * this, and we want them to be interchangeable, hence verify that. */
-        assert_cc(_FILE_OFFSET_BITS == 64);
-        assert_cc(sizeof(struct dirent) == sizeof(struct dirent64));
-        assert_cc(offsetof(struct dirent, d_ino) == offsetof(struct dirent64, d_ino));
-        assert_cc(sizeof(((struct dirent*) NULL)->d_ino) == sizeof(((struct dirent64*) NULL)->d_ino));
-        assert_cc(offsetof(struct dirent, d_off) == offsetof(struct dirent64, d_off));
-        assert_cc(sizeof(((struct dirent*) NULL)->d_off) == sizeof(((struct dirent64*) NULL)->d_off));
-        assert_cc(offsetof(struct dirent, d_reclen) == offsetof(struct dirent64, d_reclen));
-        assert_cc(sizeof(((struct dirent*) NULL)->d_reclen) == sizeof(((struct dirent64*) NULL)->d_reclen));
-        assert_cc(offsetof(struct dirent, d_type) == offsetof(struct dirent64, d_type));
-        assert_cc(sizeof(((struct dirent*) NULL)->d_type) == sizeof(((struct dirent64*) NULL)->d_type));
-        assert_cc(offsetof(struct dirent, d_name) == offsetof(struct dirent64, d_name));
-        assert_cc(sizeof(((struct dirent*) NULL)->d_name) == sizeof(((struct dirent64*) NULL)->d_name));
-
-        /* Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
+         * array with readdir_all_freep().
+         *
+         * Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
          * 8 will cover most cases comprehensively. (Note that most likely a lot more entries will actually
          * fit in the buffer, given we calculate maximum file name length here.) */
         de = malloc(offsetof(DirectoryEntries, buffer) + DIRENT_SIZE_MAX * 8);

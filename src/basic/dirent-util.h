@@ -33,3 +33,21 @@ struct dirent *readdir_no_dot(DIR *dirp);
                         }                                               \
                         break;                                          \
                 } else
+
+/* Maximum space one dirent structure might require at most */
+#define DIRENT_SIZE_MAX CONST_MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
+
+/* Only if 64bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require this, and
+ * we want them to be interchangeable to make getdents64() work, hence verify that. */
+assert_cc(_FILE_OFFSET_BITS == 64);
+assert_cc(sizeof(struct dirent) == sizeof(struct dirent64));
+assert_cc(offsetof(struct dirent, d_ino) == offsetof(struct dirent64, d_ino));
+assert_cc(sizeof_field(struct dirent, d_ino) == sizeof_field(struct dirent64, d_ino));
+assert_cc(offsetof(struct dirent, d_off) == offsetof(struct dirent64, d_off));
+assert_cc(sizeof_field(struct dirent, d_off) == sizeof_field(struct dirent64, d_off));
+assert_cc(offsetof(struct dirent, d_reclen) == offsetof(struct dirent64, d_reclen));
+assert_cc(sizeof_field(struct dirent, d_reclen) == sizeof_field(struct dirent64, d_reclen));
+assert_cc(offsetof(struct dirent, d_type) == offsetof(struct dirent64, d_type));
+assert_cc(sizeof_field(struct dirent, d_type) == sizeof_field(struct dirent64, d_type));
+assert_cc(offsetof(struct dirent, d_name) == offsetof(struct dirent64, d_name));
+assert_cc(sizeof_field(struct dirent, d_name) == sizeof_field(struct dirent64, d_name));
