@@ -72,6 +72,8 @@ int home_activate_directory(
                 return r;
         }
 
+        setup->do_drop_caches = false;
+
         log_info("Everything completed.");
 
         *ret_home = TAKE_PTR(new_home);

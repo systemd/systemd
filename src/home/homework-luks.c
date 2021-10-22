@@ -1475,6 +1475,7 @@ int home_activate_luks(
         setup->undo_dm = false;
         setup->do_offline_fallocate = false;
         setup->do_mark_clean = false;
+        setup->do_drop_caches = false;
 
         log_info("Everything completed.");
 
