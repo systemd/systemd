@@ -33,3 +33,33 @@ struct dirent *readdir_no_dot(DIR *dirp);
                         }                                               \
                         break;                                          \
                 } else
+
+/* Maximum space one dirent structure might require at most */
+#define DIRENT_SIZE_MAX MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
+
+/* Only if 64bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require this, and
+ * we want them to be interchangeable to make getdents64() work, hence verify that. */
+assert_cc(_FILE_OFFSET_BITS == 64);
+assert_cc(sizeof(struct dirent) == sizeof(struct dirent64));
+assert_cc(offsetof(struct dirent, d_ino) == offsetof(struct dirent64, d_ino));
+assert_cc(sizeof(((struct dirent*) NULL)->d_ino) == sizeof(((struct dirent64*) NULL)->d_ino));
+assert_cc(offsetof(struct dirent, d_off) == offsetof(struct dirent64, d_off));
+assert_cc(sizeof(((struct dirent*) NULL)->d_off) == sizeof(((struct dirent64*) NULL)->d_off));
+assert_cc(offsetof(struct dirent, d_reclen) == offsetof(struct dirent64, d_reclen));
+assert_cc(sizeof(((struct dirent*) NULL)->d_reclen) == sizeof(((struct dirent64*) NULL)->d_reclen));
+assert_cc(offsetof(struct dirent, d_type) == offsetof(struct dirent64, d_type));
+assert_cc(sizeof(((struct dirent*) NULL)->d_type) == sizeof(((struct dirent64*) NULL)->d_type));
+assert_cc(offsetof(struct dirent, d_name) == offsetof(struct dirent64, d_name));
+assert_cc(sizeof(((struct dirent*) NULL)->d_name) == sizeof(((struct dirent64*) NULL)->d_name));
+
+#define FOREACH_DIRENT_IN_BUFFER(de, buf, sz)                           \
+        for (void *end = (uint8_t*) ({ de = buf; }) + (sz);             \
+             (uint8_t*) (de) + offsetof(struct dirent, d_name) <= (uint8_t*) end && \
+                     (uint8_t*) (de) + (de)->d_reclen <= (uint8_t*) end; \
+             (de) = (struct dirent*) ((uint8_t*) (de) + (de)->d_reclen))
+
+#define DEFINE_DIRENT_BUFFER(name, sz)                                  \
+        union {                                                         \
+                struct dirent de;                                       \
+                uint8_t data[(sz) * DIRENT_SIZE_MAX];                   \
+        } name
