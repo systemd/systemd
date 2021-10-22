@@ -30,6 +30,7 @@ int readdir_all(int dir_fd,
                 DirectoryEntries **ret) {
 
         _cleanup_free_ DirectoryEntries *de = NULL;
+        struct dirent *entry;
         DirectoryEntries *nde;
         size_t add, sz, j;
 
@@ -53,7 +54,7 @@ int readdir_all(int dir_fd,
                 bs = MIN(MALLOC_SIZEOF_SAFE(de) - offsetof(DirectoryEntries, buffer), (size_t) SSIZE_MAX);
                 assert(bs > de->buffer_size);
 
-                n = getdents64(dir_fd, de->buffer + de->buffer_size, bs - de->buffer_size);
+                n = getdents64(dir_fd, (uint8_t*) de->buffer + de->buffer_size, bs - de->buffer_size);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
@@ -77,10 +78,7 @@ int readdir_all(int dir_fd,
         }
 
         de->n_entries = 0;
-        for (struct dirent *entry = (struct dirent*) de->buffer;
-             (uint8_t*) entry < de->buffer + de->buffer_size;
-             entry = (struct dirent*) ((uint8_t*) entry + entry->d_reclen)) {
-
+        FOREACH_DIRENT_IN_BUFFER(entry, de->buffer, de->buffer_size) {
                 if (ignore_dirent(entry, flags))
                         continue;
 
@@ -100,10 +98,7 @@ int readdir_all(int dir_fd,
         de->entries = (struct dirent**) ((uint8_t*) de + ALIGN(offsetof(DirectoryEntries, buffer) + de->buffer_size));
 
         j = 0;
-        for (struct dirent *entry = (struct dirent*) de->buffer;
-             (uint8_t*) entry < de->buffer + de->buffer_size;
-             entry = (struct dirent*) ((uint8_t*) entry + entry->d_reclen)) {
-
+        FOREACH_DIRENT_IN_BUFFER(entry, de->buffer, de->buffer_size) {
                 if (ignore_dirent(entry, flags))
                         continue;
 

@@ -51,3 +51,8 @@ assert_cc(offsetof(struct dirent, d_type) == offsetof(struct dirent64, d_type));
 assert_cc(sizeof_field(struct dirent, d_type) == sizeof_field(struct dirent64, d_type));
 assert_cc(offsetof(struct dirent, d_name) == offsetof(struct dirent64, d_name));
 assert_cc(sizeof_field(struct dirent, d_name) == sizeof_field(struct dirent64, d_name));
+
+#define FOREACH_DIRENT_IN_BUFFER(de, buf, sz)                           \
+        for (void *_end = (uint8_t*) ({ (de) = (buf); }) + (sz);        \
+             (uint8_t*) (de) < (uint8_t*) _end;                         \
+             (de) = (struct dirent*) ((uint8_t*) (de) + (de)->d_reclen))
