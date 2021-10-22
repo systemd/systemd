@@ -87,17 +87,17 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         return home_mount_node(node, fstype, discard, flags);
 }
 
-int home_move_mount(const char *user_name_and_realm, const char *target) {
+int home_move_mount(const char *mount_suffix, const char *target) {
         _cleanup_free_ char *subdir = NULL;
         const char *d;
         int r;
 
         assert(target);
 
-        /* If user_name_and_realm is set, then we'll mount a subdir of the source mount into the host. If
-         * it's NULL we'll move the mount itself */
-        if (user_name_and_realm) {
-                subdir = path_join(HOME_RUNTIME_WORK_DIR, user_name_and_realm);
+        /* If 'mount_suffix' is set, then we'll mount a subdir of the source mount into the host. If it's
+         * NULL we'll move the mount itself */
+        if (mount_suffix) {
+                subdir = path_join(HOME_RUNTIME_WORK_DIR, mount_suffix);
                 if (!subdir)
                         return log_oom();
 
