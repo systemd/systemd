@@ -81,6 +81,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* logind introduce two types of sessions: "heavy" and "light". The former would
+  be our current sessions. But the latter would be a new type of session that
+  is mostly the same but does not pull in user@.service or wait for it. Then,
+  allow configuration which type of session is desired via pam_systemd
+  parameters, and then make user@.service's session one of these "light" ones.
+  People could then choose to make FTP sessions and suchlike "light" if they
+  don't want the service manager to be started for that.
+
 * /etc/veritytab: allow that the roothash column can be specified as fs path
   including a path to an AF_UNIX path, similar to how we do things with the
   keys of /etc/crypttab. That way people can store/provide the roothash
