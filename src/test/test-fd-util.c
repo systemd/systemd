@@ -286,6 +286,101 @@ static void test_format_proc_fd_path(void) {
         assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647"));
 }
 
+static void test_fd_reopen(void) {
+        _cleanup_close_ int fd1 = -1, fd2 = -1;
+        struct stat st1, st2;
+        int fl;
+
+        /* Test this with a directory */
+        fd1 = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC);
+        assert_se(fd1 >= 0);
+
+        assert_se(fstat(fd1, &st1) >= 0);
+        assert_se(S_ISDIR(st1.st_mode));
+
+        fl = fcntl(fd1, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(FLAGS_SET(fl, O_PATH));
+
+        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
+        assert_se(fd2 >= 0);
+
+        assert_se(fstat(fd2, &st2) >= 0);
+        assert_se(S_ISDIR(st2.st_mode));
+        assert_se(st1.st_ino == st2.st_ino);
+        assert_se(st1.st_rdev == st2.st_rdev);
+
+        fl = fcntl(fd2, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(!FLAGS_SET(fl, O_PATH));
+
+        safe_close(fd1);
+
+        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        assert_se(fd1 >= 0);
+
+        assert_se(fstat(fd1, &st1) >= 0);
+        assert_se(S_ISDIR(st1.st_mode));
+        assert_se(st1.st_ino == st2.st_ino);
+        assert_se(st1.st_rdev == st2.st_rdev);
+
+        fl = fcntl(fd1, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(FLAGS_SET(fl, O_PATH));
+
+        safe_close(fd1);
+
+        /* And now, test this with a file. */
+        fd1 = open("/proc/version", O_PATH|O_CLOEXEC);
+        assert_se(fd1 >= 0);
+
+        assert_se(fstat(fd1, &st1) >= 0);
+        assert_se(S_ISREG(st1.st_mode));
+
+        fl = fcntl(fd1, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(FLAGS_SET(fl, O_PATH));
+
+        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC) == -ENOTDIR);
+        fd2 = fd_reopen(fd1, O_RDONLY|O_CLOEXEC);  /* drop the O_PATH */
+        assert_se(fd2 >= 0);
+
+        assert_se(fstat(fd2, &st2) >= 0);
+        assert_se(S_ISREG(st2.st_mode));
+        assert_se(st1.st_ino == st2.st_ino);
+        assert_se(st1.st_rdev == st2.st_rdev);
+
+        fl = fcntl(fd2, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(!FLAGS_SET(fl, O_PATH));
+
+        safe_close(fd1);
+
+        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC) == -ENOTDIR);
+        fd1 = fd_reopen(fd2, O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        assert_se(fd1 >= 0);
+
+        assert_se(fstat(fd1, &st1) >= 0);
+        assert_se(S_ISREG(st1.st_mode));
+        assert_se(st1.st_ino == st2.st_ino);
+        assert_se(st1.st_rdev == st2.st_rdev);
+
+        fl = fcntl(fd1, F_GETFL);
+        assert_se(fl >= 0);
+        assert_se(!FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(FLAGS_SET(fl, O_PATH));
+
+        /* Also check the right error is generated if the fd is already closed */
+        safe_close(fd1);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
+        fd1 = -1;
+}
+
 int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
@@ -299,6 +394,7 @@ int main(int argc, char *argv[]) {
         test_read_nr_open();
         test_close_all_fds();
         test_format_proc_fd_path();
+        test_fd_reopen();
 
         return 0;
 }
