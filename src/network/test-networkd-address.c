@@ -16,7 +16,7 @@ static void test_FORMAT_LIFETIME(void) {
 
         log_info("/* %s */", __func__);
 
-        now_usec = now(CLOCK_MONOTONIC);
+        now_usec = now(clock_boottime_or_monotonic());
 
         test_FORMAT_LIFETIME_one(now_usec, "for 0");
         test_FORMAT_LIFETIME_one(usec_add(now_usec, 2 * USEC_PER_SEC - 1), "for 1s");
@@ -25,7 +25,7 @@ static void test_FORMAT_LIFETIME(void) {
 }
 
 int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
 
         test_FORMAT_LIFETIME();
 
