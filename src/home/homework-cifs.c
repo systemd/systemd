@@ -68,7 +68,7 @@ int home_setup_cifs(
                         if (r == 0) {
                                 /* Child */
                                 execl("/bin/mount", "/bin/mount", "-n", "-t", "cifs",
-                                      h->cifs_service, "/run/systemd/user-home-mount",
+                                      h->cifs_service, HOME_RUNTIME_WORK_DIR,
                                       "-o", options, NULL);
 
                                 log_error_errno(errno, "Failed to execute mount: %m");
@@ -89,7 +89,7 @@ int home_setup_cifs(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
                                                "Failed to mount home directory with supplied password.");
 
-                setup->root_fd = open("/run/systemd/user-home-mount", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         }
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");

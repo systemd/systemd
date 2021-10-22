@@ -83,3 +83,5 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
 int user_record_authenticate(UserRecord *h, UserRecord *secret, PasswordCache *cache, bool strict_verify);
 
 int home_sync_and_statfs(int root_fd, struct statfs *ret);
+
+#define HOME_RUNTIME_WORK_DIR "/run/systemd/user-home-mount"

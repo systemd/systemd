@@ -1260,7 +1260,7 @@ int home_setup_luks(
 
                 ip = force_image_path ?: user_record_image_path(h);
 
-                subdir = path_join("/run/systemd/user-home-mount/", user_record_user_name_and_realm(h));
+                subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
                 if (!subdir)
                         return log_oom();
 
@@ -1374,7 +1374,7 @@ int home_setup_luks(
 
 fail:
         if (mounted)
-                (void) umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+                (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
 
         if (dm_activated)
                 (void) sym_crypt_deactivate_by_name(cd, setup->dm_name, 0);
@@ -2242,7 +2242,7 @@ int home_create_luks(
 
         mounted = true;
 
-        subdir = path_join("/run/systemd/user-home-mount/", user_record_user_name_and_realm(h));
+        subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
         if (!subdir) {
                 r = log_oom();
                 goto fail;
@@ -2302,7 +2302,7 @@ int home_create_luks(
 
         root_fd = safe_close(root_fd);
 
-        r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
         if (r < 0)
                 goto fail;
 
@@ -2372,7 +2372,7 @@ fail:
         root_fd = safe_close(root_fd);
 
         if (mounted)
-                (void) umount_verbose(LOG_WARNING, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+                (void) umount_verbose(LOG_WARNING, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
 
         if (dm_activated)
                 (void) sym_crypt_deactivate_by_name(cd, dm_name, 0);
@@ -2474,7 +2474,7 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         }
 
         if (setup->undo_mount) {
-                r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
+                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
 
@@ -2542,7 +2542,7 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         }
 
         if (re_open) {
-                setup->root_fd = open("/run/systemd/user-home-mount", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
                         return log_error_errno(errno, "Failed to reopen file system: %m");
         }
