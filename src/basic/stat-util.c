@@ -73,27 +73,33 @@ int is_device_node(const char *path) {
 
 int dir_is_empty_at(int dir_fd, const char *path) {
         _cleanup_close_ int fd = -1;
-        _cleanup_closedir_ DIR *d = NULL;
+        /* Allocate space for at least 3 full dirents, since every dir has at least two entries ("."  +
+         * ".."), and only once we have seen if there's a third we know whether the dir is empty or not. */
+        DEFINE_DIRENT_BUFFER(buffer, 3);
         struct dirent *de;
+        ssize_t n;
 
         if (path) {
                 fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return -errno;
         } else {
-                /* Note that DUPing is not enough, as the internal pointer
-                 * would still be shared and moved by FOREACH_DIRENT. */
+                /* Note that DUPing is not enough, as the internal pointer would still be shared and moved
+                 * getedents64(). */
+                assert(dir_fd >= 0);
+
                 fd = fd_reopen(dir_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
         }
 
-        d = take_fdopendir(&fd);
-        if (!d)
+        n = getdents64(fd, &buffer, sizeof(buffer));
+        if (n < 0)
                 return -errno;
 
-        FOREACH_DIRENT(de, d, return -errno)
-                return 0;
+        FOREACH_DIRENT_IN_BUFFER(de, &buffer.de, n)
+                if (!dot_or_dot_dot(de->d_name))
+                        return 0;
 
         return 1;
 }
