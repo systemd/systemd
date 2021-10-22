@@ -543,6 +543,24 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         }
 }
 
+static EFI_STATUS reboot_into_firmware(void) {
+        UINT64 osind = 0;
+        EFI_STATUS err;
+
+        if (!(get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                return log_error_status_stall(EFI_UNSUPPORTED, L"Reboot to firmware interface not supported.");
+
+        (void) efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", &osind);
+        osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+
+        err = efivar_set_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error setting OsIndications: %r", err);
+
+        err = RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
+}
+
 static BOOLEAN menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
@@ -794,7 +812,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'h'):
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
-                        /* This must stay below 80 characters! Q/v/Ctrl+l deliberately not advertised. */
+                        /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
                         status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
                         break;
 
@@ -886,6 +904,27 @@ static BOOLEAN menu_run(
                                 status = PoolPrint(L"Console mode reset to %s default.",
                                                    config->console_mode == CONSOLE_MODE_KEEP ? L"firmware" : L"configuration file");
                         new_mode = TRUE;
+                        break;
+
+                case KEYPRESS(0, 0, 'f'):
+                case KEYPRESS(0, 0, 'F'):
+                case KEYPRESS(0, SCAN_F2, 0):     /* Most vendors. */
+                case KEYPRESS(0, SCAN_F10, 0):    /* HP and Lenovo. */
+                case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
+                case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
+                        if (get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI) {
+                                const CHAR16 msg[] = L"Press Enter to reboot into firmware interface.";
+                                print_at(0, y_status, COLOR_NORMAL, clearline);
+                                print_at((x_max - StrLen(msg)) / 2, y_status, COLOR_NORMAL, msg);
+
+                                /* Let's make sure the user really wants this. */
+                                console_key_read(&key, UINT64_MAX);
+                                if (key == KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN))
+                                        reboot_into_firmware();
+
+                                print_at(0, y_status, COLOR_NORMAL, clearline);
+                        } else
+                                status = PoolPrint(L"Reboot into firmware interface not supported.");
                         break;
 
                 default:
@@ -2178,24 +2217,6 @@ static EFI_STATUS image_start(
 out_unload:
         BS->UnloadImage(image);
         return err;
-}
-
-static EFI_STATUS reboot_into_firmware(void) {
-        UINT64 old, new;
-        EFI_STATUS err;
-
-        new = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
-
-        err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", &old);
-        if (!EFI_ERROR(err))
-                new |= old;
-
-        err = efivar_set_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", new, EFI_VARIABLE_NON_VOLATILE);
-        if (EFI_ERROR(err))
-                return err;
-
-        err = RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-        return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
 }
 
 static void config_free(Config *config) {
