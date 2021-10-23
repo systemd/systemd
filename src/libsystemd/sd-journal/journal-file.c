@@ -295,23 +295,37 @@ JournalFile* journal_file_close(JournalFile *f) {
         return mfree(f);
 }
 
+static bool keyed_hash_requested(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+
+        return true;
+}
+
+static bool compact_mode_requested(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+
+        return true;
+}
+
 static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
         Header h = {};
         ssize_t k;
-        bool keyed_hash, seal = false;
+        bool seal = false;
         int r;
 
         assert(f);
-
-        /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
-         * people really want that */
-        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
-        if (r < 0) {
-                if (r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
-                keyed_hash = true;
-        } else
-                keyed_hash = r;
 
 #if HAVE_GCRYPT
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
@@ -324,7 +338,8 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         h.incompatible_flags |= htole32(
                         FLAGS_SET(file_flags, JOURNAL_COMPRESS) *
                         COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
-                        keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
+                        keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
+                        compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT);
 
         h.compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED);
 
