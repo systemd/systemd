@@ -194,7 +194,20 @@ int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+
+static inline uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) {
+        assert(f);
+        assert(o);
+        return JOURNAL_HEADER_COMPACT(f->header) ? le32toh(o->entry_array.items.compact[i]) :
+                                                   le64toh(o->entry_array.items.regular[i]);
+}
+
+static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
+        assert(f);
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof(le32_t) : sizeof(le64_t);
+}
+
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *ret_offset);
