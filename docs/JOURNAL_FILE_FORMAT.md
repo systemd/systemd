@@ -71,7 +71,7 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 ## Basics
 
-* All offsets, sizes, time values, hashes (and most other numeric values) are 64bit unsigned integers in LE format.
+* All offsets, sizes, time values, hashes (and most other numeric values) are 32bit/64bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
 * The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
 * All structures are aligned to 64bit boundaries and padded to multiples of 64bit
@@ -552,13 +552,19 @@ creativity rather than runtime parameters.
 _packed_ struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t regular[];
+                le32_t compact[];
+        } items;
 };
 ```
 
 Entry Arrays are used to store a sorted array of offsets to entries. Entry
 arrays are strictly sorted by offsets on disk, and hence by their timestamps
 and sequence numbers (with some restrictions, see above).
+
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, offsets are stored as 32-bit
+integers instead of 64bit.
 
 Entry Arrays are chained up. If one entry array is full another one is
 allocated and the **next_entry_array_offset** field of the old one pointed to
