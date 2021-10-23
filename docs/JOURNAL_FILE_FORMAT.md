@@ -259,6 +259,7 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 enum {
@@ -275,6 +276,9 @@ objects compressed with ZSTD.
 HEADER_INCOMPATIBLE_KEYED_HASH indicates that instead of the unkeyed Jenkins
 hash function the keyed siphash24 hash function is used for the two hash
 tables, see below.
+
+HEADER_INCOMPATIBLE_COMPACT indicates that the journal file uses the new binary
+format that uses less space on disk compared to the original format.
 
 HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
 for Forward Secure Sealing.
