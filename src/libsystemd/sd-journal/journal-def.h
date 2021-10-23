@@ -118,7 +118,10 @@ struct HashTableObject {
 struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t items[0];
+                le32_t compact[0];
+        };
 } _packed_;
 
 #define TAG_LENGTH (256/8)
