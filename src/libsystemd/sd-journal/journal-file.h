@@ -109,6 +109,7 @@ typedef struct JournalFile {
 #if HAVE_COMPRESSION
         void *compress_buffer;
 #endif
+        uint8_t *entry_payload_buffer;
 
 #if HAVE_GCRYPT
         gcry_md_hd_t hmac;
@@ -201,10 +202,15 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_COMPACT(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_object_offset(JournalFile *f, Object *o, size_t i) _pure_;
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);

@@ -25,6 +25,7 @@ typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
 
 typedef struct EntryItem EntryItem;
+typedef struct EntryItemCompact EntryItemCompact;
 typedef struct HashItem HashItem;
 
 typedef struct FSSHeader FSSHeader;
@@ -91,14 +92,17 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
-#define EntryObject__contents { \
-        ObjectHeader object;    \
-        le64_t seqnum;          \
-        le64_t realtime;        \
-        le64_t monotonic;       \
-        sd_id128_t boot_id;     \
-        le64_t xor_hash;        \
-        EntryItem items[];      \
+#define EntryObject__contents {                \
+        ObjectHeader object;                   \
+        le64_t seqnum;                         \
+        le64_t realtime;                       \
+        le64_t monotonic;                      \
+        sd_id128_t boot_id;                    \
+        le64_t xor_hash;                       \
+        union {                                \
+                EntryItem items[0];            \
+                uint8_t payload[0];           \
+        };                                     \
         }
 
 struct EntryObject EntryObject__contents;
@@ -118,7 +122,10 @@ struct HashTableObject {
 struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t items[0];
+                le32_t compact[0];
+        };
 } _packed_;
 
 #define TAG_LENGTH (256/8)
@@ -153,30 +160,32 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 #define HEADER_INCOMPATIBLE_ANY               \
         (HEADER_INCOMPATIBLE_COMPRESSED_XZ |  \
          HEADER_INCOMPATIBLE_COMPRESSED_LZ4 | \
          HEADER_INCOMPATIBLE_KEYED_HASH |     \
-         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
+         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD | \
+         HEADER_INCOMPATIBLE_COMPACT)
 
 #if HAVE_XZ && HAVE_LZ4 && HAVE_ZSTD
 #  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
 #elif HAVE_XZ && HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4 && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #else
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_KEYED_HASH
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #endif
 
 enum {
@@ -190,63 +199,63 @@ enum {
 #  define HEADER_COMPATIBLE_SUPPORTED 0
 #endif
 
-#define HEADER_SIGNATURE                                                \
-        ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
+// #define HEADER_SIGNATURE                                                \
+//         ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
-#define struct_Header__contents {                       \
-        uint8_t signature[8]; /* "LPKSHHRH" */          \
-        le32_t compatible_flags;                        \
-        le32_t incompatible_flags;                      \
-        uint8_t state;                                  \
-        uint8_t reserved[7];                            \
-        sd_id128_t file_id;                             \
-        sd_id128_t machine_id;                          \
-        sd_id128_t boot_id;    /* last writer */        \
-        sd_id128_t seqnum_id;                           \
-        le64_t header_size;                             \
-        le64_t arena_size;                              \
-        le64_t data_hash_table_offset;                  \
-        le64_t data_hash_table_size;                    \
-        le64_t field_hash_table_offset;                 \
-        le64_t field_hash_table_size;                   \
-        le64_t tail_object_offset;                      \
-        le64_t n_objects;                               \
-        le64_t n_entries;                               \
-        le64_t tail_entry_seqnum;                       \
-        le64_t head_entry_seqnum;                       \
-        le64_t entry_array_offset;                      \
-        le64_t head_entry_realtime;                     \
-        le64_t tail_entry_realtime;                     \
-        le64_t tail_entry_monotonic;                    \
-        /* Added in 187 */                              \
-        le64_t n_data;                                  \
-        le64_t n_fields;                                \
-        /* Added in 189 */                              \
-        le64_t n_tags;                                  \
-        le64_t n_entry_arrays;                          \
-        /* Added in 246 */                              \
-        le64_t data_hash_chain_depth;                   \
-        le64_t field_hash_chain_depth;                  \
-        }
+// #define struct_Header__contents {                       \
+//         uint8_t signature[8]; /* "LPKSHHRH" */          \
+//         le32_t compatible_flags;                        \
+//         le32_t incompatible_flags;                      \
+//         uint8_t state;                                  \
+//         uint8_t reserved[7];                            \
+//         sd_id128_t file_id;                             \
+//         sd_id128_t machine_id;                          \
+//         sd_id128_t boot_id;    /* last writer */        \
+//         sd_id128_t seqnum_id;                           \
+//         le64_t header_size;                             \
+//         le64_t arena_size;                              \
+//         le64_t data_hash_table_offset;                  \
+//         le64_t data_hash_table_size;                    \
+//         le64_t field_hash_table_offset;                 \
+//         le64_t field_hash_table_size;                   \
+//         le64_t tail_object_offset;                      \
+//         le64_t n_objects;                               \
+//         le64_t n_entries;                               \
+//         le64_t tail_entry_seqnum;                       \
+//         le64_t head_entry_seqnum;                       \
+//         le64_t entry_array_offset;                      \
+//         le64_t head_entry_realtime;                     \
+//         le64_t tail_entry_realtime;                     \
+//         le64_t tail_entry_monotonic;                    \
+//         /* Added in 187 */                              \
+//         le64_t n_data;                                  \
+//         le64_t n_fields;                                \
+//         /* Added in 189 */                              \
+//         le64_t n_tags;                                  \
+//         le64_t n_entry_arrays;                          \
+//         /* Added in 246 */                              \
+//         le64_t data_hash_chain_depth;                   \
+//         le64_t field_hash_chain_depth;                  \
+//         }
 
-struct Header struct_Header__contents;
-struct Header__packed struct_Header__contents _packed_;
-assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 256);
+// struct Header struct_Header__contents;
+// struct Header__packed struct_Header__contents _packed_;
+// assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
+// assert_cc(sizeof(struct Header) == 256);
 
-#define FSS_HEADER_SIGNATURE                                            \
-        ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+// #define FSS_HEADER_SIGNATURE                                            \
+//         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
-struct FSSHeader {
-        uint8_t signature[8]; /* "KSHHRHLP" */
-        le32_t compatible_flags;
-        le32_t incompatible_flags;
-        sd_id128_t machine_id;
-        sd_id128_t boot_id;    /* last writer */
-        le64_t header_size;
-        le64_t start_usec;
-        le64_t interval_usec;
-        le16_t fsprg_secpar;
-        le16_t reserved[3];
-        le64_t fsprg_state_size;
-} _packed_;
+// struct FSSHeader {
+//         uint8_t signature[8]; /* "KSHHRHLP" */
+//         le32_t compatible_flags;
+//         le32_t incompatible_flags;
+//         sd_id128_t machine_id;
+//         sd_id128_t boot_id;    /* last writer */
+//         le64_t header_size;
+//         le64_t start_usec;
+//         le64_t interval_usec;
+//         le16_t fsprg_secpar;
+//         le16_t reserved[3];
+//         le64_t fsprg_state_size;
+// } _packed_;
