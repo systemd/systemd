@@ -289,7 +289,7 @@ JournalFile* journal_file_close(JournalFile *f) {
 static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
         Header h = {};
         ssize_t k;
-        bool keyed_hash, seal = false;
+        bool keyed_hash, seal = false, compact;
         int r;
 
         assert(f);
@@ -309,13 +309,22 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
 #endif
 
+        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+                compact = true;
+        } else
+                compact = r;
+
         memcpy(h.signature, HEADER_SIGNATURE, 8);
         h.header_size = htole64(ALIGN64(sizeof(h)));
 
         h.incompatible_flags |= htole32(
                         FLAGS_SET(file_flags, JOURNAL_COMPRESS) *
                         COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
-                        keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
+                        keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH |
+                        compact * HEADER_INCOMPATIBLE_COMPACT);
 
         h.compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED);
 
