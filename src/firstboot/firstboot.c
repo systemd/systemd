@@ -383,7 +383,7 @@ static int prompt_keymap(void) {
 
 static int process_keymap(void) {
         const char *etc_vconsoleconf;
-        char **keymap;
+        char *k, **keymap;
         int r;
 
         etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
@@ -412,7 +412,8 @@ static int process_keymap(void) {
         if (isempty(arg_keymap))
                 return 0;
 
-        keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
+        k = strjoina("KEYMAP=", arg_keymap);
+        keymap = STRV_MAKE(k);
 
         r = mkdir_parents(etc_vconsoleconf, 0755);
         if (r < 0)

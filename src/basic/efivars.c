@@ -41,12 +41,13 @@ int efi_get_variable(
         _cleanup_free_ void *buf = NULL;
         struct stat st;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
+        const char *p;
         uint32_t a;
         ssize_t n;
 
         assert(variable);
 
-        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
+        p = strjoina("/sys/firmware/efi/efivars/", variable);
 
         if (!ret_value && !ret_size && !ret_attribute) {
                 /* If caller is not interested in anything, just check if the variable exists and is
@@ -185,12 +186,13 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
         uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         bool saved_flags_valid = false;
         unsigned saved_flags;
+        const char *p;
         int r;
 
         assert(variable);
         assert(value || size == 0);
 
-        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
+        p = strjoina("/sys/firmware/efi/efivars/", variable);
 
         /* size 0 means removal, empty variable would not be enough for that */
         if (size > 0 && efi_verify_variable(variable, attr, value, size) > 0) {
