@@ -72,6 +72,7 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
         bool keyed_hash:1;
+        bool compact:1;
 
         direction_t last_direction;
         LocationType location_type;
