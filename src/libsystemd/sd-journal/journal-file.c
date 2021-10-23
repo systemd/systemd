@@ -44,6 +44,7 @@
 
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512 * 1024ULL)             /* 512 KiB */
+#define JOURNAL_COMPACT_SIZE_MAX UINT32_MAX               /* 4 GiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
@@ -387,7 +388,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
                 if (flags) {
-                        const char* strv[5];
+                        const char* strv[6];
                         size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
@@ -403,6 +404,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                         strv[n++] = "zstd-compressed";
                                 if (flags & HEADER_INCOMPATIBLE_KEYED_HASH)
                                         strv[n++] = "keyed-hash";
+                                if (flags & HEADER_INCOMPATIBLE_COMPACT)
+                                        strv[n++] = "compact";
                         }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
@@ -3229,7 +3232,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential number ID: %s\n"
                "State: %s\n"
                "Compatible flags:%s%s\n"
-               "Incompatible flags:%s%s%s%s%s\n"
+               "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data hash table size: %"PRIu64"\n"
@@ -3256,6 +3259,7 @@ void journal_file_print_header(JournalFile *f) {
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
                JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
                JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
+               JOURNAL_HEADER_COMPACT(f->header) ? " COMPACT" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -3336,7 +3340,7 @@ static int journal_file_warn_btrfs(JournalFile *f) {
         return 1;
 }
 
-static void journal_default_metrics(JournalMetrics *m, int fd) {
+static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         struct statvfs ss;
         uint64_t fs_size = 0;
 
@@ -3378,6 +3382,9 @@ static void journal_default_metrics(JournalMetrics *m, int fd) {
                                   MAX_SIZE_UPPER);
         else
                 m->max_size = PAGE_ALIGN(m->max_size);
+
+        if (compact && m->max_size > JOURNAL_COMPACT_SIZE_MAX)
+                m->max_size = JOURNAL_COMPACT_SIZE_MAX;
 
         if (m->max_size != 0) {
                 if (m->max_size < JOURNAL_FILE_SIZE_MIN)
@@ -3570,7 +3577,7 @@ int journal_file_open(
 
         if (journal_file_writable(f)) {
                 if (metrics) {
-                        journal_default_metrics(metrics, f->fd);
+                        journal_default_metrics(metrics, f->fd, JOURNAL_HEADER_COMPACT(f->header));
                         f->metrics = *metrics;
                 } else if (template)
                         f->metrics = template->metrics;
