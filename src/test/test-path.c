@@ -306,7 +306,7 @@ static void test_path_unit(Manager *m) {
 }
 
 static void test_path_directorynotempty(Manager *m) {
-        const char *test_path = "/tmp/test-path_directorynotempty/";
+        const char *test_file, *test_path = "/tmp/test-path_directorynotempty/";
         Unit *unit = NULL;
         Path *path = NULL;
         Service *service = NULL;
@@ -328,7 +328,8 @@ static void test_path_directorynotempty(Manager *m) {
         assert_se(access(test_path, F_OK) < 0);
 
         assert_se(mkdir_p(test_path, 0755) >= 0);
-        assert_se(touch(strjoina(test_path, "test_file")) >= 0);
+        test_file = strjoina(test_path, "test_file");
+        assert_se(touch(test_file) >= 0);
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
