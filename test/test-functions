@@ -1117,11 +1117,11 @@ install_systemd() {
     mkdir "$initdir/etc/systemd/system/user@.service.d/"
     echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
 
-    # When built with gcov, disable ProtectSystem= in the test images, since
-    # it prevents gcov to write the coverage reports (*.gcda files)
+    # When built with gcov, disable ProtectSystem= and ProtectHome in the test
+    # images, since it prevents gcov to write the coverage reports (*.gcda files)
     if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "$initdir/etc/systemd/system/service.d/"
-        echo -e "[Service]\nProtectSystem=no\n" >"$initdir/etc/systemd/system/service.d/override.conf"
+        echo -e "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/override.conf"
     fi
 }
 
