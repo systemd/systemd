@@ -335,8 +335,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
 
         case OBJECT_ENTRY_ARRAY:
-                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
-                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % journal_file_entry_array_item_size(f) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / journal_file_entry_array_item_size(f) <= 0) {
                         error(offset,
                               "Invalid object entry array size: %"PRIu64,
                               le64toh(o->object.size));
@@ -350,15 +350,15 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (uint64_t i = 0; i < journal_file_entry_array_n_items(o); i++)
-                        if (le64toh(o->entry_array.items[i]) != 0 &&
-                            !VALID64(le64toh(o->entry_array.items[i]))) {
+                for (uint64_t i = 0; i < journal_file_entry_array_n_items(f, o); i++) {
+                        uint64_t q = journal_file_entry_array_item(f, o, i);
+                        if (q != 0 && !VALID64(q)) {
                                 error(offset,
                                       "Invalid object entry array item (%"PRIu64"/%"PRIu64"): "OFSfmt,
-                                      i, journal_file_entry_array_n_items(o),
-                                      le64toh(o->entry_array.items[i]));
+                                      i, journal_file_entry_array_n_items(f, o), q);
                                 return -EBADMSG;
                         }
+                }
 
                 break;
 
@@ -490,10 +490,10 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                m = journal_file_entry_array_n_items(o);
+                m = journal_file_entry_array_n_items(f, o);
                 for (j = 0; i < n && j < m; i++, j++) {
 
-                        q = le64toh(o->entry_array.items[j]);
+                        q = journal_file_entry_array_item(f, o, j);
                         if (q <= last) {
                                 error(p, "Data object's entry array not sorted (%"PRIu64" <= %"PRIu64")", q, last);
                                 return -EBADMSG;
@@ -732,11 +732,11 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                m = journal_file_entry_array_n_items(o);
+                m = journal_file_entry_array_n_items(f, o);
                 for (j = 0; i < n && j < m; i++, j++) {
                         uint64_t p;
 
-                        p = le64toh(o->entry_array.items[j]);
+                        p = journal_file_entry_array_item(f, o, j);
                         if (p <= last) {
                                 error(a, "Entry array not sorted at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
