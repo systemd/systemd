@@ -497,7 +497,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
                 if (flags) {
-                        const char* strv[5];
+                        const char* strv[6];
                         size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
@@ -513,6 +513,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                         strv[n++] = "zstd-compressed";
                                 if (flags & HEADER_INCOMPATIBLE_KEYED_HASH)
                                         strv[n++] = "keyed-hash";
+                                if (flags & HEADER_INCOMPATIBLE_COMPACT)
+                                        strv[n++] = "compact";
                         }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
@@ -3252,7 +3254,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential number ID: %s\n"
                "State: %s\n"
                "Compatible flags:%s%s\n"
-               "Incompatible flags:%s%s%s%s%s\n"
+               "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data hash table size: %"PRIu64"\n"
@@ -3279,6 +3281,7 @@ void journal_file_print_header(JournalFile *f) {
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
                JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
                JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
+               JOURNAL_HEADER_COMPACT(f->header) ? " COMPACT" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
