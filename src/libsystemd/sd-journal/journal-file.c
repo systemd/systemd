@@ -431,7 +431,8 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
                 f->compress_xz * HEADER_INCOMPATIBLE_COMPRESSED_XZ |
                 f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
                 f->compress_zstd * HEADER_INCOMPATIBLE_COMPRESSED_ZSTD |
-                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
+                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH |
+                f->compact * HEADER_INCOMPATIBLE_COMPACT);
 
         h.compatible_flags = htole32(
                 f->seal * HEADER_COMPATIBLE_SEALED);
@@ -3456,6 +3457,14 @@ int journal_file_open(
                 f->keyed_hash = true;
         } else
                 f->keyed_hash = r;
+
+        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring.");
+                f->compact = true;
+        } else
+                f->compact = r;
 
         if (DEBUG_LOGGING) {
                 static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
