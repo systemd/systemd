@@ -56,11 +56,13 @@ static void test_cg_create(void) {
         _cleanup_free_ char *here = NULL;
         assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);
 
-        const char *test_a = prefix_roota(here, "/test-a"),
-                   *test_b = prefix_roota(here, "/test-b"),
-                   *test_c = prefix_roota(here, "/test-b/test-c"),
-                   *test_d = prefix_roota(here, "/test-b/test-d");
+        const char *test_a, *test_b, *test_c, *test_d;
         char *path;
+
+        test_a = prefix_roota(here, "/test-a");
+        test_b = prefix_roota(here, "/test-b");
+        test_c = prefix_roota(here, "/test-b/test-c");
+        test_d = prefix_roota(here, "/test-b/test-d");
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
