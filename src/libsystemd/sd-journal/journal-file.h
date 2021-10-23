@@ -109,6 +109,7 @@ typedef struct JournalFile {
 #if HAVE_COMPRESSION
         void *compress_buffer;
 #endif
+        uint8_t *entry_payload_buffer;
 
 #if HAVE_GCRYPT
         gcry_md_hd_t hmac;

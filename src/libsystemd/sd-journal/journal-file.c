@@ -33,6 +33,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "unaligned.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -401,6 +402,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 #if HAVE_COMPRESSION
         free(f->compress_buffer);
 #endif
+
+        free(f->entry_payload_buffer);
 
 #if HAVE_GCRYPT
         if (f->fss_file)
@@ -836,19 +839,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
 
                 sz = le64toh(READ_NOW(o->object.size));
                 if (JOURNAL_HEADER_COMPACT(f->header)) {
-                        if (sz < offsetof(EntryObject, compact) ||
-                        (sz - offsetof(EntryObject, compact)) % sizeof(EntryItemCompact) != 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                                offsetof(EntryObject, items),
-                                                sz,
-                                                offset);
-
-                        if ((sz - offsetof(EntryObject, compact)) / sizeof(EntryItemCompact) <= 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
-                                                (sz - offsetof(EntryObject, items)) / sizeof(EntryItemCompact),
-                                                offset);
+                        // TODO
                 } else {
                         if (sz < offsetof(EntryObject, items) ||
                         (sz - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
@@ -1461,12 +1452,154 @@ int journal_file_find_field_object(
                         ret, ret_offset);
 }
 
+static int read_entry_payload(JournalFile *f, Object *o, uint8_t **ret_data, uint64_t *ret_size) {
+        uint64_t size;
+        int r;
+
+        size = le64toh(READ_NOW(o->object.size));
+        if (size <= offsetof(Object, entry.payload))
+                return -EBADMSG;
+
+        size -= offsetof(Object, entry.payload);
+
+        if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if HAVE_COMPRESSION
+                size_t rsize = 0;
+
+                r = decompress_blob(
+                        o->object.flags & OBJECT_COMPRESSION_MASK,
+                        o->entry.payload,
+                        size,
+                        &f->compress_buffer,
+                        &rsize,
+                        0);
+                if (r < 0)
+                        return r;
+
+                *ret_data = f->compress_buffer;
+                *ret_size = rsize;
+#else
+                return -EPROTONOSUPPORT;
+#endif
+        } else {
+                *ret_data = o->entry.payload;
+                *ret_size = size;
+        }
+
+        return 0;
+}
+
+static int entry_payload_read_single(uint8_t **payload, uint64_t *size, uint8_t **ret_data, uint32_t *ret_size) {
+        uint32_t n, v;
+
+        assert(payload);
+        assert(size);
+
+        if (*size == 0)
+                return 0;
+
+        if (*size < sizeof(le32_t))
+                return -EBADMSG;
+
+        v = unaligned_read_le32(*payload);
+
+        n = sizeof(le32_t) + v;
+        if (*size < n)
+                return -EBADMSG;
+
+        *ret_data = *payload + sizeof(le32_t);
+        *ret_size = v;
+
+        *payload += n;
+        *size -= n;
+
+        return 1;
+}
+
+static int read_data_payload_compact(JournalFile *f, Object *o, void **ret_data, uint64_t *ret_size) {
+        uint64_t size;
+        uint8_t *payload;
+        int r;
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, le64toh(READ_NOW(o->data.entry_offset)), &o);
+        if (r < 0)
+                return r;
+
+        r = read_entry_payload(f, o, &payload, &size);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                uint8_t *data;
+                uint32_t l;
+
+                r = entry_payload_read_single(&payload, &size, &data, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                uint64_t hash = journal_file_hash_data(f, data, l);
+
+                // Can we ignore hash collisions in the same entry?
+                if (hash == le64toh(o->data.hash)) {
+                        *ret_data = data;
+                        *ret_size = l;
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
+static int read_data_payload_default(JournalFile *f, Object *o, void **ret_data, uint64_t *ret_size) {
+        uint64_t l;
+        int r;
+
+        l = le64toh(READ_NOW(o->object.size));
+        if (l <= offsetof(Object, data.payload))
+                return -EBADMSG;
+
+        l -= offsetof(Object, data.payload);
+
+        if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if HAVE_COMPRESSION
+                size_t rsize = 0;
+
+                r = decompress_blob(
+                        o->object.flags & OBJECT_COMPRESSION_MASK,
+                        o->data.payload,
+                        l,
+                        &f->compress_buffer,
+                        &rsize,
+                        0);
+                if (r < 0)
+                        return r;
+
+                *ret_data = f->compress_buffer;
+                *ret_size = rsize;
+#else
+                return -EPROTONOSUPPORT;
+#endif
+        } else {
+                *ret_data = o->data.payload;
+                *ret_size = l - offsetof(Object, data.payload);
+        }
+
+        return 0;
+}
+
+static int read_data_payload(JournalFile *f, Object *o, void **ret_data, uint64_t *ret_size) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? read_data_payload_compact(f, o, ret_data, ret_size) :
+                                                   read_data_payload_default(f, o, ret_data, ret_size);
+}
+
 int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t p, osize, h, m, depth = 0;
+        uint64_t p, h, m, depth = 0;
         int r;
 
         assert(f);
@@ -1482,8 +1615,6 @@ int journal_file_find_data_object_with_hash(
         if (r < 0)
                 return r;
 
-        osize = offsetof(Object, data.payload) + size;
-
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
                 return -EBADMSG;
@@ -1492,6 +1623,8 @@ int journal_file_find_data_object_with_hash(
         p = le64toh(f->data_hash_table[h].head_hash_offset);
 
         while (p > 0) {
+                void *payload;
+                uint64_t psize;
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -1501,47 +1634,19 @@ int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_COMPRESSION
-                        uint64_t l;
-                        size_t rsize = 0;
+                r = read_data_payload(f, o, &payload, &psize);
+                if (r < 0)
+                        return r;
+                if (memcmp_nn(data, size, payload, psize) != 0)
+                        goto next;
 
-                        l = le64toh(READ_NOW(o->object.size));
-                        if (l <= offsetof(Object, data.payload))
-                                return -EBADMSG;
+                if (ret)
+                        *ret = o;
 
-                        l -= offsetof(Object, data.payload);
+                if (ret_offset)
+                        *ret_offset = p;
 
-                        r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
-                                            o->data.payload, l, &f->compress_buffer, &rsize, 0);
-                        if (r < 0)
-                                return r;
-
-                        if (rsize == size &&
-                            memcmp(f->compress_buffer, data, size) == 0) {
-
-                                if (ret)
-                                        *ret = o;
-
-                                if (ret_offset)
-                                        *ret_offset = p;
-
-                                return 1;
-                        }
-#else
-                        return -EPROTONOSUPPORT;
-#endif
-                } else if (le64toh(o->object.size) == osize &&
-                           memcmp(o->data.payload, data, size) == 0) {
-
-                        if (ret)
-                                *ret = o;
-
-                        if (ret_offset)
-                                *ret_offset = p;
-
-                        return 1;
-                }
+                return 1;
 
         next:
                 r = next_hash_offset(
@@ -1703,33 +1808,35 @@ static int journal_file_append_data(
                 return 0;
         }
 
-        osize = offsetof(Object, data.payload) + size;
+        osize = offsetof(Object, data.payload) + (JOURNAL_HEADER_COMPACT(f->header) ? 0 : size);
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
         if (r < 0)
                 return r;
 
         o->data.hash = htole64(hash);
 
+        if (!JOURNAL_HEADER_COMPACT(f->header)) {
 #if HAVE_COMPRESSION
-        if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
-                size_t rsize = 0;
+                if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
+                        size_t rsize = 0;
 
-                compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
+                        compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
 
-                if (compression >= 0) {
-                        o->object.size = htole64(offsetof(Object, data.payload) + rsize);
-                        o->object.flags |= compression;
+                        if (compression >= 0) {
+                                o->object.size = htole64(offsetof(Object, data.payload) + rsize);
+                                o->object.flags |= compression;
 
-                        log_debug("Compressed data object %"PRIu64" -> %zu using %s",
-                                  size, rsize, object_compressed_to_string(compression));
-                } else
-                        /* Compression didn't work, we don't really care why, let's continue without compression */
-                        compression = 0;
-        }
+                                log_debug("Compressed data object %"PRIu64" -> %zu using %s",
+                                        size, rsize, object_compressed_to_string(compression));
+                        } else
+                                /* Compression didn't work, we don't really care why, let's continue without compression */
+                                compression = 0;
+                }
 #endif
 
-        if (compression == 0)
-                memcpy_safe(o->data.payload, data, size);
+                if (compression == 0)
+                        memcpy_safe(o->data.payload, data, size);
+        }
 
         r = journal_file_link_data(f, o, p, hash);
         if (r < 0)
@@ -2003,12 +2110,14 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
 
-        /* Link up the items */
-        n = journal_file_entry_n_items(f, o);
-        for (uint64_t i = 0; i < n; i++) {
-                r = journal_file_link_entry_item(f, o, offset, i);
-                if (r < 0)
-                        return r;
+        if (!JOURNAL_HEADER_COMPACT(f->header)) {
+                /* Link up the items. If we're in compact mode this is done later. */
+                n = journal_file_entry_n_items(f, o);
+                for (uint64_t i = 0; i < n; i++) {
+                        r = journal_file_link_entry_item(f, o, offset, i);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -2020,6 +2129,7 @@ static int journal_file_append_entry_internal(
                 const sd_id128_t *boot_id,
                 uint64_t xor_hash,
                 const EntryItem items[], unsigned n_items,
+                uint8_t *payload, uint64_t payload_sz,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
         uint64_t np;
@@ -2033,7 +2143,7 @@ static int journal_file_append_entry_internal(
         assert(ts);
 
         if (JOURNAL_HEADER_COMPACT(f->header))
-                osize = offsetof(Object, entry.compact) + (n_items * sizeof(EntryItemCompact));
+                osize = offsetof(Object, entry.payload) + payload_sz;
         else
                 osize = offsetof(Object, entry.items) + (n_items * sizeof(EntryItem));
 
@@ -2043,11 +2153,29 @@ static int journal_file_append_entry_internal(
 
         o->entry.seqnum = htole64(journal_file_entry_seqnum(f, seqnum));
         if (JOURNAL_HEADER_COMPACT(f->header)) {
-                for (unsigned i = 0; i < n_items; i++)
-                        o->entry.compact[i].object_offset = htole32(items[i].object_offset);
+                int compression = 0;
+#if HAVE_COMPRESSION
+                if (JOURNAL_FILE_COMPRESS(f) && payload_sz >= f->compress_threshold_bytes) {
+                        size_t rsize = 0;
+
+                        compression = compress_blob(payload, payload_sz, o->entry.payload, payload_sz - 1, &rsize);
+
+                        if (compression >= 0) {
+                                o->object.size = htole64(offsetof(Object, entry.payload) + rsize);
+                                o->object.flags |= compression;
+
+                                log_debug("Compressed entry object %"PRIu64" -> %zu using %s",
+                                          payload_sz, rsize, object_compressed_to_string(compression));
+                        } else
+                                /* Compression didn't work, we don't really care why, let's continue without compression */
+                                compression = 0;
+                }
+#endif
+
+                if (compression == 0)
+                        memcpy_safe(o->entry.payload, payload, payload_sz);
         } else
-                for (unsigned i = 0; i < n_items; i++)
-                        o->entry.items[i].object_offset = htole64(items[i].object_offset);
+                memcpy_safe(o->entry.items, items, n_items * sizeof(EntryItem));
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
@@ -2172,10 +2300,12 @@ int journal_file_append_entry(
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
 
+        Object *e;
         EntryItem *items;
-        int r;
-        uint64_t xor_hash = 0;
+        uint8_t *payload;
+        uint64_t payload_sz = 0, xor_hash = 0, offset;
         struct dual_timestamp _ts;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -2201,39 +2331,58 @@ int journal_file_append_entry(
                 return r;
 #endif
 
-        items = newa(EntryItem, n_iovec);
-
-        for (unsigned i = 0; i < n_iovec; i++) {
-                uint64_t p;
-                Object *o;
-
-                r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
-                if (r < 0)
-                        return r;
-
-                /* When calculating the XOR hash field, we need to take special care if the "keyed-hash"
-                 * journal file flag is on. We use the XOR hash field to quickly determine the identity of a
-                 * specific record, and give records with otherwise identical position (i.e. match in seqno,
-                 * timestamp, …) a stable ordering. But for that we can't have it that the hash of the
-                 * objects in each file is different since they are keyed. Hence let's calculate the Jenkins
-                 * hash here for that. This also has the benefit that cursors for old and new journal files
-                 * are completely identical (they include the XOR hash after all). For classic Jenkins-hash
-                 * files things are easier, we can just take the value from the stored record directly. */
-
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                for (unsigned i = 0; i < n_iovec; i++) {
+                        payload_sz += sizeof(le32_t) + iovec[i].iov_len;
+                        /* Compact mode was added after keyed hashing so we can assume keyed hashing is in use. */
                         xor_hash ^= jenkins_hash64(iovec[i].iov_base, iovec[i].iov_len);
-                else
-                        xor_hash ^= le64toh(o->data.hash);
+                }
 
-                items[i].object_offset = p;
-                items[i].hash = o->data.hash;
+                if (!GREEDY_REALLOC(f->entry_payload_buffer, payload_sz))
+                        return -ENOMEM;
+
+                uint8_t *p = f->entry_payload_buffer;
+                for (unsigned i = 0; i < n_iovec; i++) {
+                        unaligned_write_le32(p, iovec[i].iov_len);
+                        p += sizeof(le32_t);
+                        memcpy_safe(p, iovec[i].iov_base, iovec[i].iov_len);
+                        p += iovec[i].iov_len;
+                }
+        } else {
+                items = newa(EntryItem, n_iovec);
+
+                for (unsigned i = 0; i < n_iovec; i++) {
+                        uint64_t p;
+                        Object *o;
+
+                        r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
+                        if (r < 0)
+                                return r;
+
+                        /* When calculating the XOR hash field, we need to take special care if the "keyed-hash"
+                        * journal file flag is on. We use the XOR hash field to quickly determine the identity of a
+                        * specific record, and give records with otherwise identical position (i.e. match in seqno,
+                        * timestamp, …) a stable ordering. But for that we can't have it that the hash of the
+                        * objects in each file is different since they are keyed. Hence let's calculate the Jenkins
+                        * hash here for that. This also has the benefit that cursors for old and new journal files
+                        * are completely identical (they include the XOR hash after all). For classic Jenkins-hash
+                        * files things are easier, we can just take the value from the stored record directly. */
+
+                        if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                                xor_hash ^= jenkins_hash64(iovec[i].iov_base, iovec[i].iov_len);
+                        else
+                                xor_hash ^= le64toh(o->data.hash);
+
+                        items[i].object_offset = p;
+                        items[i].hash = o->data.hash;
+                }
+
+                /* Order by the position on disk, in order to improve seek
+                * times for rotating media. */
+                typesafe_qsort(items, n_iovec, entry_item_cmp);
         }
 
-        /* Order by the position on disk, in order to improve seek
-         * times for rotating media. */
-        typesafe_qsort(items, n_iovec, entry_item_cmp);
-
-        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, ret_offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, payload, payload_sz, seqnum, &e, &offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -2243,12 +2392,44 @@ int journal_file_append_entry(
         if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
                 r = -EIO;
 
+        if (r < 0)
+                return r;
+
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                /* Unlike in non-compact mode, we don't store the offsets to the Data object anymore in the
+                 * entry in compact mode. This means we can't easily update the Data object anymore after
+                 * writing the Entry object. Instead, we delay writing the Data object until after we've
+                 * written the Entry object (which is possible in compact mode since we don't store the Data
+                 * object offsets anymore) and add the Data objects afterwards with the correct entry offset.
+                 */
+                for (unsigned i = 0; i < n_iovec; i++) {
+                        Object *o;
+
+                        r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = link_entry_into_array_plus_one(f,
+                                              &o->data.entry_offset,
+                                              &o->data.entry_array_offset,
+                                              &o->data.n_entries,
+                                              offset);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (f->post_change_timer)
                 schedule_post_change(f);
         else
                 journal_file_post_change(f);
 
-        return r;
+        if (ret)
+                *ret = e;
+        if (ret_offset)
+                *ret_offset = offset;
+
+        return 0;
 }
 
 typedef struct ChainCacheItem {
@@ -3908,17 +4089,23 @@ int journal_file_open_reliably(
                                  deferred_closes, template, ret);
 }
 
+#define ENTRY_PAYLOAD_FOREACH(payload, sz) \
+        for (uint8_t *p = (payload))
+
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
-        uint64_t q, n, xor_hash = 0;
+        uint64_t q, n, xor_hash = 0, offset;
         const sd_id128_t *boot_id;
         dual_timestamp ts;
         EntryItem *items;
+        uint8_t *payload = NULL;
+        uint64_t payload_sz;
         int r;
 
         assert(from);
         assert(to);
         assert(o);
         assert(p);
+        assert(JOURNAL_HEADER_COMPACT(from->header) == JOURNAL_HEADER_COMPACT(to->header));
 
         if (!to->writable)
                 return -EPERM;
@@ -3927,74 +4114,131 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         ts.realtime = le64toh(o->entry.realtime);
         boot_id = &o->entry.boot_id;
 
-        n = journal_file_entry_n_items(from, o);
-        items = newa(EntryItem, n);
-
-        for (uint64_t i = 0; i < n; i++) {
-                uint64_t l, h;
-                size_t t;
-                void *data;
-                Object *u;
-
-                q = journal_file_entry_object_offset(from, o, i);
-
-                r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
+        if (JOURNAL_HEADER_COMPACT(from->header)) {
+                r = read_entry_payload(from, o, &payload, &payload_sz);
                 if (r < 0)
                         return r;
 
-                l = le64toh(READ_NOW(o->object.size));
-                if (l < offsetof(Object, data.payload))
-                        return -EBADMSG;
+                uint8_t *i = payload;
+                uint64_t left = payload_sz;
+                for (;;) {
+                        uint8_t *data;
+                        uint32_t l;
 
-                l -= offsetof(Object, data.payload);
-                t = (size_t) l;
+                        r = entry_payload_read_single(&i, &left, &data, &l);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
 
-                /* We hit the limit on 32bit machines */
-                if ((uint64_t) t != l)
-                        return -E2BIG;
+                        xor_hash ^= jenkins_hash64(data, l);
+                }
+        } else {
+                n = journal_file_entry_n_items(from, o);
+                items = newa(EntryItem, n);
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_COMPRESSION
-                        size_t rsize = 0;
+                for (uint64_t i = 0; i < n; i++) {
+                        uint64_t l, h;
+                        size_t t;
+                        void *data;
+                        Object *u;
 
-                        r = decompress_blob(
-                                        o->object.flags & OBJECT_COMPRESSION_MASK,
-                                        o->data.payload, l,
-                                        &from->compress_buffer, &rsize,
-                                        0);
+                        q = journal_file_entry_object_offset(from, o, i);
+
+                        r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
                         if (r < 0)
                                 return r;
 
-                        data = from->compress_buffer;
-                        l = rsize;
+                        l = le64toh(READ_NOW(o->object.size));
+                        if (l < offsetof(Object, data.payload))
+                                return -EBADMSG;
+
+                        l -= offsetof(Object, data.payload);
+                        t = (size_t) l;
+
+                        /* We hit the limit on 32bit machines */
+                        if ((uint64_t) t != l)
+                                return -E2BIG;
+
+                        if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+#if HAVE_COMPRESSION
+                                size_t rsize = 0;
+
+                                r = decompress_blob(
+                                                o->object.flags & OBJECT_COMPRESSION_MASK,
+                                                o->data.payload, l,
+                                                &from->compress_buffer, &rsize,
+                                                0);
+                                if (r < 0)
+                                        return r;
+
+                                data = from->compress_buffer;
+                                l = rsize;
 #else
-                        return -EPROTONOSUPPORT;
+                                return -EPROTONOSUPPORT;
 #endif
-                } else
-                        data = o->data.payload;
+                        } else
+                                data = o->data.payload;
 
-                r = journal_file_append_data(to, data, l, &u, &h);
-                if (r < 0)
-                        return r;
+                        r = journal_file_append_data(to, data, l, &u, &h);
+                        if (r < 0)
+                                return r;
 
-                if (JOURNAL_HEADER_KEYED_HASH(to->header))
-                        xor_hash ^= jenkins_hash64(data, l);
-                else
-                        xor_hash ^= le64toh(u->data.hash);
+                        if (JOURNAL_HEADER_KEYED_HASH(to->header))
+                                xor_hash ^= jenkins_hash64(data, l);
+                        else
+                                xor_hash ^= le64toh(u->data.hash);
 
-                items[i].object_offset = h;
-                items[i].hash = u->data.hash;
+                        items[i].object_offset = h;
+                        items[i].hash = u->data.hash;
 
-                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
-                if (r < 0)
-                        return r;
+                        r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
-                                               NULL, NULL, NULL);
+                                               payload, payload_sz, NULL, NULL, &offset);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;
+
+        if (r < 0)
+                return r;
+
+        if (JOURNAL_HEADER_COMPACT(from->header)) {
+                /* Unlike in non-compact mode, we don't store the offsets to the Data object anymore in the
+                 * entry in compact mode. This means we can't easily update the Data object anymore after
+                 * writing the Entry object. Instead, we delay writing the Data object until after we've
+                 * written the Entry object (which is possible in compact mode since we don't store the Data
+                 * object offsets anymore) and add the Data objects afterwards with the correct entry offset.
+                 */
+                uint8_t *i = payload;
+                uint64_t left = payload_sz;
+                for (;;) {
+                        uint8_t *data;
+                        uint32_t l;
+
+                        r = entry_payload_read_single(&i, &left, &data, &l);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = journal_file_append_data(to, data, l, &o, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = link_entry_into_array_plus_one(to,
+                                              &o->data.entry_offset,
+                                              &o->data.entry_array_offset,
+                                              &o->data.n_entries,
+                                              offset);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         return r;
 }
