@@ -12,9 +12,25 @@
 #include "sparse-endian.h"
 #include "time-util.h"
 
+/* RFC 4861 section 6.2.1.
+ * MaxRtrAdvInterval
+ * The maximum time allowed between sending unsolicited multicast Router Advertisements from the
+ * interface, in seconds. MUST be no less than 4 seconds and no greater than 1800 seconds.
+ * Default: 600 seconds */
 #define RADV_DEFAULT_MAX_TIMEOUT_USEC             (600 * USEC_PER_SEC)
-#define RADV_DEFAULT_MIN_TIMEOUT_USEC             (200 * USEC_PER_SEC)
-
+/* RFC 4861 section 6.2.1.
+ * MinRtrAdvInterval
+ * The minimum time allowed between sending unsolicited multicast Router Advertisements from the
+ * interface, in seconds. MUST be no less than 3 seconds and no greater than .75 * MaxRtrAdvInterval.
+ * Default: 0.33 * MaxRtrAdvInterval If MaxRtrAdvInterval >= 9 seconds; otherwise, the Default is
+ * MaxRtrAdvInterval (Note, this should be a typo. We use 0.75 * MaxRtrAdvInterval). */
+#define RADV_DEFAULT_MIN_TIMEOUT_USEC             (RADV_DEFAULT_MAX_TIMEOUT_USEC / 3)
+/* RFC 4861 section 10.
+ * MAX_INITIAL_RTR_ADVERT_INTERVAL  16 seconds
+ * MAX_INITIAL_RTR_ADVERTISEMENTS    3 transmissions
+ * MAX_FINAL_RTR_ADVERTISEMENTS      3 transmissions
+ * MIN_DELAY_BETWEEN_RAS             3 seconds
+ * MAX_RA_DELAY_TIME                .5 seconds */
 #define RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC (16 * USEC_PER_SEC)
 #define RADV_MAX_INITIAL_RTR_ADVERTISEMENTS       3
 #define RADV_MAX_FINAL_RTR_ADVERTISEMENTS         3
