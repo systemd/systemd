@@ -293,6 +293,9 @@ Features:
 * special case some calls of chase_symlinks() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
+* add a new flag to chase_symlinks() that stops chasing once the first missing
+  component is found and then allows the caller to create the rest.
+
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
 * add /etc/integritytab, to support dm-integrity setups. In particular those
