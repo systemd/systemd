@@ -180,7 +180,9 @@ static void test_radv(void) {
 
         assert_se(sd_radv_set_router_lifetime(NULL, 0) < 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, ~0) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, USEC_INFINITY) < 0);
+        assert_se(sd_radv_set_router_lifetime(ra, USEC_PER_YEAR) < 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
 
         assert_se(sd_radv_set_preference(NULL, 0) < 0);
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_LOW) >= 0);
@@ -189,7 +191,7 @@ static void test_radv(void) {
         assert_se(sd_radv_set_preference(ra, ~0) < 0);
 
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 42000) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) < 0);
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
@@ -308,7 +310,7 @@ static void test_ra(void) {
 
         assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
         assert_se(sd_radv_set_mac(ra, &mac_addr) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 180) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 180 * USEC_PER_SEC) >= 0);
         assert_se(sd_radv_set_hop_limit(ra, 64) >= 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, true) >= 0);

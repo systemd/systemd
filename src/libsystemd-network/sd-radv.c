@@ -129,6 +129,12 @@ static sd_radv *radv_free(sd_radv *ra) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
+static bool router_lifetime_is_valid(usec_t lifetime_usec) {
+        return lifetime_usec == 0 ||
+                (lifetime_usec >= RADV_MIN_ROUTER_LIFETIME_USEC &&
+                 lifetime_usec <= RADV_MAX_ROUTER_LIFETIME_USEC);
+}
+
 static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
         sd_radv_route_prefix *rt;
         sd_radv_prefix *p;
@@ -159,23 +165,15 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
                 .msg_namelen = sizeof(dst_addr),
                 .msg_iov = iov,
         };
-        uint16_t lifetime_sec;
         usec_t time_now;
         int r;
 
         assert(ra);
+        assert(router_lifetime_is_valid(lifetime_usec));
 
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 return r;
-
-        /* a value of UINT16_MAX represents infinity, 0x0 means this host is not a router */
-        if (lifetime_usec == USEC_INFINITY)
-                lifetime_sec = UINT16_MAX;
-        else if (lifetime_usec > (UINT16_MAX - 1) * USEC_PER_SEC)
-                lifetime_sec = UINT16_MAX - 1;
-        else
-                lifetime_sec = DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC);
 
         if (dst && in6_addr_is_set(dst))
                 dst_addr.sin6_addr = *dst;
@@ -183,7 +181,8 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
         adv.nd_ra_type = ND_ROUTER_ADVERT;
         adv.nd_ra_curhoplimit = ra->hop_limit;
         adv.nd_ra_flags_reserved = ra->flags;
-        adv.nd_ra_router_lifetime = htobe16(lifetime_sec);
+        assert_cc(RADV_MAX_ROUTER_LIFETIME_USEC <= UINT16_MAX * USEC_PER_SEC);
+        adv.nd_ra_router_lifetime = htobe16(DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC));
         iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2
@@ -504,11 +503,14 @@ _public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
+        if (!router_lifetime_is_valid(lifetime_usec))
+                return -EINVAL;
+
         /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
          * to (00) by the sender..." */
         if (lifetime_usec == 0 &&
             (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
-                return -ETIME;
+                return -EINVAL;
 
         ra->lifetime_usec = lifetime_usec;
 
