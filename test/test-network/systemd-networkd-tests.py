@@ -307,7 +307,10 @@ def setUpModule():
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if with_coverage:
-        drop_in += ['ProtectSystem=no']
+        drop_in += [
+            'ProtectSystem=no',
+            'ProtectHome=no',
+        ]
 
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
@@ -335,7 +338,10 @@ def setUpModule():
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if with_coverage:
-        drop_in += ['ProtectSystem=no']
+        drop_in += [
+            'ProtectSystem=no',
+            'ProtectHome=no',
+        ]
 
     os.makedirs('/run/systemd/system/systemd-resolved.service.d', exist_ok=True)
     with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
