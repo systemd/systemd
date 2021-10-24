@@ -10,6 +10,7 @@
 #include "list.h"
 #include "network-common.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 
 assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC);
 
@@ -50,7 +51,7 @@ struct sd_radv {
         uint8_t hop_limit;
         uint8_t flags;
         uint32_t mtu;
-        uint16_t lifetime;
+        usec_t lifetime_usec; /* timespan */
 
         int fd;
         unsigned ra_sent;

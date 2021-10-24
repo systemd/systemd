@@ -128,7 +128,7 @@ static sd_radv *radv_free(sd_radv *ra) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
-static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_lifetime) {
+static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
         sd_radv_route_prefix *rt;
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
@@ -158,6 +158,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                 .msg_namelen = sizeof(dst_addr),
                 .msg_iov = iov,
         };
+        uint16_t lifetime_sec;
         usec_t time_now;
         int r;
 
@@ -167,13 +168,21 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
         if (r < 0)
                 return r;
 
+        /* a value of UINT16_MAX represents infinity, 0x0 means this host is not a router */
+        if (lifetime_usec == USEC_INFINITY)
+                lifetime_sec = UINT16_MAX;
+        else if (lifetime_usec > (UINT16_MAX - 1) * USEC_PER_SEC)
+                lifetime_sec = UINT16_MAX - 1;
+        else
+                lifetime_sec = DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC);
+
         if (dst && in6_addr_is_set(dst))
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
         adv.nd_ra_curhoplimit = ra->hop_limit;
         adv.nd_ra_flags_reserved = ra->flags;
-        adv.nd_ra_router_lifetime = htobe16(router_lifetime);
+        adv.nd_ra_router_lifetime = htobe16(lifetime_sec);
         iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2
@@ -274,7 +283,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
 
-        r = radv_send(ra, &src, ra->lifetime);
+        r = radv_send(ra, &src, ra->lifetime_usec);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", strnull(addr));
         else
@@ -294,11 +303,9 @@ static usec_t radv_compute_timeout(usec_t min, usec_t max) {
 }
 
 static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        int r;
+        usec_t min_timeout, max_timeout, time_now, timeout;
         sd_radv *ra = userdata;
-        usec_t min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
-        usec_t max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
-        usec_t time_now, timeout;
+        int r;
 
         assert(s);
         assert(ra);
@@ -308,7 +315,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         if (r < 0)
                 goto fail;
 
-        r = radv_send(ra, NULL, ra->lifetime);
+        r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
 
@@ -316,12 +323,15 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         if (ra->ra_sent < SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
                 max_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
                 min_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
+        } else {
+                max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
+                min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
         }
 
         /* RFC 4861, Section 6.2.1, lifetime must be at least MaxRtrAdvInterval,
            so lower the interval here */
-        if (ra->lifetime > 0 && (ra->lifetime * USEC_PER_SEC) < max_timeout) {
-                max_timeout = ra->lifetime * USEC_PER_SEC;
+        if (ra->lifetime_usec > 0 && ra->lifetime_usec < max_timeout) {
+                max_timeout = ra->lifetime_usec;
                 min_timeout = max_timeout / 3;
         }
 
@@ -487,7 +497,7 @@ _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         return 0;
 }
 
-_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint16_t router_lifetime) {
+_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != SD_RADV_STATE_IDLE)
@@ -495,11 +505,11 @@ _public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint16_t router_lifetime) 
 
         /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
          * to (00) by the sender..." */
-        if (router_lifetime == 0 &&
+        if (lifetime_usec == 0 &&
             (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
                 return -ETIME;
 
-        ra->lifetime = router_lifetime;
+        ra->lifetime_usec = lifetime_usec;
 
         return 0;
 }
@@ -535,7 +545,7 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 
         /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
          * to (00) by the sender..." */
-        if (ra->lifetime == 0 && preference != SD_NDISC_PREFERENCE_MEDIUM)
+        if (ra->lifetime_usec == 0 && preference != SD_NDISC_PREFERENCE_MEDIUM)
                 return -EINVAL;
 
         ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
@@ -595,7 +605,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
         if (ra->ra_sent > 0) {
-                r = radv_send(ra, NULL, ra->lifetime);
+                r = radv_send(ra, NULL, ra->lifetime_usec);
                 if (r < 0)
                         log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix: %m");
                 else
@@ -698,7 +708,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
         if (ra->ra_sent > 0) {
-                r = radv_send(ra, NULL, ra->lifetime);
+                r = radv_send(ra, NULL, ra->lifetime_usec);
                 if (r < 0)
                         log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix: %m");
                 else
