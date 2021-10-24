@@ -827,6 +827,7 @@ int udev_event_spawn(UdevEvent *event,
 static int rename_netif(UdevEvent *event) {
         sd_device *dev = event->dev;
         const char *oldname;
+        unsigned flags;
         int ifindex, r;
 
         if (!event->name)
@@ -851,6 +852,16 @@ static int rename_netif(UdevEvent *event) {
         if (naming_scheme_has(NAMING_REPLACE_STRICTLY) &&
             !ifname_valid(event->name)) {
                 log_device_warning(dev, "Invalid network interface name, ignoring: %s", event->name);
+                return 0;
+        }
+
+        r = rtnl_get_link_info(&event->rtnl, ifindex, NULL, &flags);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get link flags: %m");
+
+        if (FLAGS_SET(flags, IFF_UP)) {
+                log_device_info(dev, "Network interface '%s' is already up, refusing to rename to '%s'.",
+                                oldname, event->name);
                 return 0;
         }
 
