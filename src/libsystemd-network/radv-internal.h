@@ -105,8 +105,8 @@ struct sd_radv {
         uint8_t length;                         \
         uint8_t prefixlen;                      \
         uint8_t flags;                          \
-        be32_t valid_lifetime;                  \
-        be32_t preferred_lifetime;              \
+        be32_t lifetime_valid;                  \
+        be32_t lifetime_preferred;              \
         uint32_t reserved;                      \
         struct in6_addr in6_addr;               \
 }
@@ -131,6 +131,10 @@ struct sd_radv_prefix {
 
         LIST_FIELDS(struct sd_radv_prefix, prefix);
 
+        /* These are timespans, NOT points in time. */
+        usec_t lifetime_valid_usec;
+        usec_t lifetime_preferred_usec;
+        /* These are points in time specified with clock_boottime_or_monotonic(), NOT timespans. */
         usec_t valid_until;
         usec_t preferred_until;
 };
@@ -155,6 +159,11 @@ struct sd_radv_route_prefix {
         struct radv_route_prefix_opt opt;
 
         LIST_FIELDS(struct sd_radv_route_prefix, prefix);
+
+        /* This is a timespan, NOT a point in time. */
+        usec_t lifetime_usec;
+        /* This is a point in time specified with clock_boottime_or_monotonic(), NOT a timespan. */
+        usec_t valid_until;
 };
 
 #define log_radv_errno(radv, error, fmt, ...)           \
