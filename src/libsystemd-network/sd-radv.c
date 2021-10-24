@@ -293,7 +293,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static usec_t radv_compute_timeout(usec_t min, usec_t max) {
-        assert_return(min <= max, SD_RADV_DEFAULT_MIN_TIMEOUT_USEC);
+        assert_return(min <= max, RADV_DEFAULT_MIN_TIMEOUT_USEC);
 
         /* RFC 4861: min must be no less than 3s, max must be no less than 4s */
         min = MAX(min, 3*USEC_PER_SEC);
@@ -324,8 +324,8 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                 max_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
                 min_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
         } else {
-                max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
-                min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
+                max_timeout = RADV_DEFAULT_MAX_TIMEOUT_USEC;
+                min_timeout = RADV_DEFAULT_MIN_TIMEOUT_USEC;
         }
 
         /* RFC 4861, Section 6.2.1, lifetime must be at least MaxRtrAdvInterval,
