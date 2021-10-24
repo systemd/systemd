@@ -8,8 +8,10 @@
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING) {                                    \
                         const char *_n = NULL;                          \
+                        type *_v = (val);                               \
                                                                         \
-                        (void) type##_get_ifname(val, &_n);             \
+                        if (_v)                                         \
+                                (void) type##_get_ifname(_v, &_n);      \
                         log_interface_full_errno_zerook(                \
                                 _n, LOG_DEBUG, _e, prefix fmt,          \
                                 ##__VA_ARGS__);                         \
