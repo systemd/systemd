@@ -123,15 +123,15 @@ static void test_radv_prefix(void) {
         assert_se(sd_radv_prefix_set_address_autoconfiguration(p, true) >= 0);
         assert_se(sd_radv_prefix_set_address_autoconfiguration(p, false) >= 0);
 
-        assert_se(sd_radv_prefix_set_valid_lifetime(NULL, true) < 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, ~0) >= 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, 42) >= 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, 0) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(NULL, 1, 1) < 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 0, 0) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 300 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 300 * USEC_PER_SEC, USEC_PER_YEAR) >= 0);
 
-        assert_se(sd_radv_prefix_set_preferred_lifetime(NULL, true) < 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, ~0) >= 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 42) >= 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 0) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(NULL, 1, 1) < 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 0, 0) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 300 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 300 * USEC_PER_SEC, USEC_PER_YEAR) >= 0);
 
         assert_se(sd_radv_prefix_set_prefix(NULL, NULL, 0) < 0);
         assert_se(sd_radv_prefix_set_prefix(p, NULL, 0) < 0);
@@ -325,13 +325,14 @@ static void test_ra(void) {
 
                 assert_se(sd_radv_prefix_set_prefix(p, &prefix[i].address,
                                                     prefix[i].prefixlen) >= 0);
-                if (prefix[i].valid)
-                        assert_se(sd_radv_prefix_set_valid_lifetime(p, prefix[i].valid) >= 0);
-                if (prefix[i].preferred)
-                        assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred) >= 0);
+                if (prefix[i].valid > 0)
+                        assert_se(sd_radv_prefix_set_valid_lifetime(p, prefix[i].valid * USEC_PER_SEC, USEC_INFINITY) >= 0);
+                if (prefix[i].preferred > 0)
+                        assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred * USEC_PER_SEC, USEC_INFINITY) >= 0);
 
-                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].successful);
-                assert_se(sd_radv_add_prefix(ra, p, false) < 0);
+                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].successful);
+                /* If the previous sd_radv_add_prefix() succeeds, then also the second call should also succeed. */
+                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].successful);
 
                 p = sd_radv_prefix_unref(p);
                 assert_se(!p);

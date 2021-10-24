@@ -57,8 +57,8 @@ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec);
 int sd_radv_set_managed_information(sd_radv *ra, int managed);
 int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
-int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic);
-int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int dynamic);
+int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
+int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p);
 sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix,
                                       unsigned char prefixlen);
 int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
@@ -77,17 +77,15 @@ int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
 int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink);
 int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
                                                  int address_autoconfiguration);
-int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p,
-                                      uint32_t valid_lifetime);
-int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p,
-                                          uint32_t preferred_lifetime);
+int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until);
+int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until);
 
 int sd_radv_route_prefix_new(sd_radv_route_prefix **ret);
 sd_radv_route_prefix *sd_radv_route_prefix_ref(sd_radv_route_prefix *ra);
 sd_radv_route_prefix *sd_radv_route_prefix_unref(sd_radv_route_prefix *ra);
 
 int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
-int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint32_t valid_lifetime);
+int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint64_t lifetime_usec, uint64_t valid_until);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv, sd_radv_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_prefix, sd_radv_prefix_unref);

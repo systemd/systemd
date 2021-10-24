@@ -249,11 +249,11 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, usec_to_lifetime(prefix->preferred_lifetime));
+        r = sd_radv_prefix_set_preferred_lifetime(p, prefix->preferred_lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, usec_to_lifetime(prefix->valid_lifetime));
+        r = sd_radv_prefix_set_valid_lifetime(p, prefix->valid_lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
@@ -265,7 +265,7 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        return sd_radv_add_prefix(link->radv, p, false);
+        return sd_radv_add_prefix(link->radv, p);
 }
 
 static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
@@ -284,11 +284,11 @@ static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_route_prefix_set_lifetime(p, usec_to_lifetime(prefix->lifetime));
+        r = sd_radv_route_prefix_set_lifetime(p, prefix->lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
-        return sd_radv_add_route_prefix(link->radv, p, false);
+        return sd_radv_add_route_prefix(link->radv, p);
 }
 
 static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
@@ -654,15 +654,12 @@ int radv_add_prefix(
                 usec_t lifetime_valid_usec) {
 
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
-        usec_t now_usec;
         int r;
 
         assert(link);
 
         if (!link->radv)
                 return 0;
-
-        now_usec = now(clock_boottime_or_monotonic());
 
         r = sd_radv_prefix_new(&p);
         if (r < 0)
@@ -672,15 +669,15 @@ int radv_add_prefix(
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, usec_sub_unsigned(lifetime_preferred_usec, now_usec) / USEC_PER_SEC);
+        r = sd_radv_prefix_set_preferred_lifetime(p, lifetime_preferred_usec, lifetime_preferred_usec);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, usec_sub_unsigned(lifetime_valid_usec, now_usec) / USEC_PER_SEC);
+        r = sd_radv_prefix_set_valid_lifetime(p, lifetime_valid_usec, lifetime_valid_usec);
         if (r < 0)
                 return r;
 
-        r = sd_radv_add_prefix(link->radv, p, true);
+        r = sd_radv_add_prefix(link->radv, p);
         if (r < 0 && r != -EEXIST)
                 return r;
 
