@@ -25,6 +25,16 @@
  * Default: 0.33 * MaxRtrAdvInterval If MaxRtrAdvInterval >= 9 seconds; otherwise, the Default is
  * MaxRtrAdvInterval (Note, this should be a typo. We use 0.75 * MaxRtrAdvInterval). */
 #define RADV_DEFAULT_MIN_TIMEOUT_USEC             (RADV_DEFAULT_MAX_TIMEOUT_USEC / 3)
+/* RFC 4861 section 6.2.4.
+ * AdvDefaultLifetime
+ * The value to be placed in the Router Lifetime field of Router Advertisements sent from the interface,
+ * in seconds. MUST be either zero or between MaxRtrAdvInterval and 9000 seconds. A value of zero
+ * indicates that the router is not to be used as a default router. These limits may be overridden by
+ * specific documents that describe how IPv6 operates over different link layers. For instance, in a
+ * point-to-point link the peers may have enough information about the number and status of devices at
+ * the other end so that advertisements are needed less frequently.
+ * Default: 3 * MaxRtrAdvInterval */
+#define RADV_DEFAULT_ROUTER_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
 /* RFC 4861 section 10.
  * MAX_INITIAL_RTR_ADVERT_INTERVAL  16 seconds
  * MAX_INITIAL_RTR_ADVERTISEMENTS    3 transmissions
