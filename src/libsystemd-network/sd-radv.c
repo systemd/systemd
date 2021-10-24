@@ -824,8 +824,8 @@ _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
                 /* RFC 4861, Section 6.2.1 */
                 .opt.flags = ND_OPT_PI_FLAG_ONLINK|ND_OPT_PI_FLAG_AUTO,
 
-                .lifetime_valid_usec = 30 * USEC_PER_DAY,
-                .lifetime_preferred_usec = 7 * USEC_PER_DAY,
+                .lifetime_valid_usec = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
+                .lifetime_preferred_usec = SD_RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
                 .valid_until = USEC_INFINITY,
                 .preferred_until = USEC_INFINITY,
         };
@@ -917,7 +917,7 @@ _public_ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
                 .opt.length = DIV_ROUND_UP(sizeof(p->opt), 8),
                 .opt.prefixlen = 64,
 
-                .lifetime_usec = 7 * USEC_PER_DAY,
+                .lifetime_usec = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
                 .valid_until = USEC_INFINITY,
         };
 
