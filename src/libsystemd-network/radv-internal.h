@@ -34,6 +34,8 @@
  * point-to-point link the peers may have enough information about the number and status of devices at
  * the other end so that advertisements are needed less frequently.
  * Default: 3 * MaxRtrAdvInterval */
+#define RADV_MIN_ROUTER_LIFETIME_USEC             (4 * USEC_PER_SEC)
+#define RADV_MAX_ROUTER_LIFETIME_USEC             (9000 * USEC_PER_SEC)
 #define RADV_DEFAULT_ROUTER_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
 /* RFC 4861 section 10.
  * MAX_INITIAL_RTR_ADVERT_INTERVAL  16 seconds
