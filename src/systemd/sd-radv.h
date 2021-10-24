@@ -30,11 +30,6 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-#define SD_RADV_DEFAULT_MIN_TIMEOUT_USEC        (200*USEC_PER_SEC)
-#define SD_RADV_DEFAULT_MAX_TIMEOUT_USEC        (600*USEC_PER_SEC)
-
-#define SD_RADV_DEFAULT_DNS_LIFETIME_USEC       (3*SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
-
 typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
 typedef struct sd_radv_route_prefix sd_radv_route_prefix;
