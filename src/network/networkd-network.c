@@ -423,7 +423,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_timezone = true,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
-                .router_dns_lifetime_usec = 7 * USEC_PER_DAY,
+                .router_dns_lifetime_usec = RADV_DEFAULT_VALID_LIFETIME_USEC,
                 .router_emit_dns = true,
                 .router_emit_domains = true,
 
