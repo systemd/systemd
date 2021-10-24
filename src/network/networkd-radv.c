@@ -17,6 +17,7 @@
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "parse-util.h"
+#include "radv-internal.h"
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -104,8 +105,8 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .preferred_lifetime = 7 * USEC_PER_DAY,
-                .valid_lifetime = 30 * USEC_PER_DAY,
+                .preferred_lifetime = SD_RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                .valid_lifetime = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
                 .onlink = true,
                 .address_auto_configuration = true,
         };
@@ -162,7 +163,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .lifetime = 7 * USEC_PER_DAY,
+                .lifetime = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
         };
 
         r = hashmap_ensure_put(&network->route_prefixes_by_section, &network_config_hash_ops, prefix->section, prefix);
@@ -668,11 +669,11 @@ int radv_add_prefix(
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, lifetime_preferred_usec, lifetime_preferred_usec);
+        r = sd_radv_prefix_set_preferred_lifetime(p, SD_RADV_DEFAULT_PREFERRED_LIFETIME_USEC, lifetime_preferred_usec);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, lifetime_valid_usec, lifetime_valid_usec);
+        r = sd_radv_prefix_set_valid_lifetime(p, SD_RADV_DEFAULT_VALID_LIFETIME_USEC, lifetime_valid_usec);
         if (r < 0)
                 return r;
 
