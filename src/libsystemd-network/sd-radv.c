@@ -550,9 +550,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         usec_t time_now, valid, preferred, valid_until, preferred_until;
 
         assert_return(ra, -EINVAL);
-
-        if (!p)
-                return -EINVAL;
+        assert_return(p, -EINVAL);
 
         /* Refuse prefixes that don't have a prefix set */
         if (in6_addr_is_null(&p->opt.in6_addr))
@@ -666,9 +664,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         int r;
 
         assert_return(ra, -EINVAL);
-
-        if (!p)
-                return -EINVAL;
+        assert_return(p, -EINVAL);
 
         (void) in_addr_prefix_to_string(AF_INET6,
                                         (const union in_addr_union*) &p->opt.in6_addr,
