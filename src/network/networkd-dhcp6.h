@@ -29,7 +29,7 @@ int link_request_dhcp6_client(Link *link);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_prefix_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_client_start_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_subnet_id);
