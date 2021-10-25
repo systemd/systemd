@@ -1151,7 +1151,7 @@ int home_setup_luks(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_close_ int opened_image_fd = -1, root_fd = -1;
-        bool dm_activated = false, mounted = false;
+        bool dm_activated = false;
         size_t volume_key_size = 0;
         bool marked_dirty = false;
         uint64_t offset, size;
@@ -1332,7 +1332,7 @@ int home_setup_luks(
                 if (r < 0)
                         goto fail;
 
-                mounted = true;
+                setup->undo_mount = true;
 
                 root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (root_fd < 0) {
@@ -1364,7 +1364,6 @@ int home_setup_luks(
         setup->volume_key = TAKE_PTR(volume_key);
         setup->volume_key_size = volume_key_size;
 
-        setup->undo_mount = mounted;
         setup->undo_dm = dm_activated;
 
         if (ret_luks_home)
@@ -1373,8 +1372,7 @@ int home_setup_luks(
         return 0;
 
 fail:
-        if (mounted)
-                (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        home_setup_undo_mount(setup, LOG_ERR);
 
         if (dm_activated)
                 (void) sym_crypt_deactivate_by_name(cd, setup->dm_name, 0);
@@ -2000,7 +1998,7 @@ int home_create_luks(
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL, *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
         uint64_t encrypted_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
-        bool image_created = false, dm_activated = false, mounted = false;
+        bool image_created = false, dm_activated = false;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
@@ -2243,7 +2241,7 @@ int home_create_luks(
         if (r < 0)
                 goto fail;
 
-        mounted = true;
+        setup->undo_mount = true;
 
         subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
         if (!subdir) {
@@ -2305,11 +2303,9 @@ int home_create_luks(
 
         setup->root_fd = safe_close(setup->root_fd);
 
-        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        r = home_setup_undo_mount(setup, LOG_ERR);
         if (r < 0)
                 goto fail;
-
-        mounted = false;
 
         r = sym_crypt_deactivate_by_name(cd, dm_name, 0);
         if (r < 0) {
@@ -2373,9 +2369,7 @@ int home_create_luks(
 fail:
         /* Let's close all files before we unmount the file system, to avoid EBUSY */
         setup->root_fd = safe_close(setup->root_fd);
-
-        if (mounted)
-                (void) umount_verbose(LOG_WARNING, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        (void) home_setup_undo_mount(setup, LOG_WARNING);
 
         if (dm_activated)
                 (void) sym_crypt_deactivate_by_name(cd, dm_name, 0);
@@ -2477,11 +2471,10 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         }
 
         if (setup->undo_mount) {
-                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+                r = home_setup_undo_mount(setup, LOG_ERR);
                 if (r < 0)
                         return r;
 
-                setup->undo_mount = false;
                 re_mount = true;
         }
 
