@@ -68,8 +68,9 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
 static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
         return manager_drop_routing_policy_rules_internal(m, true, NULL);
 }
-static inline int manager_drop_routing_policy_rules(Manager *m, const Link *except) {
-        return manager_drop_routing_policy_rules_internal(m, false, except);
+static inline int link_drop_routing_policy_rules(Link *link) {
+        assert(link);
+        return manager_drop_routing_policy_rules_internal(link->manager, false, link);
 }
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
