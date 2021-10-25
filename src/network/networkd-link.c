@@ -1042,7 +1042,7 @@ static int link_drop_config(Link *link) {
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = manager_drop_routing_policy_rules(link->manager, link);
+        k = link_drop_routing_policy_rules(link);
         if (k < 0 && r >= 0)
                 r = k;
 
