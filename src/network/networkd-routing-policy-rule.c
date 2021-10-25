@@ -619,10 +619,9 @@ static int routing_policy_rule_configure(
         return r;
 }
 
-int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
+static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
         RoutingPolicyRule *rule;
         Link *link;
-        int k, r;
 
         assert(m);
 
@@ -671,9 +670,16 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                         }
                 }
         }
+}
 
-        /* Finally, remove all marked rules. */
-        r = 0;
+int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
+        RoutingPolicyRule *rule;
+        int k, r = 0;
+
+        assert(m);
+
+        manager_mark_routing_policy_rules(m, foreign, except);
+
         SET_FOREACH(rule, m->rules) {
                 if (!routing_policy_rule_is_marked(rule))
                         continue;
@@ -684,6 +690,22 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
         }
 
         return r;
+}
+
+void link_foreignize_routing_policy_rules(Link *link) {
+        RoutingPolicyRule *rule;
+
+        assert(link);
+        assert(link->manager);
+
+        manager_mark_routing_policy_rules(link->manager, /* foreign = */ false, link);
+
+        SET_FOREACH(rule, link->manager->rules) {
+                if (!routing_policy_rule_is_marked(rule))
+                        continue;
+
+                rule->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+        }
 }
 
 static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {

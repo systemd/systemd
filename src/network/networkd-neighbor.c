@@ -437,6 +437,15 @@ int link_drop_neighbors(Link *link) {
         return r;
 }
 
+void link_foreignize_neighbors(Link *link) {
+        Neighbor *neighbor;
+
+        assert(link);
+
+        SET_FOREACH(neighbor, link->neighbors)
+                neighbor->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+}
+
 int request_process_neighbor(Request *req) {
         int r;
 

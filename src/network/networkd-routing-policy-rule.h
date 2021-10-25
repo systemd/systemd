@@ -72,6 +72,7 @@ static inline int link_drop_routing_policy_rules(Link *link) {
         assert(link);
         return manager_drop_routing_policy_rules_internal(link->manager, false, link);
 }
+void link_foreignize_routing_policy_rules(Link *link);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 

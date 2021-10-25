@@ -85,6 +85,7 @@ bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_un
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
+void link_foreignize_routes(Link *link);
 
 void route_cancel_request(Route *route);
 int link_request_route(

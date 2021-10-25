@@ -42,6 +42,7 @@ void network_drop_invalid_neighbors(Network *network);
 
 int link_drop_neighbors(Link *link);
 int link_drop_foreign_neighbors(Link *link);
+void link_foreignize_neighbors(Link *link);
 
 int link_request_static_neighbors(Link *link);
 int request_process_neighbor(Request *req);

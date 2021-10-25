@@ -1037,10 +1037,10 @@ int route_remove(Route *route) {
         return 0;
 }
 
-static int manager_drop_routes(Manager *manager, bool foreign, const Link *except) {
+static void manager_mark_routes(Manager *manager, bool foreign, const Link *except) {
         Route *route;
         Link *link;
-        int k, r;
+        int r;
 
         assert(manager);
 
@@ -1090,9 +1090,14 @@ static int manager_drop_routes(Manager *manager, bool foreign, const Link *excep
                                         route_unmark(existing);
                 }
         }
+}
 
-        /* Finally, remove all marked routes. */
-        r = 0;
+static int manager_drop_routes(Manager *manager) {
+        Route *route;
+        int k, r = 0;
+
+        assert(manager);
+
         SET_FOREACH(route, manager->routes) {
                 if (!route_is_marked(route))
                         continue;
@@ -1182,7 +1187,9 @@ int link_drop_foreign_routes(Link *link) {
                         r = k;
         }
 
-        k = manager_drop_routes(link->manager, /* foreign = */ true, NULL);
+        manager_mark_routes(link->manager, /* foreign = */ true, NULL);
+
+        k = manager_drop_routes(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -1208,11 +1215,31 @@ int link_drop_routes(Link *link) {
                         r = k;
         }
 
-        k = manager_drop_routes(link->manager, /* foreign = */ false, link);
+        manager_mark_routes(link->manager, /* foreign = */ false, link);
+
+        k = manager_drop_routes(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
         return r;
+}
+
+void link_foreignize_routes(Link *link) {
+        Route *route;
+
+        assert(link);
+
+        SET_FOREACH(route, link->routes)
+                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+
+        manager_mark_routes(link->manager, /* foreign = */ false, link);
+
+        SET_FOREACH(route, link->manager->routes) {
+                if (!route_is_marked(route))
+                        continue;
+
+                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+        }
 }
 
 static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
