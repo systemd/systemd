@@ -910,6 +910,15 @@ int link_drop_addresses(Link *link) {
         return r;
 }
 
+void link_foreignize_addresses(Link *link) {
+        Address *address;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses)
+                address->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+}
+
 static int address_acquire(Link *link, const Address *original, Address **ret) {
         _cleanup_(address_freep) Address *na = NULL;
         union in_addr_union in_addr;
