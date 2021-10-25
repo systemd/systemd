@@ -60,6 +60,8 @@ int readdir_all(int dir_fd,
                 if (n == 0)
                         break;
 
+                msan_unpoison((uint8_t*) de->buffer + de->buffer_size, n);
+
                 de->buffer_size += n;
 
                 if (de->buffer_size < bs - DIRENT_SIZE_MAX) /* Still room for one more entry, then try to
