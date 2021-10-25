@@ -1316,8 +1316,19 @@ check_coverage_reports() {
 
     # Create a coverage report that will later be uploaded. Remove info about
     # system libraries/headers, as we don't really care about them.
-    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}"
-    lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
+    if [[ -f "$dest" ]]; then
+        # If the destination report file already exists, don't overwrite it, but
+        # dump the new report in a temporary file and then merge it with the already
+        # present one - this usually happens when running both "parts" of a test
+        # in one run (the qemu and the nspawn part).
+        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+        lcov --remove "${dest}.new" -o "${dest}.new" '/usr/include/*' '/usr/lib/*'
+        lcov --add-tracefile "${dest}" --add-tracefile "${dest}.new" -o "${dest}"
+        rm -f "${dest}.new"
+    else
+        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}"
+        lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
+    fi
 
     return 0
 }
