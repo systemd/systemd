@@ -6,8 +6,10 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "time-util.h"
@@ -89,7 +91,7 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *latest_mtime);      /* input/output, possibly NULL */
+                struct stat *ret_stat);     /* possibly NULL */
 
 int config_parse_many_nulstr(
                 const char *conf_file,      /* possibly NULL */
@@ -99,7 +101,7 @@ int config_parse_many_nulstr(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
 
 int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */
@@ -110,7 +112,7 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
