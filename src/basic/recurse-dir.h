@@ -71,7 +71,7 @@ typedef struct DirectoryEntries {
         size_t n_entries;
         struct dirent** entries;
         size_t buffer_size;
-        uint8_t buffer[] _alignas_(struct dirent);
+        struct dirent buffer[];
 } DirectoryEntries;
 
 int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
