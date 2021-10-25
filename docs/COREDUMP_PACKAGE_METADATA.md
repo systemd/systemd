@@ -60,7 +60,8 @@ Value: a JSON string with the structure described below
      "os":"fedora",
      "osVersion":"33",
      "name":"coreutils",
-     "version": "4711.0815.fc13.arm32",
+     "version":"4711.0815.fc13",
+     "architecture":"arm32",
      "osCpe": "cpe:/o:fedoraproject:fedora:33",          # A CPE name for the operating system, `CPE_NAME` from os-release is a good default
      "debugInfoUrl": "https://debuginfod.fedoraproject.org/"
 }
@@ -72,15 +73,15 @@ and can be used to generate a linker script, which can then be used at build tim
 
 Generator:
 ```console
-$ ./generate-package-notes.py --rpm systemd-248~rc2-1.fc34
+$ ./generate-package-notes.py --rpm systemd-248~rc2-1.fc33.arm32 --cpe cpe:/o:fedoraproject:fedora:33
 SECTIONS
 {
-    .note.package : ALIGN(4) {
+    .note.package (READONLY) : ALIGN(4) {
         BYTE(0x04) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Owner including NUL */
-        BYTE(0x64) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Value including NUL */
+        BYTE(0x7b) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Value including NUL */
         BYTE(0x7e) BYTE(0x1a) BYTE(0xfe) BYTE(0xca) /* Note ID */
         BYTE(0x46) BYTE(0x44) BYTE(0x4f) BYTE(0x00) /* Owner: 'FDO\x00' */
-        BYTE(0x7b) BYTE(0x22) BYTE(0x74) BYTE(0x79) /* Value: '{"type":"rpm","name":"systemd","version":"248~rc2-1.fc34","osCpe":"cpe:/o:fedoraproject:fedora:33"}\x00' */
+        BYTE(0x7b) BYTE(0x22) BYTE(0x74) BYTE(0x79) /* Value: '{"type":"rpm","name":"systemd","version":"248~rc2-1.fc33","architecture":"arm32","osCpe":"cpe:/o:fedoraproject:fedora:33"}\x00\x00' */
         BYTE(0x70) BYTE(0x65) BYTE(0x22) BYTE(0x3a)
         BYTE(0x22) BYTE(0x72) BYTE(0x70) BYTE(0x6d)
         BYTE(0x22) BYTE(0x2c) BYTE(0x22) BYTE(0x6e)
@@ -93,18 +94,24 @@ SECTIONS
         BYTE(0x3a) BYTE(0x22) BYTE(0x32) BYTE(0x34)
         BYTE(0x38) BYTE(0x7e) BYTE(0x72) BYTE(0x63)
         BYTE(0x32) BYTE(0x2d) BYTE(0x31) BYTE(0x2e)
-        BYTE(0x66) BYTE(0x63) BYTE(0x33) BYTE(0x34)
-        BYTE(0x22) BYTE(0x2c) BYTE(0x22) BYTE(0x6f)
-        BYTE(0x73) BYTE(0x43) BYTE(0x70) BYTE(0x65)
-        BYTE(0x22) BYTE(0x3a) BYTE(0x22) BYTE(0x63)
-        BYTE(0x70) BYTE(0x65) BYTE(0x3a) BYTE(0x2f)
-        BYTE(0x6f) BYTE(0x3a) BYTE(0x66) BYTE(0x65)
-        BYTE(0x64) BYTE(0x6f) BYTE(0x72) BYTE(0x61)
-        BYTE(0x70) BYTE(0x72) BYTE(0x6f) BYTE(0x6a)
-        BYTE(0x65) BYTE(0x63) BYTE(0x74) BYTE(0x3a)
-        BYTE(0x66) BYTE(0x65) BYTE(0x64) BYTE(0x6f)
-        BYTE(0x72) BYTE(0x61) BYTE(0x3a) BYTE(0x33)
-        BYTE(0x33) BYTE(0x22) BYTE(0x7d) BYTE(0x00)
+        BYTE(0x66) BYTE(0x63) BYTE(0x33) BYTE(0x33)
+        BYTE(0x22) BYTE(0x2c) BYTE(0x22) BYTE(0x61)
+        BYTE(0x72) BYTE(0x63) BYTE(0x68) BYTE(0x69)
+        BYTE(0x74) BYTE(0x65) BYTE(0x63) BYTE(0x74)
+        BYTE(0x75) BYTE(0x72) BYTE(0x65) BYTE(0x22)
+        BYTE(0x3a) BYTE(0x22) BYTE(0x61) BYTE(0x72)
+        BYTE(0x6d) BYTE(0x33) BYTE(0x32) BYTE(0x22)
+        BYTE(0x2c) BYTE(0x22) BYTE(0x6f) BYTE(0x73)
+        BYTE(0x43) BYTE(0x70) BYTE(0x65) BYTE(0x22)
+        BYTE(0x3a) BYTE(0x22) BYTE(0x63) BYTE(0x70)
+        BYTE(0x65) BYTE(0x3a) BYTE(0x2f) BYTE(0x6f)
+        BYTE(0x3a) BYTE(0x66) BYTE(0x65) BYTE(0x64)
+        BYTE(0x6f) BYTE(0x72) BYTE(0x61) BYTE(0x70)
+        BYTE(0x72) BYTE(0x6f) BYTE(0x6a) BYTE(0x65)
+        BYTE(0x63) BYTE(0x74) BYTE(0x3a) BYTE(0x66)
+        BYTE(0x65) BYTE(0x64) BYTE(0x6f) BYTE(0x72)
+        BYTE(0x61) BYTE(0x3a) BYTE(0x33) BYTE(0x33)
+        BYTE(0x22) BYTE(0x7d) BYTE(0x00) BYTE(0x00)
     }
 }
 INSERT AFTER .note.gnu.build-id;
@@ -121,6 +128,7 @@ A set of well-known keys is defined here, and hopefully shared among all vendors
 | os           | The OS name, typically corresponding to ID in os-release                 | fedora                                |
 | osVersion    | The OS version, typically corresponding to VERSION_ID in os-release      | 33                                    |
 | name         | The source package name                                                  | coreutils                             |
-| version      | The source package version                                               | 4711.0815.fc13.arm32                  |
+| version      | The source package version                                               | 4711.0815.fc13                        |
+| architecture | The binary package architecture                                          | arm32                                 |
 | osCpe        | A CPE name for the OS, typically corresponding to CPE_NAME in os-release | cpe:/o:fedoraproject:fedora:33        |
 | debugInfoUrl | The debuginfod server url, if available                                  | https://debuginfod.fedoraproject.org/ |
