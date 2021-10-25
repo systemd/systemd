@@ -72,7 +72,7 @@ struct Network {
 
         char *name;
         char *filename;
-        usec_t timestamp;
+        Hashmap *stats_by_path;
         char *description;
 
         /* [Match] section */

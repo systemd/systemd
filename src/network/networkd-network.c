@@ -532,7 +532,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         config_item_perf_lookup, network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
-                        &network->timestamp);
+                        &network->stats_by_path);
         if (r < 0)
                 return r;
 
@@ -582,6 +582,28 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         return 0;
 }
 
+static bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
+        struct stat *st_a, *st_b;
+        const char *path;
+
+        assert(a);
+        assert(b);
+
+        if (hashmap_size(a) != hashmap_size(b))
+                return false;
+
+        HASHMAP_FOREACH_KEY(st_a, path, a) {
+                st_b = hashmap_get(b, path);
+                if (!st_b)
+                        return false;
+
+                if (!stat_inode_unmodified(st_a, st_b))
+                        return false;
+        }
+
+        return true;
+}
+
 int network_reload(Manager *manager) {
         OrderedHashmap *new_networks = NULL;
         Network *n, *old;
@@ -595,14 +617,15 @@ int network_reload(Manager *manager) {
 
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
-                if (r < 0)
-                        continue; /* The .network file is new. */
-
-                if (n->timestamp != old->timestamp)
-                        continue; /* The .network file is modified. */
-
-                if (!streq(n->filename, old->filename))
+                if (r < 0) {
+                        log_debug("Found new .network file: %s", n->filename);
                         continue;
+                }
+
+                if (!stats_by_path_equal(n->stats_by_path, old->stats_by_path)) {
+                        log_debug("Found updated .network file: %s", n->filename);
+                        continue;
+                }
 
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
@@ -628,6 +651,7 @@ static Network *network_free(Network *network) {
                 return NULL;
 
         free(network->filename);
+        hashmap_free(network->stats_by_path);
 
         net_match_clear(&network->match);
         condition_free_list(network->conditions);

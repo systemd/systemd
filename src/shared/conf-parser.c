@@ -264,20 +264,17 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *latest_mtime) {
+                struct stat *ret_stat) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
+        struct stat st;
         int r, fd;
-        usec_t mtime;
 
         assert(filename);
         assert(lookup);
-
-        /* latest_mtime is an input-output parameter: it will be updated if the mtime of the file we're
-         * looking at is later than the current *latest_mtime value. */
 
         if (!f) {
                 f = ours = fopen(filename, "re");
@@ -287,22 +284,28 @@ int config_parse(
                         if ((flags & CONFIG_PARSE_WARN) || errno == ENOENT)
                                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
                                                "Failed to open configuration file '%s': %m", filename);
-                        return errno == ENOENT ? 0 : -errno;
+
+                        if (errno == ENOENT) {
+                                if (ret_stat)
+                                        *ret_stat = (struct stat) {};
+
+                                return 0;
+                        }
+
+                        return -errno;
                 }
         }
 
         fd = fileno(f);
         if (fd >= 0) { /* stream might not have an fd, let's be careful hence */
-                struct stat st;
 
                 if (fstat(fd, &st) < 0)
                         return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_ERR : LOG_DEBUG, errno,
                                               "Failed to fstat(%s): %m", filename);
 
                 (void) stat_warn_permissions(filename, &st);
-                mtime = timespec_load(&st.st_mtim);
         } else
-                mtime = 0;
+                st = (struct stat) {};
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
@@ -422,10 +425,41 @@ int config_parse(
                 }
         }
 
-        if (latest_mtime)
-                *latest_mtime = MAX(*latest_mtime, mtime);
+        if (ret_stat)
+                *ret_stat = st;
 
         return 1;
+}
+
+static int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st) {
+        _cleanup_free_ struct stat *st_copy = NULL;
+        _cleanup_free_ char *path_copy = NULL;
+        int r;
+
+        assert(stats_by_path);
+        assert(path);
+        assert(st);
+
+        r = hashmap_ensure_allocated(stats_by_path, &path_hash_ops_free_free);
+        if (r < 0)
+                return r;
+
+        st_copy = newdup(struct stat, st, 1);
+        if (!st_copy)
+                return -ENOMEM;
+
+        path_copy = strdup(path);
+        if (!path)
+                return -ENOMEM;
+
+        r = hashmap_put(*stats_by_path, path_copy, st_copy);
+        if (r < 0)
+                return r;
+
+        assert(r > 0);
+        TAKE_PTR(path_copy);
+        TAKE_PTR(st_copy);
+        return 0;
 }
 
 static int config_parse_many_files(
@@ -436,30 +470,53 @@ static int config_parse_many_files(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime) {
+                Hashmap **ret_stats_by_path) {
 
-        usec_t mtime = 0;
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        struct stat st;
         char **fn;
         int r;
 
+        if (ret_stats_by_path) {
+                stats_by_path = hashmap_new(&path_hash_ops_free_free);
+                if (!stats_by_path)
+                        return -ENOMEM;
+        }
+
         /* First read the first found main config file. */
         STRV_FOREACH(fn, (char**) conf_files) {
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        break;
+                if (r == 0)
+                        continue;
+
+                if (ret_stats_by_path) {
+                        r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                        if (r < 0)
+                                return r;
+                }
+
+                break;
         }
 
         /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
+
+                if (ret_stats_by_path) {
+                        r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        if (ret_mtime)
-                *ret_mtime = mtime;
+        if (ret_stats_by_path)
+                *ret_stats_by_path = TAKE_PTR(stats_by_path);
 
         return 0;
 }
@@ -473,7 +530,7 @@ int config_parse_many_nulstr(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime) {
+                Hashmap **ret_stats_by_path) {
 
         _cleanup_strv_free_ char **files = NULL;
         int r;
@@ -484,7 +541,7 @@ int config_parse_many_nulstr(
 
         return config_parse_many_files(STRV_MAKE_CONST(conf_file),
                                        files, sections, lookup, table, flags, userdata,
-                                       ret_mtime);
+                                       ret_stats_by_path);
 }
 
 /* Parse each config file in the directories specified as strv. */
@@ -497,7 +554,7 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime) {
+                Hashmap **ret_stats_by_path) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
         _cleanup_strv_free_ char **files = NULL;
@@ -513,7 +570,7 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
