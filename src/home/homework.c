@@ -1279,7 +1279,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_create_luks(h, &cache, effective_passwords, &new_home);
+                r = home_create_luks(h, &setup, &cache, effective_passwords, &new_home);
                 break;
 
         case USER_DIRECTORY:

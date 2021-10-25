@@ -13,7 +13,7 @@ int home_trim_luks(UserRecord *h);
 
 int home_store_header_identity_luks(UserRecord *h, HomeSetup *setup, UserRecord *old_home);
 
-int home_create_luks(UserRecord *h, const PasswordCache *cache, char **effective_passwords, UserRecord **ret_home);
+int home_create_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords, UserRecord **ret_home);
 
 int home_get_state_luks(UserRecord *h, HomeSetup *setup);
 

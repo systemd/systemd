@@ -1992,6 +1992,7 @@ static int home_truncate(
 
 int home_create_luks(
                 UserRecord *h,
+                HomeSetup *setup,
                 const PasswordCache *cache,
                 char **effective_passwords,
                 UserRecord **ret_home) {
@@ -2004,13 +2005,14 @@ int home_create_luks(
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int image_fd = -1, root_fd = -1;
+        _cleanup_close_ int image_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
+        assert(setup);
         assert(ret_home);
 
         r = dlopen_cryptsetup();
@@ -2256,17 +2258,17 @@ int home_create_luks(
                 goto fail;
         }
 
-        root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0) {
+        setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0) {
                 r = log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
                 goto fail;
         }
 
-        r = home_populate(h, root_fd);
+        r = home_populate(h, setup->root_fd);
         if (r < 0)
                 goto fail;
 
-        r = home_sync_and_statfs(root_fd, &sfs);
+        r = home_sync_and_statfs(setup->root_fd, &sfs);
         if (r < 0)
                 goto fail;
 
@@ -2296,12 +2298,12 @@ int home_create_luks(
         }
 
         if (user_record_luks_offline_discard(h)) {
-                r = run_fitrim(root_fd);
+                r = run_fitrim(setup->root_fd);
                 if (r < 0)
                         goto fail;
         }
 
-        root_fd = safe_close(root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
         if (r < 0)
@@ -2370,7 +2372,7 @@ int home_create_luks(
 
 fail:
         /* Let's close all files before we unmount the file system, to avoid EBUSY */
-        root_fd = safe_close(root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         if (mounted)
                 (void) umount_verbose(LOG_WARNING, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
