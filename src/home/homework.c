@@ -314,6 +314,32 @@ int home_setup_undo_mount(HomeSetup *setup, int level) {
         return 1;
 }
 
+int home_setup_undo_dm(HomeSetup *setup, int level) {
+        int r, ret;
+
+        assert(setup);
+
+        if (setup->undo_dm) {
+                assert(setup->crypt_device);
+                assert(setup->dm_name);
+
+                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to deactivate LUKS device: %m");
+
+                setup->undo_dm = false;
+                ret = 1;
+        } else
+                ret = 0;
+
+        if (setup->crypt_device) {
+                sym_crypt_free(setup->crypt_device);
+                setup->crypt_device = NULL;
+        }
+
+        return ret;
+}
+
 int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
@@ -336,11 +362,9 @@ int home_setup_done(HomeSetup *setup) {
         if (q < 0)
                 r = q;
 
-        if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
-                q = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_dm(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
@@ -368,10 +392,6 @@ int home_setup_done(HomeSetup *setup) {
         setup->dm_node = mfree(setup->dm_node);
 
         setup->loop = loop_device_unref(setup->loop);
-        if (setup->crypt_device) {
-                sym_crypt_free(setup->crypt_device);
-                setup->crypt_device = NULL;
-        }
 
         setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
