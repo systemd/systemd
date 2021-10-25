@@ -113,14 +113,16 @@ int unit_load_dropin(Unit *u) {
         }
 
         u->dropin_mtime = 0;
-        STRV_FOREACH(f, u->dropin_paths)
-                (void) config_parse(
-                                u->id, *f, NULL,
-                                UNIT_VTABLE(u)->sections,
-                                config_item_perf_lookup, load_fragment_gperf_lookup,
-                                0,
-                                u,
-                                &u->dropin_mtime);
+        STRV_FOREACH(f, u->dropin_paths) {
+                struct stat st;
+
+                r = config_parse(u->id, *f, NULL,
+                                 UNIT_VTABLE(u)->sections,
+                                 config_item_perf_lookup, load_fragment_gperf_lookup,
+                                 0, u, &st);
+                if (r > 0)
+                        u->dropin_mtime = MAX(u->dropin_mtime, timespec_load(&st.st_mtim));
+        }
 
         return 0;
 }
