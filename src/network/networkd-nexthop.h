@@ -45,6 +45,7 @@ void network_drop_invalid_nexthops(Network *network);
 
 int link_drop_nexthops(Link *link);
 int link_drop_foreign_nexthops(Link *link);
+void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 int request_process_nexthop(Request *req);

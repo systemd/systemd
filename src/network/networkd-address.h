@@ -75,6 +75,7 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
+void link_foreignize_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
 int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
 int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
