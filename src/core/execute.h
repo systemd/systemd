@@ -132,9 +132,15 @@ typedef enum ExecDirectoryType {
         _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
+typedef struct ExecDirectoryItem {
+        char *path;
+        char **symlinks;
+} ExecDirectoryItem;
+
 typedef struct ExecDirectory {
-        char **paths;
         mode_t mode;
+        size_t n_items;
+        ExecDirectoryItem *items;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
@@ -479,6 +485,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
 ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 
+void exec_directory_done(ExecDirectory *d);
+int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks);
+
 extern const struct hash_ops exec_set_credential_hash_ops;
 extern const struct hash_ops exec_load_credential_hash_ops;
 
@@ -499,6 +508,9 @@ ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
+
+const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
