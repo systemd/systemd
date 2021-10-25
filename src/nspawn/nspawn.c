@@ -3410,7 +3410,7 @@ static int inner_child(
                 if (r < 0)
                         log_debug_errno(r, "Failed to install sync() suppression seccomp filter, ignoring: %m");
 #else
-                log_debug("systemd is built without SECCOMP support. Ignoring --suppress-sync= command line option and SuppressSync= setting.")
+                log_debug("systemd is built without SECCOMP support. Ignoring --suppress-sync= command line option and SuppressSync= setting.");
 #endif
         }
 
