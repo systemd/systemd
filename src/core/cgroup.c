@@ -3043,12 +3043,15 @@ int unit_check_oom(Unit *u) {
                 return 0;
 
         r = cg_get_keyed_attribute("memory", u->cgroup_path, "memory.events", STRV_MAKE("oom_kill"), &oom_kill);
-        if (r < 0)
+        if (IN_SET(r, -ENOENT, -ENXIO)) /* Handle gracefully if cgroup or oom_kill attribute don't exist */
+                c = 0;
+        else if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
-
-        r = safe_atou64(oom_kill, &c);
-        if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to parse oom_kill field: %m");
+        else {
+                r = safe_atou64(oom_kill, &c);
+                if (r < 0)
+                        return log_unit_debug_errno(u, r, "Failed to parse oom_kill field: %m");
+        }
 
         increased = c > u->oom_kill_last;
         u->oom_kill_last = c;
