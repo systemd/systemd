@@ -9,6 +9,7 @@
 #include "dns-domain.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -49,7 +50,7 @@ void network_adjust_radv(Network *network) {
         }
 }
 
-static bool link_radv_enabled(Link *link) {
+bool link_radv_enabled(Link *link) {
         assert(link);
 
         if (!link_ipv6ll_enabled(link))
@@ -596,7 +597,7 @@ int request_process_radv(Request *req) {
                 return log_link_warning_errno(link, r, "Failed to configure IPv6 Router Advertisement engine: %m");
 
         if (link_has_carrier(link)) {
-                r = sd_radv_start(link->radv);
+                r = radv_start(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to start IPv6 Router Advertisement engine: %m");
         }
@@ -623,6 +624,34 @@ int link_request_radv(Link *link) {
 
         log_link_debug(link, "Requested configuring of the IPv6 Router Advertisement engine.");
         return 0;
+}
+
+int radv_start(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link->radv)
+                return 0;
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        if (in6_addr_is_null(&link->ipv6ll_address))
+                return 0;
+
+        if (sd_radv_is_running(link->radv))
+                return 0;
+
+        if (link->network->dhcp6_pd_announce) {
+                r = dhcp6_request_prefix_delegation(link);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
+        }
+
+        log_link_debug(link, "Starting IPv6 Router Advertisements");
+        return sd_radv_start(link->radv);
 }
 
 int radv_add_prefix(
