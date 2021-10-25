@@ -2029,8 +2029,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotIn('deprecated', output)
 
-        # 2. restart networkd to reconfigure the interface.
-        restart_networkd()
+        # 2. reconfigure the interface.
+        check_output(*networkctl_cmd, 'reconfigure', 'dummy98', env=env)
         self.wait_online(['dummy98:routable'])
 
         # 3. check the deprecated flag is set for the address configured with PreferredLifetime=0
