@@ -5,7 +5,7 @@
 #include "homework.h"
 #include "user-record.h"
 
-int home_setup_luks(UserRecord *h, HomeSetupFlags flags, const char *force_image_path, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_luks_home);
+int home_setup_luks(UserRecord *h, HomeSetupFlags flags, const char *force_image_path, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_luks_home);
 
 int home_activate_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 int home_deactivate_luks(UserRecord *h, HomeSetup *setup);
@@ -17,7 +17,7 @@ int home_create_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 
 int home_get_state_luks(UserRecord *h, HomeSetup *setup);
 
-int home_resize_luks(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_home);
+int home_resize_luks(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 
 int home_passwd_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
 

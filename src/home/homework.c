@@ -407,8 +407,8 @@ int home_setup_done(HomeSetup *setup) {
 int home_setup(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_header_home) {
 
         int r;
@@ -429,7 +429,7 @@ int home_setup(
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_setup_luks(h, flags, NULL, cache, setup, ret_header_home);
+                return home_setup_luks(h, flags, NULL, setup, cache, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
@@ -437,7 +437,7 @@ int home_setup(
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, cache, setup);
+                r = home_setup_fscrypt(h, setup, cache);
                 break;
 
         case USER_CIFS:
@@ -1521,7 +1521,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1579,12 +1579,12 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, flags, &cache, &setup, ret);
+                return home_resize_luks(h, flags, &setup, &cache, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
-                return home_resize_directory(h, flags, &cache, &setup, ret);
+                return home_resize_directory(h, flags, &setup, &cache, ret);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Resizing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
@@ -1613,7 +1613,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1683,7 +1683,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
