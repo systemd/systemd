@@ -85,6 +85,7 @@ typedef struct JournalFile {
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
+        HashItem *trie_hash_table;
 
         uint64_t current_offset;
         uint64_t current_seqnum;
@@ -168,6 +169,7 @@ int journal_file_open_reliably(
 /* Use six characters to cover the offsets common in smallish journal
  * files without adding too many zeros. */
 #define OFSfmt "%06"PRIx64
+#define OFSfmt32 "%06"PRIx32
 
 static inline bool VALID_REALTIME(uint64_t u) {
         /* This considers timestamps until the year 3112 valid. That should be plenty room... */
