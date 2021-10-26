@@ -306,3 +306,10 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
                 VOID_0)
+
+#define UPDATE_FLAG(orig, flag, b)                      \
+        ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
+#define SET_FLAG(v, flag, b) \
+        (v) = UPDATE_FLAG(v, flag, b)
+#define FLAGS_SET(v, flags) \
+        ((~(v) & (flags)) == 0)
