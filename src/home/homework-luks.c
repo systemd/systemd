@@ -1989,7 +1989,6 @@ int home_create_luks(
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_close_ int image_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
@@ -1998,6 +1997,7 @@ int home_create_luks(
         assert(h->storage < 0 || h->storage == USER_LUKS);
         assert(setup);
         assert(!setup->temporary_image_path);
+        assert(setup->image_fd < 0);
         assert(ret_home);
 
         r = dlopen_cryptsetup();
@@ -2066,11 +2066,11 @@ int home_create_luks(
 
                 /* Let's place the home directory on a real device, i.e. an USB stick or such */
 
-                image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (image_fd < 0)
+                setup->image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (setup->image_fd < 0)
                         return log_error_errno(errno, "Failed to open device %s: %m", ip);
 
-                if (fstat(image_fd, &st) < 0)
+                if (fstat(setup->image_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat device %s: %m", ip);
                 if (!S_ISBLK(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
@@ -2083,10 +2083,10 @@ int home_create_luks(
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
 
-                if (flock(image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
+                if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
-                if (ioctl(image_fd, BLKGETSIZE64, &block_device_size) < 0)
+                if (ioctl(setup->image_fd, BLKGETSIZE64, &block_device_size) < 0)
                         return log_error_errno(errno, "Failed to read block device size: %m");
 
                 if (h->disk_size == UINT64_MAX) {
@@ -2116,7 +2116,7 @@ int home_create_luks(
                 if (user_record_luks_discard(h) || user_record_luks_offline_discard(h)) {
                         /* If we want online or offline discard, discard once before we start using things. */
 
-                        if (ioctl(image_fd, BLKDISCARD, (uint64_t[]) { 0, block_device_size }) < 0)
+                        if (ioctl(setup->image_fd, BLKDISCARD, (uint64_t[]) { 0, block_device_size }) < 0)
                                 log_full_errno(errno == EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, errno,
                                                "Failed to issue full-device BLKDISCARD on device, ignoring: %m");
                         else
@@ -2144,18 +2144,18 @@ int home_create_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive temporary file name for %s: %m", ip);
 
-                image_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-                if (image_fd < 0)
+                setup->image_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                if (setup->image_fd < 0)
                         return log_error_errno(errno, "Failed to create home image %s: %m", t);
 
                 setup->temporary_image_path = TAKE_PTR(t);
 
-                r = chattr_fd(image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                r = chattr_fd(setup->image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
-                r = home_truncate(h, image_fd, setup->temporary_image_path, host_size);
+                r = home_truncate(h, setup->image_fd, setup->temporary_image_path, host_size);
                 if (r < 0)
                         return r;
 
@@ -2163,7 +2163,7 @@ int home_create_luks(
         }
 
         r = make_partition_table(
-                        image_fd,
+                        setup->image_fd,
                         user_record_user_name_and_realm(h),
                         partition_uuid,
                         &partition_offset,
@@ -2174,7 +2174,7 @@ int home_create_luks(
 
         log_info("Writing of partition table completed.");
 
-        r = loop_device_make(image_fd, O_RDWR, partition_offset, partition_size, 0, &setup->loop);
+        r = loop_device_make(setup->image_fd, O_RDWR, partition_offset, partition_size, 0, &setup->loop);
         if (r < 0) {
                 if (r == -ENOENT) { /* this means /dev/loop-control doesn't exist, i.e. we are in a container
                                      * or similar and loopback bock devices are not available, return a
@@ -2285,27 +2285,27 @@ int home_create_luks(
         setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
-                r= run_fallocate(image_fd, NULL /* refresh stat() data */);
+                r= run_fallocate(setup->image_fd, NULL /* refresh stat() data */);
                 if (r < 0)
                         return r;
         }
 
         /* Sync everything to disk before we move things into place under the final name. */
-        if (fsync(image_fd) < 0)
+        if (fsync(setup->image_fd) < 0)
                 return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
-                (void) ioctl(image_fd, BLKRRPART, 0);
+                (void) ioctl(setup->image_fd, BLKRRPART, 0);
         else {
                 /* If we operate on a file, sync the containing directory too. */
-                r = fsync_directory_of_file(image_fd);
+                r = fsync_directory_of_file(setup->image_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
         }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
          * lock that ensures udev doesn't interfere with what we are doing */
-        image_fd = safe_close(image_fd);
+        setup->image_fd = safe_close(setup->image_fd);
 
         if (setup->temporary_image_path) {
                 if (rename(setup->temporary_image_path, ip) < 0)
