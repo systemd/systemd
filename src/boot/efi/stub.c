@@ -172,6 +172,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
+        _cleanup_freepool_ CHAR8 *cmdline_owned = NULL;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -204,18 +205,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
             *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
-                CHAR16 *options;
-                CHAR8 *line;
-
-                options = (CHAR16 *)loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
-                line = AllocatePool(cmdline_len);
-                if (!line)
+                cmdline = cmdline_owned = AllocatePool(cmdline_len);
+                if (!cmdline)
                         return log_oom();
 
                 for (UINTN i = 0; i < cmdline_len; i++)
-                        line[i] = options[i];
-                cmdline = line;
+                        cmdline[i] = ((CHAR16 *) loaded_image->LoadOptions)[i];
 
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
