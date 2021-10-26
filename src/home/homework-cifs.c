@@ -99,16 +99,18 @@ int home_setup_cifs(
                 exit_status = wait_for_terminate_and_check("mount", mount_pid, WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
                 if (exit_status < 0)
                         return exit_status;
-                if (exit_status != EXIT_SUCCESS)
-                        return -EPROTO;
+                if (exit_status == EXIT_SUCCESS) {
+                        setup->undo_mount = true;
+                        break;
+                }
 
-                setup->undo_mount = true;
-                break;
+                if (pw[1])
+                        log_info("CIFS mount failed with password #%zu, trying next password.", (size_t) (pw - h->password) + 1);
         }
 
         if (!setup->undo_mount)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                       "Failed to mount home directory with supplied password.");
+                                       "Failed to mount home directory, supplied password(s) possibly wrong.");
 
         /* Adjust MS_SUID and similar flags */
         r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
