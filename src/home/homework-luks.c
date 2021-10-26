@@ -1273,10 +1273,8 @@ int home_setup_luks(
                 log_info("Discovered used loopback device %s.", setup->loop->node);
 
                 setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (setup->root_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open home directory: %m");
-                        goto fail;
-                }
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
                 const char *ip;
@@ -1340,27 +1338,25 @@ int home_setup_luks(
 
                 r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = fs_validate(setup->dm_node, h->file_system_uuid, &fstype, &found_fs_uuid);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = run_fsck(setup->dm_node, fstype);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 setup->undo_mount = true;
 
                 setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (setup->root_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open home directory: %m");
-                        goto fail;
-                }
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
 
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
@@ -1380,16 +1376,6 @@ int home_setup_luks(
                 *ret_luks_home = TAKE_PTR(luks_home);
 
         return 0;
-
-fail:
-        setup->root_fd = safe_close(setup->root_fd);
-        home_setup_undo_mount(setup, LOG_ERR);
-        home_setup_undo_dm(setup, LOG_ERR);
-
-        if (setup->image_fd >= 0 && setup->do_mark_clean)
-                (void) run_mark_dirty(setup->image_fd, false);
-
-        return r;
 }
 
 static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, struct statfs *sfs) {
