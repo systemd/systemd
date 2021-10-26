@@ -36,6 +36,7 @@ SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="uaccess"
 # Webcams, frame grabber, TV cards
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
+SUBSYSTEM=="media", TAG+="uaccess"
 
 # IIDC devices: industrial cameras and some webcams
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*",  TAG+="uaccess"
