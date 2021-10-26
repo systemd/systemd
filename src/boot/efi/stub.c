@@ -154,7 +154,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 _SECTION_MAX,
         };
 
-        const CHAR8* const sections[] = {
+        static const CHAR8* const sections[_SECTION_MAX + 1] = {
                 [SECTION_CMDLINE] = (const CHAR8*) ".cmdline",
                 [SECTION_LINUX]   = (const CHAR8*) ".linux",
                 [SECTION_INITRD]  = (const CHAR8*) ".initrd",
@@ -187,8 +187,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
-        if (EFI_ERROR(err))
+        if (EFI_ERROR(err) || szs[SECTION_LINUX] == 0) {
+                if (!EFI_ERROR(err))
+                        err = EFI_NOT_FOUND;
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
+        }
 
         /* Show splash screen as early as possible */
         graphics_splash((const UINT8*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
