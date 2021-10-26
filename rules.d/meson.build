@@ -7,6 +7,7 @@ install_data(
 rules = files('''
         60-autosuspend.rules
         60-block.rules
+        60-camera.rules
         60-cdrom_id.rules
         60-drm.rules
         60-evdev.rules
