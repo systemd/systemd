@@ -359,6 +359,12 @@ int json_variant_new_real(JsonVariant **ret, long double d) {
         }
         REENABLE_WARNING;
 
+        /* JSON doesn't know NaN, +Infinity or -Infinity. Let's silently convert to 'null'. */
+        if (isnan(d) || isinf(d)) {
+                *ret = JSON_VARIANT_MAGIC_NULL;
+                return 0;
+        }
+
         r = json_variant_new(&v, JSON_VARIANT_REAL, sizeof(d));
         if (r < 0)
                 return r;
