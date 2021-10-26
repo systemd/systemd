@@ -2026,16 +2026,23 @@ static void config_entry_add_linux(
                 return;
 
         for (;;) {
+                enum {
+                        SECTION_CMDLINE,
+                        SECTION_OSREL,
+                        _SECTION_MAX,
+                };
+
+                static const CHAR8* const sections[_SECTION_MAX + 1] = {
+                        [SECTION_CMDLINE] = (const CHAR8 *) ".cmdline",
+                        [SECTION_OSREL]   = (const CHAR8 *) ".osrel",
+                        NULL,
+                };
+
                 _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
                         *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL, *os_image_version = NULL;
                 _cleanup_freepool_ CHAR8 *content = NULL;
-                const CHAR8 *sections[] = {
-                        (CHAR8 *)".osrel",
-                        (CHAR8 *)".cmdline",
-                        NULL
-                };
-                UINTN offs[ELEMENTSOF(sections)-1] = {};
-                UINTN szs[ELEMENTSOF(sections)-1] = {};
+                UINTN offs[_SECTION_MAX] = {};
+                UINTN szs[_SECTION_MAX] = {};
                 CHAR8 *line;
                 UINTN pos = 0;
                 CHAR8 *key, *value;
@@ -2054,11 +2061,11 @@ static void config_entry_add_linux(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (EFI_ERROR(err))
+                err = pe_file_locate_sections(linux_dir, f->FileName, (const CHAR8**) sections, offs, szs);
+                if (EFI_ERROR(err) || szs[SECTION_OSREL] == 0)
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[0], szs[0], &content, NULL);
+                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
                 if (EFI_ERROR(err))
                         continue;
 
@@ -2122,21 +2129,24 @@ static void config_entry_add_linux(
                                         path,
                                         os_image_version ?: (os_version ?: (os_version_id ? : os_build_id)));
 
+                        config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
+
+                        if (szs[SECTION_CMDLINE] == 0)
+                                continue;
+
                         FreePool(content);
                         content = NULL;
 
                         /* read the embedded cmdline file */
-                        err = file_read(linux_dir, f->FileName, offs[1], szs[1], &content, NULL);
+                        err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
                         if (!EFI_ERROR(err)) {
 
                                 /* chomp the newline */
-                                if (content[szs[1]-1] == '\n')
-                                        content[szs[1]-1] = '\0';
+                                if (content[szs[SECTION_CMDLINE] - 1] == '\n')
+                                        content[szs[SECTION_CMDLINE] - 1] = '\0';
 
                                 entry->options = stra_to_str(content);
                         }
-
-                        config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
                 }
         }
 }
