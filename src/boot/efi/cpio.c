@@ -375,7 +375,7 @@ EFI_STATUS pack_cpio(
 
                 if (dirent->FileName[0] == '.')
                         continue;
-                if (dirent->Attribute & EFI_FILE_DIRECTORY)
+                if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
                         continue;
                 if (match_suffix && !endswith_no_case(dirent->FileName, match_suffix))
                         continue;
