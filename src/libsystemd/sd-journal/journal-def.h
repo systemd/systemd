@@ -23,6 +23,7 @@ typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
+typedef struct TrieNodeObject TrieNodeObject;
 
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
@@ -39,6 +40,8 @@ typedef enum ObjectType {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
+        OBJECT_TRIE_NODE,
+        OBJECT_TRIE_HASH_TABLE,
         _OBJECT_TYPE_MAX
 } ObjectType;
 
@@ -105,8 +108,9 @@ struct EntryItem {
                         le32_t seqnum;           \
                         le32_t realtime;         \
                         le32_t monotonic;        \
+                        le32_t trie_offset;      \
                         le64_t xor_hash;         \
-                        EntryItem items[];       \
+                        uint8_t payload[];       \
                 } compact;                       \
         };                                       \
 }
@@ -143,6 +147,18 @@ struct TagObject {
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 } _packed_;
 
+#define TrieNodeObject__contents { \
+        ObjectHeader object;       \
+        le64_t hash;               \
+        le32_t parent_offset;      \
+        le32_t object_offset;      \
+        le64_t next_hash_offset;   \
+}
+
+struct TrieNodeObject TrieNodeObject__contents;
+struct TrieNodeObject__packed TrieNodeObject__contents _packed_;
+assert_cc(sizeof(struct TrieNodeObject) == sizeof(struct TrieNodeObject__packed));
+
 union Object {
         ObjectHeader object;
         DataObject data;
@@ -151,6 +167,7 @@ union Object {
         HashTableObject hash_table;
         EntryArrayObject entry_array;
         TagObject tag;
+        TrieNodeObject trie_node;
 };
 
 enum {
@@ -233,12 +250,16 @@ enum {
         le64_t field_hash_chain_depth;                  \
         /* Added in 252 */                              \
         le64_t head_entry_monotonic;                    \
+        le64_t trie_hash_table_offset;                  \
+        le64_t trie_hash_table_size;                    \
+        le64_t n_trie_nodes;                            \
+        le64_t trie_hash_chain_depth;                   \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 264);
+assert_cc(sizeof(struct Header) == 296);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
