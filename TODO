@@ -1279,8 +1279,6 @@ Features:
   - support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
   - maybe pre-create ~/.cache as subvol so that it can have separate quota
     easily?
-  - if kernel 5.12 uid mapping mounts exist, use that instead of recursive
-    chowns.
   - add a switch to homectl (maybe called --first-boot) where it will check if
     any non-system users exist, and if not prompts interactively for basic user
     info, mimicking systemd-firstboot. Then, place this in a service that runs
