@@ -159,7 +159,7 @@ int home_activate_cifs(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_setup(h, 0, cache, setup, &header_home);
+        r = home_setup(h, 0, setup, cache, &header_home);
         if (r < 0)
                 return r;
 

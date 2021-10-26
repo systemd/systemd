@@ -1168,8 +1168,8 @@ int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
                 const char *force_image_path,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
@@ -1446,8 +1446,8 @@ int home_activate_luks(
                         h,
                         0,
                         NULL,
-                        cache,
                         setup,
+                        cache,
                         &luks_home_record);
         if (r < 0)
                 return r;
@@ -2735,8 +2735,8 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
 int home_resize_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, new_partition_size;
@@ -2835,7 +2835,7 @@ int home_resize_luks(
                 new_image_size = new_image_size_rounded;
         }
 
-        r = home_setup_luks(h, flags, whole_disk, cache, setup, &header_home);
+        r = home_setup_luks(h, flags, whole_disk, setup, cache, &header_home);
         if (r < 0)
                 return r;
 

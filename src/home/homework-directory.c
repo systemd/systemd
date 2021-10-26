@@ -74,7 +74,7 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_setup(h, 0, cache, setup, &header_home);
+        r = home_setup(h, 0, setup, cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -259,8 +259,8 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
 int home_resize_directory(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
@@ -271,7 +271,7 @@ int home_resize_directory(
         assert(ret_home);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
 
-        r = home_setup(h, flags, cache, setup, NULL);
+        r = home_setup(h, flags, setup, cache, NULL);
         if (r < 0)
                 return r;
 
