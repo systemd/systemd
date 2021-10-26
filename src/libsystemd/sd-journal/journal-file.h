@@ -79,6 +79,7 @@ typedef struct JournalFile {
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
+        HashItem *trie_hash_table;
 
         uint64_t current_offset;
         uint64_t current_seqnum;
@@ -132,7 +133,10 @@ typedef enum JournalFileFlags {
  * that unlike EntryItem, this struct stores fields in Native-Endian instead of Little-Endian. */
 typedef struct {
         uint64_t object_offset;
+        /* The hash of the associated Data object. */
         uint64_t hash;
+        /* The hash used to calculate the Entry object's XOR hash field. */
+        uint64_t xor_hash;
 } EntryItemEx;
 
 int journal_file_open(
@@ -158,6 +162,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
 /* Use six characters to cover the offsets common in smallish journal
  * files without adding too many zeros. */
 #define OFSfmt "%06"PRIx64
+#define OFSfmt32 "%06"PRIx32
 
 static inline bool VALID_REALTIME(uint64_t u) {
         /* This considers timestamps until the year 3112 valid. That should be plenty room... */
@@ -229,16 +234,6 @@ static inline uint64_t journal_file_entry_xor_hash(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header)
                         ? le64toh(o->entry.compact.xor_hash)
                         : le64toh(o->entry.regular.xor_hash);
-}
-
-static inline EntryItem* journal_file_entry_items(JournalFile *f, Object *o) {
-        return JOURNAL_HEADER_COMPACT(f->header) ? o->entry.compact.items : o->entry.regular.items;
-}
-
-static inline size_t journal_file_entry_items_offset(JournalFile *f) {
-        return JOURNAL_HEADER_COMPACT(f->header)
-                        ? offsetof(Object, entry.compact.items)
-                        : offsetof(Object, entry.regular.items);
 }
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
