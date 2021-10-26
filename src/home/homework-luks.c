@@ -3161,15 +3161,9 @@ int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         log_info("Discovered used LUKS device %s.", setup->dm_node);
 
         assert_se(p = user_record_home_directory(h));
-
-        setup->root_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
-
-        if (syncfs(setup->root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
-                return log_error_errno(errno, "Failed to synchronize file system %s: %m", p);
-
-        setup->root_fd = safe_close(setup->root_fd);
+        r = syncfs_path(AT_FDCWD, p);
+        if (r < 0) /* Snake oil, but let's better be safe than sorry */
+                return log_error_errno(r, "Failed to synchronize file system %s: %m", p);
 
         log_info("File system synchronized.");
 
