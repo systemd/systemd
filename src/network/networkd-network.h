@@ -185,12 +185,10 @@ struct Network {
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
-        DHCP6ClientStartMode dhcp6_without_ra;
+        DHCP6ClientStartMode dhcp6_client_start_mode;
         OrderedHashmap *dhcp6_client_send_options;
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
-        /* Start DHCPv6 PD also when 'O' RA flag is set, see RFC 7084, WPD-4 */
-        bool dhcp6_force_pd_other_information;
 
         /* DHCP Server Support */
         bool dhcp_server;

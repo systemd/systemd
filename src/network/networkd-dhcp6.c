@@ -58,6 +58,25 @@ static int dhcp6_pd_resolve_uplink(Link *link, Link **ret) {
         return -ENOENT;
 }
 
+static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
+        Link *uplink;
+
+        assert(link);
+
+        if (!link->network)
+                return DHCP6_CLIENT_START_MODE_NO;
+
+        /* When WithoutRA= is explicitly specified, then honor it. */
+        if (link->network->dhcp6_client_start_mode >= 0)
+                return link->network->dhcp6_client_start_mode;
+
+        if (dhcp6_pd_resolve_uplink(link, &uplink) < 0)
+                return DHCP6_CLIENT_START_MODE_NO;
+
+        /* When this interface itself is an uplink interface, then start dhcp6 client in managed mode */
+        return uplink == link ? DHCP6_CLIENT_START_MODE_SOLICIT : DHCP6_CLIENT_START_MODE_NO;
+}
+
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         uint32_t lifetime_preferred_sec, lifetime_valid_sec;
         struct in6_addr pd_prefix;
@@ -1311,40 +1330,31 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         }
 }
 
-int dhcp6_request_information(Link *link, int ir) {
-        int r, inf_req, pd;
-        bool running;
+int dhcp6_start_on_ra(Link *link, bool information_request) {
+        int r;
 
         assert(link);
         assert(link->dhcp6_client);
         assert(link->network);
         assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
+        if (link_get_dhcp6_client_start_mode(link) != DHCP6_CLIENT_START_MODE_NO)
+                /* When WithoutRA= is specified, then the DHCPv6 client should be already runnging in
+                 * the requested mode. Hence, ignore the requests by RA. */
+                return 0;
+
         r = sd_dhcp6_client_is_running(link->dhcp6_client);
         if (r < 0)
                 return r;
-        running = r;
 
-        r = sd_dhcp6_client_get_prefix_delegation(link->dhcp6_client, &pd);
-        if (r < 0)
-                return r;
+        if (r > 0) {
+                int inf_req;
 
-        if (pd && ir && link->network->dhcp6_force_pd_other_information) {
-                log_link_debug(link, "Enabling managed mode to request DHCPv6 PD with 'Other Information' set");
-
-                r = sd_dhcp6_client_set_address_request(link->dhcp6_client, false);
-                if (r < 0)
-                        return r;
-
-                ir = false;
-        }
-
-        if (running) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
                 if (r < 0)
                         return r;
 
-                if (inf_req == ir)
+                if (inf_req == information_request)
                         return 0;
 
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
@@ -1356,7 +1366,7 @@ int dhcp6_request_information(Link *link, int ir) {
                         return r;
         }
 
-        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, ir);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client, information_request);
         if (r < 0)
                 return r;
 
@@ -1368,9 +1378,11 @@ int dhcp6_request_information(Link *link, int ir) {
 }
 
 int dhcp6_start(Link *link) {
+        DHCP6ClientStartMode start_mode;
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link->dhcp6_client)
                 return 0;
@@ -1381,7 +1393,7 @@ int dhcp6_start(Link *link) {
         if (!link_has_carrier(link))
                 return 0;
 
-        if (link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_NO)
+        if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
                 return 0;
 
         if (!in6_addr_is_link_local(&link->ipv6ll_address)) {
@@ -1389,10 +1401,20 @@ int dhcp6_start(Link *link) {
                 return 0;
         }
 
-        if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
+        r = sd_dhcp6_client_set_local_address(link->dhcp6_client, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
+
+        start_mode = link_get_dhcp6_client_start_mode(link);
+        if (start_mode == DHCP6_CLIENT_START_MODE_NO)
                 return 0;
 
-        r = dhcp6_request_information(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
+                                                    start_mode == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_start(link->dhcp6_client);
         if (r < 0)
                 return r;
 
