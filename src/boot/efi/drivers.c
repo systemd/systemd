@@ -103,7 +103,7 @@ EFI_STATUS load_drivers(
 
                 if (dirent->FileName[0] == '.')
                         continue;
-                if (dirent->Attribute & EFI_FILE_DIRECTORY)
+                if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
                         continue;
                 if (!endswith_no_case(dirent->FileName, EFI_MACHINE_TYPE_NAME L".efi"))
                         continue;

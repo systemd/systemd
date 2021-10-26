@@ -741,7 +741,7 @@ EFI_STATUS open_directory(
         err = get_file_info_harder(dir, &file_info, NULL);
         if (EFI_ERROR(err))
                 return err;
-        if (!(file_info->Attribute & EFI_FILE_DIRECTORY))
+        if (!FLAGS_SET(file_info->Attribute, EFI_FILE_DIRECTORY))
                 return EFI_LOAD_ERROR;
 
         *ret = TAKE_PTR(dir);
