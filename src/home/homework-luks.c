@@ -1483,11 +1483,15 @@ int home_activate_luks(
         return 1;
 }
 
-int home_deactivate_luks(UserRecord *h) {
+int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         bool we_detached;
         int r;
+
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
 
         /* Note that the DM device and loopback device are set to auto-detach, hence strictly speaking we
          * don't have to explicitly have to detach them. However, we do that nonetheless (in case of the DM
@@ -3147,18 +3151,19 @@ int home_passwd_luks(
         return 1;
 }
 
-int home_lock_luks(UserRecord *h) {
+int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
-        _cleanup_close_ int root_fd = -1;
         const char *p;
         int r;
 
         assert(h);
+        assert(setup);
+        assert(setup->root_fd < 0);
 
         assert_se(p = user_record_home_directory(h));
-        root_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0)
+        setup->root_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
         r = make_dm_names(h->user_name, &dm_name, &dm_node);
@@ -3176,10 +3181,10 @@ int home_lock_luks(UserRecord *h) {
         log_info("Discovered used LUKS device %s.", dm_node);
         cryptsetup_enable_logging(cd);
 
-        if (syncfs(root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
+        if (syncfs(setup->root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
                 return log_error_errno(errno, "Failed to synchronize file system %s: %m", p);
 
-        root_fd = safe_close(root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
         log_info("File system synchronized.");
 
@@ -3222,13 +3227,14 @@ static int luks_try_resume(
         return -ENOKEY;
 }
 
-int home_unlock_luks(UserRecord *h, const PasswordCache *cache) {
+int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         char **list;
         int r;
 
         assert(h);
+        assert(setup);
 
         r = make_dm_names(h->user_name, &dm_name, &dm_node);
         if (r < 0)
