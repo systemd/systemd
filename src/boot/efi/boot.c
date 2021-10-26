@@ -551,7 +551,7 @@ static EFI_STATUS reboot_into_firmware(void) {
         UINT64 osind = 0;
         EFI_STATUS err;
 
-        if (!(get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+        if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
                 return log_error_status_stall(EFI_UNSUPPORTED, L"Reboot to firmware interface not supported.");
 
         (void) efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", &osind);
@@ -924,7 +924,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_F10, 0):    /* HP and Lenovo. */
                 case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
                 case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
-                        if (get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI) {
+                        if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                                 firmware_setup = TRUE;
                                 /* Let's make sure the user really wants to do this. */
                                 status = PoolPrint(L"Press Enter to reboot into firmware interface.");
@@ -1590,7 +1590,7 @@ static void config_load_entries(
 
                 if (f->FileName[0] == '.')
                         continue;
-                if (f->Attribute & EFI_FILE_DIRECTORY)
+                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
 
                 if (!endswith_no_case(f->FileName, L".conf"))
@@ -2046,7 +2046,7 @@ static void config_entry_add_linux(
 
                 if (f->FileName[0] == '.')
                         continue;
-                if (f->Attribute & EFI_FILE_DIRECTORY)
+                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
                 if (!endswith_no_case(f->FileName, L".efi"))
                         continue;
@@ -2352,7 +2352,7 @@ static void config_load_all_entries(
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
 
-        if (config->auto_firmware && (get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
                 config_entry_add_call(config,
                                       L"auto-reboot-to-firmware-setup",
                                       L"Reboot Into Firmware Interface",
