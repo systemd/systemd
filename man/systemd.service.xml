@@ -266,7 +266,7 @@
             <listitem><para>If set to <option>main</option> (the default), the service manager
             will consider the unit stopped when the main process, which is determined according to the
             <varname>Type=</varname>, exits. Consequently, it cannot be used with
-            <varname>Type=</varname><option>oneshot</option></para></listitem>
+            <varname>Type=</varname><option>oneshot</option>.</para></listitem>
 
             <listitem><para>The <option>cgroup</option> exit type is meant for applications whose forking model is not
             known ahead of time and which might not have a specific main process. The service will stay running as long
