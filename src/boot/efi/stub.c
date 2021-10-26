@@ -187,7 +187,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
-        if (EFI_ERROR(err))
+        if (EFI_ERROR(err) || szs[SECTION_LINUX] == 0)
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 
         /* Show splash screen as early as possible */
