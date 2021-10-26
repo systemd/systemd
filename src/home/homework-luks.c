@@ -1175,7 +1175,7 @@ int home_setup_luks(
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_close_ int opened_image_fd = -1, root_fd = -1;
+        _cleanup_close_ int opened_image_fd = -1;
         size_t volume_key_size = 0;
         bool marked_dirty = false;
         uint64_t offset, size;
@@ -1185,6 +1185,7 @@ int home_setup_luks(
         assert(setup);
         assert(setup->dm_name);
         assert(setup->dm_node);
+        assert(setup->root_fd < 0);
         assert(!setup->crypt_device);
         assert(!setup->loop);
 
@@ -1273,8 +1274,8 @@ int home_setup_luks(
 
                 log_info("Discovered used loopback device %s.", setup->loop->node);
 
-                root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (root_fd < 0) {
+                setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (setup->root_fd < 0) {
                         r = log_error_errno(errno, "Failed to open home directory: %m");
                         goto fail;
                 }
@@ -1359,14 +1360,14 @@ int home_setup_luks(
 
                 setup->undo_mount = true;
 
-                root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (root_fd < 0) {
+                setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (setup->root_fd < 0) {
                         r = log_error_errno(errno, "Failed to open home directory: %m");
                         goto fail;
                 }
 
                 if (user_record_luks_discard(h))
-                        (void) run_fitrim(root_fd);
+                        (void) run_fitrim(setup->root_fd);
 
                 /* And now, fill in everything */
                 if (opened_image_fd >= 0) {
@@ -1378,7 +1379,6 @@ int home_setup_luks(
                 setup->do_mark_clean = marked_dirty;
         }
 
-        setup->root_fd = TAKE_FD(root_fd);
         setup->found_partition_uuid = found_partition_uuid;
         setup->found_luks_uuid = found_luks_uuid;
         setup->found_fs_uuid = found_fs_uuid;
