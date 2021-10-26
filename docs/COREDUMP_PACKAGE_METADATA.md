@@ -33,9 +33,9 @@ This document will attempt to define a common metadata format specification, so 
 multiple implementers might use it when building packages, or core file analyzers, and
 so on.
 
-The metadata will be embedded in a single, new ELF header section, in a key-value JSON
-format. Implementers working on parsing core files should not assume a specific list of
-keys, but parse anything that is included in the section.
+The metadata will be embedded in a single, new, 4-bytes-aligned, read-only ELF header section,
+in a key-value JSON format. Implementers working on parsing core files should not assume a
+specific list of keys, but parse anything that is included in the section.
 Implementers working on build tools should strive to use the same key names, for
 consistency. The most common will be listed here. When corresponding to the content of
 os-release, the values should match, again for consistency.
