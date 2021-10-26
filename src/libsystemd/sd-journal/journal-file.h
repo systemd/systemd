@@ -84,6 +84,7 @@ typedef struct JournalFile {
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
+        HashItem *trie_hash_table;
 
         uint64_t current_offset;
         uint64_t current_seqnum;

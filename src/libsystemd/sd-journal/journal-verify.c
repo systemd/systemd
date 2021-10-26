@@ -237,19 +237,35 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         }
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
-                        error(offset,
-                              "Bad entry size (<= %zu): %"PRIu64,
-                              offsetof(EntryObject, items),
-                              le64toh(o->object.size));
-                        return -EBADMSG;
-                }
+                if (JOURNAL_HEADER_COMPACT(f->header)) {
+                        if (le64toh(o->object.size) != sizeof(EntryObject)) {
+                                error(offset,
+                                      "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
+                                      sizeof(EntryObject),
+                                      le64toh(o->object.size),
+                                      offset);
+                                return -EBADMSG;
+                        }
 
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
-                        error(offset,
-                              "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem));
-                        return -EBADMSG;
+                        if (o->entry.trie_offset == 0) {
+                                error(offset, "Bad entry trie offset (== 0): %" PRIu64, offset);
+                                return -EBADMSG;
+                        }
+                } else {
+                        if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
+                                error(offset,
+                                      "Bad entry size (<= %zu): %" PRIu64,
+                                      offsetof(EntryObject, items),
+                                      le64toh(o->object.size));
+                                return -EBADMSG;
+                        }
+
+                        if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
+                                error(offset,
+                                      "Invalid number items in entry: %" PRIu64,
+                                      (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem));
+                                return -EBADMSG;
+                        }
                 }
 
                 if (le64toh(o->entry.seqnum) <= 0) {
@@ -295,6 +311,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
+        case OBJECT_TRIE_HASH_TABLE:
                 if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
                     (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0) {
                         error(offset,
@@ -378,6 +395,25 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         error(offset,
                               "Invalid object tag epoch: %"PRIu64,
                               le64toh(o->tag.epoch));
+                        return -EBADMSG;
+                }
+
+                break;
+
+        case OBJECT_TRIE_NODE:
+                if (le64toh(o->object.size) != sizeof(TrieNodeObject)) {
+                        error(offset, "Invalid object trie node size: %"PRIu64, le64toh(o->object.size));
+                        return -EBADMSG;
+                }
+
+                if (!VALID64(le64toh(o->trie_node.next_hash_offset)) ||
+                    !VALID64(le64toh(o->trie_node.object_offset)) ||
+                    !VALID64(le64toh(o->trie_node.parent_offset))) {
+                        error(offset,
+                              "Invalid offset (next_hash_offset="OFSfmt", object_offset="OFSfmt", parent_offset="OFSfmt,
+                              le64toh(o->trie_node.next_hash_offset),
+                              le64toh(o->trie_node.object_offset),
+                              le64toh(o->trie_node.parent_offset));
                         return -EBADMSG;
                 }
 
