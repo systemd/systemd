@@ -42,6 +42,22 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         return link->network->dhcp6_pd;
 }
 
+static int dhcp6_pd_resolve_uplink(Link *link, Link **ret) {
+        if (link->network->dhcp6_pd_uplink_name)
+                return link_get_by_name(link->manager, link->network->dhcp6_pd_uplink_name, ret);
+
+        if (link->network->dhcp6_pd_uplink_index > 0)
+                return link_get_by_index(link->manager, link->network->dhcp6_pd_uplink_index, ret);
+
+        if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF) {
+                *ret = link;
+                return 0;
+        }
+
+        assert(link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_AUTO);
+        return -ENOENT;
+}
+
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         uint32_t lifetime_preferred_sec, lifetime_valid_sec;
         struct in6_addr pd_prefix;
@@ -575,6 +591,7 @@ static int dhcp6_pd_distribute_prefix(
         assert(pd_prefix_len <= 64);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
+                Link *uplink;
 
                 if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
@@ -590,6 +607,15 @@ static int dhcp6_pd_distribute_prefix(
 
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
+
+                r = dhcp6_pd_resolve_uplink(link, &uplink);
+                if (r != -ENOENT) {
+                        if (r < 0) /* The uplink interface does not exist yet. */
+                                continue;
+
+                        if (uplink != dhcp6_link)
+                                continue;
+                }
 
                 r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0) {
@@ -968,6 +994,59 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         return 0;
 }
 
+static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
+        usec_t timestamp_usec;
+        int r;
+
+        assert(link);
+        assert(uplink);
+        assert(uplink->dhcp6_lease);
+
+        /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
+         * appears later or reconfiguring the interface. */
+
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_pd_prepare(link);
+        if (r < 0)
+                return r;
+
+        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
+                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
+                struct in6_addr pd_prefix;
+                uint8_t pd_prefix_len;
+
+                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
+                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                if (r < 0)
+                        break;
+
+                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
+
+                if (pd_prefix_len > 64)
+                        continue;
+
+                /* Mask prefix for safety. */
+                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
+                if (r < 0)
+                        return r;
+
+                r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dhcp6_pd_finalize(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1320,78 +1399,71 @@ int dhcp6_start(Link *link) {
         return 1;
 }
 
-int dhcp6_request_prefix_delegation(Link *link) {
+static bool dhcp6_pd_uplink_is_ready(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        if (!link->network->dhcp6_use_pd_prefix)
+                return false;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link->dhcp6_client)
+                return false;
+
+        if (sd_dhcp6_client_is_running(link->dhcp6_client) <= 0)
+                return false;
+
+        if (!link->dhcp6_lease)
+                return false;
+
+        return dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
+}
+
+static int dhcp6_pd_find_uplink(Link *link, Link **ret) {
         Link *l;
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
+        assert(ret);
+
+        if (dhcp6_pd_resolve_uplink(link, &l) >= 0) {
+                if (!dhcp6_pd_uplink_is_ready(l))
+                        return -EBUSY;
+
+                *ret = l;
+                return 0;
+        }
+
+        HASHMAP_FOREACH(l, link->manager->links_by_index) {
+                if (!dhcp6_pd_uplink_is_ready(l))
+                        continue;
+
+                /* Assume that there exists at most one link which acquired delegated prefixes. */
+                *ret = l;
+                return 0;
+        }
+
+        return -ENODEV;
+}
+
+int dhcp6_request_prefix_delegation(Link *link) {
+        Link *uplink;
+
+        assert(link);
 
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
-        log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
+        if (dhcp6_pd_find_uplink(link, &uplink) < 0)
+                return 0;
 
-        HASHMAP_FOREACH(l, link->manager->links_by_index) {
-                int r, enabled;
-
-                if (l == link)
-                        continue;
-
-                if (!l->dhcp6_client)
-                        continue;
-
-                r = sd_dhcp6_client_get_prefix_delegation(l->dhcp6_client, &enabled);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot get prefix delegation when adding new link: %m");
-                        link_enter_failed(l);
-                        continue;
-                }
-
-                if (enabled == 0) {
-                        r = sd_dhcp6_client_set_prefix_delegation(l->dhcp6_client, 1);
-                        if (r < 0) {
-                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link: %m");
-                                link_enter_failed(l);
-                                continue;
-                        }
-                }
-
-                r = sd_dhcp6_client_is_running(l->dhcp6_client);
-                if (r <= 0)
-                        continue;
-
-                if (enabled != 0) {
-                        if (dhcp6_lease_has_pd_prefix(l->dhcp6_lease)) {
-                                log_link_debug(l, "Requesting re-assignment of delegated prefixes after adding new link");
-                                r = dhcp6_pd_prefix_acquired(l);
-                                if (r < 0)
-                                        link_enter_failed(l);
-                        }
-                        continue;
-                }
-
-                r = sd_dhcp6_client_stop(l->dhcp6_client);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot stop DHCPv6 prefix delegation client after adding new link: %m");
-                        link_enter_failed(l);
-                        continue;
-                }
-
-                r = sd_dhcp6_client_start(l->dhcp6_client);
-                if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot restart DHCPv6 prefix delegation client after adding new link: %m");
-                        link_enter_failed(l);
-                        continue;
-                }
-
-                log_link_debug(l, "Restarted DHCPv6 client to acquire prefix delegations after adding new link");
-        }
-
-        /* dhcp6_pd_prefix_acquired() may make the link in failed state. */
-        if (link->state == LINK_STATE_FAILED)
-                return -ENOANO;
-
-        return 0;
+        log_link_debug(link, "Requesting subnets of delegated prefixes acquired by %s", uplink->ifname);
+        return dhcp6_pd_assign_prefixes(link, uplink);
 }
 
 static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
@@ -1421,25 +1493,6 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set hostname: %m");
 
         return 0;
-}
-
-static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
-        Link *link;
-
-        assert(dhcp6_link);
-        assert(dhcp6_link->manager);
-
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
-                        continue;
-
-                if (!link_dhcp6_pd_is_enabled(link))
-                        continue;
-
-                return true;
-        }
-
-        return false;
 }
 
 static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
@@ -1559,11 +1612,10 @@ static int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set callback: %m");
 
-        if (dhcp6_enable_prefix_delegation(link)) {
-                r = sd_dhcp6_client_set_prefix_delegation(client, true);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix delegation: %m");
-        }
+        r = sd_dhcp6_client_set_prefix_delegation(client, link->network->dhcp6_use_pd_prefix);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to %s prefix delegation: %m",
+                                            enable_disable(link->network->dhcp6_use_pd_prefix));
 
         if (link->network->dhcp6_pd_prefix_length > 0) {
                 r = sd_dhcp6_client_set_prefix_delegation_hint(client,
