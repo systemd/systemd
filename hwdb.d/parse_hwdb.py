@@ -74,6 +74,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'keyboard': ('name', ),
          'sensor':   ('modalias', ),
          'ieee1394-unit-function' : ('node', ),
+         'camera':   ('usb'),
         }
 
 # Patterns that are used to set general properties on a device
@@ -167,6 +168,8 @@ def property_grammar():
              ('ID_VENDOR_FROM_DATABASE', name_literal),
              ('ID_MODEL_FROM_DATABASE', name_literal),
              ('ID_TAG_MASTER_OF_SEAT', Literal('1')),
+             ('ID_INFRARED_CAMERA', Or((Literal('0'), Literal('1')))),
+             ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
