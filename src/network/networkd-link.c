@@ -1042,13 +1042,24 @@ static int link_drop_config(Link *link) {
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = manager_drop_routing_policy_rules(link->manager, link);
+        k = link_drop_routing_policy_rules(link);
         if (k < 0 && r >= 0)
                 r = k;
 
         ndisc_flush(link);
 
         return r;
+}
+
+static void link_foreignize_config(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        link_foreignize_routes(link);
+        link_foreignize_nexthops(link);
+        link_foreignize_addresses(link);
+        link_foreignize_neighbors(link);
+        link_foreignize_routing_policy_rules(link);
 }
 
 static int link_configure(Link *link) {
@@ -1249,9 +1260,16 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         link_drop_requests(link);
 
-        r = link_drop_config(link);
-        if (r < 0)
-                return r;
+        if (network && !force)
+                /* When a new/updated .network file is assigned, first make all configs (addresses,
+                 * routes, and so on) foreign, and then drop unnecessary configs later by
+                 * link_drop_foreign_config() in link_configure(). */
+                link_foreignize_config(link);
+        else {
+                r = link_drop_config(link);
+                if (r < 0)
+                        return r;
+        }
 
         link_free_carrier_maps(link);
         link_free_engines(link);

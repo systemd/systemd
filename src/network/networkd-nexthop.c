@@ -602,10 +602,9 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
         return 0;
 }
 
-static int manager_drop_nexthops(Manager *manager, bool foreign, const Link *except) {
+static void manager_mark_nexthops(Manager *manager, bool foreign, const Link *except) {
         NextHop *nexthop;
         Link *link;
-        int k, r = 0;
 
         assert(manager);
 
@@ -641,8 +640,14 @@ static int manager_drop_nexthops(Manager *manager, bool foreign, const Link *exc
                                 nexthop_unmark(existing);
                 }
         }
+}
 
-        /* Finally, remove all marked nexthops. */
+static int manager_drop_nexthops(Manager *manager) {
+        NextHop *nexthop;
+        int k, r = 0;
+
+        assert(manager);
+
         SET_FOREACH(nexthop, manager->nexthops) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
@@ -698,7 +703,9 @@ int link_drop_foreign_nexthops(Link *link) {
                         r = k;
         }
 
-        k = manager_drop_nexthops(link->manager, /* foreign = */ true, NULL);
+        manager_mark_nexthops(link->manager, /* foreign = */ true, NULL);
+
+        k = manager_drop_nexthops(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -726,11 +733,31 @@ int link_drop_nexthops(Link *link) {
                         r = k;
         }
 
-        k = manager_drop_nexthops(link->manager, /* foreign = */ false, link);
+        manager_mark_nexthops(link->manager, /* foreign = */ false, link);
+
+        k = manager_drop_nexthops(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
         return r;
+}
+
+void link_foreignize_nexthops(Link *link) {
+        NextHop *nexthop;
+
+        assert(link);
+
+        SET_FOREACH(nexthop, link->nexthops)
+                nexthop->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+
+        manager_mark_nexthops(link->manager, /* foreign = */ false, link);
+
+        SET_FOREACH(nexthop, link->manager->nexthops) {
+                if (!nexthop_is_marked(nexthop))
+                        continue;
+
+                nexthop->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+        }
 }
 
 static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
