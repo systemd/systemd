@@ -1147,7 +1147,6 @@ int home_setup_luks(
 
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_close_ int opened_image_fd = -1, root_fd = -1;
         size_t volume_key_size = 0;
@@ -1160,6 +1159,7 @@ int home_setup_luks(
         assert(setup->dm_name);
         assert(setup->dm_node);
         assert(!setup->crypt_device);
+        assert(!setup->loop);
 
         assert(user_record_storage(h) == USER_LUKS);
 
@@ -1189,21 +1189,21 @@ int home_setup_luks(
                 if (!n)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine backing device for DM %s.", setup->dm_name);
 
-                r = loop_device_open(n, O_RDWR, &loop);
+                r = loop_device_open(n, O_RDWR, &setup->loop);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open loopback device %s: %m", n);
 
-                if (ioctl(loop->fd, LOOP_GET_STATUS64, &info) < 0) {
+                if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
                         _cleanup_free_ char *sysfs = NULL;
                         struct stat st;
 
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
-                        if (ioctl(loop->fd, BLKGETSIZE64, &size) < 0)
+                        if (ioctl(setup->loop->fd, BLKGETSIZE64, &size) < 0)
                                 return log_error_errno(r, "Failed to read block device size of %s: %m", n);
 
-                        if (fstat(loop->fd, &st) < 0)
+                        if (fstat(setup->loop->fd, &st) < 0)
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
@@ -1245,7 +1245,7 @@ int home_setup_luks(
 
                 found_partition_uuid = found_fs_uuid = SD_ID128_NULL;
 
-                log_info("Discovered used loopback device %s.", loop->node);
+                log_info("Discovered used loopback device %s.", setup->loop->node);
 
                 root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (root_fd < 0) {
@@ -1287,7 +1287,7 @@ int home_setup_luks(
                                 return r;
                 }
 
-                r = loop_device_make(image_fd, O_RDWR, offset, size, 0, &loop);
+                r = loop_device_make(image_fd, O_RDWR, offset, size, 0, &setup->loop);
                 if (r == -ENOENT) {
                         log_error_errno(r, "Loopback block device support is not available on this system.");
                         return -ENOLINK; /* make recognizable */
@@ -1295,9 +1295,9 @@ int home_setup_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate loopback context: %m");
 
-                log_info("Setting up loopback device %s completed.", loop->node ?: ip);
+                log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-                r = luks_setup(loop->node ?: ip,
+                r = luks_setup(setup->loop->node ?: ip,
                                setup->dm_name,
                                h->luks_uuid,
                                h->luks_cipher,
@@ -1352,7 +1352,6 @@ int home_setup_luks(
                 setup->do_mark_clean = marked_dirty;
         }
 
-        setup->loop = TAKE_PTR(loop);
         setup->root_fd = TAKE_FD(root_fd);
         setup->found_partition_uuid = found_partition_uuid;
         setup->found_luks_uuid = found_luks_uuid;
@@ -1996,7 +1995,6 @@ int home_create_luks(
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_close_ int image_fd = -1;
         bool image_created = false;
         const char *fstype, *ip;
@@ -2182,7 +2180,7 @@ int home_create_luks(
 
         log_info("Writing of partition table completed.");
 
-        r = loop_device_make(image_fd, O_RDWR, partition_offset, partition_size, 0, &loop);
+        r = loop_device_make(image_fd, O_RDWR, partition_offset, partition_size, 0, &setup->loop);
         if (r < 0) {
                 if (r == -ENOENT) { /* this means /dev/loop-control doesn't exist, i.e. we are in a container
                                      * or similar and loopback bock devices are not available, return a
@@ -2196,15 +2194,15 @@ int home_create_luks(
                 goto fail;
         }
 
-        r = loop_device_flock(loop, LOCK_EX); /* make sure udev won't read before we are done */
+        r = loop_device_flock(setup->loop, LOCK_EX); /* make sure udev won't read before we are done */
         if (r < 0) {
                 log_error_errno(r, "Failed to take lock on loop device: %m");
                 goto fail;
         }
 
-        log_info("Setting up loopback device %s completed.", loop->node ?: ip);
+        log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-        r = luks_format(loop->node,
+        r = luks_format(setup->loop->node,
                         setup->dm_name,
                         luks_uuid,
                         user_record_user_name_and_realm(h),
@@ -2306,7 +2304,7 @@ int home_create_luks(
         if (r < 0)
                 goto fail;
 
-        loop = loop_device_unref(loop);
+        setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
                 r = run_fallocate(image_fd, NULL /* refresh stat() data */);
@@ -2360,7 +2358,7 @@ fail:
         (void) home_setup_undo_mount(setup, LOG_WARNING);
         (void) home_setup_undo_dm(setup, LOG_WARNING);
 
-        loop = loop_device_unref(loop);
+        setup->loop = loop_device_unref(setup->loop);
 
         if (image_created)
                 (void) unlink(temporary_image_path);
