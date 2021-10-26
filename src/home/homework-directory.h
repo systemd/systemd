@@ -7,4 +7,4 @@
 int home_setup_directory(UserRecord *h, HomeSetup *setup);
 int home_activate_directory(UserRecord *h, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserRecord **ret_home);
-int home_resize_directory(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_home);
+int home_resize_directory(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
