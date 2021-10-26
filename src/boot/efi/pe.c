@@ -122,7 +122,8 @@ static inline BOOLEAN verify_pe(const struct PeFileHeader *pe) {
         return CompareMem(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
                pe->FileHeader.Machine == TARGET_MACHINE_TYPE &&
                pe->FileHeader.NumberOfSections > 0 &&
-               pe->FileHeader.NumberOfSections <= MAX_SECTIONS;
+               pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
+               IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
 }
 
 static inline UINTN section_table_offset(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
@@ -182,15 +183,8 @@ EFI_STATUS pe_alignment_info(
                 return EFI_LOAD_ERROR;
 
         *ret_entry_point_address = pe->OptionalHeader.AddressOfEntryPoint;
-
-        if (pe->OptionalHeader.Magic == OPTHDR32_MAGIC) {
-                *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
-                *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
-        } else if (pe->OptionalHeader.Magic == OPTHDR64_MAGIC) {
-                *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
-                *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
-        } else
-                return EFI_UNSUPPORTED;
+        *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
+        *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
         return EFI_SUCCESS;
 }
 
