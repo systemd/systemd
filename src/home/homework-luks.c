@@ -1984,13 +1984,12 @@ int home_create_luks(
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
-        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
+        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
         uint64_t encrypted_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
         _cleanup_close_ int image_fd = -1;
-        bool image_created = false;
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
@@ -1998,6 +1997,7 @@ int home_create_luks(
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
         assert(setup);
+        assert(!setup->temporary_image_path);
         assert(ret_home);
 
         r = dlopen_cryptsetup();
@@ -2123,7 +2123,7 @@ int home_create_luks(
                                 log_info("Full device discard completed.");
                 }
         } else {
-                _cleanup_free_ char *parent = NULL;
+                _cleanup_free_ char *parent = NULL, *t = NULL;
 
                 parent = dirname_malloc(ip);
                 if (!parent)
@@ -2140,22 +2140,22 @@ int home_create_luks(
                 if (!supported_fs_size(fstype, host_size))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", fstype);
 
-                r = tempfn_random(ip, "homework", &temporary_image_path);
+                r = tempfn_random(ip, "homework", &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive temporary file name for %s: %m", ip);
 
-                image_fd = open(temporary_image_path, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                image_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
                 if (image_fd < 0)
-                        return log_error_errno(errno, "Failed to create home image %s: %m", temporary_image_path);
+                        return log_error_errno(errno, "Failed to create home image %s: %m", t);
 
-                image_created = true;
+                setup->temporary_image_path = TAKE_PTR(t);
 
                 r = chattr_fd(image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
+                                       "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
-                r = home_truncate(h, image_fd, temporary_image_path, host_size);
+                r = home_truncate(h, image_fd, setup->temporary_image_path, host_size);
                 if (r < 0)
                         goto fail;
 
@@ -2184,7 +2184,7 @@ int home_create_luks(
                         goto fail;
                 }
 
-                log_error_errno(r, "Failed to set up loopback device for %s: %m", temporary_image_path);
+                log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
                 goto fail;
         }
 
@@ -2327,12 +2327,13 @@ int home_create_luks(
          * lock that ensures udev doesn't interfere with what we are doing */
         image_fd = safe_close(image_fd);
 
-        if (temporary_image_path) {
-                if (rename(temporary_image_path, ip) < 0) {
+        if (setup->temporary_image_path) {
+                if (rename(setup->temporary_image_path, ip) < 0) {
                         log_error_errno(errno, "Failed to rename image file: %m");
                         goto fail;
                 }
 
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
                 log_info("Moved image file into place.");
         }
 
@@ -2354,8 +2355,8 @@ fail:
 
         setup->loop = loop_device_unref(setup->loop);
 
-        if (image_created)
-                (void) unlink(temporary_image_path);
+        if (setup->temporary_image_path)
+                (void) unlink(setup->temporary_image_path);
 
         return r;
 }
