@@ -493,14 +493,21 @@ void log_error_stall(const CHAR16 *fmt, ...) {
 
         assert(fmt);
 
+        INT32 attr = ST->ConOut->Mode->Attribute;
         ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
 
-        Print(L"\n");
+        if (ST->ConOut->Mode->CursorColumn > 0)
+                Print(L"\n");
+
         va_start(args, fmt);
         VPrint(fmt, args);
         va_end(args);
+
         Print(L"\n");
 
+        ST->ConOut->SetAttribute(ST->ConOut, attr);
+
+        /* Give the user a chance to see the message. */
         BS->Stall(3 * 1000 * 1000);
 }
 
