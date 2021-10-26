@@ -26,10 +26,6 @@
 #include "resolve-util.h"
 #include "socket-netlink.h"
 
-/* Special values for *_uplink_index. */
-#define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
-#define UPLINK_INDEX_NONE -1 /* uplink will not be selected automatically */
-
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO            = 0,
         KEEP_CONFIGURATION_DHCP_ON_START = 1 << 0,
@@ -169,6 +165,7 @@ struct Network {
 
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
+        bool dhcp6_use_pd_prefix;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
         bool dhcp6_use_hostname;
@@ -244,6 +241,8 @@ struct Network {
         int64_t dhcp6_pd_subnet_id;
         uint32_t dhcp6_pd_route_metric;
         Set *dhcp6_pd_tokens;
+        int dhcp6_pd_uplink_index;
+        char *dhcp6_pd_uplink_name;
 
         /* Bridge Support */
         int use_bpdu;
@@ -384,7 +383,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
-CONFIG_PARSER_PROTOTYPE(config_parse_uplink);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

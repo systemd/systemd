@@ -130,6 +130,7 @@ RouteMTUBytes=
 FallbackLeaseLifetimeSec=
 [DHCPv6]
 UseAddress=
+UseDelegatedPrefix=
 UseNTP=
 UseDNS=
 UseHostname=
@@ -150,6 +151,7 @@ DUIDType=
 DUIDRawData=
 RouteTable=
 [DHCPv6PrefixDelegation]
+UplinkInterface=
 SubnetId=
 Announce=
 Assign=
