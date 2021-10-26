@@ -2064,6 +2064,19 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseDelegatedPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the client will request the DHCPv6 server to delegate
+            prefixes. If the server provides prefixes to be delegated, then subnets of the prefixes are
+            assigned to the interfaces which enables <varname>DHCPv6PrefixDelegation=</varname>.
+            See also <varname>DHCPv6PrefixDelegation=</varname> in [Network] section,
+            [DHCPv6PrefixDelegation] section, and
+            <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
@@ -2077,27 +2090,15 @@ Table=1234</programlisting></para>
         <!-- How to communicate with the server -->
 
         <varlistentry>
-          <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
-          <listitem>
-            <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
-            Router Advertisement messages. By default setting only the 'O' bit in Router Advertisements
-            makes DHCPv6 request network information in a stateless manner using a two-message Information
-            Request and Information Reply message exchange.
-            <ulink url="https://tools.ietf.org/html/rfc7084">RFC 7084</ulink>, requirement WPD-4, updates
-            this behavior for a Customer Edge router so that stateful DHCPv6 Prefix Delegation is also
-            requested when only the 'O' bit is set in Router Advertisements. This option enables such a CE
-            behavior as it is impossible to automatically distinguish the intention of the 'O' bit otherwise.
-            By default this option is set to false, enable it if no prefixes are delegated when the device
-            should be acting as a CE router.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>WithoutRA=</varname></term>
           <listitem>
-            <para>Allows DHCPv6 client to start without router advertisements's managed or other address
-            configuration flag. Takes one of <literal>solicit</literal> or
-            <literal>information-request</literal>. Defaults to unset.</para>
+            <para>Allows DHCPv6 client to start without router advertisements's managed or other
+            address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
+            or <literal>information-request</literal>. When this is not specified and
+            <varname>UplinkInterface=:self</varname> is specified, then <literal>solicit</literal> is
+            implied. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be
+            started when an RA is received. See also <varname>DHCPv6Client=</varname> setting in the
+            [IPv6AcceptRA] section.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2110,6 +2111,18 @@ Table=1234</programlisting></para>
     is enabled.</para>
 
     <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem>
+          <para>Specifies the name or the index of the uplink interface, or one of the special values
+          <literal>:self</literal> and <literal>:auto</literal>. When <literal>:self</literal>, the
+          interface itself is considered the uplink interface, and
+          <varname>WithoutRA=solicit</varname> is implied if the setting is not explicitly specified.
+          When <literal>:auto</literal>, the first link which acquired prefixes to be delegated from
+          the DHCPv6 server is selected. Defaults to <literal>:auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><varname>SubnetId=</varname></term>
         <listitem>
@@ -2358,11 +2371,13 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DHCPv6Client=</varname></term>
           <listitem>
-            <para>Takes a boolean, or the special value <literal>always</literal>. When true or
-            <literal>always</literal>, the DHCPv6 client will be started when the RA has the managed or
-            other information flag. If set to <literal>always</literal>, the DHCPv6 client will also be
-            started in managed mode when neither managed nor other information flag is set in the RA.
-            Defaults to true.</para>
+            <para>Takes a boolean, or the special value <literal>always</literal>. When true, the
+            DHCPv6 client will be started when the RA has the managed or other information flag. If set
+            to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
+            is received, even if neither managed nor other information flag is set in the RA. This will
+            be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is specified, or
+            <varname>UplinkInterface=:self</varname> in the [DHCPv6PrefixDelegation] section is
+            specified. Defaults to true.</para>
           </listitem>
         </varlistentry>
       </variablelist>
