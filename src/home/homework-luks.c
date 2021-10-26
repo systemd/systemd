@@ -2157,7 +2157,7 @@ int home_create_luks(
 
                 r = home_truncate(h, image_fd, setup->temporary_image_path, host_size);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 log_info("Allocating image file completed.");
         }
@@ -2170,7 +2170,7 @@ int home_create_luks(
                         &partition_size,
                         &disk_uuid);
         if (r < 0)
-                goto fail;
+                return r;
 
         log_info("Writing of partition table completed.");
 
@@ -2180,19 +2180,15 @@ int home_create_luks(
                                      * or similar and loopback bock devices are not available, return a
                                      * recognizable error in this case. */
                         log_error_errno(r, "Loopback block device support is not available on this system.");
-                        r = -ENOLINK;
-                        goto fail;
+                        return -ENOLINK; /* Make recognizable */
                 }
 
-                log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
-                goto fail;
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
         }
 
         r = loop_device_flock(setup->loop, LOCK_EX); /* make sure udev won't read before we are done */
-        if (r < 0) {
-                log_error_errno(r, "Failed to take lock on loop device: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to take lock on loop device: %m");
 
         log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
@@ -2206,62 +2202,52 @@ int home_create_luks(
                         h,
                         &setup->crypt_device);
         if (r < 0)
-                goto fail;
+                return r;
 
         setup->undo_dm = true;
 
         r = block_get_size_by_path(setup->dm_node, &encrypted_size);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get encrypted block device size: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted block device size: %m");
 
         log_info("Setting up LUKS device %s completed.", setup->dm_node);
 
         r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
         if (r < 0)
-                goto fail;
+                return r;
 
         log_info("Formatting file system completed.");
 
         r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
         if (r < 0)
-                goto fail;
+                return r;
 
         setup->undo_mount = true;
 
         subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
-        if (!subdir) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!subdir)
+                return log_oom();
 
         /* Prefer using a btrfs subvolume if we can, fall back to directory otherwise */
         r = btrfs_subvol_make_fallback(subdir, 0700);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create user directory in mounted image file: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create user directory in mounted image file: %m");
 
         setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (setup->root_fd < 0) {
-                r = log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
-                goto fail;
-        }
+        if (setup->root_fd < 0)
+                return log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
 
         r = home_populate(h, setup->root_fd);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = home_sync_and_statfs(setup->root_fd, &sfs);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE, &new_home);
-        if (r < 0) {
-                log_error_errno(r, "Failed to clone record: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to clone record: %m");
 
         r = user_record_add_binding(
                         new_home,
@@ -2277,50 +2263,44 @@ int home_create_luks(
                         NULL,
                         h->uid,
                         (gid_t) h->uid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add binding to record: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add binding to record: %m");
 
         if (user_record_luks_offline_discard(h)) {
                 r = run_fitrim(setup->root_fd);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         setup->root_fd = safe_close(setup->root_fd);
 
         r = home_setup_undo_mount(setup, LOG_ERR);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = home_setup_undo_dm(setup, LOG_ERR);
         if (r < 0)
-                goto fail;
+                return r;
 
         setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
-                r = run_fallocate(image_fd, NULL /* refresh stat() data */);
+                r= run_fallocate(image_fd, NULL /* refresh stat() data */);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         /* Sync everything to disk before we move things into place under the final name. */
-        if (fsync(image_fd) < 0) {
-                r = log_error_errno(r, "Failed to synchronize image to disk: %m");
-                goto fail;
-        }
+        if (fsync(image_fd) < 0)
+                return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
                 (void) ioctl(image_fd, BLKRRPART, 0);
         else {
                 /* If we operate on a file, sync the containing directory too. */
                 r = fsync_directory_of_file(image_fd);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
         }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
@@ -2328,10 +2308,8 @@ int home_create_luks(
         image_fd = safe_close(image_fd);
 
         if (setup->temporary_image_path) {
-                if (rename(setup->temporary_image_path, ip) < 0) {
-                        log_error_errno(errno, "Failed to rename image file: %m");
-                        goto fail;
-                }
+                if (rename(setup->temporary_image_path, ip) < 0)
+                        return log_error_errno(errno, "Failed to rename image file: %m");
 
                 setup->temporary_image_path = mfree(setup->temporary_image_path);
                 log_info("Moved image file into place.");
@@ -2346,19 +2324,6 @@ int home_create_luks(
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
-
-fail:
-        /* Let's close all files before we unmount the file system, to avoid EBUSY */
-        setup->root_fd = safe_close(setup->root_fd);
-        (void) home_setup_undo_mount(setup, LOG_WARNING);
-        (void) home_setup_undo_dm(setup, LOG_WARNING);
-
-        setup->loop = loop_device_unref(setup->loop);
-
-        if (setup->temporary_image_path)
-                (void) unlink(setup->temporary_image_path);
-
-        return r;
 }
 
 int home_get_state_luks(UserRecord *h, HomeSetup *setup) {
