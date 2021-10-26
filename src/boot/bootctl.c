@@ -1825,9 +1825,14 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
         } else {
                 char16_t *encoded = NULL;
+
+                if (streq(arg1, "@last-booted"))
+                        arg1++;
+
                 encoded = utf8_to_utf16(arg1, strlen(arg1));
                 if (!encoded)
                         return log_oom();
+
                 *ret_target = encoded;
                 *ret_target_size = char16_strlen(encoded) * 2 + 2;
         }
