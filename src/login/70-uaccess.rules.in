@@ -33,6 +33,7 @@ SUBSYSTEM=="sound", TAG+="uaccess", \
 # Webcams, frame grabber, TV cards
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
+SUBSYSTEM=="media", TAG+="uaccess"
 
 # industrial cameras, some webcams, camcorders, set-top boxes, TV sets, audio devices, and more
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", TAG+="uaccess"
