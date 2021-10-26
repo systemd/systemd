@@ -84,7 +84,17 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         if (r < 0)
                 return r;
 
-        return home_mount_node(node, fstype, discard, flags);
+        r = home_mount_node(node, fstype, discard, flags);
+        if (r < 0)
+                return r;
+
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        if (r < 0) {
+                (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+                return r;
+        }
+
+        return 0;
 }
 
 int home_move_mount(const char *mount_suffix, const char *target) {
@@ -111,9 +121,9 @@ int home_move_mount(const char *mount_suffix, const char *target) {
         if (r < 0)
                 return r;
 
-        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to unmount %s: %m", HOME_RUNTIME_WORK_DIR);
 
         log_info("Moving to final mount point %s completed.", target);
         return 0;

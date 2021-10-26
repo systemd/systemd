@@ -45,6 +45,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 /* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
  * partitions to that too. In the worst case we'll waste 3.5K per partition that way, but I think I can live
@@ -1989,6 +1990,7 @@ int home_create_luks(
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
+        _cleanup_close_ int mount_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
@@ -2236,6 +2238,19 @@ int home_create_luks(
         setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
+
+        (void) home_shift_uid(setup->root_fd, NULL, UID_NOBODY, h->uid, &mount_fd);
+
+        if (mount_fd >= 0) {
+                /* If we have established a new mount, then we can use that as new root fd to our home directory. */
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
+
+                mount_fd = safe_close(mount_fd);
+        }
 
         r = home_populate(h, setup->root_fd);
         if (r < 0)
