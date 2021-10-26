@@ -197,11 +197,10 @@ if have_gnu_efi
         compile_args = cc.get_supported_arguments(
                 basic_disabled_warnings +
                 possible_common_cc_flags + [
-                        '-ffreestanding',
                         '-fno-stack-protector',
                         '-fno-strict-aliasing',
                         '-fpic',
-                        '-fshort-wchar',
+                        '-fwide-exec-charset=UCS2',
                         '-Wall',
                         '-Wextra',
                         '-Wsign-compare',
@@ -209,6 +208,8 @@ if have_gnu_efi
         ) + [
                 '-nostdlib',
                 '-std=gnu99',
+                '-ffreestanding',
+                '-fshort-wchar',
                 '-isystem', efi_incdir,
                 '-isystem', efi_incdir / gnu_efi_path_arch,
                 '-I', fundamental_path,
