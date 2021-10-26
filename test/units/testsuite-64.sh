@@ -132,6 +132,7 @@ EOF
     systemctl start multipathd.service
     systemctl status multipathd.service
     multipath -ll
+    udevadm settle
     ls -l /dev/disk/by-id/
 
     for i in {0..63}; do
