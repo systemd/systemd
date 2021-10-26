@@ -39,6 +39,8 @@ typedef struct HomeSetup {
         uint64_t partition_size;
 
         char *mount_suffix;           /* The directory to use as home dir is this path below /run/systemd/user-home-mount */
+
+        char *temporary_image_path;
 } HomeSetup;
 
 typedef struct PasswordCache {
