@@ -271,6 +271,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->cifs_service);
         free(h->cifs_user_name);
         free(h->cifs_domain);
+        free(h->cifs_extra_mount_options);
 
         free(h->image_path);
         free(h->image_path_auto);
@@ -1267,6 +1268,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "cifsDomain",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_domain),                   JSON_SAFE },
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
+                { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
                 { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },
@@ -1612,6 +1614,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "cifsDomain",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_domain),                   JSON_SAFE },
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
+                { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
                 { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
                 { "homeDirectory",              JSON_VARIANT_STRING,        json_dispatch_home_directory,         offsetof(UserRecord, home_directory),                0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },

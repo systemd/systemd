@@ -304,6 +304,7 @@ typedef struct UserRecord {
         char *cifs_domain;
         char *cifs_user_name;
         char *cifs_service;
+        char *cifs_extra_mount_options;
 
         char *image_path;
         char *image_path_auto; /* when none is configured explicitly, this is where we place the implicit image */

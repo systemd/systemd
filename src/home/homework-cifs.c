@@ -83,6 +83,10 @@ int home_setup_cifs(
                              p, h->uid, user_record_gid(h), user_record_access_mode(h), user_record_access_mode(h)) < 0)
                         return log_oom();
 
+                if (h->cifs_extra_mount_options)
+                        if (!strextend_with_separator(&options, ",", h->cifs_extra_mount_options))
+                                return log_oom();
+
                 r = safe_fork("(mount)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &mount_pid);
                 if (r < 0)
                         return r;

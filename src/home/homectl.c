@@ -2161,6 +2161,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --cifs-domain=DOMAIN      CIFS (Windows) domain\n"
                "     --cifs-user-name=USER     CIFS (Windows) user name\n"
                "     --cifs-service=SERVICE    CIFS (Windows) service to mount as home area\n"
+               "     --cifs-extra-mount-options=OPTIONS\n"
+               "                               CIFS (Windows) extra mount options\n"
                "\n%4$sLogin Behaviour User Record Properties:%5$s\n"
                "     --stop-delay=SECS         How long to leave user services running after\n"
                "                               logout\n"
@@ -2217,6 +2219,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CIFS_DOMAIN,
                 ARG_CIFS_USER_NAME,
                 ARG_CIFS_SERVICE,
+                ARG_CIFS_EXTRA_MOUNT_OPTIONS,
                 ARG_TASKS_MAX,
                 ARG_MEMORY_HIGH,
                 ARG_MEMORY_MAX,
@@ -2309,6 +2312,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cifs-user-name",              required_argument, NULL, ARG_CIFS_USER_NAME              },
                 { "cifs-domain",                 required_argument, NULL, ARG_CIFS_DOMAIN                 },
                 { "cifs-service",                required_argument, NULL, ARG_CIFS_SERVICE                },
+                { "cifs-extra-mount-options",    required_argument, NULL, ARG_CIFS_EXTRA_MOUNT_OPTIONS    },
                 { "rate-limit-interval",         required_argument, NULL, ARG_RATE_LIMIT_INTERVAL         },
                 { "rate-limit-burst",            required_argument, NULL, ARG_RATE_LIMIT_BURST            },
                 { "stop-delay",                  required_argument, NULL, ARG_STOP_DELAY                  },
@@ -2447,15 +2451,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOCATION:
                 case ARG_ICON_NAME:
                 case ARG_CIFS_USER_NAME:
-                case ARG_CIFS_DOMAIN: {
+                case ARG_CIFS_DOMAIN:
+                case ARG_CIFS_EXTRA_MOUNT_OPTIONS: {
 
                         const char *field =
-                                c == ARG_EMAIL_ADDRESS ? "emailAddress" :
-                                     c == ARG_LOCATION ? "location" :
-                                    c == ARG_ICON_NAME ? "iconName" :
-                               c == ARG_CIFS_USER_NAME ? "cifsUserName" :
-                                  c == ARG_CIFS_DOMAIN ? "cifsDomain" :
-                                                         NULL;
+                                           c == ARG_EMAIL_ADDRESS ? "emailAddress" :
+                                                c == ARG_LOCATION ? "location" :
+                                               c == ARG_ICON_NAME ? "iconName" :
+                                          c == ARG_CIFS_USER_NAME ? "cifsUserName" :
+                                             c == ARG_CIFS_DOMAIN ? "cifsDomain" :
+                                c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
+                                                                    NULL;
 
                         assert(field);
 
