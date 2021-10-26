@@ -883,6 +883,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_deactivate(UserRecord *h, bool force) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         bool done = false;
         int r;
 
@@ -919,7 +920,7 @@ static int home_deactivate(UserRecord *h, bool force) {
                 log_info("Directory %s is already unmounted.", user_record_home_directory(h));
 
         if (user_record_storage(h) == USER_LUKS) {
-                r = home_deactivate_luks(h);
+                r = home_deactivate_luks(h, &setup);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1685,6 +1686,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_lock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         int r;
 
         assert(h);
@@ -1700,7 +1702,7 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = home_lock_luks(h);
+        r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
 
@@ -1709,6 +1711,7 @@ static int home_lock(UserRecord *h) {
 }
 
 static int home_unlock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1726,7 +1729,7 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = home_unlock_luks(h, &cache);
+        r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
 
