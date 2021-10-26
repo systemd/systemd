@@ -126,6 +126,8 @@ enum {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
+        OBJECT_TRIE_NODE,
+        OBJECT_TRIE_HASH_TABLE,
         _OBJECT_TYPE_MAX
 };
 ```
@@ -137,6 +139,8 @@ enum {
 * A **FIELD_HASH_TABLE** object, which encapsulates a hash table for finding existing **FIELD** objects.
 * An **ENTRY_ARRAY** object, which encapsulates a sorted array of offsets to entries, used for seeking by binary search.
 * A **TAG** object, consisting of an FSS sealing tag for all data from the beginning of the file or the last tag written (whichever is later).
+* A **TRIE_NODE** object, which stores offsets to **DATA** objects for one or more **ENTRY** objects.
+* A **TRIE_HASH_TABLE** object, which encapsulates a hash table for finding existing **TRIE_NODE** objects.
 
 ## Header
 
@@ -179,6 +183,10 @@ _packed_ struct Header {
         le64_t field_hash_chain_depth;
         /* Added in 252 */
         le64_t head_entry_monotonic;
+        le64_t trie_hash_table_offset;
+        le64_t trie_hash_table_size;
+        le64_t n_trie_nodes;
+        le64_t trie_hash_chain_depth;
 };
 ```
 
@@ -209,8 +217,8 @@ The first object in the file starts immediately after the header. The last
 object in the file is at the offset **tail_object_offset**, which may be 0 if
 no object is in the file yet.
 
-The **n_entries**, **n_data**, **n_fields**, **n_tags**, **n_entry_arrays** are
-counters of the objects of the specific types.
+The **n_entries**, **n_data**, **n_fields**, **n_tags**, **n_entry_arrays**
+and **n_trie_nodes** fields are counters of the objects of the specific types.
 
 **tail_entry_seqnum** and **head_entry_seqnum** contain the sequential number
 (see below) of the last or first entry in the file, respectively, or 0 if no
@@ -223,15 +231,13 @@ entry has been written yet.
 **tail_entry_monotonic** is the monotonic timestamp of the last entry in the
 file, referring to monotonic time of the boot identified by **boot_id**.
 
-**data_hash_chain_depth** is a counter of the deepest chain in the data hash
-table, minus one. This is updated whenever a chain is found that is longer than
-the previous deepest chain found. Note that the counter is updated during hash
-table lookups, as the chains are traversed. This counter is used to determine
-when it is a good time to rotate the journal file, because hash collisions
-became too frequent.
-
-Similar, **field_hash_chain_depth** is a counter of the deepest chain in the
-field hash table, minus one.
+**data_hash_chain_depth**, **field_hash_chain_depth** and
+**trie_node_hash_chain_depth** are counters of the deepest chain in the
+corresponding hash table, minus one. This is updated whenever a chain is found
+that is longer than the previous deepest chain found. Note that the counter is
+updated during hash table lookups, as the chains are traversed. This counter
+is used to determine when it is a good time to rotate the journal file, because
+hash collisions became too frequent.
 
 
 ## Extensibility
@@ -483,8 +489,8 @@ _packed_ struct EntryObject {
                         le32_t seqnum;
                         le32_t realtime;
                         le32_t monotonic;
+                        le32_t trie_offset;
                         le64_t xor_hash;
-                        EntryItem items[];
                 } compact;
         };
 };
@@ -520,7 +526,9 @@ offset to the **head_entry_monotonic** field in the header. The **seqnum** field
 stored as a 32-bit offset to the **head_entry_seqnum** field in the header. The
 boot ID is not stored per entry anymore and is always identical to the
 **boot_id** field in the header. As a consequence, journal files written in
-compact mode are limited to a single boot ID.
+compact mode are limited to a single boot ID. The **trie_offset** field stores
+the offset to the leaf Trie Node object that stores this Entry object's Data
+object offsets.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
@@ -543,29 +551,31 @@ _packed_ struct HashTableObject {
 };
 ```
 
-The structure of both DATA_HASH_TABLE and FIELD_HASH_TABLE objects are
-identical. They implement a simple hash table, with each cell containing
-offsets to the head and tail of the singly linked list of the DATA and FIELD
-objects, respectively. DATA's and FIELD's next_hash_offset field are used to
-chain up the objects. Empty cells have both offsets set to 0.
+The structure of DATA_HASH_TABLE, FIELD_HASH_TABLE and TRIE_NODE_HASH_TABLE
+objects are identical. They implement a simple hash table, with each cell
+containing offsets to the head and tail of the singly linked list of the DATA,
+FIELD and TRIE_NODE objects, respectively. DATA's, FIELD's and TRIE_NODE's
+next_hash_offset field are used to chain up the objects. Empty cells have both
+offsets set to 0.
 
-Each file contains exactly one DATA_HASH_TABLE and one FIELD_HASH_TABLE
-objects. Their payload is directly referred to by the file header in the
-**data_hash_table_offset**, **data_hash_table_size**,
-**field_hash_table_offset**, **field_hash_table_size** fields. These offsets do
-_not_ point to the object headers but directly to the payloads. When a new
-journal file is created the two hash table objects need to be created right
-away as first two objects in the stream.
+Each file contains exactly one DATA_HASH_TABLE, one FIELD_HASH_TABLE and one
+TRIE_NODE_HASH_TABLE object. Their payload is directly referred to by the file
+header in the **data_hash_table_offset**, **data_hash_table_size**,
+**field_hash_table_offset**, **field_hash_table_size** and
+**trie_node_hash_table_offset**, **trie_node_hash_table_size** fields. These
+offsets do _not_ point to the object headers but directly to the payloads.
+When a new journal file is created the two hash table objects need to be created
+right away as first two objects in the stream.
 
 If the hash table fill level is increasing over a certain fill level (Learning
 from Java's Hashtable for example: > 75%), the writer should rotate the file
 and create a new one.
 
-The DATA_HASH_TABLE should be sized taking into account to the maximum size the
-file is expected to grow, as configured by the administrator or disk space
-considerations. The FIELD_HASH_TABLE should be sized to a fixed size; the
-number of fields should be pretty static as it depends only on developers'
-creativity rather than runtime parameters.
+The DATA_HASH_TABLE and TRIE_NODE_HASH_TABLE hash tables should be sized taking
+into account to the maximum size the file is expected to grow, as configured by
+the administrator or disk space considerations. The FIELD_HASH_TABLE should be
+sized to a fixed size; the number of fields should be pretty static as it depends
+only on developers' creativity rather than runtime parameters.
 
 
 ## Entry Array Objects
@@ -641,6 +651,27 @@ encountered the HMAC should be verified and restarted. The tag object sequence
 numbers need to increase strictly monotonically. Tag objects themselves are
 partially protected by the HMAC (i.e. seqnum and epoch is included, the tag
 itself not).
+
+## Trie Node Object
+
+![Trie Visualization](https://user-images.githubusercontent.com/9395011/164715684-51019297-38fc-49c8-ae9c-fff941ff726c.png)
+
+Trie Node objects are used to store the Entry object's offsets to Data objects.
+Because Entry objects often share the same fields, using a trie to store
+the offsets to these fields reduces the amount of space needed to store the
+offsets of each Entry object.
+
+A Trie Node object represents a node in the trie. **object_offset** stores the
+offset to the node's corresponding Data object. **parent_offset** stores the
+offset to the node's parent node in the trie. **hash** stores the XOR hash
+of the node's own Data object and the Data objects of all its parent nodes.
+**next_hash_offset** is used to link up Trie Node objects in the Trie Hash
+Table if a hash collision happens (in a singly linked list, with an offset
+of 0 indicating the end).
+
+The trie hash table is used to quickly find the longest matching prefix in the
+trie when appending a new Entry object.
+
 
 
 ## Algorithms
