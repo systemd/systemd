@@ -382,6 +382,14 @@ int home_setup_done(HomeSetup *setup) {
                 setup->image_fd = safe_close(setup->image_fd);
         }
 
+        if (setup->temporary_image_path) {
+                if (unlink(setup->temporary_image_path) < 0)
+                        log_debug_errno(errno, "Failed to remove temporary image file '%s', ignoring: %m",
+                                        setup->temporary_image_path);
+
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
+        }
+
         setup->undo_mount = false;
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
