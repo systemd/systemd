@@ -81,6 +81,29 @@ Janitorial Clean-ups:
 
 Features:
 
+* add tiny service that decrypts encrypted user records passed via initrd
+  credential logic and drops them into /run where nss-systemd can pick them up,
+  similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
+  and use it in the initrd to log in as root with locally selected password,
+  for debugging purposes.
+
+* drop dependency on libcap, replace by direct syscalls based on
+  CapabilityQuintet we already have. (This likely allows us drop drop libcap
+  dep in the base OS image)
+
+* sysext: automatically activate sysext images dropped in via new sd-stub
+  sysext pickup logic.
+
+* add concept for "exitrd" as inverse of "initrd", that we can transition to at
+  shutdown, and has similar security semantics. This should then take the place
+  of dracut's shutdown logic. Should probably support sysexts too. Care needs
+  to be taken that the resulting logic ends up in RAM, i.e. is copied out of
+  on-disk storage.
+
+* sd-stub: automatically pick up microcode from ESP and synthesize initrd from
+  it, and measure it. Signing is not necessary, as microcode does that on its
+  own. Pass as first initrd to kernel.
+
 * userdbd: implement an additional varlink service socket that provides the
   host user db in restricted form, then allow this to be bind mounted into
   sandboxed environments that want the host database in minimal form. All
