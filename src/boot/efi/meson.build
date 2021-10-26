@@ -201,14 +201,15 @@ if have_gnu_efi
                         '-fno-stack-protector',
                         '-fno-strict-aliasing',
                         '-fpic',
-                        '-fshort-wchar',
                         '-Wall',
                         '-Wextra',
                         '-Wsign-compare',
+                        '-fwide-exec-charset=UCS2',
                 ]
         ) + [
                 '-nostdlib',
                 '-std=gnu99',
+                '-fshort-wchar',
                 '-isystem', efi_incdir,
                 '-isystem', efi_incdir / gnu_efi_path_arch,
                 '-I', fundamental_path,
