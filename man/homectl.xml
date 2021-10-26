@@ -688,13 +688,17 @@
         <term><option>--cifs-domain=</option><replaceable>DOMAIN</replaceable></term>
         <term><option>--cifs-user-name=</option><replaceable>USER</replaceable></term>
         <term><option>--cifs-service=</option><replaceable>SERVICE</replaceable></term>
+        <term><option>--cifs-extra-mount-options=</option><replaceable>OPTIONS</replaceable></term>
 
         <listitem><para>Configures the Windows File Sharing (CIFS) domain and user to associate with the home
         directory/user account, as well as the file share ("service") to mount as directory. The latter is
         used when <literal>cifs</literal> storage is selected. The file share should be specified in format
         <literal>//<replaceable>host</replaceable>/<replaceable>share</replaceable>/<replaceable>directory/…</replaceable></literal>. The
         directory part is optional — if not specified the home directory will be placed in the top-level
-        directory of the share.</para></listitem>
+        directory of the share. The <option>--cifs-extra-mount-options=</option> setting allows specifying
+        additional mount options when mounting the share, see <citerefentry
+        project='man-pages'><refentrytitle>mount.cifs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
