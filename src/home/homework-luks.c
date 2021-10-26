@@ -384,39 +384,88 @@ static int luks_setup(
         return 0;
 }
 
+static int make_dm_names(UserRecord *h, HomeSetup *setup) {
+        assert(h);
+        assert(h->user_name);
+        assert(setup);
+
+        if (!setup->dm_name) {
+                setup->dm_name = strjoin("home-", h->user_name);
+                if (!setup->dm_name)
+                        return log_oom();
+        }
+
+        if (!setup->dm_node) {
+                setup->dm_node = path_join("/dev/mapper/", setup->dm_name);
+                if (!setup->dm_node)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int acquire_open_luks_device(
+                UserRecord *h,
+                HomeSetup *setup,
+                bool graceful) {
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = make_dm_names(h, setup);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, setup->dm_name);
+        if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT) && graceful)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+
+        cryptsetup_enable_logging(cd);
+
+        setup->crypt_device = TAKE_PTR(cd);
+        return 1;
+}
+
 static int luks_open(
-                const char *dm_name,
-                char **passwords,
+                UserRecord *h,
+                HomeSetup *setup,
                 const PasswordCache *cache,
-                struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
                 size_t *ret_volume_key_size) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         char **list;
         size_t vks;
         int r;
 
-        assert(dm_name);
-        assert(ret);
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
 
         /* Opens a LUKS device that is already set up. Re-validates the password while doing so (which also
          * provides us with the volume key, which we want). */
 
-        r = sym_crypt_init_by_name(&cd, dm_name);
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
+                return r;
 
-        cryptsetup_enable_logging(cd);
-
-        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(setup->crypt_device, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS superblock: %m");
 
-        r = sym_crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(setup->crypt_device);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
         vks = (size_t) r;
@@ -424,7 +473,7 @@ static int luks_open(
         if (ret_found_uuid) {
                 const char *s;
 
-                s = sym_crypt_get_uuid(cd);
+                s = sym_crypt_get_uuid(setup->crypt_device);
                 if (!s)
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock has no UUID.");
 
@@ -441,8 +490,8 @@ static int luks_open(
         FOREACH_POINTER(list,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
-                        passwords) {
-                r = luks_try_passwords(cd, list, vk, &vks);
+                        h->password) {
+                r = luks_try_passwords(setup->crypt_device, list, vk, &vks);
                 if (r != -ENOKEY)
                         break;
         }
@@ -451,17 +500,15 @@ static int luks_open(
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
-        log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", dm_name);
+        log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", setup->dm_name);
 
         /* This is needed so that crypt_resize() can operate correctly for pre-existing LUKS devices. We need
          * to tell libcryptsetup the volume key explicitly, so that it is in the kernel keyring. */
-        r = sym_crypt_activate_by_volume_key(cd, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
+        r = sym_crypt_activate_by_volume_key(setup->crypt_device, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
         if (r < 0)
                 return log_error_errno(r, "Failed to upload volume key again: %m");
 
         log_info("Successfully re-activated LUKS device.");
-
-        *ret = TAKE_PTR(cd);
 
         if (ret_found_uuid)
                 *ret_found_uuid = p;
@@ -505,26 +552,6 @@ static int fs_validate(
 
         if (ret_found_uuid) /* Return the UUID actually found if the caller wants to know */
                 *ret_found_uuid = u;
-
-        return 0;
-}
-
-static int make_dm_names(UserRecord *h, HomeSetup *setup) {
-        assert(h);
-        assert(h->user_name);
-        assert(setup);
-
-        if (!setup->dm_name) {
-                setup->dm_name = strjoin("home-", h->user_name);
-                if (!setup->dm_name)
-                        return log_oom();
-        }
-
-        if (!setup->dm_node) {
-                setup->dm_node = path_join("/dev/mapper/", setup->dm_name);
-                if (!setup->dm_node)
-                        return log_oom();
-        }
 
         return 0;
 }
@@ -1171,10 +1198,9 @@ int home_setup_luks(
                 struct loop_info64 info;
                 const char *n;
 
-                r = luks_open(setup->dm_name,
-                              h->password,
+                r = luks_open(h,
+                              setup,
                               cache,
-                              &setup->crypt_device,
                               &found_luks_uuid,
                               &volume_key,
                               &volume_key_size);
@@ -1490,21 +1516,13 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
          * don't bother about the loopback device because unlike the DM device it doesn't have a fixed
          * name. */
 
-        r = dlopen_cryptsetup();
+        r = acquire_open_luks_device(h, setup, /* graceful= */ true);
         if (r < 0)
-                return r;
-
-        r = make_dm_names(h, setup);
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&setup->crypt_device, setup->dm_name);
-        if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
-                log_debug_errno(r, "LUKS device %s has already been detached.", setup->dm_name);
-                we_detached = false;
-        } else if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
-        else {
+        if (r == 0) {
+                log_debug("LUKS device %s has already been detached.", setup->dm_name);
+                we_detached = false;
+        } else {
                 log_info("Discovered used LUKS device %s.", setup->dm_node);
 
                 cryptsetup_enable_logging(setup->crypt_device);
@@ -3136,25 +3154,17 @@ int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         assert(setup->root_fd < 0);
         assert(!setup->crypt_device);
 
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
+        if (r < 0)
+                return r;
+
+        log_info("Discovered used LUKS device %s.", setup->dm_node);
+
         assert_se(p = user_record_home_directory(h));
+
         setup->root_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
-
-        r = make_dm_names(h, setup);
-        if (r < 0)
-                return r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&setup->crypt_device, setup->dm_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
-
-        log_info("Discovered used LUKS device %s.", setup->dm_node);
-        cryptsetup_enable_logging(setup->crypt_device);
 
         if (syncfs(setup->root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
                 return log_error_errno(errno, "Failed to synchronize file system %s: %m", p);
@@ -3210,20 +3220,11 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
         assert(setup);
         assert(!setup->crypt_device);
 
-        r = make_dm_names(h, setup);
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
         if (r < 0)
                 return r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&setup->crypt_device, setup->dm_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
 
         log_info("Discovered used LUKS device %s.", setup->dm_node);
-        cryptsetup_enable_logging(setup->crypt_device);
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
