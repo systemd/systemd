@@ -1175,11 +1175,9 @@ int home_setup_luks(
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_close_ int opened_image_fd = -1;
         size_t volume_key_size = 0;
-        bool marked_dirty = false;
         uint64_t offset, size;
-        int r, image_fd = -1;
+        int r;
 
         assert(h);
         assert(setup);
@@ -1292,29 +1290,27 @@ int home_setup_luks(
 
                 /* Reuse the image fd if it has already been opened by an earlier step */
                 if (setup->image_fd < 0) {
-                        opened_image_fd = open_image_file(h, force_image_path, &st);
-                        if (opened_image_fd < 0)
-                                return opened_image_fd;
+                        setup->image_fd = open_image_file(h, force_image_path, &st);
+                        if (setup->image_fd < 0)
+                                return setup->image_fd;
+                }
 
-                        image_fd = opened_image_fd;
-                } else
-                        image_fd = setup->image_fd;
-
-                r = luks_validate(image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
+                r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
                 /* Everything before this point left the image untouched. We are now starting to make
                  * changes, hence mark the image dirty */
-                marked_dirty = run_mark_dirty(image_fd, true) > 0;
+                if (run_mark_dirty(setup->image_fd, true) > 0)
+                        setup->do_mark_clean = true;
 
                 if (!user_record_luks_discard(h)) {
-                        r = run_fallocate(image_fd, &st);
+                        r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
                 }
 
-                r = loop_device_make(image_fd, O_RDWR, offset, size, 0, &setup->loop);
+                r = loop_device_make(setup->image_fd, O_RDWR, offset, size, 0, &setup->loop);
                 if (r == -ENOENT) {
                         log_error_errno(r, "Loopback block device support is not available on this system.");
                         return -ENOLINK; /* make recognizable */
@@ -1369,14 +1365,7 @@ int home_setup_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
 
-                /* And now, fill in everything */
-                if (opened_image_fd >= 0) {
-                        safe_close(setup->image_fd);
-                        setup->image_fd = TAKE_FD(opened_image_fd);
-                }
-
                 setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
-                setup->do_mark_clean = marked_dirty;
         }
 
         setup->found_partition_uuid = found_partition_uuid;
@@ -1393,11 +1382,12 @@ int home_setup_luks(
         return 0;
 
 fail:
+        setup->root_fd = safe_close(setup->root_fd);
         home_setup_undo_mount(setup, LOG_ERR);
         home_setup_undo_dm(setup, LOG_ERR);
 
-        if (image_fd >= 0 && marked_dirty)
-                (void) run_mark_dirty(image_fd, false);
+        if (setup->image_fd >= 0 && setup->do_mark_clean)
+                (void) run_mark_dirty(setup->image_fd, false);
 
         return r;
 }
