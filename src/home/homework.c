@@ -306,9 +306,15 @@ int home_setup_undo_mount(HomeSetup *setup, int level) {
         if (!setup->undo_mount)
                 return 0;
 
-        r = umount_verbose(level, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-        if (r < 0)
-                return r;
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
+        if (r < 0) {
+                if (level >= LOG_DEBUG) /* umount_recursive() does debug level logging anyway, no need to
+                                         * repeat that here */
+                        return r;
+
+                /* If a higher log level is requested, the generate a non-debug mesage here too. */
+                return log_full_errno(level, r, "Failed to unmount mount tree below %s: %m", HOME_RUNTIME_WORK_DIR);
+        }
 
         setup->undo_mount = false;
         return 1;
