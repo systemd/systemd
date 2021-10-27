@@ -331,7 +331,7 @@ DHCPv6PrefixDelegation.Assign,               config_parse_bool,                 
 DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
 DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp6_pd_tokens)
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
-IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
+IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
 IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
