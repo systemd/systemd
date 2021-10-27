@@ -23,6 +23,7 @@
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"

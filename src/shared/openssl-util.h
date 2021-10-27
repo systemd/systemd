@@ -61,3 +61,15 @@ typedef const char* hash_curve_t;
 typedef gcry_md_hd_t hash_context_t;
 #  define OPENSSL_OR_GCRYPT(a, b) (b)
 #endif
+
+#if PREFER_OPENSSL
+int string_hashsum(const char *s, size_t len, hash_algorithm_t md_algorithm, char **out);
+
+static inline int string_hashsum_sha224(const char *s, size_t len, char **out) {
+        return string_hashsum(s, len, EVP_sha224(), out);
+}
+
+static inline int string_hashsum_sha256(const char *s, size_t len, char **out) {
+        return string_hashsum(s, len, EVP_sha256(), out);
+}
+#endif
