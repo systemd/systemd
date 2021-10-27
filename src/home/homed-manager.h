@@ -13,9 +13,6 @@ typedef struct Manager Manager;
 #include "homed-home.h"
 #include "varlink.h"
 
-#define HOME_UID_MIN 60001
-#define HOME_UID_MAX 60513
-
 struct Manager {
         sd_event *event;
         sd_bus *bus;
