@@ -48,16 +48,20 @@ int parse_integrity_options(
                         if (ret_commit_time)
                                 *ret_commit_time = tmp_commit_time;
                 } else if ((val = startswith(word, "data-device="))) {
-                        r = free_and_strdup(ret_data_device, val);
-                        if (r < 0)
-                                return log_oom();
+                        if (ret_data_device) {
+                                r = free_and_strdup(ret_data_device, val);
+                                if (r < 0)
+                                        return log_oom();
+                        }
                 } else if ((val = startswith(word, "integrity-algorithm="))) {
-                        r = free_and_strdup(ret_integrity_alg, val);
-                        if (r < 0)
-                                return log_oom();
-                        r = supported_integrity_algorithm(*ret_integrity_alg);
+                        r = supported_integrity_algorithm(val);
                         if (r < 0)
                                 return r;
+                        if (ret_integrity_alg) {
+                                r = free_and_strdup(ret_integrity_alg, val);
+                                if (r < 0)
+                                        return log_oom();
+                        }
                 } else
                         log_warning("Encountered unknown option '%s', ignoring.", word);
         }
