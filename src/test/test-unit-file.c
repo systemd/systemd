@@ -71,6 +71,19 @@ static void test_unit_file_build_name_map(char **ids) {
                  SET_FOREACH(name, names)
                          log_info("    %s", name);
         }
+
+        /* Make sure everything still works if we don't collect names. */
+        STRV_FOREACH(id, ids) {
+                 const char *fragment;
+                 log_info("*** %s ***", *id);
+                 r = unit_file_find_fragment(unit_ids,
+                                             unit_names,
+                                             *id,
+                                             &fragment,
+                                             NULL);
+                 assert_se(r == 0);
+                 log_info("fragment: %s", fragment);
+        }
 }
 
 static void test_runlevel_to_target(void) {
