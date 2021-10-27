@@ -4,7 +4,7 @@ if enable_sysusers
         install_data('README', install_dir : sysusersdir)
 endif
 
-in_files = [['basic.conf',          enable_sysusers],
+in_files = [['10-basic.conf',       enable_sysusers],
             ['systemd.conf',        enable_sysusers],
             ['systemd-remote.conf', enable_sysusers and
                                     conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1]]
