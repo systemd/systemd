@@ -35,6 +35,7 @@ typedef enum NamingSchemeFlags {
         NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
         NAMING_16BIT_INDEX         = 1 << 11, /* Allow full 16-bit for the onboard index */
         NAMING_REPLACE_STRICTLY    = 1 << 12, /* Use udev_replace_ifname() for NAME= rule */
+        NAMING_XEN_VIF             = 1 << 13, /* GEnerate names for Xen netfront devices */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -45,6 +46,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
         NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX | NAMING_REPLACE_STRICTLY,
+        NAMING_V250 = NAMING_V249 | NAMING_XEN_VIF,
 
         EXTRA_NET_NAMING_SCHEMES
 
