@@ -7,3 +7,8 @@ IPv6AcceptRA=true
 
 [IPv6AcceptRA]
 Token=prefixstable:2002:da8:1::
+# invalid tokens
+Token=prefixstable@
+Token=static
+Token=static:
+Token=static:::
