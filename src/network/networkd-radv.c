@@ -1254,6 +1254,49 @@ int config_parse_router_prefix_delegation(
         return 0;
 }
 
+int config_parse_router_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *lifetime = data;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *lifetime = SD_RADV_DEFAULT_ROUTER_LIFETIME_USEC;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse router lifetime, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (usec > 0 &&
+            (usec < SD_RADV_MIN_ROUTER_LIFETIME_USEC || usec > SD_RADV_MAX_ROUTER_LIFETIME_USEC)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid router lifetime, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *lifetime = usec;
+        return 0;
+}
+
 int config_parse_router_preference(
                 const char *unit,
                 const char *filename,
