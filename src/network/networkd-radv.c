@@ -17,6 +17,7 @@
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "parse-util.h"
+#include "radv-internal.h"
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -104,8 +105,8 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .preferred_lifetime = 7 * USEC_PER_DAY,
-                .valid_lifetime = 30 * USEC_PER_DAY,
+                .preferred_lifetime = SD_RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                .valid_lifetime = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
                 .onlink = true,
                 .address_auto_configuration = true,
         };
@@ -162,7 +163,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .lifetime = 7 * USEC_PER_DAY,
+                .lifetime = SD_RADV_DEFAULT_VALID_LIFETIME_USEC,
         };
 
         r = hashmap_ensure_put(&network->route_prefixes_by_section, &network_config_hash_ops, prefix->section, prefix);
@@ -248,11 +249,11 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, usec_to_lifetime(prefix->preferred_lifetime));
+        r = sd_radv_prefix_set_preferred_lifetime(p, prefix->preferred_lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, usec_to_lifetime(prefix->valid_lifetime));
+        r = sd_radv_prefix_set_valid_lifetime(p, prefix->valid_lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
@@ -264,7 +265,7 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        return sd_radv_add_prefix(link->radv, p, false);
+        return sd_radv_add_prefix(link->radv, p);
 }
 
 static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
@@ -283,11 +284,11 @@ static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_route_prefix_set_lifetime(p, usec_to_lifetime(prefix->lifetime));
+        r = sd_radv_route_prefix_set_lifetime(p, prefix->lifetime, USEC_INFINITY);
         if (r < 0)
                 return r;
 
-        return sd_radv_add_route_prefix(link->radv, p, false);
+        return sd_radv_add_route_prefix(link->radv, p);
 }
 
 static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
@@ -429,7 +430,6 @@ static int radv_find_uplink(Link *link, Link **ret) {
 }
 
 static int radv_configure(Link *link) {
-        uint16_t router_lifetime;
         Link *uplink = NULL;
         RoutePrefix *q;
         Prefix *p;
@@ -465,19 +465,11 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        /* a value of UINT16_MAX represents infinity, 0x0 means this host is not a router */
-        if (link->network->router_lifetime_usec == USEC_INFINITY)
-                router_lifetime = UINT16_MAX;
-        else if (link->network->router_lifetime_usec > (UINT16_MAX - 1) * USEC_PER_SEC)
-                router_lifetime = UINT16_MAX - 1;
-        else
-                router_lifetime = DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC);
-
-        r = sd_radv_set_router_lifetime(link->radv, router_lifetime);
+        r = sd_radv_set_router_lifetime(link->radv, link->network->router_lifetime_usec);
         if (r < 0)
                 return r;
 
-        if (router_lifetime > 0) {
+        if (link->network->router_lifetime_usec > 0) {
                 r = sd_radv_set_preference(link->radv, link->network->router_preference);
                 if (r < 0)
                         return r;
@@ -662,15 +654,12 @@ int radv_add_prefix(
                 usec_t lifetime_valid_usec) {
 
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
-        usec_t now_usec;
         int r;
 
         assert(link);
 
         if (!link->radv)
                 return 0;
-
-        now_usec = now(clock_boottime_or_monotonic());
 
         r = sd_radv_prefix_new(&p);
         if (r < 0)
@@ -680,15 +669,15 @@ int radv_add_prefix(
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, usec_sub_unsigned(lifetime_preferred_usec, now_usec) / USEC_PER_SEC);
+        r = sd_radv_prefix_set_preferred_lifetime(p, SD_RADV_DEFAULT_PREFERRED_LIFETIME_USEC, lifetime_preferred_usec);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, usec_sub_unsigned(lifetime_valid_usec, now_usec) / USEC_PER_SEC);
+        r = sd_radv_prefix_set_valid_lifetime(p, SD_RADV_DEFAULT_VALID_LIFETIME_USEC, lifetime_valid_usec);
         if (r < 0)
                 return r;
 
-        r = sd_radv_add_prefix(link->radv, p, true);
+        r = sd_radv_add_prefix(link->radv, p);
         if (r < 0 && r != -EEXIST)
                 return r;
 
@@ -1262,6 +1251,49 @@ int config_parse_router_prefix_delegation(
         }
 
         *ra = val;
+        return 0;
+}
+
+int config_parse_router_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *lifetime = data;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *lifetime = SD_RADV_DEFAULT_ROUTER_LIFETIME_USEC;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse router lifetime, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (usec > 0 &&
+            (usec < SD_RADV_MIN_ROUTER_LIFETIME_USEC || usec > SD_RADV_MAX_ROUTER_LIFETIME_USEC)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid router lifetime, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *lifetime = usec;
         return 0;
 }
 
