@@ -2232,7 +2232,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         CGroupMask delegated_mask;
         const char *p;
         void *pidp;
-        int r, q;
+        int ret, r;
 
         assert(u);
 
@@ -2259,16 +2259,16 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
         delegated_mask = unit_get_delegate_mask(u);
 
-        r = 0;
+        ret = 0;
         SET_FOREACH(pidp, pids) {
                 pid_t pid = PTR_TO_PID(pidp);
 
                 /* First, attach the PID to the main cgroup hierarchy */
-                q = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
-                if (q < 0) {
-                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q);
+                r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
+                if (r < 0) {
+                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(r);
 
-                        log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  q,
+                        log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
                                             pid, again ? " directly" : "", empty_to_root(p));
 
@@ -2287,16 +2287,16 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                         continue; /* When the bus thing worked via the bus we are fully done for this PID. */
                         }
 
-                        if (r >= 0)
-                                r = q; /* Remember first error */
+                        if (ret >= 0)
+                                ret = r; /* Remember first error */
 
                         continue;
                 }
 
-                q = cg_all_unified();
-                if (q < 0)
-                        return q;
-                if (q > 0)
+                r = cg_all_unified();
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         continue;
 
                 /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
@@ -2311,11 +2311,11 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                         /* If this controller is delegated and realized, honour the caller's request for the cgroup suffix. */
                         if (delegated_mask & u->cgroup_realized_mask & bit) {
-                                q = cg_attach(cgroup_controller_to_string(c), p, pid);
-                                if (q >= 0)
+                                r = cg_attach(cgroup_controller_to_string(c), p, pid);
+                                if (r >= 0)
                                         continue; /* Success! */
 
-                                log_unit_debug_errno(u, q, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
+                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
                                                      pid, empty_to_root(p), cgroup_controller_to_string(c));
                         }
 
@@ -2326,14 +2326,14 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                         if (!realized)
                                 continue; /* Not even realized in the root slice? Then let's not bother */
 
-                        q = cg_attach(cgroup_controller_to_string(c), realized, pid);
-                        if (q < 0)
-                                log_unit_debug_errno(u, q, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
+                        r = cg_attach(cgroup_controller_to_string(c), realized, pid);
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
                                                      pid, realized, cgroup_controller_to_string(c));
                 }
         }
 
-        return r;
+        return ret;
 }
 
 static bool unit_has_mask_realized(
