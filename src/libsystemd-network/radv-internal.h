@@ -17,6 +17,8 @@
  * The maximum time allowed between sending unsolicited multicast Router Advertisements from the
  * interface, in seconds. MUST be no less than 4 seconds and no greater than 1800 seconds.
  * Default: 600 seconds */
+#define RADV_MIN_MAX_TIMEOUT_USEC                 (4 * USEC_PER_SEC)
+#define RADV_MAX_MAX_TIMEOUT_USEC                 (1800 * USEC_PER_SEC)
 #define RADV_DEFAULT_MAX_TIMEOUT_USEC             (600 * USEC_PER_SEC)
 /* RFC 4861 section 6.2.1.
  * MinRtrAdvInterval
@@ -24,7 +26,7 @@
  * interface, in seconds. MUST be no less than 3 seconds and no greater than .75 * MaxRtrAdvInterval.
  * Default: 0.33 * MaxRtrAdvInterval If MaxRtrAdvInterval >= 9 seconds; otherwise, the Default is
  * MaxRtrAdvInterval (Note, this should be a typo. We use 0.75 * MaxRtrAdvInterval). */
-#define RADV_DEFAULT_MIN_TIMEOUT_USEC             (RADV_DEFAULT_MAX_TIMEOUT_USEC / 3)
+#define RADV_MIN_MIN_TIMEOUT_USEC                 (3 * USEC_PER_SEC)
 /* RFC 4861 section 6.2.4.
  * AdvDefaultLifetime
  * The value to be placed in the Router Lifetime field of Router Advertisements sent from the interface,
@@ -34,7 +36,7 @@
  * point-to-point link the peers may have enough information about the number and status of devices at
  * the other end so that advertisements are needed less frequently.
  * Default: 3 * MaxRtrAdvInterval */
-#define RADV_MIN_ROUTER_LIFETIME_USEC             (4 * USEC_PER_SEC)
+#define RADV_MIN_ROUTER_LIFETIME_USEC             RADV_MIN_MAX_TIMEOUT_USEC
 #define RADV_MAX_ROUTER_LIFETIME_USEC             (9000 * USEC_PER_SEC)
 #define RADV_DEFAULT_ROUTER_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
 /* RFC 4861 section 10.
