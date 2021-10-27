@@ -78,7 +78,7 @@ to build systemd:
 # Fedora
 $ sudo dnf builddep systemd
 # Debian/Ubuntu
-$ sudo apt-get builddep systemd
+$ sudo apt-get build-dep systemd
 # Arch
 $ sudo pacman install asp
 $ asp checkout systemd
