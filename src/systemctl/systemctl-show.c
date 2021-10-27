@@ -89,7 +89,7 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i, bo
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_STRUCT, is_ex_prop ? "sasasttttuii" : "sasbttttuii");
         if (r < 0)
                 return bus_log_parse_error(r);
-        else if (r == 0)
+        if (r == 0)
                 return 0;
 
         r = sd_bus_message_read(m, "s", &path);
@@ -1944,7 +1944,7 @@ static int show_one(
 
                 if (show_mode == SYSTEMCTL_SHOW_STATUS)
                         return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-                else if (show_mode == SYSTEMCTL_SHOW_HELP)
+                if (show_mode == SYSTEMCTL_SHOW_HELP)
                         return -ENOENT;
         }
 
@@ -2037,7 +2037,7 @@ static int show_all(
                 r = show_one(bus, p, u->id, SYSTEMCTL_SHOW_STATUS, new_line, ellipsized);
                 if (r < 0)
                         return r;
-                else if (r > 0 && ret == 0)
+                if (r > 0 && ret == 0)
                         ret = r;
         }
 
@@ -2177,7 +2177,7 @@ int show(int argc, char *argv[], void *userdata) {
                         r = show_one(bus, path, unit, show_mode, &new_line, &ellipsized);
                         if (r < 0)
                                 return r;
-                        else if (r > 0 && ret == 0)
+                        if (r > 0 && ret == 0)
                                 ret = r;
                 }
 
