@@ -92,7 +92,6 @@ $ vim src/core/main.c                     # or wherever you'd like to make your 
 $ meson build                             # configure the build
 $ meson compile -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build                     # run some simple regression tests
-$ ln -s .mkosi/mkosi.fedora mkosi.default # Configure mkosi to build a fedora image
 $ sudo mkosi                              # build a test image
 $ sudo mkosi boot                         # boot up the test image
 $ git add -p                              # interactively put together your patch
