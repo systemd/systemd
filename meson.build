@@ -1448,18 +1448,6 @@ else
 endif
 conf.set10('HAVE_DBUS', have)
 
-default_dnssec = get_option('default-dnssec')
-if skip_deps
-        default_dnssec = 'no'
-endif
-if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
-        default_dnssec = 'no'
-endif
-conf.set('DEFAULT_DNSSEC_MODE',
-         'DNSSEC_' + default_dnssec.underscorify().to_upper())
-conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
-
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
         if dns_over_tls == 'openssl'
@@ -1534,6 +1522,18 @@ conf.set10('PREFER_OPENSSL',
 conf.set10('HAVE_OPENSSL_OR_GCRYPT',
            conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
 lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
+
+default_dnssec = get_option('default-dnssec')
+if skip_deps
+        default_dnssec = 'no'
+endif
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
+        default_dnssec = 'no'
+endif
+conf.set('DEFAULT_DNSSEC_MODE',
+         'DNSSEC_' + default_dnssec.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
 want_importd = get_option('importd')
 if want_importd != 'false'
