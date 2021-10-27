@@ -1801,36 +1801,50 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         }
 
         xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+
         encoded = utf8_to_utf16(utf8, strlen(utf8));
         if (!encoded)
                 return log_oom();
+
         *ret_timeout = encoded;
         *ret_timeout_size = char16_strlen(encoded) * 2 + 2;
         return 0;
 }
 
 static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
+        char16_t *encoded = NULL;
         int r;
+
+        assert(arg1);
+        assert(ret_target);
+        assert(ret_target_size);
+
         if (streq(arg1, "@current")) {
                 r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntrySelected), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySelected': %m");
+
         } else if (streq(arg1, "@oneshot")) {
                 r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntryOneShot), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryOneShot': %m");
+
         } else if (streq(arg1, "@default")) {
                 r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntryDefault), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
-        } else {
-                char16_t *encoded = NULL;
+
+        } else if (arg1[0] == '@')
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported special entry identifier: %s", arg1);
+        else {
                 encoded = utf8_to_utf16(arg1, strlen(arg1));
                 if (!encoded)
                         return log_oom();
+
                 *ret_target = encoded;
                 *ret_target_size = char16_strlen(encoded) * 2 + 2;
         }
+
         return 0;
 }
 
