@@ -87,11 +87,11 @@ $ makepkg -seoc
 ```
 
 Putting this all together, here's a series of commands for preparing a patch
-for systemd (this example is for Fedora):
+for systemd:
 
 ```sh
 # Install build dependencies (see above)
-$ sudo dnf install mkosi                  # install tool to quickly build images
+# Install mkosi (either via your distro's package manager or from the github repository)
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>                # where BRANCH is the name of the branch
