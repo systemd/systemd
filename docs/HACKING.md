@@ -87,6 +87,7 @@ $ sudo dnf builddep systemd               # install build dependencies
 $ sudo dnf install mkosi                  # install tool to quickly build images
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
+$ git checkout -b <BRANCH>                # where BRANCH is the name of the branch
 $ vim src/core/main.c                     # or wherever you'd like to make your changes
 $ meson build                             # configure the build
 $ meson compile -C build                  # build it locally, see if everything compiles fine
@@ -96,9 +97,7 @@ $ sudo mkosi                              # build a test image
 $ sudo mkosi boot                         # boot up the test image
 $ git add -p                              # interactively put together your patch
 $ git commit                              # commit it
-$ git push REMOTE HEAD:refs/heads/BRANCH
-                                          # where REMOTE is your "fork" on GitHub
-                                          # and BRANCH is a branch name.
+$ git push -u <REMOTE>                    # where REMOTE is your "fork" on GitHub
 ```
 
 And after that, head over to your repo on GitHub and click "Compare & pull request"
