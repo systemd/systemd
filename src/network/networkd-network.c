@@ -405,6 +405,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
+                .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
 
                 .dhcp6_pd = -1,
                 .dhcp6_pd_announce = true,
