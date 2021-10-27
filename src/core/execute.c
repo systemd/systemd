@@ -2767,7 +2767,19 @@ static int setup_credentials_internal(
 
                         if (try == 0) {
                                 /* Try "ramfs" first, since it's not swap backed */
-                                r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
+#if HAVE_SELINUX
+                                _cleanup_freecon_ char *con = NULL;
+                                r = mac_selinux_lookup_path_label(final, S_IFDIR, &con);
+                                if (r >= 0) {
+                                        _cleanup_free_ char *opts = NULL;
+                                        if (asprintf(&opts, "mode=0700,context=\"%s\"", con) < 0)
+                                                return -ENOMEM;
+                                        r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts);
+                                } else
+#endif
+                                {
+                                        r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
+                                }
                                 if (r >= 0) {
                                         workspace_mounted = true;
                                         break;
@@ -2782,6 +2794,7 @@ static int setup_credentials_internal(
                                 /* Fall back to "tmpfs" otherwise */
                                 r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", workspace, "tmpfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts);
                                 if (r >= 0) {
+                                        (void) label_fix_container(workspace, final, 0);
                                         workspace_mounted = true;
                                         break;
                                 }
@@ -2810,6 +2823,7 @@ static int setup_credentials_internal(
                                 if (r < 0)
                                         return r;
 
+                                (void) label_fix_container(workspace, final, 0);
                                 workspace_mounted = true;
                                 break;
                         }
