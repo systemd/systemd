@@ -15,9 +15,10 @@ typedef struct AddressLabel {
         Network *network;
         NetworkConfigSection *section;
 
-        unsigned char prefixlen;
         uint32_t label;
-        struct in6_addr in_addr;
+        struct in6_addr prefix;
+        unsigned char prefixlen;
+        bool prefix_set;
 } AddressLabel;
 
 AddressLabel *address_label_free(AddressLabel *label);

@@ -54,6 +54,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         *label = (AddressLabel) {
                 .network = network,
                 .section = TAKE_PTR(n),
+                .label = UINT32_MAX,
         };
 
         r = hashmap_ensure_put(&network->address_labels_by_section, &network_config_hash_ops, label->section, label);
@@ -118,7 +119,7 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFAL_LABEL attribute: %m");
 
-        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->in_addr);
+        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->prefix);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
 
@@ -171,13 +172,35 @@ int request_process_address_label(Request *req) {
         return address_label_configure(req->label, req->link, req->netlink_handler);
 }
 
+static int address_label_section_verify(AddressLabel *label) {
+        assert(label);
+        assert(label->section);
+
+        if (section_is_invalid(label->section))
+                return -EINVAL;
+
+        if (!label->prefix_set)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [IPv6AddressLabel] section without Prefix= setting specified. "
+                                         "Ignoring [IPv6AddressLabel] section from line %u.",
+                                         label->section->filename, label->section->line);
+
+        if (label->label == UINT32_MAX)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [IPv6AddressLabel] section without Label= setting specified. "
+                                         "Ignoring [IPv6AddressLabel] section from line %u.",
+                                         label->section->filename, label->section->line);
+
+        return 0;
+}
+
 void network_drop_invalid_address_labels(Network *network) {
         AddressLabel *label;
 
         assert(network);
 
         HASHMAP_FOREACH(label, network->address_labels_by_section)
-                if (section_is_invalid(label->section))
+                if (address_label_section_verify(label) < 0)
                         address_label_free(label);
 }
 
@@ -223,8 +246,9 @@ int config_parse_address_label_prefix(
                 return 0;
         }
 
-        n->in_addr = a.in6;
+        n->prefix = a.in6;
         n->prefixlen = prefixlen;
+        n->prefix_set = true;
 
         TAKE_PTR(n);
         return 0;
@@ -263,7 +287,7 @@ int config_parse_address_label(
                 return 0;
         }
 
-        if (k == UINT32_C(0xffffffff)) {
+        if (k == UINT_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
