@@ -2058,7 +2058,8 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                 ret = r; /* Remember first error */
 
                         continue;
-                }
+                } else if (ret >= 0)
+                        ret++; /* Count successful additions */
 
                 r = cg_all_unified();
                 if (r < 0)
