@@ -550,17 +550,13 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         usec_t time_now, valid, preferred, valid_until, preferred_until;
 
         assert_return(ra, -EINVAL);
-
-        if (!p)
-                return -EINVAL;
+        assert_return(p, -EINVAL);
 
         /* Refuse prefixes that don't have a prefix set */
         if (in6_addr_is_null(&p->opt.in6_addr))
                 return -ENOEXEC;
 
-        (void) in_addr_prefix_to_string(AF_INET6,
-                                        (const union in_addr_union*) &p->opt.in6_addr,
-                                        p->opt.prefixlen, &addr_p);
+        (void) in6_addr_prefix_to_string(&p->opt.in6_addr, p->opt.prefixlen, &addr_p);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
 
@@ -578,9 +574,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                         goto update;
 
                 _cleanup_free_ char *addr_cur = NULL;
-                (void) in_addr_prefix_to_string(AF_INET6,
-                                                (const union in_addr_union*) &cur->opt.in6_addr,
-                                                cur->opt.prefixlen, &addr_cur);
+                (void) in6_addr_prefix_to_string(&cur->opt.in6_addr, cur->opt.prefixlen, &addr_cur);
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
                                       "IPv6 prefix %s already configured, ignoring %s",
                                       strna(addr_cur), strna(addr_p));
@@ -661,18 +655,14 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
 
 _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int dynamic) {
         usec_t time_now, valid, valid_until;
-        _cleanup_free_ char *pretty = NULL;
+        _cleanup_free_ char *addr_p = NULL;
         sd_radv_route_prefix *cur;
         int r;
 
         assert_return(ra, -EINVAL);
+        assert_return(p, -EINVAL);
 
-        if (!p)
-                return -EINVAL;
-
-        (void) in_addr_prefix_to_string(AF_INET6,
-                                        (const union in_addr_union*) &p->opt.in6_addr,
-                                        p->opt.prefixlen, &pretty);
+        (void) in6_addr_prefix_to_string(&p->opt.in6_addr, p->opt.prefixlen, &addr_p);
 
         LIST_FOREACH(prefix, cur, ra->route_prefixes) {
 
@@ -689,13 +679,11 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
                 if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
                         goto update;
 
-                _cleanup_free_ char *addr = NULL;
-                (void) in_addr_prefix_to_string(AF_INET6,
-                                                (const union in_addr_union*) &cur->opt.in6_addr,
-                                                cur->opt.prefixlen, &addr);
+                _cleanup_free_ char *addr_cur = NULL;
+                (void) in6_addr_prefix_to_string(&cur->opt.in6_addr, cur->opt.prefixlen, &addr_cur);
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
                                       "IPv6 route prefix %s already configured, ignoring %s",
-                                      strna(addr), strna(pretty));
+                                      strna(addr_cur), strna(addr_p));
         }
 
         p = sd_radv_route_prefix_ref(p);
@@ -704,7 +692,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         ra->n_route_prefixes++;
 
         if (!dynamic) {
-                log_radv(ra, "Added prefix %s", strna(pretty));
+                log_radv(ra, "Added prefix %s", strna(addr_p));
                 return 0;
         }
 
@@ -728,7 +716,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
                 return -EOVERFLOW;
 
         log_radv(ra, "Updated route prefix %s valid %s",
-                 strna(pretty),
+                 strna(addr_p),
                  FORMAT_TIMESPAN(valid, USEC_PER_SEC));
 
         return 0;
