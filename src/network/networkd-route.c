@@ -1572,6 +1572,7 @@ int link_request_route(
         } else {
                 existing->source = route->source;
                 existing->provider = route->provider;
+                existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
         }
