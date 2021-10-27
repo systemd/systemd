@@ -1617,11 +1617,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 r = sd_bus_message_enter_container(m, 'r', "ssba(ss)");
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
 
                                 r = sd_bus_message_read(m, "ssb", &source, &destination, &ignore_enoent);
-                                if (r <= 0)
-                                        break;
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
 
                                 str = strjoin(ignore_enoent ? "-" : "",
                                               source,
@@ -1632,27 +1634,25 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 r = sd_bus_message_enter_container(m, 'a', "(ss)");
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
                                 while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0)
-                                        if (!strextend_with_separator(&str, ":", partition, ":", mount_options))
+                                        if (!strextend_with_separator(&str, ":", partition, mount_options))
                                                 return log_oom();
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
                                 if (!strextend_with_separator(&paths, " ", str))
                                         return log_oom();
 
                                 r = sd_bus_message_exit_container(m);
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
                                 r = sd_bus_message_exit_container(m);
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
                         }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
