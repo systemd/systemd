@@ -1698,6 +1698,21 @@ static int start_transient_trigger(
         return 0;
 }
 
+static bool shall_make_executable_absolute(void) {
+        const char *f;
+
+        if (strv_isempty(arg_cmdline))
+                return false;
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return false;
+
+        FOREACH_STRING(f, "RootDirectory=", "RootImage=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
+                if (strv_find_startswith(arg_property, f))
+                        return false;
+
+        return true;
+}
+
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL;
@@ -1711,11 +1726,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (!strv_isempty(arg_cmdline) &&
-            arg_transport == BUS_TRANSPORT_LOCAL &&
-            !strv_find_startswith(arg_property, "RootDirectory=") &&
-            !strv_find_startswith(arg_property, "ExecSearchPath=") &&
-            !strv_find_startswith(arg_property, "RootImage=")) {
+        if (shall_make_executable_absolute()) {
                 /* Patch in an absolute path to fail early for user convenience, but only when we can do it
                  * (i.e. we will be running from the same file system). This also uses the user's $PATH,
                  * while we use a fixed search path in the manager. */
