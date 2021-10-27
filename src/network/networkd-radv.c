@@ -17,6 +17,7 @@
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "parse-util.h"
+#include "radv-internal.h"
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -1253,6 +1254,58 @@ int config_parse_router_prefix_delegation(
         }
 
         *ra = val;
+        return 0;
+}
+
+int config_parse_router_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *lifetime = data;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *lifetime = RADV_DEFAULT_ROUTER_LIFETIME_USEC;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse router lifetime, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (usec > 0) {
+                if (usec < RADV_MIN_ROUTER_LIFETIME_USEC) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Router lifetime %s is too short, using %s.",
+                                   FORMAT_TIMESPAN(usec, USEC_PER_SEC),
+                                   FORMAT_TIMESPAN(RADV_MIN_ROUTER_LIFETIME_USEC, USEC_PER_SEC));
+                        usec = RADV_MIN_ROUTER_LIFETIME_USEC;
+                } else if (usec > RADV_MAX_ROUTER_LIFETIME_USEC) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Router lifetime %s is too large, using %s.",
+                                   FORMAT_TIMESPAN(usec, USEC_PER_SEC),
+                                   FORMAT_TIMESPAN(RADV_MAX_ROUTER_LIFETIME_USEC, USEC_PER_SEC));
+                        usec = RADV_MAX_ROUTER_LIFETIME_USEC;
+                }
+        }
+
+        *lifetime = usec;
         return 0;
 }
 
