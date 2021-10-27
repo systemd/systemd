@@ -292,16 +292,6 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 0;
 }
 
-static usec_t radv_compute_timeout(usec_t min, usec_t max) {
-        assert_return(min <= max, RADV_DEFAULT_MIN_TIMEOUT_USEC);
-
-        /* RFC 4861: min must be no less than 3s, max must be no less than 4s */
-        min = MAX(min, 3*USEC_PER_SEC);
-        max = MAX(max, 4*USEC_PER_SEC);
-
-        return min + (random_u32() % (max - min));
-}
-
 static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         usec_t min_timeout, max_timeout, time_now, timeout;
         sd_radv *ra = userdata;
@@ -310,6 +300,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(s);
         assert(ra);
         assert(ra->event);
+        assert(router_lifetime_is_valid(ra->lifetime_usec));
 
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
@@ -320,27 +311,35 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                 log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
-        if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
+        if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
                 max_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
-                min_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
-        } else {
+        else
                 max_timeout = RADV_DEFAULT_MAX_TIMEOUT_USEC;
-                min_timeout = RADV_DEFAULT_MIN_TIMEOUT_USEC;
-        }
 
         /* RFC 4861, Section 6.2.1, lifetime must be at least MaxRtrAdvInterval,
-           so lower the interval here */
-        if (ra->lifetime_usec > 0 && ra->lifetime_usec < max_timeout) {
-                max_timeout = ra->lifetime_usec;
-                min_timeout = max_timeout / 3;
-        }
+         * so lower the interval here */
+        if (ra->lifetime_usec > 0)
+                max_timeout = MIN(max_timeout, ra->lifetime_usec);
 
-        timeout = radv_compute_timeout(min_timeout, max_timeout);
+        if (max_timeout >= 9 * USEC_PER_SEC)
+                min_timeout = max_timeout / 3;
+        else
+                min_timeout = max_timeout * 3 / 4;
+
+        /* RFC 4861, Section 6.2.1.
+         * MaxRtrAdvInterval MUST be no less than 4 seconds and no greater than 1800 seconds.
+         * MinRtrAdvInterval MUST be no less than 3 seconds and no greater than .75 * MaxRtrAdvInterval. */
+        assert(max_timeout >= RADV_MIN_MAX_TIMEOUT_USEC);
+        assert(max_timeout <= RADV_MAX_MAX_TIMEOUT_USEC);
+        assert(min_timeout >= RADV_MIN_MIN_TIMEOUT_USEC);
+        assert(min_timeout <= max_timeout * 3 / 4);
+
+        timeout = min_timeout + random_u64_range(max_timeout - min_timeout);
         log_radv(ra, "Next Router Advertisement in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
                              clock_boottime_or_monotonic(),
-                             time_now + timeout, MSEC_PER_SEC,
+                             usec_add(time_now, timeout), MSEC_PER_SEC,
                              radv_timeout, ra,
                              ra->event_priority, "radv-timeout", true);
         if (r < 0)
