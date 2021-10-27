@@ -2002,6 +2002,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
         self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
         self.assertIn('inet 10.8.8.1/16 scope global dummy98', output)
+        self.assertIn('inet 10.8.8.2/16 brd 10.8.8.128 scope global secondary dummy98', output)
+        self.assertRegex(output, 'inet 10.9.0.1/16 (metric 128 |)brd 10.9.255.255 scope global dummy98')
 
         # test for ENOBUFS issue #17012
         for i in range(1,254):
@@ -2022,6 +2024,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev dummy98 label 35')
         self.assertRegex(output, r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
+
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        self.assertIn('10.9.0.0/16 proto kernel scope link src 10.9.0.1 metric 128', output)
 
         output = check_output('ip -6 address show dev dummy98')
         print(output)
