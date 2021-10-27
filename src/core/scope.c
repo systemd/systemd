@@ -391,6 +391,12 @@ static int scope_start(Unit *u) {
                 scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
                 return r;
         }
+        if (r == 0) {
+                log_unit_warning(u, "No PIDs left to attach to the scope's control group, refusing: %m");
+                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+                return -ECHILD;
+        }
+        log_unit_debug(u, "%i %s added to scope's control group.", r, r == 1 ? "process" : "processes");
 
         s->result = SCOPE_SUCCESS;
 
