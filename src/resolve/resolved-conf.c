@@ -498,14 +498,14 @@ int manager_parse_config_file(Manager *m) {
                         return r;
         }
 
-#if ! HAVE_GCRYPT
+#if !HAVE_OPENSSL_OR_GCRYPT
         if (m->dnssec_mode != DNSSEC_NO) {
-                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without a cryptographic library. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
         }
 #endif
 
-#if ! ENABLE_DNS_OVER_TLS
+#if !ENABLE_DNS_OVER_TLS
         if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
                 log_warning("DNS-over-TLS option cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;

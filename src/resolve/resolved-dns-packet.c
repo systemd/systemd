@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#  include <gcrypt.h>
 #endif
 
 #include "alloc-util.h"
@@ -776,7 +776,7 @@ int dns_packet_append_opt(
                 static const uint8_t rfc6975[] = {
 
                         0, 5, /* OPTION_CODE: DAU */
-#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
+#if PREFER_OPENSSL || (HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600)
                         0, 7, /* LIST_LENGTH */
 #else
                         0, 6, /* LIST_LENGTH */
@@ -787,7 +787,7 @@ int dns_packet_append_opt(
                         DNSSEC_ALGORITHM_RSASHA512,
                         DNSSEC_ALGORITHM_ECDSAP256SHA256,
                         DNSSEC_ALGORITHM_ECDSAP384SHA384,
-#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
+#if PREFER_OPENSSL || (HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600)
                         DNSSEC_ALGORITHM_ED25519,
 #endif
 

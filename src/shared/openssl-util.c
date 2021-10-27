@@ -2,6 +2,7 @@
 
 #include "openssl-util.h"
 #include "alloc-util.h"
+#include "hexdecoct.h"
 
 #if HAVE_OPENSSL
 int openssl_hash(const EVP_MD *alg,
@@ -107,4 +108,33 @@ int rsa_pkey_to_suitable_key_size(
         *ret_suitable_key_size = suitable_key_size;
         return 0;
 }
+
+#  if PREFER_OPENSSL
+int string_hashsum(
+                const char *s,
+                size_t len,
+                const EVP_MD *md_algorithm,
+                char **ret) {
+
+        uint8_t hash[EVP_MAX_MD_SIZE];
+        size_t hash_size;
+        char *enc;
+        int r;
+
+        hash_size = EVP_MD_size(md_algorithm);
+        assert(hash_size > 0);
+
+        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        if (r < 0)
+                return r;
+
+        enc = hexmem(hash, hash_size);
+        if (!enc)
+                return -ENOMEM;
+
+        *ret = enc;
+        return 0;
+
+}
+#  endif
 #endif

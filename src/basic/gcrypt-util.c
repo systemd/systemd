@@ -18,6 +18,7 @@ void initialize_libgcrypt(bool secmem) {
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
+#  if !PREFER_OPENSSL
 int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         gcry_error_t err;
@@ -47,4 +48,5 @@ int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         *out = enc;
         return 0;
 }
+#  endif
 #endif

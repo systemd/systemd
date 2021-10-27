@@ -594,8 +594,10 @@ tests += [
 
         [['src/test/test-id128.c']],
 
-        [['src/test/test-gcrypt-util.c'],
-         [], [], [], 'HAVE_GCRYPT'],
+        [['src/test/test-cryptolib.c'],
+         [libshared],
+         [lib_openssl_or_gcrypt],
+         [], 'HAVE_OPENSSL_OR_GCRYPT'],
 
         [['src/test/test-nss-hosts.c',
           'src/test/nss-test-util.c',

@@ -48,7 +48,7 @@ const char* const systemd_features =
         " -SECCOMP"
 #endif
 
-        /* crypto libraries */
+        /* cryptographic libraries */
 
 #if HAVE_GCRYPT
         " +GCRYPT"

@@ -432,9 +432,7 @@ Features:
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
 
-* unify on openssl (as soon as OpenSSL 3.0 is out, and the Debian license
-  confusion is gone)
-  - port resolved over from libgcrypt (DNSSEC code)
+* unify on openssl:
   - port journald + fsprg over from libgcrypt
   - when that's done: kill gnutls support in resolved
 
