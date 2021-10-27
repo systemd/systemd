@@ -159,7 +159,7 @@ static int detect_vm_dmi_vendor(void) {
                 { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
                 { "VMW",                 VIRTUALIZATION_VMWARE    },
                 { "innotek GmbH",        VIRTUALIZATION_ORACLE    },
-                { "Oracle Corporation",  VIRTUALIZATION_ORACLE    },
+                { "VirtualBox",          VIRTUALIZATION_ORACLE    },
                 { "Xen",                 VIRTUALIZATION_XEN       },
                 { "Bochs",               VIRTUALIZATION_BOCHS     },
                 { "Parallels",           VIRTUALIZATION_PARALLELS },
