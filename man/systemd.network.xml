@@ -2682,7 +2682,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>Lifetime in seconds for the DNS server addresses listed in
         <varname>DNS=</varname> and search domains listed in <varname>Domains=</varname>. Defaults to
-        604800 seconds (one week).</para></listitem>
+        3600 seconds (one hour).</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -2721,10 +2721,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PreferredLifetimeSec=</varname></term>
         <term><varname>ValidLifetimeSec=</varname></term>
 
-        <listitem><para>Preferred and valid lifetimes for the prefix measured in
-        seconds. <varname>PreferredLifetimeSec=</varname> defaults to 604800
-        seconds (one week) and <varname>ValidLifetimeSec=</varname> defaults
-        to 2592000 seconds (30 days).</para></listitem>
+        <listitem><para>Preferred and valid lifetimes for the prefix measured in seconds.
+        <varname>PreferredLifetimeSec=</varname> defaults to 1800 seconds (30 minutes) and
+        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2775,9 +2774,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>LifetimeSec=</varname></term>
 
-        <listitem><para>Lifetime for the route prefix measured in
-        seconds. <varname>LifetimeSec=</varname> defaults to 604800 seconds (one week).
-        </para></listitem>
+        <listitem><para>Lifetime for the route prefix measured in seconds.
+        <varname>LifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
       </varlistentry>
 
     </variablelist>
