@@ -1113,9 +1113,13 @@ int link_request_address(
         if (address_get(link, address, &existing) < 0) {
                 _cleanup_(address_freep) Address *tmp = NULL;
 
-                r = address_dup(address, &tmp);
-                if (r < 0)
-                        return r;
+                if (consume_object)
+                        tmp = address;
+                else {
+                        r = address_dup(address, &tmp);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* Consider address tentative until we get the real flags from the kernel */
                 tmp->flags |= IFA_F_TENTATIVE;
@@ -1128,14 +1132,18 @@ int link_request_address(
         } else {
                 existing->source = address->source;
                 existing->provider = address->provider;
+                existing->lifetime_valid_usec = address->lifetime_valid_usec;
+                existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
+                if (consume_object)
+                        address_free(address);
         }
 
         r = ipv4acd_configure(existing);
         if (r < 0)
                 return r;
 
-        log_address_debug(address, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
+        log_address_debug(existing, "Requesting", link);
+        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, existing, false,
                                message_counter, netlink_handler, ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address: %m");
