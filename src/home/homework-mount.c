@@ -84,20 +84,30 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         if (r < 0)
                 return r;
 
-        return home_mount_node(node, fstype, discard, flags);
+        r = home_mount_node(node, fstype, discard, flags);
+        if (r < 0)
+                return r;
+
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        if (r < 0) {
+                (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+                return r;
+        }
+
+        return 0;
 }
 
-int home_move_mount(const char *user_name_and_realm, const char *target) {
+int home_move_mount(const char *mount_suffix, const char *target) {
         _cleanup_free_ char *subdir = NULL;
         const char *d;
         int r;
 
         assert(target);
 
-        /* If user_name_and_realm is set, then we'll mount a subdir of the source mount into the host. If
-         * it's NULL we'll move the mount itself */
-        if (user_name_and_realm) {
-                subdir = path_join(HOME_RUNTIME_WORK_DIR, user_name_and_realm);
+        /* If 'mount_suffix' is set, then we'll mount a subdir of the source mount into the host. If it's
+         * NULL we'll move the mount itself */
+        if (mount_suffix) {
+                subdir = path_join(HOME_RUNTIME_WORK_DIR, mount_suffix);
                 if (!subdir)
                         return log_oom();
 
@@ -111,9 +121,9 @@ int home_move_mount(const char *user_name_and_realm, const char *target) {
         if (r < 0)
                 return r;
 
-        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to unmount %s: %m", HOME_RUNTIME_WORK_DIR);
 
         log_info("Moving to final mount point %s completed.", target);
         return 0;

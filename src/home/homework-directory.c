@@ -74,7 +74,7 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_setup(h, 0, cache, setup, &header_home);
+        r = home_setup(h, 0, setup, cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -241,13 +241,9 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         setup->root_fd = safe_close(setup->root_fd);
 
         /* Unmount mapped mount before we move the dir into place */
-        if (setup->undo_mount) {
-                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-                if (r < 0)
-                        return r;
-
-                setup->undo_mount = false;
-        }
+        r = home_setup_undo_mount(setup, LOG_ERR);
+        if (r < 0)
+                return r;
 
         if (rename(temporary, ip) < 0)
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
@@ -263,8 +259,8 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
 int home_resize_directory(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
@@ -275,7 +271,7 @@ int home_resize_directory(
         assert(ret_home);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
 
-        r = home_setup(h, flags, cache, setup, NULL);
+        r = home_setup(h, flags, setup, cache, NULL);
         if (r < 0)
                 return r;
 

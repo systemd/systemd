@@ -298,6 +298,54 @@ static void drop_caches_now(void) {
                 log_debug("Dropped caches.");
 }
 
+int home_setup_undo_mount(HomeSetup *setup, int level) {
+        int r;
+
+        assert(setup);
+
+        if (!setup->undo_mount)
+                return 0;
+
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
+        if (r < 0) {
+                if (level >= LOG_DEBUG) /* umount_recursive() does debug level logging anyway, no need to
+                                         * repeat that here */
+                        return r;
+
+                /* If a higher log level is requested, the generate a non-debug mesage here too. */
+                return log_full_errno(level, r, "Failed to unmount mount tree below %s: %m", HOME_RUNTIME_WORK_DIR);
+        }
+
+        setup->undo_mount = false;
+        return 1;
+}
+
+int home_setup_undo_dm(HomeSetup *setup, int level) {
+        int r, ret;
+
+        assert(setup);
+
+        if (setup->undo_dm) {
+                assert(setup->crypt_device);
+                assert(setup->dm_name);
+
+                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to deactivate LUKS device: %m");
+
+                setup->undo_dm = false;
+                ret = 1;
+        } else
+                ret = 0;
+
+        if (setup->crypt_device) {
+                sym_crypt_free(setup->crypt_device);
+                setup->crypt_device = NULL;
+        }
+
+        return ret;
+}
+
 int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
@@ -316,17 +364,13 @@ int home_setup_done(HomeSetup *setup) {
                 setup->root_fd = safe_close(setup->root_fd);
         }
 
-        if (setup->undo_mount) {
-                q = umount_verbose(LOG_DEBUG, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_mount(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
-        if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
-                q = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_dm(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
@@ -344,6 +388,14 @@ int home_setup_done(HomeSetup *setup) {
                 setup->image_fd = safe_close(setup->image_fd);
         }
 
+        if (setup->temporary_image_path) {
+                if (unlink(setup->temporary_image_path) < 0)
+                        log_debug_errno(errno, "Failed to remove temporary image file '%s', ignoring: %m",
+                                        setup->temporary_image_path);
+
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
+        }
+
         setup->undo_mount = false;
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
@@ -354,10 +406,6 @@ int home_setup_done(HomeSetup *setup) {
         setup->dm_node = mfree(setup->dm_node);
 
         setup->loop = loop_device_unref(setup->loop);
-        if (setup->crypt_device) {
-                sym_crypt_free(setup->crypt_device);
-                setup->crypt_device = NULL;
-        }
 
         setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
@@ -365,14 +413,16 @@ int home_setup_done(HomeSetup *setup) {
         if (setup->do_drop_caches)
                 drop_caches_now();
 
+        setup->mount_suffix = mfree(setup->mount_suffix);
+
         return r;
 }
 
 int home_setup(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_header_home) {
 
         int r;
@@ -393,7 +443,7 @@ int home_setup(
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_setup_luks(h, flags, NULL, cache, setup, ret_header_home);
+                return home_setup_luks(h, flags, NULL, setup, cache, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
@@ -401,7 +451,7 @@ int home_setup(
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, cache, setup);
+                r = home_setup_fscrypt(h, setup, cache);
                 break;
 
         case USER_CIFS:
@@ -867,6 +917,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_deactivate(UserRecord *h, bool force) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         bool done = false;
         int r;
 
@@ -903,7 +954,7 @@ static int home_deactivate(UserRecord *h, bool force) {
                 log_info("Directory %s is already unmounted.", user_record_home_directory(h));
 
         if (user_record_storage(h) == USER_LUKS) {
-                r = home_deactivate_luks(h);
+                r = home_deactivate_luks(h, &setup);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1263,7 +1314,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_create_luks(h, &cache, effective_passwords, &new_home);
+                r = home_create_luks(h, &setup, &cache, effective_passwords, &new_home);
                 break;
 
         case USER_DIRECTORY:
@@ -1272,7 +1323,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         case USER_FSCRYPT:
-                r = home_create_fscrypt(h, effective_passwords, &new_home);
+                r = home_create_fscrypt(h, &setup, effective_passwords, &new_home);
                 break;
 
         case USER_CIFS:
@@ -1484,7 +1535,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1542,12 +1593,12 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, flags, &cache, &setup, ret);
+                return home_resize_luks(h, flags, &setup, &cache, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
-                return home_resize_directory(h, flags, &cache, &setup, ret);
+                return home_resize_directory(h, flags, &setup, &cache, ret);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Resizing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
@@ -1576,7 +1627,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1646,7 +1697,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1669,6 +1720,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_lock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         int r;
 
         assert(h);
@@ -1684,7 +1736,7 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = home_lock_luks(h);
+        r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
 
@@ -1693,6 +1745,7 @@ static int home_lock(UserRecord *h) {
 }
 
 static int home_unlock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1710,7 +1763,7 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = home_unlock_luks(h, &cache);
+        r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
 

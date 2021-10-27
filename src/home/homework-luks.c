@@ -45,6 +45,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 /* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
  * partitions to that too. In the worst case we'll waste 3.5K per partition that way, but I think I can live
@@ -384,39 +385,88 @@ static int luks_setup(
         return 0;
 }
 
+static int make_dm_names(UserRecord *h, HomeSetup *setup) {
+        assert(h);
+        assert(h->user_name);
+        assert(setup);
+
+        if (!setup->dm_name) {
+                setup->dm_name = strjoin("home-", h->user_name);
+                if (!setup->dm_name)
+                        return log_oom();
+        }
+
+        if (!setup->dm_node) {
+                setup->dm_node = path_join("/dev/mapper/", setup->dm_name);
+                if (!setup->dm_node)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int acquire_open_luks_device(
+                UserRecord *h,
+                HomeSetup *setup,
+                bool graceful) {
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = make_dm_names(h, setup);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, setup->dm_name);
+        if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT) && graceful)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+
+        cryptsetup_enable_logging(cd);
+
+        setup->crypt_device = TAKE_PTR(cd);
+        return 1;
+}
+
 static int luks_open(
-                const char *dm_name,
-                char **passwords,
+                UserRecord *h,
+                HomeSetup *setup,
                 const PasswordCache *cache,
-                struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
                 size_t *ret_volume_key_size) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         char **list;
         size_t vks;
         int r;
 
-        assert(dm_name);
-        assert(ret);
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
 
         /* Opens a LUKS device that is already set up. Re-validates the password while doing so (which also
          * provides us with the volume key, which we want). */
 
-        r = sym_crypt_init_by_name(&cd, dm_name);
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
+                return r;
 
-        cryptsetup_enable_logging(cd);
-
-        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(setup->crypt_device, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS superblock: %m");
 
-        r = sym_crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(setup->crypt_device);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
         vks = (size_t) r;
@@ -424,7 +474,7 @@ static int luks_open(
         if (ret_found_uuid) {
                 const char *s;
 
-                s = sym_crypt_get_uuid(cd);
+                s = sym_crypt_get_uuid(setup->crypt_device);
                 if (!s)
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock has no UUID.");
 
@@ -441,8 +491,8 @@ static int luks_open(
         FOREACH_POINTER(list,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
-                        passwords) {
-                r = luks_try_passwords(cd, list, vk, &vks);
+                        h->password) {
+                r = luks_try_passwords(setup->crypt_device, list, vk, &vks);
                 if (r != -ENOKEY)
                         break;
         }
@@ -451,17 +501,15 @@ static int luks_open(
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
-        log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", dm_name);
+        log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", setup->dm_name);
 
         /* This is needed so that crypt_resize() can operate correctly for pre-existing LUKS devices. We need
          * to tell libcryptsetup the volume key explicitly, so that it is in the kernel keyring. */
-        r = sym_crypt_activate_by_volume_key(cd, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
+        r = sym_crypt_activate_by_volume_key(setup->crypt_device, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
         if (r < 0)
                 return log_error_errno(r, "Failed to upload volume key again: %m");
 
         log_info("Successfully re-activated LUKS device.");
-
-        *ret = TAKE_PTR(cd);
 
         if (ret_found_uuid)
                 *ret_found_uuid = p;
@@ -506,26 +554,6 @@ static int fs_validate(
         if (ret_found_uuid) /* Return the UUID actually found if the caller wants to know */
                 *ret_found_uuid = u;
 
-        return 0;
-}
-
-static int make_dm_names(const char *user_name, char **ret_dm_name, char **ret_dm_node) {
-        _cleanup_free_ char *name = NULL, *node = NULL;
-
-        assert(user_name);
-        assert(ret_dm_name);
-        assert(ret_dm_node);
-
-        name = strjoin("home-", user_name);
-        if (!name)
-                return log_oom();
-
-        node = path_join("/dev/mapper/", name);
-        if (!node)
-                return log_oom();
-
-        *ret_dm_name = TAKE_PTR(name);
-        *ret_dm_node = TAKE_PTR(node);
         return 0;
 }
 
@@ -1141,26 +1169,24 @@ int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
                 const char *force_image_path,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_close_ int opened_image_fd = -1, root_fd = -1;
-        bool dm_activated = false, mounted = false;
         size_t volume_key_size = 0;
-        bool marked_dirty = false;
         uint64_t offset, size;
-        int r, image_fd = -1;
+        int r;
 
         assert(h);
         assert(setup);
         assert(setup->dm_name);
         assert(setup->dm_node);
+        assert(setup->root_fd < 0);
+        assert(!setup->crypt_device);
+        assert(!setup->loop);
 
         assert(user_record_storage(h) == USER_LUKS);
 
@@ -1172,39 +1198,38 @@ int home_setup_luks(
                 struct loop_info64 info;
                 const char *n;
 
-                r = luks_open(setup->dm_name,
-                              h->password,
+                r = luks_open(h,
+                              setup,
                               cache,
-                              &cd,
                               &found_luks_uuid,
                               &volume_key,
                               &volume_key_size);
                 if (r < 0)
                         return r;
 
-                r = luks_validate_home_record(cd, h, volume_key, cache, &luks_home);
+                r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
                 if (r < 0)
                         return r;
 
-                n = sym_crypt_get_device_name(cd);
+                n = sym_crypt_get_device_name(setup->crypt_device);
                 if (!n)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine backing device for DM %s.", setup->dm_name);
 
-                r = loop_device_open(n, O_RDWR, &loop);
+                r = loop_device_open(n, O_RDWR, &setup->loop);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open loopback device %s: %m", n);
 
-                if (ioctl(loop->fd, LOOP_GET_STATUS64, &info) < 0) {
+                if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
                         _cleanup_free_ char *sysfs = NULL;
                         struct stat st;
 
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
-                        if (ioctl(loop->fd, BLKGETSIZE64, &size) < 0)
+                        if (ioctl(setup->loop->fd, BLKGETSIZE64, &size) < 0)
                                 return log_error_errno(r, "Failed to read block device size of %s: %m", n);
 
-                        if (fstat(loop->fd, &st) < 0)
+                        if (fstat(setup->loop->fd, &st) < 0)
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
@@ -1246,13 +1271,11 @@ int home_setup_luks(
 
                 found_partition_uuid = found_fs_uuid = SD_ID128_NULL;
 
-                log_info("Discovered used loopback device %s.", loop->node);
+                log_info("Discovered used loopback device %s.", setup->loop->node);
 
-                root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (root_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open home directory: %m");
-                        goto fail;
-                }
+                setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
                 const char *ip;
@@ -1266,29 +1289,27 @@ int home_setup_luks(
 
                 /* Reuse the image fd if it has already been opened by an earlier step */
                 if (setup->image_fd < 0) {
-                        opened_image_fd = open_image_file(h, force_image_path, &st);
-                        if (opened_image_fd < 0)
-                                return opened_image_fd;
+                        setup->image_fd = open_image_file(h, force_image_path, &st);
+                        if (setup->image_fd < 0)
+                                return setup->image_fd;
+                }
 
-                        image_fd = opened_image_fd;
-                } else
-                        image_fd = setup->image_fd;
-
-                r = luks_validate(image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
+                r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
                 /* Everything before this point left the image untouched. We are now starting to make
                  * changes, hence mark the image dirty */
-                marked_dirty = run_mark_dirty(image_fd, true) > 0;
+                if (run_mark_dirty(setup->image_fd, true) > 0)
+                        setup->do_mark_clean = true;
 
                 if (!user_record_luks_discard(h)) {
-                        r = run_fallocate(image_fd, &st);
+                        r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
                 }
 
-                r = loop_device_make(image_fd, O_RDWR, offset, size, 0, &loop);
+                r = loop_device_make(setup->image_fd, O_RDWR, offset, size, 0, &setup->loop);
                 if (r == -ENOENT) {
                         log_error_errno(r, "Loopback block device support is not available on this system.");
                         return -ENOLINK; /* make recognizable */
@@ -1296,9 +1317,9 @@ int home_setup_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate loopback context: %m");
 
-                log_info("Setting up loopback device %s completed.", loop->node ?: ip);
+                log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-                r = luks_setup(loop->node ?: ip,
+                r = luks_setup(setup->loop->node ?: ip,
                                setup->dm_name,
                                h->luks_uuid,
                                h->luks_cipher,
@@ -1307,55 +1328,43 @@ int home_setup_luks(
                                h->password,
                                cache,
                                user_record_luks_discard(h) || user_record_luks_offline_discard(h),
-                               &cd,
+                               &setup->crypt_device,
                                &found_luks_uuid,
                                &volume_key,
                                &volume_key_size);
                 if (r < 0)
                         return r;
 
-                dm_activated = true;
+                setup->undo_dm = true;
 
-                r = luks_validate_home_record(cd, h, volume_key, cache, &luks_home);
+                r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = fs_validate(setup->dm_node, h->file_system_uuid, &fstype, &found_fs_uuid);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = run_fsck(setup->dm_node, fstype);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
                 if (r < 0)
-                        goto fail;
+                        return r;
 
-                mounted = true;
+                setup->undo_mount = true;
 
-                root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (root_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open home directory: %m");
-                        goto fail;
-                }
+                setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
 
                 if (user_record_luks_discard(h))
-                        (void) run_fitrim(root_fd);
-
-                /* And now, fill in everything */
-                if (opened_image_fd >= 0) {
-                        safe_close(setup->image_fd);
-                        setup->image_fd = TAKE_FD(opened_image_fd);
-                }
+                        (void) run_fitrim(setup->root_fd);
 
                 setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
-                setup->do_mark_clean = marked_dirty;
         }
 
-        setup->loop = TAKE_PTR(loop);
-        setup->crypt_device = TAKE_PTR(cd);
-        setup->root_fd = TAKE_FD(root_fd);
         setup->found_partition_uuid = found_partition_uuid;
         setup->found_luks_uuid = found_luks_uuid;
         setup->found_fs_uuid = found_fs_uuid;
@@ -1364,25 +1373,10 @@ int home_setup_luks(
         setup->volume_key = TAKE_PTR(volume_key);
         setup->volume_key_size = volume_key_size;
 
-        setup->undo_mount = mounted;
-        setup->undo_dm = dm_activated;
-
         if (ret_luks_home)
                 *ret_luks_home = TAKE_PTR(luks_home);
 
         return 0;
-
-fail:
-        if (mounted)
-                (void) umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-
-        if (dm_activated)
-                (void) sym_crypt_deactivate_by_name(cd, setup->dm_name, 0);
-
-        if (image_fd >= 0 && marked_dirty)
-                (void) run_mark_dirty(image_fd, false);
-
-        return r;
 }
 
 static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, struct statfs *sfs) {
@@ -1429,8 +1423,8 @@ int home_activate_luks(
                         h,
                         0,
                         NULL,
-                        cache,
                         setup,
+                        cache,
                         &luks_home_record);
         if (r < 0)
                 return r;
@@ -1485,11 +1479,13 @@ int home_activate_luks(
         return 1;
 }
 
-int home_deactivate_luks(UserRecord *h) {
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
+int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
         bool we_detached;
         int r;
+
+        assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
 
         /* Note that the DM device and loopback device are set to auto-detach, hence strictly speaking we
          * don't have to explicitly have to detach them. However, we do that nonetheless (in case of the DM
@@ -1497,31 +1493,23 @@ int home_deactivate_luks(UserRecord *h) {
          * don't bother about the loopback device because unlike the DM device it doesn't have a fixed
          * name. */
 
-        r = dlopen_cryptsetup();
+        r = acquire_open_luks_device(h, setup, /* graceful= */ true);
         if (r < 0)
-                return r;
-
-        r = make_dm_names(h->user_name, &dm_name, &dm_node);
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&cd, dm_name);
-        if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
-                log_debug_errno(r, "LUKS device %s has already been detached.", dm_name);
+                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+        if (r == 0) {
+                log_debug("LUKS device %s has already been detached.", setup->dm_name);
                 we_detached = false;
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
-        else {
-                log_info("Discovered used LUKS device %s.", dm_node);
+        } else {
+                log_info("Discovered used LUKS device %s.", setup->dm_node);
 
-                cryptsetup_enable_logging(cd);
+                cryptsetup_enable_logging(setup->crypt_device);
 
-                r = sym_crypt_deactivate_by_name(cd, dm_name, 0);
+                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
                 if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
-                        log_debug_errno(r, "LUKS device %s is already detached.", dm_node);
+                        log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
                         we_detached = false;
                 } else if (r < 0)
-                        return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", dm_node);
+                        return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
                 else {
                         log_info("LUKS device detaching completed.");
                         we_detached = true;
@@ -1992,25 +1980,26 @@ static int home_truncate(
 
 int home_create_luks(
                 UserRecord *h,
+                HomeSetup *setup,
                 const PasswordCache *cache,
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
-        _cleanup_free_ char *dm_name = NULL, *dm_node = NULL, *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
+        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
         uint64_t encrypted_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
-        bool image_created = false, dm_activated = false, mounted = false;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int image_fd = -1, root_fd = -1;
+        _cleanup_close_ int mount_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
+        assert(setup);
+        assert(!setup->temporary_image_path);
+        assert(setup->image_fd < 0);
         assert(ret_home);
 
         r = dlopen_cryptsetup();
@@ -2061,16 +2050,16 @@ int home_create_luks(
         } else
                 fs_uuid = h->file_system_uuid;
 
-        r = make_dm_names(h->user_name, &dm_name, &dm_node);
+        r = make_dm_names(h, setup);
         if (r < 0)
                 return r;
 
-        r = access(dm_node, F_OK);
+        r = access(setup->dm_node, F_OK);
         if (r < 0) {
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", dm_node);
+                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", setup->dm_node);
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", dm_node);
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup->dm_node);
 
         if (path_startswith(ip, "/dev/")) {
                 _cleanup_free_ char *sysfs = NULL;
@@ -2079,11 +2068,11 @@ int home_create_luks(
 
                 /* Let's place the home directory on a real device, i.e. an USB stick or such */
 
-                image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (image_fd < 0)
+                setup->image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (setup->image_fd < 0)
                         return log_error_errno(errno, "Failed to open device %s: %m", ip);
 
-                if (fstat(image_fd, &st) < 0)
+                if (fstat(setup->image_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat device %s: %m", ip);
                 if (!S_ISBLK(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
@@ -2096,10 +2085,10 @@ int home_create_luks(
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
 
-                if (flock(image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
+                if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
-                if (ioctl(image_fd, BLKGETSIZE64, &block_device_size) < 0)
+                if (ioctl(setup->image_fd, BLKGETSIZE64, &block_device_size) < 0)
                         return log_error_errno(errno, "Failed to read block device size: %m");
 
                 if (h->disk_size == UINT64_MAX) {
@@ -2129,14 +2118,14 @@ int home_create_luks(
                 if (user_record_luks_discard(h) || user_record_luks_offline_discard(h)) {
                         /* If we want online or offline discard, discard once before we start using things. */
 
-                        if (ioctl(image_fd, BLKDISCARD, (uint64_t[]) { 0, block_device_size }) < 0)
+                        if (ioctl(setup->image_fd, BLKDISCARD, (uint64_t[]) { 0, block_device_size }) < 0)
                                 log_full_errno(errno == EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, errno,
                                                "Failed to issue full-device BLKDISCARD on device, ignoring: %m");
                         else
                                 log_info("Full device discard completed.");
                 }
         } else {
-                _cleanup_free_ char *parent = NULL;
+                _cleanup_free_ char *parent = NULL, *t = NULL;
 
                 parent = dirname_malloc(ip);
                 if (!parent)
@@ -2153,128 +2142,127 @@ int home_create_luks(
                 if (!supported_fs_size(fstype, host_size))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", fstype);
 
-                r = tempfn_random(ip, "homework", &temporary_image_path);
+                r = tempfn_random(ip, "homework", &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive temporary file name for %s: %m", ip);
 
-                image_fd = open(temporary_image_path, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-                if (image_fd < 0)
-                        return log_error_errno(errno, "Failed to create home image %s: %m", temporary_image_path);
+                setup->image_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                if (setup->image_fd < 0)
+                        return log_error_errno(errno, "Failed to create home image %s: %m", t);
 
-                image_created = true;
+                setup->temporary_image_path = TAKE_PTR(t);
 
-                r = chattr_fd(image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                r = chattr_fd(setup->image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
+                                       "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
-                r = home_truncate(h, image_fd, temporary_image_path, host_size);
+                r = home_truncate(h, setup->image_fd, setup->temporary_image_path, host_size);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 log_info("Allocating image file completed.");
         }
 
         r = make_partition_table(
-                        image_fd,
+                        setup->image_fd,
                         user_record_user_name_and_realm(h),
                         partition_uuid,
                         &partition_offset,
                         &partition_size,
                         &disk_uuid);
         if (r < 0)
-                goto fail;
+                return r;
 
         log_info("Writing of partition table completed.");
 
-        r = loop_device_make(image_fd, O_RDWR, partition_offset, partition_size, 0, &loop);
+        r = loop_device_make(setup->image_fd, O_RDWR, partition_offset, partition_size, 0, &setup->loop);
         if (r < 0) {
                 if (r == -ENOENT) { /* this means /dev/loop-control doesn't exist, i.e. we are in a container
                                      * or similar and loopback bock devices are not available, return a
                                      * recognizable error in this case. */
                         log_error_errno(r, "Loopback block device support is not available on this system.");
-                        r = -ENOLINK;
-                        goto fail;
+                        return -ENOLINK; /* Make recognizable */
                 }
 
-                log_error_errno(r, "Failed to set up loopback device for %s: %m", temporary_image_path);
-                goto fail;
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
         }
 
-        r = loop_device_flock(loop, LOCK_EX); /* make sure udev won't read before we are done */
-        if (r < 0) {
-                log_error_errno(r, "Failed to take lock on loop device: %m");
-                goto fail;
-        }
+        r = loop_device_flock(setup->loop, LOCK_EX); /* make sure udev won't read before we are done */
+        if (r < 0)
+                return log_error_errno(r, "Failed to take lock on loop device: %m");
 
-        log_info("Setting up loopback device %s completed.", loop->node ?: ip);
+        log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-        r = luks_format(loop->node,
-                        dm_name,
+        r = luks_format(setup->loop->node,
+                        setup->dm_name,
                         luks_uuid,
                         user_record_user_name_and_realm(h),
                         cache,
                         effective_passwords,
                         user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                         h,
-                        &cd);
+                        &setup->crypt_device);
         if (r < 0)
-                goto fail;
+                return r;
 
-        dm_activated = true;
+        setup->undo_dm = true;
 
-        r = block_get_size_by_path(dm_node, &encrypted_size);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get encrypted block device size: %m");
-                goto fail;
-        }
-
-        log_info("Setting up LUKS device %s completed.", dm_node);
-
-        r = make_filesystem(dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
+        r = block_get_size_by_path(setup->dm_node, &encrypted_size);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to get encrypted block device size: %m");
+
+        log_info("Setting up LUKS device %s completed.", setup->dm_node);
+
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
+        if (r < 0)
+                return r;
 
         log_info("Formatting file system completed.");
 
-        r = home_unshare_and_mount(dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
+        r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
         if (r < 0)
-                goto fail;
+                return r;
 
-        mounted = true;
+        setup->undo_mount = true;
 
         subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
-        if (!subdir) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!subdir)
+                return log_oom();
 
         /* Prefer using a btrfs subvolume if we can, fall back to directory otherwise */
         r = btrfs_subvol_make_fallback(subdir, 0700);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create user directory in mounted image file: %m");
-                goto fail;
+        if (r < 0)
+                return log_error_errno(r, "Failed to create user directory in mounted image file: %m");
+
+        setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
+                return log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
+
+        (void) home_shift_uid(setup->root_fd, NULL, UID_NOBODY, h->uid, &mount_fd);
+
+        if (mount_fd >= 0) {
+                /* If we have established a new mount, then we can use that as new root fd to our home directory. */
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
+
+                mount_fd = safe_close(mount_fd);
         }
 
-        root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0) {
-                r = log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
-                goto fail;
-        }
-
-        r = home_populate(h, root_fd);
+        r = home_populate(h, setup->root_fd);
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = home_sync_and_statfs(root_fd, &sfs);
+        r = home_sync_and_statfs(setup->root_fd, &sfs);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE, &new_home);
-        if (r < 0) {
-                log_error_errno(r, "Failed to clone record: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to clone record: %m");
 
         r = user_record_add_binding(
                         new_home,
@@ -2283,78 +2271,62 @@ int home_create_luks(
                         partition_uuid,
                         luks_uuid,
                         fs_uuid,
-                        sym_crypt_get_cipher(cd),
-                        sym_crypt_get_cipher_mode(cd),
-                        luks_volume_key_size_convert(cd),
+                        sym_crypt_get_cipher(setup->crypt_device),
+                        sym_crypt_get_cipher_mode(setup->crypt_device),
+                        luks_volume_key_size_convert(setup->crypt_device),
                         fstype,
                         NULL,
                         h->uid,
                         (gid_t) h->uid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add binding to record: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add binding to record: %m");
 
         if (user_record_luks_offline_discard(h)) {
-                r = run_fitrim(root_fd);
+                r = run_fitrim(setup->root_fd);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        root_fd = safe_close(root_fd);
+        setup->root_fd = safe_close(setup->root_fd);
 
-        r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+        r = home_setup_undo_mount(setup, LOG_ERR);
         if (r < 0)
-                goto fail;
+                return r;
 
-        mounted = false;
+        r = home_setup_undo_dm(setup, LOG_ERR);
+        if (r < 0)
+                return r;
 
-        r = sym_crypt_deactivate_by_name(cd, dm_name, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to deactivate LUKS device: %m");
-                goto fail;
-        }
-
-        sym_crypt_free(cd);
-        cd = NULL;
-
-        dm_activated = false;
-
-        loop = loop_device_unref(loop);
+        setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
-                r = run_fallocate(image_fd, NULL /* refresh stat() data */);
+                r= run_fallocate(setup->image_fd, NULL /* refresh stat() data */);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         /* Sync everything to disk before we move things into place under the final name. */
-        if (fsync(image_fd) < 0) {
-                r = log_error_errno(r, "Failed to synchronize image to disk: %m");
-                goto fail;
-        }
+        if (fsync(setup->image_fd) < 0)
+                return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
-                (void) ioctl(image_fd, BLKRRPART, 0);
+                (void) ioctl(setup->image_fd, BLKRRPART, 0);
         else {
                 /* If we operate on a file, sync the containing directory too. */
-                r = fsync_directory_of_file(image_fd);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
-                        goto fail;
-                }
+                r = fsync_directory_of_file(setup->image_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
         }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
          * lock that ensures udev doesn't interfere with what we are doing */
-        image_fd = safe_close(image_fd);
+        setup->image_fd = safe_close(setup->image_fd);
 
-        if (temporary_image_path) {
-                if (rename(temporary_image_path, ip) < 0) {
-                        log_error_errno(errno, "Failed to rename image file: %m");
-                        goto fail;
-                }
+        if (setup->temporary_image_path) {
+                if (rename(setup->temporary_image_path, ip) < 0)
+                        return log_error_errno(errno, "Failed to rename image file: %m");
 
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
                 log_info("Moved image file into place.");
         }
 
@@ -2367,42 +2339,21 @@ int home_create_luks(
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
-
-fail:
-        /* Let's close all files before we unmount the file system, to avoid EBUSY */
-        root_fd = safe_close(root_fd);
-
-        if (mounted)
-                (void) umount_verbose(LOG_WARNING, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
-
-        if (dm_activated)
-                (void) sym_crypt_deactivate_by_name(cd, dm_name, 0);
-
-        loop = loop_device_unref(loop);
-
-        if (image_created)
-                (void) unlink(temporary_image_path);
-
-        return r;
 }
 
 int home_get_state_luks(UserRecord *h, HomeSetup *setup) {
-        _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         int r;
 
         assert(h);
         assert(setup);
 
-        r = make_dm_names(h->user_name, &dm_name, &dm_node);
+        r = make_dm_names(h, setup);
         if (r < 0)
                 return r;
 
-        r = access(dm_node, F_OK);
+        r = access(setup->dm_node, F_OK);
         if (r < 0 && errno != ENOENT)
-                return log_error_errno(errno, "Failed to determine whether %s exists: %m", dm_node);
-
-        free_and_replace(setup->dm_name, dm_name);
-        free_and_replace(setup->dm_node, dm_node);
+                return log_error_errno(errno, "Failed to determine whether %s exists: %m", setup->dm_node);
 
         return r >= 0;
 }
@@ -2475,11 +2426,10 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         }
 
         if (setup->undo_mount) {
-                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW);
+                r = home_setup_undo_mount(setup, LOG_ERR);
                 if (r < 0)
                         return r;
 
-                setup->undo_mount = false;
                 re_mount = true;
         }
 
@@ -2742,8 +2692,8 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
 int home_resize_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
-                PasswordCache *cache,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, new_partition_size;
@@ -2842,7 +2792,7 @@ int home_resize_luks(
                 new_image_size = new_image_size_rounded;
         }
 
-        r = home_setup_luks(h, flags, whole_disk, cache, setup, &header_home);
+        r = home_setup_luks(h, flags, whole_disk, setup, cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -3152,47 +3102,33 @@ int home_passwd_luks(
         return 1;
 }
 
-int home_lock_luks(UserRecord *h) {
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
-        _cleanup_close_ int root_fd = -1;
+int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         const char *p;
         int r;
 
         assert(h);
+        assert(setup);
+        assert(setup->root_fd < 0);
+        assert(!setup->crypt_device);
+
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
+        if (r < 0)
+                return r;
+
+        log_info("Discovered used LUKS device %s.", setup->dm_node);
 
         assert_se(p = user_record_home_directory(h));
-        root_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
-
-        r = make_dm_names(h->user_name, &dm_name, &dm_node);
-        if (r < 0)
-                return r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&cd, dm_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
-
-        log_info("Discovered used LUKS device %s.", dm_node);
-        cryptsetup_enable_logging(cd);
-
-        if (syncfs(root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
-                return log_error_errno(errno, "Failed to synchronize file system %s: %m", p);
-
-        root_fd = safe_close(root_fd);
+        r = syncfs_path(AT_FDCWD, p);
+        if (r < 0) /* Snake oil, but let's better be safe than sorry */
+                return log_error_errno(r, "Failed to synchronize file system %s: %m", p);
 
         log_info("File system synchronized.");
 
         /* Note that we don't invoke FIFREEZE here, it appears libcryptsetup/device-mapper already does that on its own for us */
 
-        r = sym_crypt_suspend(cd, dm_name);
+        r = sym_crypt_suspend(setup->crypt_device, setup->dm_name);
         if (r < 0)
-                return log_error_errno(r, "Failed to suspend cryptsetup device: %s: %m", dm_node);
+                return log_error_errno(r, "Failed to suspend cryptsetup device: %s: %m", setup->dm_node);
 
         log_info("LUKS device suspended.");
         return 0;
@@ -3227,35 +3163,26 @@ static int luks_try_resume(
         return -ENOKEY;
 }
 
-int home_unlock_luks(UserRecord *h, const PasswordCache *cache) {
-        _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
         char **list;
         int r;
 
         assert(h);
+        assert(setup);
+        assert(!setup->crypt_device);
 
-        r = make_dm_names(h->user_name, &dm_name, &dm_node);
+        r = acquire_open_luks_device(h, setup, /* graceful= */ false);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_init_by_name(&cd, dm_name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
-
-        log_info("Discovered used LUKS device %s.", dm_node);
-        cryptsetup_enable_logging(cd);
+        log_info("Discovered used LUKS device %s.", setup->dm_node);
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
-                r = luks_try_resume(cd, dm_name, list);
+                r = luks_try_resume(setup->crypt_device, setup->dm_name, list);
                 if (r != -ENOKEY)
                         break;
         }
