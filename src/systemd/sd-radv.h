@@ -30,11 +30,6 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-#define SD_RADV_DEFAULT_MIN_TIMEOUT_USEC        (200*USEC_PER_SEC)
-#define SD_RADV_DEFAULT_MAX_TIMEOUT_USEC        (600*USEC_PER_SEC)
-
-#define SD_RADV_DEFAULT_DNS_LIFETIME_USEC       (3*SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
-
 typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
 typedef struct sd_radv_route_prefix sd_radv_route_prefix;
@@ -58,7 +53,7 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret);
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);
 int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu);
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit);
-int sd_radv_set_router_lifetime(sd_radv *ra, uint16_t router_lifetime);
+int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec);
 int sd_radv_set_managed_information(sd_radv *ra, int managed);
 int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
