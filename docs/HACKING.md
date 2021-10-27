@@ -72,18 +72,25 @@ Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
 
 If you want to do a local build without mkosi, most distributions also provide
 very simple and convenient ways to install all development packages necessary
-to build systemd. For example, on Fedora the following command line should be
-sufficient to install all of systemd's build dependencies:
+to build systemd:
 
-```
-# dnf builddep systemd
+```sh
+# Fedora
+$ sudo dnf builddep systemd
+# Debian/Ubuntu
+$ sudo apt-get builddep systemd
+# Arch
+$ sudo pacman install asp
+$ asp checkout systemd
+$ cd systemd/trunk
+$ makepkg -seoc
 ```
 
 Putting this all together, here's a series of commands for preparing a patch
 for systemd (this example is for Fedora):
 
 ```sh
-$ sudo dnf builddep systemd               # install build dependencies
+# Install build dependencies (see above)
 $ sudo dnf install mkosi                  # install tool to quickly build images
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
