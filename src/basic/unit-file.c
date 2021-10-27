@@ -598,9 +598,11 @@ int unit_file_find_fragment(
         if (name_type < 0)
                 return name_type;
 
-        r = add_names(unit_ids_map, unit_name_map, unit_name, NULL, name_type, instance, &names, unit_name);
-        if (r < 0)
-                return r;
+        if (ret_names) {
+                r = add_names(unit_ids_map, unit_name_map, unit_name, NULL, name_type, instance, &names, unit_name);
+                if (r < 0)
+                        return r;
+        }
 
         /* First try to load fragment under the original name */
         r = unit_ids_map_get(unit_ids_map, unit_name, &fragment);
@@ -619,7 +621,7 @@ int unit_file_find_fragment(
                         return log_debug_errno(r, "Cannot load template %s: %m", template);
         }
 
-        if (fragment) {
+        if (fragment && ret_names) {
                 const char *fragment_basename = basename(fragment);
 
                 if (!streq(fragment_basename, unit_name)) {
@@ -631,7 +633,8 @@ int unit_file_find_fragment(
         }
 
         *ret_fragment_path = fragment;
-        *ret_names = TAKE_PTR(names);
+        if (ret_names)
+                *ret_names = TAKE_PTR(names);
 
         return 0;
 }
