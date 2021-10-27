@@ -81,7 +81,7 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
 _public_ int sd_radv_is_running(sd_radv *ra) {
         assert_return(ra, false);
 
-        return ra->state != SD_RADV_STATE_IDLE;
+        return ra->state != RADV_STATE_IDLE;
 }
 
 static void radv_reset(sd_radv *ra) {
@@ -320,9 +320,9 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                 log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
-        if (ra->ra_sent < SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
-                max_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
-                min_timeout = SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
+        if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
+                max_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
+                min_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC / 3;
         } else {
                 max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
                 min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
@@ -362,7 +362,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
         if (!ra)
                 return 0;
 
-        if (ra->state == SD_RADV_STATE_IDLE)
+        if (ra->state == RADV_STATE_IDLE)
                 return 0;
 
         log_radv(ra, "Stopping IPv6 Router Advertisement daemon");
@@ -375,7 +375,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
-        ra->state = SD_RADV_STATE_IDLE;
+        ra->state = RADV_STATE_IDLE;
 
         return 0;
 }
@@ -387,7 +387,7 @@ _public_ int sd_radv_start(sd_radv *ra) {
         assert_return(ra->event, -EINVAL);
         assert_return(ra->ifindex > 0, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return 0;
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
@@ -414,7 +414,7 @@ _public_ int sd_radv_start(sd_radv *ra) {
 
         (void) sd_event_source_set_description(ra->recv_event_source, "radv-receive-message");
 
-        ra->state = SD_RADV_STATE_ADVERTISING;
+        ra->state = RADV_STATE_ADVERTISING;
 
         log_radv(ra, "Started IPv6 Router Advertisement daemon");
 
@@ -430,7 +430,7 @@ _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         assert_return(ra, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         ra->ifindex = ifindex;
@@ -466,7 +466,7 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
 _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         if (mac_addr)
@@ -489,7 +489,7 @@ _public_ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
 _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         ra->hop_limit = hop_limit;
@@ -500,7 +500,7 @@ _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
 _public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
@@ -517,7 +517,7 @@ _public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
 _public_ int sd_radv_set_managed_information(sd_radv *ra, int managed) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         SET_FLAG(ra->flags, ND_RA_FLAG_MANAGED, managed);
@@ -528,7 +528,7 @@ _public_ int sd_radv_set_managed_information(sd_radv *ra, int managed) {
 _public_ int sd_radv_set_other_information(sd_radv *ra, int other) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
+        if (ra->state != RADV_STATE_IDLE)
                 return -EBUSY;
 
         SET_FLAG(ra->flags, ND_RA_FLAG_OTHER, other);
@@ -753,7 +753,7 @@ _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
         if (!opt_rdnss)
                 return -ENOMEM;
 
-        opt_rdnss->type = SD_RADV_OPT_RDNSS;
+        opt_rdnss->type = RADV_OPT_RDNSS;
         opt_rdnss->length = len / 8;
         opt_rdnss->lifetime = htobe32(lifetime);
 
@@ -789,7 +789,7 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
         if (!opt_dnssl)
                 return -ENOMEM;
 
-        opt_dnssl->type = SD_RADV_OPT_DNSSL;
+        opt_dnssl->type = RADV_OPT_DNSSL;
         opt_dnssl->length = len / 8;
         opt_dnssl->lifetime = htobe32(lifetime);
 
@@ -921,7 +921,7 @@ _public_ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
         *p = (sd_radv_route_prefix) {
                 .n_ref = 1,
 
-                .opt.type = SD_RADV_OPT_ROUTE_INFORMATION,
+                .opt.type = RADV_OPT_ROUTE_INFORMATION,
                 .opt.length = DIV_ROUND_UP(sizeof(p->opt), 8),
                 .opt.prefixlen = 64,
 

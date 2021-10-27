@@ -14,19 +14,19 @@
 
 assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC);
 
-#define SD_RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC (16*USEC_PER_SEC)
-#define SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS  3
-#define SD_RADV_MAX_FINAL_RTR_ADVERTISEMENTS    3
-#define SD_RADV_MIN_DELAY_BETWEEN_RAS           3
-#define SD_RADV_MAX_RA_DELAY_TIME_USEC          (500*USEC_PER_MSEC)
+#define RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC (16 * USEC_PER_SEC)
+#define RADV_MAX_INITIAL_RTR_ADVERTISEMENTS       3
+#define RADV_MAX_FINAL_RTR_ADVERTISEMENTS         3
+#define RADV_MIN_DELAY_BETWEEN_RAS                3
+#define RADV_MAX_RA_DELAY_TIME_USEC               (500 * USEC_PER_MSEC)
 
-#define SD_RADV_OPT_ROUTE_INFORMATION           24
-#define SD_RADV_OPT_RDNSS                       25
-#define SD_RADV_OPT_DNSSL                       31
+#define RADV_OPT_ROUTE_INFORMATION                24
+#define RADV_OPT_RDNSS                            25
+#define RADV_OPT_DNSSL                            31
 
 enum RAdvState {
-        SD_RADV_STATE_IDLE                      = 0,
-        SD_RADV_STATE_ADVERTISING               = 1,
+        RADV_STATE_IDLE                      = 0,
+        RADV_STATE_ADVERTISING               = 1,
 };
 typedef enum RAdvState RAdvState;
 
