@@ -471,6 +471,28 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 #endif
 }
 
+int mac_selinux_lookup_path_label(const char *path, mode_t mode, char **label) {
+#if HAVE_SELINUX
+        assert(path);
+        assert(label);
+
+        if (!mac_selinux_use())
+                return -EOPNOTSUPP;
+
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        mac_selinux_maybe_reload();
+        if (!label_hnd)
+                return -EADDRNOTAVAIL;
+
+        if (selabel_lookup_raw(label_hnd, label, path, mode) < 0)
+                return -errno;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 char* mac_selinux_free(char *label) {
 
 #if HAVE_SELINUX
