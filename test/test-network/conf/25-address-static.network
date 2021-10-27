@@ -44,6 +44,11 @@ Peer=hoge
 Address=10.10.0.2/16
 
 [Address]
+# address and peer must be in the same family
+Address=10.10.0.3/16
+Peer=2001:db8:0:f103::10/128
+
+[Address]
 Address=2001:db8:0:f102::16/64
 
 [Address]
@@ -65,6 +70,7 @@ Scope=link
 [Address]
 # this will also deduped
 Address=2001:0db8:1:f101::1/64
+PreferredLifetime=infinity
 
 [Address]
 Address=2001:0db8:1:f101::1/64
@@ -72,7 +78,32 @@ PreferredLifetime=0
 
 [Address]
 Address=10.8.8.1/16
+Broadcast=yes
+Broadcast=
 Broadcast=no
+
+[Address]
+Address=10.8.8.2/16
+Broadcast=10.8.8.128
+
+[Address]
+# Invalid broadcast
+Address=10.8.8.2/16
+Broadcast=::1
+
+[Address]
+# broadcast cannot set for IPv6 address
+Address=2001:0db8:1:f101::2/64
+Broadcast=::1
+
+[Address]
+Address=10.9.0.1/16
+RouteMetric=128
+
+[Address]
+# invalid metric
+Address=10.9.0.1/16
+RouteMetric=hoge
 
 # test for ENOBUFS issue #17012
 [Network]
