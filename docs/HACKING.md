@@ -42,14 +42,14 @@ image for the host distro by default. It is sufficient to type `mkosi` in the
 systemd project directory to generate a disk image `image.raw` you can boot either
 in `systemd-nspawn` or in an UEFI-capable VM:
 
-```
-# mkosi boot
+```sh
+$ mkosi boot
 ```
 
 or:
 
-```
-# mkosi qemu
+```sh
+$ mkosi qemu
 ```
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
