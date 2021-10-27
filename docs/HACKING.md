@@ -8,8 +8,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Hacking on systemd
 
 We welcome all contributions to systemd. If you notice a bug or a missing
-feature, please feel invited to fix it, and submit your work as a GitHub Pull
-Request (PR) at https://github.com/systemd/systemd/pull/new.
+feature, please feel invited to fix it, and submit your work as a
+[GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
 Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting
 patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
@@ -32,14 +32,15 @@ run the relevant tool from the build directory.
 
 For some components (most importantly, systemd/PID1 itself) this is not
 possible, however. In order to simplify testing for cases like this we provide
-a set of `mkosi` build files directly in the source tree. `mkosi` is a tool for
-building clean OS images from an upstream distribution in combination with a
-fresh build of the project in the local working directory. To make use of this,
-please install the `mkosi` package (if not packaged for your distro, it can be
-downloaded from https://github.com/systemd/mkosi). `mkosi` will build an image
-for the host distro by default. It is sufficient to type `mkosi` in the systemd
-project directory to generate a disk image `image.raw` you can boot either in
-`systemd-nspawn` or in an UEFI-capable VM:
+a set of `mkosi` build files directly in the source tree.
+[mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
+from an upstream distribution in combination with a fresh build of the project
+in the local working directory. To make use of this, please install the
+`mkosi` package (if not packaged for your distro, it can be downloaded from
+the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
+image for the host distro by default. It is sufficient to type `mkosi` in the
+systemd project directory to generate a disk image `image.raw` you can boot either
+in `systemd-nspawn` or in an UEFI-capable VM:
 
 ```
 # mkosi boot
@@ -86,18 +87,16 @@ $ sudo dnf builddep systemd               # install build dependencies
 $ sudo dnf install mkosi                  # install tool to quickly build images
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
+$ git checkout -b <BRANCH>                # where BRANCH is the name of the branch
 $ vim src/core/main.c                     # or wherever you'd like to make your changes
 $ meson build                             # configure the build
 $ meson compile -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build                     # run some simple regression tests
-$ ln -s .mkosi/mkosi.fedora mkosi.default # Configure mkosi to build a fedora image
 $ sudo mkosi                              # build a test image
 $ sudo mkosi boot                         # boot up the test image
 $ git add -p                              # interactively put together your patch
 $ git commit                              # commit it
-$ git push REMOTE HEAD:refs/heads/BRANCH
-                                          # where REMOTE is your "fork" on GitHub
-                                          # and BRANCH is a branch name.
+$ git push -u <REMOTE>                    # where REMOTE is your "fork" on GitHub
 ```
 
 And after that, head over to your repo on GitHub and click "Compare & pull request"
