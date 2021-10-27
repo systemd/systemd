@@ -411,7 +411,12 @@ useful when `cifs` is used as storage mechanism for the user's home directory,
 see above.
 
 `cifsService` → A string indicating the Windows File Share service (CIFS) to
-mount as home directory of the user on login.
+mount as home directory of the user on login. Should be in format
+`//<host>/<service>/<directory/…>`. The directory part is optional. If missing
+the top-level directory of the CIFS share is used.
+
+`cifsExtraMountOptions` → A string with additional mount options to pass to
+`mount.cifs` when mounting the home directory CIFS share.
 
 `imagePath` → A string with an absolute file system path to the file, directory
 or block device to use for storage backing the home directory. If the `luks`
@@ -705,15 +710,16 @@ that may be used in this section are identical to the equally named ones in the
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
-`cifsUserName`, `cifsService`, `imagePath`, `uid`, `gid`, `memberOf`,
-`fileSystemType`, `partitionUuid`, `luksUuid`, `fileSystemUuid`, `luksDiscard`,
-`luksOfflineDiscard`, `luksCipher`, `luksCipherMode`, `luksVolumeKeySize`,
-`luksPbkdfHashAlgorithm`, `luksPbkdfType`, `luksPbkdfTimeCostUSec`,
-`luksPbkdfMemoryCost`, `luksPbkdfParallelThreads`, `rateLimitIntervalUSec`,
-`rateLimitBurst`, `enforcePasswordPolicy`, `autoLogin`, `stopDelayUSec`,
-`killProcesses`, `passwordChangeMinUSec`, `passwordChangeMaxUSec`,
-`passwordChangeWarnUSec`, `passwordChangeInactiveUSec`, `passwordChangeNow`,
-`pkcs11TokenUri`, `fido2HmacCredential`.
+`cifsUserName`, `cifsService`, `cifsExtraMountOptions`, `imagePath`, `uid`,
+`gid`, `memberOf`, `fileSystemType`, `partitionUuid`, `luksUuid`,
+`fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
+`luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
+`luksPbkdfType`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
+`luksPbkdfParallelThreads`, `rateLimitIntervalUSec`, `rateLimitBurst`,
+`enforcePasswordPolicy`, `autoLogin`, `stopDelayUSec`, `killProcesses`,
+`passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
+`passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
+`fido2HmacCredential`.
 
 ## Fields in the `binding` section
 
