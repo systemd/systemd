@@ -2819,6 +2819,8 @@ static int setup_credentials_internal(
         assert(!must_mount || workspace_mounted > 0);
         where = workspace_mounted ? workspace : final;
 
+        (void) label_fix_container(where, final, 0);
+
         r = acquire_credentials(context, params, unit, where, uid, workspace_mounted);
         if (r < 0)
                 return r;
