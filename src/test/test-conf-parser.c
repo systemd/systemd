@@ -336,7 +336,7 @@ static void test_config_parse(unsigned i, const char *s) {
                          const void *table,
                          ConfigParseFlags flags,
                          void *userdata,
-                         usec_t *ret_mtime)
+                         struct stat *ret_stat);
         */
 
         r = config_parse(NULL, name, f,
