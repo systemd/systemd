@@ -4601,7 +4601,7 @@ int config_parse_exec_directories(
                 void *data,
                 void *userdata) {
 
-        char***rt = data;
+        ExecDirectory *ed = data;
         const Unit *u = userdata;
         int r;
 
@@ -4612,45 +4612,84 @@ int config_parse_exec_directories(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                *rt = strv_free(*rt);
+                exec_directory_done(ed);
                 return 0;
         }
 
         for (const char *p = rvalue;;) {
-                _cleanup_free_ char *word = NULL, *k = NULL;
+                _cleanup_free_ char *tuple = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid syntax, ignoring: %s", rvalue);
+                                   "Invalid syntax %s=%s, ignoring: %m", lvalue, rvalue);
                         return 0;
                 }
                 if (r == 0)
                         return 0;
 
-                r = unit_path_printf(u, word, &k);
+                _cleanup_free_ char *src = NULL, *dest = NULL;
+                const char *q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r <= 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r ?: SYNTHETIC_ERRNO(EINVAL),
+                                   "Invalid syntax in %s=, ignoring: %s", lvalue, tuple);
+                        return 0;
+                }
+
+                _cleanup_free_ char *sresolved = NULL;
+                r = unit_path_printf(u, src, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", src);
                         continue;
                 }
 
-                r = path_simplify_and_warn(k, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                r = path_simplify_and_warn(sresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
-                if (path_startswith(k, "private")) {
+                if (path_startswith(sresolved, "private")) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "%s= path can't be 'private', ignoring assignment: %s", lvalue, word);
+                                   "%s= path can't be 'private', ignoring assignment: %s", lvalue, tuple);
                         continue;
                 }
 
-                r = strv_push(rt, k);
+                /* For State and Runtime directories we support an optional destination parameter, which
+                 * will be used to create a symlink to the source. */
+                _cleanup_strv_free_ char **symlinks = NULL;
+                if (!isempty(dest)) {
+                        _cleanup_free_ char *dresolved = NULL;
+
+                        if (streq(lvalue, "ConfigurationDirectory")) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Destination parameter is not supported for ConfigurationDirectory, ignoring: %s", tuple);
+                                continue;
+                        }
+
+                        r = unit_path_printf(u, dest, &dresolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                        "Failed to resolve unit specifiers in \"%s\", ignoring: %m", dest);
+                                continue;
+                        }
+
+                        r = path_simplify_and_warn(dresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                        if (r < 0)
+                                continue;
+
+                        r = strv_consume(&symlinks, TAKE_PTR(dresolved));
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = exec_directory_add(&ed->items, &ed->n_items, sresolved, symlinks);
                 if (r < 0)
                         return log_oom();
-                k = NULL;
         }
 }
 
