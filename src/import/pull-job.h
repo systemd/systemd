@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <gcrypt.h>
 #include <sys/stat.h>
+
+#if PREFER_OPENSSL
+#  include <openssl/evp.h>
+#else
+#  include <gcrypt.h>
+#endif
 
 #include "curl-util.h"
 #include "import-compress.h"
@@ -74,7 +79,11 @@ struct PullJob {
         usec_t last_status_usec;
 
         bool calc_checksum;
-        gcry_md_hd_t checksum_context;
+#if PREFER_OPENSSL
+        EVP_MD_CTX *checksum_ctx;
+#else
+        gcry_md_hd_t checksum_ctx;
+#endif
 
         char *checksum;
         bool sync;
