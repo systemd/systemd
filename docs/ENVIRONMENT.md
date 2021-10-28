@@ -386,3 +386,18 @@ disk images with `--image=` or similar:
   whether to use the libcryptsetup "token" plugin module logic even when
   activating via FIDO2, PKCS#11, TPM2, i.e. mechanisms natively supported by
   `systemd-cryptsetup`. Defaults to enabled.
+
+Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
+and `homectl`:
+
+* `$PASSWORD` — takes a string: the literal password to use. If this
+  environment variable is set it is used as password instead of prompting the
+  user interactively. This exists primarily for debugging and testing
+  purposes. Do not use this for production code paths, since environment
+  variables are typically inherited down the process tree without restrictions
+  and should thus not be used for secrets.
+
+* `$NEWPASSWORD` — similar to `$PASSWORD` above, but is used when both a
+  current and a future password are required, for example if the password is to
+  be changed. In that case `$PASSWORD` shall carry the current (i.e. old)
+  password and `$NEWPASSWORD` the new.
