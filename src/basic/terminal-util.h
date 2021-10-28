@@ -120,6 +120,9 @@ int release_terminal(void);
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *name);
 
+int terminal_set_size_fd(int fd, uint16_t rows, uint16_t cols);
+int terminal_set_size(const char *name, uint16_t rows, uint16_t cols);
+
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
