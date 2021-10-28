@@ -68,6 +68,7 @@ typedef struct {
         UINT32 timeout_sec_config;
         UINT32 timeout_sec_efivar;
         CHAR16 *entry_default_pattern;
+        CHAR16 *entry_default_efivar;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
         BOOLEAN editor;
@@ -435,7 +436,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN x_max, y_max;
         SecureBootMode secure;
-        _cleanup_freepool_ CHAR16 *device_part_uuid = NULL, *default_efivar = NULL;
+        _cleanup_freepool_ CHAR16 *device_part_uuid = NULL;
 
         assert(config);
         assert(loaded_image_path);
@@ -445,7 +446,6 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 
         secure = secure_boot_mode();
         (void) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
-        (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &default_efivar);
 
         /* We employ some unusual indentation here for readability. */
 
@@ -487,8 +487,8 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         }
 
         ps_string(L"               default: %s\n", config->entry_default_pattern);
+        ps_string(L"     default (EFI var): %s\n", config->entry_default_efivar);
         ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
-        ps_string(L"     default (EFI var): %s\n", default_efivar);
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
@@ -586,6 +586,7 @@ static BOOLEAN menu_run(
         INT16 idx;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
         INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
+        INTN default_efivar_saved = config->idx_default_efivar;
 
         graphics_mode(FALSE);
         ST->ConIn->Reset(ST->ConIn, FALSE);
@@ -831,17 +832,16 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != (INTN)idx_highlight) {
-                                /* store the selected entry in a persistent EFI variable */
-                                efivar_set(
-                                        LOADER_GUID,
-                                        L"LoaderEntryDefault",
-                                        config->entries[idx_highlight]->id,
-                                        EFI_VARIABLE_NON_VOLATILE);
+                                FreePool(config->entry_default_efivar);
+                                config->entry_default_efivar = StrDuplicate(config->entries[idx_highlight]->id);
+                                if (!config->entry_default_efivar) {
+                                        log_oom();
+                                        return FALSE;
+                                }
                                 config->idx_default_efivar = idx_highlight;
                                 status = StrDuplicate(L"Default boot entry selected.");
                         } else {
-                                /* clear the default entry EFI variable */
-                                efivar_set(LOADER_GUID, L"LoaderEntryDefault", NULL, EFI_VARIABLE_NON_VOLATILE);
+                                config->entry_default_efivar = mfree(config->entry_default_efivar);
                                 config->idx_default_efivar = -1;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
@@ -953,6 +953,9 @@ static BOOLEAN menu_run(
         *chosen_entry = config->entries[idx_highlight];
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
+
+        if (default_efivar_saved != config->idx_default_efivar)
+                efivar_set(LOADER_GUID, L"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
 
         if (console_mode_efivar_saved != config->console_mode_efivar) {
                 if (config->console_mode_efivar == CONSOLE_MODE_KEEP)
@@ -1537,6 +1540,13 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
         if (!EFI_ERROR(err))
                 config->console_mode_efivar = value;
+
+        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &config->entry_oneshot);
+        if (!EFI_ERROR(err))
+                /* Unset variable now, after all it's "one shot". */
+                (void) efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
+
+        (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &config->entry_default_efivar);
 }
 
 static void config_load_entries(
@@ -1624,7 +1634,9 @@ static void config_sort_entries(Config *config) {
 
 static INTN config_entry_find(Config *config, CHAR16 *id) {
         assert(config);
-        assert(id);
+
+        if (!id)
+                return -1;
 
         for (UINTN i = 0; i < config->entry_count; i++)
                 if (StrCmp(config->entries[i]->id, id) == 0)
@@ -1634,40 +1646,21 @@ static INTN config_entry_find(Config *config, CHAR16 *id) {
 }
 
 static void config_default_entry_select(Config *config) {
-        _cleanup_freepool_ CHAR16 *entry_default = NULL;
-        EFI_STATUS err;
         INTN i;
 
         assert(config);
 
-        /*
-         * The EFI variable to specify a boot entry for the next, and only the
-         * next reboot. The variable is always cleared directly after it is read.
-         */
-        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &config->entry_oneshot);
-        if (!EFI_ERROR(err)) {
-                efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
-
-                i = config_entry_find(config, config->entry_oneshot);
-                if (i >= 0) {
-                        config->idx_default = i;
-                        return;
-                }
+        i = config_entry_find(config, config->entry_oneshot);
+        if (i >= 0) {
+                config->idx_default = i;
+                return;
         }
 
-        /*
-         * The EFI variable to select the default boot entry overrides the
-         * configured pattern. The variable can be set and cleared by pressing
-         * the 'd' key in the loader selection menu.
-         */
-        err = efivar_get(LOADER_GUID, L"LoaderEntryDefault", &entry_default);
-        if (!EFI_ERROR(err)) {
-                i = config_entry_find(config, entry_default);
-                if (i >= 0) {
-                        config->idx_default = i;
-                        config->idx_default_efivar = i;
-                        return;
-                }
+        i = config_entry_find(config, config->entry_default_efivar);
+        if (i >= 0) {
+                config->idx_default = i;
+                config->idx_default_efivar = i;
+                return;
         }
 
         if (config->entry_count == 0)
