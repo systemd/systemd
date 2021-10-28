@@ -870,6 +870,22 @@ static void test_unit_name_from_dbus_path(void) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/wpa_5fsupplicant_2eservice", 0, "wpa_supplicant.service");
 }
 
+static void test_unit_name_prefix_equal(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(unit_name_prefix_equal("a.service", "a.service"));
+        assert_se(unit_name_prefix_equal("a.service", "a.mount"));
+        assert_se(unit_name_prefix_equal("a@b.service", "a.service"));
+        assert_se(unit_name_prefix_equal("a@b.service", "a@c.service"));
+
+        assert_se(!unit_name_prefix_equal("a.service", "b.service"));
+        assert_se(!unit_name_prefix_equal("a.service", "b.mount"));
+        assert_se(!unit_name_prefix_equal("a@a.service", "b.service"));
+        assert_se(!unit_name_prefix_equal("a@a.service", "b@a.service"));
+        assert_se(!unit_name_prefix_equal("a", "b"));
+        assert_se(!unit_name_prefix_equal("a", "a"));
+}
+
 int main(int argc, char* argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r, rc = 0;
@@ -902,6 +918,7 @@ int main(int argc, char* argv[]) {
         test_unit_name_path_unescape();
         test_unit_name_to_prefix();
         test_unit_name_from_dbus_path();
+        test_unit_name_prefix_equal();
 
         return rc;
 }
