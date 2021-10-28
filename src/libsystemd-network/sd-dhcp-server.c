@@ -854,6 +854,27 @@ static int prepare_new_lease(
         return 0;
 }
 
+static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
+        DHCPLease *lease;
+        usec_t time_now;
+        int r;
+
+        assert(server);
+
+        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
+                if (lease->expiration < time_now) {
+                        log_dhcp_server(server, "CLEAN (0x%x)", be32toh(lease->address));
+                        dhcp_lease_free(lease);
+                }
+        }
+
+        return 0;
+}
+
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length) {
@@ -881,6 +902,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         r = ensure_sane_request(server, req, message);
         if (r < 0)
                 /* this only fails on critical errors */
+                return r;
+
+        r = dhcp_server_cleanup_expired_leases(server);
+        if (r < 0)
                 return r;
 
         existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
