@@ -29,6 +29,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "special.h"
 #include "string-table.h"
 #include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"
@@ -710,14 +711,10 @@ static void print_status_info(
 
                 printf("     CGroup: %s\n", i->control_group);
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+                c = LESS_BY(columns(), strlen(prefix));
 
                 r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
-                if (r == -EBADR) {
+                if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) {
                         unsigned k = 0;
                         pid_t extra[2];
 
@@ -2047,8 +2044,10 @@ static int show_all(
 static int show_system_status(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
+        static const char prefix[] = "           ";
         _cleanup_free_ char *hn = NULL;
         const char *on, *off;
+        unsigned c;
         int r;
 
         hn = gethostname_malloc();
@@ -2078,7 +2077,7 @@ static int show_system_status(sd_bus *bus) {
                 off = ansi_normal();
         }
 
-        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
+        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ?: hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
@@ -2090,21 +2089,16 @@ static int show_system_status(sd_bus *bus) {
                FORMAT_TIMESTAMP_STYLE(mi.timestamp, arg_timestamp_style),
                FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
-        printf("   CGroup: %s\n", mi.control_group ?: "/");
-        if (IN_SET(arg_transport,
-                   BUS_TRANSPORT_LOCAL,
-                   BUS_TRANSPORT_MACHINE)) {
-                static const char prefix[] = "           ";
-                unsigned c;
+        printf("   CGroup: %s\n", empty_to_root(mi.control_group));
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+        c = LESS_BY(columns(), strlen(prefix));
 
+        r = unit_show_processes(bus, SPECIAL_ROOT_SLICE, mi.control_group, prefix, c, get_output_flags(), &error);
+        if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) /* Compatibility for really old systemd versions */
                 show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, get_output_flags());
-        }
+        else if (r < 0)
+                log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
+                                  arg_host ?: hn, bus_error_message(&error, r));
 
         return 0;
 }
