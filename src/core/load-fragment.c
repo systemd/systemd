@@ -150,6 +150,84 @@ DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
 
+bool contains_instance_specifier_superset(const char *s) {
+        const char *p, *q;
+        bool percent = false;
+
+        assert(s);
+
+        p = strchr(s, '@');
+        if (!p)
+                return false;
+
+        p++; /* Skip '@' */
+
+        q = strrchr(p, '.');
+        if (!q)
+                q = p + strlen(p);
+
+        /* If the string is just the instance specifier, it's not a superset of the instance. */
+        if (memcmp_nn(p, q - p, "%i", strlen("%i")) == 0)
+                return false;
+
+        /* %i, %n and %N all expand to the instance or a superset of it. */
+        for (; p < q; p++) {
+                if (*p == '%')
+                        percent = !percent;
+                else if (percent) {
+                        if (IN_SET(*p, 'n', 'N', 'i'))
+                                return true;
+                        percent = false;
+                }
+        }
+
+        return false;
+}
+
+/* `name` is the rendered version of `format` via `unit_printf` or similar functions. */
+int unit_is_likely_recursive_template_dependency(Unit *u, const char *name, const char *format) {
+        const char *fragment_path;
+        int r;
+
+        assert(u);
+        assert(name);
+
+        /* If a template unit has a direct dependency on itself that includes the unit instance as part of
+         * the template instance via a unit specifier (%i, %n or %N), this will almost certainly lead to
+         * infinite recursion as systemd will keep instantiating new instances of the template unit.
+         * https://github.com/systemd/systemd/issues/17602 shows a good example of how this can happen in
+         * practice. To guard against this, we check for templates that depend on themselves and have the
+         * instantiated unit instance included as part of the template instance of the dependency via a
+         * specifier.
+         *
+         * For example, if systemd-notify@.service depends on systemd-notify@%n.service, this will result in
+         * infinite recursion.
+         */
+
+        if (!unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+                return false;
+
+        if (!unit_name_prefix_equal(u->id, name))
+                return false;
+
+        if (u->type != unit_name_to_type(name))
+                return false;
+
+        r = unit_file_find_fragment(u->manager->unit_id_map, u->manager->unit_name_map, name, &fragment_path, NULL);
+        if (r < 0)
+                return r;
+
+        /* Fragment paths should also be equal as a custom fragment for a specific template instance
+         * wouldn't necessarily lead to infinite recursion. */
+        if (!path_equal_ptr(u->fragment_path, fragment_path))
+                return false;
+
+        if (!contains_instance_specifier_superset(format))
+                return false;
+
+        return true;
+}
+
 int config_parse_unit_deps(
                 const char *unit,
                 const char *filename,
@@ -186,6 +264,18 @@ int config_parse_unit_deps(
                 r = unit_name_printf(u, word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
+                        continue;
+                }
+
+                r = unit_is_likely_recursive_template_dependency(u, k, word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to determine if '%s' is a recursive dependency, ignoring: %m", k);
+                        continue;
+                }
+                if (r > 0) {
+                        log_syntax(unit, LOG_DEBUG, filename, line, 0,
+                                   "Dropping dependency %s=%s that likely leads to infinite recursion.",
+                                   unit_dependency_to_string(d), word);
                         continue;
                 }
 
