@@ -6494,3 +6494,29 @@ int config_parse_watchdog_sec(
 
         return 0;
 }
+
+int config_parse_tty_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned *sz = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *sz = UINT_MAX;
+                return 0;
+        }
+
+        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}

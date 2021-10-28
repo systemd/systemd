@@ -148,6 +148,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_network_interfaces);
 CONFIG_PARSER_PROTOTYPE(config_parse_watchdog_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_tty_size);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
