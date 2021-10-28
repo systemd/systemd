@@ -733,7 +733,7 @@ static void print_status_info(
                         c = 0;
 
                 r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
-                if (r == -EBADR) {
+                if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) {
                         unsigned k = 0;
                         pid_t extra[2];
 
