@@ -563,26 +563,6 @@ static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDis
         return 0;
 }
 
-static int json_dispatch_disk_size(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *size = userdata;
-        uintmax_t k;
-
-        if (json_variant_is_null(variant)) {
-                *size = UINT64_MAX;
-                return 0;
-        }
-
-        if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        k = json_variant_unsigned(variant);
-        if (k < USER_DISK_SIZE_MIN || k > USER_DISK_SIZE_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), USER_DISK_SIZE_MIN, USER_DISK_SIZE_MAX);
-
-        *size = k;
-        return 0;
-}
-
 static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uint64_t *limit = userdata;
         uintmax_t k;
@@ -1135,7 +1115,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "notBeforeUSec",              JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
-                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_disk_size,              offsetof(UserRecord, disk_size),                     0         },
+                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
@@ -1484,7 +1464,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "notBeforeUSec",              JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
-                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_disk_size,              offsetof(UserRecord, disk_size),                     0         },
+                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
