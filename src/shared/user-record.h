@@ -10,7 +10,7 @@
 #include "missing_resource.h"
 #include "time-util.h"
 
-/* But some limits on disk sizes: not less than 5M, not more than 5T */
+/* Put some limits on disk sizes: not less than 5M, not more than 5T */
 #define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
 #define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
 
