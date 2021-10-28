@@ -213,6 +213,9 @@ static void exec_context_tty_reset(const ExecContext *context, const ExecParamet
                         (void) reset_terminal(path);
         }
 
+        if (p && p->stdin_fd >= 0)
+                (void) terminal_set_size_fd(p->stdin_fd, path, context->tty_rows, context->tty_cols);
+
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
 }
@@ -466,6 +469,7 @@ static int setup_input(
                 const int named_iofds[static 3]) {
 
         ExecInput i;
+        int r;
 
         assert(context);
         assert(params);
@@ -479,6 +483,7 @@ static int setup_input(
                 if (isatty(STDIN_FILENO)) {
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
                         (void) reset_terminal_fd(STDIN_FILENO, true);
+                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, context->tty_rows, context->tty_cols);
                 }
 
                 return STDIN_FILENO;
@@ -503,6 +508,10 @@ static int setup_input(
                                       USEC_INFINITY);
                 if (fd < 0)
                         return fd;
+
+                r = terminal_set_size_fd(fd, exec_context_tty_path(context), context->tty_rows, context->tty_cols);
+                if (r < 0)
+                        return r;
 
                 return move_fd(fd, STDIN_FILENO, false);
         }
@@ -757,6 +766,7 @@ static int chown_terminal(int fd, uid_t uid) {
 }
 
 static int setup_confirm_stdio(
+                const ExecContext *context,
                 const char *vc,
                 int *ret_saved_stdin,
                 int *ret_saved_stdout) {
@@ -784,6 +794,10 @@ static int setup_confirm_stdio(
                 return r;
 
         r = reset_terminal_fd(fd, true);
+        if (r < 0)
+                return r;
+
+        r = terminal_set_size_fd(fd, vc, context->tty_rows, context->tty_cols);
         if (r < 0)
                 return r;
 
@@ -848,13 +862,13 @@ enum {
         CONFIRM_EXECUTE = 1,
 };
 
-static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
+static int ask_for_confirmation(const ExecContext *context, const char *vc, Unit *u, const char *cmdline) {
         int saved_stdout = -1, saved_stdin = -1, r;
         _cleanup_free_ char *e = NULL;
         char c;
 
         /* For any internal errors, assume a positive response. */
-        r = setup_confirm_stdio(vc, &saved_stdin, &saved_stdout);
+        r = setup_confirm_stdio(context, vc, &saved_stdin, &saved_stdout);
         if (r < 0) {
                 write_confirm_error(r, vc, u);
                 return CONFIRM_EXECUTE;
@@ -3994,7 +4008,7 @@ static int exec_child(
                         return log_oom();
                 }
 
-                r = ask_for_confirmation(vc, unit, cmdline);
+                r = ask_for_confirmation(context, vc, unit, cmdline);
                 if (r != CONFIRM_EXECUTE) {
                         if (r == CONFIRM_PRETEND_SUCCESS) {
                                 *exit_status = EXIT_SUCCESS;
@@ -5066,6 +5080,8 @@ void exec_context_init(ExecContext *c) {
 #if HAVE_SECCOMP
         c->syscall_errno = SECCOMP_ERROR_NUMBER_KILL;
 #endif
+        c->tty_rows = UINT_MAX;
+        c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
 }
 
@@ -5705,11 +5721,15 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         "%sTTYPath: %s\n"
                         "%sTTYReset: %s\n"
                         "%sTTYVHangup: %s\n"
-                        "%sTTYVTDisallocate: %s\n",
+                        "%sTTYVTDisallocate: %s\n"
+                        "%sTTYRows: %u\n"
+                        "%sTTYColumns: %u\n",
                         prefix, c->tty_path,
                         prefix, yes_no(c->tty_reset),
                         prefix, yes_no(c->tty_vhangup),
-                        prefix, yes_no(c->tty_vt_disallocate));
+                        prefix, yes_no(c->tty_vt_disallocate),
+                        prefix, c->tty_rows,
+                        prefix, c->tty_cols);
 
         if (IN_SET(c->std_output,
                    EXEC_OUTPUT_KMSG,
