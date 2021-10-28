@@ -854,6 +854,33 @@ static int prepare_new_lease(
         return 0;
 }
 
+static bool address_is_available(sd_dhcp_server *server, be32_t address) {
+        DHCPLease *lease;
+        usec_t time_now;
+        int r;
+
+        assert(server);
+
+        if (hashmap_contains(server->static_leases_by_address, &address) ||
+            address == server->address)
+                return false; /* address in static lease, or server addr so unavailable */
+
+        lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        if (!lease)
+                return true; /* address not bound, so available */
+
+        /* address in existing lease, check expiry */
+        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return false;
+
+        if (lease->expiration < time_now) {
+                dhcp_lease_free(lease);
+                return true;
+        }
+        return false;
+}
+
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length) {
@@ -918,8 +945,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 be32_t tmp_address;
 
                                 tmp_address = server->subnet | htobe32(server->pool_offset + (hash + i) % server->pool_size);
-                                if (!hashmap_contains(server->bound_leases_by_address, &tmp_address) &&
-                                    !hashmap_contains(server->static_leases_by_address, &tmp_address)) {
+                                if (address_is_available(server, tmp_address)) {
                                         address = tmp_address;
                                         break;
                                 }
@@ -1040,7 +1066,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                         return DHCP_ACK;
 
-                } else if (pool_offset >= 0 && existing_lease_by_address == existing_lease) {
+                } else if (pool_offset >= 0 && existing_lease_by_address == existing_lease &&
+                           address != server->address) {
                         _cleanup_(dhcp_lease_freep) DHCPLease *new_lease = NULL;
                         usec_t time_now, expiration;
                         DHCPLease *lease;
