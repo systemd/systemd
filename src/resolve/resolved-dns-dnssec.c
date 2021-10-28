@@ -625,6 +625,81 @@ static void dnssec_fix_rrset_ttl(
         rrsig->expiry = rrsig->rrsig.expiration * USEC_PER_SEC;
 }
 
+static int dnssec_rrset_serialize_sig(
+                DnsResourceRecord *rrsig,
+                const char *source,
+                DnsResourceRecord **list,
+                size_t list_len,
+                bool wildcard,
+                char **ret_sig_data,
+                size_t *ret_sig_size) {
+
+        _cleanup_free_ char *sig_data = NULL;
+        size_t sig_size = 0;
+        _cleanup_fclose_ FILE *f = NULL;
+        uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(rrsig);
+        assert(source);
+        assert(list || list_len == 0);
+        assert(ret_sig_data);
+        assert(ret_sig_size);
+
+        f = open_memstream_unlocked(&sig_data, &sig_size);
+        if (!f)
+                return -ENOMEM;
+
+        fwrite_uint16(f, rrsig->rrsig.type_covered);
+        fwrite_uint8(f, rrsig->rrsig.algorithm);
+        fwrite_uint8(f, rrsig->rrsig.labels);
+        fwrite_uint32(f, rrsig->rrsig.original_ttl);
+        fwrite_uint32(f, rrsig->rrsig.expiration);
+        fwrite_uint32(f, rrsig->rrsig.inception);
+        fwrite_uint16(f, rrsig->rrsig.key_tag);
+
+        r = dns_name_to_wire_format(rrsig->rrsig.signer, wire_format_name, sizeof(wire_format_name), true);
+        if (r < 0)
+                return r;
+        fwrite(wire_format_name, 1, r, f);
+
+        /* Convert the source of synthesis into wire format */
+        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
+        if (r < 0)
+                return r;
+
+        for (size_t k = 0; k < list_len; k++) {
+                size_t l;
+
+                rr = list[k];
+
+                /* Hash the source of synthesis. If this is a wildcard, then prefix it with the *. label */
+                if (wildcard)
+                        fwrite((uint8_t[]) { 1, '*'}, sizeof(uint8_t), 2, f);
+                fwrite(wire_format_name, 1, r, f);
+
+                fwrite_uint16(f, rr->key->type);
+                fwrite_uint16(f, rr->key->class);
+                fwrite_uint32(f, rrsig->rrsig.original_ttl);
+
+                l = DNS_RESOURCE_RECORD_RDATA_SIZE(rr);
+                assert(l <= 0xFFFF);
+
+                fwrite_uint16(f, (uint16_t) l);
+                fwrite(DNS_RESOURCE_RECORD_RDATA(rr), 1, l, f);
+        }
+
+        r = fflush_and_check(f);
+        f = safe_fclose(f);  /* sig_data may be reallocated when f is closed. */
+        if (r < 0)
+                return r;
+
+        *ret_sig_data = TAKE_PTR(sig_data);
+        *ret_sig_size = sig_size;
+        return 0;
+}
+
 int dnssec_verify_rrset(
                 DnsAnswer *a,
                 const DnsResourceKey *key,
@@ -633,15 +708,13 @@ int dnssec_verify_rrset(
                 usec_t realtime,
                 DnssecResult *result) {
 
-        uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord **list, *rr;
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         int r, md_algorithm;
         size_t n = 0;
-        size_t sig_size = 0;
         _cleanup_free_ char *sig_data = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        size_t sig_size = 0;
         size_t hash_size;
         void *hash;
         bool wildcard;
@@ -746,50 +819,8 @@ int dnssec_verify_rrset(
         /* Bring the RRs into canonical order */
         typesafe_qsort(list, n, rr_compare);
 
-        f = open_memstream_unlocked(&sig_data, &sig_size);
-        if (!f)
-                return -ENOMEM;
-
-        fwrite_uint16(f, rrsig->rrsig.type_covered);
-        fwrite_uint8(f, rrsig->rrsig.algorithm);
-        fwrite_uint8(f, rrsig->rrsig.labels);
-        fwrite_uint32(f, rrsig->rrsig.original_ttl);
-        fwrite_uint32(f, rrsig->rrsig.expiration);
-        fwrite_uint32(f, rrsig->rrsig.inception);
-        fwrite_uint16(f, rrsig->rrsig.key_tag);
-
-        r = dns_name_to_wire_format(rrsig->rrsig.signer, wire_format_name, sizeof(wire_format_name), true);
-        if (r < 0)
-                return r;
-        fwrite(wire_format_name, 1, r, f);
-
-        /* Convert the source of synthesis into wire format */
-        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
-        if (r < 0)
-                return r;
-
-        for (size_t k = 0; k < n; k++) {
-                size_t l;
-
-                rr = list[k];
-
-                /* Hash the source of synthesis. If this is a wildcard, then prefix it with the *. label */
-                if (wildcard)
-                        fwrite((uint8_t[]) { 1, '*'}, sizeof(uint8_t), 2, f);
-                fwrite(wire_format_name, 1, r, f);
-
-                fwrite_uint16(f, rr->key->type);
-                fwrite_uint16(f, rr->key->class);
-                fwrite_uint32(f, rrsig->rrsig.original_ttl);
-
-                l = DNS_RESOURCE_RECORD_RDATA_SIZE(rr);
-                assert(l <= 0xFFFF);
-
-                fwrite_uint16(f, (uint16_t) l);
-                fwrite(DNS_RESOURCE_RECORD_RDATA(rr), 1, l, f);
-        }
-
-        r = fflush_and_check(f);
+        r = dnssec_rrset_serialize_sig(rrsig, source, list, n, wildcard,
+                                       &sig_data, &sig_size);
         if (r < 0)
                 return r;
 
