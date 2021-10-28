@@ -4863,6 +4863,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+#if HAVE_LIBCRYPTSETUP
+        cryptsetup_enable_logging(NULL);
+#endif
+
         if (arg_image) {
                 assert(!arg_root);
 
