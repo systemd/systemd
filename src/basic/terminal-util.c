@@ -857,6 +857,36 @@ unsigned lines(void) {
         return cached_lines;
 }
 
+int terminal_set_size_fd(int fd, uint16_t rows, uint16_t cols) {
+        struct winsize ws = {
+                .ws_row = rows,
+                .ws_col = cols,
+        };
+
+        if (ioctl(fd, TIOCSWINSZ, &ws) < 0)
+                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting TTY size failed, ignoring: %m");
+
+        ws = (struct winsize) { 0, 0 };
+
+        if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
+                return log_debug_errno(errno, "TIOCGWINSZ ioctl for setting TTY size failed, ignoring: %m");
+
+        log_debug("TTY rows: %hu", ws.ws_row);
+        log_debug("TTY cols: %hu", ws.ws_col);
+
+        return 0;
+}
+
+int terminal_set_size(const char *name, uint16_t rows, uint16_t cols) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return fd;
+
+        return terminal_set_size_fd(fd, rows, cols);
+}
+
 /* intended to be used as a SIGWINCH sighandler */
 void columns_lines_cache_reset(int signum) {
         cached_columns = 0;
