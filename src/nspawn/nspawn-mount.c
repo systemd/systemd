@@ -704,7 +704,7 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
         return 0;
 }
 
-static int mount_bind(const char *dest, CustomMount *m) {
+static int mount_bind(const char *dest, uid_t uid_shift, CustomMount *m) {
         _cleanup_free_ char *mount_opts = NULL, *where = NULL;
         unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
@@ -718,6 +718,11 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (r < 0)
                         return r;
         }
+
+        /* If this is a bind mount from a temporary sources change ownership of the source to the container's
+         * root UID. Otherwise it would always show up as "nobody" if user namespacing is used. */
+        if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
+                return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -927,7 +932,7 @@ int mount_custom(
                 switch (m->type) {
 
                 case CUSTOM_MOUNT_BIND:
-                        r = mount_bind(dest, m);
+                        r = mount_bind(dest, uid_shift, m);
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
