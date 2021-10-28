@@ -39,6 +39,8 @@ typedef struct HomeSetup {
         uint64_t partition_size;
 
         char *mount_suffix;           /* The directory to use as home dir is this path below /run/systemd/user-home-mount */
+
+        char *temporary_image_path;
 } HomeSetup;
 
 typedef struct PasswordCache {
@@ -76,8 +78,9 @@ typedef enum HomeSetupFlags {
 int home_setup_done(HomeSetup *setup);
 
 int home_setup_undo_mount(HomeSetup *setup, int level);
+int home_setup_undo_dm(HomeSetup *setup, int level);
 
-int home_setup(UserRecord *h, HomeSetupFlags flags, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
+int home_setup(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_header_home);
 
 int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, PasswordCache *cache, struct statfs *ret_statfs, UserRecord **ret_new_home);
 

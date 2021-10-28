@@ -282,8 +282,8 @@ static int fscrypt_setup(
 
 int home_setup_fscrypt(
                 UserRecord *h,
-                const PasswordCache *cache,
-                HomeSetup *setup) {
+                HomeSetup *setup,
+                const PasswordCache *cache) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct fscrypt_policy policy = {};
