@@ -58,6 +58,10 @@
     hostnames. If you rely on that lookup being provided by DNS, you might
     want to order things differently.
     </para>
+
+    <para>Communication between <command>nss-resolve</command> and
+    <filename>systemd-resolved.service</filename> takes place via the
+    <filename>/run/systemd/resolve/io.systemd.Resolve</filename> <constant>AF_UNIX</constant> socket.</para>
   </refsect1>
 
   <refsect1>
