@@ -89,6 +89,11 @@ synthesize and process with numerous programming languages. It's particularly
 popular in the web communities, which hopefully should make it easy to link
 user credential data from the web and from local systems more closely together.
 
+Please note that this specification assumes that JSON numbers may cover the full
+integer range of -2^63 … 2^64-1 without loss of precision (i.e. INT64_MIN …
+UINT64_MAX). Please read, write and process user records as defined by this
+specification only with JSON implementations that provide this number range.
+
 ## General Structure
 
 The JSON user records generated and processed by systemd follow a general
