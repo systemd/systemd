@@ -710,11 +710,7 @@ static void print_status_info(
 
                 printf("     CGroup: %s\n", i->control_group);
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+                c = LESS_BY(columns(), strlen(prefix));
 
                 r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
                 if (r == -EBADR) {
@@ -2115,11 +2111,7 @@ static int show_system_status(sd_bus *bus) {
                 static const char prefix[] = "           ";
                 unsigned c;
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+                c = LESS_BY(columns(), strlen(prefix));
 
                 show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, get_output_flags());
         }
