@@ -2687,9 +2687,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RouterLifetimeSec=</varname></term>
 
-        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. When set to
-        0, the host is not acting as a router. The value must be 0 second, or between 4 seconds and
-        9000 seconds. Defaults to 1800 seconds (30 minutes).</para>
+        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. The value must be 0
+        seconds, or between 4 seconds and 9000 seconds. When set to 0, the host is not acting as a router.
+        Defaults to 1800 seconds (30 minutes).</para>
         </listitem>
       </varlistentry>
 
