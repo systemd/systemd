@@ -726,6 +726,11 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         return r;
         }
 
+        /* If this is a bind mount from a temporary sources change ownership of the source to the container's
+         * root UID. Otherwise it would always show up as "nobody" if user namespacing is used. */
+        if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
+                return log_error_errno(errno, "Failed to chown %s: %m", m->source);
+
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
