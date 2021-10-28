@@ -232,6 +232,9 @@ struct ExecContext {
         bool tty_vhangup;
         bool tty_vt_disallocate;
 
+        unsigned tty_rows;
+        unsigned tty_cols;
+
         bool ignore_sigpipe;
 
         ExecKeyringMode keyring_mode;
