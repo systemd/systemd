@@ -12,6 +12,12 @@ int bus_property_get_id128(sd_bus *bus, const char *path, const char *interface,
 #define bus_property_get_usec ((sd_bus_property_get_t) NULL)
 #define bus_property_set_usec ((sd_bus_property_set_t) NULL)
 
+assert_cc(sizeof(short) == sizeof(int16_t));
+#define bus_property_get_short ((sd_bus_property_get_t) NULL)
+
+assert_cc(sizeof(unsigned short) == sizeof(uint16_t));
+#define bus_property_get_ushort ((sd_bus_property_get_t) NULL)
+
 assert_cc(sizeof(int) == sizeof(int32_t));
 #define bus_property_get_int ((sd_bus_property_get_t) NULL)
 

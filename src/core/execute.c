@@ -3881,6 +3881,15 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
+        if (context->tty_rows || context->tty_cols) {
+                const char *path = exec_context_tty_path(context);
+
+                if (params && params->stdin_fd >= 0)
+                        (void) terminal_set_size_fd(params->stdin_fd, context->tty_rows, context->tty_cols);
+                else if (path)
+                        (void) terminal_set_size(path, context->tty_rows, context->tty_cols);
+        }
+
         if (unit_shall_confirm_spawn(unit)) {
                 const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
@@ -5584,11 +5593,15 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         "%sTTYPath: %s\n"
                         "%sTTYReset: %s\n"
                         "%sTTYVHangup: %s\n"
-                        "%sTTYVTDisallocate: %s\n",
+                        "%sTTYVTDisallocate: %s\n"
+                        "%sTTYRows: %hu\n"
+                        "%sTTYColumns: %hu\n",
                         prefix, c->tty_path,
                         prefix, yes_no(c->tty_reset),
                         prefix, yes_no(c->tty_vhangup),
-                        prefix, yes_no(c->tty_vt_disallocate));
+                        prefix, yes_no(c->tty_vt_disallocate),
+                        prefix, c->tty_rows,
+                        prefix, c->tty_cols);
 
         if (IN_SET(c->std_output,
                    EXEC_OUTPUT_KMSG,

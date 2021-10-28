@@ -134,6 +134,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou);
 DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, coredump_filter_mask_from_string);
+DEFINE_BUS_APPEND_PARSE_PTR("q", uint16_t, uint16_t, safe_atou16);
 
 static int bus_append_string(sd_bus_message *m, const char *field, const char *eq) {
         int r;
@@ -2247,6 +2248,10 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
                 return 1;
         }
+
+        if (STR_IN_SET(field, "TTYRows",
+                              "TTYColumns"))
+                return bus_append_safe_atou16(m, field, eq);
 
         return 0;
 }
