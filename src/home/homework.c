@@ -1785,6 +1785,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
+        cryptsetup_enable_logging(NULL);
+
         umask(0022);
 
         if (argc < 2 || argc > 3)
