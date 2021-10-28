@@ -65,6 +65,13 @@
             that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
             options are specified.</para>
 
+            <para>Note that this command does not show unit templates, but only instances of unit
+            templates. Units templates that aren't instantiated are not runnable, and will thus never show up
+            in the output of this command. Specifically this means that <filename>foo@.service</filename>
+            will never be shown in this list — unless instantiated, e.g. as
+            <filename>foo@bar.service</filename>. Use <command>list-unit-files</command> (see below) for
+            listing installed unit template files.</para>
+
             <para>Produces output similar to
             <programlisting>  UNIT                         LOAD   ACTIVE SUB     DESCRIPTION
   sys-module-fuse.device       loaded active plugged /sys/module/fuse
@@ -81,11 +88,11 @@ ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
 SUB    = The low-level unit activation state, values depend on unit type.
 
 123 loaded units listed. Pass --all to see loaded but inactive units, too.
-To show all installed unit files use 'systemctl list-unit-files'.
-            </programlisting>
-            The header and the last unit of a given type are underlined if the
-            terminal supports that. A colored dot is shown next to services which
-            were masked, not found, or otherwise failed.</para>
+To show all installed unit files use 'systemctl list-unit-files'.</programlisting></para>
+
+            <para>The header and the last unit of a given type are underlined if the terminal supports
+            that. A colored dot is shown next to services which were masked, not found, or otherwise
+            failed.</para>
 
             <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
             <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
@@ -694,10 +701,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>list-unit-files</command> <optional><replaceable>PATTERN…</replaceable></optional></term>
 
           <listitem>
-            <para>List unit files installed on the system, in combination with their enablement state (as reported by
-            <command>is-enabled</command>). If one or more <replaceable>PATTERN</replaceable>s are specified, only unit
-            files whose name matches one of them are shown (patterns matching unit file system paths are not
-            supported).</para>
+            <para>List unit files installed on the system, in combination with their enablement state (as
+            reported by <command>is-enabled</command>). If one or more <replaceable>PATTERN</replaceable>s
+            are specified, only unit files whose name matches one of them are shown (patterns matching unit
+            file system paths are not supported).</para>
+
+            <para>Unlike <command>list-units</command> this command will list template units in addition to
+            explicitly instantiated units.</para>
           </listitem>
         </varlistentry>
 
