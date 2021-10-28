@@ -70,11 +70,14 @@ typedef struct {
         CHAR16 *entry_default_config;
         CHAR16 *entry_default_efivar;
         CHAR16 *entry_oneshot;
+        CHAR16 *entry_saved;
         CHAR16 *options_edit;
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN force_menu;
+        BOOLEAN use_saved_entry;
+        BOOLEAN use_saved_entry_efivar;
         INT64 console_mode;
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
@@ -489,6 +492,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         ps_string(L"               default: %s\n", config->entry_default_config);
         ps_string(L"     default (EFI var): %s\n", config->entry_default_efivar);
         ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
+        ps_string(L"           saved entry: %s\n", config->entry_saved);
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
@@ -845,6 +849,7 @@ static BOOLEAN menu_run(
                                 config->idx_default_efivar = -1;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
+                        config->use_saved_entry_efivar = FALSE;
                         refresh = TRUE;
                         break;
 
@@ -1112,6 +1117,10 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 }
 
                 if (strcmpa((CHAR8 *)"default", key) == 0) {
+                        if (value[0] == '@' && strcmpa((CHAR8 *)"@saved", value) != 0) {
+                                log_error_stall(L"Unsupported special entry identifier: %a", value);
+                                continue;
+                        }
                         FreePool(config->entry_default_config);
                         config->entry_default_config = stra_to_str(value);
                         continue;
@@ -1546,6 +1555,11 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
         (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &config->entry_default_efivar);
+
+        config->use_saved_entry = streq_ptr(config->entry_default_config, L"@saved");
+        config->use_saved_entry_efivar = streq_ptr(config->entry_default_efivar, L"@saved");
+        if (config->use_saved_entry || config->use_saved_entry_efivar)
+                (void) efivar_get(LOADER_GUID, L"LoaderEntryLastBooted", &config->entry_saved);
 }
 
 static void config_load_entries(
@@ -1655,14 +1669,18 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        i = config_entry_find(config, config->entry_default_efivar);
+        i = config_entry_find(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
         if (i >= 0) {
                 config->idx_default = i;
                 config->idx_default_efivar = i;
                 return;
         }
 
-        i = config_entry_find(config, config->entry_default_config);
+        if (config->use_saved_entry)
+                /* No need to do the same thing twice. */
+                i = config->use_saved_entry_efivar ? -1 : config_entry_find(config, config->entry_saved);
+        else
+                i = config_entry_find(config, config->entry_default_config);
         if (i >= 0) {
                 config->idx_default = i;
                 return;
@@ -2237,6 +2255,29 @@ static void config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
+static void save_selected_entry(const Config *config, const ConfigEntry *entry) {
+        assert(config);
+        assert(entry);
+        assert(!entry->call);
+
+        /* Always export the selected boot entry to the system in a volatile var. */
+        (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+
+        /* Do not save or delete if this was a oneshot boot. */
+        if (streq_ptr(config->entry_oneshot, entry->id))
+                return;
+
+        if (config->use_saved_entry_efivar || (!config->entry_default_efivar && config->use_saved_entry)) {
+                /* Avoid unnecessary NVRAM writes. */
+                if (streq_ptr(config->entry_saved, entry->id))
+                        return;
+
+                (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
+        } else
+                /* Delete the non-volatile var if not needed. */
+                (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", NULL, EFI_VARIABLE_NON_VOLATILE);
+}
+
 static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
@@ -2415,9 +2456,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
 
                 config_entry_bump_counters(entry, root_dir);
-
-                /* Export the selected boot entry to the system */
-                (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+                save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);

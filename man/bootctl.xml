@@ -111,8 +111,12 @@
         see <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> for details.
         These special IDs are primarily useful as a quick way to persistently make the currently booted boot loader
         entry the default choice, or to upgrade the default boot loader entry for the next boot to the default boot
-        loader entry for all future boots, but may be used for other operations too.
-        When an empty string ("") is specified as an ID, then the corresponding EFI variable will be unset.
+        loader entry for all future boots, but may be used for other operations too.</para>
+
+        <para>If set to <option>@saved</option> the chosen entry will be saved as an EFI variable
+        on every boot and automatically selected the next time the boot loader starts.</para>
+
+        <para>When an empty string ("") is specified as an ID, then the corresponding EFI variable will be unset.
         </para></listitem>
       </varlistentry>
 
