@@ -2108,7 +2108,7 @@ static int show_system_status(sd_bus *bus) {
                FORMAT_TIMESTAMP_STYLE(mi.timestamp, arg_timestamp_style),
                FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
-        printf("   CGroup: %s\n", mi.control_group ?: "/");
+        printf("   CGroup: %s\n", empty_to_root(mi.control_group));
         if (IN_SET(arg_transport,
                    BUS_TRANSPORT_LOCAL,
                    BUS_TRANSPORT_MACHINE)) {
