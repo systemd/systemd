@@ -99,8 +99,8 @@
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
 
-        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string as
-        argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
+        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
+        pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
         the <option>set-default</option> will set it persistently for all future boots.</para></listitem>
 
         <listitem><para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,

@@ -67,7 +67,7 @@ typedef struct {
         UINT32 timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
         UINT32 timeout_sec_config;
         UINT32 timeout_sec_efivar;
-        CHAR16 *entry_default_pattern;
+        CHAR16 *entry_default_config;
         CHAR16 *entry_default_efivar;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
@@ -486,7 +486,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"     timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
         }
 
-        ps_string(L"               default: %s\n", config->entry_default_pattern);
+        ps_string(L"               default: %s\n", config->entry_default_config);
         ps_string(L"     default (EFI var): %s\n", config->entry_default_efivar);
         ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
           ps_bool(L"                editor: %s\n", config->editor);
@@ -1112,9 +1112,8 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 }
 
                 if (strcmpa((CHAR8 *)"default", key) == 0) {
-                        FreePool(config->entry_default_pattern);
-                        config->entry_default_pattern = stra_to_str(value);
-                        StrLwr(config->entry_default_pattern);
+                        FreePool(config->entry_default_config);
+                        config->entry_default_config = stra_to_str(value);
                         continue;
                 }
 
@@ -1632,14 +1631,14 @@ static void config_sort_entries(Config *config) {
         sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
-static INTN config_entry_find(Config *config, CHAR16 *id) {
+static INTN config_entry_find(Config *config, CHAR16 *needle) {
         assert(config);
 
-        if (!id)
+        if (!needle)
                 return -1;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (StrCmp(config->entries[i]->id, id) == 0)
+                if (MetaiMatch(config->entries[i]->id, needle))
                         return (INTN) i;
 
         return -1;
@@ -1663,21 +1662,10 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        if (config->entry_count == 0)
+        i = config_entry_find(config, config->entry_default_config);
+        if (i >= 0) {
+                config->idx_default = i;
                 return;
-
-        /*
-         * Match the pattern from the end of the list to the start, find last
-         * entry (largest number) matching the given pattern.
-         */
-        if (config->entry_default_pattern) {
-                i = config->entry_count;
-                while (i--) {
-                        if (MetaiMatch(config->entries[i]->id, config->entry_default_pattern)) {
-                                config->idx_default = i;
-                                return;
-                        }
-                }
         }
 
         /* select the last suitable entry */
@@ -2217,7 +2205,7 @@ static void config_free(Config *config) {
         for (UINTN i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
-        FreePool(config->entry_default_pattern);
+        FreePool(config->entry_default_config);
         FreePool(config->options_edit);
         FreePool(config->entry_oneshot);
 }
