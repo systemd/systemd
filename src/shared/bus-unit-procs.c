@@ -188,11 +188,13 @@ static int dump_processes(
                         more = i+1 < n || cg->children;
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
 
-                        fprintf(stdout, "%s%s%*"PID_PRI" %s\n",
+                        fprintf(stdout, "%s%s%s%*"PID_PRI" %s%s\n",
                                 prefix,
                                 special,
+                                ansi_grey(),
                                 width, pids[i],
-                                name);
+                                name,
+                                ansi_normal());
                 }
         }
 
