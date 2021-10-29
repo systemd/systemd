@@ -25,8 +25,6 @@ struct sd_ndisc {
         int event_priority;
 
         struct ether_addr mac_addr;
-        uint8_t hop_limit;
-        uint32_t mtu;
 
         sd_event_source *recv_event_source;
         sd_event_source *timeout_event_source;
