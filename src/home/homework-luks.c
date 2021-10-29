@@ -1020,16 +1020,6 @@ int run_fitrim(int root_fd) {
         return 1;
 }
 
-int run_fitrim_by_path(const char *root_path) {
-        _cleanup_close_ int root_fd = -1;
-
-        root_fd = open(root_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
-                return log_error_errno(errno, "Failed to open file system '%s' for trimming: %m", root_path);
-
-        return run_fitrim(root_fd);
-}
-
 int run_fallocate(int backing_fd, const struct stat *st) {
         struct stat stbuf;
 
@@ -1528,15 +1518,17 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
         return we_detached;
 }
 
-int home_trim_luks(UserRecord *h) {
+int home_trim_luks(UserRecord *h, HomeSetup *setup) {
         assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
 
         if (!user_record_luks_offline_discard(h)) {
                 log_debug("Not trimming on logout.");
                 return 0;
         }
 
-        (void) run_fitrim_by_path(user_record_home_directory(h));
+        (void) run_fitrim(setup->root_fd);
         return 0;
 }
 
