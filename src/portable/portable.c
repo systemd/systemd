@@ -363,7 +363,7 @@ static int portable_extract_by_path(
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
                 r = dissect_image(
-                                d->fd,
+                                d->dissect_fd,
                                 NULL, NULL,
                                 d->diskseq,
                                 d->uevent_seqnum_not_before,
