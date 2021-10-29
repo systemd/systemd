@@ -384,7 +384,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));
 
-        if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
+        if (ioctl(d->mount_fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Size: %s\n", FORMAT_BYTES(size));
@@ -794,7 +794,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_image_and_warn(
-                        d->fd,
+                        d->dissect_fd,
                         arg_image,
                         &arg_verity_settings,
                         NULL,
@@ -808,7 +808,7 @@ static int run(int argc, char *argv[]) {
 
         r = dissected_image_load_verity_sig_partition(
                         m,
-                        d->fd,
+                        d->dissect_fd,
                         &arg_verity_settings);
         if (r < 0)
                 return r;

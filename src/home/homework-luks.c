@@ -1219,17 +1219,17 @@ int home_setup_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to open loopback device %s: %m", n);
 
-                if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
+                if (ioctl(setup->loop->mount_fd, LOOP_GET_STATUS64, &info) < 0) {
                         _cleanup_free_ char *sysfs = NULL;
                         struct stat st;
 
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
-                        if (ioctl(setup->loop->fd, BLKGETSIZE64, &size) < 0)
+                        if (ioctl(setup->loop->mount_fd, BLKGETSIZE64, &size) < 0)
                                 return log_error_errno(r, "Failed to read block device size of %s: %m", n);
 
-                        if (fstat(setup->loop->fd, &st) < 0)
+                        if (fstat(setup->loop->mount_fd, &st) < 0)
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
@@ -1432,7 +1432,7 @@ int home_activate_luks(
         if (r < 0)
                 return r;
 
-        r = block_get_size_by_fd(setup->loop->fd, &host_size);
+        r = block_get_size_by_fd(setup->loop->mount_fd, &host_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to get loopback block device size: %m");
 

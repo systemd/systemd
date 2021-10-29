@@ -1202,7 +1202,7 @@ int image_read_metadata(Image *i) {
                         return r;
 
                 r = dissect_image(
-                                d->fd,
+                                d->dissect_fd,
                                 NULL, NULL,
                                 d->diskseq,
                                 d->uevent_seqnum_not_before,
