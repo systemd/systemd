@@ -19,15 +19,16 @@ int parse_permyriad(const char *p);
  * a value relative to 100% == 2^32-1. Rounds to closest. */
 static inline uint32_t UINT32_SCALE_FROM_PERCENT(int percent) {
         assert_cc(INT_MAX <= UINT32_MAX);
-        return (uint32_t) (((uint64_t) percent * UINT32_MAX + 50) / 100U);
+
+        return (uint32_t) (((uint64_t) CLAMP(percent, 0, 100) * UINT32_MAX + 50) / 100U);
 }
 
 static inline uint32_t UINT32_SCALE_FROM_PERMILLE(int permille) {
-        return (uint32_t) (((uint64_t) permille * UINT32_MAX + 500) / 1000U);
+        return (uint32_t) (((uint64_t) CLAMP(permille, 0, 1000) * UINT32_MAX + 500) / 1000U);
 }
 
 static inline uint32_t UINT32_SCALE_FROM_PERMYRIAD(int permyriad) {
-        return (uint32_t) (((uint64_t) permyriad * UINT32_MAX + 5000) / 10000U);
+        return (uint32_t) (((uint64_t) CLAMP(permyriad, 0, 10000) * UINT32_MAX + 5000) / 10000U);
 }
 
 static inline int UINT32_SCALE_TO_PERCENT(uint32_t scale) {
