@@ -179,28 +179,6 @@ _public_ int sd_ndisc_new(sd_ndisc **ret) {
         return 0;
 }
 
-_public_ int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
-        assert_return(nd, -EINVAL);
-        assert_return(mtu, -EINVAL);
-
-        if (nd->mtu == 0)
-                return -ENODATA;
-
-        *mtu = nd->mtu;
-        return 0;
-}
-
-_public_ int sd_ndisc_get_hop_limit(sd_ndisc *nd, uint8_t *ret) {
-        assert_return(nd, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        if (nd->hop_limit == 0)
-                return -ENODATA;
-
-        *ret = nd->hop_limit;
-        return 0;
-}
-
 static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         int r;
 
@@ -212,12 +190,6 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
                 return 0;
         if (r < 0)
                 return 0;
-
-        /* Update global variables we keep */
-        if (rt->mtu > 0)
-                nd->mtu = rt->mtu;
-        if (rt->hop_limit > 0)
-                nd->hop_limit = rt->hop_limit;
 
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
