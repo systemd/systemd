@@ -3399,11 +3399,11 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
+        r = dissect_image_and_warn(d->dissect_fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)
                 return r;
 
-        r = dissected_image_load_verity_sig_partition(dissected_image, d->fd, &verity);
+        r = dissected_image_load_verity_sig_partition(dissected_image, d->dissect_fd, &verity);
         if (r < 0)
                 return r;
 
@@ -3495,7 +3495,7 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
 
         r = dissect_image(
-                        loop_device->fd,
+                        loop_device->dissect_fd,
                         &verity,
                         options,
                         loop_device->diskseq,
@@ -3506,7 +3506,7 @@ int verity_dissect_and_mount(
         /* No partition table? Might be a single-filesystem image, try again */
         if (!verity.data_path && r == -ENOPKG)
                  r = dissect_image(
-                                loop_device->fd,
+                                loop_device->dissect_fd,
                                 &verity,
                                 options,
                                 loop_device->diskseq,
@@ -3517,7 +3517,7 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
-        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, &verity);
+        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->dissect_fd, &verity);
         if (r < 0)
                 return r;
 

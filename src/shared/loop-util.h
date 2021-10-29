@@ -9,7 +9,8 @@ typedef struct LoopDevice LoopDevice;
 /* Some helpers for setting up loopback block devices */
 
 struct LoopDevice {
-        int fd;
+        int mount_fd;
+        int dissect_fd; /* opened without O_DIRECT for unaligned probing or same as fd */
         int nr;
         dev_t devno;
         char *node;
