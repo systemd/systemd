@@ -1702,9 +1702,17 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                                                "Relative disk size specification currently not supported when resizing.");
 
         if (argc > 2) {
-                r = parse_size(argv[2], 1024, &ds);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                if (streq(argv[2], "min"))
+                        ds = 0;
+                else if (streq(argv[2], "max"))
+                        ds = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX spcial marker */
+                else {
+                        r = parse_size(argv[2], 1024, &ds);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                        if (ds >= UINT64_MAX) /* UINT64_MAX has special meaning for us ("dont change"), refuse */
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size out of range: %s", argv[2]);
+                }
         }
 
         if (arg_disk_size != UINT64_MAX) {
@@ -2825,9 +2833,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_permyriad(optarg);
                         if (r < 0) {
-                                r = parse_size(optarg, 1024, &arg_disk_size);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                if (streq(optarg, "min"))
+                                        arg_disk_size = 0; /* Shrink to min */
+                                else if (streq(optarg, "max"))
+                                        arg_disk_size = UINT64_MAX-1; /* Grow to max; largest possible value that is not UINT64_MAX which we use as marker for "not set" */
+                                else {
+                                        r = parse_size(optarg, 1024, &arg_disk_size);
+                                        if (r < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                        if (arg_disk_size == UINT64_MAX) /* don't allow unsetting the value this way */
+                                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size '%s' too large.", optarg);
+                                }
 
                                 r = drop_from_identity("diskSizeRelative");
                                 if (r < 0)
