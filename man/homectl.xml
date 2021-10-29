@@ -849,7 +849,11 @@
         <literal>xfs</literal> and <literal>btrfs</literal> the home directory may be grown while the user is
         logged in, and on the latter also shrunk while the user is logged in. If the
         <literal>subvolume</literal>, <literal>directory</literal>, <literal>fscrypt</literal> storage
-        mechanisms are used, resizing will change file system quota.</para></listitem>
+        mechanisms are used, resizing will change file system quota. The size parameter may make use of the
+        usual suffixes B, K, M, G, T (to the base of 1024). The special strings <literal>min</literal> and
+        <literal>max</literal> may be specified in place of a numeric size value, for minimizing or
+        maximizing disk space assigned to the home area, taking constraints of the file system, disk usage inside
+        the home area and on the backing storage into account.</para></listitem>
       </varlistentry>
 
       <varlistentry>
