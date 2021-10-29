@@ -2270,7 +2270,6 @@ static bool field_is_valid(const char *field) {
 
 _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t i, n;
         size_t field_length;
         int r;
         Object *o;
@@ -2295,21 +2294,20 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         field_length = strlen(field);
 
-        n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0;;) {
                 uint64_t p, l;
-                le64_t le_hash;
                 size_t t;
                 int compression;
 
-                p = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[i].hash;
+                r = journal_file_entry_next(f, o, &i, &p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (r < 0)
                         return r;
-
-                if (le_hash != o->data.hash)
-                        return -EBADMSG;
 
                 l = le64toh(o->object.size) - offsetof(Object, data.payload);
 
@@ -2422,8 +2420,7 @@ static int return_data(
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t p, n;
-        le64_t le_hash;
+        uint64_t p, i;
         int r;
         Object *o;
 
@@ -2443,30 +2440,30 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (r < 0)
                 return r;
 
-        n = journal_file_entry_n_items(o);
-        if (j->current_field >= n)
+        i = j->current_field;
+
+        r = journal_file_entry_next(f, o, &i, &p);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return 0;
 
-        p = le64toh(o->entry.items[j->current_field].object_offset);
-        le_hash = o->entry.items[j->current_field].hash;
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
         if (r < 0)
                 return r;
-
-        if (le_hash != o->data.hash)
-                return -EBADMSG;
 
         r = return_data(j, f, o, data, size);
         if (r < 0)
                 return r;
 
-        j->current_field++;
+        j->current_field = i;
 
         return 1;
 }
 
 _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *size) {
         for (;;) {
+                Object *o;
                 int r;
 
                 r = sd_journal_enumerate_data(j, data, size);
@@ -2474,7 +2471,15 @@ _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **dat
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
                         return r;
-                j->current_field++; /* Try with the next field */
+
+                r = journal_file_move_to_object(j->current_file, OBJECT_ENTRY, j->current_file->current_offset, &o);
+                if (r < 0)
+                        return r;
+
+                /* Try with the next field */
+                r = journal_file_entry_next(j->current_file, o, &j->current_field, NULL);
+                if (r <= 0)
+                        return r;
         }
 }
 
