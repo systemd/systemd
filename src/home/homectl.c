@@ -1763,6 +1763,32 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int parse_disk_size(const char *t, uint64_t *ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        if (streq(t, "min"))
+                *ret = 0;
+        else if (streq(t, "max"))
+                *ret = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX special marker */
+        else {
+                uint64_t ds;
+
+                r = parse_size(t, 1024, &ds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse disk size parameter: %s", t);
+
+                if (ds >= UINT64_MAX) /* UINT64_MAX has special meaning for us ("dont change"), refuse */
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size out of range: %s", t);
+
+                *ret = ds;
+        }
+
+        return 0;
+}
+
 static int resize_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
@@ -1781,9 +1807,9 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                                                "Relative disk size specification currently not supported when resizing.");
 
         if (argc > 2) {
-                r = parse_size(argv[2], 1024, &ds);
+                r = parse_disk_size(argv[2], &ds);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                        return r;
         }
 
         if (arg_disk_size != UINT64_MAX) {
@@ -2907,9 +2933,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_permyriad(optarg);
                         if (r < 0) {
-                                r = parse_size(optarg, 1024, &arg_disk_size);
+                                r = parse_disk_size(optarg, &arg_disk_size);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                        return r;
 
                                 r = drop_from_identity("diskSizeRelative");
                                 if (r < 0)

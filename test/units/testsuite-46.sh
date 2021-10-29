@@ -87,14 +87,14 @@ if ! systemd-detect-virt -cq ; then
     inspect test-user
 
     # minimize while inactive
-    PASSWORD=xEhErW0ndafV4s homectl resize test-user 0
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user min
     inspect test-user
 
     PASSWORD=xEhErW0ndafV4s homectl activate test-user
     inspect test-user
 
     # grow while active
-    PASSWORD=xEhErW0ndafV4s homectl resize test-user 1T
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user max
     inspect test-user
 
     # minimize while active
