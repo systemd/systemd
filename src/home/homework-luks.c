@@ -25,6 +25,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "home-util.h"
@@ -2513,16 +2514,16 @@ static int prepare_resize_partition(
                 int fd,
                 uint64_t partition_offset,
                 uint64_t old_partition_size,
-                uint64_t new_partition_size,
                 sd_id128_t *ret_disk_uuid,
-                struct fdisk_table **ret_table) {
+                struct fdisk_table **ret_table,
+                struct fdisk_partition **ret_partition) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
-        size_t n_partitions;
+        struct fdisk_partition *found = NULL;
         sd_id128_t disk_uuid;
-        bool found = false;
+        size_t n_partitions;
         int r;
 
         assert(fd >= 0);
@@ -2531,9 +2532,7 @@ static int prepare_resize_partition(
 
         assert((partition_offset & 511) == 0);
         assert((old_partition_size & 511) == 0);
-        assert((new_partition_size & 511) == 0);
         assert(UINT64_MAX - old_partition_size >= partition_offset);
-        assert(UINT64_MAX - new_partition_size >= partition_offset);
 
         if (partition_offset == 0) {
                 /* If the offset is at the beginning we assume no partition table, let's exit early. */
@@ -2588,30 +2587,17 @@ static int prepare_resize_partition(
                         if (found)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Partition found twice, refusing.");
 
-                        /* Found our partition, now patch it */
-                        r = fdisk_partition_size_explicit(p, 1);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to enable explicit partition size: %m");
-
-                        r = fdisk_partition_set_size(p, new_partition_size / 512U);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to change partition size: %m");
-
-                        found = true;
-                        continue;
-
-                } else {
-                        if (fdisk_partition_get_start(p) < partition_offset + new_partition_size / 512U &&
-                            fdisk_partition_get_end(p) >= partition_offset / 512)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't extend, conflicting partition found.");
-                }
+                        found = p;
+                } else if (fdisk_partition_get_end(p) > partition_offset / 512U)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't extend, not last partition in image.");
         }
 
         if (!found)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to find matching partition to resize.");
 
-        *ret_table = TAKE_PTR(t);
         *ret_disk_uuid = disk_uuid;
+        *ret_table = TAKE_PTR(t);
+        *ret_partition = found;
 
         return 1;
 }
@@ -2638,7 +2624,13 @@ static int ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *userdata
         return 0;
 }
 
-static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_table *t) {
+static int apply_resize_partition(
+                int fd,
+                sd_id128_t disk_uuids,
+                struct fdisk_table *t,
+                struct fdisk_partition *p,
+                size_t new_partition_size) {
+
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ void *two_zero_lbas = NULL;
         _cleanup_free_ char *path = NULL;
@@ -2646,9 +2638,21 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
         int r;
 
         assert(fd >= 0);
+        assert(!t == !p);
 
         if (!t) /* no partition table to apply, exit early */
                 return 0;
+
+        assert(p);
+
+        /* Before writing our partition patch the final size in */
+        r = fdisk_partition_size_explicit(p, 1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable explicit partition size: %m");
+
+        r = fdisk_partition_set_size(p, new_partition_size / 512U);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change partition size: %m");
 
         two_zero_lbas = malloc0(1024U);
         if (!two_zero_lbas)
@@ -2695,6 +2699,139 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
         return 1;
 }
 
+/* Always keep at least 16M free, so that we can safely log in and update the user record while doing so */
+#define HOME_MIN_FREE (16U*1024U*1024U)
+
+static int get_smallest_fs_size(int fd, uint64_t *ret) {
+        uint64_t minsz, needed;
+        struct statfs sfs;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Determines the minimal disk size we might be able to shrink the file system referenced by the fd to. */
+
+        if (syncfs(fd) < 0) /* let's sync before we query the size, so that the values returned are accurate */
+                return log_error_errno(errno, "Failed to synchronize home file system: %m");
+
+        if (fstatfs(fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs() home file system: %m");
+
+        /* Let's determine the minimal file syste size of the used fstype */
+        minsz = minimal_size_by_fs_magic(sfs.f_type);
+        if (minsz == UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know minimum file system size of file system type '%s' of home directory.", fs_type_to_string(sfs.f_type));
+
+        if (minsz < USER_DISK_SIZE_MIN)
+                minsz = USER_DISK_SIZE_MIN;
+
+        if (sfs.f_bfree > sfs.f_blocks)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Detected amount of free blocks is greater than the total amount of file system blocks. Refusing.");
+
+        /* Calculate how much disk space is currently in use. */
+        needed = sfs.f_blocks - sfs.f_bfree;
+        if (needed > UINT64_MAX / sfs.f_bsize)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File system size out of range.");
+
+        needed *= sfs.f_bsize;
+
+        /* Add some safety margin of free space we'll always keep */
+        if (needed > UINT64_MAX - HOME_MIN_FREE) /* Check for overflow */
+                needed = UINT64_MAX;
+        else
+                needed += HOME_MIN_FREE;
+
+        *ret = DISK_SIZE_ROUND_UP(MAX(needed, minsz));
+        return 0;
+}
+
+static int resize_fs_loop(
+                UserRecord *h,
+                HomeSetup *setup,
+                int resize_type,
+                uint64_t old_fs_size,
+                uint64_t new_fs_size,
+                uint64_t *ret_fs_size) {
+
+        uint64_t current_fs_size;
+        unsigned n_iterations = 0;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        /* A bisection loop trying to find the closest size to what the user asked for. (Well, we bisect like
+         * this only when we *shrink* the fs — if we grow the fs there's no need to bisect.) */
+
+        current_fs_size = old_fs_size;
+        for (uint64_t lower_boundary = new_fs_size, upper_boundary = old_fs_size, try_fs_size = new_fs_size;;) {
+                bool worked;
+
+                n_iterations++;
+
+                /* Now resize the file system */
+                if (resize_type == CAN_RESIZE_ONLINE) {
+                        r = resize_fs(setup->root_fd, try_fs_size, NULL);
+                        if (r < 0) {
+                                if (!ERRNO_IS_DISK_SPACE(r) || new_fs_size > old_fs_size) /* Not a disk space issue? Not trying to shrink? */
+                                        return log_error_errno(r, "Failed to resize file system: %m");
+
+                                log_debug_errno(r, "Shrinking from %s to %s didn't work, not enough space for contained data.", FORMAT_BYTES(current_fs_size), FORMAT_BYTES(try_fs_size));
+                                worked = false;
+                        } else {
+                                log_debug("Successfully resized from %s to %s.", FORMAT_BYTES(current_fs_size), FORMAT_BYTES(try_fs_size));
+                                current_fs_size = try_fs_size;
+                                worked = true;
+                        }
+
+                        /* If we hit a disk space issue and are shrinking the fs, then maybe it helps to
+                         * increase the image size. */
+                } else {
+                        r = ext4_offline_resize_fs(setup, try_fs_size, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
+                        if (r < 0)
+                                return r;
+
+                        /* For now, when we fail to shrink an ext4 image we'll not try again via the
+                         * bisection logic. We might add that later, but give this involves shelling out
+                         * multiple programs it's a bit too cumbersome to my taste. */
+
+                        worked = true;
+                        current_fs_size = try_fs_size;
+                }
+
+                if (new_fs_size > old_fs_size) /* If we are growing we are done after one iteration */
+                        break;
+
+                /* If we are shrinking then let's adjust our bisection boundaries and try again. */
+                if (worked)
+                        upper_boundary = MIN(upper_boundary, try_fs_size);
+                else
+                        lower_boundary = MAX(lower_boundary, try_fs_size);
+
+                /* OK, this attempt to shrink didn't work. Let's try between the old size and what worked. */
+                if (lower_boundary >= upper_boundary) {
+                        log_debug("Image can't be shrunk further (range to try is empty).");
+                        break;
+                }
+
+                /* Let's find a new value to try half-way between the lower boundary and the upper boundary
+                 * to try now. */
+                try_fs_size = DISK_SIZE_ROUND_DOWN(lower_boundary + (upper_boundary - lower_boundary) / 2);
+                if (try_fs_size <= lower_boundary || try_fs_size >= upper_boundary) {
+                        log_debug("Image can't be shrunk further (remaining range to try too small).");
+                        break;
+                }
+        }
+
+        log_debug("Bisection loop completed after %u iterations.", n_iterations);
+
+        if (ret_fs_size)
+                *ret_fs_size = current_fs_size;
+
+        return 0;
+}
+
 int home_resize_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -2702,9 +2839,11 @@ int home_resize_luks(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, new_partition_size;
+        uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, crypto_offset_bytes,
+                new_partition_size, smallest_fs_size, resized_fs_size;
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *table = NULL;
+        struct fdisk_partition *partition = NULL;
         _cleanup_close_ int opened_image_fd = -1;
         _cleanup_free_ char *whole_disk = NULL;
         int r, resize_type, image_fd = -1;
@@ -2712,11 +2851,15 @@ int home_resize_luks(
         const char *ip, *ipo;
         struct statfs sfs;
         struct stat st;
+        enum {
+                INTENTION_DONT_KNOW = 0,    /* These happen to match the return codes of CMP() */
+                INTENTION_SHRINK = -1,
+                INTENTION_GROW = 1,
+        } intention = INTENTION_DONT_KNOW;
 
         assert(h);
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
-        assert(ret_home);
 
         r = dlopen_cryptsetup();
         if (r < 0)
@@ -2774,8 +2917,6 @@ int home_resize_luks(
 
                 new_image_size = old_image_size; /* we can't resize physical block devices */
         } else {
-                uint64_t new_image_size_rounded;
-
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return log_error_errno(r, "Image %s is not a block device nor regular file: %m", ip);
@@ -2786,19 +2927,32 @@ int home_resize_luks(
                  * apply onto the loopback file as a whole. When we operate on block devices we instead apply
                  * to the partition itself only. */
 
-                new_image_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+                if (FLAGS_SET(flags, HOME_SETUP_RESIZE_MINIMIZE)) {
+                        new_image_size = 0;
+                        intention = INTENTION_SHRINK;
+                } else {
+                        uint64_t new_image_size_rounded;
 
-                if (old_image_size == h->disk_size ||
-                    old_image_size == new_image_size_rounded) {
-                        /* If exact match, or a match after we rounded down, don't do a thing */
-                        log_info("Image size already matching, skipping operation.");
-                        return 0;
+                        new_image_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                        if (old_image_size >= new_image_size_rounded && old_image_size <= h->disk_size) {
+                                /* If exact match, or a match after we rounded down, don't do a thing */
+                                log_info("Image size already matching, skipping operation.");
+                                return 0;
+                        }
+
+                        new_image_size = new_image_size_rounded;
+                        intention = CMP(new_image_size, old_image_size); /* Is this a shrink */
                 }
-
-                new_image_size = new_image_size_rounded;
         }
 
-        r = home_setup_luks(h, flags, whole_disk, setup, cache, &header_home);
+        r = home_setup_luks(
+                        h,
+                        flags,
+                        whole_disk,
+                        setup,
+                        cache,
+                        FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES) ? NULL : &header_home);
         if (r < 0)
                 return r;
 
@@ -2818,24 +2972,31 @@ int home_resize_luks(
                 uint64_t partition_table_extra;
 
                 partition_table_extra = old_image_size - setup->partition_size;
+
                 if (new_image_size <= partition_table_extra)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New size smaller than partition table metadata.");
+                        new_image_size = partition_table_extra;
 
                 new_partition_size = DISK_SIZE_ROUND_DOWN(new_image_size - partition_table_extra);
         } else {
-                uint64_t new_partition_size_rounded;
-
                 assert(S_ISBLK(st.st_mode));
 
-                new_partition_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+                if (FLAGS_SET(flags, HOME_SETUP_RESIZE_MINIMIZE)) {
+                        new_partition_size = 0;
+                        intention = INTENTION_SHRINK;
+                } else {
+                        uint64_t new_partition_size_rounded;
 
-                if (h->disk_size == setup->partition_size ||
-                    new_partition_size_rounded == setup->partition_size) {
-                        log_info("Partition size already matching, skipping operation.");
-                        return 0;
+                        new_partition_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                        if (setup->partition_size >= new_partition_size_rounded &&
+                            setup->partition_size <= h->disk_size) {
+                                log_info("Partition size already matching, skipping operation.");
+                                return 0;
+                        }
+
+                        new_partition_size = new_partition_size_rounded;
+                        intention = CMP(new_partition_size, setup->partition_size);
                 }
-
-                new_partition_size = new_partition_size_rounded;
         }
 
         if ((UINT64_MAX - setup->partition_offset) < new_partition_size ||
@@ -2843,13 +3004,63 @@ int home_resize_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New partition doesn't fit into backing storage, refusing.");
 
         crypto_offset = sym_crypt_get_data_offset(setup->crypt_device);
-        if (setup->partition_size / 512U <= crypto_offset)
+        if (crypto_offset > UINT64_MAX/512U)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS2 data offset out of range, refusing.");
+        crypto_offset_bytes = (uint64_t) crypto_offset * 512U;
+        if (setup->partition_size <= crypto_offset_bytes)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weird, old crypto payload offset doesn't actually fit in partition size?");
-        if (new_partition_size / 512U <= crypto_offset)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New size smaller than crypto payload offset?");
 
-        old_fs_size = (setup->partition_size / 512U - crypto_offset) * 512U;
-        new_fs_size = DISK_SIZE_ROUND_DOWN((new_partition_size / 512U - crypto_offset) * 512U);
+        /* Make sure at least the LUKS header fit in */
+        if (new_partition_size <= crypto_offset_bytes) {
+                uint64_t add;
+
+                add = DISK_SIZE_ROUND_UP(crypto_offset_bytes) - new_partition_size;
+                new_partition_size += add;
+                if (S_ISREG(st.st_mode))
+                        new_image_size += add;
+        }
+
+        old_fs_size = setup->partition_size - crypto_offset_bytes;
+        new_fs_size = DISK_SIZE_ROUND_DOWN(new_partition_size - crypto_offset_bytes);
+
+        r = get_smallest_fs_size(setup->root_fd, &smallest_fs_size);
+        if (r < 0)
+                return r;
+
+        if (new_fs_size < smallest_fs_size) {
+                uint64_t add;
+
+                add = DISK_SIZE_ROUND_UP(smallest_fs_size) - new_fs_size;
+                new_fs_size += add;
+                new_partition_size += add;
+                if (S_ISREG(st.st_mode))
+                        new_image_size += add;
+        }
+
+        if (new_fs_size == old_fs_size) {
+                log_info("New file system size identical to old file system size, skipping operation.");
+                return 0;
+        }
+
+        if (FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_GROW) && new_fs_size > old_fs_size) {
+                log_info("New file system size would be larger than old, but shrinking requested, skipping operation.");
+                return 0;
+        }
+
+        if (FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SHRINK) && new_fs_size < old_fs_size) {
+                log_info("New file system size would be smaller than old, but growing requested, skipping operation.");
+                return 0;
+        }
+
+        if (CMP(new_fs_size, old_fs_size) != intention) {
+                if (intention < 0)
+                        log_info("Shrink operation would enlarge file system, skipping operation.");
+                else {
+                        assert(intention > 0);
+                        log_info("Grow operation would shrink file system, skipping operation.");
+                }
+                return 0;
+        }
 
         /* Before we start doing anything, let's figure out if we actually can */
         resize_type = can_resize_fs(setup->root_fd, old_fs_size, new_fs_size);
@@ -2870,13 +3081,13 @@ int home_resize_luks(
                         image_fd,
                         setup->partition_offset,
                         setup->partition_size,
-                        new_partition_size,
                         &disk_uuid,
-                        &table);
+                        &table,
+                        &partition);
         if (r < 0)
                 return r;
 
-        if (new_fs_size > old_fs_size) {
+        if (new_fs_size > old_fs_size) { /* → Grow */
 
                 if (S_ISREG(st.st_mode)) {
                         /* Grow file size */
@@ -2885,6 +3096,9 @@ int home_resize_luks(
                                 return r;
 
                         log_info("Growing of image file completed.");
+                } else {
+                        assert(S_ISBLK(st.st_mode));
+                        assert(new_image_size == old_image_size);
                 }
 
                 /* Make sure loopback device sees the new bigger size */
@@ -2896,7 +3110,7 @@ int home_resize_luks(
                 else
                         log_info("Refreshing loop device size completed.");
 
-                r = apply_resize_partition(image_fd, disk_uuid, table);
+                r = apply_resize_partition(image_fd, disk_uuid, table, partition, new_partition_size);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -2912,6 +3126,8 @@ int home_resize_luks(
 
                 log_info("LUKS device growing completed.");
         } else {
+                /* → Shrink */
+
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
                         r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
                         if (r < 0)
@@ -2931,25 +3147,37 @@ int home_resize_luks(
                 }
         }
 
-        /* Now resize the file system */
-        if (resize_type == CAN_RESIZE_ONLINE) {
-                r = resize_fs(setup->root_fd, new_fs_size, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resize file system: %m");
-        } else {
-                r = ext4_offline_resize_fs(setup, new_fs_size, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
-                if (r < 0)
-                        return r;
+        /* Now try to resize the file system. The requested size might not always be possible, in which case
+         * we'll try to get as close as we can get. The result is returned in 'resized_fs_size' */
+        r = resize_fs_loop(h, setup, resize_type, old_fs_size, new_fs_size, &resized_fs_size);
+        if (r < 0)
+                return r;
+
+        if (resized_fs_size == old_fs_size) {
+                log_info("Couldn't change file system size.");
+                return 0;
         }
 
-        log_info("File system resizing completed.");
+        log_info("File system resizing from %s to %s completed.", FORMAT_BYTES(old_fs_size), FORMAT_BYTES(resized_fs_size));
+
+        if (resized_fs_size > new_fs_size) {
+                uint64_t add;
+
+                /* If the shrinking we managed to do is larger than what we wanted we need to adjust the partition/image sizes. */
+                add = resized_fs_size - new_fs_size;
+                new_partition_size += add;
+                if (S_ISREG(st.st_mode))
+                        new_image_size += add;
+        }
+
+        new_fs_size = resized_fs_size;
 
         /* Immediately sync afterwards */
         r = home_sync_and_statfs(setup->root_fd, NULL);
         if (r < 0)
                 return r;
 
-        if (new_fs_size < old_fs_size) {
+        if (new_fs_size < old_fs_size) { /* → Shrink */
 
                 /* Shrink the LUKS device now, matching the new file system size */
                 r = sym_crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512);
@@ -2957,14 +3185,6 @@ int home_resize_luks(
                         return log_error_errno(r, "Failed to shrink LUKS device: %m");
 
                 log_info("LUKS device shrinking completed.");
-
-                if (S_ISREG(st.st_mode)) {
-                        /* Shrink the image file */
-                        if (ftruncate(image_fd, new_image_size) < 0)
-                                return log_error_errno(errno, "Failed to shrink image file %s: %m", ip);
-
-                        log_info("Shrinking of image file completed.");
-                }
 
                 /* Refresh the loop devices size */
                 r = loop_device_refresh_size(setup->loop, UINT64_MAX, new_partition_size);
@@ -2975,7 +3195,18 @@ int home_resize_luks(
                 else
                         log_info("Refreshing loop device size completed.");
 
-                r = apply_resize_partition(image_fd, disk_uuid, table);
+                if (S_ISREG(st.st_mode)) {
+                        /* Shrink the image file */
+                        if (ftruncate(image_fd, new_image_size) < 0)
+                                return log_error_errno(errno, "Failed to shrink image file %s: %m", ip);
+
+                        log_info("Shrinking of image file completed.");
+                } else {
+                        assert(S_ISBLK(st.st_mode));
+                        assert(new_image_size == old_image_size);
+                }
+
+                r = apply_resize_partition(image_fd, disk_uuid, table, partition, new_partition_size);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -2983,10 +3214,13 @@ int home_resize_luks(
 
                 if (S_ISBLK(st.st_mode) && ioctl(image_fd, BLKRRPART, 0) < 0)
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
-        } else if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
-                if (r < 0)
-                        return r;
+
+        } else { /* → Grow */
+                if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
+                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
@@ -3014,7 +3248,9 @@ int home_resize_luks(
 
         print_size_summary(new_image_size, new_fs_size, &sfs);
 
-        *ret_home = TAKE_PTR(new_home);
+        if (ret_home)
+                *ret_home = TAKE_PTR(new_home);
+
         return 0;
 }
 
