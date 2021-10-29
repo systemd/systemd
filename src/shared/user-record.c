@@ -84,6 +84,7 @@ UserRecord* user_record_new(void) {
                 .fido2_user_presence_permitted = -1,
                 .fido2_user_verification_permitted = -1,
                 .drop_caches = -1,
+                .auto_resize_mode = _AUTO_RESIZE_MODE_INVALID,
         };
 
         return h;
@@ -957,6 +958,32 @@ static int dispatch_recovery_key(const char *name, JsonVariant *variant, JsonDis
         return 0;
 }
 
+static int dispatch_auto_resize_mode(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        AutoResizeMode *mode = userdata, m;
+
+        assert_se(mode);
+
+        if (json_variant_is_null(variant)) {
+                *mode = _AUTO_RESIZE_MODE_INVALID;
+                return 0;
+        }
+
+        if (json_variant_is_boolean(variant)) {
+                *mode = json_variant_boolean(variant) ? AUTO_RESIZE_SHRINK_AND_GROW : AUTO_RESIZE_OFF;
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string, boolean or null.", strna(name));
+
+        m = auto_resize_mode_from_string(json_variant_string(variant));
+        if (m < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid automatic resize mode.", strna(name));
+
+        *mode = m;
+        return 0;
+}
+
 static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch privileged_dispatch_table[] = {
@@ -1149,6 +1176,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
                 { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
                 { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
+                { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
                 { "enforcePasswordPolicy",      JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, enforce_password_policy),       0         },
@@ -1499,6 +1527,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
                 { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
                 { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
+                { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
                 { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, service),                       JSON_SAFE },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
@@ -1901,6 +1930,15 @@ bool user_record_drop_caches(UserRecord *h) {
         return user_record_storage(h) == USER_FSCRYPT;
 }
 
+AutoResizeMode user_record_auto_resize_mode(UserRecord *h) {
+        assert(h);
+
+        if (h->auto_resize_mode >= 0)
+                return h->auto_resize_mode;
+
+        return user_record_storage(h) == USER_LUKS ? AUTO_RESIZE_SHRINK_AND_GROW : AUTO_RESIZE_OFF;
+}
+
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
         assert(h);
 
@@ -2148,3 +2186,11 @@ static const char* const user_disposition_table[_USER_DISPOSITION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_disposition, UserDisposition);
+
+static const char* const auto_resize_mode_table[_AUTO_RESIZE_MODE_MAX] = {
+        [AUTO_RESIZE_OFF]             = "off",
+        [AUTO_RESIZE_GROW]            = "grow",
+        [AUTO_RESIZE_SHRINK_AND_GROW] = "shrink-and-grow",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(auto_resize_mode, AutoResizeMode);
