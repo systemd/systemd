@@ -249,7 +249,7 @@ int sd_lldp_rx_is_running(sd_lldp_rx *lldp_rx) {
         return lldp_rx->fd >= 0;
 }
 
-_public_ int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
+int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
         int r;
 
         assert_return(lldp_rx, -EINVAL);
@@ -283,7 +283,7 @@ fail:
         return r;
 }
 
-_public_ int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx) {
+int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx) {
         if (!sd_lldp_rx_is_running(lldp_rx))
                 return 0;
 
@@ -295,7 +295,7 @@ _public_ int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx) {
         return 1;
 }
 
-_public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64_t priority) {
+int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(lldp_rx, -EINVAL);
@@ -315,7 +315,7 @@ _public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64
         return 0;
 }
 
-_public_ int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
+int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
@@ -325,13 +325,13 @@ _public_ int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
         return 0;
 }
 
-_public_ sd_event* sd_lldp_rx_get_event(sd_lldp_rx *lldp_rx) {
+sd_event* sd_lldp_rx_get_event(sd_lldp_rx *lldp_rx) {
         assert_return(lldp_rx, NULL);
 
         return lldp_rx->event;
 }
 
-_public_ int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t cb, void *userdata) {
+int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t cb, void *userdata) {
         assert_return(lldp_rx, -EINVAL);
 
         lldp_rx->callback = cb;
@@ -340,7 +340,7 @@ _public_ int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t 
         return 0;
 }
 
-_public_ int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex) {
+int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
@@ -392,7 +392,7 @@ static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx_free);
 
-_public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
+int sd_lldp_rx_new(sd_lldp_rx **ret) {
         _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;
 
         assert_return(ret, -EINVAL);
@@ -460,7 +460,7 @@ static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_nei
         return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
-_public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
+int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
         _cleanup_free_ sd_lldp_neighbor **l = NULL;
         sd_lldp_neighbor *n;
         int k = 0;
@@ -489,7 +489,7 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
         return k;
 }
 
-_public_ int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m) {
+int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(m > 0, -EINVAL);
 
@@ -499,7 +499,7 @@ _public_ int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m) {
         return 0;
 }
 
-_public_ int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask) {
+int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(mask != 0, -EINVAL);
 
@@ -508,7 +508,7 @@ _public_ int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask) {
         return 0;
 }
 
-_public_ int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *addr) {
+int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *addr) {
         assert_return(lldp_rx, -EINVAL);
 
         /* In order to deal nicely with bridges that send back our own packets, allow one address to be filtered, so
