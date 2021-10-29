@@ -1278,6 +1278,7 @@ int home_setup_luks(
                         return log_error_errno(errno, "Failed to open home directory: %m");
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
+                bool has_stat = false;
                 const char *ip;
                 struct stat st;
 
@@ -1292,6 +1293,8 @@ int home_setup_luks(
                         setup->image_fd = open_image_file(h, force_image_path, &st);
                         if (setup->image_fd < 0)
                                 return setup->image_fd;
+
+                        has_stat = true;
                 }
 
                 r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
@@ -1304,7 +1307,7 @@ int home_setup_luks(
                         setup->do_mark_clean = true;
 
                 if (!user_record_luks_discard(h)) {
-                        r = run_fallocate(setup->image_fd, &st);
+                        r = run_fallocate(setup->image_fd, has_stat ? &st : NULL);
                         if (r < 0)
                                 return r;
                 }
