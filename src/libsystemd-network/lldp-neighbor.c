@@ -45,7 +45,7 @@ int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
         return CMP(x->until, y->until);
 }
 
-_public_ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
+sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
         if (!n)
                 return NULL;
 
@@ -70,7 +70,7 @@ static sd_lldp_neighbor *lldp_neighbor_free(sd_lldp_neighbor *n) {
         return mfree(n);
 }
 
-_public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
+sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
 
         /* Drops one reference from the neighbor. Note that the object is not freed unless it is already unlinked from
          * the sd_lldp object. */
@@ -358,7 +358,7 @@ bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b) {
         return memcmp(LLDP_NEIGHBOR_RAW(a), LLDP_NEIGHBOR_RAW(b), a->raw_size) == 0;
 }
 
-_public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address) {
         assert_return(n, -EINVAL);
         assert_return(address, -EINVAL);
 
@@ -366,7 +366,7 @@ _public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct eth
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address) {
         assert_return(n, -EINVAL);
         assert_return(address, -EINVAL);
 
@@ -374,7 +374,7 @@ _public_ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struc
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
+int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(size, -EINVAL);
@@ -385,7 +385,7 @@ _public_ int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, siz
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
+int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
         assert_return(n, -EINVAL);
         assert_return(type, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -438,7 +438,7 @@ static int format_network_address(const void *data, size_t sz, char **ret) {
         return 1;
 }
 
-_public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, const char **ret) {
         char *k;
         int r;
 
@@ -494,7 +494,7 @@ done:
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
+int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
         assert_return(n, -EINVAL);
         assert_return(type, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -509,7 +509,7 @@ _public_ int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, co
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const char **ret) {
         char *k;
         int r;
 
@@ -564,7 +564,7 @@ done:
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec) {
+int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec) {
         assert_return(n, -EINVAL);
         assert_return(ret_sec, -EINVAL);
 
@@ -572,7 +572,7 @@ _public_ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec) {
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -583,7 +583,7 @@ _public_ int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -594,7 +594,7 @@ _public_ int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const 
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -605,7 +605,7 @@ _public_ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const ch
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret) {
+int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -616,7 +616,7 @@ _public_ int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret)
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
+int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -627,7 +627,7 @@ _public_ int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint1
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
+int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret) {
         assert_return(n, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -638,7 +638,7 @@ _public_ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
+int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         int r;
 
@@ -659,7 +659,7 @@ _public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, 
         return r;
 }
 
-_public_ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
+int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert_return(n, -EINVAL);
 
         assert(n->raw_size >= sizeof(struct ether_header));
@@ -668,7 +668,7 @@ _public_ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         return n->rindex < n->raw_size;
 }
 
-_public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
+int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
         size_t length;
 
         assert_return(n, -EINVAL);
@@ -687,7 +687,7 @@ _public_ int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n) {
         return n->rindex < n->raw_size;
 }
 
-_public_ int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
+int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
         assert_return(n, -EINVAL);
         assert_return(type, -EINVAL);
 
@@ -701,7 +701,7 @@ _public_ int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type) {
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
+int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
         uint8_t k;
         int r;
 
@@ -714,7 +714,7 @@ _public_ int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
         return type == k;
 }
 
-_public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype) {
+int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype) {
         const uint8_t *d;
         size_t length;
         int r;
@@ -743,7 +743,7 @@ _public_ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_A
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype) {
+int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype) {
         uint8_t k[3], st;
         int r;
 
@@ -756,7 +756,7 @@ _public_ int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[
         return memcmp(k, oui, 3) == 0 && st == subtype;
 }
 
-_public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
+int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
         size_t length;
 
         assert_return(n, -EINVAL);
@@ -778,7 +778,7 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
+int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret) {
         assert_return(n, -EINVAL);
         assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
         assert_return(clock_supported(clock), -EOPNOTSUPP);
