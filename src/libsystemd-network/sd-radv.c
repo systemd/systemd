@@ -204,7 +204,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
         }
 
-        if (ra->mtu) {
+        if (ra->mtu > 0) {
                 opt_mtu.nd_opt_mtu_mtu = htobe32(ra->mtu);
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mtu, sizeof(opt_mtu));
         }
