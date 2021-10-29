@@ -1292,6 +1292,9 @@ int home_setup_luks(
                         setup->image_fd = open_image_file(h, force_image_path, &st);
                         if (setup->image_fd < 0)
                                 return setup->image_fd;
+                } else {
+                        if (fstat(setup->image_fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to fstat() image file: %m");
                 }
 
                 r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
