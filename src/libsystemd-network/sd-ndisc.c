@@ -42,7 +42,7 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
-_public_ int sd_ndisc_set_callback(
+int sd_ndisc_set_callback(
                 sd_ndisc *nd,
                 sd_ndisc_callback_t callback,
                 void *userdata) {
@@ -55,7 +55,7 @@ _public_ int sd_ndisc_set_callback(
         return 0;
 }
 
-_public_ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
+int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         assert_return(nd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(nd->fd < 0, -EBUSY);
@@ -89,7 +89,7 @@ int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
         return 0;
 }
 
-_public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
+int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
         if (mac_addr)
@@ -100,7 +100,7 @@ _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         return 0;
 }
 
-_public_ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nd, -EINVAL);
@@ -120,7 +120,7 @@ _public_ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priori
         return 0;
 }
 
-_public_ int sd_ndisc_detach_event(sd_ndisc *nd) {
+int sd_ndisc_detach_event(sd_ndisc *nd) {
 
         assert_return(nd, -EINVAL);
         assert_return(nd->fd < 0, -EBUSY);
@@ -129,7 +129,7 @@ _public_ int sd_ndisc_detach_event(sd_ndisc *nd) {
         return 0;
 }
 
-_public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
+sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         assert_return(nd, NULL);
 
         return nd->event;
@@ -160,7 +160,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
 
-_public_ int sd_ndisc_new(sd_ndisc **ret) {
+int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         assert_return(ret, -EINVAL);
@@ -317,7 +317,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
         return 0;
 }
 
-_public_ int sd_ndisc_stop(sd_ndisc *nd) {
+int sd_ndisc_stop(sd_ndisc *nd) {
         if (!nd)
                 return 0;
 
@@ -330,7 +330,7 @@ _public_ int sd_ndisc_stop(sd_ndisc *nd) {
         return 1;
 }
 
-_public_ int sd_ndisc_start(sd_ndisc *nd) {
+int sd_ndisc_start(sd_ndisc *nd) {
         int r;
         usec_t time_now;
 

@@ -26,7 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-_public_ int sd_radv_new(sd_radv **ret) {
+int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
         assert_return(ret, -EINVAL);
@@ -46,7 +46,7 @@ _public_ int sd_radv_new(sd_radv **ret) {
         return 0;
 }
 
-_public_ int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority) {
+int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(ra, -EINVAL);
@@ -65,7 +65,7 @@ _public_ int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority
         return 0;
 }
 
-_public_ int sd_radv_detach_event(sd_radv *ra) {
+int sd_radv_detach_event(sd_radv *ra) {
 
         assert_return(ra, -EINVAL);
 
@@ -73,13 +73,13 @@ _public_ int sd_radv_detach_event(sd_radv *ra) {
         return 0;
 }
 
-_public_ sd_event *sd_radv_get_event(sd_radv *ra) {
+sd_event *sd_radv_get_event(sd_radv *ra) {
         assert_return(ra, NULL);
 
         return ra->event;
 }
 
-_public_ int sd_radv_is_running(sd_radv *ra) {
+int sd_radv_is_running(sd_radv *ra) {
         assert_return(ra, false);
 
         return ra->state != RADV_STATE_IDLE;
@@ -371,7 +371,7 @@ fail:
         return 0;
 }
 
-_public_ int sd_radv_stop(sd_radv *ra) {
+int sd_radv_stop(sd_radv *ra) {
         int r;
 
         if (!ra)
@@ -395,7 +395,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
         return 0;
 }
 
-_public_ int sd_radv_start(sd_radv *ra) {
+int sd_radv_start(sd_radv *ra) {
         int r;
 
         assert_return(ra, -EINVAL);
@@ -441,7 +441,7 @@ _public_ int sd_radv_start(sd_radv *ra) {
         return r;
 }
 
-_public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
+int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         assert_return(ra, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
@@ -478,7 +478,7 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
         return 0;
 }
 
-_public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
+int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != RADV_STATE_IDLE)
@@ -492,7 +492,7 @@ _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         return 0;
 }
 
-_public_ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
+int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
         assert_return(ra, -EINVAL);
         assert_return(mtu >= 1280, -EINVAL);
 
@@ -501,7 +501,7 @@ _public_ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
         return 0;
 }
 
-_public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
+int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != RADV_STATE_IDLE)
@@ -512,7 +512,7 @@ _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         return 0;
 }
 
-_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
+int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != RADV_STATE_IDLE)
@@ -532,7 +532,7 @@ _public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         return 0;
 }
 
-_public_ int sd_radv_set_managed_information(sd_radv *ra, int managed) {
+int sd_radv_set_managed_information(sd_radv *ra, int managed) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != RADV_STATE_IDLE)
@@ -543,7 +543,7 @@ _public_ int sd_radv_set_managed_information(sd_radv *ra, int managed) {
         return 0;
 }
 
-_public_ int sd_radv_set_other_information(sd_radv *ra, int other) {
+int sd_radv_set_other_information(sd_radv *ra, int other) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != RADV_STATE_IDLE)
@@ -554,7 +554,7 @@ _public_ int sd_radv_set_other_information(sd_radv *ra, int other) {
         return 0;
 }
 
-_public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
+int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         assert_return(ra, -EINVAL);
         assert_return(IN_SET(preference,
                              SD_NDISC_PREFERENCE_LOW,
@@ -571,7 +571,7 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         return 0;
 }
 
-_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
+int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
         sd_radv_prefix *cur;
         int r;
@@ -643,7 +643,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         return 0;
 }
 
-_public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
+sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
                                                const struct in6_addr *prefix,
                                                unsigned char prefixlen) {
         sd_radv_prefix *cur, *next;
@@ -668,7 +668,7 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
         return cur;
 }
 
-_public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
+int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
         sd_radv_route_prefix *cur;
         int r;
@@ -735,7 +735,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         return 0;
 }
 
-_public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
+int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
                                const struct in6_addr *dns, size_t n_dns) {
         _cleanup_free_ struct sd_radv_opt_dns *opt_rdnss = NULL;
         size_t len;
@@ -769,7 +769,7 @@ _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
         return 0;
 }
 
-_public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
+int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
                                char **search_list) {
         _cleanup_free_ struct sd_radv_opt_dns *opt_dnssl = NULL;
         size_t len = 0;
@@ -818,7 +818,7 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
         return 0;
 }
 
-_public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
+int sd_radv_prefix_new(sd_radv_prefix **ret) {
         sd_radv_prefix *p;
 
         assert_return(ret, -EINVAL);
@@ -849,7 +849,7 @@ _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_prefix, sd_radv_prefix, mfree);
 
-_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
+int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
                                        unsigned char prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
@@ -867,7 +867,7 @@ _public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr 
         return 0;
 }
 
-_public_ int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
+int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
                                        unsigned char *ret_prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(ret_in6_addr, -EINVAL);
@@ -879,7 +879,7 @@ _public_ int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_i
         return 0;
 }
 
-_public_ int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
+int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
         assert_return(p, -EINVAL);
 
         SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_ONLINK, onlink);
@@ -887,7 +887,7 @@ _public_ int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
         return 0;
 }
 
-_public_ int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
+int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
                                                           int address_autoconfiguration) {
         assert_return(p, -EINVAL);
 
@@ -896,7 +896,7 @@ _public_ int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
         return 0;
 }
 
-_public_ int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
+int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
         assert_return(p, -EINVAL);
 
         p->lifetime_valid_usec = lifetime_usec;
@@ -905,7 +905,7 @@ _public_ int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p, uint64_t lifet
         return 0;
 }
 
-_public_ int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
+int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
         assert_return(p, -EINVAL);
 
         p->lifetime_preferred_usec = lifetime_usec;
@@ -914,7 +914,7 @@ _public_ int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p, uint64_t l
         return 0;
 }
 
-_public_ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
+int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
         sd_radv_route_prefix *p;
 
         assert_return(ret, -EINVAL);
@@ -940,7 +940,7 @@ _public_ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_route_prefix, sd_radv_route_prefix, mfree);
 
-_public_ int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr,
+int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr,
                                              unsigned char prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
@@ -958,7 +958,7 @@ _public_ int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const stru
         return 0;
 }
 
-_public_ int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
+int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint64_t lifetime_usec, uint64_t valid_until) {
         assert_return(p, -EINVAL);
 
         p->lifetime_usec = lifetime_usec;
