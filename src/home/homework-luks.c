@@ -3240,9 +3240,11 @@ int home_resize_luks(
         if (r < 0)
                 return r;
 
-        r = home_setup_done(setup);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_UNDO)) {
+                r = home_setup_done(setup);
+                if (r < 0)
+                        return r;
+        }
 
         log_info("Everything completed.");
 
