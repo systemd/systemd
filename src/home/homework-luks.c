@@ -1402,6 +1402,42 @@ static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, cons
                  FORMAT_BYTES((uint64_t) sfs->f_bfree * (uint64_t) sfs->f_frsize));
 }
 
+static int home_auto_grow_luks(
+                UserRecord *h,
+                HomeSetup *setup,
+                PasswordCache *cache) {
+
+        struct statfs sfs;
+
+        assert(h);
+        assert(setup);
+
+        if (!IN_SET(user_record_auto_resize_mode(h), AUTO_RESIZE_GROW, AUTO_RESIZE_SHRINK_AND_GROW))
+                return 0;
+
+        assert(setup->root_fd >= 0);
+
+        if (fstatfs(setup->root_fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs home directory: %m");
+
+        if (!fs_can_online_shrink_and_grow(sfs.f_type)) {
+                log_debug("Not auto-grow file system, since selected file system cannot do both online shrink and grow.");
+                return 0;
+        }
+
+        log_debug("Initiating auto-grow...");
+
+        return home_resize_luks(
+                        h,
+                        HOME_SETUP_ALREADY_ACTIVATED|
+                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
+                        HOME_SETUP_RESIZE_DONT_SHRINK|
+                        HOME_SETUP_RESIZE_DONT_UNDO,
+                        setup,
+                        cache,
+                        NULL);
+}
+
 int home_activate_luks(
                 UserRecord *h,
                 HomeSetup *setup,
@@ -1439,6 +1475,10 @@ int home_activate_luks(
                         setup,
                         cache,
                         &luks_home_record);
+        if (r < 0)
+                return r;
+
+        r = home_auto_grow_luks(h, setup, cache);
         if (r < 0)
                 return r;
 
@@ -1484,7 +1524,7 @@ int home_activate_luks(
         setup->do_mark_clean = false;
         setup->do_drop_caches = false;
 
-        log_info("Everything completed.");
+        log_info("Activation completed.");
 
         print_size_summary(host_size, encrypted_size, &sfs);
 
@@ -1498,7 +1538,6 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
 
         assert(h);
         assert(setup);
-        assert(!setup->crypt_device);
 
         /* Note that the DM device and loopback device are set to auto-detach, hence strictly speaking we
          * don't have to explicitly have to detach them. However, we do that nonetheless (in case of the DM
@@ -1506,13 +1545,17 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
          * don't bother about the loopback device because unlike the DM device it doesn't have a fixed
          * name. */
 
-        r = acquire_open_luks_device(h, setup, /* graceful= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
-        if (r == 0) {
-                log_debug("LUKS device %s has already been detached.", setup->dm_name);
-                we_detached = false;
-        } else {
+        if (!setup->crypt_device) {
+                r = acquire_open_luks_device(h, setup, /* graceful= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+                if (r == 0) {
+                        log_debug("LUKS device %s has already been detached.", setup->dm_name);
+                        we_detached = false;
+                }
+        }
+
+        if (setup->crypt_device) {
                 log_info("Discovered used LUKS device %s.", setup->dm_node);
 
                 cryptsetup_enable_logging(setup->crypt_device);
@@ -3396,7 +3439,7 @@ int home_resize_luks(
                         return r;
         }
 
-        log_info("Everything completed.");
+        log_info("Resizing completed.");
 
         print_size_summary(new_image_size, new_fs_size, &sfs);
 
@@ -3717,4 +3760,40 @@ int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
 
         log_debug("Successfully waited until device %s disappeared.", setup->dm_node);
         return 0;
+}
+
+int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache) {
+        struct statfs sfs;
+        int r;
+
+        assert(h);
+        assert(user_record_storage(h) == USER_LUKS);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        if (user_record_auto_resize_mode(h) != AUTO_RESIZE_SHRINK_AND_GROW)
+                return 0;
+
+        if (fstatfs(setup->root_fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs home directory: %m");
+
+        if (!fs_can_online_shrink_and_grow(sfs.f_type)) {
+                log_debug("Not auto-shrinking file system, since selected file system cannot do both online shrink and grow.");
+                return 0;
+        }
+
+        r = home_resize_luks(
+                        h,
+                        HOME_SETUP_ALREADY_ACTIVATED|
+                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
+                        HOME_SETUP_RESIZE_MINIMIZE|
+                        HOME_SETUP_RESIZE_DONT_GROW|
+                        HOME_SETUP_RESIZE_DONT_UNDO,
+                        setup,
+                        cache,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
