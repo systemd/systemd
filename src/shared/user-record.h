@@ -249,6 +249,14 @@ typedef struct RecoveryKey {
         char *hashed_password;
 } RecoveryKey;
 
+typedef enum AutoResizeMode {
+        AUTO_RESIZE_OFF,               /* no automatic grow/shrink */
+        AUTO_RESIZE_GROW,              /* grow at login */
+        AUTO_RESIZE_SHRINK_AND_GROW,   /* shrink at logout + grow at login */
+        _AUTO_RESIZE_MODE_MAX,
+        _AUTO_RESIZE_MODE_INVALID = -EINVAL,
+} AutoResizeMode;
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -285,6 +293,7 @@ typedef struct UserRecord {
         uint64_t disk_size_relative; /* Disk size, relative to the free bytes of the medium, normalized to UINT32_MAX = 100% */
         char *skeleton_directory;
         mode_t access_mode;
+        AutoResizeMode auto_resize_mode;
 
         uint64_t tasks_max;
         uint64_t memory_high;
@@ -422,6 +431,7 @@ usec_t user_record_ratelimit_interval_usec(UserRecord *h);
 uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
 bool user_record_drop_caches(UserRecord *h);
+AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -452,3 +462,6 @@ UserStorage user_storage_from_string(const char *s) _pure_;
 
 const char* user_disposition_to_string(UserDisposition t) _const_;
 UserDisposition user_disposition_from_string(const char *s) _pure_;
+
+const char* auto_resize_mode_to_string(AutoResizeMode m) _const_;
+AutoResizeMode auto_resize_mode_from_string(const char *s) _pure_;
