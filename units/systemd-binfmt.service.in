@@ -25,8 +25,10 @@ ConditionDirectoryNotEmpty=|/etc/binfmt.d
 ConditionDirectoryNotEmpty=|/run/binfmt.d
 
 [Service]
-Type=oneshot
+Type=simple
 RemainAfterExit=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-binfmt
 ExecStop={{ROOTLIBEXECDIR}}/systemd-binfmt --unregister
+Restart=on-failure
+RestartSec=1s
 TimeoutSec=90s
