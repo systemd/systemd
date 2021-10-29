@@ -875,6 +875,17 @@ static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
         return 0;
 }
 
+static bool address_available(sd_dhcp_server *server, be32_t address) {
+        assert(server);
+
+        if (hashmap_contains(server->bound_leases_by_address, UINT32_TO_PTR(address)) ||
+            hashmap_contains(server->static_leases_by_address, UINT32_TO_PTR(address)) ||
+            address == server->address)
+                return false;
+
+        return true;
+}
+
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length) {
@@ -943,8 +954,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 be32_t tmp_address;
 
                                 tmp_address = server->subnet | htobe32(server->pool_offset + (hash + i) % server->pool_size);
-                                if (!hashmap_contains(server->bound_leases_by_address, &tmp_address) &&
-                                    !hashmap_contains(server->static_leases_by_address, &tmp_address)) {
+                                if (address_available(server, tmp_address)) {
                                         address = tmp_address;
                                         break;
                                 }
@@ -1020,6 +1030,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                         address = req->message->ciaddr;
                 }
+
+                /* disallow our own address */
+                if (address == server->address)
+                        return 0;
 
                 pool_offset = get_pool_offset(server, address);
                 existing_lease_by_address = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
