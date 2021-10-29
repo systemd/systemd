@@ -908,6 +908,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 
 static int home_deactivate(UserRecord *h, bool force) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool done = false;
         int r;
 
@@ -951,6 +952,9 @@ static int home_deactivate(UserRecord *h, bool force) {
                         log_debug_errno(errno, "Failed to synchronize home directory, ignoring: %m");
                 else
                         log_info("Syncing completed.");
+
+                if (user_record_storage(h) == USER_LUKS)
+                        (void) home_auto_shrink_luks(h, &setup, &cache);
 
                 setup.root_fd = safe_close(setup.root_fd);
 
