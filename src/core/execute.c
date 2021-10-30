@@ -4341,7 +4341,7 @@ static int exec_child(
 #if HAVE_SELINUX
         if (needs_sandboxing && use_selinux && params->selinux_context_net && socket_fd >= 0) {
                 r = mac_selinux_get_child_mls_label(socket_fd, executable, context->selinux_context, &mac_selinux_context_net);
-                if (r < 0) {
+                if (r < 0 && !context->selinux_context_ignore) {
                         *exit_status = EXIT_SELINUX_CONTEXT;
                         return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
                 }
@@ -4474,7 +4474,7 @@ static int exec_child(
 
                         if (exec_context) {
                                 r = setexeccon(exec_context);
-                                if (r < 0) {
+                                if (r < 0 && !context->selinux_context_ignore) {
                                         *exit_status = EXIT_SELINUX_CONTEXT;
                                         return log_unit_error_errno(unit, r, "Failed to change SELinux context to %s: %m", exec_context);
                                 }
