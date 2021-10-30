@@ -2951,6 +2951,20 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TTYRows=</varname></term>
+
+        <listitem><para>Configure the number of rows for the TTY specified with <varname>TTYPath=</varname>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TTYColumns=</varname></term>
+
+        <listitem><para>Configure the number of columns for the TTY specified with <varname>TTYPath=</varname>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TTYVTDisallocate=</varname></term>
 
         <listitem><para>If the terminal device specified with <varname>TTYPath=</varname> is a virtual console
