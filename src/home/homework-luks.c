@@ -1432,7 +1432,7 @@ int home_activate_luks(
         if (r < 0)
                 return r;
 
-        r = block_get_size_by_fd(setup->loop->fd, &host_size);
+        r = block_get_size_by_fd(setup->loop->mount_fd, &host_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to get loopback block device size: %m");
 
