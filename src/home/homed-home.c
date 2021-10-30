@@ -2116,10 +2116,6 @@ static int home_get_disk_status_luks(
         int r;
 
         assert(h);
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
 
         if (state != HOME_ABSENT) {
                 const char *ip;
@@ -2209,11 +2205,16 @@ finish:
         if (disk_floor == UINT64_MAX)
                 disk_floor = minimal_size_by_fs_name(user_record_file_system_type(h->record));
 
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
 
         return 0;
 }
@@ -2234,11 +2235,7 @@ static int home_get_disk_status_directory(
         const char *path = NULL;
         int r;
 
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
-        assert(ret_disk_floor);
+        assert(h);
 
         if (HOME_STATE_IS_ACTIVE(state))
                 path = user_record_home_directory(h->record);
@@ -2349,13 +2346,80 @@ static int home_get_disk_status_directory(
         }
 
 finish:
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
 
         return 0;
+}
+
+static int home_get_disk_status_internal(
+                Home *h,
+                HomeState state,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor) {
+
+        assert(h);
+        assert(h->record);
+
+        switch (h->record->storage) {
+
+        case USER_LUKS:
+                return home_get_disk_status_luks(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor);
+
+        case USER_CLASSIC:
+        case USER_DIRECTORY:
+        case USER_SUBVOLUME:
+        case USER_FSCRYPT:
+        case USER_CIFS:
+                return home_get_disk_status_directory(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor);
+
+        default:
+                /* don't know */
+
+                if (ret_disk_size)
+                        *ret_disk_size = UINT64_MAX;
+                if (ret_disk_usage)
+                        *ret_disk_usage = UINT64_MAX;
+                if (ret_disk_free)
+                        *ret_disk_free = UINT64_MAX;
+                if (ret_disk_ceiling)
+                        *ret_disk_ceiling = UINT64_MAX;
+                if (ret_disk_floor)
+                        *ret_disk_floor = UINT64_MAX;
+
+                return 0;
+        }
+}
+
+int home_get_disk_status(
+                Home *h,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor) {
+
+        assert(h);
+
+        return home_get_disk_status_internal(
+                        h,
+                        home_get_state(h),
+                        ret_disk_size,
+                        ret_disk_usage,
+                        ret_disk_free,
+                        ret_disk_ceiling,
+                        ret_disk_floor);
 }
 
 int home_augment_status(
@@ -2382,29 +2446,15 @@ int home_augment_status(
 
         state = home_get_state(h);
 
-        switch (h->record->storage) {
-
-        case USER_LUKS:
-                r = home_get_disk_status_luks(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case USER_CLASSIC:
-        case USER_DIRECTORY:
-        case USER_SUBVOLUME:
-        case USER_FSCRYPT:
-        case USER_CIFS:
-                r = home_get_disk_status_directory(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        default:
-                ; /* unset */
-        }
+        r = home_get_disk_status_internal(
+                        h, state,
+                        &disk_size,
+                        &disk_usage,
+                        &disk_free,
+                        &disk_ceiling,
+                        &disk_floor);
+        if (r < 0)
+                return r;
 
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
