@@ -5730,7 +5730,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 r = dissect_image_and_warn(
-                                loop->fd,
+                                loop->dissect_fd,
                                 arg_image,
                                 &arg_verity_settings,
                                 NULL,
@@ -5754,7 +5754,7 @@ static int run(int argc, char *argv[]) {
 
                 r = dissected_image_load_verity_sig_partition(
                                 dissected_image,
-                                loop->fd,
+                                loop->dissect_fd,
                                 &arg_verity_settings);
                 if (r < 0)
                         goto finish;
