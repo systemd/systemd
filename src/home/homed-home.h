@@ -190,6 +190,8 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error);
 
 HomeState home_get_state(Home *h);
 
+int home_get_disk_status(Home *h, uint64_t *ret_disk_size,uint64_t *ret_disk_usage, uint64_t *ret_disk_free, uint64_t *ret_disk_ceiling, uint64_t *ret_disk_floor);
+
 void home_process_notify(Home *h, char **l, int fd);
 
 int home_killall(Home *h);
