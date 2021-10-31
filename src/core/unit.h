@@ -747,6 +747,8 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask);
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
+void unit_remove_dependencies_by_mask(Unit *u, UnitDependencyMask mask);
+
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
 int unit_choose_id(Unit *u, const char *name);
@@ -925,8 +927,6 @@ int unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid);
-
-void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
 void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);

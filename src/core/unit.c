@@ -5089,7 +5089,7 @@ static void unit_update_dependency_mask(Hashmap *deps, Unit *other, UnitDependen
                 assert_se(hashmap_update(deps, other, di.data) == 0);
 }
 
-void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
+void unit_remove_dependencies_by_mask(Unit *u, UnitDependencyMask mask) {
         Hashmap *deps;
         assert(u);
 

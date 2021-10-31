@@ -547,7 +547,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
                 /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
-                unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
+                unit_remove_dependencies_by_mask(u, UNIT_DEPENDENCY_UDEV);
         } else {
                 delete = true;
 
