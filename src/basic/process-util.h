@@ -38,17 +38,17 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
-int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line);
-int get_process_exe(pid_t pid, char **name);
-int get_process_uid(pid_t pid, uid_t *uid);
-int get_process_gid(pid_t pid, gid_t *gid);
-int get_process_capeff(pid_t pid, char **capeff);
-int get_process_cwd(pid_t pid, char **cwd);
-int get_process_root(pid_t pid, char **root);
-int get_process_environ(pid_t pid, char **environ);
-int get_process_ppid(pid_t pid, pid_t *ppid);
-int get_process_umask(pid_t pid, mode_t *umask);
+int get_process_comm(pid_t pid, char **ret);
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
+int get_process_exe(pid_t pid, char **ret);
+int get_process_uid(pid_t pid, uid_t *ret);
+int get_process_gid(pid_t pid, gid_t *ret);
+int get_process_capeff(pid_t pid, char **ret);
+int get_process_cwd(pid_t pid, char **ret);
+int get_process_root(pid_t pid, char **ret);
+int get_process_environ(pid_t pid, char **ret);
+int get_process_ppid(pid_t pid, pid_t *ret);
+int get_process_umask(pid_t pid, mode_t *ret);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
