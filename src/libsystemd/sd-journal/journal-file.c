@@ -497,7 +497,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                 flags = (flags & any) & ~supported;
                 if (flags) {
                         const char* strv[5];
-                        unsigned n = 0;
+                        size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
                         if (compatible) {
@@ -2148,7 +2148,7 @@ int journal_file_append_entry(
 
         items = newa(EntryItem, n_iovec);
 
-        for (unsigned i = 0; i < n_iovec; i++) {
+        for (size_t i = 0; i < n_iovec; i++) {
                 uint64_t p;
                 Object *o;
 
