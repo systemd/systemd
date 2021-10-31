@@ -399,6 +399,26 @@ static int attach_empty_file(int loop, int nr) {
         return 0;
 }
 
+/* Duplicate a file descriptor without O_DIRECT for unaligned probing */
+static int loop_device_fd_dup_for_dissect(int loop_fd) {
+        int r;
+        int dissect_fd;
+
+        dissect_fd = fcntl(loop_fd, F_DUPFD_CLOEXEC, 3);
+        if (dissect_fd < 0)
+                return -errno;
+
+        int flags = fcntl(dissect_fd, F_GETFL, 0);
+        if (flags & O_DIRECT) {
+                r = fcntl(dissect_fd, F_SETFL, flags & ~O_DIRECT);
+                if (r < 0) {
+                        close(dissect_fd);
+                        return -errno;
+                }
+        }
+        return dissect_fd;
+}
+
 static int loop_device_make_internal(
                 int fd,
                 int open_flags,
@@ -452,11 +472,16 @@ static int loop_device_make_internal(
                         if (r < 0 && r != -EOPNOTSUPP)
                                 return r;
 
+                        _cleanup_close_ int copy_dissect_fd = loop_device_fd_dup_for_dissect(copy);
+                        if (copy_dissect_fd < 0)
+                                return copy_dissect_fd;
+
                         d = new(LoopDevice, 1);
                         if (!d)
                                 return -ENOMEM;
                         *d = (LoopDevice) {
-                                .fd = TAKE_FD(copy),
+                                .mount_fd = TAKE_FD(copy),
+                                .dissect_fd = TAKE_FD(copy_dissect_fd),
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
@@ -467,7 +492,7 @@ static int loop_device_make_internal(
                         };
 
                         *ret = d;
-                        return d->fd;
+                        return d->mount_fd;
                 }
         } else {
                 r = stat_verify_regular(&st);
@@ -591,11 +616,16 @@ static int loop_device_make_internal(
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
+        _cleanup_close_ int dissect_fd = loop_device_fd_dup_for_dissect(loop_with_fd);
+        if (dissect_fd < 0)
+                return dissect_fd;
+
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
         *d = (LoopDevice) {
-                .fd = TAKE_FD(loop_with_fd),
+                .mount_fd = TAKE_FD(loop_with_fd),
+                .dissect_fd = TAKE_FD(dissect_fd),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
                 .devno = st.st_rdev,
@@ -605,7 +635,7 @@ static int loop_device_make_internal(
         };
 
         *ret = d;
-        return d->fd;
+        return d->mount_fd;
 }
 
 static uint32_t loop_flags_mangle(uint32_t loop_flags) {
@@ -702,19 +732,22 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         if (!d)
                 return NULL;
 
-        if (d->fd >= 0) {
+        if (d->mount_fd >= 0) {
                 /* Implicitly sync the device, since otherwise in-flight blocks might not get written */
-                if (fsync(d->fd) < 0)
+                if (fsync(d->mount_fd) < 0)
                         log_debug_errno(errno, "Failed to sync loop block device, ignoring: %m");
 
                 if (d->nr >= 0 && !d->relinquished) {
-                        if (ioctl(d->fd, LOOP_CLR_FD) < 0)
+                        if (ioctl(d->mount_fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
 
                 }
 
-                safe_close(d->fd);
+                safe_close(d->mount_fd);
         }
+
+        /* Only used for probing, not writing */
+        safe_close(d->dissect_fd);
 
         if (d->nr >= 0 && !d->relinquished) {
                 _cleanup_close_ int control = -1;
@@ -779,6 +812,10 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         } else
                 nr = -1;
 
+        _cleanup_close_ int dissect_fd = loop_device_fd_dup_for_dissect(loop_fd);
+        if (dissect_fd < 0)
+                return dissect_fd;
+
         p = strdup(loop_path);
         if (!p)
                 return -ENOMEM;
@@ -788,7 +825,8 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 return -ENOMEM;
 
         *d = (LoopDevice) {
-                .fd = TAKE_FD(loop_fd),
+                .mount_fd = TAKE_FD(loop_fd),
+                .dissect_fd = TAKE_FD(dissect_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
@@ -798,7 +836,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         };
 
         *ret = d;
-        return d->fd;
+        return d->mount_fd;
 }
 
 static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
@@ -898,13 +936,13 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
          *
          * If either offset or size is UINT64_MAX we won't change that parameter. */
 
-        if (d->fd < 0)
+        if (d->mount_fd < 0)
                 return -EBADF;
 
         if (d->nr < 0) /* not a loopback device */
-                return resize_partition(d->fd, offset, size);
+                return resize_partition(d->mount_fd, offset, size);
 
-        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+        if (ioctl(d->mount_fd, LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
 
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -922,7 +960,7 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         if (offset != UINT64_MAX)
                 info.lo_offset = offset;
 
-        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+        if (ioctl(d->mount_fd, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;
 
         return 0;
@@ -931,10 +969,10 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
 int loop_device_flock(LoopDevice *d, int operation) {
         assert(d);
 
-        if (d->fd < 0)
+        if (d->mount_fd < 0)
                 return -EBADF;
 
-        if (flock(d->fd, operation) < 0)
+        if (flock(d->mount_fd, operation) < 0)
                 return -errno;
 
         return 0;
@@ -946,10 +984,10 @@ int loop_device_sync(LoopDevice *d) {
         /* We also do this implicitly in loop_device_unref(). Doing this explicitly here has the benefit that
          * we can check the return value though. */
 
-        if (d->fd < 0)
+        if (d->mount_fd < 0)
                 return -EBADF;
 
-        if (fsync(d->fd) < 0)
+        if (fsync(d->mount_fd) < 0)
                 return -errno;
 
         return 0;
