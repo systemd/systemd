@@ -2257,9 +2257,10 @@ static bool field_is_valid(const char *field) {
 
 _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
         JournalFile *f;
-        size_t field_length;
+        size_t l;
+        uint64_t i = 0;
+        void *d;
         int r;
-        Object *o;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -2275,142 +2276,23 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         if (f->current_offset <= 0)
                 return -EADDRNOTAVAIL;
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+        r = journal_file_entry_item_next(f, NULL, f->current_offset, &i, field, strlen(field),
+                                         j->data_threshold, NULL, &d, &l);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -ENOENT;
 
-        field_length = strlen(field);
-
-        uint64_t n = journal_file_entry_n_items(f, o);
-        for (uint64_t i = 0; i < n; i++) {
-                Object *d;
-                uint64_t p, l;
-                size_t t;
-                Compression c;
-
-                p = le64toh(journal_file_entry_items(f, o)[i].object_offset);
-                r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
-                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        continue;
-                }
-                if (r < 0)
-                        return r;
-
-                l = le64toh(d->object.size) - offsetof(Object, data.payload);
-
-                c = COMPRESSION_FROM_OBJECT(d);
-                if (c < 0)
-                        return -EPROTONOSUPPORT;
-                if (c != COMPRESSION_NONE) {
-#if HAVE_COMPRESSION
-                        r = decompress_startswith(
-                                        c,
-                                        d->data.payload, l,
-                                        &f->compress_buffer,
-                                        field, field_length, '=');
-                        if (r < 0)
-                                log_debug_errno(r, "Cannot decompress %s object of length %"PRIu64" at offset "OFSfmt": %m",
-                                                compression_to_string(c), l, p);
-                        else if (r > 0) {
-
-                                size_t rsize;
-
-                                r = decompress_blob(
-                                                c,
-                                                d->data.payload, l,
-                                                &f->compress_buffer, &rsize,
-                                                j->data_threshold);
-                                if (r < 0)
-                                        return r;
-
-                                *data = f->compress_buffer;
-                                *size = (size_t) rsize;
-
-                                return 0;
-                        }
-#else
-                        return -EPROTONOSUPPORT;
-#endif
-                } else if (l >= field_length+1 &&
-                           memcmp(d->data.payload, field, field_length) == 0 &&
-                           d->data.payload[field_length] == '=') {
-
-                        t = (size_t) l;
-
-                        if ((uint64_t) t != l)
-                                return -E2BIG;
-
-                        *data = d->data.payload;
-                        *size = t;
-
-                        return 0;
-                }
-        }
-
-        return -ENOENT;
-}
-
-static int return_data(
-                sd_journal *j,
-                JournalFile *f,
-                Object *o,
-                const void **ret_data,
-                size_t *ret_size) {
-
-        Compression c;
-        uint64_t l;
-        size_t t;
-
-        assert(j);
-        assert(f);
-
-        l = le64toh(READ_NOW(o->object.size));
-        if (l < offsetof(Object, data.payload))
-                return -EBADMSG;
-        l -= offsetof(Object, data.payload);
-
-        /* We can't read objects larger than 4G on a 32bit machine */
-        t = (size_t) l;
-        if ((uint64_t) t != l)
-                return -E2BIG;
-
-        c = COMPRESSION_FROM_OBJECT(o);
-        if (c < 0)
-                return -EPROTONOSUPPORT;
-        if (c != COMPRESSION_NONE) {
-#if HAVE_COMPRESSION
-                size_t rsize;
-                int r;
-
-                r = decompress_blob(
-                                c,
-                                o->data.payload, l,
-                                &f->compress_buffer, &rsize,
-                                j->data_threshold);
-                if (r < 0)
-                        return r;
-
-                if (ret_data)
-                        *ret_data = f->compress_buffer;
-                if (ret_size)
-                        *ret_size = (size_t) rsize;
-#else
-                return -EPROTONOSUPPORT;
-#endif
-        } else {
-                if (ret_data)
-                        *ret_data = o->data.payload;
-                if (ret_size)
-                        *ret_size = t;
-        }
+        *data = d;
+        *size = l;
 
         return 0;
 }
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        Object *o;
+        void *d;
+        size_t l;
         int r;
 
         assert_return(j, -EINVAL);
@@ -2425,36 +2307,15 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (f->current_offset <= 0)
                 return -EADDRNOTAVAIL;
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-        if (r < 0)
+        r = journal_file_entry_item_next(f, NULL, f->current_offset, &j->current_field, NULL, 0,
+                                         j->data_threshold, NULL, &d, &l);
+        if (r <= 0)
                 return r;
 
-        for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
-                uint64_t p;
+        *data = d;
+        *size = l;
 
-                p = le64toh(journal_file_entry_items(f, o)[j->current_field].object_offset);
-                r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
-                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
-                        continue;
-                }
-                if (r < 0)
-                        return r;
-
-                r = return_data(j, f, o, data, size);
-                if (r == -EBADMSG) {
-                        log_debug("Entry item %"PRIu64" data payload is bad, skipping over it.", j->current_field);
-                        continue;
-                }
-                if (r < 0)
-                        return r;
-
-                j->current_field++;
-
-                return 1;
-        }
-
-        return 0;
+        return 1;
 }
 
 _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *size) {
@@ -2466,7 +2327,12 @@ _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **dat
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
                         return r;
-                j->current_field++; /* Try with the next field */
+
+                /* Try with the next field */
+                r = journal_file_entry_item_next(j->current_file, NULL, j->current_file->current_offset,
+                                                 &j->current_field, NULL, 0, 0, NULL, NULL, NULL);
+                if (r <= 0)
+                        return r;
         }
 }
 
@@ -2919,7 +2785,7 @@ _public_ int sd_journal_enumerate_unique(
         for (;;) {
                 JournalFile *of;
                 Object *o;
-                const void *odata;
+                void *odata;
                 size_t ol;
                 bool found;
                 int r;
@@ -2963,7 +2829,8 @@ _public_ int sd_journal_enumerate_unique(
                                                j->unique_offset,
                                                o->object.type, OBJECT_DATA);
 
-                r = return_data(j, j->unique_file, o, &odata, &ol);
+                r = journal_file_data_payload(j->unique_file, o, j->unique_offset, NULL, 0,
+                                              j->data_threshold, &odata, &ol);
                 if (r < 0)
                         return r;
 
@@ -3010,9 +2877,8 @@ _public_ int sd_journal_enumerate_unique(
                 if (found)
                         continue;
 
-                r = return_data(j, j->unique_file, o, ret_data, ret_size);
-                if (r < 0)
-                        return r;
+                *ret_data = odata;
+                *ret_size = ol;
 
                 return 1;
         }
