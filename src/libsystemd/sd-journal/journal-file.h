@@ -84,6 +84,7 @@ typedef struct JournalFile {
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
+        HashItem *trie_hash_table;
 
         uint64_t current_offset;
         uint64_t current_seqnum;
@@ -201,10 +202,35 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_COMPACT(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                uint64_t *ret_size);
+
+int journal_file_entry_item_next(
+                JournalFile *f,
+                Object *e,
+                uint64_t offset,
+                uint64_t *i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                uint64_t *ret_offset,
+                void **ret_data,
+                size_t *ret_size);
+
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);
@@ -212,7 +238,7 @@ int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec iovec[], size_t n_iovec,
                 uint64_t *seqno,
                 Object **ret,
                 uint64_t *offset);
