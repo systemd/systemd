@@ -130,24 +130,6 @@ int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *rapid_commit) {
         return 0;
 }
 
-int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
-        assert_return(lease, -EINVAL);
-        assert_return(iaid, -EINVAL);
-
-        *iaid = lease->ia.ia_na.id;
-
-        return 0;
-}
-
-int dhcp6_lease_get_pd_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
-        assert_return(lease, -EINVAL);
-        assert_return(iaid, -EINVAL);
-
-        *iaid = lease->pd.ia_pd.id;
-
-        return 0;
-}
-
 int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr,
                                uint32_t *lifetime_preferred,
                                uint32_t *lifetime_valid) {
