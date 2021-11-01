@@ -1155,7 +1155,7 @@ static int client_parse_message(
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         if (clientid)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple clientids",
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple client IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
                         if (optlen != client->duid_len ||
@@ -1170,7 +1170,7 @@ static int client_parse_message(
                 case SD_DHCP6_OPTION_SERVERID:
                         r = dhcp6_lease_get_serverid(lease, NULL, NULL);
                         if (r >= 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple serverids",
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple server IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
                         r = dhcp6_lease_set_serverid(lease, optval, optlen);
@@ -1310,7 +1310,7 @@ static int client_parse_message(
         }
 
         if (!clientid)
-                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has incomplete options",
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s message does not contain client ID. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
         if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
