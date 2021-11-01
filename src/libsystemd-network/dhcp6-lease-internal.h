@@ -19,6 +19,7 @@ struct sd_dhcp6_lease {
         uint8_t preference;
         bool rapid_commit;
         triple_timestamp timestamp;
+        struct in6_addr server_address;
 
         DHCP6IA ia;
         DHCP6IA pd;

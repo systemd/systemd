@@ -1342,7 +1342,13 @@ static int client_parse_message(
         return 0;
 }
 
-static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len, const triple_timestamp *t) {
+static int client_receive_reply(
+                sd_dhcp6_client *client,
+                DHCP6Message *reply,
+                size_t len,
+                const triple_timestamp *t,
+                const struct in6_addr *server_address) {
+
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         bool rapid_commit;
         int r;
@@ -1359,6 +1365,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
                 return -ENOMEM;
 
         lease->timestamp = *t;
+        if (server_address)
+                lease->server_address = *server_address;
 
         r = client_parse_message(client, reply, len, lease);
         if (r < 0)
@@ -1379,7 +1387,13 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
         return DHCP6_STATE_BOUND;
 }
 
-static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *advertise, size_t len, const triple_timestamp *t) {
+static int client_receive_advertise(
+                sd_dhcp6_client *client,
+                DHCP6Message *advertise,
+                size_t len,
+                const triple_timestamp *t,
+                const struct in6_addr *server_address) {
+
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         uint8_t pref_advertise = 0, pref_lease = 0;
         int r;
@@ -1396,6 +1410,8 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
                 return r;
 
         lease->timestamp = *t;
+        if (server_address)
+                lease->server_address = *server_address;
 
         r = client_parse_message(client, advertise, len, lease);
         if (r < 0)
@@ -1430,7 +1446,10 @@ static int client_receive_message(
         /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov;
+        union sockaddr_union sa = {};
         struct msghdr msg = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
                 .msg_control = &control,
@@ -1439,6 +1458,7 @@ static int client_receive_message(
         struct cmsghdr *cmsg;
         triple_timestamp t = {};
         _cleanup_free_ DHCP6Message *message = NULL;
+        struct in6_addr *server_address = NULL;
         ssize_t buflen, len;
         int r = 0;
 
@@ -1474,6 +1494,16 @@ static int client_receive_message(
                 return 0;
         }
 
+        /* msg_namelen == 0 happens when running the test-suite over a socketpair */
+        if (msg.msg_namelen > 0) {
+                if (msg.msg_namelen != sizeof(struct sockaddr_in6) || sa.in6.sin6_family != AF_INET6) {
+                        log_dhcp6_client(client, "Received from invalid source, ignoring.");
+                        return 0;
+                }
+
+                server_address = &sa.in6.sin6_addr;
+        }
+
         CMSG_FOREACH(cmsg, &msg) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
@@ -1498,7 +1528,7 @@ static int client_receive_message(
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                r = client_receive_reply(client, message, len, &t);
+                r = client_receive_reply(client, message, len, &t, server_address);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
@@ -1511,7 +1541,7 @@ static int client_receive_message(
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                r = client_receive_advertise(client, message, len, &t);
+                r = client_receive_advertise(client, message, len, &t, server_address);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received advertise message, ignoring: %m");
                         return 0;
@@ -1527,7 +1557,7 @@ static int client_receive_message(
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:
 
-                r = client_receive_reply(client, message, len, &t);
+                r = client_receive_reply(client, message, len, &t, server_address);
                 if (r < 0) {
                         log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
