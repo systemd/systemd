@@ -3565,20 +3565,15 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t l, h;
-                le64_t le_hash;
                 size_t t;
                 void *data;
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[i].hash;
 
                 r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
                 if (r < 0)
                         return r;
-
-                if (le_hash != o->data.hash)
-                        return -EBADMSG;
 
                 l = le64toh(READ_NOW(o->object.size));
                 if (l < offsetof(Object, data.payload))

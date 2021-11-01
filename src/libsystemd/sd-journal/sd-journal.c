@@ -2303,12 +2303,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         for (i = 0; i < n; i++) {
                 Object *d;
                 uint64_t p, l;
-                le64_t le_hash;
                 size_t t;
                 int compression;
 
                 p = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[i].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
@@ -2316,11 +2314,6 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 }
                 if (r < 0)
                         return r;
-
-                if (le_hash != d->data.hash) {
-                        log_debug("Entry item %"PRIu64" hash is bad, skipping over it.", i);
-                        continue;
-                }
 
                 l = le64toh(d->object.size) - offsetof(Object, data.payload);
 
@@ -2450,10 +2443,8 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
 
         for (uint64_t n = journal_file_entry_n_items(o); j->current_field < n; j->current_field++) {
                 uint64_t p;
-                le64_t le_hash;
 
                 p = le64toh(o->entry.items[j->current_field].object_offset);
-                le_hash = o->entry.items[j->current_field].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
@@ -2461,11 +2452,6 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 }
                 if (r < 0)
                         return r;
-
-                if (le_hash != o->data.hash) {
-                        log_debug("Entry item %"PRIu64" hash is bad, skipping over it.", j->current_field);
-                        continue;
-                }
 
                 r = return_data(j, f, o, data, size);
                 if (r == -EBADMSG) {
