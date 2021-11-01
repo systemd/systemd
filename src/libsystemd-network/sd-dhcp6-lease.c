@@ -24,6 +24,14 @@ int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_
         return 0;
 }
 
+int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = lease->server_address;
+        return 0;
+}
+
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
         DHCP6Address *addr;
         uint32_t valid = 0, t;
