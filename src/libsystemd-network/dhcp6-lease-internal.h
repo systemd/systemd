@@ -14,6 +14,8 @@
 struct sd_dhcp6_lease {
         unsigned n_ref;
 
+        uint8_t *clientid;
+        size_t clientid_len;
         uint8_t *serverid;
         size_t serverid_len;
         uint8_t preference;
@@ -41,6 +43,8 @@ struct sd_dhcp6_lease {
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire);
 DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia);
 
+int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
+int dhcp6_lease_get_clientid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);
 int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
 int dhcp6_lease_get_serverid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);
 int dhcp6_lease_set_preference(sd_dhcp6_lease *lease, uint8_t preference);
