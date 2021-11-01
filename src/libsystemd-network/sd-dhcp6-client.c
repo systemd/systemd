@@ -991,7 +991,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
 
         case DHCP6_STATE_SOLICITATION:
 
-                if (client->retransmit_count && client->lease) {
+                if (client->retransmit_count > 0 && client->lease) {
                         client_start(client, DHCP6_STATE_REQUEST);
                         return 0;
                 }
