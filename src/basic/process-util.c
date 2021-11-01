@@ -214,10 +214,16 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
                 _cleanup_strv_free_ char **args = NULL;
+                char **p;
 
                 args = strv_parse_nulstr(t, k);
                 if (!args)
                         return -ENOMEM;
+
+                /* Drop trailing empty strings. See issue #21186. */
+                STRV_FOREACH_BACKWARDS(p, args)
+                        if (isempty(*p))
+                                *p = mfree(*p);
 
                 ans = quote_command_line(args, shflags);
                 if (!ans)
