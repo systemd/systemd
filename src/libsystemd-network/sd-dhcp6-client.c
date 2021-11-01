@@ -251,10 +251,6 @@ int sd_dhcp6_client_set_mac(
                 return 0;
         }
 
-        if (client->mac_addr_len == addr_len &&
-            memcmp(&client->mac_addr, addr, addr_len) == 0)
-                return 0;
-
         memcpy(&client->mac_addr, addr, addr_len);
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
