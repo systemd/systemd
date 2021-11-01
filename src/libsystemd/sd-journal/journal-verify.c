@@ -645,11 +645,10 @@ static int verify_entry(
 
         n = journal_file_entry_n_items(o);
         for (i = 0; i < n; i++) {
-                uint64_t q, h;
+                uint64_t q;
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
-                h = le64toh(o->entry.items[i].hash);
 
                 if (!contains_uint64(cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
@@ -660,12 +659,7 @@ static int verify_entry(
                 if (r < 0)
                         return r;
 
-                if (le64toh(u->data.hash) != h) {
-                        error(p, "Hash mismatch for data object of entry");
-                        return -EBADMSG;
-                }
-
-                r = data_object_in_hash_table(f, h, q);
+                r = data_object_in_hash_table(f, le64toh(u->data.hash), q);
                 if (r < 0)
                         return r;
                 if (r == 0) {
