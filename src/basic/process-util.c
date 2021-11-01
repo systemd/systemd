@@ -215,7 +215,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 
                 _cleanup_strv_free_ char **args = NULL;
 
-                args = strv_parse_nulstr(t, k);
+                args = strv_split_nulstr(t);
                 if (!args)
                         return -ENOMEM;
 
