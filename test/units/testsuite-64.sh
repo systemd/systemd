@@ -67,6 +67,15 @@ helper_wait_for_pvscan() {
     local ntries="${2:-10}"
     local MAJOR MINOR pvscan_svc real_dev
 
+    # Since lvm 2.03.14 the respective udev rules run pvscan directly instead
+    # of using the `lvm2-pvscan@.service` template unit. Let's return immediately
+    # in such case
+    #
+    # See: https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
+    if ! systemctl -q list-unit-files lvm2-pvscan@.service >/dev/null; then
+        return 0
+    fi
+
     # Sanity check we got a valid block device (or a symlink to it)
     real_dev="$(readlink -f "$dev")"
     if [[ ! -b "$real_dev" ]]; then
