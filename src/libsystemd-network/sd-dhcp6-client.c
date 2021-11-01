@@ -884,14 +884,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         if (r < 0)
                 return r;
 
-        elapsed_usec = time_now - client->transaction_start;
-        if (elapsed_usec < 0xffff * USEC_PER_MSEC * 10)
-                elapsed_time = htobe16(elapsed_usec / USEC_PER_MSEC / 10);
-        else
-                elapsed_time = 0xffff;
-
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME,
-                                sizeof(elapsed_time), &elapsed_time);
+        /* RFC 8415 Section 21.9.
+         * A client MUST include an Elapsed Time option in messages to indicate how long the client has
+         * been trying to complete a DHCP message exchange. */
+        elapsed_usec = MIN(usec_sub_unsigned(time_now, client->transaction_start) / USEC_PER_MSEC / 10, (usec_t) UINT16_MAX);
+        elapsed_time = htobe16(elapsed_usec);
+        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
 
@@ -991,7 +989,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
 
         case DHCP6_STATE_SOLICITATION:
 
-                if (client->retransmit_count && client->lease) {
+                if (client->retransmit_count > 0 && client->lease) {
                         client_start(client, DHCP6_STATE_REQUEST);
                         return 0;
                 }
@@ -1134,7 +1132,6 @@ static int client_parse_message(
 
         uint32_t lt_t1 = UINT32_MAX, lt_t2 = UINT32_MAX;
         usec_t irt = IRT_DEFAULT;
-        bool clientid = false;
         int r;
 
         assert(client);
@@ -1154,23 +1151,19 @@ static int client_parse_message(
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
-                        if (clientid)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple clientids",
+                        if (dhcp6_lease_get_clientid(lease, NULL, NULL) >= 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple client IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
-                        if (optlen != client->duid_len ||
-                            memcmp(&client->duid, optval, optlen) != 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s DUID does not match",
-                                                              dhcp6_message_type_to_string(message->type));
-
-                        clientid = true;
+                        r = dhcp6_lease_set_clientid(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
 
                         break;
 
                 case SD_DHCP6_OPTION_SERVERID:
-                        r = dhcp6_lease_get_serverid(lease, NULL, NULL);
-                        if (r >= 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple serverids",
+                        if (dhcp6_lease_get_serverid(lease, NULL, NULL) >= 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple server IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
                         r = dhcp6_lease_set_serverid(lease, optval, optlen);
@@ -1309,8 +1302,15 @@ static int client_parse_message(
                 }
         }
 
-        if (!clientid)
-                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has incomplete options",
+        uint8_t *clientid;
+        size_t clientid_len;
+        if (dhcp6_lease_get_clientid(lease, &clientid, &clientid_len) < 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s message does not contain client ID. Ignoring.",
+                                              dhcp6_message_type_to_string(message->type));
+
+        if (clientid_len != client->duid_len ||
+            memcmp(clientid, &client->duid, clientid_len) != 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "The client ID in %s message does not match. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
         if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
