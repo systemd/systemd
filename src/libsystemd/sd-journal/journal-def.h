@@ -47,11 +47,13 @@ typedef enum ObjectType {
 
 /* Object flags */
 enum {
-        OBJECT_COMPRESSED_XZ   = 1 << 0,
-        OBJECT_COMPRESSED_LZ4  = 1 << 1,
-        OBJECT_COMPRESSED_ZSTD = 1 << 2,
+        OBJECT_COMPRESSED_XZ    = 1 << 0,
+        OBJECT_COMPRESSED_LZ4   = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD  = 1 << 2,
         OBJECT_COMPRESSION_MASK = (OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD),
-        _OBJECT_COMPRESSED_MAX = OBJECT_COMPRESSION_MASK,
+        FIELD_UNIQUE            = 1 << 3,
+        FIELD_INDEXED           = 1 << 4,
+        _OBJECT_COMPRESSED_MAX  = OBJECT_COMPRESSION_MASK,
 };
 
 struct ObjectHeader {
@@ -100,6 +102,7 @@ typedef struct {
         uint64_t hash;
         /* The hash used to calculate the Entry object's XOR hash field. */
         uint64_t xor_hash;
+        bool indexed;
 } EntryItemEx;
 
 #define EntryObject__contents {                \
@@ -111,7 +114,10 @@ typedef struct {
         le64_t xor_hash;                       \
         union {                                \
                 EntryItem items[0];            \
-                le64_t trie_offset;            \
+                struct {                       \
+                        le64_t trie_offset;    \
+                        uint8_t payload[];     \
+                };                             \
         };                                     \
 }
 
