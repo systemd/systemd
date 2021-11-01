@@ -58,6 +58,43 @@ helper_wait_for_dev() {
     return 1
 }
 
+# Wrapper around `helper_wait_for_lvm_activate()` and `helper_wait_for_pvscan()`
+# functions to cover differences between pre and post lvm 2.03.14, which introduced
+# a new way of vgroup autoactivation
+# See: https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
+# Arguments:
+#   $1 - device path (for helper_wait_for_pvscan())
+#   $2 - volume group name (for helper_wait_for_lvm_activate())
+#   $3 - number of retries (default: 10)
+helper_wait_for_vgroup() {
+    local dev="${1:?}"
+    local vgroup="${2:?}"
+    local ntries="${3:-10}"
+
+    if ! systemctl -q list-unit-files lvm2-pvscan@.service >/dev/null; then
+        helper_wait_for_lvm_activate "$vgroup" "$ntries"
+    else
+        helper_wait_for_pvscan "$dev" "$ntries"
+    fi
+}
+
+# Wait for the lvm-activate-$vgroup.service of a specific $vgroup to finish
+# Arguments:
+#   $1 - volume group name
+#   $2 - number of retries (default: 10)
+helper_wait_for_lvm_activate() {
+    local vgroup="${1:?}"
+    local ntries="${2:-10}"
+    local i
+
+    for ((i = 0; i < ntries; i++)); do
+        ! systemctl -q is-active "lvm-activate-$vgroup.service" || return 0
+        sleep .5
+    done
+
+    return 1
+}
+
 # Wait for the lvm2-pvscan@.service of a specific device to finish
 # Arguments:
 #   $1 - device path
@@ -65,7 +102,7 @@ helper_wait_for_dev() {
 helper_wait_for_pvscan() {
     local dev="${1:?}"
     local ntries="${2:-10}"
-    local MAJOR MINOR pvscan_svc real_dev
+    local MAJOR MINOR i pvscan_svc real_dev
 
     # Sanity check we got a valid block device (or a symlink to it)
     real_dev="$(readlink -f "$dev")"
@@ -576,7 +613,7 @@ testcase_iscsi_lvm() {
     udevadm settle
     for link in "${expected_symlinks[@]}"; do
         helper_wait_for_dev "$link"
-        helper_wait_for_pvscan "$link"
+        helper_wait_for_vgroup "$link" "$vgroup"
         test -e "$link"
     done
     udevadm settle
