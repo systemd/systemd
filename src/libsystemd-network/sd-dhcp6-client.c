@@ -884,14 +884,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         if (r < 0)
                 return r;
 
-        elapsed_usec = time_now - client->transaction_start;
-        if (elapsed_usec < 0xffff * USEC_PER_MSEC * 10)
-                elapsed_time = htobe16(elapsed_usec / USEC_PER_MSEC / 10);
-        else
-                elapsed_time = 0xffff;
-
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME,
-                                sizeof(elapsed_time), &elapsed_time);
+        /* RFC 8415 Section 21.9.
+         * A client MUST include an Elapsed Time option in messages to indicate how long the client has
+         * been trying to complete a DHCP message exchange. */
+        elapsed_usec = MIN(usec_sub_unsigned(time_now, client->transaction_start) / USEC_PER_MSEC / 10, (usec_t) UINT16_MAX);
+        elapsed_time = htobe16(elapsed_usec);
+        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
 
