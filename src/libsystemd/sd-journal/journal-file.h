@@ -247,7 +247,28 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size);
+
+int journal_file_entry_item_next(
+                JournalFile *f,
+                Object *e,
+                uint64_t offset,
+                uint64_t *i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                uint64_t *ret_offset,
+                void **ret_data,
+                size_t *ret_size);
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
