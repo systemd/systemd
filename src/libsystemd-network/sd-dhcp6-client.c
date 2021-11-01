@@ -1168,8 +1168,7 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_SERVERID:
-                        r = dhcp6_lease_get_serverid(lease, NULL, NULL);
-                        if (r >= 0)
+                        if (dhcp6_lease_get_serverid(lease, NULL, NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple server IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
