@@ -258,6 +258,9 @@ if have_gnu_efi
                        '-shared',
                        '-Bsymbolic',
                        '-nostdlib',
+                       '--no-undefined',
+                       '--warn-common',
+                       '--fatal-warnings',
                        '-znocombreloc',
                        '--build-id=sha1',
                        '-L', efi_libdir,
@@ -292,7 +295,6 @@ if have_gnu_efi
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
         stub_elf_name = 'linux@0@.elf.stub'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
-        no_undefined_symbols = find_program('no-undefined-symbols.sh')
 
         efi_stubs = []
         foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, false],
@@ -326,12 +328,6 @@ if have_gnu_efi
                         install_dir : bootlibdir)
 
                 efi_stubs += [[so, stub]]
-
-                if want_tests != 'false'
-                        test('no-undefined-symbols-' + tuple[0],
-                             no_undefined_symbols,
-                             args : so)
-                endif
         endforeach
 
         ############################################################
