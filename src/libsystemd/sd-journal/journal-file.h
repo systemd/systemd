@@ -207,7 +207,28 @@ static inline bool VALID_EPOCH(uint64_t u) {
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size);
+
+int journal_file_entry_item_next(
+                JournalFile *f,
+                Object *e,
+                uint64_t offset,
+                uint64_t *i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                uint64_t *ret_offset,
+                void **ret_data,
+                size_t *ret_size);
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
