@@ -4613,7 +4613,7 @@ static int exec_child(
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
                         r = setup_smack(context, executable_fd);
-                        if (r < 0) {
+                        if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");
                         }
