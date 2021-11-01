@@ -1432,7 +1432,7 @@ int journal_file_find_data_object_with_hash(
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t p, osize, h, m, depth = 0;
+        uint64_t p, h, m, depth = 0;
         int r;
 
         assert(f);
@@ -1448,8 +1448,6 @@ int journal_file_find_data_object_with_hash(
         if (r < 0)
                 return r;
 
-        osize = offsetof(Object, data.payload) + size;
-
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
                 return -EBADMSG;
@@ -1459,6 +1457,8 @@ int journal_file_find_data_object_with_hash(
 
         while (p > 0) {
                 Object *o;
+                void *d;
+                size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (r < 0)
@@ -1467,40 +1467,12 @@ int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_COMPRESSION
-                        uint64_t l;
-                        size_t rsize = 0;
+                r = journal_file_data_payload(f, o, p, NULL, 0, 0, &d, &rsize);
+                if (r < 0)
+                        return r;
 
-                        l = le64toh(READ_NOW(o->object.size));
-                        if (l <= offsetof(Object, data.payload))
-                                return -EBADMSG;
-
-                        l -= offsetof(Object, data.payload);
-
-                        r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
-                                            o->data.payload, l, &f->compress_buffer, &rsize, 0);
-                        if (r < 0)
-                                return r;
-
-                        if (rsize == size &&
-                            memcmp(f->compress_buffer, data, size) == 0) {
-
-                                if (ret)
-                                        *ret = o;
-
-                                if (ret_offset)
-                                        *ret_offset = p;
-
-                                return 1;
-                        }
-#else
-                        return -EPROTONOSUPPORT;
-#endif
-                } else if (le64toh(o->object.size) == osize &&
-                           memcmp(o->data.payload, data, size) == 0) {
-
-                        if (ret)
+                if (memcmp_nn(data, size, d, rsize) == 0) {
+                         if (ret)
                                 *ret = o;
 
                         if (ret_offset)
@@ -1734,18 +1706,192 @@ static int journal_file_append_data(
         return 0;
 }
 
-uint64_t journal_file_entry_n_items(Object *o) {
-        uint64_t sz;
-        assert(o);
+static int maybe_decompress_payload(
+                JournalFile *f,
+                uint8_t *payload,
+                uint64_t size,
+                int compression,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size) {
 
-        if (o->object.type != OBJECT_ENTRY)
-                return 0;
+        uint64_t t;
+        bool found;
+        int r;
 
-        sz = le64toh(READ_NOW(o->object.size));
+        /* We can't read objects larger than 4G on a 32bit machine */
+        t = (size_t) size;
+        if ((uint64_t) t != size)
+                return -E2BIG;
+
+        if (compression) {
+#if HAVE_COMPRESSION
+                if (field) {
+                        r = decompress_startswith(
+                                compression, payload, size, &f->compress_buffer, field, field_length, '=');
+                        if (r < 0)
+                                return log_debug_errno(
+                                        r,
+                                        "Cannot decompress %s object of length %" PRIu64 ": %m",
+                                        object_compressed_to_string(compression),
+                                        size);
+
+                        found = r > 0;
+                } else
+                        found = true;
+
+                if (found) {
+                        size_t rsize = 0;
+
+                        r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, 0);
+                        if (r < 0)
+                                return r;
+
+                        if (ret_data)
+                                *ret_data = f->compress_buffer;
+                        if (ret_size)
+                                *ret_size = rsize;
+                }
+#else
+                return -EPROTONOSUPPORT;
+#endif
+        } else {
+                if (field)
+                        found = size >= field_length+1 &&
+                           memcmp(payload, field, field_length) == 0 &&
+                           payload[field_length] == '=';
+                else
+                        found = true;
+
+                if (found) {
+                        if (ret_data)
+                                *ret_data = payload;
+                        if (ret_size)
+                                *ret_size = t;
+                }
+        }
+
+        return found;
+}
+
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size) {
+
+        uint64_t size;
+        int r;
+
+        if (!o) {
+                r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
+                if (r < 0)
+                        return r;
+        }
+
+        size = le64toh(READ_NOW(o->object.size));
+        if (size < offsetof(Object, data.payload))
+                return -EBADMSG;
+
+        size -= offsetof(Object, data.payload);
+
+        return maybe_decompress_payload(
+                f,
+                o->data.payload,
+                size,
+                o->object.flags & OBJECT_COMPRESSION_MASK,
+                field,
+                field_length,
+                data_threshold,
+                ret_data,
+                ret_size);
+}
+
+int journal_file_entry_item_next(
+                JournalFile *f,
+                Object *e,
+                uint64_t offset,
+                uint64_t *i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                uint64_t *ret_offset,
+                void **ret_data,
+                size_t *ret_size) {
+
+        /* Iterates over the entry items of the given entry. The output parameters return data about the Data
+         * object pointed at by the next entry item if requested.
+         *
+         * - If `ret_offset` is not NULL, it is set to the offset of the Data object
+         * - If `ret_data` is not NULL, it is set to a pointer to the decompressed payload of the Data object
+         * - If `ret_size` is not NULL, it is set to the size of the decompressed payload of the Data object
+         *
+         * The iterator is stored in `i`. To start iterating from the start of the entry items, set `i` to
+         * zero. It is automatically updated by this function and should not be touched again unless you want
+         * to restart iterating over the entry items.
+         *
+         * If `field` and `field_length` are given, this function keeps iterating until it finds an entry
+         * item whose Data object payload starts with the given field, followed by the '=' character.
+         *
+         * If `data_threshold` is larger than zero, the decompressed payload is limited to `data_threshold`
+         * amount of bytes.
+         *
+         * This function returns a positive number if it succesfully managed to find the next entry item. If
+         * no more entry items were available, or none of the remaining entry items were of the given field,
+         * it returns zero. If an error occurred, it returns a negative errno value.
+         */
+
+        uint64_t p, sz;
+        int r;
+
+        assert(!e || e->object.type == OBJECT_ENTRY);
+        assert(offset);
+        assert(i);
+        assert(!!field == !!field_length);
+
+        if (!e) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, offset, &e);
+                if (r < 0)
+                        return r;
+        }
+
+        sz = le64toh(READ_NOW(e->object.size));
         if (sz < offsetof(Object, entry.items))
-                return 0;
+                return -EBADMSG;
 
-        return (sz - offsetof(Object, entry.items)) / sizeof(EntryItem);
+        for (p = *i; p < (sz - offsetof(Object, entry.items)) / sizeof(EntryItem); p++) {
+                uint64_t q;
+
+                q = le64toh(e->entry.items[p].object_offset);
+
+                r = journal_file_data_payload(
+                        f, NULL, q, field, field_length, data_threshold, ret_data, ret_size);
+                if (r == -EBADMSG) {
+                        log_debug("Entry item %"PRIu64" data object is bad, skipping over it.", q);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (ret_offset)
+                        *ret_offset = q;
+
+                *i = ++p;
+
+                return 1;
+        }
+
+        *i = p;
+
+       return 0;
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -3860,7 +4006,7 @@ int journal_file_open_reliably(
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
-        uint64_t q, n, xor_hash = 0;
+        size_t n = 0, xor_hash = 0;
         const sd_id128_t *boot_id;
         dual_timestamp ts;
         EntryItemEx *items;
@@ -3880,51 +4026,29 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         };
         boot_id = &o->entry.boot_id;
 
-        n = journal_file_entry_n_items(o);
-        items = newa(EntryItemEx, n);
-
-        for (uint64_t i = 0; i < n; i++) {
-                uint64_t l, h;
-                size_t t;
-                void *data;
-                Object *u;
-
-                q = le64toh(o->entry.items[i].object_offset);
-
-                r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
+        for (uint64_t i = 0;;) {
+                r = journal_file_entry_item_next(from, o, p, &i, NULL, 0, 0, NULL, NULL, NULL);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        break;
 
-                l = le64toh(READ_NOW(o->object.size));
-                if (l < offsetof(Object, data.payload))
-                        return -EBADMSG;
+                n++;
+        }
 
-                l -= offsetof(Object, data.payload);
-                t = (size_t) l;
+        items = newa(EntryItemEx, n);
 
-                /* We hit the limit on 32bit machines */
-                if ((uint64_t) t != l)
-                        return -E2BIG;
+        for (uint64_t i = 0, j = 0;; j++) {
+                uint64_t h;
+                void *data;
+                size_t l;
+                Object *u;
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_COMPRESSION
-                        size_t rsize = 0;
-
-                        r = decompress_blob(
-                                        o->object.flags & OBJECT_COMPRESSION_MASK,
-                                        o->data.payload, l,
-                                        &from->compress_buffer, &rsize,
-                                        0);
-                        if (r < 0)
-                                return r;
-
-                        data = from->compress_buffer;
-                        l = rsize;
-#else
-                        return -EPROTONOSUPPORT;
-#endif
-                } else
-                        data = o->data.payload;
+                r = journal_file_entry_item_next(from, o, p, &i, NULL, 0, 0, NULL, &data, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 if (l == 0)
                         return -EBADMSG;
@@ -3938,14 +4062,10 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i] = (EntryItemEx) {
+                items[j] = (EntryItemEx) {
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
-
-                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
-                if (r < 0)
-                        return r;
         }
 
         r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
