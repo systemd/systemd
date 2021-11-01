@@ -273,13 +273,20 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_entry_n_items(o); i++) {
-                        if (le64toh(o->entry.items[i].object_offset) == 0 ||
-                            !VALID64(le64toh(o->entry.items[i].object_offset))) {
-                                error(offset,
-                                      "Invalid entry item (%"PRIu64"/%"PRIu64" offset: "OFSfmt,
-                                      i, journal_file_entry_n_items(o),
-                                      le64toh(o->entry.items[i].object_offset));
+                for (i = 0;;) {
+                        uint64_t p;
+                        int r;
+
+                        r = journal_file_entry_item_next(f, o, offset, &i, NULL, 0, 0, &p, NULL, NULL);
+                        if (r < 0) {
+                                error(offset, "Invalid entry item (%"PRIu64")", i);
+                                return r;
+                        }
+                        if (r == 0)
+                                break;
+
+                        if (p == 0 || !VALID64(p)) {
+                                error(offset, "Invalid entry item (%"PRIu64" offset: "OFSfmt, i, p);
                                 return -EBADMSG;
                         }
                 }
@@ -445,12 +452,20 @@ static int entry_points_to_data(
         if (r < 0)
                 return r;
 
-        n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++)
-                if (le64toh(o->entry.items[i].object_offset) == data_p) {
+        for (i = 0;;) {
+                uint64_t p;
+
+                r = journal_file_entry_item_next(f, o, entry_p, &i, NULL, 0, 0, &p, NULL, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (p == data_p) {
                         found = true;
                         break;
                 }
+        }
 
         if (!found) {
                 error(entry_p, "Data object at "OFSfmt" not referenced by linked entry", data_p);
@@ -701,19 +716,23 @@ static int verify_entry(
                 Object *o, uint64_t p,
                 MMapFileDescriptor *cache_data_fd, uint64_t n_data) {
 
-        uint64_t i, n;
         int r;
 
         assert(f);
         assert(o);
         assert(cache_data_fd);
 
-        n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0;;) {
                 uint64_t q;
                 Object *u;
 
-                q = le64toh(o->entry.items[i].object_offset);
+                r = journal_file_entry_item_next(f, o, p, &i, NULL, 0, 0, &q, NULL, NULL);
+                if (r < 0) {
+                        error(p, "Invalid entry item of entry");
+                        return r;
+                }
+                if (r == 0)
+                        break;
 
                 if (!contains_uint64(f->mmap, cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
