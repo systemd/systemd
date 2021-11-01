@@ -1129,6 +1129,7 @@ simple_log:
 
 static int dhcp6_request_address(
                 Link *link,
+                const struct in6_addr *server_address,
                 const struct in6_addr *ip6_addr,
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
@@ -1142,6 +1143,7 @@ static int dhcp6_request_address(
                 return log_oom();
 
         addr->source = NETWORK_CONFIG_SOURCE_DHCP6;
+        addr->provider.in6 = *server_address;
         addr->family = AF_INET6;
         addr->in_addr.in6 = *ip6_addr;
         addr->flags = IFA_F_NOPREFIXROUTE;
@@ -1169,6 +1171,7 @@ static int dhcp6_request_address(
 }
 
 static int dhcp6_address_acquired(Link *link) {
+        struct in6_addr server_address;
         usec_t timestamp_usec;
         int r;
 
@@ -1178,6 +1181,10 @@ static int dhcp6_address_acquired(Link *link) {
 
         if (!link->network->dhcp6_use_address)
                 return 0;
+
+        r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &server_address);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get server address of DHCPv6 lease: %m");
 
         r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
@@ -1191,7 +1198,7 @@ static int dhcp6_address_acquired(Link *link) {
                 if (r < 0)
                         break;
 
-                r = dhcp6_request_address(link, &ip6_addr,
+                r = dhcp6_request_address(link, &server_address, &ip6_addr,
                                           usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec),
                                           usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec));
                 if (r < 0)
