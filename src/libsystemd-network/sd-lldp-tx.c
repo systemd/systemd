@@ -514,12 +514,6 @@ int sd_lldp_tx_detach_event(sd_lldp_tx *lldp_tx) {
         return 0;
 }
 
-sd_event* sd_lldp_tx_get_event(sd_lldp_tx *lldp_tx) {
-        assert_return(lldp_tx, NULL);
-
-        return lldp_tx->event;
-}
-
 static usec_t lldp_tx_get_delay(sd_lldp_tx *lldp_tx) {
         assert(lldp_tx);
 

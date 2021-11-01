@@ -50,7 +50,6 @@ int sd_lldp_tx_is_running(sd_lldp_tx *lldp_tx);
 
 int sd_lldp_tx_attach_event(sd_lldp_tx *lldp_tx, sd_event *event, int64_t priority);
 int sd_lldp_tx_detach_event(sd_lldp_tx *lldp_tx);
-sd_event *sd_lldp_tx_get_event(sd_lldp_tx *lldp_tx);
 
 int sd_lldp_tx_set_ifindex(sd_lldp_tx *lldp_tx, int ifindex);
 int sd_lldp_tx_set_ifname(sd_lldp_tx *lldp_tx, const char *ifname);
