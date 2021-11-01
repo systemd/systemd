@@ -71,12 +71,12 @@ DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
         return NULL;
 }
 
-int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id,
-                             size_t len) {
+int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
         uint8_t *serverid;
 
         assert_return(lease, -EINVAL);
         assert_return(id, -EINVAL);
+        assert_return(len > 0, -EINVAL);
 
         serverid = memdup(id, len);
         if (!serverid)
@@ -88,16 +88,16 @@ int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id,
         return 0;
 }
 
-int dhcp6_lease_get_serverid(sd_dhcp6_lease *lease, uint8_t **id, size_t *len) {
+int dhcp6_lease_get_serverid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len) {
         assert_return(lease, -EINVAL);
 
         if (!lease->serverid)
-                return -ENOMSG;
+                return -ENODATA;
 
-        if (id)
-                *id = lease->serverid;
-        if (len)
-                *len = lease->serverid_len;
+        if (ret_id)
+                *ret_id = lease->serverid;
+        if (ret_len)
+                *ret_len = lease->serverid_len;
 
         return 0;
 }
