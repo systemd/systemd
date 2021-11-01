@@ -124,7 +124,6 @@ int get_process_comm(pid_t pid, char **ret) {
 
 static int get_process_cmdline_nulstr(
                 pid_t pid,
-                size_t max_size,
                 ProcessCmdlineFlags flags,
                 char **ret,
                 size_t *ret_size) {
@@ -140,14 +139,10 @@ static int get_process_cmdline_nulstr(
          * If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command line set
          * (the case for kernel threads), or has a command line that resolves to the empty string, will
          * return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of input
-         * data.
-         *
-         * Returns an error, 0 if output was read but is truncated, 1 otherwise.
-         */
+         * data. */
 
         p = procfs_file_alloca(pid, "cmdline");
-        r = read_virtual_file(p, max_size, &t, &k); /* Let's assume that each input byte results in >= 1
-                                                     * columns of output. We ignore zero-width codepoints. */
+        r = read_virtual_file(p, SIZE_MAX, &t, &k);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
@@ -161,30 +156,36 @@ static int get_process_cmdline_nulstr(
 
                 /* Kernel threads have no argv[] */
                 _cleanup_free_ char *comm = NULL;
+                size_t len;
 
                 r = get_process_comm(pid, &comm);
                 if (r < 0)
                         return r;
 
-                t = strjoin("[", comm, "]");
+                len = strlen(comm);
+                k = len + 4;
+
+                t = new(char, k);
                 if (!t)
                         return -ENOMEM;
 
-                k = strlen(t);
-                r = k <= max_size;
-                if (r == 0) /* truncation */
-                        t[max_size] = '\0';
+                t[0] = '[';
+                memcpy(t + 1, comm, len);
+                t[len + 1] = ']';
+                t[len + 2] = '\0';
+                t[len + 3] = '\0';
         }
 
         *ret = t;
         *ret_size = k;
-        return r;
+        return 0;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
         _cleanup_free_ char *t = NULL;
         size_t k;
         char *ans;
+        int r;
 
         assert(pid >= 0);
         assert(ret);
@@ -203,19 +204,20 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * PROCESS_CMDLINE_COMM_FALLBACK is not specified). Returns 0 and sets *line otherwise. */
 
-        int full = get_process_cmdline_nulstr(pid, max_columns, flags, &t, &k);
-        if (full < 0)
-                return full;
+        r = get_process_cmdline_nulstr(pid, flags, &t, &k);
+        if (r < 0)
+                return r;
 
         if (flags & (PROCESS_CMDLINE_QUOTE | PROCESS_CMDLINE_QUOTE_POSIX)) {
                 ShellEscapeFlags shflags = SHELL_ESCAPE_EMPTY |
                         FLAGS_SET(flags, PROCESS_CMDLINE_QUOTE_POSIX) * SHELL_ESCAPE_POSIX;
 
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
+                assert(max_columns == SIZE_MAX); /* currently, truncation is not supported. */
 
                 _cleanup_strv_free_ char **args = NULL;
 
-                args = strv_parse_nulstr(t, k);
+                args = strv_split_nulstr(t);
                 if (!args)
                         return -ENOMEM;
 
@@ -244,7 +246,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
 
                 ans = escape_non_printable_full(t, max_columns,
-                                                eight_bit * XESCAPE_8_BIT | !full * XESCAPE_FORCE_ELLIPSIS);
+                                                eight_bit * XESCAPE_8_BIT);
                 if (!ans)
                         return -ENOMEM;
 
