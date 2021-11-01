@@ -1134,7 +1134,6 @@ static int client_parse_message(
 
         uint32_t lt_t1 = UINT32_MAX, lt_t2 = UINT32_MAX;
         usec_t irt = IRT_DEFAULT;
-        bool clientid = false;
         int r;
 
         assert(client);
@@ -1154,16 +1153,13 @@ static int client_parse_message(
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
-                        if (clientid)
+                        if (dhcp6_lease_get_clientid(lease, NULL, NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple client IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
-                        if (optlen != client->duid_len ||
-                            memcmp(&client->duid, optval, optlen) != 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s DUID does not match",
-                                                              dhcp6_message_type_to_string(message->type));
-
-                        clientid = true;
+                        r = dhcp6_lease_set_clientid(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
 
                         break;
 
@@ -1308,8 +1304,15 @@ static int client_parse_message(
                 }
         }
 
-        if (!clientid)
+        uint8_t *clientid;
+        size_t clientid_len;
+        if (dhcp6_lease_get_clientid(lease, &clientid, &clientid_len) < 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s message does not contain client ID. Ignoring.",
+                                              dhcp6_message_type_to_string(message->type));
+
+        if (clientid_len != client->duid_len ||
+            memcmp(clientid, &client->duid, clientid_len) != 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "The client ID in %s message does not match. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
         if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
