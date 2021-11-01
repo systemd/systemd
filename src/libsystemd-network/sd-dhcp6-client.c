@@ -251,10 +251,6 @@ int sd_dhcp6_client_set_mac(
                 return 0;
         }
 
-        if (client->mac_addr_len == addr_len &&
-            memcmp(&client->mac_addr, addr, addr_len) == 0)
-                return 0;
-
         memcpy(&client->mac_addr, addr, addr_len);
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
@@ -1862,7 +1858,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ia_na.type = SD_DHCP6_OPTION_IA_NA,
                 .ia_pd.type = SD_DHCP6_OPTION_IA_PD,
                 .ifindex = -1,
-                .request_ia = DHCP6_REQUEST_IA_NA,
+                .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
                 .req_opts_len = ELEMENTSOF(default_req_opts),
                 .hint_pd_prefix.iapdprefix.lifetime_preferred = (be32_t) -1,
