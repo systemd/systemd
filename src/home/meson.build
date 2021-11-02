@@ -16,6 +16,8 @@ systemd_homework_sources = files('''
         homework-luks.h
         homework-mount.c
         homework-mount.h
+        homework-password-cache.c
+        homework-password-cache.h
         homework-pkcs11.h
         homework-quota.c
         homework-quota.h

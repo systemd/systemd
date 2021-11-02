@@ -36,14 +36,6 @@
 /* Make sure a bad password always results in a 3s delay, no matter what */
 #define BAD_PASSWORD_DELAY_USEC (3 * USEC_PER_SEC)
 
-void password_cache_free(PasswordCache *cache) {
-        if (!cache)
-                return;
-
-        cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
-        cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
-}
-
 int user_record_authenticate(
                 UserRecord *h,
                 UserRecord *secret,
