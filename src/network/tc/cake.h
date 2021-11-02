@@ -13,6 +13,7 @@ typedef struct CommonApplicationsKeptEnhanced {
         uint64_t bandwidth;
 
         /* Overhead compensation parameters */
+        bool overhead_set;
         int overhead;
 
 } CommonApplicationsKeptEnhanced;
