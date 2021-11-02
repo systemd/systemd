@@ -2207,6 +2207,21 @@ int user_record_test_password_change_required(UserRecord *h) {
         return change_permitted ? 0 : -EROFS;
 }
 
+bool user_record_shall_rebalance(UserRecord *h) {
+        assert(h);
+
+        if (user_record_rebalance_weight(h) == REBALANCE_WEIGHT_OFF)
+                return false;
+
+        if (user_record_storage(h) != USER_LUKS)
+                return false;
+
+        if (!path_startswith(user_record_image_path(h), "/home/")) /* This is the only pool we rebalance in */
+                return false;
+
+        return true;
+}
+
 static const char* const user_storage_table[_USER_STORAGE_MAX] = {
         [USER_CLASSIC]   = "classic",
         [USER_LUKS]      = "luks",
