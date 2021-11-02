@@ -5,6 +5,8 @@
 
 #if HAVE_OPENSSL
 #  include <openssl/bio.h>
+#  include <openssl/bn.h>
+#  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
@@ -13,7 +15,15 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_POINT*, EC_POINT_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_GROUP*, EC_GROUP_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIGNUM*, BN_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BN_CTX*, BN_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ECDSA_SIG*, ECDSA_SIG_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
@@ -29,5 +39,24 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+#endif
 
+#if PREFER_OPENSSL
+/* The openssl definition */
+typedef const EVP_MD* hash_md_t;
+typedef const EVP_MD* hash_algorithm_t;
+typedef int elliptic_curve_t;
+typedef EVP_MD_CTX* hash_context_t;
+#  define OPENSSL_OR_GCRYPT(a, b) (a)
+
+#elif HAVE_GCRYPT
+
+#  include <gcrypt.h>
+
+/* The gcrypt definition */
+typedef int hash_md_t;
+typedef const char* hash_algorithm_t;
+typedef const char* elliptic_curve_t;
+typedef gcry_md_hd_t hash_context_t;
+#  define OPENSSL_OR_GCRYPT(a, b) (b)
 #endif
