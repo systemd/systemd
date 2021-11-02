@@ -60,7 +60,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, const struct in_addr *
 
 int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled);
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
-int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
+int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *address);
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
