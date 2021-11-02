@@ -459,7 +459,34 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         return 0;
 }
 
+static int journal_file_refresh_boot_id(JournalFile *f, const sd_id128_t *boot_id) {
+        Object *o;
+        uint64_t p;
+        int r;
+
+        assert(boot_id);
+
+        if (!JOURNAL_HEADER_COMPACT(f->header)) {
+                f->header->boot_id = *boot_id;
+                return 0;
+        }
+
+        if (sd_id128_equal(*boot_id, f->header->boot_id) && le64toh(f->header->boot_id_offset) > 0)
+                return 0;
+
+        r = journal_file_append_object(f, OBJECT_BOOT_ID, sizeof(BootIdObject), &o, &p);
+        if (r < 0)
+                return r;
+
+        o->boot_id.value = *boot_id;
+        f->header->boot_id_offset = htole64(p);
+        f->header->boot_id = *boot_id;
+
+        return 0;
+}
+
 static int journal_file_refresh_header(JournalFile *f) {
+        sd_id128_t boot_id;
         int r;
 
         assert(f);
@@ -472,7 +499,11 @@ static int journal_file_refresh_header(JournalFile *f) {
         else if (r < 0)
                 return r;
 
-        r = sd_id128_get_boot(&f->header->boot_id);
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return r;
+
+        r = journal_file_refresh_boot_id(f, &boot_id);
         if (r < 0)
                 return r;
 
@@ -2096,7 +2127,7 @@ static int journal_file_entry_item_next_compact(
         if (sz < offsetof(Object, entry.items))
                 return -EBADMSG;
 
-        p = *i == 0 ? le64toh(READ_NOW(e->entry.trie_offset)) : *i;
+        p = *i == 0 ? le32toh(READ_NOW(e->entry.trie_offset)) : *i;
 
         /* If the iterator is located inside the entry object's payload, we're already iterating the inline
          * entry items so we skip the trie node logic. */
@@ -2265,6 +2296,26 @@ int journal_file_entry_item_next(
                         f, e, offset, i, field, field_length, data_threshold, ret_offset, ret_data, ret_size) :
                 journal_file_entry_item_next_non_compact(
                         f, e, offset, i, field, field_length, data_threshold, ret_offset, ret_data, ret_size);
+}
+
+uint64_t journal_file_entry_xor_hash(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? le64toh(o->entry.xor_hash_compact) :
+                                                   le64toh(o->entry.xor_hash);
+}
+
+int journal_file_entry_boot_id(JournalFile *f, Object *o, sd_id128_t *ret_boot_id) {
+        int r;
+
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                r = journal_file_move_to_object(f, OBJECT_BOOT_ID, le32toh(o->entry.boot_id_offset), &o);
+                if (r < 0)
+                        return r;
+
+                *ret_boot_id = o->boot_id.value;
+        } else
+                *ret_boot_id = o->entry.boot_id;
+
+        return 0;
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -2625,7 +2676,7 @@ static int journal_file_append_entry_internal(
 
         if (JOURNAL_HEADER_COMPACT(f->header)) {
                 uint8_t *p = o->entry.payload;
-                o->entry.trie_offset = htole64(parent_offset);
+                o->entry.trie_offset = htole32(parent_offset);
 
                 for (unsigned i = 0; i < n_inlined; i++) {
                         int compression = 0;
@@ -2659,10 +2710,20 @@ static int journal_file_append_entry_internal(
 
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
-        o->entry.xor_hash = htole64(xor_hash);
-        if (boot_id)
-                f->header->boot_id = *boot_id;
-        o->entry.boot_id = f->header->boot_id;
+
+        if (boot_id) {
+                r = journal_file_refresh_boot_id(f, boot_id);
+                if (r < 0)
+                        return r;
+        }
+
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                o->entry.xor_hash_compact = htole64(xor_hash);
+                o->entry.boot_id_offset = htole32(le64toh(f->header->boot_id_offset));
+        } else {
+                o->entry.xor_hash = htole64(xor_hash);
+                o->entry.boot_id = f->header->boot_id;
+        }
 
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
@@ -3510,14 +3571,21 @@ void journal_file_reset_location(JournalFile *f) {
         f->current_xor_hash = 0;
 }
 
-void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
+int journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
+        int r;
+
+        r = journal_file_entry_boot_id(f, o, &f->current_boot_id);
+        if (r < 0)
+                return r;
+
         f->location_type = LOCATION_SEEK;
         f->current_offset = offset;
         f->current_seqnum = le64toh(o->entry.seqnum);
         f->current_realtime = le64toh(o->entry.realtime);
         f->current_monotonic = le64toh(o->entry.monotonic);
-        f->current_boot_id = o->entry.boot_id;
-        f->current_xor_hash = le64toh(o->entry.xor_hash);
+        f->current_xor_hash = journal_file_entry_xor_hash(f, o);
+
+        return 0;
 }
 
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
@@ -4669,7 +4737,7 @@ int journal_file_open_reliably(
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
         size_t n = 0;
-        const sd_id128_t *boot_id;
+        sd_id128_t boot_id;
         dual_timestamp ts;
         EntryItemEx *items;
         struct iovec *inlined;
@@ -4688,7 +4756,10 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 .monotonic = le64toh(o->entry.monotonic),
                 .realtime = le64toh(o->entry.realtime),
         };
-        boot_id = &o->entry.boot_id;
+
+        r = journal_file_entry_boot_id(from, o, &boot_id);
+        if (r < 0)
+                return r;
 
         for (uint64_t i = 0;;) {
                 r = journal_file_entry_item_next(from, o, p, &i, NULL, 0, 0, NULL, NULL, NULL);
@@ -4756,7 +4827,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         }
 
         r = journal_file_append_entry_internal(
-                to, &ts, boot_id, items, n_items, inlined, n_inlined, NULL, NULL, NULL);
+                to, &ts, &boot_id, items, n_items, inlined, n_inlined, NULL, NULL, NULL);
 
 finish:
         for (size_t i = 0; i < n_inlined; i++)
@@ -5029,6 +5100,7 @@ static const char * const journal_object_type_table[] = {
         [OBJECT_TAG] = "tag",
         [OBJECT_TRIE_NODE] = "trie node",
         [OBJECT_TRIE_HASH_TABLE] = "trie hash table",
+        [OBJECT_BOOT_ID] = "boot id",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
