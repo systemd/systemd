@@ -45,7 +45,7 @@ stub_sources = '''
         cpio.c
 '''.split()
 
-if ['ia32', 'x86_64'].contains(efi_arch)
+if efi_arch in ['x86', 'x86_64']
         stub_sources += 'linux_x86.c'
 else
         stub_sources += 'linux.c'
@@ -229,7 +229,7 @@ if have_gnu_efi
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
                                  '-mno-mmx']
-        elif efi_arch == 'ia32'
+        elif efi_arch == 'x86'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
         elif efi_arch == 'arm'
