@@ -8,8 +8,12 @@
 typedef struct CommonApplicationsKeptEnhanced {
         QDisc meta;
 
-        int overhead;
+        /* Shaper parameters */
+        int autorate;
         uint64_t bandwidth;
+
+        /* Overhead compensation parameters */
+        int overhead;
 
 } CommonApplicationsKeptEnhanced;
 
@@ -18,3 +22,4 @@ extern const QDiscVTable cake_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_bandwidth);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_overhead);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_tristate);
