@@ -49,9 +49,11 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_AUTORATE attribute: %m");
         }
 
-        r = sd_netlink_message_append_s32(req, TCA_CAKE_OVERHEAD, c->overhead);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_CAKE_OVERHEAD attribute: %m");
+        if (c->overhead_set) {
+                r = sd_netlink_message_append_s32(req, TCA_CAKE_OVERHEAD, c->overhead);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_OVERHEAD attribute: %m");
+        }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
@@ -150,7 +152,7 @@ int config_parse_cake_overhead(
         c = CAKE(qdisc);
 
         if (isempty(rvalue)) {
-                c->overhead = 0;
+                c->overhead_set = false;
                 TAKE_PTR(qdisc);
                 return 0;
         }
@@ -170,6 +172,7 @@ int config_parse_cake_overhead(
         }
 
         c->overhead = v;
+        c->overhead_set = true;
         TAKE_PTR(qdisc);
         return 0;
 }
