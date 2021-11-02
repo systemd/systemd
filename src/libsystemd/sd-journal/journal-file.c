@@ -1800,7 +1800,7 @@ static int journal_file_append_field(
         if (ret_offset)
                 *ret_offset = p;
 
-        return 0;
+        return 1;
 }
 
 static int journal_file_append_data(
@@ -1889,6 +1889,10 @@ static int journal_file_append_data(
                 r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
                 if (r < 0)
                         return r;
+
+                /* Any newly added fields get initialized with the FIELD_INDEXED flag. */
+                if (JOURNAL_HEADER_COMPACT(f->header) && r > 0)
+                        fo->object.flags |= FIELD_INDEXED;
 
                 /* ... and link it in. */
                 o->data.next_field_offset = fo->field.head_data_offset;
@@ -2481,9 +2485,11 @@ static int journal_file_link_entry(
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
-                r = journal_file_link_entry_item(f, o, offset, items[i].object_offset);
-                if (r < 0)
-                        return r;
+                if (items[i].indexed) {
+                        r = journal_file_link_entry_item(f, o, offset, items[i].object_offset);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -2793,6 +2799,9 @@ int journal_file_append_entry(
                                 inlined[n_inlined++] = iovec[i];
                                 continue;
                         }
+
+                        if (r > 0 && FLAGS_SET(o->object.flags, FIELD_INDEXED))
+                                dedupped[n_dedupped].indexed = true;
                 }
 
                 r = journal_file_append_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, &p);
@@ -2815,6 +2824,15 @@ int journal_file_append_entry(
 
                 dedupped[n_dedupped].object_offset = p;
                 dedupped[n_dedupped].hash = le64toh(o->data.hash);
+
+                if (JOURNAL_HEADER_COMPACT(f->header)) {
+                        r = find_field_object_with_data(f, iovec[i].iov_base, iovec[i].iov_len, &o, NULL);
+                        if (r < 0)
+                                return r;
+
+                        dedupped[n_dedupped].indexed = r > 0 && FLAGS_SET(o->object.flags, FIELD_INDEXED);
+                } else
+                        dedupped[n_dedupped].indexed = true;
 
                 n_dedupped++;
         }
@@ -4084,6 +4102,42 @@ static int add_unique_fields(JournalFile *f) {
         return 0;
 }
 
+static int add_non_indexed_fields(JournalFile *f) {
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_JOURNAL_NON_INDEXED_FIELDS");
+        if (!e)
+                return 0;
+
+        for (const char *p = e;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_warning("Failed to parse $SYSTEMD_JOURNALD_NON_INDEXED_FIELDS environment variable, ignoring: %s", e);
+                        return 0;
+                }
+
+                if (!journal_field_valid(word, strlen(word), true)) {
+                        log_warning("Invalid field name in $SYSTEMD_JOURNALD_NON_INDEXED_FIELDS environment variable, ignoring: %s", word);
+                        continue;
+                }
+
+                /* By default, all fields are created with the FIELD_INDEXED flag, indicating they should be
+                 * indexed. By creating the fields here but not setting the FIELD_INDEXED flag, we make sure
+                 * they aren't indexed. */
+                r = journal_file_append_field(f, word, strlen(word), NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 int journal_file_open(
                 int fd,
@@ -4339,6 +4393,10 @@ int journal_file_open(
                                 goto fail;
 
                         r = add_unique_fields(f);
+                        if (r < 0)
+                                goto fail;
+
+                        r = add_non_indexed_fields(f);
                         if (r < 0)
                                 goto fail;
                 }
@@ -4639,6 +4697,17 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 r = journal_file_append_data(to, data, l, &u, &h);
                 if (r < 0)
                         goto finish;
+
+                if (JOURNAL_HEADER_COMPACT(to->header)) {
+                        Object *f;
+
+                        r = find_field_object_with_data(to, data, l, &f, NULL);
+                        if (r < 0)
+                                return r;
+
+                        dedupped[n_dedupped].indexed = r > 0 && FLAGS_SET(o->object.flags, FIELD_INDEXED);
+                } else
+                        dedupped[n_dedupped].indexed = false;
 
                 if (JOURNAL_HEADER_KEYED_HASH(to->header))
                         dedupped[n_dedupped].xor_hash = jenkins_hash64(data, l);
