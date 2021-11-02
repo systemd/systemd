@@ -34,6 +34,12 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
+        if (netdev->mtu != 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
