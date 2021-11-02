@@ -45,6 +45,12 @@ stub_sources = '''
         cpio.c
 '''.split()
 
+if ['ia32', 'x86_64'].contains(efi_arch)
+        stub_sources += 'linux_x86.c'
+else
+        stub_sources += 'linux.c'
+endif
+
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         efi_cc = get_option('efi-cc')
         if efi_cc.length() == 0
@@ -218,11 +224,7 @@ if have_gnu_efi
                 '-include', efi_config_h,
                 '-include', version_h,
         ]
-        if ['ia32', 'x86_64'].contains(efi_arch)
-                stub_sources += 'linux_x86.c'
-        else
-                stub_sources += 'linux.c'
-        endif
+
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
@@ -231,28 +233,35 @@ if have_gnu_efi
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
         elif efi_arch == 'arm'
-                if cc.has_argument('-mgeneral-regs-only')
-                        compile_args += ['-mgeneral-regs-only']
-                endif
-
-                if cc.has_argument('-mfpu=none')
-                        compile_args += ['-mfpu=none']
-                endif
+                compile_args += cc.get_supported_arguments([
+                        '-mgeneral-regs-only',
+                        '-mfpu=none'
+                ])
         endif
-        if get_option('werror') == true
+
+        # We are putting the efi_cc command line together ourselves, so make sure to pull any
+        # relevant compiler flags from meson/CFLAGS as povided by the user or distro.
+
+        if get_option('werror')
                 compile_args += ['-Werror']
         endif
-        if get_option('buildtype') == 'debug'
-                compile_args += ['-ggdb', '-O0', '-DEFI_DEBUG']
-        elif get_option('buildtype') == 'debugoptimized'
-                compile_args += ['-ggdb', '-Og', '-DEFI_DEBUG']
-        else
-                compile_args += ['-O2']
+        if get_option('debug')
+                compile_args += ['-ggdb', '-DEFI_DEBUG']
+        endif
+        if get_option('optimization') != '0'
+                compile_args += ['-O' + get_option('optimization')]
         endif
         if get_option('b_ndebug') == 'true' or (
            get_option('b_ndebug') == 'if-release' and ['plain', 'release'].contains(get_option('buildtype')))
                 compile_args += ['-DNDEBUG']
         endif
+
+        foreach arg : get_option('c_args')
+                if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG']
+                        message('Using "@0@" from c_args for EFI compiler'.format(arg))
+                        compile_args += arg
+                endif
+        endforeach
 
         efi_ldflags = ['-T', efi_lds,
                        '-shared',
