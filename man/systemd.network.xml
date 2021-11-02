@@ -3507,6 +3507,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>CompensationMode=</varname></term>
+        <listitem>
+          <para>Takes one of <literal>none</literal>, <literal>atm</literal>, or <literal>ptm</literal>.
+          Specifies the compensation mode for overhead calculation. When <literal>none</literal>, no
+          compensation is taken into account. When <literal>atm</literal>, enables the compensation for
+          ATM cell framing, which is normally found on ADSL links. When <literal>ptm</literal>, enables
+          the compensation for PTM encoding, which is normally found on VDSL2 links and uses a 64b/65b
+          encoding scheme. Defaults to unset and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
