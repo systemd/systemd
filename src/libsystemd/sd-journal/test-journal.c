@@ -30,7 +30,7 @@ static void test_non_empty(void) {
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
         uint64_t p;
-        sd_id128_t fake_boot_id;
+        sd_id128_t fake_boot_id, boot_id;
         char t[] = "/var/tmp/journal-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
@@ -64,7 +64,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
-        assert_se(sd_id128_equal(o->entry.boot_id, fake_boot_id));
+        assert_se(journal_file_entry_boot_id(f, o, &boot_id) == 0);
+        assert_se(sd_id128_equal(boot_id, fake_boot_id));
 
         assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 0);
 

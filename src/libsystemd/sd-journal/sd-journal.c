@@ -111,10 +111,17 @@ static void detach_location(sd_journal *j) {
                 journal_file_reset_location(f);
 }
 
-static void init_location(Location *l, LocationType type, JournalFile *f, Object *o) {
+static int init_location(Location *l, LocationType type, JournalFile *f, Object *o) {
+        sd_id128_t boot_id;
+        int r;
+
         assert(l);
         assert(IN_SET(type, LOCATION_DISCRETE, LOCATION_SEEK));
         assert(f);
+
+        r = journal_file_entry_boot_id(f, o, &boot_id);
+        if (r < 0)
+                return r;
 
         *l = (Location) {
                 .type = type,
@@ -122,21 +129,27 @@ static void init_location(Location *l, LocationType type, JournalFile *f, Object
                 .seqnum_id = f->header->seqnum_id,
                 .realtime = le64toh(o->entry.realtime),
                 .monotonic = le64toh(o->entry.monotonic),
-                .boot_id = o->entry.boot_id,
-                .xor_hash = le64toh(o->entry.xor_hash),
+                .boot_id = boot_id,
+                .xor_hash = journal_file_entry_xor_hash(f, o),
                 .seqnum_set = true,
                 .realtime_set = true,
                 .monotonic_set = true,
                 .xor_hash_set = true,
         };
+
+        return 0;
 }
 
-static void set_location(sd_journal *j, JournalFile *f, Object *o) {
+static int set_location(sd_journal *j, JournalFile *f, Object *o) {
+        int r;
+
         assert(j);
         assert(f);
         assert(o);
 
-        init_location(&j->current_location, LOCATION_DISCRETE, f, o);
+        r = init_location(&j->current_location, LOCATION_DISCRETE, f, o);
+        if (r < 0)
+                return r;
 
         j->current_file = f;
         j->current_field = 0;
@@ -144,6 +157,8 @@ static void set_location(sd_journal *j, JournalFile *f, Object *o) {
         /* Let f know its candidate entry was picked. */
         assert(f->location_type == LOCATION_SEEK);
         f->location_type = LOCATION_DISCRETE;
+
+        return 0;
 }
 
 static int match_is_valid(const void *data, size_t size) {
@@ -773,7 +788,9 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         if (r <= 0)
                                 return r;
 
-                        journal_file_save_location(f, c, cp);
+                        r = journal_file_save_location(f, c, cp);
+                        if (r < 0)
+                                return r;
                 }
         } else {
                 f->last_direction = direction;
@@ -782,7 +799,9 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (r <= 0)
                         return r;
 
-                journal_file_save_location(f, c, cp);
+                r = journal_file_save_location(f, c, cp);
+                if (r < 0)
+                        return r;
         }
 
         /* OK, we found the spot, now let's advance until an entry
@@ -863,7 +882,9 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
-        set_location(j, new_file, o);
+        r = set_location(j, new_file, o);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -919,6 +940,7 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
 }
 
 _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
+        sd_id128_t boot_id;
         Object *o;
         int r;
 
@@ -933,12 +955,16 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         if (r < 0)
                 return r;
 
+        r = journal_file_entry_boot_id(j->current_file, o, &boot_id);
+        if (r < 0)
+                return r;
+
         if (asprintf(cursor,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
                      SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
-                     SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
+                     SD_ID128_TO_STRING(boot_id), le64toh(o->entry.monotonic),
                      le64toh(o->entry.realtime),
-                     le64toh(o->entry.xor_hash)) < 0)
+                     journal_file_entry_xor_hash(j->current_file, o)) < 0)
                 return -ENOMEM;
 
         return 0;
@@ -1046,8 +1072,9 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 }
 
 _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
-        int r;
+        sd_id128_t boot_id;
         Object *o;
+        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -1057,6 +1084,10 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(j->current_file, OBJECT_ENTRY, j->current_file->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        r = journal_file_entry_boot_id(j->current_file, o, &boot_id);
         if (r < 0)
                 return r;
 
@@ -1097,7 +1128,7 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
                         k = sd_id128_from_string(item+2, &id);
                         if (k < 0)
                                 return k;
-                        if (!sd_id128_equal(id, o->entry.boot_id))
+                        if (!sd_id128_equal(id, boot_id))
                                 return 0;
                         break;
 
@@ -1118,7 +1149,7 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
                 case 'x':
                         if (sscanf(item+2, "%llx", &ll) != 1)
                                 return -EINVAL;
-                        if (ll != le64toh(o->entry.xor_hash))
+                        if (ll != journal_file_entry_xor_hash(j->current_file, o))
                                 return 0;
                         break;
                 }
@@ -2221,16 +2252,22 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (r < 0)
                 return r;
 
-        if (ret_boot_id)
-                *ret_boot_id = o->entry.boot_id;
-        else {
-                sd_id128_t id;
+        if (ret_boot_id) {
+                r = journal_file_entry_boot_id(f, o, ret_boot_id);
+                if (r < 0)
+                        return r;
+        } else {
+                sd_id128_t id, boot_id;
 
                 r = sd_id128_get_boot(&id);
                 if (r < 0)
                         return r;
 
-                if (!sd_id128_equal(id, o->entry.boot_id))
+                r = journal_file_entry_boot_id(f, o, &boot_id);
+                if (r < 0)
+                        return r;
+
+                if (!sd_id128_equal(id, boot_id))
                         return -ESTALE;
         }
 
