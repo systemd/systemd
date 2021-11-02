@@ -3502,6 +3502,73 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FlowIsolationMode=</varname></term>
+        <listitem>
+          <para>CAKE places packets from different flows into different queues, then packets from each
+          queue are delivered fairly. This specifies whether the fairness is based on source address,
+          destination address, individual flows, or any combination of those. The available values are:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>none</option></term>
+              <listitem><para>
+                The flow isolation is disabled, and all traffic passes through a single queue.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>src-host</option></term>
+              <listitem><para>
+                Flows are defined only by source address
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dst-host</option></term>
+              <listitem><para>
+                Flows are defined only by destination address.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hosts</option></term>
+              <listitem><para>
+                Flows are defined by source-destination host pairs
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>flows</option></term>
+              <listitem><para>
+                Flows are defined by the entire 5-tuple of source address, destination address,
+                transport protocol, source port and destination port.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-src-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied first over source addresses,
+                then over individual flows.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-dst-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied first over destination
+                addresses, then over individual flows.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>triple</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied over source and destination
+                addresses, and also over individual flows.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Defaults to unset and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

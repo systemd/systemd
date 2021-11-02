@@ -21,6 +21,7 @@ static int cake_init(QDisc *qdisc) {
 
         c->autorate = -1;
         c->compensation_mode = _CAKE_COMPENSATION_MODE_INVALID;
+        c->flow_isolation_mode = _CAKE_FLOW_ISOLATION_MODE_INVALID;
 
         return 0;
 }
@@ -61,6 +62,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_ATM, c->compensation_mode);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_ATM attribute: %m");
+        }
+
+        if (c->flow_isolation_mode >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_FLOW_MODE, c->flow_isolation_mode);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_FLOW_MODE attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -299,6 +306,72 @@ int config_parse_cake_compensation_mode(
         }
 
         c->compensation_mode = mode;
+        TAKE_PTR(qdisc);
+        return 0;
+}
+
+static const char * const cake_flow_isolation_mode_table[_CAKE_FLOW_ISOLATION_MODE_MAX] = {
+        [CAKE_FLOW_ISOLATION_MODE_NONE]     = "none",
+        [CAKE_FLOW_ISOLATION_MODE_SRC_IP]   = "src-host",
+        [CAKE_FLOW_ISOLATION_MODE_DST_IP]   = "dst-host",
+        [CAKE_FLOW_ISOLATION_MODE_HOSTS]    = "hosts",
+        [CAKE_FLOW_ISOLATION_MODE_FLOWS]    = "flows",
+        [CAKE_FLOW_ISOLATION_MODE_DUAL_SRC] = "dual-src-host",
+        [CAKE_FLOW_ISOLATION_MODE_DUAL_DST] = "dual-dst-host",
+        [CAKE_FLOW_ISOLATION_MODE_TRIPLE]   = "triple",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cake_flow_isolation_mode, CakeFlowIsolationMode);
+
+int config_parse_cake_flow_isolation_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        CommonApplicationsKeptEnhanced *c;
+        Network *network = data;
+        CakeFlowIsolationMode mode;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
+
+        c = CAKE(qdisc);
+
+        if (isempty(rvalue)) {
+                c->flow_isolation_mode = _CAKE_FLOW_ISOLATION_MODE_INVALID;
+                TAKE_PTR(qdisc);
+                return 0;
+        }
+
+        mode = cake_flow_isolation_mode_from_string(rvalue);
+        if (mode < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, mode,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        c->flow_isolation_mode = mode;
         TAKE_PTR(qdisc);
         return 0;
 }
