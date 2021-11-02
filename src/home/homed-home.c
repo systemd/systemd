@@ -1698,7 +1698,12 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         return 0;
 }
 
-int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error) {
+int home_resize(Home *h,
+                uint64_t disk_size,
+                UserRecord *secret,
+                bool automatic,
+                sd_bus_error *error) {
+
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
         HomeState state;
         int r;
@@ -1761,7 +1766,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, "resize", c, secret, error);
+        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, error);
         if (r < 0)
                 return r;
 
