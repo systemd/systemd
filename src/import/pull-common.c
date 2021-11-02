@@ -442,7 +442,7 @@ static int verify_gpg(
 
                 gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-                r = rearrange_stdio(gpg_pipe[0], -1, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(gpg_pipe[0]), -1, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
