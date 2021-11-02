@@ -33,6 +33,7 @@
 #include "homework-mount.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mkdir.h"
@@ -247,15 +248,60 @@ static int run_fsck(const char *node, const char *fstype) {
         return 1;
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(key_serial_t, keyring_unlink, -1);
+
+static int upload_to_keyring(
+                UserRecord *h,
+                const char *password,
+                key_serial_t *ret_key_serial) {
+
+        _cleanup_free_ char *name = NULL;
+        key_serial_t serial;
+
+        assert(h);
+        assert(password);
+
+        /* If auto-shrink-on-logout is turned on, we need to keep the key we used to unlock the LUKS volume
+         * around, since we'll need it when automatically resizing (since we can't ask the user there
+         * again). We do this by uploading it into the kernel keyring, specifically the "session" one. This
+         * is done under the assumption systemd-homed gets its private per-session keyring (i.e. default
+         * service behaviour, given that KeyringMode=private is the default). It will survive between our
+         * systemd-homework invocations that way.
+         *
+         * If auto-shrink-on-logout is disabled we'll skip this step, to be frugal with sensitive data. */
+
+        if (user_record_auto_resize_mode(h) != AUTO_RESIZE_SHRINK_AND_GROW) {  /* Won't need it */
+                if (ret_key_serial)
+                        *ret_key_serial = -1;
+                return 0;
+        }
+
+        name = strjoin("homework-user-", h->user_name);
+        if (!name)
+                return -ENOMEM;
+
+        serial = add_key("user", name, password, strlen(password), KEY_SPEC_SESSION_KEYRING);
+        if (serial == -1)
+                return -errno;
+
+        if (ret_key_serial)
+                *ret_key_serial = serial;
+
+        return 1;
+}
+
 static int luks_try_passwords(
+                UserRecord *h,
                 struct crypt_device *cd,
                 char **passwords,
                 void *volume_key,
-                size_t *volume_key_size) {
+                size_t *volume_key_size,
+                key_serial_t *ret_key_serial) {
 
         char **pp;
         int r;
 
+        assert(h);
         assert(cd);
 
         STRV_FOREACH(pp, passwords) {
@@ -269,6 +315,16 @@ static int luks_try_passwords(
                                 *pp,
                                 strlen(*pp));
                 if (r >= 0) {
+                        if (ret_key_serial) {
+                                /* If ret_key_serial is non-NULL, let's try to upload the password that
+                                 * worked, and return its serial. */
+                                r = upload_to_keyring(h, *pp, ret_key_serial);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to upload LUKS password to kernel keyring, ignoring: %m");
+                                        *ret_key_serial = -1;
+                                }
+                        }
+
                         *volume_key_size = vks;
                         return 0;
                 }
@@ -280,6 +336,7 @@ static int luks_try_passwords(
 }
 
 static int luks_setup(
+                UserRecord *h,
                 const char *node,
                 const char *dm_name,
                 sd_id128_t uuid,
@@ -292,8 +349,10 @@ static int luks_setup(
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
-                size_t *ret_volume_key_size) {
+                size_t *ret_volume_key_size,
+                key_serial_t *ret_key_serial) {
 
+        _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
@@ -301,6 +360,7 @@ static int luks_setup(
         char **list;
         int r;
 
+        assert(h);
         assert(node);
         assert(dm_name);
         assert(ret);
@@ -352,10 +412,11 @@ static int luks_setup(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         passwords) {
-                r = luks_try_passwords(cd, list, vk, &vks);
+                r = luks_try_passwords(h, cd, list, vk, &vks, ret_key_serial ? &key_serial : NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -382,6 +443,8 @@ static int luks_setup(
                 *ret_volume_key = TAKE_PTR(vk);
         if (ret_volume_key_size)
                 *ret_volume_key_size = vks;
+        if (ret_key_serial)
+                *ret_key_serial = TAKE_KEY_SERIAL(key_serial);
 
         return 0;
 }
@@ -490,10 +553,11 @@ static int luks_open(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
-                r = luks_try_passwords(setup->crypt_device, list, vk, &vks);
+                r = luks_try_passwords(h, setup->crypt_device, list, vk, &vks, NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -1322,7 +1386,8 @@ int home_setup_luks(
 
                 log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-                r = luks_setup(setup->loop->node ?: ip,
+                r = luks_setup(h,
+                               setup->loop->node ?: ip,
                                setup->dm_name,
                                h->luks_uuid,
                                h->luks_cipher,
@@ -1334,7 +1399,8 @@ int home_setup_luks(
                                &setup->crypt_device,
                                &found_luks_uuid,
                                &volume_key,
-                               &volume_key_size);
+                               &volume_key_size,
+                               &setup->key_serial);
                 if (r < 0)
                         return r;
 
@@ -1523,6 +1589,7 @@ int home_activate_luks(
         setup->do_offline_fallocate = false;
         setup->do_mark_clean = false;
         setup->do_drop_caches = false;
+        TAKE_KEY_SERIAL(setup->key_serial); /* Leave key in kernel keyring */
 
         log_info("Activation completed.");
 
@@ -3451,9 +3518,10 @@ int home_resize_luks(
 
 int home_passwd_luks(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
-                const PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
-                char **effective_passwords /* new passwords */) {
+                const PasswordCache *cache, /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                char **effective_passwords  /* new passwords */) {
 
         size_t volume_key_size, max_key_slots, n_effective;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
@@ -3490,11 +3558,12 @@ int home_passwd_luks(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
 
-                r = luks_try_passwords(setup->crypt_device, list, volume_key, &volume_key_size);
+                r = luks_try_passwords(h, setup->crypt_device, list, volume_key, &volume_key_size, NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -3540,6 +3609,11 @@ int home_passwd_luks(
                         return log_error_errno(r, "Failed to set up LUKS password: %m");
 
                 log_info("Updated LUKS key slot %zu.", i);
+
+                /* If we changed the password, then make sure to update the copy in the keyring, so that
+                 * auto-rebalance continues to work. We only do this if we operate on an active home dir. */
+                if (i == 0 && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
+                        upload_to_keyring(h, effective_passwords[i], NULL);
         }
 
         return 1;
