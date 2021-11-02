@@ -19,7 +19,7 @@ int home_get_state_luks(UserRecord *h, HomeSetup *setup);
 
 int home_resize_luks(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 
-int home_passwd_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
+int home_passwd_luks(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
 
 int home_lock_luks(UserRecord *h, HomeSetup *setup);
 int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache);
