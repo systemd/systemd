@@ -20,6 +20,7 @@
 #include <asm/sgidefs.h>
 #endif
 
+#include "macro.h"
 #include "missing_keyctl.h"
 #include "missing_stat.h"
 #include "missing_syscall_def.h"
