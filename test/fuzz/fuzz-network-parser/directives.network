@@ -468,6 +468,7 @@ ECN=
 Parent=
 Handle=
 Bandwidth=
+AutoRateIngress=
 OverheadBytes=
 [TrafficControlQueueingDiscipline]
 Parent=
