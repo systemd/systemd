@@ -904,6 +904,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'test1',
         'tun99',
         'vcan99',
+        'veth-mtu',
         'veth99',
         'vlan99',
         'vrf99',
@@ -994,6 +995,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-tunnel-remote-any.network',
         '25-tunnel.network',
         '25-vcan.netdev',
+        '25-veth-mtu.netdev',
         '25-veth.netdev',
         '25-vrf.netdev',
         '25-vti6-tunnel-any-any.netdev',
@@ -1282,10 +1284,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, 'ipvtap  *mode ' + mode.lower() + ' ' + flag)
 
     def test_veth(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'netdev-link-local-addressing-yes.network',
+                                        '25-veth-mtu.netdev')
         start_networkd()
 
-        self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
+        self.wait_online(['veth99:degraded', 'veth-peer:degraded', 'veth-mtu:degraded', 'veth-mtu-peer:degraded'])
 
         output = check_output('ip -d link show veth99')
         print(output)
@@ -1293,6 +1296,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show veth-peer')
         print(output)
         self.assertRegex(output, 'link/ether 12:34:56:78:9a:bd')
+
+        output = check_output('ip -d link show veth-mtu')
+        print(output)
+        self.assertRegex(output, 'link/ether 12:34:56:78:9a:be')
+        self.assertRegex(output, 'mtu 1800')
+        output = check_output('ip -d link show veth-mtu-peer')
+        print(output)
+        self.assertRegex(output, 'link/ether 12:34:56:78:9a:bf')
+        self.assertRegex(output, 'mtu 1800')
 
     def test_tun(self):
         copy_unit_to_networkd_unit_path('25-tun.netdev')
