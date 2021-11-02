@@ -13,6 +13,18 @@ typedef struct Manager Manager;
 #include "homed-home.h"
 #include "varlink.h"
 
+/* The LUKS free disk space rebalancing logic goes through this state machine */
+typedef enum RebalanceState {
+        REBALANCE_OFF,       /* No rebalancing enabled */
+        REBALANCE_IDLE,      /* Rebalancing enabled, but currently nothing scheduled */
+        REBALANCE_WAITING,   /* Rebalancing has been requested for a later point in time */
+        REBALANCE_PENDING,   /* Rebalancing has been requested and will be executed ASAP */
+        REBALANCE_SHRINKING, /* Rebalancing ongoing, and we are running all shrinking operations */
+        REBALANCE_GROWING,   /* Rebalancing ongoign, and we are running all growing operations */
+        _REBALANCE_STATE_MAX,
+        _REBALANCE_STATE_INVALID = -1,
+} RebalanceState;
+
 struct Manager {
         sd_event *event;
         sd_bus *bus;
@@ -39,6 +51,8 @@ struct Manager {
         sd_event_source *deferred_gc_event_source;
         sd_event_source *deferred_auto_login_event_source;
 
+        sd_event_source *rebalance_event_source;
+
         Home *gc_focus;
 
         VarlinkServer *varlink_server;
@@ -46,6 +60,9 @@ struct Manager {
 
         EVP_PKEY *private_key; /* actually a pair of private and public key */
         Hashmap *public_keys; /* key name [char*] → publick key [EVP_PKEY*] */
+
+        RebalanceState rebalance_state;
+        usec_t rebalance_interval_usec;
 };
 
 int manager_new(Manager **ret);
@@ -58,6 +75,9 @@ int manager_augment_record_with_uid(Manager *m, UserRecord *hr);
 
 int manager_enqueue_rescan(Manager *m);
 int manager_enqueue_gc(Manager *m, Home *focus);
+
+int manager_schedule_rebalance(Manager *m, bool immediately);
+int manager_reschedule_rebalance(Manager *m);
 
 int manager_verify_user_record(Manager *m, UserRecord *hr);
 
