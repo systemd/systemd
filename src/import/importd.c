@@ -389,9 +389,10 @@ static int transfer_start(Transfer *t) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = rearrange_stdio(t->stdin_fd,
-                                    t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd,
+                r = rearrange_stdio(TAKE_FD(t->stdin_fd),
+                                    t->stdout_fd < 0 ? pipefd[1] : TAKE_FD(t->stdout_fd),
                                     pipefd[1]);
+                TAKE_FD(pipefd[1]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);

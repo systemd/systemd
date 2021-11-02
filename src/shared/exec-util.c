@@ -50,7 +50,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 char *_argv[2];
 
                 if (stdout_fd >= 0) {
-                        r = rearrange_stdio(STDIN_FILENO, stdout_fd, STDERR_FILENO);
+                        r = rearrange_stdio(STDIN_FILENO, TAKE_FD(stdout_fd), STDERR_FILENO);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }

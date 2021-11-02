@@ -1202,13 +1202,12 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
-                r = rearrange_stdio(stdin_fd, stdout_fd, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(stdin_fd), TAKE_FD(stdout_fd), STDERR_FILENO); /* fds are invalidated by rearrange_stdio() even on failure */
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                stdin_fd = stdout_fd = -1; /* have been invalidated by rearrange_stdio() */
 
                 /* Allow overriding the homework path via an environment variable, to make debugging
                  * easier. */

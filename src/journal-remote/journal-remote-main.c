@@ -83,9 +83,9 @@ static int spawn_child(const char* child, char** argv) {
 
         /* In the child */
         if (r == 0) {
-                safe_close(fd[0]);
+                fd[0] = safe_close(fd[0]);
 
-                r = rearrange_stdio(STDIN_FILENO, fd[1], STDERR_FILENO);
+                r = rearrange_stdio(STDIN_FILENO, TAKE_FD(fd[1]), STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);

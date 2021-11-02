@@ -579,7 +579,7 @@ static int find_libraries(const char *exec, char ***ret) {
         r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         assert_se(r >= 0);
         if (r == 0) {
-                if (rearrange_stdio(-1, outpipe[1], errpipe[1]) < 0)
+                if (rearrange_stdio(-1, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);
