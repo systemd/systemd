@@ -202,6 +202,7 @@ struct Network {
         char *dhcp_server_relay_agent_remote_id;
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
+        struct in_addr dhcp_server_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
