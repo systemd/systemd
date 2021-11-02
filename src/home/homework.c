@@ -343,6 +343,34 @@ int home_setup_undo_dm(HomeSetup *setup, int level) {
         return ret;
 }
 
+int keyring_unlink(key_serial_t k) {
+
+        if (k == -1) /* already invalidated? */
+                return -1;
+
+        if (keyctl(KEYCTL_UNLINK, k, KEY_SPEC_SESSION_KEYRING, 0, 0) < 0)
+                log_debug_errno(errno, "Failed to unlink key from session kernel keyring, ignoring: %m");
+
+        return -1; /* Always return the key_serial_t value for "invalid" */
+}
+
+static int keyring_flush(UserRecord *h) {
+        _cleanup_free_ char *name = NULL;
+        long serial;
+
+        assert(h);
+
+        name = strjoin("homework-user-", h->user_name);
+        if (!name)
+                return log_oom();
+
+        serial = keyctl(KEYCTL_SEARCH, (unsigned long) KEY_SPEC_SESSION_KEYRING, (unsigned long) "user", (unsigned long) name, 0);
+        if (serial == -1)
+                return log_debug_errno(errno, "Failed to find kernel keyring entry for user, ignoring: %m");
+
+        return keyring_unlink(serial);
+}
+
 int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
@@ -392,6 +420,8 @@ int home_setup_done(HomeSetup *setup) {
 
                 setup->temporary_image_path = mfree(setup->temporary_image_path);
         }
+
+        setup->key_serial = keyring_unlink(setup->key_serial);
 
         setup->undo_mount = false;
         setup->undo_dm = false;
@@ -944,8 +974,12 @@ static int home_deactivate(UserRecord *h, bool force) {
                 if (r < 0)
                         return r;
 
-                if (user_record_storage(h) == USER_LUKS)
+                if (user_record_storage(h) == USER_LUKS) {
+                        /* Automatically shrink on logout if that's enabled. To be able to shrink we need the
+                         * keys to the device. */
+                        password_cache_load_keyring(h, &cache);
                         (void) home_trim_luks(h, &setup);
+                }
 
                 /* Sync explicitly, so that the drop caches logic below can work as documented */
                 if (syncfs(setup.root_fd) < 0)
@@ -980,6 +1014,9 @@ static int home_deactivate(UserRecord *h, bool force) {
                 if (r > 0)
                         done = true;
         }
+
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
 
         if (!done)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home is not active.");
@@ -1660,7 +1697,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_passwd_luks(h, &setup, &cache, effective_passwords);
+                r = home_passwd_luks(h, flags, &setup, &cache, effective_passwords);
                 if (r < 0)
                         return r;
                 break;
