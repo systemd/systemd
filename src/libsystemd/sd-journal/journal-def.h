@@ -91,6 +91,12 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
+/* Extended version of EntryItem that stores extra information that we don't store in the journal file. */
+typedef struct {
+        uint64_t object_offset;
+        uint64_t hash;
+} EntryItemEx;
+
 #define EntryObject__contents { \
         ObjectHeader object;    \
         le64_t seqnum;          \
