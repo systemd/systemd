@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -62,35 +63,18 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 }
 
 static int retrieve_key(key_serial_t serial, char ***ret) {
-        size_t nfinal, m = 100;
+        _cleanup_(erase_and_freep) void *p = NULL;
         char **l;
-        _cleanup_(erase_and_freep) char *pfinal = NULL;
+        size_t n;
+        int r;
 
         assert(ret);
 
-        for (;;) {
-                _cleanup_(erase_and_freep) char *p = NULL;
-                long n;
+        r = keyring_read(serial, &p, &n);
+        if (r < 0)
+                return r;
 
-                p = new(char, m);
-                if (!p)
-                        return -ENOMEM;
-
-                n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n <= m) {
-                        nfinal = (size_t) n;
-                        pfinal = TAKE_PTR(p);
-                        break;
-                }
-
-                if (m > LONG_MAX / 2) /* overflow check */
-                        return -ENOMEM;
-                m *= 2;
-        }
-
-        l = strv_parse_nulstr(pfinal, nfinal);
+        l = strv_parse_nulstr(p, n);
         if (!l)
                 return -ENOMEM;
 

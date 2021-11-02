@@ -173,6 +173,8 @@ shared_sources = files('''
         json.h
         kbd-util.c
         kbd-util.h
+        keyring-util.h
+        keyring-util.c
         killall.c
         killall.h
         label.c
