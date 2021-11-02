@@ -3480,14 +3480,6 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
-        <term><varname>OverheadBytes=</varname></term>
-        <listitem>
-          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative. Takes
-          an integer in the range from -64 to 256. Defaults to unset and kernel's default is used.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>Bandwidth=</varname></term>
         <listitem>
           <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
@@ -3495,6 +3487,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>OverheadBytes=</varname></term>
+        <listitem>
+          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative. Takes
+          an integer in the range from -64 to 256. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
