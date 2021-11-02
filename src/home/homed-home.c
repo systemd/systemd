@@ -157,6 +157,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
+        (void) manager_schedule_rebalance(m, /* immediately= */ false);
 
         if (ret)
                 *ret = TAKE_PTR(home);
@@ -189,6 +190,8 @@ Home *home_free(Home *h) {
 
                 if (h->manager->gc_focus == h)
                         h->manager->gc_focus = NULL;
+
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         }
 
         user_record_unref(h->record);
@@ -485,6 +488,7 @@ static void home_set_state(Home *h, HomeState state) {
                  * enqueue it for GC too. */
 
                 home_schedule_operation(h, NULL, NULL);
+                manager_reschedule_rebalance(h->manager);
                 manager_enqueue_gc(h->manager, h);
         }
 }
@@ -723,6 +727,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         /* Reset the state to "invalid", which makes home_get_state() test if the image exists and returns
          * HOME_ABSENT vs. HOME_INACTIVE as necessary. */
         home_set_state(h, _HOME_STATE_INVALID);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         return;
 
 fail:
@@ -777,6 +782,9 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
@@ -799,6 +807,9 @@ static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
@@ -837,6 +848,8 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
 
         /* Unload this record from memory too now. */
         h = home_free(h);
+
+        (void) manager_schedule_rebalance(m, /* immediately= */ true);
         return;
 
 fail:
@@ -881,6 +894,8 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
         h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
@@ -914,6 +929,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         log_debug("Change operation of %s completed.", h->user_name);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         r = 0;
 
 finish:
@@ -2910,6 +2926,8 @@ static int on_pending(sd_event_source *s, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to disable event source: %m");
 
+        /* No operations pending anymore, maybe this is a good time to trigger a rebalancing */
+        manager_reschedule_rebalance(h->manager);
         return 0;
 }
 
@@ -3064,6 +3082,35 @@ int home_wait_for_worker(Home *h) {
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
         h->worker_pid = 0;
         return 1;
+}
+
+bool home_shall_rebalance(Home *h) {
+        HomeState state;
+
+        assert(h);
+
+        /* Determines if the home directory is a candidate for rebalancing */
+
+        if (!user_record_shall_rebalance(h->record))
+                return false;
+
+        state = home_get_state(h);
+        if (!HOME_STATE_SHALL_REBALANCE(state))
+                return false;
+
+        return true;
+}
+
+bool home_is_busy(Home *h) {
+        assert(h);
+
+        if (h->current_operation)
+                return true;
+
+        if (!ordered_set_isempty(h->pending_operations))
+                return true;
+
+        return HOME_STATE_IS_EXECUTING_OPERATION(home_get_state(h));
 }
 
 static const char* const home_state_table[_HOME_STATE_MAX] = {
