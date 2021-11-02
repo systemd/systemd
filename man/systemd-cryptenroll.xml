@@ -61,6 +61,23 @@
   </refsect1>
 
   <refsect1>
+    <title>Limitations</title>
+
+    <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
+    required to first provide a passphrase or recovery key (i.e. one of the latter two key types). For
+    example, it's currently not possible to unlock a device with a FIDO2 key in order to enroll a new FIDO2
+    key. Instead, in order to enroll a new FIDO2 key, it is necessary to provide an already enrolled regular
+    passphrase or recovery key. Thus, if in future key roll-over is desired it's generally recommended to
+    combine TPM2, FIDO2, PKCS#11 key enrollment with enrolling a regular passphrase or recovery key.</para>
+
+    <para>Also note that support for enrolling multiple FIDO2 tokens is currently not too useful, as while
+    unlocking <command>systemd-cryptsetup</command> cannot identify which token is currently plugged in and
+    thus does not know which authentication request to send to the device. This limitation does not apply to
+    tokens enrolled via PKCS#11 — because tokens of this type may be identified immediately, before
+    authentication.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>The following options are understood:</para>
