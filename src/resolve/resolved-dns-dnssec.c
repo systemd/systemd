@@ -110,8 +110,9 @@ static int dnssec_rsa_verify_raw(
         if (!rpubkey)
                 return -ENOMEM;
 
-        if (RSA_set0_key(rpubkey, BN_dup(m), BN_dup(e), NULL) <= 0)
+        if (RSA_set0_key(rpubkey, m, e, NULL) <= 0)
                 return -EIO;
+        e = m = NULL;
 
         assert((size_t) RSA_size(rpubkey) == signature_size);
 
@@ -344,8 +345,9 @@ static int dnssec_ecdsa_verify_raw(
         if (!sig)
                 return -ENOMEM;
 
-        if (ECDSA_SIG_set0(sig, BN_dup(r), BN_dup(s)) <= 0)
+        if (ECDSA_SIG_set0(sig, r, s) <= 0)
                 return -EIO;
+        r = s = NULL;
 
         k = ECDSA_do_verify(data, data_size, sig, eckey);
         if (k < 0)
