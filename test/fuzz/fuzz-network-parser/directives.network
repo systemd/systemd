@@ -379,6 +379,7 @@ SMTP=
 EmitLPR=
 LPR=
 EmitRouter=
+Router=
 MaxLeaseTimeSec=
 DefaultLeaseTimeSec=
 EmitTimezone=
