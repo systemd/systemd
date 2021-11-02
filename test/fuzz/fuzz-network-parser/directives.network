@@ -473,6 +473,7 @@ Bandwidth=
 AutoRateIngress=
 OverheadBytes=
 CompensationMode=
+FlowIsolationMode=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=

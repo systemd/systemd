@@ -3519,6 +3519,90 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FlowIsolationMode=</varname></term>
+        <listitem>
+          <para>CAKE places packets from different flows into different queues, then packets from each
+          queue are delivered fairly. This specifies whether the fairness is based on source address,
+          destination address, individual flows, or any combination of those. The available values are:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>none</option></term>
+              <listitem><para>
+                The flow isolation is disabled, and all traffic passes through a single queue.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>src-host</option></term>
+              <listitem><para>
+                Flows are defined only by source address. Equivalnet to the <literal>srchost</literal>
+                option for <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dst-host</option></term>
+              <listitem><para>
+                Flows are defined only by destination address. Equivalnet to the
+                <literal>srchost</literal> option for <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hosts</option></term>
+              <listitem><para>
+                Flows are defined by source-destination host pairs. Equivalent to the same option for
+                <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>flows</option></term>
+              <listitem><para>
+                Flows are defined by the entire 5-tuple of source address, destination address,
+                transport protocol, source port and destination port. Equivalent to the same option for
+                <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-src-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple (see <literal>flows</literal> in the above), and
+                fairness is applied first over source addresses, then over individual flows. Equivalnet
+                to the <literal>dual-srchost</literal> option for <command>tc qdisc</command> command.
+                See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-dst-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple (see <literal>flows</literal> in the above), and
+                fairness is applied first over destination addresses, then over individual flows.
+                Equivalnet to the <literal>dual-dsthost</literal> option for
+                <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>triple</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple (see <literal>flows</literal>), and fairness is
+                applied over source and destination addresses, and also over individual flows.
+                Equivalnet to the <literal>triple-isolate</literal> option for
+                <command>tc qdisc</command> command. See also
+                <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Defaults to unset and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
