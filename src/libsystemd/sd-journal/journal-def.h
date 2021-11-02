@@ -24,6 +24,7 @@ typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
 typedef struct TrieNodeObject TrieNodeObject;
+typedef struct BootIdObject BootIdObject;
 
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
@@ -42,6 +43,7 @@ typedef enum ObjectType {
         OBJECT_TAG,
         OBJECT_TRIE_NODE,
         OBJECT_TRIE_HASH_TABLE,
+        OBJECT_BOOT_ID,
         _OBJECT_TYPE_MAX
 } ObjectType;
 
@@ -105,20 +107,24 @@ typedef struct {
         bool indexed;
 } EntryItemEx;
 
-#define EntryObject__contents {                \
-        ObjectHeader object;                   \
-        le64_t seqnum;                         \
-        le64_t realtime;                       \
-        le64_t monotonic;                      \
-        sd_id128_t boot_id;                    \
-        le64_t xor_hash;                       \
-        union {                                \
-                EntryItem items[0];            \
-                struct {                       \
-                        le64_t trie_offset;    \
-                        uint8_t payload[];     \
-                };                             \
-        };                                     \
+#define EntryObject__contents {                  \
+        ObjectHeader object;                     \
+        le64_t seqnum;                           \
+        le64_t realtime;                         \
+        le64_t monotonic;                        \
+        union {                                  \
+                struct {                         \
+                        sd_id128_t boot_id;      \
+                        le64_t xor_hash;         \
+                        EntryItem items[];       \
+                };                               \
+                struct {                         \
+                        le64_t xor_hash_compact; \
+                        le32_t boot_id_offset;   \
+                        le32_t trie_offset;      \
+                        uint8_t payload[];       \
+                };                               \
+        };                                       \
 }
 
 struct EntryObject EntryObject__contents;
@@ -165,6 +171,15 @@ struct TrieNodeObject TrieNodeObject__contents;
 struct TrieNodeObject__packed TrieNodeObject__contents _packed_;
 assert_cc(sizeof(struct TrieNodeObject) == sizeof(struct TrieNodeObject__packed));
 
+#define BootIdObject__contents { \
+        ObjectHeader object;     \
+        sd_id128_t value;        \
+}
+
+struct BootIdObject BootIdObject__contents;
+struct BootIdObject__packed BootIdObject__contents _packed_;
+assert_cc(sizeof(struct BootIdObject) == sizeof(struct BootIdObject__packed));
+
 union Object {
         ObjectHeader object;
         DataObject data;
@@ -174,6 +189,7 @@ union Object {
         EntryArrayObject entry_array;
         TagObject tag;
         TrieNodeObject trie_node;
+        BootIdObject boot_id;
 };
 
 enum {
@@ -270,12 +286,13 @@ enum {
         le64_t trie_hash_table_size;                    \
         le64_t n_trie_nodes;                            \
         le64_t trie_hash_chain_depth;                   \
+        le64_t boot_id_offset;                          \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 288);
+assert_cc(sizeof(struct Header) == 296);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
