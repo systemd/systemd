@@ -470,6 +470,7 @@ Handle=
 Bandwidth=
 AutoRateIngress=
 OverheadBytes=
+CompensationMode=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
