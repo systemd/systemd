@@ -3989,10 +3989,10 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, '192.168.5.*')
-        self.assertRegex(output, 'Gateway: 192.168.5.1')
-        self.assertRegex(output, 'DNS: 192.168.5.1')
-        self.assertRegex(output, 'NTP: 192.168.5.1')
+        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertIn('Gateway: 192.168.5.3', output)
+        self.assertIn('DNS: 192.168.5.1', output)
+        self.assertIn('NTP: 192.168.5.1', output)
 
     def test_emit_router_timezone(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
@@ -4001,9 +4001,9 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, 'Gateway: 192.168.5.*')
-        self.assertRegex(output, '192.168.5.*')
-        self.assertRegex(output, 'Europe/Berlin')
+        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertIn('Gateway: 192.168.5.1', output)
+        self.assertIn('Time Zone: Europe/Berlin', output)
 
     def test_dhcp_server_static_lease(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-static-lease.network', 'dhcp-server-static-lease.network')
@@ -4012,7 +4012,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertIn('10.1.1.200 (DHCP4 via 10.1.1.1)', output)
+        self.assertIn('Address: 10.1.1.200 (DHCP4 via 10.1.1.1)', output)
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     links = [
