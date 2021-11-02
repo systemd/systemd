@@ -85,6 +85,7 @@ UserRecord* user_record_new(void) {
                 .fido2_user_verification_permitted = -1,
                 .drop_caches = -1,
                 .auto_resize_mode = _AUTO_RESIZE_MODE_INVALID,
+                .rebalance_weight = REBALANCE_WEIGHT_UNSET,
         };
 
         return h;
@@ -984,6 +985,36 @@ static int dispatch_auto_resize_mode(const char *name, JsonVariant *variant, Jso
         return 0;
 }
 
+static int dispatch_rebalance_weight(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint64_t *rebalance_weight = userdata;
+        uintmax_t u;
+
+        assert_se(rebalance_weight);
+
+        if (json_variant_is_null(variant)) {
+                *rebalance_weight = REBALANCE_WEIGHT_UNSET;
+                return 0;
+        }
+
+        if (json_variant_is_boolean(variant)) {
+                *rebalance_weight = json_variant_boolean(variant) ? REBALANCE_WEIGHT_DEFAULT : REBALANCE_WEIGHT_OFF;
+                return 0;
+        }
+
+        if (!json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, boolean or null.", strna(name));
+
+        u = json_variant_unsigned(variant);
+        if (u >= REBALANCE_WEIGHT_MIN && u <= REBALANCE_WEIGHT_MAX)
+                *rebalance_weight = (uint64_t) u;
+        else if (u == 0)
+                *rebalance_weight = REBALANCE_WEIGHT_OFF;
+        else
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Rebalance weight is out of valid range %" PRIu64 "…%" PRIu64 ".", REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX);
+
+        return 0;
+}
+
 static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch privileged_dispatch_table[] = {
@@ -1177,6 +1208,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
                 { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
                 { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
+                { "rebalanceWeight",            _JSON_VARIANT_TYPE_INVALID, dispatch_rebalance_weight,            offsetof(UserRecord, rebalance_weight),              0         },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
                 { "enforcePasswordPolicy",      JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, enforce_password_policy),       0         },
@@ -1528,6 +1560,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
                 { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
                 { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
+                { "rebalanceWeight",            _JSON_VARIANT_TYPE_INVALID, dispatch_rebalance_weight,            offsetof(UserRecord, rebalance_weight),              0         },
                 { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, service),                       JSON_SAFE },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
@@ -1937,6 +1970,15 @@ AutoResizeMode user_record_auto_resize_mode(UserRecord *h) {
                 return h->auto_resize_mode;
 
         return user_record_storage(h) == USER_LUKS ? AUTO_RESIZE_SHRINK_AND_GROW : AUTO_RESIZE_OFF;
+}
+
+uint64_t user_record_rebalance_weight(UserRecord *h) {
+        assert(h);
+
+        if (h->rebalance_weight == REBALANCE_WEIGHT_UNSET)
+                return REBALANCE_WEIGHT_DEFAULT;
+
+        return h->rebalance_weight;
 }
 
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
