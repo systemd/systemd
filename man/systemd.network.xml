@@ -3489,6 +3489,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AutoRateIngress=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. Enables automatic capacity estimation based on traffic arriving
+          at this qdisc. This is most likely to be useful with cellular links, which tend to change
+          quality randomly. If this setting is enabled, the <varname>Bandwidth=</varname> setting is
+          used as an initial estimate. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OverheadBytes=</varname></term>
         <listitem>
           <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.

@@ -388,6 +388,7 @@ BFIFO.LimitBytes,                            config_parse_bfifo_size,           
 CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
 CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
 CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
+CAKE.AutoRateIngress,                        config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
 CAKE.OverheadBytes,                          config_parse_cake_overhead,                               QDISC_KIND_CAKE,               0
 ControlledDelay.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_CODEL,              0
 ControlledDelay.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_CODEL,              0

@@ -11,6 +11,18 @@
 #include "qdisc.h"
 #include "string-util.h"
 
+static int cake_init(QDisc *qdisc) {
+        CommonApplicationsKeptEnhanced *c;
+
+        assert(qdisc);
+
+        c = CAKE(qdisc);
+
+        c->autorate = -1;
+
+        return 0;
+}
+
 static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         CommonApplicationsKeptEnhanced *c;
         int r;
@@ -29,6 +41,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u64(req, TCA_CAKE_BASE_RATE64, c->bandwidth);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_BASE_RATE64 attribute: %m");
+        }
+
+        if (c->autorate >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_AUTORATE, c->autorate);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_AUTORATE attribute: %m");
         }
 
         r = sd_netlink_message_append_s32(req, TCA_CAKE_OVERHEAD, c->overhead);
@@ -156,8 +174,66 @@ int config_parse_cake_overhead(
         return 0;
 }
 
+int config_parse_cake_tristate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        CommonApplicationsKeptEnhanced *c;
+        Network *network = data;
+        int *dest, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
+
+        c = CAKE(qdisc);
+
+        if (streq(lvalue, "AutoRateIngress"))
+                dest = &c->autorate;
+        else
+                assert_not_reached();
+
+        if (isempty(rvalue)) {
+                *dest = -1;
+                TAKE_PTR(qdisc);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *dest = r;
+        TAKE_PTR(qdisc);
+        return 0;
+}
+
 const QDiscVTable cake_vtable = {
         .object_size = sizeof(CommonApplicationsKeptEnhanced),
         .tca_kind = "cake",
+        .init = cake_init,
         .fill_message = cake_fill_message,
 };
