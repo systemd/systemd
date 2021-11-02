@@ -1538,9 +1538,9 @@ lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
+                conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
-                conf.get('HAVE_XZ') == 1 and
-                conf.get('HAVE_GCRYPT') == 1)
+                conf.get('HAVE_XZ') == 1)
         if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
@@ -2729,10 +2729,10 @@ if conf.get('ENABLE_IMPORTD') == 1
                 link_with : [libshared],
                 dependencies : [versiondep,
                                 libcurl,
+                                lib_openssl_or_gcrypt,
                                 libz,
                                 libbzip2,
-                                libxz,
-                                libgcrypt],
+                                libxz],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)

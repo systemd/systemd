@@ -436,7 +436,6 @@ Features:
   confusion is gone)
   - port resolved over from libgcrypt (DNSSEC code)
   - port journald + fsprg over from libgcrypt
-  - port importd over from libgcrypt
   - when that's done: kill gnutls support in resolved
 
 * add growvol and makevol options for /etc/crypttab, similar to
