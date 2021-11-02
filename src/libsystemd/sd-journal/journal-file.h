@@ -127,6 +127,13 @@ typedef enum JournalFileFlags {
         JOURNAL_SEAL     = 1 << 1,
 } JournalFileFlags;
 
+/* Extended version of EntryItem that stores extra information that we don't always store in the journal
+ * file. Note that unlike EntryItem, this struct stores fields in Native-Endian instead of Little-Endian. */
+typedef struct {
+        uint64_t object_offset;
+        uint64_t hash;
+} EntryItemEx;
+
 int journal_file_open(
                 int fd,
                 const char *fname,
