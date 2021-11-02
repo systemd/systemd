@@ -2287,14 +2287,14 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         field_length = strlen(field);
 
-        uint64_t n = journal_file_entry_n_items(o);
+        uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 Object *d;
                 uint64_t p, l;
                 size_t t;
                 Compression c;
 
-                p = le64toh(o->entry.items[i].object_offset);
+                p = journal_file_entry_item_object_offset(f, o, i);
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
@@ -2435,10 +2435,10 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (r < 0)
                 return r;
 
-        for (uint64_t n = journal_file_entry_n_items(o); j->current_field < n; j->current_field++) {
+        for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
                 uint64_t p;
 
-                p = le64toh(o->entry.items[j->current_field].object_offset);
+                p = journal_file_entry_item_object_offset(f, o, j->current_field);
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);

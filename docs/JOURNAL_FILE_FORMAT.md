@@ -461,11 +461,6 @@ field name. It is the head of a singly linked list using DATA's
 ## Entry Objects
 
 ```
-_packed_ struct EntryItem {
-        le64_t object_offset;
-        le64_t hash;
-};
-
 _packed_ struct EntryObject {
         ObjectHeader object;
         le64_t seqnum;
@@ -473,7 +468,15 @@ _packed_ struct EntryObject {
         le64_t monotonic;
         sd_id128_t boot_id;
         le64_t xor_hash;
-        EntryItem items[];
+        union {                                 \
+                struct {                        \
+                        le64_t object_offset;   \
+                        le64_t hash;            \
+                } regular[];                    \
+                struct {                        \
+                        le32_t object_offset;   \
+                } compact[];                    \
+        } items;                                \
 };
 ```
 
@@ -498,6 +501,10 @@ timestamps.
 The **items[]** array contains references to all DATA objects of this entry,
 plus their respective hashes (which are calculated the same way as in the DATA
 objects, i.e. keyed by the file ID).
+
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, DATA object offsets are stored
+as 32-bit integers instead of 64bit and the unused hash field per data object is
+not stored anymore.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
