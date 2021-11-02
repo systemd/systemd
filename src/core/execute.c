@@ -756,12 +756,16 @@ static int chown_terminal(int fd, uid_t uid) {
         return 1;
 }
 
-static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_stdout) {
+static int setup_confirm_stdio(
+                const char *vc,
+                int *ret_saved_stdin,
+                int *ret_saved_stdout) {
+
         _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
         int r;
 
-        assert(_saved_stdin);
-        assert(_saved_stdout);
+        assert(ret_saved_stdin);
+        assert(ret_saved_stdout);
 
         saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3);
         if (saved_stdin < 0)
@@ -783,16 +787,13 @@ static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_st
         if (r < 0)
                 return r;
 
-        r = rearrange_stdio(fd, fd, STDERR_FILENO);
-        fd = -1;
+        r = rearrange_stdio(fd, fd, STDERR_FILENO); /* Invalidates 'fd' also on failure */
+        TAKE_FD(fd);
         if (r < 0)
                 return r;
 
-        *_saved_stdin = saved_stdin;
-        *_saved_stdout = saved_stdout;
-
-        saved_stdin = saved_stdout = -1;
-
+        *ret_saved_stdin = TAKE_FD(saved_stdin);
+        *ret_saved_stdout = TAKE_FD(saved_stdout);
         return 0;
 }
 

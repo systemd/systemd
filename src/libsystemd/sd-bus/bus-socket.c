@@ -991,6 +991,8 @@ int bus_socket_exec(sd_bus *b) {
                 if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
                         _exit(EXIT_FAILURE);
 
+                TAKE_FD(s[1]);
+
                 (void) rlimit_nofile_safe();
 
                 if (b->exec_argv)
