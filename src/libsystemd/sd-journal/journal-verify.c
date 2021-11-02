@@ -1057,7 +1057,9 @@ int journal_file_verify(
                         n_fields++;
                         break;
 
-                case OBJECT_ENTRY:
+                case OBJECT_ENTRY: {
+                        sd_id128_t boot_id;
+
                         if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
                                 error(p, "First entry before first tag");
                                 r = -EBADMSG;
@@ -1091,8 +1093,12 @@ int journal_file_verify(
                         entry_seqnum = le64toh(o->entry.seqnum);
                         entry_seqnum_set = true;
 
+                        r = journal_file_entry_boot_id(f, o, &boot_id);
+                        if (r < 0)
+                                return r;
+
                         if (entry_monotonic_set &&
-                            sd_id128_equal(entry_boot_id, o->entry.boot_id) &&
+                            sd_id128_equal(entry_boot_id, boot_id) &&
                             entry_monotonic > le64toh(o->entry.monotonic)) {
                                 error(p, "Entry timestamp out of synchronization");
                                 r = -EBADMSG;
@@ -1100,7 +1106,7 @@ int journal_file_verify(
                         }
 
                         entry_monotonic = le64toh(o->entry.monotonic);
-                        entry_boot_id = o->entry.boot_id;
+                        entry_boot_id = boot_id;
                         entry_monotonic_set = true;
 
                         if (!entry_realtime_set &&
@@ -1115,6 +1121,7 @@ int journal_file_verify(
 
                         n_entries++;
                         break;
+                }
 
                 case OBJECT_DATA_HASH_TABLE:
                         if (n_data_hash_tables > 1) {
