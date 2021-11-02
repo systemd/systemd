@@ -380,6 +380,8 @@ option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnutls support')
 option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'openssl support')
+option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
+       description : 'whether to use openssl or gcrypt where both are supported')
 option('p11kit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'p11kit support')
 option('libfido2', type : 'combo', choices : ['auto', 'true', 'false'],

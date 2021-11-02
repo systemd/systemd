@@ -1523,6 +1523,18 @@ else
 endif
 conf.set10('ENABLE_REPART', have)
 
+# We support one or the other. If gcrypt is available, we assume it's there to
+# be used, and use it in preference.
+opt = get_option('cryptolib')
+if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
+        error('openssl requested as the default cryptolib, but not available')
+endif
+conf.set10('PREFER_OPENSSL',
+           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
+conf.set10('HAVE_OPENSSL_OR_GCRYPT',
+           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
+lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
@@ -4019,6 +4031,14 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
+        found += 'cryptolib(openssl)'
+elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
+        found += 'cryptolib(gcrypt)'
+else
+        missing += 'cryptolib'
 endif
 
 if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
