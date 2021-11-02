@@ -1387,3 +1387,129 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
 
         return 0;
 }
+
+bool user_record_shall_rebalance(UserRecord *h) {
+        assert(h);
+
+        if (user_record_rebalance_weight(h) == REBALANCE_WEIGHT_OFF)
+                return false;
+
+        if (user_record_storage(h) != USER_LUKS)
+                return false;
+
+        if (!path_startswith(user_record_image_path(h), get_home_root())) /* This is the only pool we rebalance in */
+                return false;
+
+        return true;
+}
+
+int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
+        _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine_array = NULL, *machine_id_variant = NULL,
+                *machine_id_array = NULL, *per_machine_entry = NULL;
+        _cleanup_free_ JsonVariant **array = NULL;
+        size_t idx = SIZE_MAX, n;
+        JsonVariant *per_machine;
+        sd_id128_t mid;
+        int r;
+
+        assert(h);
+
+        if (!h->json)
+                return -EUNATCH;
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        r = json_variant_new_id128(&machine_id_variant, mid);
+        if (r < 0)
+                return r;
+
+        r = json_variant_new_array(&machine_id_array, (JsonVariant*[]) { machine_id_variant }, 1);
+        if (r < 0)
+                return r;
+
+        per_machine = json_variant_by_key(h->json, "perMachine");
+        if (per_machine) {
+                if (!json_variant_is_array(per_machine))
+                        return -EINVAL;
+
+                n = json_variant_elements(per_machine);
+
+                array = new(JsonVariant*, n + 1);
+                if (!array)
+                        return -ENOMEM;
+
+                for (size_t i = 0; i < n; i++) {
+                        JsonVariant *m;
+
+                        array[i] = json_variant_by_index(per_machine, i);
+
+                        if (!json_variant_is_object(array[i]))
+                                return -EINVAL;
+
+                        m = json_variant_by_key(array[i], "matchMachineId");
+                        if (!m) {
+                                /* No machineId field? Let's ignore this, but invalidate what we found so far */
+                                idx = SIZE_MAX;
+                                continue;
+                        }
+
+                        if (json_variant_equal(m, machine_id_variant) ||
+                            json_variant_equal(m, machine_id_array)) {
+                                /* Matches exactly what we are looking for. Let's use this */
+                                idx = i;
+                                continue;
+                        }
+
+                        r = per_machine_id_match(m, JSON_PERMISSIVE);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                /* Also matches what we are looking for, but with a broader match. In this
+                                 * case let's ignore this entry, and add a new specific one to the end. */
+                                idx = SIZE_MAX;
+                }
+
+                if (idx == SIZE_MAX)
+                        idx = n++; /* Nothing suitable found, place new entry at end */
+                else
+                        per_machine_entry = json_variant_ref(array[idx]);
+
+        } else {
+                array = new(JsonVariant*, 1);
+                if (!array)
+                        return -ENOMEM;
+
+                idx = 0;
+                n = 1;
+        }
+
+        if (!per_machine_entry) {
+                r = json_variant_set_field(&per_machine_entry, "matchMachineId", machine_id_array);
+                if (r < 0)
+                        return r;
+        }
+
+        if (weight == REBALANCE_WEIGHT_UNSET)
+                r = json_variant_set_field(&per_machine_entry, "rebalanceWeight", NULL); /* set explicitly to NULL (so that the perMachine setting we are setting here can override the global setting) */
+        else
+                r = json_variant_set_field_unsigned(&per_machine_entry, "rebalanceWeight", weight);
+        if (r < 0)
+                return r;
+
+        assert(idx < n);
+        array[idx] = per_machine_entry;
+
+        r = json_variant_new_array(&new_per_machine_array, array, n);
+        if (r < 0)
+                return r;
+
+        r = json_variant_set_field(&h->json, "perMachine", new_per_machine_array);
+        if (r < 0)
+                return r;
+
+        h->rebalance_weight = weight;
+        h->mask |= USER_RECORD_PER_MACHINE;
+        return 0;
+}

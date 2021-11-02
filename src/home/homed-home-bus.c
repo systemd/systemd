@@ -485,7 +485,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, error);
+        r = home_resize(h, sz, secret, /* automatic= */ false, error);
         if (r < 0)
                 return r;
 

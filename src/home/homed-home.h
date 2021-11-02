@@ -88,6 +88,8 @@ static inline bool HOME_STATE_SHALL_PIN(HomeState state) {
                       HOME_AUTHENTICATING_FOR_ACQUIRE);
 }
 
+#define HOME_STATE_SHALL_REBALANCE(state) HOME_STATE_SHALL_PIN(state)
+
 static inline bool HOME_STATE_MAY_RETRY_DEACTIVATE(HomeState state) {
         /* Indicates when to leave the deactivate retry timer active */
         return IN_SET(state,
@@ -165,6 +167,12 @@ struct Home {
 
         /* An fd that locks the backing file of LUKS home dirs with a BSD lock. */
         int luks_lock_fd;
+
+        /* Space metrics during rebalancing */
+        uint64_t rebalance_size, rebalance_usage, rebalance_free, rebalance_min, rebalance_weight, rebalance_goal;
+
+        /* Whether a rebalance operation is pending */
+        bool rebalance_pending;
 };
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret);
@@ -183,7 +191,7 @@ int home_deactivate(Home *h, bool force, sd_bus_error *error);
 int home_create(Home *h, UserRecord *secret, sd_bus_error *error);
 int home_remove(Home *h, sd_bus_error *error);
 int home_update(Home *h, UserRecord *new_record, sd_bus_error *error);
-int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error);
+int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, bool automatic, sd_bus_error *error);
 int home_passwd(Home *h, UserRecord *new_secret, UserRecord *old_secret, sd_bus_error *error);
 int home_unregister(Home *h, sd_bus_error *error);
 int home_lock(Home *h, sd_bus_error *error);
@@ -207,6 +215,10 @@ int home_auto_login(Home *h, char ***ret_seats);
 int home_set_current_message(Home *h, sd_bus_message *m);
 
 int home_wait_for_worker(Home *h);
+
+bool home_shall_rebalance(Home *h);
+
+bool home_is_busy(Home *h);
 
 const char *home_state_to_string(HomeState state);
 HomeState home_state_from_string(const char *s);
