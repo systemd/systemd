@@ -86,6 +86,40 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable,
 };
 
+const UnitDependency dependency_inverse_table[_UNIT_DEPENDENCY_MAX] = {
+        [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
+        [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
+        [UNIT_WANTS] = UNIT_WANTED_BY,
+        [UNIT_BINDS_TO] = UNIT_BOUND_BY,
+        [UNIT_PART_OF] = UNIT_CONSISTS_OF,
+        [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
+        [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
+        [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
+        [UNIT_WANTED_BY] = UNIT_WANTS,
+        [UNIT_BOUND_BY] = UNIT_BINDS_TO,
+        [UNIT_CONSISTS_OF] = UNIT_PART_OF,
+        [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
+        [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
+        [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
+        [UNIT_BEFORE] = UNIT_AFTER,
+        [UNIT_AFTER] = UNIT_BEFORE,
+        [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
+        [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
+        [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
+        [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
+        [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
+        [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
+        [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
+        [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
+        [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
+        [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
+        [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+        [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
+        [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
+        [UNIT_IN_SLICE] = UNIT_SLICE_OF,
+        [UNIT_SLICE_OF] = UNIT_IN_SLICE,
+};
+
 Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
@@ -3007,39 +3041,6 @@ int unit_add_dependency(
                 bool add_reference,
                 UnitDependencyMask mask) {
 
-        static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
-                [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
-                [UNIT_WANTS] = UNIT_WANTED_BY,
-                [UNIT_BINDS_TO] = UNIT_BOUND_BY,
-                [UNIT_PART_OF] = UNIT_CONSISTS_OF,
-                [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
-                [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
-                [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
-                [UNIT_WANTED_BY] = UNIT_WANTS,
-                [UNIT_BOUND_BY] = UNIT_BINDS_TO,
-                [UNIT_CONSISTS_OF] = UNIT_PART_OF,
-                [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
-                [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
-                [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
-                [UNIT_BEFORE] = UNIT_AFTER,
-                [UNIT_AFTER] = UNIT_BEFORE,
-                [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
-                [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
-                [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
-                [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
-                [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
-                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
-                [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
-                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
-                [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
-                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
-                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
-                [UNIT_IN_SLICE] = UNIT_SLICE_OF,
-                [UNIT_SLICE_OF] = UNIT_IN_SLICE,
-        };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
         int r;
@@ -3105,8 +3106,8 @@ int unit_add_dependency(
                 return r;
         noop = !r;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
-                r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
+        if (dependency_inverse_table[d] != _UNIT_DEPENDENCY_INVALID && dependency_inverse_table[d] != d) {
+                r = unit_add_dependency_hashmap(&other->dependencies, dependency_inverse_table[d], u, 0, mask);
                 if (r < 0)
                         return r;
                 if (r)
