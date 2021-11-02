@@ -8,6 +8,7 @@
 #include "manager-dump.h"
 #include "rm-rf.h"
 #include "service.h"
+#include "slice.h"
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
@@ -75,7 +76,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
-                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL;
+                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL, *zupa = NULL;
         Job *j;
         int r;
 
@@ -259,6 +260,76 @@ int main(int argc, char *argv[]) {
         assert_se(mm == 3U*5U*7U*11U*13U);
 
         verify_dependency_atoms();
+
+        /* Test removing by dependency type; unit with only After= dependencies */
+
+        assert_se(unit_new_for_name(m, sizeof(Service), "z.service", &stub) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_BASIC_TARGET, true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, "quux.target", true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_ROOT_SLICE, true, UNIT_DEPENDENCY_FILE) >= 0);
+
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, manager_get_unit(m, "quux.target")));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_ROOT_SLICE)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, manager_get_unit(m, "quux.target")));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, manager_get_unit(m, SPECIAL_ROOT_SLICE)));
+
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, "quux.target"), UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_ROOT_SLICE), UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, "quux.target"), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_ROOT_SLICE), UNIT_ATOM_REFERENCED_BY, stub));
+
+        unit_remove_dependencies_by_type(stub, UNIT_AFTER);
+
+        for (UnitDependency dep = 0; dep < _UNIT_DEPENDENCY_MAX; dep++) {
+                Hashmap *dep_hm = unit_get_dependencies(stub, dep);
+                assert_se(!dep_hm || hashmap_isempty(dep_hm));
+        }
+
+        assert_se(!unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_BEFORE, stub));
+        assert_se(!unit_has_dependency(manager_get_unit(m, "quux.target"), UNIT_ATOM_BEFORE, stub));
+        assert_se(!unit_has_dependency(manager_get_unit(m, SPECIAL_ROOT_SLICE), UNIT_ATOM_BEFORE, stub));
+
+        assert_se(!unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(!unit_has_dependency(manager_get_unit(m, "quux.target"), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(!unit_has_dependency(manager_get_unit(m, SPECIAL_ROOT_SLICE), UNIT_ATOM_REFERENCED_BY, stub));
+
+        /* Test removing by dependency type; unit with After= and Slice= dependencies */
+
+        assert_se(unit_new_for_name(m, sizeof(Slice), "zupa.slice", &zupa) >= 0);
+        unit_set_slice(stub, zupa, UNIT_DEPENDENCY_FILE);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_BASIC_TARGET, true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency(stub, UNIT_AFTER, zupa, true, UNIT_DEPENDENCY_FILE) >= 0);
+
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, zupa));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, zupa));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, zupa));
+
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_SLICE_OF, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, stub));
+
+        unit_remove_dependencies_by_type(stub, UNIT_IN_SLICE);
+
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_AFTER, zupa));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, zupa));
+
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_BEFORE, stub));
+        assert_se(unit_has_dependency(manager_get_unit(m, SPECIAL_BASIC_TARGET), UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, stub));
+
+        assert_se(!unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, zupa));
+        assert_se(!unit_has_dependency(zupa, UNIT_ATOM_SLICE_OF, stub));
 
         return 0;
 }

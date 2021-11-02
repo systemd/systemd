@@ -748,6 +748,7 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 void unit_remove_dependencies_by_mask(Unit *u, UnitDependencyMask mask);
+void unit_remove_dependencies_by_type(Unit *u, UnitDependency dep);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 

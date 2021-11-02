@@ -1062,6 +1062,27 @@ static int unit_add_dependency_hashmap(
         return unit_per_dependency_type_hashmap_update(per_type, other, origin_mask, destination_mask);
 }
 
+static void unit_remove_dependency_hashmap(
+                Hashmap **dependencies,
+                UnitDependency d,
+                Unit *other) {
+
+        Hashmap *per_type;
+
+        assert(dependencies);
+        assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
+        assert(other);
+
+        if (!*dependencies || hashmap_isempty(*dependencies))
+                return;
+
+        per_type = hashmap_get(*dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+        if (!per_type)
+                return;
+
+        (void) hashmap_remove(per_type, other);
+}
+
 static void unit_merge_dependencies(
                 Unit *u,
                 Unit *other) {
@@ -3220,6 +3241,60 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
                 return r;
 
         return unit_add_two_dependencies(u, d, e, other, add_reference, mask);
+}
+
+void unit_remove_dependencies_by_type(Unit *u, UnitDependency d) {
+        UnitDependencyInfo di;
+        Hashmap *per_type, *refs;
+        Unit *other;
+
+        assert(u);
+        assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
+
+        if (!u->dependencies || hashmap_isempty(u->dependencies))
+                return;
+
+        per_type = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+        if (!per_type)
+                return;
+
+        refs = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(UNIT_REFERENCES));
+
+        /* Process each unit in the dependency */
+        HASHMAP_FOREACH_KEY(di.data, other, per_type) {
+                bool has_other_refs = false;
+                Hashmap *deps;
+                void *key;
+
+                /* Remove inverses */
+                if (dependency_inverse_table[d] != _UNIT_DEPENDENCY_INVALID && dependency_inverse_table[d] != d)
+                        unit_remove_dependency_hashmap(&other->dependencies, dependency_inverse_table[d], u);
+
+                /* If we have references to other, check if "other" is in any other dependency type.
+                 * If not, remove from references. */
+                if (hashmap_contains(refs, other)) {
+                        HASHMAP_FOREACH_KEY(deps, key, u->dependencies) {
+                                UnitDependency k = UNIT_DEPENDENCY_FROM_PTR(key);
+
+                                if (k == d || IN_SET(k, UNIT_REFERENCES, UNIT_REFERENCED_BY))
+                                        continue;
+
+                                if (hashmap_contains(deps, other)) {
+                                        has_other_refs = true;
+                                        break;
+                                }
+                        }
+
+                        if (!has_other_refs) {
+                                unit_remove_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other);
+                                unit_remove_dependency_hashmap(&other->dependencies, UNIT_REFERENCED_BY, u);
+                        }
+                }
+
+                unit_add_to_gc_queue(other);
+        }
+
+        hashmap_clear(per_type);
 }
 
 int set_unit_path(const char *p) {
