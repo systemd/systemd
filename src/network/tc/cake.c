@@ -22,6 +22,7 @@ static int cake_init(QDisc *qdisc) {
         c->autorate = -1;
         c->compensation_mode = _CAKE_COMPENSATION_MODE_INVALID;
         c->flow_isolation_mode = _CAKE_FLOW_ISOLATION_MODE_INVALID;
+        c->nat = -1;
 
         return 0;
 }
@@ -68,6 +69,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_FLOW_MODE, c->flow_isolation_mode);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_FLOW_MODE attribute: %m");
+        }
+
+        if (c->nat >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_NAT, c->nat);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_NAT attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -227,6 +234,8 @@ int config_parse_cake_tristate(
 
         if (streq(lvalue, "AutoRateIngress"))
                 dest = &c->autorate;
+        else if (streq(lvalue, "NAT"))
+                dest = &c->nat;
         else
                 assert_not_reached();
 
