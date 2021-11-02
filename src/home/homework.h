@@ -8,6 +8,8 @@
 
 #include "homework-password-cache.h"
 #include "loop-util.h"
+#include "missing_keyctl.h"
+#include "missing_syscall.h"
 #include "user-record.h"
 #include "user-record-util.h"
 
@@ -27,6 +29,8 @@ typedef struct HomeSetup {
 
         void *volume_key;
         size_t volume_key_size;
+
+        key_serial_t key_serial;
 
         bool undo_dm:1;
         bool undo_mount:1;            /* Whether to unmount /run/systemd/user-home-mount */
@@ -49,6 +53,7 @@ typedef struct HomeSetup {
                 .image_fd = -1,                         \
                 .partition_offset = UINT64_MAX,         \
                 .partition_size = UINT64_MAX,           \
+                .key_serial = -1,                       \
         }
 
 /* Various flags for the operation of setting up a home directory */
@@ -70,6 +75,8 @@ int home_setup_done(HomeSetup *setup);
 
 int home_setup_undo_mount(HomeSetup *setup, int level);
 int home_setup_undo_dm(HomeSetup *setup, int level);
+
+int keyring_unlink(key_serial_t k);
 
 int home_setup(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_header_home);
 
