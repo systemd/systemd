@@ -533,7 +533,10 @@ static int server_send_offer_or_ack(
 
         if (server->emit_router) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                                       SD_DHCP_OPTION_ROUTER, 4, &server->address);
+                                       SD_DHCP_OPTION_ROUTER, 4,
+                                       in4_addr_is_set(&server->router_address) ?
+                                       &server->router_address.s_addr :
+                                       &server->address);
                 if (r < 0)
                         return r;
         }
@@ -1418,15 +1421,18 @@ int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], s
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR, lpr, n);
 }
 
-int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
+int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *router) {
         assert_return(server, -EINVAL);
 
-        if (enabled == server->emit_router)
-                return 0;
+        /* router is NULL: router option will not be appended.
+         * router is null address (0.0.0.0): the server address will be used as the router address.
+         * otherwise: the specified address will be used as the router address.*/
 
-        server->emit_router = enabled;
+        server->emit_router = router;
+        if (router)
+                server->router_address = *router;
 
-        return 1;
+        return 0;
 }
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v) {
