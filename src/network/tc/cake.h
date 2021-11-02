@@ -42,6 +42,7 @@ typedef struct CommonApplicationsKeptEnhanced {
 
         /* Flow isolation parameters */
         CakeFlowIsolationMode flow_isolation_mode;
+        int nat;
 
 } CommonApplicationsKeptEnhanced;
 
