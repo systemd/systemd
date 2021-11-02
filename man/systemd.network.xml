@@ -2482,12 +2482,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <varlistentry>
         <term><varname>EmitRouter=</varname></term>
+        <term><varname>Router=</varname></term>
 
-        <listitem><para>Similar to the <varname>EmitDNS=</varname>
-        setting described above, this setting configures whether the
-        DHCP lease should contain the router option. The same syntax,
-        propagation semantics and defaults apply as for
-        <varname>EmitDNS=</varname>.</para></listitem>
+        <listitem><para>The <varname>EmitRouter=</varname> setting takes a boolean value, and configures
+        whether the DHCP lease should contain the router option. The <varname>Router=</varname> setting
+        takes an IPv4 address, and configures the router address to be emitted. When the
+        <varname>Router=</varname> setting is not specified, then the server address will be used for
+        the router option. When the <varname>EmitRouter=</varname> setting is disabled, the
+        <varname>Router=</varname> setting will be ignored. The <varname>EmitRouter=</varname> setting
+        defaults to true, and the <varname>Router=</varname> setting defaults to unset.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

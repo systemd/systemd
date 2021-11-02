@@ -290,6 +290,7 @@ DHCPServer.SMTP,                             config_parse_dhcp_server_emit,     
 DHCPServer.EmitLPR,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR].emit)
 DHCPServer.LPR,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR])
 DHCPServer.EmitRouter,                       config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_router)
+DHCPServer.Router,                           config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_router)
 DHCPServer.EmitTimezone,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_timezone)
 DHCPServer.Timezone,                         config_parse_timezone,                                    0,                             offsetof(Network, dhcp_server_timezone)
 DHCPServer.PoolOffset,                       config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_offset)
