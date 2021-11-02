@@ -3603,6 +3603,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NAT=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, CAKE performs a NAT lookup before applying
+          flow-isolation rules, to determine the true addresses and port numbers of the packet, to
+          improve fairness between hosts inside the NAT. This has no practical effect when
+          <varname>FlowIsolationMode=</varname> is <literal>none</literal> or <literal>flows</literal>,
+          or if NAT is performed on a different host. Defaults to unset, and the kernel's default is
+          used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

@@ -474,6 +474,7 @@ AutoRateIngress=
 OverheadBytes=
 CompensationMode=
 FlowIsolationMode=
+NAT=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
