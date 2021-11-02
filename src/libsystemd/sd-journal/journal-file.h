@@ -230,6 +230,9 @@ int journal_file_entry_item_next(
                 void **ret_data,
                 size_t *ret_size);
 
+uint64_t journal_file_entry_xor_hash(JournalFile *f, Object *o);
+int journal_file_entry_boot_id(JournalFile *f, Object *o, sd_id128_t *ret_boot_id);
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
@@ -251,7 +254,7 @@ int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t s
 int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
 void journal_file_reset_location(JournalFile *f);
-void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
+int journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
 int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
 
