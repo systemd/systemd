@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=veth-mtu
+Kind=veth
+MACAddress=12:34:56:78:9a:be
+MTUBytes=1800
+
+[Peer]
+Name=veth-mtu-peer
+MACAddress=12:34:56:78:9a:bf
