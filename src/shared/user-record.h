@@ -221,6 +221,12 @@ typedef enum AutoResizeMode {
         _AUTO_RESIZE_MODE_INVALID = -EINVAL,
 } AutoResizeMode;
 
+#define REBALANCE_WEIGHT_OFF UINT64_C(0)
+#define REBALANCE_WEIGHT_DEFAULT UINT64_C(100)
+#define REBALANCE_WEIGHT_MIN UINT64_C(1)
+#define REBALANCE_WEIGHT_MAX UINT64_C(10000)
+#define REBALANCE_WEIGHT_UNSET UINT64_MAX
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -258,6 +264,7 @@ typedef struct UserRecord {
         char *skeleton_directory;
         mode_t access_mode;
         AutoResizeMode auto_resize_mode;
+        uint64_t rebalance_weight;
 
         uint64_t tasks_max;
         uint64_t memory_high;
@@ -397,6 +404,7 @@ uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
 bool user_record_drop_caches(UserRecord *h);
 AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
+uint64_t user_record_rebalance_weight(UserRecord *h);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
