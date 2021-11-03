@@ -192,8 +192,9 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
 #define TAKE_PID(pid)                           \
         ({                                      \
-                pid_t _pid_ = (pid);            \
-                (pid) = 0;                      \
+                pid_t *_ppid_ = &(pid);         \
+                pid_t _pid_ = *_ppid_;          \
+                *_ppid_ = 0;                    \
                 _pid_;                          \
         })
 
