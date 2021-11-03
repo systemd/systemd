@@ -76,7 +76,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
-                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL, *zupa = NULL;
+                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL,
+                *stub = NULL, *zupa = NULL, *meow = NULL, *woof = NULL;
         Job *j;
         int r;
 
@@ -330,6 +331,34 @@ int main(int argc, char *argv[]) {
 
         assert_se(!unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, zupa));
         assert_se(!unit_has_dependency(zupa, UNIT_ATOM_SLICE_OF, stub));
+
+        unit_remove_dependencies_by_type(stub, UNIT_AFTER);
+
+        /* Test adding multiple Slice= dependencies; only the last should remain */
+
+        assert_se(unit_new_for_name(m, sizeof(Slice), "meow.slice", &meow) >= 0);
+        assert_se(unit_new_for_name(m, sizeof(Slice), "woof.slice", &woof) >= 0);
+
+        unit_set_slice(stub, zupa, UNIT_DEPENDENCY_FILE);
+        unit_set_slice(stub, meow, UNIT_DEPENDENCY_FILE);
+        unit_set_slice(stub, woof, UNIT_DEPENDENCY_FILE);
+
+        assert_se(UNIT_GET_SLICE(stub) == woof);
+        assert_se(!unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, zupa));
+        assert_se(!unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, meow));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_IN_SLICE, woof));
+
+        assert_se(!unit_has_dependency(stub, UNIT_ATOM_REFERENCES, zupa));
+        assert_se(!unit_has_dependency(stub, UNIT_ATOM_REFERENCES, meow));
+        assert_se(unit_has_dependency(stub, UNIT_ATOM_REFERENCES, woof));
+
+        assert_se(!unit_has_dependency(zupa, UNIT_ATOM_SLICE_OF, stub));
+        assert_se(!unit_has_dependency(meow, UNIT_ATOM_SLICE_OF, stub));
+        assert_se(unit_has_dependency(woof, UNIT_ATOM_SLICE_OF, stub));
+
+        assert_se(!unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(!unit_has_dependency(meow, UNIT_ATOM_REFERENCED_BY, stub));
+        assert_se(unit_has_dependency(woof, UNIT_ATOM_REFERENCED_BY, stub));
 
         return 0;
 }

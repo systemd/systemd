@@ -3393,6 +3393,10 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
         if (UNIT_GET_SLICE(u) && u->cgroup_realized)
                 return -EBUSY;
 
+        /* Only allow setting one slice; remove previous ones if they exist */
+        if (UNIT_GET_SLICE(u) && UNIT_GET_SLICE(u) != slice)
+                unit_remove_dependencies_by_type(u, UNIT_IN_SLICE);
+
         r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
         if (r < 0)
                 return r;
