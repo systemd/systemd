@@ -3262,9 +3262,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc cake 3a: root')
-        self.assertRegex(output, 'bandwidth 500Mbit')
-        self.assertRegex(output, 'overhead 128')
+        self.assertIn('qdisc cake 3a: root', output)
+        self.assertIn('bandwidth 500Mbit', output)
+        self.assertIn('autorate-ingress', output)
+        self.assertIn('diffserv8', output)
+        self.assertIn('dual-dsthost', output)
+        self.assertIn(' nat', output)
+        self.assertIn(' wash', output)
+        self.assertIn(' split-gso', output)
+        self.assertIn(' raw', output)
+        self.assertIn(' atm', output)
+        self.assertIn('overhead 128', output)
+        self.assertIn('mpu 20', output)
+        self.assertIn('fwmark 0xff00', output)
 
     @expectedFailureIfPIEIsNotAvailable()
     def test_qdisc_pie(self):

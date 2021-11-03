@@ -9,5 +9,15 @@ Address=10.1.2.3/16
 [CAKE]
 Parent=root
 Handle=3a
-OverheadBytes=128
 Bandwidth=500M
+AutoRateIngress=yes
+OverheadBytes=128
+MPUBytes=20
+CompensationMode=atm
+UseRawPacketSize=yes
+FlowIsolationMode=dual-dst-host
+NAT=yes
+PriorityQueueingPreset=diffserv8
+FirewallMark=0xff00
+Wash=yes
+SplitGSO=yes
