@@ -3464,6 +3464,25 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
+        <term><varname>Bandwidth=</varname></term>
+        <listitem>
+          <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
+          parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AutoRateIngress=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. Enables automatic capacity estimation based on traffic arriving
+          at this qdisc. This is most likely to be useful with cellular links, which tend to change
+          quality randomly. If this setting is enabled, the <varname>Bandwidth=</varname> setting is
+          used as an initial estimate. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OverheadBytes=</varname></term>
         <listitem>
           <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative. Takes
@@ -3472,13 +3491,180 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Bandwidth=</varname></term>
+        <term><varname>MPUBytes=</varname></term>
         <listitem>
-          <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
-          parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000. Defaults to
-          unset and kernel's default is used.</para>
+          <para>Rounds each packet (including overhead) up to a minimum length of the bytes. Takes an
+          unsigned integer in the range from 0 to 256. Defaults to unset and kernel's default is used.
+          </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompensationMode=</varname></term>
+        <listitem>
+          <para>Takes one of <literal>none</literal>, <literal>atm</literal>, or <literal>ptm</literal>.
+          Specifies the compensation mode for overhead calculation. When <literal>none</literal>, no
+          compensation is taken into account. When <literal>atm</literal>, enables the compensation for
+          ATM cell framing, which is normally found on ADSL links. When <literal>ptm</literal>, enables
+          the compensation for PTM encoding, which is normally found on VDSL2 links and uses a 64b/65b
+          encoding scheme. Defaults to unset and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FlowIsolationMode=</varname></term>
+        <listitem>
+          <para>CAKE places packets from different flows into different queues, then packets from each
+          queue are delivered fairly. This specifies whether the fairness is based on source address,
+          destination address, individual flows, or any combination of those. The available values are:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>none</option></term>
+              <listitem><para>
+                The flow isolation is disabled, and all traffic passes through a single queue.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>src-host</option></term>
+              <listitem><para>
+                Flows are defined only by source address
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dst-host</option></term>
+              <listitem><para>
+                Flows are defined only by destination address.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hosts</option></term>
+              <listitem><para>
+                Flows are defined by source-destination host pairs
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>flows</option></term>
+              <listitem><para>
+                Flows are defined by the entire 5-tuple of source address, destination address,
+                transport protocol, source port and destination port.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-src-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied first over source addresses,
+                then over individual flows.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dual-dst-host</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied first over destination
+                addresses, then over individual flows.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>triple</option></term>
+              <listitem><para>
+                Flows are defined by the 5-tuple, and fairness is applied over source and destination
+                addresses, and also over individual flows.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Defaults to unset and the kernel's default is used.</para>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NAT=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, CAKE performs a NAT lookup before applying
+          flow-isolation rules, to determine the true addresses and port numbers of the packet, to
+          improve fairness between hosts inside the NAT. This has no practical effect when
+          <varname>FlowIsolationMode=</varname> is <literal>none</literal> or <literal>flows</literal>,
+          or if NAT is performed on a different host. Defaults to unset, and the kernel's default is
+          used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DifferentiatedServiceMode=</varname></term>
+        <listitem>
+          <para>CAKE divides traffic into <literal>tins</literal> based on the Differentiated Service
+          (<literal>Diffserv</literal>) field. Each tin has its own independent set of flow-isolation
+          queues, bandwidth threshold, and priority. This specifies the preset of tin profiles. The
+          available values are:</para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>bestefort</option></term>
+              <listitem><para>
+                Disables priority queuing by placing all traffic in one tin.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>precedence</option></term>
+              <listitem><para>
+                Enables legacy interpretation of TOS <literal>Precedence</literal> field. Use of this
+                preset on the modern Internet is firmly discouraged.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv8</option></term>
+              <listitem><para>
+                Provides a general-purpose Diffserv implementation with eight tins: Background Traffic,
+                High Throughput, Bog Standard, Video Streaming, Low Latency Transactions, Interactive
+                Shell, Minimum Latency, and Network Control.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv4</option></term>
+              <listitem><para>
+                Provides a general-purpose Diffserv implementation with four tins: Background Traffic,
+                Best Effort, Streaming Media, and Latency Sensitive.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv3</option></term>
+              <listitem><para>
+                Provides a simple, general-purpose Diffserv implementation with three tins: Background
+                Traffic, Best Effort, and Latency Sensitive.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FirewallMark=</varname></term>
+        <listitem>
+          <para>Takes an unsigned integer in the range 1–4294967295. When specified, firewall-mark-based
+          overriding of CAKE's tin selection is enabled. Defaults to unset, and the kernel's default is
+          used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Wash=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, CAKE clears the DSCP fields, except for ECN bits, of
+          any packet passing through CAKE. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SplitGSO=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, CAKE will split General Segmentation Offload (GSO)
+          super-packets into their on-the-wire components and dequeue them individually. Defaults to
+          unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

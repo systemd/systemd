@@ -1028,9 +1028,23 @@ static const NLType rtnl_nexthop_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_nexthop);
 
 static const NLType rtnl_tca_option_data_cake_types[] = {
-        [TCA_CAKE_BASE_RATE64] = { .type = NETLINK_TYPE_U64 },
-        [TCA_CAKE_OVERHEAD]    = { .type = NETLINK_TYPE_S32 },
-        [TCA_CAKE_MPU]         = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_BASE_RATE64]   = { .type = NETLINK_TYPE_U64 },
+        [TCA_CAKE_DIFFSERV_MODE] = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_ATM]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_FLOW_MODE]     = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_OVERHEAD]      = { .type = NETLINK_TYPE_S32 },
+        [TCA_CAKE_RTT]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_TARGET]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_AUTORATE]      = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_MEMORY]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_NAT]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_RAW]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_WASH]          = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_MPU]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_INGRESS]       = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_ACK_FILTER]    = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_SPLIT_GSO]     = { .type = NETLINK_TYPE_U32 },
+        [TCA_CAKE_FWMARK]        = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLType rtnl_tca_option_data_codel_types[] = {
