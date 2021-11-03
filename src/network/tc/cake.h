@@ -28,6 +28,16 @@ typedef enum CakeFlowIsolationMode {
         _CAKE_FLOW_ISOLATION_MODE_INVALID = -EINVAL,
 } CakeFlowIsolationMode;
 
+typedef enum CakeDiffServMode {
+        CAKE_DIFFSERV_MODE_DIFFSERV3  = CAKE_DIFFSERV_DIFFSERV3,
+        CAKE_DIFFSERV_MODE_DIFFSERV4  = CAKE_DIFFSERV_DIFFSERV4,
+        CAKE_DIFFSERV_MODE_DIFFSERV8  = CAKE_DIFFSERV_DIFFSERV8,
+        CAKE_DIFFSERV_MODE_BESTEFFORT = CAKE_DIFFSERV_BESTEFFORT,
+        CAKE_DIFFSERV_MODE_PRECEDENCE = CAKE_DIFFSERV_PRECEDENCE,
+        _CAKE_DIFFSERV_MODE_MAX,
+        _CAKE_DIFFSERV_MODE_INVALID = -EINVAL,
+} CakeDiffServMode;
+
 typedef struct CommonApplicationsKeptEnhanced {
         QDisc meta;
 
@@ -45,6 +55,9 @@ typedef struct CommonApplicationsKeptEnhanced {
         CakeFlowIsolationMode flow_isolation_mode;
         int nat;
 
+        /* Priority queue parameters */
+        CakeDiffServMode diff_serv_mode;
+
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
@@ -56,3 +69,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cake_mpu);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_compensation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_flow_isolation_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_diff_serv_mode);
