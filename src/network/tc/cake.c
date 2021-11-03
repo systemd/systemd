@@ -25,6 +25,7 @@ static int cake_init(QDisc *qdisc) {
         c->nat = -1;
         c->preset = _CAKE_PRESET_INVALID;
         c->wash = -1;
+        c->split_gso = -1;
 
         return 0;
 }
@@ -101,6 +102,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_WASH, c->wash);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_WASH attribute: %m");
+        }
+
+        if (c->split_gso >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_SPLIT_GSO, c->wash);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_SPLIT_GSO attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -323,6 +330,8 @@ int config_parse_cake_tristate(
                 dest = &c->nat;
         else if (streq(lvalue, "Wash"))
                 dest = &c->wash;
+        else if (streq(lvalue, "SplitGSO"))
+                dest = &c->split_gso;
         else
                 assert_not_reached();
 
