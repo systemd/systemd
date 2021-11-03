@@ -476,6 +476,7 @@ FlowIsolationMode=
 NAT=
 DifferentiatedServiceMode=
 FirewallMark=
+Wash=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=

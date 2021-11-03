@@ -59,6 +59,9 @@ typedef struct CommonApplicationsKeptEnhanced {
         CakeDiffServMode diff_serv_mode;
         uint32_t fwmark;
 
+        /* Other parameters */
+        int wash;
+
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
