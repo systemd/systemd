@@ -86,6 +86,40 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable,
 };
 
+const UnitDependency dependency_inverse_table[_UNIT_DEPENDENCY_MAX] = {
+        [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
+        [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
+        [UNIT_WANTS] = UNIT_WANTED_BY,
+        [UNIT_BINDS_TO] = UNIT_BOUND_BY,
+        [UNIT_PART_OF] = UNIT_CONSISTS_OF,
+        [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
+        [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
+        [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
+        [UNIT_WANTED_BY] = UNIT_WANTS,
+        [UNIT_BOUND_BY] = UNIT_BINDS_TO,
+        [UNIT_CONSISTS_OF] = UNIT_PART_OF,
+        [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
+        [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
+        [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
+        [UNIT_BEFORE] = UNIT_AFTER,
+        [UNIT_AFTER] = UNIT_BEFORE,
+        [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
+        [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
+        [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
+        [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
+        [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
+        [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
+        [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
+        [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
+        [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
+        [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
+        [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+        [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
+        [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
+        [UNIT_IN_SLICE] = UNIT_SLICE_OF,
+        [UNIT_SLICE_OF] = UNIT_IN_SLICE,
+};
+
 Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
@@ -1026,6 +1060,27 @@ static int unit_add_dependency_hashmap(
         }
 
         return unit_per_dependency_type_hashmap_update(per_type, other, origin_mask, destination_mask);
+}
+
+static void unit_remove_dependency_hashmap(
+                Hashmap **dependencies,
+                UnitDependency d,
+                Unit *other) {
+
+        Hashmap *per_type;
+
+        assert(dependencies);
+        assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
+        assert(other);
+
+        if (!*dependencies || hashmap_isempty(*dependencies))
+                return;
+
+        per_type = hashmap_get(*dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+        if (!per_type)
+                return;
+
+        (void) hashmap_remove(per_type, other);
 }
 
 static void unit_merge_dependencies(
@@ -3007,39 +3062,6 @@ int unit_add_dependency(
                 bool add_reference,
                 UnitDependencyMask mask) {
 
-        static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
-                [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
-                [UNIT_WANTS] = UNIT_WANTED_BY,
-                [UNIT_BINDS_TO] = UNIT_BOUND_BY,
-                [UNIT_PART_OF] = UNIT_CONSISTS_OF,
-                [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
-                [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
-                [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
-                [UNIT_WANTED_BY] = UNIT_WANTS,
-                [UNIT_BOUND_BY] = UNIT_BINDS_TO,
-                [UNIT_CONSISTS_OF] = UNIT_PART_OF,
-                [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
-                [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
-                [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
-                [UNIT_BEFORE] = UNIT_AFTER,
-                [UNIT_AFTER] = UNIT_BEFORE,
-                [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
-                [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
-                [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
-                [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
-                [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
-                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
-                [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
-                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
-                [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
-                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
-                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
-                [UNIT_IN_SLICE] = UNIT_SLICE_OF,
-                [UNIT_SLICE_OF] = UNIT_IN_SLICE,
-        };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
         int r;
@@ -3105,8 +3127,8 @@ int unit_add_dependency(
                 return r;
         noop = !r;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
-                r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
+        if (dependency_inverse_table[d] != _UNIT_DEPENDENCY_INVALID && dependency_inverse_table[d] != d) {
+                r = unit_add_dependency_hashmap(&other->dependencies, dependency_inverse_table[d], u, 0, mask);
                 if (r < 0)
                         return r;
                 if (r)
@@ -3221,6 +3243,60 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         return unit_add_two_dependencies(u, d, e, other, add_reference, mask);
 }
 
+void unit_remove_dependencies_by_type(Unit *u, UnitDependency d) {
+        UnitDependencyInfo di;
+        Hashmap *per_type, *refs;
+        Unit *other;
+
+        assert(u);
+        assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
+
+        if (!u->dependencies || hashmap_isempty(u->dependencies))
+                return;
+
+        per_type = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+        if (!per_type)
+                return;
+
+        refs = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(UNIT_REFERENCES));
+
+        /* Process each unit in the dependency */
+        HASHMAP_FOREACH_KEY(di.data, other, per_type) {
+                bool has_other_refs = false;
+                Hashmap *deps;
+                void *key;
+
+                /* Remove inverses */
+                if (dependency_inverse_table[d] != _UNIT_DEPENDENCY_INVALID && dependency_inverse_table[d] != d)
+                        unit_remove_dependency_hashmap(&other->dependencies, dependency_inverse_table[d], u);
+
+                /* If we have references to other, check if "other" is in any other dependency type.
+                 * If not, remove from references. */
+                if (hashmap_contains(refs, other)) {
+                        HASHMAP_FOREACH_KEY(deps, key, u->dependencies) {
+                                UnitDependency k = UNIT_DEPENDENCY_FROM_PTR(key);
+
+                                if (k == d || IN_SET(k, UNIT_REFERENCES, UNIT_REFERENCED_BY))
+                                        continue;
+
+                                if (hashmap_contains(deps, other)) {
+                                        has_other_refs = true;
+                                        break;
+                                }
+                        }
+
+                        if (!has_other_refs) {
+                                unit_remove_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other);
+                                unit_remove_dependency_hashmap(&other->dependencies, UNIT_REFERENCED_BY, u);
+                        }
+                }
+
+                unit_add_to_gc_queue(other);
+        }
+
+        hashmap_clear(per_type);
+}
+
 int set_unit_path(const char *p) {
         /* This is mostly for debug purposes */
         if (setenv("SYSTEMD_UNIT_PATH", p, 1) < 0)
@@ -3316,6 +3392,10 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
         /* Disallow slice changes if @u is already bound to cgroups */
         if (UNIT_GET_SLICE(u) && u->cgroup_realized)
                 return -EBUSY;
+
+        /* Only allow setting one slice; remove previous ones if they exist */
+        if (UNIT_GET_SLICE(u) && UNIT_GET_SLICE(u) != slice)
+                unit_remove_dependencies_by_type(u, UNIT_IN_SLICE);
 
         r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
         if (r < 0)
@@ -5089,7 +5169,7 @@ static void unit_update_dependency_mask(Hashmap *deps, Unit *other, UnitDependen
                 assert_se(hashmap_update(deps, other, di.data) == 0);
 }
 
-void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
+void unit_remove_dependencies_by_mask(Unit *u, UnitDependencyMask mask) {
         Hashmap *deps;
         assert(u);
 
