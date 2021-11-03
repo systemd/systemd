@@ -3457,27 +3457,38 @@ static void manager_notify_finished(Manager *m) {
 }
 
 static void user_manager_send_ready(Manager *m) {
+        int r;
+
         assert(m);
 
         /* We send READY=1 on reaching basic.target only when running in --user mode. */
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        sd_notifyf(false,
-                   "READY=1\n"
-                   "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+        r = sd_notifyf(false,
+                       "READY=1\n"
+                       "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
         m->ready_sent = true;
         m->status_ready = false;
 }
 
 static void manager_send_ready(Manager *m) {
+        int r;
+
         if (m->ready_sent && m->status_ready)
                 /* Skip the notification if nothing changed. */
                 return;
 
-        sd_notifyf(false,
-                   "%sSTATUS=Ready.",
-                   m->ready_sent ? "READY=1\n" : "");
+        r = sd_notifyf(false,
+                       "%sSTATUS=Ready.",
+                       m->ready_sent ? "READY=1\n" : "");
+        if (r < 0)
+                log_full_errno(m->ready_sent ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to send readiness notification, ignoring: %m");
+
         m->ready_sent = m->status_ready = true;
 }
 
