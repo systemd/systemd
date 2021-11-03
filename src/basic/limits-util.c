@@ -111,35 +111,57 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
 }
 
 uint64_t system_tasks_max(void) {
-        uint64_t a = TASKS_MAX, b = TASKS_MAX;
+        uint64_t a = TASKS_MAX, b = TASKS_MAX, c = TASKS_MAX;
         _cleanup_free_ char *root = NULL;
         int r;
 
-        /* Determine the maximum number of tasks that may run on this system. We check three sources to determine this
-         * limit:
+        /* Determine the maximum number of tasks that may run on this system. We check three sources to
+         * determine this limit:
          *
-         * a) the maximum tasks value the kernel allows on this architecture
-         * b) the cgroups pids_max attribute for the system
-         * c) the kernel's configured maximum PID value
+         * a) kernel.threads-max sysctl: the maximum number of tasks (threads) the kernel allows.
          *
-         * And then pick the smallest of the three */
+         *    This puts a direct limit on the number of concurrent tasks.
+         *
+         * b) kernel.pid_max sysctl: the maximum PID value.
+         *
+         *    This limits the numeric range PIDs can take, and thus indirectly also limits the number of
+         *    concurrent threads. It's primarily a compatibility concept: some crappy old code used a signed
+         *    16bit type for PIDs, hence the kernel provides a way to ensure the PIDs never go beyond
+         *    INT16_MAX by default.
+         *
+         *    Also note the weird definition: PIDs assigned will be kept below this value, which means
+         *    the number of tasks that can be created is one lower, as PID 0 is not a valid process ID.
+         *
+         * c) pids.max on the root cgroup: the kernel's configured maximum number of tasks.
+         *
+         * and then pick the smallest of the three.
+         *
+         * By default pid_max is set to much lower values than threads-max, hence the limit people come into
+         * contact with first, as it's the lowest boundary they need to bump when they want higher number of
+         * processes.
+         */
 
-        r = procfs_tasks_get_limit(&a);
+        r = procfs_get_threads_max(&a);
         if (r < 0)
-                log_debug_errno(r, "Failed to read maximum number of tasks from /proc, ignoring: %m");
+                log_debug_errno(r, "Failed to read kernel.threads-max, ignoring: %m");
+
+        r = procfs_get_pid_max(&b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read kernel.pid_max, ignoring: %m");
+        else if (b > 0)
+                /* Subtract one from pid_max, since PID 0 is not a valid PID */
+                b--;
 
         r = cg_get_root_path(&root);
         if (r < 0)
                 log_debug_errno(r, "Failed to determine cgroup root path, ignoring: %m");
         else {
-                r = cg_get_attribute_as_uint64("pids", root, "pids.max", &b);
+                r = cg_get_attribute_as_uint64("pids", root, "pids.max", &c);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to read pids.max attribute of cgroup root, ignoring: %m");
+                        log_debug_errno(r, "Failed to read pids.max attribute of root cgroup, ignoring: %m");
         }
 
-        return MIN3(TASKS_MAX,
-                    a <= 0 ? TASKS_MAX : a,
-                    b <= 0 ? TASKS_MAX : b);
+        return MIN3(a, b, c);
 }
 
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
