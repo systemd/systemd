@@ -257,8 +257,9 @@
  * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
 #define TAKE_PTR(ptr)                           \
         ({                                      \
-                typeof(ptr) _ptr_ = (ptr);      \
-                (ptr) = NULL;                   \
+                typeof(ptr) *_pptr_ = &(ptr);   \
+                typeof(ptr) _ptr_ = *_pptr_;    \
+                *_pptr_ = NULL;                 \
                 _ptr_;                          \
         })
 
