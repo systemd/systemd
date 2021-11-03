@@ -1807,7 +1807,7 @@ static int cat_config(void) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return cat_files(NULL, files, 0);
 }

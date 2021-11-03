@@ -2902,7 +2902,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         if (arg_action != ACTION_RUN)
                 skip_setup = true;
