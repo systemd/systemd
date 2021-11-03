@@ -4205,6 +4205,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         ssize_t n;
         pid_t inner_child_pid;
         _cleanup_strv_free_ char **tags = NULL;
+        int r;
 
         assert(userdata);
 
@@ -4243,8 +4244,11 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (!tags)
                 return log_oom();
 
-        if (strv_find(tags, "READY=1"))
-                (void) sd_notifyf(false, "READY=1\n");
+        if (strv_find(tags, "READY=1")) {
+                r = sd_notifyf(false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
 
         p = strv_find_startswith(tags, "STATUS=");
         if (p)
@@ -5134,8 +5138,11 @@ static int run_container(
         (void) sd_notifyf(false,
                           "STATUS=Container running.\n"
                           "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
-        if (!arg_notify_ready)
-                (void) sd_notify(false, "READY=1\n");
+        if (!arg_notify_ready) {
+                r = sd_notify(false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
 
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */

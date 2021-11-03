@@ -4,11 +4,11 @@
 #include <sys/types.h>
 
 #include "sd-bus.h"
-#include "sd-daemon.h"
 
 #include "alloc-util.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "main-func.h"
 #include "portabled-bus.h"
@@ -154,15 +154,13 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-portabled running as pid " PID_FMT, getpid_cached());
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = manager_run(m);
 
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
+        (void) sd_notify(false, NOTIFY_STOPPING);
         log_debug("systemd-portabled stopped as pid " PID_FMT, getpid_cached());
         return r;
 }
