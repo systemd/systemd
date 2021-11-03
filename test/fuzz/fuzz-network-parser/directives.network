@@ -475,6 +475,7 @@ CompensationMode=
 FlowIsolationMode=
 NAT=
 DifferentiatedServiceMode=
+FirewallMark=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
