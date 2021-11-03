@@ -1764,13 +1764,10 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
          * there's something to send it will be turned on again. */
 
         if (!s->sent_notify_ready) {
-                static const char p[] =
-                        "READY=1\n"
-                        "STATUS=Processing requests...";
-                ssize_t l;
+                static const char p[] = "READY=1\n"
+                                        "STATUS=Processing requests...";
 
-                l = send(s->notify_fd, p, strlen(p), MSG_DONTWAIT);
-                if (l < 0) {
+                if (send(s->notify_fd, p, strlen(p), MSG_DONTWAIT) < 0) {
                         if (errno == EAGAIN)
                                 return 0;
 
@@ -1781,14 +1778,9 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
                 log_debug("Sent READY=1 notification.");
 
         } else if (s->send_watchdog) {
+                static const char p[] = "WATCHDOG=1";
 
-                static const char p[] =
-                        "WATCHDOG=1";
-
-                ssize_t l;
-
-                l = send(s->notify_fd, p, strlen(p), MSG_DONTWAIT);
-                if (l < 0) {
+                if (send(s->notify_fd, p, strlen(p), MSG_DONTWAIT) < 0) {
                         if (errno == EAGAIN)
                                 return 0;
 
