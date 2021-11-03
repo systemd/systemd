@@ -61,6 +61,7 @@ typedef struct CommonApplicationsKeptEnhanced {
 
         /* Other parameters */
         int wash;
+        int split_gso;
 
 } CommonApplicationsKeptEnhanced;
 
