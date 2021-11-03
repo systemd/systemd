@@ -109,8 +109,7 @@ static void socket_unwatch_control_pid(Socket *s) {
         if (s->control_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid);
-        s->control_pid = 0;
+        unit_unwatch_pid(UNIT(s), TAKE_PID(s->control_pid));
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {

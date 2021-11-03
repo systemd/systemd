@@ -130,8 +130,7 @@ static void service_unwatch_control_pid(Service *s) {
         if (s->control_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid);
-        s->control_pid = 0;
+        unit_unwatch_pid(UNIT(s), TAKE_PID(s->control_pid));
 }
 
 static void service_unwatch_main_pid(Service *s) {
@@ -140,8 +139,7 @@ static void service_unwatch_main_pid(Service *s) {
         if (s->main_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->main_pid);
-        s->main_pid = 0;
+        unit_unwatch_pid(UNIT(s), TAKE_PID(s->main_pid));
 }
 
 static void service_unwatch_pid_file(Service *s) {

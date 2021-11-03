@@ -155,8 +155,7 @@ static void swap_unwatch_control_pid(Swap *s) {
         if (s->control_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid);
-        s->control_pid = 0;
+        unit_unwatch_pid(UNIT(s), TAKE_PID(s->control_pid));
 }
 
 static void swap_done(Unit *u) {

@@ -236,8 +236,7 @@ static void mount_unwatch_control_pid(Mount *m) {
         if (m->control_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(m), m->control_pid);
-        m->control_pid = 0;
+        unit_unwatch_pid(UNIT(m), TAKE_PID(m->control_pid));
 }
 
 static void mount_parameters_done(MountParameters *p) {

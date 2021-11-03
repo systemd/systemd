@@ -5248,8 +5248,7 @@ static int run_container(
                 }
         }
 
-        r = wait_for_container(*pid, &container_status);
-        *pid = 0;
+        r = wait_for_container(TAKE_PID(*pid), &container_status);
 
         /* Tell machined that we are gone. */
         if (bus)
