@@ -3676,6 +3676,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FirewallMark=</varname></term>
+        <listitem>
+          <para>Takes an integer in the range 1…4294967295. When specified, firewall-mark-based
+          overriding of CAKE's tin selection is enabled. Defaults to unset, and the kernel's default is
+          used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
