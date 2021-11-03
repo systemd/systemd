@@ -384,14 +384,19 @@ error:
 }
 
 void session_device_free(SessionDevice *sd) {
+        int r;
+
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+        if (sd->pushed_fd) {
+                r = sd_notifyf(false,
+                               "FDSTOREREMOVE=1\n"
+                               "FDNAME=session-%s-device-%u-%u",
+                               sd->session->id, major(sd->dev), minor(sd->dev));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+        }
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);

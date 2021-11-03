@@ -915,7 +915,7 @@ void manager_disconnect(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        sd_notifyf(false, "STATUS=Idle.");
+        sd_notify(false, "STATUS=Idle.");
 }
 
 void manager_flush_server_names(Manager  *m, ServerType t) {
