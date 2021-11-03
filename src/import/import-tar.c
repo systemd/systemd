@@ -69,10 +69,8 @@ TarImport* tar_import_unref(TarImport *i) {
 
         sd_event_source_unref(i->input_event_source);
 
-        if (i->tar_pid > 1) {
-                (void) kill_and_sigcont(i->tar_pid, SIGKILL);
-                (void) wait_for_terminate(i->tar_pid, NULL);
-        }
+        if (i->tar_pid > 1)
+                sigkill_wait(i->tar_pid);
 
         rm_rf_subvolume_and_free(i->temp_path);
 

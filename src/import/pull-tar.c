@@ -71,10 +71,8 @@ TarPull* tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
-        if (i->tar_pid > 1) {
-                (void) kill_and_sigcont(i->tar_pid, SIGKILL);
-                (void) wait_for_terminate(i->tar_pid, NULL);
-        }
+        if (i->tar_pid > 1)
+                sigkill_wait(i->tar_pid);
 
         pull_job_unref(i->tar_job);
         pull_job_unref(i->checksum_job);

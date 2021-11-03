@@ -56,10 +56,8 @@ TarExport *tar_export_unref(TarExport *e) {
 
         sd_event_source_unref(e->output_event_source);
 
-        if (e->tar_pid > 1) {
-                (void) kill_and_sigcont(e->tar_pid, SIGKILL);
-                (void) wait_for_terminate(e->tar_pid, NULL);
-        }
+        if (e->tar_pid > 1)
+                sigkill_wait(e->tar_pid);
 
         if (e->temp_path) {
                 (void) btrfs_subvol_remove(e->temp_path, BTRFS_REMOVE_QUOTA);
