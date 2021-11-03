@@ -41,6 +41,8 @@
 {{type}}.TTYReset,                         config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.tty_reset)
 {{type}}.TTYVHangup,                       config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.tty_vhangup)
 {{type}}.TTYVTDisallocate,                 config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.tty_vt_disallocate)
+{{type}}.TTYRows,                          config_parse_tty_size,                       0,                                  offsetof({{type}}, exec_context.tty_rows)
+{{type}}.TTYColumns,                       config_parse_tty_size,                       0,                                  offsetof({{type}}, exec_context.tty_cols)
 {{type}}.SyslogIdentifier,                 config_parse_unit_string_printf,             0,                                  offsetof({{type}}, exec_context.syslog_identifier)
 {{type}}.SyslogFacility,                   config_parse_log_facility,                   0,                                  offsetof({{type}}, exec_context.syslog_priority)
 {{type}}.SyslogLevel,                      config_parse_log_level,                      0,                                  offsetof({{type}}, exec_context.syslog_priority)
