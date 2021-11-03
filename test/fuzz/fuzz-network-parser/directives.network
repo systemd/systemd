@@ -470,6 +470,7 @@ Handle=
 Bandwidth=
 AutoRateIngress=
 OverheadBytes=
+MPUBytes=
 CompensationMode=
 FlowIsolationMode=
 NAT=
