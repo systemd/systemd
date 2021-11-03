@@ -59,6 +59,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_OVERHEAD attribute: %m");
         }
 
+        if (c->mpu > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_MPU, c->mpu);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_MPU attribute: %m");
+        }
+
         if (c->compensation_mode >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_ATM, c->compensation_mode);
                 if (r < 0)
@@ -195,6 +201,65 @@ int config_parse_cake_overhead(
 
         c->overhead = v;
         c->overhead_set = true;
+        TAKE_PTR(qdisc);
+        return 0;
+}
+
+int config_parse_cake_mpu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        CommonApplicationsKeptEnhanced *c;
+        Network *network = data;
+        uint32_t v;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
+
+        c = CAKE(qdisc);
+
+        if (isempty(rvalue)) {
+                c->mpu = 0;
+                TAKE_PTR(qdisc);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+        if (v <= 0 || v > 256) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        c->mpu = v;
         TAKE_PTR(qdisc);
         return 0;
 }
