@@ -167,8 +167,7 @@ static int tar_import_finish(TarImport *i) {
         i->tar_fd = safe_close(i->tar_fd);
 
         if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", i->tar_pid, WAIT_LOG);
-                i->tar_pid = 0;
+                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
                 if (r < 0)
                         return r;
                 if (r != EXIT_SUCCESS)
