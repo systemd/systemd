@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 
                 r = procfs_tasks_set_limit(v-1);
                 log_info_errno(r, "procfs_tasks_set_limit: %m");
-                assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r));
+                assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
 
                 assert_se(procfs_get_threads_max(&w) >= 0);
                 assert_se(r >= 0 ? w == v - 1 : w == v);
