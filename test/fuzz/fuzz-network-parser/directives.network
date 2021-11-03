@@ -478,6 +478,7 @@ FlowIsolationMode=
 NAT=
 PriorityQueueingPreset=
 FirewallMark=
+Wash=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=

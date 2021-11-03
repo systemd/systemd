@@ -3685,6 +3685,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Wash=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, CAKE clears the DSCP fields, except for ECN bits, of
+          any packet passing through CAKE. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

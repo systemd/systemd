@@ -59,6 +59,9 @@ typedef struct CommonApplicationsKeptEnhanced {
         CakePriorityQueueingPreset preset;
         uint32_t fwmark;
 
+        /* Other parameters */
+        int wash;
+
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
