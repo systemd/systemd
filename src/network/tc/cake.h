@@ -38,6 +38,7 @@ typedef struct CommonApplicationsKeptEnhanced {
         /* Overhead compensation parameters */
         bool overhead_set;
         int overhead;
+        uint32_t mpu;
         CakeCompensationMode compensation_mode;
 
         /* Flow isolation parameters */
@@ -51,6 +52,7 @@ extern const QDiscVTable cake_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_bandwidth);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_overhead);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_mpu);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_compensation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_flow_isolation_mode);
