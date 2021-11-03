@@ -988,7 +988,9 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
-                if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
+                r = rearrange_stdio(s[1], s[1], STDERR_FILENO);
+                TAKE_FD(s[1]);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) rlimit_nofile_safe();
