@@ -571,6 +571,10 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
                 return -E2BIG;
 
+        /* Refuse to go over 4G in compact mode so offsets can be stored in 32-bit. */
+        if (JOURNAL_HEADER_COMPACT(f->header) && new_size > UINT32_MAX)
+                return -E2BIG;
+
         if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
                 struct statvfs svfs;
 
