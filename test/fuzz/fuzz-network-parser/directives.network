@@ -476,6 +476,7 @@ MPUBytes=
 CompensationMode=
 FlowIsolationMode=
 NAT=
+PriorityQueueingPreset=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=

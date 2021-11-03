@@ -3623,6 +3623,59 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PriorityQueueingPreset=</varname></term>
+        <listitem>
+          <para>CAKE divides traffic into <literal>tins</literal>, and each tin has its own independent
+          set of flow-isolation queues, bandwidth threshold, and priority. This specifies the preset of
+          tin profiles. The available values are:</para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>besteffort</option></term>
+              <listitem><para>
+                Disables priority queueing by placing all traffic in one tin.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>precedence</option></term>
+              <listitem><para>
+                Enables priority queueing based on the legacy interpretation of TOS
+                <literal>Precedence</literal> field. Use of this preset on the modern Internet is
+                firmly discouraged.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv8</option></term>
+              <listitem><para>
+                Enables priority queueing based on the Differentiated Service
+                (<literal>DiffServ</literal>) field with eight tins: Background Traffic, High
+                Throughput, Best Effort, Video Streaming, Low Latency Transactions, Interactive Shell,
+                Minimum Latency, and Network Control.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv4</option></term>
+              <listitem><para>
+                Enables priority queueing based on the Differentiated Service
+                (<literal>DiffServ</literal>) field with four tins: Background Traffic, Best Effort,
+                Streaming Media, and Latency Sensitive.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>diffserv3</option></term>
+              <listitem><para>
+                Enables priority queueing based on the Differentiated Service
+                (<literal>DiffServ</literal>) field with three tins: Background Traffic, Best Effort,
+                and Latency Sensitive.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
