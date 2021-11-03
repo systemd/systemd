@@ -3465,9 +3465,9 @@ static void user_manager_send_ready(Manager *m) {
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        r = sd_notifyf(false,
-                       "READY=1\n"
-                       "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+        r = sd_notify(false,
+                      "READY=1\n"
+                      "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
