@@ -147,8 +147,7 @@ static int tar_export_finish(TarExport *e) {
         assert(e->tar_fd >= 0);
 
         if (e->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", e->tar_pid, WAIT_LOG);
-                e->tar_pid = 0;
+                r = wait_for_terminate_and_check("tar", TAKE_PID(e->tar_pid), WAIT_LOG);
                 if (r < 0)
                         return r;
                 if (r != EXIT_SUCCESS)

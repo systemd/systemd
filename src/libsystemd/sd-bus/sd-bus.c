@@ -1082,10 +1082,10 @@ static int bus_parse_next_address(sd_bus *b) {
 }
 
 static void bus_kill_exec(sd_bus *bus) {
-        if (pid_is_valid(bus->busexec_pid) > 0) {
-                sigterm_wait(bus->busexec_pid);
-                bus->busexec_pid = 0;
-        }
+        if (!pid_is_valid(bus->busexec_pid))
+                return;
+
+        sigterm_wait(TAKE_PID(bus->busexec_pid));
 }
 
 static int bus_start_address(sd_bus *b) {

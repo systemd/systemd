@@ -482,8 +482,7 @@ static int verify_gpg(
 
         gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-        r = wait_for_terminate_and_check("gpg", pid, WAIT_LOG_ABNORMAL);
-        pid = 0;
+        r = wait_for_terminate_and_check("gpg", TAKE_PID(pid), WAIT_LOG_ABNORMAL);
         if (r < 0)
                 goto finish;
         if (r != EXIT_SUCCESS)
