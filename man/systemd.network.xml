@@ -3491,6 +3491,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MPUBytes=</varname></term>
+        <listitem>
+          <para>Rounds each packet (including overhead) up to a minimum length of the bytes. Takes an
+          unsigned integer in the range from 0 to 256. Defaults to unset and kernel's default is used.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CompensationMode=</varname></term>
         <listitem>
           <para>Takes one of <literal>none</literal>, <literal>atm</literal>, or <literal>ptm</literal>.
