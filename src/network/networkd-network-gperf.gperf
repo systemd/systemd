@@ -397,6 +397,7 @@ CAKE.NAT,                                    config_parse_cake_tristate,        
 CAKE.PriorityQueueingPreset,                 config_parse_cake_priority_queueing_preset,               QDISC_KIND_CAKE,               0
 CAKE.FirewallMark,                           config_parse_cake_fwmark,                                 QDISC_KIND_CAKE,               0
 CAKE.Wash,                                   config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
+CAKE.SplitGSO,                               config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
 ControlledDelay.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_CODEL,              0
 ControlledDelay.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_CODEL,              0
 ControlledDelay.PacketLimit,                 config_parse_controlled_delay_u32,                        QDISC_KIND_CODEL,              0
