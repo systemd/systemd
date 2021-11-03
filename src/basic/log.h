@@ -27,6 +27,8 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
+#define LOG_NULL (LOG_EMERG - 1)
+
 /* Note to readers: << and >> have lower precedence than & and | */
 #define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
 #define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
