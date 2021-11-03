@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -486,6 +487,47 @@ static void test_fd_reopen(void) {
         fd1 = -1;
 }
 
+static void test_take_fd(void) {
+        _cleanup_close_ int fd1 = -1, fd2 = -1;
+        int array[2] = { -1, -1 }, i = 0;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(fd1 == -1);
+        assert_se(fd2 == -1);
+
+        fd1 = eventfd(0, EFD_CLOEXEC);
+        assert_se(fd1 >= 0);
+
+        fd2 = TAKE_FD(fd1);
+        assert_se(fd1 == -1);
+        assert_se(fd2 >= 0);
+
+        assert_se(array[0] == -1);
+        assert_se(array[1] == -1);
+
+        array[0] = TAKE_FD(fd2);
+        assert_se(fd1 == -1);
+        assert_se(fd2 == -1);
+        assert_se(array[0] >= 0);
+        assert_se(array[1] == -1);
+
+        array[1] = TAKE_FD(array[i]);
+        assert_se(array[0] == -1);
+        assert_se(array[1] >= 0);
+
+        i = 1 - i;
+        array[0] = TAKE_FD(*(array + i));
+        assert_se(array[0] >= 0);
+        assert_se(array[1] == -1);
+
+        i = 1 - i;
+        fd1 = TAKE_FD(array[i]);
+        assert_se(fd1 >= 0);
+        assert_se(array[0] == -1);
+        assert_se(array[1] == -1);
+}
+
 int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
@@ -500,6 +542,7 @@ int main(int argc, char *argv[]) {
         test_close_all_fds();
         test_format_proc_fd_path();
         test_fd_reopen();
+        test_take_fd();
 
         return 0;
 }
