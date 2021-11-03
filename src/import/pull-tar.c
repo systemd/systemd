@@ -71,10 +71,8 @@ TarPull* tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
-        if (i->tar_pid > 1) {
-                (void) kill_and_sigcont(i->tar_pid, SIGKILL);
-                (void) wait_for_terminate(i->tar_pid, NULL);
-        }
+        if (i->tar_pid > 1)
+                sigkill_wait(i->tar_pid);
 
         pull_job_unref(i->tar_job);
         pull_job_unref(i->checksum_job);
@@ -369,8 +367,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
         pull_job_close_disk_fd(i->settings_job);
 
         if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", i->tar_pid, WAIT_LOG);
-                i->tar_pid = 0;
+                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
                 if (r < 0)
                         goto finish;
                 if (r != EXIT_SUCCESS) {

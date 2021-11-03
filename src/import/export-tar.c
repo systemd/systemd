@@ -56,10 +56,8 @@ TarExport *tar_export_unref(TarExport *e) {
 
         sd_event_source_unref(e->output_event_source);
 
-        if (e->tar_pid > 1) {
-                (void) kill_and_sigcont(e->tar_pid, SIGKILL);
-                (void) wait_for_terminate(e->tar_pid, NULL);
-        }
+        if (e->tar_pid > 1)
+                sigkill_wait(e->tar_pid);
 
         if (e->temp_path) {
                 (void) btrfs_subvol_remove(e->temp_path, BTRFS_REMOVE_QUOTA);
@@ -147,8 +145,7 @@ static int tar_export_finish(TarExport *e) {
         assert(e->tar_fd >= 0);
 
         if (e->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", e->tar_pid, WAIT_LOG);
-                e->tar_pid = 0;
+                r = wait_for_terminate_and_check("tar", TAKE_PID(e->tar_pid), WAIT_LOG);
                 if (r < 0)
                         return r;
                 if (r != EXIT_SUCCESS)

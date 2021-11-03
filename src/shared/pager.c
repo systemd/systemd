@@ -286,7 +286,7 @@ void pager_close(void) {
         stdout_redirected = stderr_redirected = false;
 
         (void) kill(pager_pid, SIGCONT);
-        (void) wait_for_terminate(pager_pid, NULL);
+        (void) wait_for_terminate(TAKE_PID(pager_pid), NULL);
         pager_pid = 0;
 }
 

@@ -126,10 +126,8 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->format);
         free(t->object_path);
 
-        if (t->pid > 0) {
-                (void) kill_and_sigcont(t->pid, SIGKILL);
-                (void) wait_for_terminate(t->pid, NULL);
-        }
+        if (t->pid > 1)
+                sigkill_wait(t->pid);
 
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
