@@ -57,6 +57,7 @@ typedef struct CommonApplicationsKeptEnhanced {
 
         /* Priority queue parameters */
         CakeDiffServMode diff_serv_mode;
+        uint32_t fwmark;
 
 } CommonApplicationsKeptEnhanced;
 
@@ -70,3 +71,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cake_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_compensation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_flow_isolation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_diff_serv_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_fwmark);
