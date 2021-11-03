@@ -988,6 +988,8 @@ int unit_thaw_vtable_common(Unit *u);
 
 Condition *unit_find_failed_condition(Unit *u);
 
+bool unit_has_failed_condition_or_assert(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full_errno_zerook(unit, level, error, ...)             \
