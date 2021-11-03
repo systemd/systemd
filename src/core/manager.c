@@ -3482,9 +3482,9 @@ static void manager_send_ready(Manager *m) {
                 /* Skip the notification if nothing changed. */
                 return;
 
-        r = sd_notifyf(false,
-                       "%sSTATUS=Ready.",
-                       m->ready_sent ? "READY=1\n" : "");
+        r = sd_notify(false,
+                      "READY=1\n"
+                      "STATUS=Ready.");
         if (r < 0)
                 log_full_errno(m->ready_sent ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to send readiness notification, ignoring: %m");
