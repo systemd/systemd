@@ -23,6 +23,7 @@ static int cake_init(QDisc *qdisc) {
         c->compensation_mode = _CAKE_COMPENSATION_MODE_INVALID;
         c->flow_isolation_mode = _CAKE_FLOW_ISOLATION_MODE_INVALID;
         c->nat = -1;
+        c->preset = _CAKE_PRESET_INVALID;
 
         return 0;
 }
@@ -81,6 +82,12 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_NAT, c->nat);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_NAT attribute: %m");
+        }
+
+        if (c->preset >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_DIFFSERV_MODE, c->preset);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_DIFFSERV_MODE attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -446,6 +453,69 @@ int config_parse_cake_flow_isolation_mode(
         }
 
         c->flow_isolation_mode = mode;
+        TAKE_PTR(qdisc);
+        return 0;
+}
+
+static const char * const cake_priority_queueing_preset_table[_CAKE_PRESET_MAX] = {
+        [CAKE_PRESET_DIFFSERV3]  = "diffserv3",
+        [CAKE_PRESET_DIFFSERV4]  = "diffserv4",
+        [CAKE_PRESET_DIFFSERV8]  = "diffserv8",
+        [CAKE_PRESET_BESTEFFORT] = "besteffort",
+        [CAKE_PRESET_PRECEDENCE] = "precedence",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cake_priority_queueing_preset, CakePriorityQueueingPreset);
+
+int config_parse_cake_priority_queueing_preset(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        CommonApplicationsKeptEnhanced *c;
+        CakePriorityQueueingPreset preset;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
+
+        c = CAKE(qdisc);
+
+        if (isempty(rvalue)) {
+                c->preset = _CAKE_PRESET_INVALID;
+                TAKE_PTR(qdisc);
+                return 0;
+        }
+
+        preset = cake_priority_queueing_preset_from_string(rvalue);
+        if (preset < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, preset,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        c->preset = preset;
         TAKE_PTR(qdisc);
         return 0;
 }
