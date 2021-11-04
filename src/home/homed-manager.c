@@ -1972,6 +1972,24 @@ static int manager_rebalance_apply(Manager *m) {
         return c;
 }
 
+static void manager_rebalance_reply_messages(Manager *m) {
+        int r;
+
+        assert(m);
+
+        for (;;) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg =
+                        set_steal_first(m->rebalance_pending_method_calls);
+
+                if (!msg)
+                        break;
+
+                r = sd_bus_reply_method_return(msg, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reply to rebalance method call, ignoring: %m");
+        }
+}
+
 static int manager_rebalance_now(Manager *m) {
         RebalanceState busy_state; /* the state to revert to when operation fails if busy */
         int r;
@@ -1993,6 +2011,13 @@ static int manager_rebalance_now(Manager *m) {
                         /* First shrink large home dirs */
                         m->rebalance_state = REBALANCE_SHRINKING;
                         busy_state = REBALANCE_PENDING;
+
+                        /* We are initiating the next rebalancing cycle now, let's make the queued methods
+                         * calls the pending ones, and flush out any pending onces (which shouldn't exist at
+                         * this time anyway) */
+                        set_clear(m->rebalance_pending_method_calls);
+                        SWAP_TWO(m->rebalance_pending_method_calls, m->rebalance_queued_method_calls);
+
                         log_debug("Shrinking phase..");
                         break;
 
@@ -2042,6 +2067,7 @@ static int manager_rebalance_now(Manager *m) {
 finish:
         /* Reset state and schedule next rebalance */
         m->rebalance_state = REBALANCE_IDLE;
+        manager_rebalance_reply_messages(m);
         (void) manager_schedule_rebalance(m, /* immediately= */ false);
         return r;
 }
@@ -2065,6 +2091,7 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
         /* Check if there are any records where rebalancing is requested */
         if (!manager_shall_rebalance(m)) {
                 log_debug("Not scheduling rebalancing, not needed.");
+                r = 0; /* report that we didn't schedule anything because nothing needed it */
                 goto turn_off;
         }
 
@@ -2105,13 +2132,13 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
                         m->rebalance_state = REBALANCE_PENDING;
 
                 log_debug("Scheduled immediate rebalancing...");
-                return 0;
+                return 1; /* report that we scheduled something */
         }
 
         /* If we are told to schedule a rebalancing eventually, then do so only if we are not executing
          * anything yet. Also if we have something scheduled already, leave it in place */
         if (!IN_SET(m->rebalance_state, REBALANCE_OFF, REBALANCE_IDLE))
-                return 0;
+                return 1; /* report that there's already something scheduled */
 
         if (m->rebalance_event_source) {
                 r = sd_event_source_set_time_relative(m->rebalance_event_source, m->rebalance_interval_usec);
@@ -2143,11 +2170,12 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
 
         m->rebalance_state = REBALANCE_WAITING; /* We managed to enqueue a timer event, we now wait until it fires */
         log_debug("Scheduled rebalancing in %s...", FORMAT_TIMESPAN(m->rebalance_interval_usec, 0));
-        return 0;
+        return 1; /* report that we scheduled something */
 
 turn_off:
         m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
         m->rebalance_state = REBALANCE_OFF;
+        manager_rebalance_reply_messages(m);
         return r;
 }
 
