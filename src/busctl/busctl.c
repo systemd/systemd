@@ -125,7 +125,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 }
         }
         if (r < 0)
-                return bus_log_address_error(r);
+                return bus_log_address_error(r, arg_transport);
 
         r = sd_bus_start(bus);
         if (r < 0)
