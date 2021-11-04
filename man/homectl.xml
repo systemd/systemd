@@ -946,6 +946,18 @@
         scripts and such, but requires authentication with the user's credentials in order to be able to
         unlock the user's home directory.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>rebalance</command></term>
+
+        <listitem><para>Rebalance free disk space between active home areas and the backing storage. See
+        <option>--rebalance-weight=</option> above. This executes no operation unless there's at least one
+        active LUKS2 home area that has disk space rebalancing enabled. This operation is synchronous: it
+        will only complete once disk space is rebalanced according to the rebalancing weights. Note that
+        rebalancing also takes place automatically in the background in regular intervals. Use this command
+        to synchronously ensure disk space is properly redistributed before initiating an operation requiring
+        large amounts of disk space.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
