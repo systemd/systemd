@@ -480,7 +480,7 @@ static void path_enter_dead(Path *p, PathResult f) {
                 p->result = f;
 
         unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));
-        path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
+        path_set_state(p, p->result == PATH_SUCCESS ? PATH_DEAD : PATH_FAILED);
 }
 
 static void path_enter_running(Path *p) {
@@ -780,6 +780,11 @@ static void path_trigger_notify(Unit *u, Unit *other) {
                 return;
         }
 
+        if (unit_has_failed_condition_or_assert(other)) {
+                path_enter_dead(p, PATH_FAILURE_UNIT_CONDITION_FAILED);
+                return;
+        }
+
         /* Don't propagate anything if there's still a job queued */
         if (other->job)
                 return;
@@ -832,10 +837,11 @@ static const char* const path_type_table[_PATH_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
-        [PATH_SUCCESS]                      = "success",
-        [PATH_FAILURE_RESOURCES]            = "resources",
-        [PATH_FAILURE_START_LIMIT_HIT]      = "start-limit-hit",
-        [PATH_FAILURE_UNIT_START_LIMIT_HIT] = "unit-start-limit-hit",
+        [PATH_SUCCESS]                       = "success",
+        [PATH_FAILURE_RESOURCES]             = "resources",
+        [PATH_FAILURE_START_LIMIT_HIT]       = "start-limit-hit",
+        [PATH_FAILURE_UNIT_START_LIMIT_HIT]  = "unit-start-limit-hit",
+        [PATH_FAILURE_UNIT_CONDITION_FAILED] = "unit-condition-failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);

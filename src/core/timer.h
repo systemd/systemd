@@ -32,6 +32,7 @@ typedef enum TimerResult {
         TIMER_SUCCESS,
         TIMER_FAILURE_RESOURCES,
         TIMER_FAILURE_START_LIMIT_HIT,
+        TIMER_FAILURE_UNIT_CONDITION_FAILED,
         _TIMER_RESULT_MAX,
         _TIMER_RESULT_INVALID = -EINVAL,
 } TimerResult;
