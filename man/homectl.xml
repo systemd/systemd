@@ -376,8 +376,8 @@
         <para>Note that FIDO2 devices suitable for this option must implement the
         <literal>hmac-secret</literal> extension. Most current devices (such as the YubiKey 5 series) do. If
         the extension is not implemented the device cannot be used for unlocking home directories.</para>
-          
-        <para>The FIDO2 device may be subsequently removed by setting the device path to an empty string 
+
+        <para>The FIDO2 device may be subsequently removed by setting the device path to an empty string
         (e.g. <command>homectl update $USER --fido2-device=""</command>).</para>
 
         <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
@@ -704,6 +704,24 @@
         the system is powered off abnormally or if the user otherwise not logged out cleanly the shrinking
         operation will not take place, and the user has to re-login/logout again before it is executed
         again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rebalance-weight=</option></term>
+
+        <listitem><para>Configures the weight parameter for the free disk space rebalancing logic. Only
+        applies to the LUKS2 backend (since for the LUKS2 backend disk space is allocated from a per-user
+        loopback file system instead of immediately from a common pool like the other backends do it). In
+        regular intervals free disk space in the active home areas and their backing storage is redistributed
+        among them, taking the weight value configured here into account. Expects an integer in the range
+        1…10000, or the special string <literal>off</literal>. If not specified defaults to 100. The weight
+        is used to scale free space made available to the home areas: a home area with a weight of 200 will
+        get twice the free space as one with a weight of 100; a home area with a weight of 50 will get half
+        of that. The backing file system will be assigned space for a weight of 20. If set to
+        <literal>off</literal> no automatic free space distribution is done for this home area. Note that
+        resizing the home area explicitly (with <command>homectl resize</command> see below) will implicitly
+        turn off the automatic rebalancing. To reenable the automatic rebalancing use
+        <option>--rebalance-weight=</option> with an empty parameter.</para></listitem>
       </varlistentry>
 
       <varlistentry>
