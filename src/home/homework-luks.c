@@ -1382,7 +1382,7 @@ int home_setup_luks(
         return 0;
 }
 
-static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, struct statfs *sfs) {
+static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, const struct statfs *sfs) {
         assert(sfs);
 
         log_info("Image size is %s, file system size is %s, file system payload size is %s, file system free is %s.",
