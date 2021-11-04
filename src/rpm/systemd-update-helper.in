@@ -52,8 +52,10 @@ case "$command" in
 
         users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
         for user in $users; do
-            SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
-                    systemctl --user -M "$user@" set-property "$unit" Markers=+needs-restart &
+            for unit in "$@"; do
+                SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
+                        systemctl --user -M "$user@" set-property "$unit" Markers=+needs-restart &
+            done
         done
         wait
         ;;
