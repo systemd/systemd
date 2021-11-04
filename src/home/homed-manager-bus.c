@@ -635,6 +635,27 @@ static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+
+        r = manager_schedule_rebalance(m, /* immediately= */ true);
+        if (r == 0)
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_REBALANCE_NOT_NEEDED, "No home directories need rebalancing.");
+        if (r < 0)
+                return r;
+
+        /* Keep a reference to this message, so that we can reply to it once we are done */
+        r = set_ensure_put(&m->rebalance_queued_method_calls, &bus_message_hash_ops, message);
+        if (r < 0)
+                return log_error_errno(r, "Failed to track rebalance bus message: %m");
+
+        sd_bus_message_ref(message);
+        return 1;
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -843,6 +864,7 @@ static const sd_bus_vtable manager_vtable[] = {
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),
         SD_BUS_METHOD("DeactivateAllHomes", NULL, NULL, method_deactivate_all_homes, 0),
+        SD_BUS_METHOD("Rebalance", NULL, NULL, method_rebalance, 0),
 
         SD_BUS_VTABLE_END
 };
