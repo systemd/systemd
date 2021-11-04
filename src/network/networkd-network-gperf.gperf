@@ -45,14 +45,14 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                            config_parse_hwaddrs,                                     0,                             offsetof(Network, match.mac)
-Match.PermanentMACAddress,                   config_parse_hwaddrs,                                     0,                             offsetof(Network, match.permanent_mac)
+Match.MACAddress,                            config_parse_ether_addrs,                                 0,                             offsetof(Network, match.mac)
+Match.PermanentMACAddress,                   config_parse_ether_addrs,                                 0,                             offsetof(Network, match.permanent_mac)
 Match.Path,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.path)
 Match.Driver,                                config_parse_match_strv,                                  0,                             offsetof(Network, match.driver)
 Match.Type,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.iftype)
 Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match.wlan_iftype)
 Match.SSID,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.ssid)
-Match.BSSID,                                 config_parse_hwaddrs,                                     0,                             offsetof(Network, match.bssid)
+Match.BSSID,                                 config_parse_ether_addrs,                                 0,                             offsetof(Network, match.bssid)
 Match.Name,                                  config_parse_match_ifnames,                               IFNAME_VALID_ALTERNATIVE,      offsetof(Network, match.ifname)
 Match.Property,                              config_parse_match_property,                              0,                             offsetof(Network, match.property)
 Match.Host,                                  config_parse_net_condition,                               CONDITION_HOST,                offsetof(Network, conditions)
@@ -61,7 +61,7 @@ Match.KernelCommandLine,                     config_parse_net_condition,        
 Match.KernelVersion,                         config_parse_net_condition,                               CONDITION_KERNEL_VERSION,      offsetof(Network, conditions)
 Match.Architecture,                          config_parse_net_condition,                               CONDITION_ARCHITECTURE,        offsetof(Network, conditions)
 Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
-Link.MACAddress,                             config_parse_hwaddr,                                      0,                             offsetof(Network, mac)
+Link.MACAddress,                             config_parse_ether_addr,                                  0,                             offsetof(Network, mac)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
 Link.Group,                                  config_parse_link_group,                                  0,                             0
 Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)

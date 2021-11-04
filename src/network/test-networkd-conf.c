@@ -51,11 +51,11 @@ static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, cons
         }
 }
 
-static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const struct ether_addr* expected) {
+static void test_config_parse_ether_addr_one(const char *rvalue, int ret, const struct ether_addr* expected) {
         struct ether_addr *actual = NULL;
         int r;
 
-        r = config_parse_hwaddr("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
+        r = config_parse_ether_addr("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
         assert_se(ret == r);
         if (expected) {
                 assert_se(actual);
@@ -66,10 +66,10 @@ static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const stru
         free(actual);
 }
 
-static void test_config_parse_hwaddrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
+static void test_config_parse_ether_addrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
         _cleanup_set_free_free_ Set *s = NULL;
 
-        assert_se(config_parse_hwaddrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
+        assert_se(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
         assert_se(set_size(s) == n);
 
         for (size_t m = 0; m < n; m++) {
@@ -101,68 +101,68 @@ static void test_config_parse_duid_rawdata(void) {
         test_config_parse_duid_rawdata_one(&BYTES_0_128[2], 0, &(DUID){0, 128, BYTES_1_128});
 }
 
-static void test_config_parse_hwaddr(void) {
+static void test_config_parse_ether_addr(void) {
         const struct ether_addr t[] = {
                 { .ether_addr_octet = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } },
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
         };
 
-        test_config_parse_hwaddr_one("", 0, NULL);
-        test_config_parse_hwaddr_one("no:ta:ma:ca:dd:re", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
-        test_config_parse_hwaddr_one(" aa:bb:cc:dd:ee:ff", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:d d:ee:ff", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee", 0, NULL);
-        test_config_parse_hwaddr_one("9:aa:bb:cc:dd:ee:ff", 0, NULL);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff:gg", 0, NULL);
-        test_config_parse_hwaddr_one("aa:Bb:CC:dd:ee:ff", 0, &t[0]);
-        test_config_parse_hwaddr_one("01:23:45:67:89:aB", 0, &t[1]);
-        test_config_parse_hwaddr_one("1:23:45:67:89:aB", 0, &t[1]);
-        test_config_parse_hwaddr_one("aa-bb-cc-dd-ee-ff", 0, &t[0]);
-        test_config_parse_hwaddr_one("AA-BB-CC-DD-EE-FF", 0, &t[0]);
-        test_config_parse_hwaddr_one("01-23-45-67-89-ab", 0, &t[1]);
-        test_config_parse_hwaddr_one("aabb.ccdd.eeff", 0, &t[0]);
-        test_config_parse_hwaddr_one("0123.4567.89ab", 0, &t[1]);
-        test_config_parse_hwaddr_one("123.4567.89ab.", 0, NULL);
-        test_config_parse_hwaddr_one("aabbcc.ddeeff", 0, NULL);
-        test_config_parse_hwaddr_one("aabbccddeeff", 0, NULL);
-        test_config_parse_hwaddr_one("aabbccddee:ff", 0, NULL);
-        test_config_parse_hwaddr_one("012345.6789ab", 0, NULL);
-        test_config_parse_hwaddr_one("123.4567.89ab", 0, &t[1]);
+        test_config_parse_ether_addr_one("", 0, NULL);
+        test_config_parse_ether_addr_one("no:ta:ma:ca:dd:re", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
+        test_config_parse_ether_addr_one(" aa:bb:cc:dd:ee:ff", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:d d:ee:ff", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee", 0, NULL);
+        test_config_parse_ether_addr_one("9:aa:bb:cc:dd:ee:ff", 0, NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff:gg", 0, NULL);
+        test_config_parse_ether_addr_one("aa:Bb:CC:dd:ee:ff", 0, &t[0]);
+        test_config_parse_ether_addr_one("01:23:45:67:89:aB", 0, &t[1]);
+        test_config_parse_ether_addr_one("1:23:45:67:89:aB", 0, &t[1]);
+        test_config_parse_ether_addr_one("aa-bb-cc-dd-ee-ff", 0, &t[0]);
+        test_config_parse_ether_addr_one("AA-BB-CC-DD-EE-FF", 0, &t[0]);
+        test_config_parse_ether_addr_one("01-23-45-67-89-ab", 0, &t[1]);
+        test_config_parse_ether_addr_one("aabb.ccdd.eeff", 0, &t[0]);
+        test_config_parse_ether_addr_one("0123.4567.89ab", 0, &t[1]);
+        test_config_parse_ether_addr_one("123.4567.89ab.", 0, NULL);
+        test_config_parse_ether_addr_one("aabbcc.ddeeff", 0, NULL);
+        test_config_parse_ether_addr_one("aabbccddeeff", 0, NULL);
+        test_config_parse_ether_addr_one("aabbccddee:ff", 0, NULL);
+        test_config_parse_ether_addr_one("012345.6789ab", 0, NULL);
+        test_config_parse_ether_addr_one("123.4567.89ab", 0, &t[1]);
 
-        test_config_parse_hwaddrs_one("", t, 0);
-        test_config_parse_hwaddrs_one("no:ta:ma:ca:dd:re", t, 0);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:fx", t, 0);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff", t, 1);
-        test_config_parse_hwaddrs_one(" aa:bb:cc:dd:ee:ff", t, 1);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff \t\n", t, 1);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff \t\nxxx", t, 1);
-        test_config_parse_hwaddrs_one("aa:bb:cc: dd:ee:ff", t, 0);
-        test_config_parse_hwaddrs_one("aa:bb:cc:d d:ee:ff", t, 0);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee", t, 0);
-        test_config_parse_hwaddrs_one("9:aa:bb:cc:dd:ee:ff", t, 0);
-        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff:gg", t, 0);
-        test_config_parse_hwaddrs_one("aa:Bb:CC:dd:ee:ff", t, 1);
-        test_config_parse_hwaddrs_one("01:23:45:67:89:aB", &t[1], 1);
-        test_config_parse_hwaddrs_one("1:23:45:67:89:aB", &t[1], 1);
-        test_config_parse_hwaddrs_one("aa-bb-cc-dd-ee-ff", t, 1);
-        test_config_parse_hwaddrs_one("AA-BB-CC-DD-EE-FF", t, 1);
-        test_config_parse_hwaddrs_one("01-23-45-67-89-ab", &t[1], 1);
-        test_config_parse_hwaddrs_one("aabb.ccdd.eeff", t, 1);
-        test_config_parse_hwaddrs_one("0123.4567.89ab", &t[1], 1);
-        test_config_parse_hwaddrs_one("123.4567.89ab.", t, 0);
-        test_config_parse_hwaddrs_one("aabbcc.ddeeff", t, 0);
-        test_config_parse_hwaddrs_one("aabbccddeeff", t, 0);
-        test_config_parse_hwaddrs_one("aabbccddee:ff", t, 0);
-        test_config_parse_hwaddrs_one("012345.6789ab", t, 0);
-        test_config_parse_hwaddrs_one("123.4567.89ab", &t[1], 1);
+        test_config_parse_ether_addrs_one("", t, 0);
+        test_config_parse_ether_addrs_one("no:ta:ma:ca:dd:re", t, 0);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee:fx", t, 0);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee:ff", t, 1);
+        test_config_parse_ether_addrs_one(" aa:bb:cc:dd:ee:ff", t, 1);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee:ff \t\n", t, 1);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee:ff \t\nxxx", t, 1);
+        test_config_parse_ether_addrs_one("aa:bb:cc: dd:ee:ff", t, 0);
+        test_config_parse_ether_addrs_one("aa:bb:cc:d d:ee:ff", t, 0);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee", t, 0);
+        test_config_parse_ether_addrs_one("9:aa:bb:cc:dd:ee:ff", t, 0);
+        test_config_parse_ether_addrs_one("aa:bb:cc:dd:ee:ff:gg", t, 0);
+        test_config_parse_ether_addrs_one("aa:Bb:CC:dd:ee:ff", t, 1);
+        test_config_parse_ether_addrs_one("01:23:45:67:89:aB", &t[1], 1);
+        test_config_parse_ether_addrs_one("1:23:45:67:89:aB", &t[1], 1);
+        test_config_parse_ether_addrs_one("aa-bb-cc-dd-ee-ff", t, 1);
+        test_config_parse_ether_addrs_one("AA-BB-CC-DD-EE-FF", t, 1);
+        test_config_parse_ether_addrs_one("01-23-45-67-89-ab", &t[1], 1);
+        test_config_parse_ether_addrs_one("aabb.ccdd.eeff", t, 1);
+        test_config_parse_ether_addrs_one("0123.4567.89ab", &t[1], 1);
+        test_config_parse_ether_addrs_one("123.4567.89ab.", t, 0);
+        test_config_parse_ether_addrs_one("aabbcc.ddeeff", t, 0);
+        test_config_parse_ether_addrs_one("aabbccddeeff", t, 0);
+        test_config_parse_ether_addrs_one("aabbccddee:ff", t, 0);
+        test_config_parse_ether_addrs_one("012345.6789ab", t, 0);
+        test_config_parse_ether_addrs_one("123.4567.89ab", &t[1], 1);
 
-        test_config_parse_hwaddrs_one("123.4567.89ab aa:bb:cc:dd:ee:ff 01-23-45-67-89-ab aa:Bb:CC:dd:ee:ff", t, 2);
-        test_config_parse_hwaddrs_one("123.4567.89ab aa:bb:cc:dd:ee:fx hogehoge 01-23-45-67-89-ab aaaa aa:Bb:CC:dd:ee:ff", t, 2);
+        test_config_parse_ether_addrs_one("123.4567.89ab aa:bb:cc:dd:ee:ff 01-23-45-67-89-ab aa:Bb:CC:dd:ee:ff", t, 2);
+        test_config_parse_ether_addrs_one("123.4567.89ab aa:bb:cc:dd:ee:fx hogehoge 01-23-45-67-89-ab aaaa aa:Bb:CC:dd:ee:ff", t, 2);
 }
 
 static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
 
         test_config_parse_duid_type();
         test_config_parse_duid_rawdata();
-        test_config_parse_hwaddr();
+        test_config_parse_ether_addr();
         test_config_parse_address();
         test_config_parse_match_ifnames();
         test_config_parse_match_strv();
