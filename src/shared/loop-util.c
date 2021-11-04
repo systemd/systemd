@@ -442,11 +442,15 @@ static int loop_device_make_internal(
                         _cleanup_close_ int copy = -1;
                         uint64_t diskseq = 0;
 
-                        /* If this is already a block device, store a copy of the fd as it is */
+                        /* If this is already a block device and we are supposed to cover thw hole device
+                         * then store a copy of the fd as it is — and do not actually create a loopback
+                         * device off it. Note that we reopen the inode here, instead of keeping just a dup()
+                         * clone of it around, since we want to ensure that the O_DIRECT flag of the handle
+                         * we keep is off, and we want the right read/write mode to be in effect. */
 
-                        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        copy = fd_reopen(fd, open_flags|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                         if (copy < 0)
-                                return -errno;
+                                return copy;
 
                         r = loop_get_diskseq(copy, &diskseq);
                         if (r < 0 && r != -EOPNOTSUPP)
