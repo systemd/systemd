@@ -34,10 +34,12 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
         return 1;
 }
 
-int bus_log_address_error(int r) {
+int bus_log_address_error(int r, BusTransport transport) {
+        bool hint = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM;
+
         return log_error_errno(r,
-                               r == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                                                 "Failed to set bus address: %m");
+                               hint ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                      "Failed to set bus address: %m");
 }
 
 int bus_log_connect_error(int r) {
