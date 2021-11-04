@@ -1201,8 +1201,8 @@ static int link_get_network(Link *link, Network **ret) {
                 r = net_match_config(
                                 &network->match,
                                 link->sd_device,
-                                link->hw_addr.length == ETH_ALEN ? &link->hw_addr.ether : NULL,
-                                link->permanent_hw_addr.length == ETH_ALEN ? &link->permanent_hw_addr.ether : NULL,
+                                &link->hw_addr,
+                                &link->permanent_hw_addr,
                                 link->driver,
                                 link->iftype,
                                 link->ifname,
