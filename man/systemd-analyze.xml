@@ -1075,9 +1075,13 @@ Service b@0.service not loaded, b.socket cannot be started.
           corresponding to a specific id of the unit file is missing from the JSON object, the
           default built-in field value corresponding to that same id is used for security analysis
           as default. The weight and range fields are used in determining the overall exposure level
-          of the unit files so by allowing users to manipulate these fields, 'security' gives them
-          the option to decide for themself which ids are more important and hence, should have a greater
-          effect on the exposure level. </para>
+          of the unit files: the value of each setting is assigned a badness score, which is multiplied
+          by the policy weight and divided by the policy range to determine the overall exposure that
+          the setting implies. The computed badness is summed across all settings in the unit file,
+          normalized to the 1…100 range, and used to determine the overall exposure level of the unit.
+          By allowing users to manipulate these fields, the 'security' verb gives them the option to
+          decide for themself which ids are more important and hence should have a greater effect on
+          the exposure level.</para>
 
           <programlisting>
           {
