@@ -31,6 +31,12 @@
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
+/* Makes systemd-boot available from \EFI\Linux\ for testing purposes. */
+_used_ _section_(".osrel") static const char osrel[] =
+        "ID=systemd-boot\n"
+        "VERSION=\"" GIT_VERSION "\"\n"
+        "NAME=\"systemd-boot " GIT_VERSION "\"\n";
+
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
