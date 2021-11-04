@@ -2260,6 +2260,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Number of parallel threads for PKBDF\n"
                "     --luks-extra-mount-options=OPTIONS\n"
                "                               LUKS extra mount options\n"
+               "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
                "\n%4$sMounting User Record Properties:%5$s\n"
                "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
                "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
@@ -2359,6 +2360,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
+                ARG_AUTO_RESIZE_MODE,
         };
 
         static const struct option options[] = {
@@ -2444,6 +2446,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
                 { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
+                { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
                 {}
         };
 
@@ -3539,6 +3542,25 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_AUTO_RESIZE_MODE:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("autoResizeMode");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = auto_resize_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
+
+                        r = json_variant_set_field_string(&arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
+
+                        break;
 
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
