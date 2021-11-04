@@ -60,6 +60,9 @@
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
 
+        <para>If set to <literal>@saved</literal> the chosen entry will be saved as an EFI variable
+        on every boot and automatically selected the next time the boot loader starts.</para>
+
         <table>
           <title>Automatically detected entries will use the following names:</title>
 

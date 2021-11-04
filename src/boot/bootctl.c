@@ -1834,7 +1834,7 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
 
-        } else if (arg1[0] == '@')
+        } else if (arg1[0] == '@' && !streq(arg1, "@saved"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported special entry identifier: %s", arg1);
         else {
                 encoded = utf8_to_utf16(arg1, strlen(arg1));
