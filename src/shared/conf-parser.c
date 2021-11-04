@@ -1350,7 +1350,7 @@ int config_parse_hwaddr(
         if (!n)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, n);
+        r = parse_ether_addr(rvalue, n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Not a valid MAC address, ignoring assignment: %s", rvalue);
@@ -1407,7 +1407,7 @@ int config_parse_hwaddrs(
                 if (!n)
                         return log_oom();
 
-                r = ether_addr_from_string(word, n);
+                r = parse_ether_addr(word, n);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Not a valid MAC address, ignoring: %s", word);
