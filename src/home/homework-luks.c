@@ -64,6 +64,10 @@
                 _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
         })
 
+/* How much larger will the image on disk be than the fs inside it, i.e. the space we pay for the GPT and
+ * LUKS2 envelope. (As measured on cryptsetup 2.4.1) */
+#define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
+
 static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
 int run_mark_dirty(int fd, bool b) {
@@ -1892,6 +1896,8 @@ static int make_partition_table(
         assert(first_lba <= UINT64_MAX/512);
         start = DISK_SIZE_ROUND_UP(first_lba * 512); /* Round up to multiple of 4K */
 
+        log_debug("Starting partition at offset %" PRIu64, start);
+
         if (start == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Overflow while rounding up start LBA.");
 
@@ -2060,6 +2066,10 @@ static int calculate_initial_image_size(UserRecord *h, int image_fd, const char 
         }
 
         lower_boundary = minimal_size_by_fs_name(fstype);
+        if (lower_boundary != UINT64_MAX) {
+                assert(GPT_LUKS2_OVERHEAD < UINT64_MAX - lower_boundary);
+                lower_boundary += GPT_LUKS2_OVERHEAD;
+        }
         if (lower_boundary == UINT64_MAX || lower_boundary < USER_DISK_SIZE_MIN)
                 lower_boundary = USER_DISK_SIZE_MIN;
 
@@ -2233,7 +2243,7 @@ int home_create_luks(
                 else
                         host_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
 
-                if (!supported_fs_size(fstype, host_size))
+                if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
                                                "Selected file system size too small for %s.", fstype);
 
@@ -2459,6 +2469,8 @@ int home_create_luks(
         log_info("Creation completed.");
 
         print_size_summary(host_size, encrypted_size, &sfs);
+
+        log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
