@@ -1282,6 +1282,12 @@ Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SuppressIfGroup=</varname></term>
+          <listitem>
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
             <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of <literal>blackhole</literal>,
