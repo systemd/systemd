@@ -56,6 +56,7 @@ typedef struct Link {
         struct hw_addr_data hw_addr;
         struct hw_addr_data bcast_addr;
         struct hw_addr_data permanent_hw_addr;
+        struct hw_addr_data requested_hw_addr;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         uint32_t min_mtu;
