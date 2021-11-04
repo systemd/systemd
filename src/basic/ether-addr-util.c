@@ -309,3 +309,18 @@ int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *
         memcpy(ret->bytes, bytes, ret->length);
         return 0;
 }
+
+int parse_ether_addr(const char *s, struct ether_addr *ret) {
+        struct hw_addr_data a;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = parse_hw_addr_full(s, ETH_ALEN, &a);
+        if (r < 0)
+                return r;
+
+        *ret = a.ether;
+        return 0;
+}
