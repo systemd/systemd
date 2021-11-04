@@ -1,5 +1,7 @@
 [Match]
+HardwareAddress=
 MACAddress=
+PermanentHardwareAddress=
 PermanentMACAddress=
 OriginalName=
 Path=
