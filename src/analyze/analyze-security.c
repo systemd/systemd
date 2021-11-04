@@ -1705,6 +1705,21 @@ static const char *access_description_bad(const struct security_assessor *a, Jso
         return a->description_bad;
 }
 
+static bool access_skip(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "skip");
+        if  (val) {
+                if (json_variant_is_boolean(val))
+                        return json_variant_boolean(val);
+                log_debug("JSON field 'skip' of policy for %s is not a boolean, ignoring.", a->id);
+        }
+
+        return false;
+}
+
 static int assess(const SecurityInfo *info,
                   Table *overview_table,
                   AnalyzeSecurityFlags flags,
@@ -1762,6 +1777,11 @@ static int assess(const SecurityInfo *info,
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
                         d = strdup("Service runs in special boot phase, option is not appropriate");
+                        if (!d)
+                                return log_oom();
+                } else if (access_skip(a, policy)) {
+                        badness = UINT64_MAX;
+                        d = strdup("Option excluded by policy, skipping");
                         if (!d)
                                 return log_oom();
                 } else {

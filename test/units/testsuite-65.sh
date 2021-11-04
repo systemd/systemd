@@ -108,8 +108,9 @@ systemd-analyze security --threshold=90 --offline=true --root=/tmp/img/ testfile
 cat <<EOF >/tmp/testfile.json
 {"UserOrDynamicUser":
     {"description_bad": "Service runs as root user",
-    "weight": 2000,
-    "range": 10
+    "weight": 2000000000,
+    "range": 10,
+    "skip": true
     },
 "SupplementaryGroups":
     {"description_good": "Service has no supplementary groups",
