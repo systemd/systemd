@@ -111,7 +111,7 @@ static void test_config_parse_hwaddr(void) {
         test_config_parse_hwaddr_one("no:ta:ma:ca:dd:re", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
-        test_config_parse_hwaddr_one(" aa:bb:cc:dd:ee:ff", 0, &t[0]);
+        test_config_parse_hwaddr_one(" aa:bb:cc:dd:ee:ff", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
