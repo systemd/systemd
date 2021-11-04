@@ -165,3 +165,147 @@ int ether_addr_from_string(const char *s, struct ether_addr *ret) {
 
         return 0;
 }
+
+static int parse_hw_addr_one_field(const char **s, char sep, size_t len, uint8_t *buf) {
+        const char *hex = HEXDIGITS, *p;
+        uint16_t data = 0;
+        bool cont;
+
+        assert(s);
+        assert(*s);
+        assert(IN_SET(len, 1, 2));
+        assert(buf);
+
+        p = *s;
+
+        for (size_t i = 0; i < len * 2; i++) {
+                const char *hexoff;
+                size_t x;
+
+                if (*p == '\0' || *p == sep) {
+                        if (i == 0)
+                                return -EINVAL;
+                        break;
+                }
+
+                hexoff = strchr(hex, *p);
+                if (!hexoff)
+                        return -EINVAL;
+
+                assert(hexoff >= hex);
+                x = hexoff - hex;
+                if (x >= 16)
+                        x -= 6; /* A-F */
+
+                assert(x < 16);
+                data <<= 4;
+                data += x;
+
+                p++;
+        }
+
+        if (*p != '\0' && *p != sep)
+                return -EINVAL;
+
+        switch (len) {
+        case 1:
+                buf[0] = data;
+                break;
+        case 2:
+                buf[0] = (data & 0xff00) >> 8;
+                buf[1] = data & 0xff;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        cont = *p == sep;
+        *s = p + cont;
+        return cont;
+}
+
+int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *ret) {
+        size_t field_size, max_len, len = 0;
+        uint8_t bytes[HW_ADDR_MAX_SIZE];
+        char sep;
+        int r;
+
+        assert(s);
+        assert(expected_len <= HW_ADDR_MAX_SIZE || expected_len == SIZE_MAX);
+        assert(ret);
+
+        /* This accepts the following formats:
+         *
+         * Dot separated 2 bytes format: xxyy.zzaa.bbcc
+         * Colon separated 1 bytes format: xx:yy:zz:aa:bb:cc
+         * Hyphen separated 1 bytes format: xx-yy-zz-aa-bb-cc
+         *
+         * Moreover, if expected_len == 0, 4, or 16, this also accepts:
+         *
+         * IPv4 format: used by IPv4 tunnel, e.g. ipgre
+         * IPv6 format: used by IPv6 tunnel, e.g. ip6gre
+         *
+         * The expected_len argument controls the length of acceptable addresses:
+         *
+         * 0: accepts 4 (AF_INET), 16 (AF_INET6), 6 (ETH_ALEN), or 20 (INFINIBAND_ALEN).
+         * SIZE_MAX: accepts arbitrary length, but at least one separator must be included.
+         * Otherwise: accepts addresses with matching length.
+         */
+
+        if (IN_SET(expected_len, 0, sizeof(struct in_addr), sizeof(struct in6_addr))) {
+                union in_addr_union a;
+                int family;
+
+                if (expected_len == 0)
+                        r = in_addr_from_string_auto(s, &family, &a);
+                else {
+                        family = expected_len == sizeof(struct in_addr) ? AF_INET : AF_INET6;
+                        r = in_addr_from_string(family, s, &a);
+                }
+                if (r >= 0) {
+                        ret->length = FAMILY_ADDRESS_SIZE(family);
+                        memcpy(ret->bytes, a.bytes, ret->length);
+                        return 0;
+                }
+        }
+
+        max_len =
+                expected_len == 0 ? INFINIBAND_ALEN :
+                expected_len == SIZE_MAX ? HW_ADDR_MAX_SIZE : expected_len;
+        sep = s[strspn(s, HEXDIGITS)];
+
+        if (sep == '.')
+                field_size = 2;
+        else if (IN_SET(sep, ':', '-'))
+                field_size = 1;
+        else
+                return -EINVAL;
+
+        if (max_len % field_size != 0)
+                return -EINVAL;
+
+        for (size_t i = 0; i < max_len / field_size; i++) {
+                r = parse_hw_addr_one_field(&s, sep, field_size, bytes + i * field_size);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        len = (i + 1) * field_size;
+                        break;
+                }
+        }
+
+        if (len == 0)
+                return -EINVAL;
+
+        if (expected_len == 0) {
+                if (!IN_SET(len, 4, 16, ETH_ALEN, INFINIBAND_ALEN))
+                        return -EINVAL;
+        } else if (expected_len != SIZE_MAX) {
+                if (len != expected_len)
+                        return -EINVAL;
+        }
+
+        ret->length = len;
+        memcpy(ret->bytes, bytes, ret->length);
+        return 0;
+}
