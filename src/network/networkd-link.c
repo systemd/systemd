@@ -2400,9 +2400,18 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
 
-        r = ethtool_get_permanent_hw_addr(&manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
+        r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute, ignoring: %m");
+
+                if (netlink_message_read_hw_addr(message, IFLA_ADDRESS, NULL) >= 0) {
+                        /* Fallback to ethtool, if the link has a hardware address. */
+                        r = ethtool_get_permanent_hw_addr(&manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
+                        if (r < 0)
+                                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
+                }
+        }
 
         r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
         if (r < 0)
