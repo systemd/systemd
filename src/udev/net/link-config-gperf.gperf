@@ -21,8 +21,10 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                          config_parse_ether_addrs,              0,                             offsetof(LinkConfig, match.mac)
-Match.PermanentMACAddress,                 config_parse_ether_addrs,              0,                             offsetof(LinkConfig, match.permanent_mac)
+Match.HardwareAddress,                     config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.hw_addr)
+Match.MACAddress,                          config_parse_hw_addrs,                 ETH_ALEN,                      offsetof(LinkConfig, match.hw_addr)
+Match.PermanentHardwareAddress,            config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.permanent_hw_addr)
+Match.PermanentMACAddress,                 config_parse_hw_addrs,                 ETH_ALEN,                      offsetof(LinkConfig, match.permanent_hw_addr)
 Match.OriginalName,                        config_parse_match_ifnames,            0,                             offsetof(LinkConfig, match.ifname)
 Match.Path,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.path)
 Match.Driver,                              config_parse_match_strv,               0,                             offsetof(LinkConfig, match.driver)
