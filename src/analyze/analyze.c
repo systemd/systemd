@@ -639,7 +639,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, &use_full_bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         n = acquire_boot_times(bus, &boot);
         if (n < 0)
@@ -1034,7 +1034,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -1076,7 +1076,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -1133,7 +1133,7 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         r = pretty_boot_time(bus, &buf);
         if (r < 0)
@@ -1270,7 +1270,7 @@ static int dot(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         r = expand_patterns(bus, strv_skip(argv, 1), &expanded_patterns);
         if (r < 0)
@@ -1347,7 +1347,7 @@ static int dump(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         (void) pager_open(arg_pager_flags);
 
@@ -1416,7 +1416,7 @@ static int verb_log_control(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         return verb_log_control_common(bus, "org.freedesktop.systemd1", argv[0], argc == 2 ? argv[1] : NULL);
 }
@@ -2228,7 +2228,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         if (argc == 1) {
                 /* get ServiceWatchdogs */
@@ -2268,7 +2268,7 @@ static int do_security(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         (void) pager_open(arg_pager_flags);
 
