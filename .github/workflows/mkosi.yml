@@ -15,6 +15,8 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-20.04
+    env:
+      KERNEL_PACKAGE_SCRIPT_DEBUG: 2
     strategy:
       fail-fast: false
       matrix:
@@ -23,12 +25,11 @@ jobs:
           - debian
           - ubuntu
           - fedora
-          # Disabled until https://github.com/systemd/systemd/issues/21019 is fixed.
-          # - opensuse
+          - opensuse
 
     steps:
     - uses: actions/checkout@v2
-    - uses: systemd/mkosi@v10
+    - uses: Werkov/mkosi@v10-debug
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
@@ -50,13 +51,19 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
+      env:
+        KERNEL_PACKAGE_SCRIPT_DEBUG: 3
       run: sudo python3 -m mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo python3 -m mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
+      env:
+        KERNEL_PACKAGE_SCRIPT_DEBUG: 4
       run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi boot
 
     - name: Boot ${{ matrix.distro }} QEMU
+      env:
+        KERNEL_PACKAGE_SCRIPT_DEBUG: 5
       run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi qemu
