@@ -2155,8 +2155,8 @@ int home_create_luks(
 
                 setup->temporary_image_path = TAKE_PTR(t);
 
-                r = chattr_fd(setup->image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-                if (r < 0)
+                r = chattr_full(t, setup->image_fd, FS_NOCOW_FL|FS_NOCOMP_FL, FS_NOCOW_FL|FS_NOCOMP_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+                if (r < 0 && r != -ENOANO) /* ENOANO → some bits didn't work; which we skip logging about because chattr_full() already debug logs about those flags */
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
