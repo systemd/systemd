@@ -23,8 +23,7 @@ jobs:
           - debian
           - ubuntu
           - fedora
-          # Disabled until https://github.com/systemd/systemd/issues/21019 is fixed.
-          # - opensuse
+          - opensuse
 
     steps:
     - uses: actions/checkout@v2
