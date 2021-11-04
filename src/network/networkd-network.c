@@ -674,7 +674,6 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_allow_listed_ip);
         set_free(network->dhcp_request_options);
         set_free(network->dhcp6_request_options);
-        free(network->mac);
         free(network->dhcp6_mudurl);
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);

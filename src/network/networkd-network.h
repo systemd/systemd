@@ -94,7 +94,7 @@ struct Network {
         Hashmap *stacked_netdev_names;
 
         /* [Link] section */
-        struct ether_addr *mac;
+        struct hw_addr_data hw_addr;
         uint32_t mtu;
         int32_t group;
         int arp;

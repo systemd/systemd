@@ -2704,7 +2704,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip link show dummy98')
         print(output)
-        self.assertRegex(output, '00:01:02:aa:bb:cc')
+        # 00:01:02:aa:bb:cc was requested, and the local bit is set by networkd.
+        self.assertRegex(output, '02:01:02:aa:bb:cc')
 
     def test_ip_link_unmanaged(self):
         copy_unit_to_networkd_unit_path('25-link-section-unmanaged.network', '12-dummy.netdev')
