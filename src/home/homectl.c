@@ -2103,6 +2103,32 @@ static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int rebalance(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "Rebalance");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_REBALANCE_NOT_NEEDED))
+                        log_info("No homes needed rebalancing.");
+                else
+                        return log_error_errno(r, "Failed to rebalance: %s", bus_error_message(&error, r));
+        } else
+                log_info("Completed rebalancing.");
+
+        return 0;
+}
+
 static int drop_from_identity(const char *field) {
         int r;
 
@@ -2157,6 +2183,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unlock USER…                 Unlock a temporarily locked home area\n"
                "  lock-all                     Lock all suitable home areas\n"
                "  deactivate-all               Deactivate all active home areas\n"
+               "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
@@ -3746,6 +3773,7 @@ static int run(int argc, char *argv[]) {
                 { "with",           2,        VERB_ANY, 0,            with_home            },
                 { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
                 { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
+                { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
                 {}
         };
 
