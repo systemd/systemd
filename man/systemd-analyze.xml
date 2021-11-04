@@ -1081,7 +1081,8 @@ Service b@0.service not loaded, b.socket cannot be started.
           normalized to the 1…100 range, and used to determine the overall exposure level of the unit.
           By allowing users to manipulate these fields, the 'security' verb gives them the option to
           decide for themself which ids are more important and hence should have a greater effect on
-          the exposure level.</para>
+          the exposure level. A weight of <literal>0</literal> means the setting will not be
+          checked.</para>
 
           <programlisting>
           {
