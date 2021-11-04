@@ -387,10 +387,15 @@ endif
 # --as-needed and --no-undefined are provided by meson by default,
 # run 'meson configure' to see what is enabled
 possible_link_flags = [
-        '-Wl,-z,relro',
+        '-Wl,--fatal-warnings',
         '-Wl,-z,now',
+        '-Wl,-z,relro',
         '-fstack-protector',
 ]
+
+if get_option('b_sanitize') == 'none'
+        possible_link_flags += '-Wl,--warn-common'
+endif
 
 if cc.get_id() == 'clang'
         possible_common_cc_flags += [
