@@ -557,7 +557,8 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 info->hw_address.length > 0;
 
         info->has_permanent_hw_address =
-                ethtool_get_permanent_hw_addr(NULL, info->name, &info->permanent_hw_address) >= 0 &&
+                (netlink_message_read_hw_addr(m, IFLA_PERM_ADDRESS, &info->permanent_hw_address) >= 0 ||
+                 ethtool_get_permanent_hw_addr(NULL, info->name, &info->permanent_hw_address) >= 0) &&
                 !hw_addr_is_null(&info->permanent_hw_address) &&
                 !hw_addr_equal(&info->permanent_hw_address, &info->hw_address);
 
