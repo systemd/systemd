@@ -355,8 +355,16 @@ int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
         return r;
 }
 
-int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags) {
+int rtnl_get_link_info(
+                sd_netlink **rtnl,
+                int ifindex,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        struct hw_addr_data addr = HW_ADDR_NULL, perm_addr = HW_ADDR_NULL;
         unsigned short iftype;
         unsigned flags;
         int r;
@@ -395,10 +403,26 @@ int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftyp
                         return r;
         }
 
+        if (ret_hw_addr) {
+                r = netlink_message_read_hw_addr(reply, IFLA_ADDRESS, &addr);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (ret_permanent_hw_addr) {
+                r = netlink_message_read_hw_addr(reply, IFLA_PERM_ADDRESS, &perm_addr);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
         if (ret_iftype)
                 *ret_iftype = iftype;
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_hw_addr)
+                *ret_hw_addr = addr;
+        if (ret_permanent_hw_addr)
+                *ret_permanent_hw_addr = perm_addr;
         return 0;
 }
 
