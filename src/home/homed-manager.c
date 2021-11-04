@@ -1808,6 +1808,7 @@ static int home_cmp(Home *const*a, Home *const*b) {
 static int manager_rebalance_calculate(Manager *m) {
         uint64_t weight_sum, free_sum, usage_sum = 0, min_free = UINT64_MAX;
         _cleanup_free_ Home **array = NULL;
+        bool relevant = false;
         struct statfs sfs;
         int c = 0, r;
         Home *h;
@@ -1920,6 +1921,9 @@ static int manager_rebalance_calculate(Manager *m) {
                                   FORMAT_BYTES(h->rebalance_size), FORMAT_BYTES(h->rebalance_goal));
                         h->rebalance_pending = true;
                 }
+
+                if ((fabs((double) h->rebalance_size - (double) h->rebalance_goal) * 100 / (double) h->rebalance_size) >= 5.0)
+                        relevant = true;
         }
 
         /* Scale next rebalancing interval based on the least amount of space of any of the home
@@ -1929,7 +1933,15 @@ static int manager_rebalance_calculate(Manager *m) {
                                                     1 * USEC_PER_MINUTE,
                                                     15 * USEC_PER_MINUTE);
 
+
         log_debug("Rebalancing interval set to %s.", FORMAT_TIMESPAN(m->rebalance_interval_usec, USEC_PER_MSEC));
+
+        /* Let's suppress small resizes, growing/shrinking file systems isn't free after all */
+        if (!relevant) {
+                log_debug("Skipping rebalancing, since all calculated size changes are below ±5%%.");
+                return 0;
+        }
+
         return c;
 }
 
