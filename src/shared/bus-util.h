@@ -40,7 +40,7 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
 int bus_log_address_error(int r, BusTransport transport);
-int bus_log_connect_error(int r);
+int bus_log_connect_error(int r, BusTransport transport);
 
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")

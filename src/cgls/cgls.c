@@ -216,7 +216,7 @@ static int run(int argc, char *argv[]) {
                                                                           arg_show_unit == SHOW_UNIT_USER,
                                                                           &bus);
                                         if (r < 0)
-                                                return bus_log_connect_error(r);
+                                                return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
                                 }
 
                                 q = show_cgroup_get_unit_path_and_warn(bus, *name, &cgroup);
