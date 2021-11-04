@@ -106,10 +106,11 @@ systemd-analyze security --threshold=90 --offline=true --root=/tmp/img/ testfile
 # set to 'yes' (as above in the case of testfile.service) in the content of the unit file, the overall exposure
 # level for the unit file should decrease to account for that increased weight.
 cat <<EOF >/tmp/testfile.json
-{"User_Or_DynamicUser":
+{"UserOrDynamicUser":
     {"description_bad": "Service runs as root user",
-    "weight": 2000,
-    "range": 10
+    "weight": 2000000000,
+    "range": 10,
+    "skip": true
     },
 "SupplementaryGroups":
     {"description_good": "Service has no supplementary groups",
@@ -192,7 +193,7 @@ cat <<EOF >/tmp/testfile.json
     {"weight": 1000,
     "range": 10
     },
-"RootDirectory_Or_RootImage":
+"RootDirectoryOrRootImage":
     {"description_good": "Service has its own root directory/image",
     "description_bad": "Service runs within the host's root directory",
     "weight": 200,
