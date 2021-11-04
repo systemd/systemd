@@ -118,8 +118,8 @@ static int link_parse_wol_password(LinkConfig *link, const char *str) {
         if (!p)
                 return -ENOMEM;
 
-        /* Reuse ether_addr_from_string(), as their formats are equivalent. */
-        r = ether_addr_from_string(str, (struct ether_addr*) p);
+        /* Reuse parse_ether_addr(), as their formats are equivalent. */
+        r = parse_ether_addr(str, (struct ether_addr*) p);
         if (r < 0)
                 return r;
 
