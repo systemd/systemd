@@ -17,8 +17,8 @@ void net_match_clear(NetMatch *match) {
         if (!match)
                 return;
 
-        match->mac = set_free_free(match->mac);
-        match->permanent_mac = set_free_free(match->permanent_mac);
+        match->mac = set_free(match->mac);
+        match->permanent_mac = set_free(match->permanent_mac);
         match->path = strv_free(match->path);
         match->driver = strv_free(match->driver);
         match->iftype = strv_free(match->iftype);
@@ -26,7 +26,7 @@ void net_match_clear(NetMatch *match) {
         match->property = strv_free(match->property);
         match->wlan_iftype = strv_free(match->wlan_iftype);
         match->ssid = strv_free(match->ssid);
-        match->bssid = set_free_free(match->bssid);
+        match->bssid = set_free(match->bssid);
 }
 
 bool net_match_is_empty(const NetMatch *match) {

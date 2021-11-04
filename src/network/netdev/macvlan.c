@@ -127,7 +127,7 @@ static void macvlan_done(NetDev *n) {
 
         assert(m);
 
-        set_free_free(m->match_source_mac);
+        set_free(m->match_source_mac);
 }
 
 static void macvlan_init(NetDev *n) {

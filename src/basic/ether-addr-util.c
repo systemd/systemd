@@ -48,6 +48,7 @@ static void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *stat
 }
 
 DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(hw_addr_hash_ops_free, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare, free);
 
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
         assert(addr);
@@ -93,6 +94,7 @@ static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *sta
 }
 
 DEFINE_HASH_OPS(ether_addr_hash_ops, struct ether_addr, ether_addr_hash_func, ether_addr_compare);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(ether_addr_hash_ops_free, struct ether_addr, ether_addr_hash_func, ether_addr_compare, free);
 
 static int parse_hw_addr_one_field(const char **s, char sep, size_t len, uint8_t *buf) {
         const char *hex = HEXDIGITS, *p;

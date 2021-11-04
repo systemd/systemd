@@ -1384,7 +1384,7 @@ int config_parse_ether_addrs(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                *hwaddrs = set_free_free(*hwaddrs);
+                *hwaddrs = set_free(*hwaddrs);
                 return 0;
         }
 
@@ -1414,11 +1414,9 @@ int config_parse_ether_addrs(
                         continue;
                 }
 
-                r = set_ensure_put(hwaddrs, &ether_addr_hash_ops, n);
+                r = set_ensure_consume(hwaddrs, &ether_addr_hash_ops_free, TAKE_PTR(n));
                 if (r < 0)
                         return log_oom();
-                if (r > 0)
-                        TAKE_PTR(n); /* avoid cleanup */
         }
 }
 
