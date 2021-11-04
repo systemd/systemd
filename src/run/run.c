@@ -1760,7 +1760,7 @@ static int run(int argc, char* argv[]) {
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         if (arg_scope)
                 r = start_transient_scope(bus);
