@@ -273,7 +273,7 @@ typedef struct LinkInfo {
         int ifindex;
         unsigned short iftype;
         struct hw_addr_data hw_address;
-        struct ether_addr permanent_mac_address;
+        struct hw_addr_data permanent_hw_address;
         uint32_t master;
         uint32_t mtu;
         uint32_t min_mtu;
@@ -348,7 +348,7 @@ typedef struct LinkInfo {
         struct ether_addr bssid;
 
         bool has_mac_address:1;
-        bool has_permanent_mac_address:1;
+        bool has_permanent_hw_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
         bool has_stats64:1;
@@ -556,11 +556,9 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
                 info->hw_address.length > 0;
 
-        info->has_permanent_mac_address =
-                ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
-                !ether_addr_is_null(&info->permanent_mac_address) &&
-                (info->hw_address.length != sizeof(struct ether_addr) ||
-                 memcmp(&info->permanent_mac_address, info->hw_address.bytes, sizeof(struct ether_addr)) != 0);
+        info->has_permanent_hw_address =
+                ethtool_get_permanent_hw_addr(NULL, info->name, &info->permanent_hw_address) >= 0 &&
+                !hw_addr_equal(&info->permanent_hw_address, &info->hw_address);
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -1457,6 +1455,35 @@ static int dump_statistics(Table *table, const LinkInfo *info) {
         return 0;
 }
 
+static int dump_hw_address(Table *table, sd_hwdb *hwdb, const char *field, const struct hw_addr_data *addr) {
+        _cleanup_free_ char *description = NULL;
+        int r;
+
+        assert(table);
+        assert(hwdb);
+        assert(field);
+        assert(addr);
+
+        if (addr->length == ETH_ALEN)
+                (void) ieee_oui(hwdb, &addr->ether, &description);
+
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, field);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
+                                   HW_ADDR_TO_STR(addr),
+                                   description ? " (" : "",
+                                   strempty(description),
+                                   description ? ")" : "");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
@@ -1677,42 +1704,15 @@ static int link_status_one(
         }
 
         if (info->has_mac_address) {
-                _cleanup_free_ char *description = NULL;
-
-                if (info->hw_address.length == ETH_ALEN)
-                        (void) ieee_oui(hwdb, &info->hw_address.ether, &description);
-
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "HW Address:");
+                r = dump_hw_address(table, hwdb, "HW Address:", &info->hw_address);
                 if (r < 0)
-                        return table_log_add_error(r);
-                r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           HW_ADDR_TO_STR(&info->hw_address),
-                                           description ? " (" : "",
-                                           strempty(description),
-                                           description ? ")" : "");
-                if (r < 0)
-                        return table_log_add_error(r);
+                        return r;
         }
 
-        if (info->has_permanent_mac_address) {
-                _cleanup_free_ char *description = NULL;
-
-                (void) ieee_oui(hwdb, &info->permanent_mac_address, &description);
-
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "HW Permanent Address:");
+        if (info->has_permanent_hw_address) {
+                r = dump_hw_address(table, hwdb, "HW Permanent Address:", &info->permanent_hw_address);
                 if (r < 0)
-                        return table_log_add_error(r);
-                r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           ETHER_ADDR_TO_STR(&info->permanent_mac_address),
-                                           description ? " (" : "",
-                                           strempty(description),
-                                           description ? ")" : "");
-                if (r < 0)
-                        return table_log_add_error(r);
+                        return r;
         }
 
         if (info->mtu > 0) {
