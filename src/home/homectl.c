@@ -2261,6 +2261,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --luks-extra-mount-options=OPTIONS\n"
                "                               LUKS extra mount options\n"
                "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
+               "     --rebalance-weight=WEIGHT Weight while rebalancing\n"
                "\n%4$sMounting User Record Properties:%5$s\n"
                "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
                "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
@@ -2361,6 +2362,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DROP_CACHES,
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
                 ARG_AUTO_RESIZE_MODE,
+                ARG_REBALANCE_WEIGHT,
         };
 
         static const struct option options[] = {
@@ -2447,6 +2449,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
                 { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
                 { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
+                { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
                 {}
         };
 
@@ -2922,13 +2925,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DISK_SIZE:
                         if (isempty(optarg)) {
-                                r = drop_from_identity("diskSize");
-                                if (r < 0)
-                                        return r;
+                                const char *prop;
 
-                                r = drop_from_identity("diskSizeRelative");
-                                if (r < 0)
-                                        return r;
+                                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
+                                        r = drop_from_identity(prop);
+                                        if (r < 0)
+                                                return r;
+                                }
 
                                 arg_disk_size = arg_disk_size_relative = UINT64_MAX;
                                 break;
@@ -2963,6 +2966,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 arg_disk_size = UINT64_MAX;
                         }
+
+                        /* Automatically turn of the rebalance logic if user configured a size explicitly */
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
                         break;
 
@@ -3561,6 +3569,34 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to set autoResizeMode field: %m");
 
                         break;
+
+                case ARG_REBALANCE_WEIGHT: {
+                        uint64_t u;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("rebalanceWeight");
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (streq(optarg, "off"))
+                                u = REBALANCE_WEIGHT_OFF;
+                        else {
+                                r = safe_atou64(optarg, &u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
+
+                                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "…%" PRIu64 ": %s",
+                                                               REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX, optarg);
+                        }
+
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
+
+                        break;
+                }
 
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
