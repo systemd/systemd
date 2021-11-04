@@ -386,9 +386,7 @@ int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device
         (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
         LIST_FOREACH(links, link, ctx->links) {
-                r = net_match_config(&link->match, device,
-                                     hw_addr.length == ETH_ALEN ? &hw_addr.ether : NULL,
-                                     permanent_hw_addr.length == ETH_ALEN ? &permanent_hw_addr.ether : NULL,
+                r = net_match_config(&link->match, device, &hw_addr, &permanent_hw_addr,
                                      NULL, iftype, NULL, NULL, 0, NULL, NULL);
                 if (r < 0)
                         return r;
