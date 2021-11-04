@@ -64,6 +64,7 @@
                 _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
         })
 
+static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
 int run_mark_dirty(int fd, bool b) {
         char x = '1';
@@ -2024,36 +2025,33 @@ static int wait_for_devlink(const char *path) {
         }
 }
 
-static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *ret) {
+static int calculate_initial_image_size(UserRecord *h, int image_fd, const char *fstype, uint64_t *ret) {
+        uint64_t upper_boundary, lower_boundary;
         struct statfs sfs;
-        uint64_t m;
 
         assert(h);
-        assert(parent_dir);
+        assert(image_fd >= 0);
         assert(ret);
 
-        if (h->disk_size != UINT64_MAX) {
-                *ret = DISK_SIZE_ROUND_DOWN(h->disk_size);
-                return 0;
-        }
+        if (fstatfs(image_fd, &sfs) < 0)
+                return log_error_errno(errno, "statfs() on image failed: %m");
 
-        if (statfs(parent_dir, &sfs) < 0)
-                return log_error_errno(errno, "statfs() on %s failed: %m", parent_dir);
+        upper_boundary = DISK_SIZE_ROUND_DOWN((uint64_t) sfs.f_bsize * sfs.f_bavail);
 
-        m = sfs.f_bsize * sfs.f_bavail;
+        if (h->disk_size != UINT64_MAX)
+                *ret = MIN(DISK_SIZE_ROUND_DOWN(h->disk_size), upper_boundary);
+        else if (h->disk_size_relative == UINT64_MAX) {
 
-        if (h->disk_size_relative == UINT64_MAX) {
-
-                if (m > UINT64_MAX / USER_DISK_SIZE_DEFAULT_PERCENT)
+                if (upper_boundary > UINT64_MAX / USER_DISK_SIZE_DEFAULT_PERCENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Disk size too large.");
 
-                *ret = DISK_SIZE_ROUND_DOWN(m * USER_DISK_SIZE_DEFAULT_PERCENT / 100);
+                *ret = DISK_SIZE_ROUND_DOWN(upper_boundary * USER_DISK_SIZE_DEFAULT_PERCENT / 100);
 
                 log_info("Sizing home to %u%% of available disk space, which is %s.",
                          USER_DISK_SIZE_DEFAULT_PERCENT,
                          FORMAT_BYTES(*ret));
         } else {
-                *ret = DISK_SIZE_ROUND_DOWN((uint64_t) ((double) m * (double) h->disk_size_relative / (double) UINT32_MAX));
+                *ret = DISK_SIZE_ROUND_DOWN((uint64_t) ((double) upper_boundary * (double) CLAMP(h->disk_size_relative, 0U, UINT32_MAX) / (double) UINT32_MAX));
 
                 log_info("Sizing home to %" PRIu64 ".%01" PRIu64 "%% of available disk space, which is %s.",
                          (h->disk_size_relative * 100) / UINT32_MAX,
@@ -2061,8 +2059,12 @@ static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *
                          FORMAT_BYTES(*ret));
         }
 
-        if (*ret < USER_DISK_SIZE_MIN)
-                *ret = USER_DISK_SIZE_MIN;
+        lower_boundary = minimal_size_by_fs_name(fstype);
+        if (lower_boundary == UINT64_MAX || lower_boundary < USER_DISK_SIZE_MIN)
+                lower_boundary = USER_DISK_SIZE_MIN;
+
+        if (*ret < lower_boundary)
+                *ret = lower_boundary;
 
         return 0;
 }
@@ -2251,22 +2253,11 @@ int home_create_luks(
                                 log_info("Full device discard completed.");
                 }
         } else {
-                _cleanup_free_ char *parent = NULL, *t = NULL;
+                _cleanup_free_ char *t = NULL;
 
-                parent = dirname_malloc(ip);
-                if (!parent)
-                        return log_oom();
-
-                r = mkdir_p(parent, 0755);
+                r = mkdir_parents(ip, 0755);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create parent directory %s: %m", parent);
-
-                r = calculate_disk_size(h, parent, &host_size);
-                if (r < 0)
-                        return r;
-
-                if (!supported_fs_size(fstype, host_size))
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", fstype);
+                        return log_error_errno(r, "Failed to create parent directory of %s: %m", ip);
 
                 r = tempfn_random(ip, "homework", &t);
                 if (r < 0)
@@ -2283,7 +2274,11 @@ int home_create_luks(
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
-                r = home_truncate(h, setup->image_fd, host_size);
+                r = calculate_initial_image_size(h, setup->image_fd, fstype, &host_size);
+                if (r < 0)
+                        return r;
+
+                r = resize_image_loop(h, setup, 0, host_size, &host_size);
                 if (r < 0)
                         return r;
 
@@ -2461,7 +2456,7 @@ int home_create_luks(
         if (disk_uuid_path)
                 (void) wait_for_devlink(disk_uuid_path);
 
-        log_info("Everything completed.");
+        log_info("Creation completed.");
 
         print_size_summary(host_size, encrypted_size, &sfs);
 
