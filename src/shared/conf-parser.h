@@ -149,6 +149,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addr);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_ether_addr);
 CONFIG_PARSER_PROTOTYPE(config_parse_ether_addrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
