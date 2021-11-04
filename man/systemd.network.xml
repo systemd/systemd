@@ -1150,7 +1150,7 @@ Table=1234</programlisting></para>
         <varlistentry>
           <term><varname>Label=</varname></term>
           <listitem>
-            <para>The label for the prefix, an unsigned integer in the range 0–4294967294.
+            <para>The label for the prefix, an unsigned integer in the range 0…4294967294.
             0xffffffff is reserved. This setting is mandatory.</para>
           </listitem>
         </varlistentry>
@@ -1552,7 +1552,7 @@ Table=1234</programlisting></para>
           <term><varname>TCPAdvertisedMaximumSegmentSize=</varname></term>
           <listitem>
             <para>Specifies the Path MSS (in bytes) hints given on TCP layer. The usual suffixes K, M, G, are
-            supported and are understood to the base of 1024. An unsigned integer in the range 1–4294967294.
+            supported and are understood to the base of 1024. An unsigned integer in the range 1…4294967294.
             When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
@@ -2049,7 +2049,7 @@ Table=1234</programlisting></para>
             <para>Takes an IPv6 address with prefix length in the same format as the
             <varname>Address=</varname> in the [Network] section. The DHCPv6 client will include a prefix
             hint in the DHCPv6 solicitation sent to the server. The prefix length must be in the range
-            1–128. Defaults to unset.</para>
+            1…128. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -3111,7 +3111,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Termination=</varname></term>
           <listitem>
-            <para>Takes a boolean or a termination resistor value in ohm in the range 0–65535. When
+            <para>Takes a boolean or a termination resistor value in ohm in the range 0…65535. When
             <literal>yes</literal>, the termination resistor is set to 120 ohm. When
             <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
             When unset, the kernel's default will be used.</para>
@@ -3225,7 +3225,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the maximum number of packets the qdisc may hold queued at a time.
-          An unsigned integer in the range 0–4294967294. Defaults to 1000.</para>
+          An unsigned integer in the range 0…4294967294. Defaults to 1000.</para>
         </listitem>
       </varlistentry>
 
@@ -3374,7 +3374,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
-          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
         </listitem>
       </varlistentry>
@@ -3436,7 +3436,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the number of packets in the FIFO queue. The size limit prevents
           overflow in case the kernel is unable to dequeue packets as quickly as it receives them. When this
           limit is reached, incoming packets are dropped. An unsigned integer in the range
-          0–4294967294. Defaults to unset and kernel's default is used.</para>
+          0…4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3491,8 +3491,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>OverheadBytes=</varname></term>
         <listitem>
-          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative. Takes
-          an integer in the range from -64 to 256. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
+          Takes an integer in the range -64…256. Defaults to unset and kernel's default is used.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -3512,7 +3513,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
-          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
         </listitem>
       </varlistentry>
@@ -3596,7 +3597,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Bands=</varname></term>
         <listitem>
-          <para>Specifies the number of bands. An unsigned integer in the range 1–16. This value has to be at
+          <para>Specifies the number of bands. An unsigned integer in the range 1…16. This value has to be at
           least large enough to cover the strict bands specified through the <varname>StrictBands=</varname>
           and bandwidth-sharing bands specified in <varname>QuantumBytes=</varname>.</para>
         </listitem>
@@ -3606,7 +3607,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>StrictBands=</varname></term>
         <listitem>
           <para>Specifies the number of bands that should be created in strict mode. An unsigned integer in
-          the range 1–16.</para>
+          the range 1…16.</para>
         </listitem>
       </varlistentry>
 
@@ -3978,7 +3979,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
-          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
         </listitem>
       </varlistentry>
@@ -4035,8 +4036,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>VLAN=</varname></term>
           <listitem>
-            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. VLAN IDs are valid
-            from 1 to 4094.</para>
+            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes
+            an integer in the range 1…4094.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
