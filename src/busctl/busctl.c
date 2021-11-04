@@ -102,7 +102,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 
         if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
-        else {
+        else
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
@@ -123,13 +123,13 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 default:
                         assert_not_reached();
                 }
-        }
+
         if (r < 0)
                 return bus_log_address_error(r, arg_transport);
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         *ret = TAKE_PTR(bus);
 
