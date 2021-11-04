@@ -91,7 +91,13 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char
 int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name);
 int rtnl_resolve_interface(sd_netlink **rtnl, const char *name);
 int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
-int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags);
+int rtnl_get_link_info(
+                sd_netlink **rtnl,
+                int ifindex,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);

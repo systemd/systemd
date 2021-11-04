@@ -855,7 +855,7 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        r = rtnl_get_link_info(&event->rtnl, ifindex, NULL, &flags);
+        r = rtnl_get_link_info(&event->rtnl, ifindex, NULL, &flags, NULL, NULL);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get link flags: %m");
 
