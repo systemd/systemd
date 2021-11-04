@@ -34,6 +34,19 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
         return 1;
 }
 
+int bus_log_address_error(int r) {
+        return log_error_errno(r,
+                               r == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                                 "Failed to set bus address: %m");
+}
+
+int bus_log_connect_error(int r) {
+        return log_error_errno(r,
+                               r == -ENOMEDIUM       ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                               ERRNO_IS_PRIVILEGE(r) ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                                       "Failed to connect to bus: %m");
+}
+
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         const char *match;
         const char *unique;
