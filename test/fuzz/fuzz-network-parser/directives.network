@@ -42,6 +42,7 @@ Unmanaged=
 MTUBytes=
 Multicast=
 MACAddress=
+HardwareAddress=
 Group=
 Promiscuous=
 [SR-IOV]
