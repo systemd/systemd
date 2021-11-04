@@ -315,6 +315,7 @@ IPProtocol=
 InvertRule=
 Family=
 SuppressPrefixLength=
+SuppressInterfaceGroup=
 User=
 Type=
 [IPv6SendRA]

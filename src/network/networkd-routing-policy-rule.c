@@ -65,6 +65,7 @@ static int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 .uid_range.start = UID_INVALID,
                 .uid_range.end = UID_INVALID,
                 .suppress_prefixlen = -1,
+                .suppress_ifgroup = -1,
                 .protocol = RTPROT_UNSPEC,
                 .type = FR_ACT_TO_TBL,
         };
@@ -165,6 +166,7 @@ void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash
                 siphash24_compress(&rule->priority, sizeof(rule->priority), state);
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
                 siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
+                siphash24_compress(&rule->suppress_ifgroup, sizeof(rule->suppress_ifgroup), state);
 
                 siphash24_compress(&rule->ipproto, sizeof(rule->ipproto), state);
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
@@ -237,6 +239,10 @@ int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPo
                         return r;
 
                 r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->suppress_ifgroup, b->suppress_ifgroup);
                 if (r != 0)
                         return r;
 
@@ -532,6 +538,12 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                 r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_PREFIXLEN, (uint32_t) rule->suppress_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
+        }
+
+        if (rule->suppress_ifgroup >= 0) {
+                r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_IFGROUP, (uint32_t) rule->suppress_ifgroup);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_IFGROUP attribute: %m");
         }
 
         r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
@@ -855,11 +867,11 @@ int request_process_routing_policy_rule(Request *req) {
 }
 
 static const RoutingPolicyRule kernel_rules[] = {
-        { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
 };
 
 static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
@@ -1049,8 +1061,28 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
                 return 0;
         }
-        if (r >= 0)
-                tmp->suppress_prefixlen = (int) suppress_prefixlen;
+        if (r >= 0) {
+                /* kernel does not limit this value, but we do. */
+                if (suppress_prefixlen > 128) {
+                        log_warning("rtnl: received invalid FRA_SUPPRESS_PREFIXLEN attribute value %"PRIu32", ignoring.", suppress_prefixlen);
+                        return 0;
+                }
+                tmp->suppress_prefixlen = (int32_t) suppress_prefixlen;
+        }
+
+        uint32_t suppress_ifgroup;
+        r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_IFGROUP, &suppress_ifgroup);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_IFGROUP attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0) {
+                if (suppress_ifgroup > INT32_MAX) {
+                        log_warning("rtnl: received invalid FRA_SUPPRESS_IFGROUP attribute value %"PRIu32", ignoring.", suppress_ifgroup);
+                        return 0;
+                }
+                tmp->suppress_ifgroup = (int32_t) suppress_ifgroup;
+        }
 
         if (adjust_protocol)
                 /* As .network files does not have setting to specify protocol, we can assume the
@@ -1618,6 +1650,54 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 return 0;
         }
 
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_routing_policy_rule_suppress_ifgroup(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int32_t suppress_ifgroup;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                n->suppress_ifgroup = -1;
+                return 0;
+        }
+
+        r = safe_atoi32(rvalue, &suppress_ifgroup);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse SuppressInterfaceGroup=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (suppress_ifgroup < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Value of SuppressInterfaceGroup= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        n->suppress_ifgroup = suppress_ifgroup;
         TAKE_PTR(n);
         return 0;
 }
