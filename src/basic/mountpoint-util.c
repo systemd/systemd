@@ -425,6 +425,7 @@ bool fstype_is_ro(const char *fstype) {
         return STR_IN_SET(fstype,
                           "DM_verity_hash",
                           "iso9660",
+                          "erofs",
                           "squashfs");
 }
 
