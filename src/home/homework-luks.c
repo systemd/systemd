@@ -2313,25 +2313,27 @@ int home_create_luks(
                 return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
+                /* Reread partition table if this is a block device */
                 (void) ioctl(setup->image_fd, BLKRRPART, 0);
         else {
+                assert(setup->temporary_image_path);
+
+                if (rename(setup->temporary_image_path, ip) < 0)
+                        return log_error_errno(errno, "Failed to rename image file: %m");
+
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
+
                 /* If we operate on a file, sync the containing directory too. */
                 r = fsync_directory_of_file(setup->image_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
+
+                log_info("Moved image file into place.");
         }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
          * lock that ensures udev doesn't interfere with what we are doing */
         setup->image_fd = safe_close(setup->image_fd);
-
-        if (setup->temporary_image_path) {
-                if (rename(setup->temporary_image_path, ip) < 0)
-                        return log_error_errno(errno, "Failed to rename image file: %m");
-
-                setup->temporary_image_path = mfree(setup->temporary_image_path);
-                log_info("Moved image file into place.");
-        }
 
         if (disk_uuid_path)
                 (void) wait_for_devlink(disk_uuid_path);
