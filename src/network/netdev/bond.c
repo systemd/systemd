@@ -386,7 +386,7 @@ int config_parse_ad_actor_system(
         assert(rvalue);
         assert(data);
 
-        r = ether_addr_from_string(rvalue, &n);
+        r = parse_ether_addr(rvalue, &n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Not a valid MAC address %s. Ignoring assignment: %m",

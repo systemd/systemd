@@ -353,7 +353,7 @@ static int network_set_mac_address(Context *context, const char *ifname, const c
         if (!network)
                 return -ENODEV;
 
-        return ether_addr_from_string(mac, &network->mac);
+        return parse_ether_addr(mac, &network->mac);
 }
 
 static int network_set_address(Context *context, const char *ifname, int family, unsigned char prefixlen,
@@ -909,7 +909,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
 
         name = strndupa_safe(value, p - value);
 
-        r = ether_addr_from_string(p + 1, &mac);
+        r = parse_ether_addr(p + 1, &mac);
         if (r < 0)
                 return r;
 

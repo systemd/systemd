@@ -680,7 +680,7 @@ int config_parse_neighbor_lladdr(
         if (r < 0)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, &n->lladdr.mac);
+        r = parse_ether_addr(rvalue, &n->lladdr.mac);
         if (r >= 0)
                 n->lladdr_size = sizeof(n->lladdr.mac);
         else {
@@ -725,7 +725,7 @@ int config_parse_neighbor_hwaddr(
         if (r < 0)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, &n->lladdr.mac);
+        r = parse_ether_addr(rvalue, &n->lladdr.mac);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);

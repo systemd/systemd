@@ -523,7 +523,7 @@ int config_parse_sr_iov_mac(
                 return 0;
         }
 
-        r = ether_addr_from_string(rvalue, &sr_iov->mac);
+        r = parse_ether_addr(rvalue, &sr_iov->mac);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);

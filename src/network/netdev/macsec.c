@@ -620,7 +620,7 @@ int config_parse_macsec_hw_address(
         if (r < 0)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, b ? &b->sci.mac : &c->sci.mac);
+        r = parse_ether_addr(rvalue, b ? &b->sci.mac : &c->sci.mac);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse MAC address for secure channel identifier. "

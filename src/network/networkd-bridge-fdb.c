@@ -286,7 +286,7 @@ int config_parse_fdb_hwaddr(
         if (r < 0)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, &fdb->mac_addr);
+        r = parse_ether_addr(rvalue, &fdb->mac_addr);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
