@@ -1283,6 +1283,14 @@ Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SuppressInterfaceGroup=</varname></term>
+          <listitem>
+            <para>Takes an integer in the range 0…2147483647 and rejects routing decisions that have
+            an interface with the same group id. It has the same meaning as
+            <option>suppress_ifgroup</option> in <command>ip rule</command>. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
             <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of <literal>blackhole</literal>,
