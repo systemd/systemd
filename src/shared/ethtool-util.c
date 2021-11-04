@@ -339,14 +339,14 @@ int ethtool_get_link_info(
         return 0;
 }
 
-int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
+int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw_addr_data *ret) {
         _cleanup_close_ int fd = -1;
         struct {
                 struct ethtool_perm_addr addr;
-                uint8_t space[MAX_ADDR_LEN];
+                uint8_t space[HW_ADDR_MAX_SIZE];
         } epaddr = {
                 .addr.cmd = ETHTOOL_GPERMADDR,
-                .addr.size = MAX_ADDR_LEN,
+                .addr.size = HW_ADDR_MAX_SIZE,
         };
         struct ifreq ifr = {
                 .ifr_data = (caddr_t) &epaddr,
@@ -367,17 +367,14 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
-        if (epaddr.addr.size != 6)
-                return -EOPNOTSUPP;
+        if (epaddr.addr.size == 0)
+                return -ENODATA;
 
-#pragma GCC diagnostic push
-#if HAVE_ZERO_LENGTH_BOUNDS
-#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#endif
-        for (size_t i = 0; i < epaddr.addr.size; i++)
-                ret->ether_addr_octet[i] = epaddr.addr.data[i];
-#pragma GCC diagnostic pop
+        if (epaddr.addr.size > HW_ADDR_MAX_SIZE)
+                return -EINVAL;
 
+        ret->length = epaddr.addr.size;
+        memcpy(ret->bytes, epaddr.addr.data, epaddr.addr.size);
         return 0;
 }
 
