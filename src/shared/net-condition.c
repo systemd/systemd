@@ -143,16 +143,11 @@ int net_match_config(
                 return r;
 
         if (device) {
-                const char *mac_str;
-
                 (void) sd_device_get_property_value(device, "ID_PATH", &path);
                 if (!driver)
                         (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
                 if (!ifname)
                         (void) sd_device_get_sysname(device, &ifname);
-                if (!mac &&
-                    sd_device_get_sysattr_value(device, "address", &mac_str) >= 0)
-                        mac = ether_aton(mac_str);
         }
 
         if (match->mac && (!mac || !set_contains(match->mac, mac)))
