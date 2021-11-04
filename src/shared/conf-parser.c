@@ -1320,6 +1320,100 @@ int config_parse_vlanprotocol(
         return 0;
 }
 
+int config_parse_hw_addr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct hw_addr_data a, *hwaddr = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *hwaddr = HW_ADDR_NULL;
+                return 0;
+        }
+
+        r = parse_hw_addr_full(rvalue, ltype, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Not a valid hardware address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *hwaddr = a;
+        return 0;
+}
+
+int config_parse_hw_addrs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Set **hwaddrs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *hwaddrs = set_free(*hwaddrs);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ struct hw_addr_data *n = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                n = new(struct hw_addr_data, 1);
+                if (!n)
+                        return log_oom();
+
+                r = parse_hw_addr_full(word, ltype, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Not a valid hardware address, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_ensure_consume(hwaddrs, &hw_addr_hash_ops_free, TAKE_PTR(n));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
 int config_parse_ether_addr(
                 const char *unit,
                 const char *filename,
