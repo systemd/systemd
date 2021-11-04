@@ -3528,6 +3528,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseRawPacketSize=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, the packet size reported by the Linux kernel will be
+          used, instead of the underlying IP packet size. Defaults to unset, and the kernel's default
+          is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FlowIsolationMode=</varname></term>
         <listitem>
           <para>CAKE places packets from different flows into different queues, then packets from each

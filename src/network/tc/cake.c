@@ -21,6 +21,7 @@ static int cake_init(QDisc *qdisc) {
 
         c->autorate = -1;
         c->compensation_mode = _CAKE_COMPENSATION_MODE_INVALID;
+        c->raw = -1;
         c->flow_isolation_mode = _CAKE_FLOW_ISOLATION_MODE_INVALID;
         c->nat = -1;
         c->preset = _CAKE_PRESET_INVALID;
@@ -72,6 +73,13 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_ATM, c->compensation_mode);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_ATM attribute: %m");
+        }
+
+        if (c->raw > 0) {
+                /* TCA_CAKE_RAW attribute is mostly a flag, not boolean. */
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_RAW, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_RAW attribute: %m");
         }
 
         if (c->flow_isolation_mode >= 0) {
@@ -326,6 +334,8 @@ int config_parse_cake_tristate(
 
         if (streq(lvalue, "AutoRateIngress"))
                 dest = &c->autorate;
+        else if (streq(lvalue, "UseRawPacketSize"))
+                dest = &c->raw;
         else if (streq(lvalue, "NAT"))
                 dest = &c->nat;
         else if (streq(lvalue, "Wash"))

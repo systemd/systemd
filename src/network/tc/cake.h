@@ -50,6 +50,7 @@ typedef struct CommonApplicationsKeptEnhanced {
         int overhead;
         uint32_t mpu;
         CakeCompensationMode compensation_mode;
+        int raw;
 
         /* Flow isolation parameters */
         CakeFlowIsolationMode flow_isolation_mode;

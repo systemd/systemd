@@ -474,6 +474,7 @@ AutoRateIngress=
 OverheadBytes=
 MPUBytes=
 CompensationMode=
+UseRawPacketSize=
 FlowIsolationMode=
 NAT=
 PriorityQueueingPreset=
