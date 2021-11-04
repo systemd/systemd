@@ -63,6 +63,12 @@ struct Manager {
 
         RebalanceState rebalance_state;
         usec_t rebalance_interval_usec;
+
+        /* In order to allow synchronous rebalance requests via bus calls we maintain two pools of bus
+         * messages: 'rebalance_pending_methods' are the method calls we are currently operating on and
+         * running a rebalancing operation for. 'rebalance_queued_method_calls' are the method calls that
+         * have been queued since then and that we'll operate on once we complete the current run. */
+        Set *rebalance_pending_method_calls, *rebalance_queued_method_calls;
 };
 
 int manager_new(Manager **ret);
