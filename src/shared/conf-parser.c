@@ -1320,7 +1320,7 @@ int config_parse_vlanprotocol(
         return 0;
 }
 
-int config_parse_hwaddr(
+int config_parse_ether_addr(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1362,7 +1362,7 @@ int config_parse_hwaddr(
         return 0;
 }
 
-int config_parse_hwaddrs(
+int config_parse_ether_addrs(
                 const char *unit,
                 const char *filename,
                 unsigned line,
