@@ -315,9 +315,18 @@ static void manager_exit(Manager *manager) {
         manager_kill_workers(manager, true);
 }
 
+static void notify_ready(void) {
+        int r;
+
+        r = sd_notifyf(false,
+                       "READY=1\n"
+                       "STATUS=Processing with %u children at max", arg_children_max);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+}
+
 /* reload requested, HUP signal received, rules changed, builtin changed */
 static void manager_reload(Manager *manager) {
-
         assert(manager);
 
         sd_notify(false,
@@ -328,9 +337,7 @@ static void manager_reload(Manager *manager) {
         manager->rules = udev_rules_free(manager->rules);
         udev_builtin_exit();
 
-        sd_notifyf(false,
-                   "READY=1\n"
-                   "STATUS=Processing with %u children at max", arg_children_max);
+        notify_ready();
 }
 
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1199,9 +1206,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
                 arg_children_max = value->intval;
 
-                (void) sd_notifyf(false,
-                                  "READY=1\n"
-                                  "STATUS=Processing with %u children at max", arg_children_max);
+                notify_ready();
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1862,9 +1867,7 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
 
-        (void) sd_notifyf(false,
-                          "READY=1\n"
-                          "STATUS=Processing with %u children at max", arg_children_max);
+        notify_ready();
 
         r = sd_event_loop(manager->event);
         if (r < 0)

@@ -1051,7 +1051,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         }
         unit_times_hashmap = h;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         puts("The time when unit became active or started is printed after the \"@\" character.\n"
              "The time the unit took to start is printed after the \"+\" character.\n");
@@ -1121,7 +1121,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return table_print(table, NULL);
 }
@@ -1349,7 +1349,7 @@ static int dump(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
                 return dump_fallback(bus);
@@ -1376,7 +1376,7 @@ static int cat_config(int argc, char *argv[], void *userdata) {
         char **arg, **list;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         list = strv_skip(argv, 1);
         STRV_FOREACH(arg, list) {
@@ -1523,7 +1523,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
                                 return table_log_add_error(r);
                 }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return table_print(table, NULL);
 }
@@ -1568,7 +1568,7 @@ static int dump_capabilities(int argc, char *argv[], void *userdata) {
                 (void) table_set_sort(table, (size_t) 1);
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return table_print(table, NULL);
 }
@@ -1652,7 +1652,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
@@ -1824,7 +1824,7 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with libbpf support, sorry.");
 #endif
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
@@ -2270,7 +2270,7 @@ static int do_security(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (arg_security_policy) {
                 r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
@@ -2309,7 +2309,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-analyze", "1", &link);
         if (r < 0)

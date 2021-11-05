@@ -191,8 +191,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = pager_open(arg_pager_flags);
-        if (r > 0 && arg_full < 0)
+        pager_open(arg_pager_flags);
+        if (arg_full < 0 && pager_have())
                 arg_full = true;
 
         if (arg_full > 0)

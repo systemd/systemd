@@ -379,7 +379,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(d);
 
         if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));

@@ -1432,7 +1432,7 @@ static int list_devices(void) {
                 }
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = table_print(table, NULL);
         if (r < 0)

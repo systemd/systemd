@@ -255,7 +255,7 @@ int list_unit_files(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         typesafe_qsort(units, c, compare_unit_file_list);
         r = output_unit_file_list(units, c);
