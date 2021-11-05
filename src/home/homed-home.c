@@ -17,9 +17,11 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
+#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -32,9 +34,9 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "user-record-pwquality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record-pwquality.h"
 #include "user-record.h"
 #include "user-util.h"
 
@@ -2105,13 +2107,17 @@ static int home_get_disk_status_luks(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX,
                 stat_used = UINT64_MAX, fs_size = UINT64_MAX, header_size = 0;
-
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
+        struct stat st;
         const char *hd;
         int r;
 
@@ -2122,8 +2128,6 @@ static int home_get_disk_status_luks(
 
                 ip = user_record_image_path(h->record);
                 if (ip) {
-                        struct stat st;
-
                         if (stat(ip, &st) < 0)
                                 log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", ip);
                         else if (S_ISREG(st.st_mode)) {
@@ -2171,10 +2175,25 @@ static int home_get_disk_status_luks(
         if (!hd)
                 goto finish;
 
+        if (stat(hd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", hd);
+                goto finish;
+        }
+
+        r = stat_verify_directory(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Home directory %s is not a directory, ignoring: %m", hd);
+                goto finish;
+        }
+
+        access_mode = st.st_mode & 07777;
+
         if (statfs(hd, &sfs) < 0) {
                 log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", hd);
                 goto finish;
         }
+
+        fstype = sfs.f_type;
 
         disk_free = sfs.f_bsize * sfs.f_bavail;
         fs_size = sfs.f_bsize * sfs.f_blocks;
@@ -2215,6 +2234,10 @@ finish:
                 *ret_disk_ceiling = disk_ceiling;
         if (ret_disk_floor)
                 *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
 }
@@ -2226,10 +2249,14 @@ static int home_get_disk_status_directory(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
         const char *path = NULL;
@@ -2258,6 +2285,8 @@ static int home_get_disk_status_directory(
 
                 /* We don't initialize disk_usage from statfs() data here, since the device is likely not used
                  * by us alone, and disk_usage should only reflect our own use. */
+
+                fstype = sfs.f_type;
         }
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME)) {
@@ -2356,6 +2385,10 @@ finish:
                 *ret_disk_ceiling = disk_ceiling;
         if (ret_disk_floor)
                 *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
 }
@@ -2367,7 +2400,9 @@ static int home_get_disk_status_internal(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         assert(h);
         assert(h->record);
@@ -2375,14 +2410,14 @@ static int home_get_disk_status_internal(
         switch (h->record->storage) {
 
         case USER_LUKS:
-                return home_get_disk_status_luks(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor);
+                return home_get_disk_status_luks(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
 
         case USER_CLASSIC:
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
         case USER_CIFS:
-                return home_get_disk_status_directory(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor);
+                return home_get_disk_status_directory(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
 
         default:
                 /* don't know */
@@ -2397,6 +2432,10 @@ static int home_get_disk_status_internal(
                         *ret_disk_ceiling = UINT64_MAX;
                 if (ret_disk_floor)
                         *ret_disk_floor = UINT64_MAX;
+                if (ret_fstype)
+                        *ret_fstype = 0;
+                if (ret_access_mode)
+                        *ret_access_mode = MODE_INVALID;
 
                 return 0;
         }
@@ -2408,7 +2447,9 @@ int home_get_disk_status(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         assert(h);
 
@@ -2419,7 +2460,22 @@ int home_get_disk_status(
                         ret_disk_usage,
                         ret_disk_free,
                         ret_disk_ceiling,
-                        ret_disk_floor);
+                        ret_disk_floor,
+                        ret_fstype,
+                        ret_access_mode);
+}
+
+static const char *fstype_magic_to_name(statfs_f_type_t magic) {
+        /* For now, let's only translate the magic values of the file systems we actually are able to manage */
+
+        if (F_TYPE_EQUAL(magic, EXT4_SUPER_MAGIC))
+                return "ext4";
+        if (F_TYPE_EQUAL(magic, XFS_SUPER_MAGIC))
+                return "xfs";
+        if (F_TYPE_EQUAL(magic, BTRFS_SUPER_MAGIC))
+                return "btrfs";
+
+        return NULL;
 }
 
 int home_augment_status(
@@ -2430,6 +2486,9 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        statfs_f_type_t magic;
+        const char *fstype;
+        mode_t access_mode;
         HomeState state;
         sd_id128_t id;
         int r;
@@ -2452,9 +2511,13 @@ int home_augment_status(
                         &disk_usage,
                         &disk_free,
                         &disk_ceiling,
-                        &disk_floor);
+                        &disk_floor,
+                        &magic,
+                        &access_mode);
         if (r < 0)
                 return r;
+
+        fstype = fstype_magic_to_name(magic);
 
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
@@ -2472,7 +2535,9 @@ int home_augment_status(
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
                                        JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", JSON_BUILD_UNSIGNED(disk_ceiling)),
                                        JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", JSON_BUILD_UNSIGNED(disk_floor)),
-                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally))
+                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally)),
+                                       JSON_BUILD_PAIR_CONDITION(fstype, "fileSystemType", JSON_BUILD_STRING(fstype)),
+                                       JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", JSON_BUILD_UNSIGNED(access_mode))
                        ));
         if (r < 0)
                 return r;
