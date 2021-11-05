@@ -46,6 +46,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "missing_ioprio.h"
+#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-socket-bind-item.h"
@@ -5897,6 +5898,14 @@ int config_parse_bpf_foreign_program(
         r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
+
+        r = path_is_fs_type(resolved, BPF_FS_MAGIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine filesystem type of %s: %m", resolved);
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL), "Path in BPF filesystem is expected, ignoring: %s", rvalue);
+                return 0;
+        }
 
         r = cgroup_add_bpf_foreign_program(c, attach_type, resolved);
         if (r < 0)
