@@ -307,6 +307,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 if (hr->cifs_service)
                         printf("CIFS Service: %s\n", hr->cifs_service);
+
+                if (hr->cifs_extra_mount_options)
+                        printf("CIFS MntOpts: %s\n", hr->cifs_extra_mount_options);
         }
 
         if (hr->cifs_user_name)
