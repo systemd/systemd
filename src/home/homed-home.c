@@ -17,9 +17,11 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
+#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -32,9 +34,9 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "user-record-pwquality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record-pwquality.h"
 #include "user-record.h"
 #include "user-util.h"
 
@@ -157,6 +159,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
+        (void) manager_schedule_rebalance(m, /* immediately= */ false);
 
         if (ret)
                 *ret = TAKE_PTR(home);
@@ -189,6 +192,8 @@ Home *home_free(Home *h) {
 
                 if (h->manager->gc_focus == h)
                         h->manager->gc_focus = NULL;
+
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         }
 
         user_record_unref(h->record);
@@ -300,9 +305,9 @@ int home_save_record(Home *h) {
                 return r;
 
         (void) mkdir("/var/lib/systemd/", 0755);
-        (void) mkdir("/var/lib/systemd/home/", 0700);
+        (void) mkdir(home_record_dir(), 0700);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), h->user_name, ".identity");
 
         r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
@@ -316,7 +321,7 @@ int home_unlink_record(Home *h) {
 
         assert(h);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 
@@ -485,6 +490,7 @@ static void home_set_state(Home *h, HomeState state) {
                  * enqueue it for GC too. */
 
                 home_schedule_operation(h, NULL, NULL);
+                manager_reschedule_rebalance(h->manager);
                 manager_enqueue_gc(h->manager, h);
         }
 }
@@ -723,6 +729,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         /* Reset the state to "invalid", which makes home_get_state() test if the image exists and returns
          * HOME_ABSENT vs. HOME_INACTIVE as necessary. */
         home_set_state(h, _HOME_STATE_INVALID);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         return;
 
 fail:
@@ -777,6 +784,9 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
@@ -799,6 +809,9 @@ static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
@@ -837,6 +850,8 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
 
         /* Unload this record from memory too now. */
         h = home_free(h);
+
+        (void) manager_schedule_rebalance(m, /* immediately= */ true);
         return;
 
 fail:
@@ -881,6 +896,8 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
         h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
@@ -914,6 +931,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         log_debug("Change operation of %s completed.", h->user_name);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         r = 0;
 
 finish:
@@ -1679,7 +1697,12 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         return 0;
 }
 
-int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error) {
+int home_resize(Home *h,
+                uint64_t disk_size,
+                UserRecord *secret,
+                bool automatic,
+                sd_bus_error *error) {
+
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
         HomeState state;
         int r;
@@ -1742,7 +1765,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, "resize", c, secret, error);
+        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, error);
         if (r < 0)
                 return r;
 
@@ -2105,29 +2128,27 @@ static int home_get_disk_status_luks(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX,
                 stat_used = UINT64_MAX, fs_size = UINT64_MAX, header_size = 0;
-
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
+        struct stat st;
         const char *hd;
         int r;
 
         assert(h);
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
 
         if (state != HOME_ABSENT) {
                 const char *ip;
 
                 ip = user_record_image_path(h->record);
                 if (ip) {
-                        struct stat st;
-
                         if (stat(ip, &st) < 0)
                                 log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", ip);
                         else if (S_ISREG(st.st_mode)) {
@@ -2175,10 +2196,25 @@ static int home_get_disk_status_luks(
         if (!hd)
                 goto finish;
 
+        if (stat(hd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", hd);
+                goto finish;
+        }
+
+        r = stat_verify_directory(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Home directory %s is not a directory, ignoring: %m", hd);
+                goto finish;
+        }
+
+        access_mode = st.st_mode & 07777;
+
         if (statfs(hd, &sfs) < 0) {
                 log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", hd);
                 goto finish;
         }
+
+        fstype = sfs.f_type;
 
         disk_free = sfs.f_bsize * sfs.f_bavail;
         fs_size = sfs.f_bsize * sfs.f_blocks;
@@ -2209,11 +2245,20 @@ finish:
         if (disk_floor == UINT64_MAX)
                 disk_floor = minimal_size_by_fs_name(user_record_file_system_type(h->record));
 
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
 }
@@ -2225,20 +2270,20 @@ static int home_get_disk_status_directory(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
         const char *path = NULL;
         int r;
 
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
-        assert(ret_disk_floor);
+        assert(h);
 
         if (HOME_STATE_IS_ACTIVE(state))
                 path = user_record_home_directory(h->record);
@@ -2261,6 +2306,8 @@ static int home_get_disk_status_directory(
 
                 /* We don't initialize disk_usage from statfs() data here, since the device is likely not used
                  * by us alone, and disk_usage should only reflect our own use. */
+
+                fstype = sfs.f_type;
         }
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME)) {
@@ -2349,13 +2396,106 @@ static int home_get_disk_status_directory(
         }
 
 finish:
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
+}
+
+static int home_get_disk_status_internal(
+                Home *h,
+                HomeState state,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
+
+        assert(h);
+
+        switch (h->record->storage) {
+
+        case USER_LUKS:
+                return home_get_disk_status_luks(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
+
+        case USER_CLASSIC:
+        case USER_DIRECTORY:
+        case USER_SUBVOLUME:
+        case USER_FSCRYPT:
+        case USER_CIFS:
+                return home_get_disk_status_directory(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
+
+        default:
+                /* don't know */
+
+                if (ret_disk_size)
+                        *ret_disk_size = UINT64_MAX;
+                if (ret_disk_usage)
+                        *ret_disk_usage = UINT64_MAX;
+                if (ret_disk_free)
+                        *ret_disk_free = UINT64_MAX;
+                if (ret_disk_ceiling)
+                        *ret_disk_ceiling = UINT64_MAX;
+                if (ret_disk_floor)
+                        *ret_disk_floor = UINT64_MAX;
+                if (ret_fstype)
+                        *ret_fstype = 0;
+                if (ret_access_mode)
+                        *ret_access_mode = MODE_INVALID;
+
+                return 0;
+        }
+}
+
+int home_get_disk_status(
+                Home *h,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
+
+        assert(h);
+
+        return home_get_disk_status_internal(
+                        h,
+                        home_get_state(h),
+                        ret_disk_size,
+                        ret_disk_usage,
+                        ret_disk_free,
+                        ret_disk_ceiling,
+                        ret_disk_floor,
+                        ret_fstype,
+                        ret_access_mode);
+}
+
+static const char *fstype_magic_to_name(statfs_f_type_t magic) {
+        /* For now, let's only translate the magic values of the file systems we actually are able to manage */
+
+        if (F_TYPE_EQUAL(magic, EXT4_SUPER_MAGIC))
+                return "ext4";
+        if (F_TYPE_EQUAL(magic, XFS_SUPER_MAGIC))
+                return "xfs";
+        if (F_TYPE_EQUAL(magic, BTRFS_SUPER_MAGIC))
+                return "btrfs";
+
+        return NULL;
 }
 
 int home_augment_status(
@@ -2366,6 +2506,9 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        statfs_f_type_t magic;
+        const char *fstype;
+        mode_t access_mode;
         HomeState state;
         sd_id128_t id;
         int r;
@@ -2382,29 +2525,19 @@ int home_augment_status(
 
         state = home_get_state(h);
 
-        switch (h->record->storage) {
+        r = home_get_disk_status_internal(
+                        h, state,
+                        &disk_size,
+                        &disk_usage,
+                        &disk_free,
+                        &disk_ceiling,
+                        &disk_floor,
+                        &magic,
+                        &access_mode);
+        if (r < 0)
+                return r;
 
-        case USER_LUKS:
-                r = home_get_disk_status_luks(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case USER_CLASSIC:
-        case USER_DIRECTORY:
-        case USER_SUBVOLUME:
-        case USER_FSCRYPT:
-        case USER_CIFS:
-                r = home_get_disk_status_directory(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        default:
-                ; /* unset */
-        }
+        fstype = fstype_magic_to_name(magic);
 
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
@@ -2422,7 +2555,9 @@ int home_augment_status(
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
                                        JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", JSON_BUILD_UNSIGNED(disk_ceiling)),
                                        JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", JSON_BUILD_UNSIGNED(disk_floor)),
-                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally))
+                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally)),
+                                       JSON_BUILD_PAIR_CONDITION(fstype, "fileSystemType", JSON_BUILD_STRING(fstype)),
+                                       JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", JSON_BUILD_UNSIGNED(access_mode))
                        ));
         if (r < 0)
                 return r;
@@ -2861,6 +2996,8 @@ static int on_pending(sd_event_source *s, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to disable event source: %m");
 
+        /* No operations pending anymore, maybe this is a good time to trigger a rebalancing */
+        manager_reschedule_rebalance(h->manager);
         return 0;
 }
 
@@ -3015,6 +3152,35 @@ int home_wait_for_worker(Home *h) {
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
         h->worker_pid = 0;
         return 1;
+}
+
+bool home_shall_rebalance(Home *h) {
+        HomeState state;
+
+        assert(h);
+
+        /* Determines if the home directory is a candidate for rebalancing */
+
+        if (!user_record_shall_rebalance(h->record))
+                return false;
+
+        state = home_get_state(h);
+        if (!HOME_STATE_SHALL_REBALANCE(state))
+                return false;
+
+        return true;
+}
+
+bool home_is_busy(Home *h) {
+        assert(h);
+
+        if (h->current_operation)
+                return true;
+
+        if (!ordered_set_isempty(h->pending_operations))
+                return true;
+
+        return HOME_STATE_IS_EXECUTING_OPERATION(home_get_state(h));
 }
 
 static const char* const home_state_table[_HOME_STATE_MAX] = {
