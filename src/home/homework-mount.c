@@ -40,28 +40,35 @@ static const char *mount_options_for_fstype(const char *fstype) {
         return NULL;
 }
 
-int home_mount_node(const char *node, const char *fstype, bool discard, unsigned long flags) {
+int home_mount_node(
+                const char *node,
+                const char *fstype,
+                bool discard,
+                unsigned long flags,
+                const char *extra_mount_options) {
+
         _cleanup_free_ char *joined = NULL;
-        const char *options, *discard_option;
+        const char *default_options;
         int r;
 
         assert(node);
         assert(fstype);
 
-        options = mount_options_for_fstype(fstype);
-
-        discard_option = discard ? "discard" : "nodiscard";
-
-        if (options) {
-                joined = strjoin(options, ",", discard_option);
-                if (!joined)
+        default_options = mount_options_for_fstype(fstype);
+        if (default_options) {
+                if (!strextend_with_separator(&joined, ",", default_options))
                         return log_oom();
+        }
 
-                options = joined;
-        } else
-                options = discard_option;
+        if (!strextend_with_separator(&joined, ",", discard ? "discard" : "nodiscard"))
+                return log_oom();
 
-        r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, strempty(options));
+        if (extra_mount_options) {
+                if (!strextend_with_separator(&joined, ",", extra_mount_options))
+                        return log_oom();
+        }
+
+        r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, joined);
         if (r < 0)
                 return r;
 
@@ -85,7 +92,13 @@ int home_unshare_and_mkdir(void) {
         return 0;
 }
 
-int home_unshare_and_mount(const char *node, const char *fstype, bool discard, unsigned long flags) {
+int home_unshare_and_mount(
+                const char *node,
+                const char *fstype,
+                bool discard,
+                unsigned long flags,
+                const char *extra_mount_options) {
+
         int r;
 
         assert(node);
@@ -95,7 +108,7 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         if (r < 0)
                 return r;
 
-        r = home_mount_node(node, fstype, discard, flags);
+        r = home_mount_node(node, fstype, discard, flags, extra_mount_options);
         if (r < 0)
                 return r;
 
