@@ -2153,6 +2153,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Memory cost for PBKDF in bytes\n"
                "     --luks-pbkdf-parallel-threads=NUMBER\n"
                "                               Number of parallel threads for PKBDF\n"
+               "     --luks-extra-mount-options=OPTIONS\n"
+               "                               LUKS extra mount options\n"
                "\n%4$sMounting User Record Properties:%5$s\n"
                "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
                "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
@@ -2251,6 +2253,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
+                ARG_LUKS_EXTRA_MOUNT_OPTIONS,
         };
 
         static const struct option options[] = {
@@ -2335,6 +2338,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
+                { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
                 {}
         };
 
@@ -2452,7 +2456,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ICON_NAME:
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
-                case ARG_CIFS_EXTRA_MOUNT_OPTIONS: {
+                case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS: {
 
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -2461,6 +2466,7 @@ static int parse_argv(int argc, char *argv[]) {
                                           c == ARG_CIFS_USER_NAME ? "cifsUserName" :
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
                                 c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
+                                c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
                                                                     NULL;
 
                         assert(field);
