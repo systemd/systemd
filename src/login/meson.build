@@ -81,8 +81,7 @@ foreach tuple : in_files
                 file,
                 input : file + '.in',
                 output: file,
-                command : [meson_render_jinja2, config_h, '@INPUT@'],
-                capture : true,
+                command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
                 install : tuple[2] and install,
                 install_dir : dir)
 endforeach

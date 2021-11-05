@@ -43,8 +43,7 @@ custom_target(
         'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',
-        command : [meson_render_jinja2, config_h, '@INPUT@'],
-        capture : true,
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
         install : pkgconfiglibdir != 'no',
         install_dir : pkgconfiglibdir)
 

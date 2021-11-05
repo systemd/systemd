@@ -4,7 +4,6 @@ custom_target(
         'README',
         input : 'README.in',
         output : 'README',
-        command : [meson_render_jinja2, config_h, '@INPUT@'],
-        capture : true,
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
         install : conf.get('HAVE_SYSV_COMPAT') == 1,
         install_dir : sysvinit_path)
