@@ -1022,7 +1022,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "LogRateLimitIntervalSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (streq(field, "LogRateLimitBurst"))
+        if (STR_IN_SET(field, "LogRateLimitBurst",
+                              "TTYRows",
+                              "TTYColumns"))
                 return bus_append_safe_atou(m, field, eq);
 
         if (streq(field, "MountFlags"))

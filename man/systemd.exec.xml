@@ -2951,6 +2951,14 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TTYRows=</varname></term>
+        <term><varname>TTYColumns=</varname></term>
+
+        <listitem><para>Configure the size of the TTY specified with <varname>TTYPath=</varname>. If unset or
+        set to the empty string, the kernel default is used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TTYVTDisallocate=</varname></term>
 
         <listitem><para>If the terminal device specified with <varname>TTYPath=</varname> is a virtual console
