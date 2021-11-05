@@ -134,21 +134,14 @@ int net_match_config(
 
         _cleanup_free_ char *iftype_str = NULL;
         const char *path = NULL;
-        int r;
 
         assert(match);
 
-        r = net_get_type_string(device, iftype, &iftype_str);
-        if (r == -ENOMEM)
-                return r;
+        if (net_get_type_string(device, iftype, &iftype_str) == -ENOMEM)
+                return -ENOMEM;
 
-        if (device) {
+        if (device)
                 (void) sd_device_get_property_value(device, "ID_PATH", &path);
-                if (!driver)
-                        (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
-                if (!ifname)
-                        (void) sd_device_get_sysname(device, &ifname);
-        }
 
         if (match->hw_addr && (!hw_addr || !set_contains(match->hw_addr, hw_addr)))
                 return false;

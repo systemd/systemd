@@ -33,6 +33,24 @@ typedef enum NamePolicy {
         _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
+typedef struct Link {
+        int ifindex;
+        const char *ifname;
+        const char *new_name;
+
+        LinkConfig *config;
+        sd_device *device;
+        sd_device_action_t action;
+
+        char *driver;
+        uint16_t iftype;
+        uint32_t flags;
+        struct hw_addr_data hw_addr;
+        struct hw_addr_data permanent_hw_addr;
+        unsigned name_assign_type;
+        unsigned addr_assign_type;
+} Link;
+
 struct LinkConfig {
         char *filename;
 
@@ -80,9 +98,12 @@ int link_load_one(LinkConfigContext *ctx, const char *filename);
 int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, LinkConfig **ret);
-int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_netlink **rtnl, sd_device *device, const char **ret_name);
-int link_get_driver(LinkConfigContext *ctx, sd_device *device, char **ret);
+int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link **ret);
+Link *link_free(Link *link);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
+
+int link_get_config(LinkConfigContext *ctx, Link *link);
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;
