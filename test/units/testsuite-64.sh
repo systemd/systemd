@@ -85,10 +85,19 @@ helper_wait_for_vgroup() {
 helper_wait_for_lvm_activate() {
     local vgroup="${1:?}"
     local ntries="${2:-10}"
-    local i
+    local i lvm_activate_svc
 
+    lvm_activate_svc="lvm-activate-$vgroup.service"
     for ((i = 0; i < ntries; i++)); do
-        ! systemctl -q is-active "lvm-activate-$vgroup.service" || return 0
+        if systemctl -q is-active "$lvm_activate_svc"; then
+            # Since the service is started via `systemd-run --no-block`, we need
+            # to wait until it finishes, otherwise we might continue while
+            # `vgchange` is still running
+            if [[ "$(systemctl show -P SubState "$lvm_activate_svc")" == exited ]]; then
+                return 0
+            fi
+        fi
+
         sleep .5
     done
 
