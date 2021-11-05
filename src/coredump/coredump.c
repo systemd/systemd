@@ -525,6 +525,7 @@ static int save_external_coredump(
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
+        *ret_filename = TAKE_PTR(fn);
         *ret_data_fd = TAKE_FD(fd);
         *ret_size = (uint64_t) st.st_size;
         *ret_truncated = truncated;
