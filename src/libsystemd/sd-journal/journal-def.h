@@ -23,6 +23,8 @@ typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
+typedef struct TrieNodeObject TrieNodeObject;
+typedef struct BootIdObject BootIdObject;
 
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
@@ -39,16 +41,21 @@ typedef enum ObjectType {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
+        OBJECT_TRIE_NODE,
+        OBJECT_TRIE_HASH_TABLE,
+        OBJECT_BOOT_ID,
         _OBJECT_TYPE_MAX
 } ObjectType;
 
 /* Object flags */
 enum {
-        OBJECT_COMPRESSED_XZ   = 1 << 0,
-        OBJECT_COMPRESSED_LZ4  = 1 << 1,
-        OBJECT_COMPRESSED_ZSTD = 1 << 2,
+        OBJECT_COMPRESSED_XZ    = 1 << 0,
+        OBJECT_COMPRESSED_LZ4   = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD  = 1 << 2,
         OBJECT_COMPRESSION_MASK = (OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD),
-        _OBJECT_COMPRESSED_MAX = OBJECT_COMPRESSION_MASK,
+        FIELD_UNIQUE            = 1 << 3,
+        FIELD_INDEXED           = 1 << 4,
+        _OBJECT_COMPRESSED_MAX  = OBJECT_COMPRESSION_MASK,
 };
 
 struct ObjectHeader {
@@ -91,15 +98,34 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
-#define EntryObject__contents { \
-        ObjectHeader object;    \
-        le64_t seqnum;          \
-        le64_t realtime;        \
-        le64_t monotonic;       \
-        sd_id128_t boot_id;     \
-        le64_t xor_hash;        \
-        EntryItem items[];      \
-        }
+/* Extended version of EntryItem that stores extra information that we don't store in the journal file. */
+typedef struct {
+        uint64_t object_offset;
+        uint64_t hash;
+        /* The hash used to calculate the Entry object's XOR hash field. */
+        uint64_t xor_hash;
+        bool indexed;
+} EntryItemEx;
+
+#define EntryObject__contents {                  \
+        ObjectHeader object;                     \
+        le64_t seqnum;                           \
+        le64_t realtime;                         \
+        le64_t monotonic;                        \
+        union {                                  \
+                struct {                         \
+                        sd_id128_t boot_id;      \
+                        le64_t xor_hash;         \
+                        EntryItem items[];       \
+                };                               \
+                struct {                         \
+                        le64_t xor_hash_compact; \
+                        le32_t boot_id_offset;   \
+                        le32_t trie_offset;      \
+                        uint8_t payload[];       \
+                };                               \
+        };                                       \
+}
 
 struct EntryObject EntryObject__contents;
 struct EntryObject__packed EntryObject__contents _packed_;
@@ -118,7 +144,10 @@ struct HashTableObject {
 struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t items[0];
+                le32_t compact[0];
+        };
 } _packed_;
 
 #define TAG_LENGTH (256/8)
@@ -130,6 +159,27 @@ struct TagObject {
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 } _packed_;
 
+#define TrieNodeObject__contents { \
+        ObjectHeader object;       \
+        le64_t hash;               \
+        le64_t parent_offset;      \
+        le64_t object_offset;      \
+        le64_t next_hash_offset;   \
+}
+
+struct TrieNodeObject TrieNodeObject__contents;
+struct TrieNodeObject__packed TrieNodeObject__contents _packed_;
+assert_cc(sizeof(struct TrieNodeObject) == sizeof(struct TrieNodeObject__packed));
+
+#define BootIdObject__contents { \
+        ObjectHeader object;     \
+        sd_id128_t value;        \
+}
+
+struct BootIdObject BootIdObject__contents;
+struct BootIdObject__packed BootIdObject__contents _packed_;
+assert_cc(sizeof(struct BootIdObject) == sizeof(struct BootIdObject__packed));
+
 union Object {
         ObjectHeader object;
         DataObject data;
@@ -138,6 +188,8 @@ union Object {
         HashTableObject hash_table;
         EntryArrayObject entry_array;
         TagObject tag;
+        TrieNodeObject trie_node;
+        BootIdObject boot_id;
 };
 
 enum {
@@ -153,30 +205,32 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 #define HEADER_INCOMPATIBLE_ANY               \
         (HEADER_INCOMPATIBLE_COMPRESSED_XZ |  \
          HEADER_INCOMPATIBLE_COMPRESSED_LZ4 | \
          HEADER_INCOMPATIBLE_KEYED_HASH |     \
-         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
+         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD | \
+         HEADER_INCOMPATIBLE_COMPACT)
 
 #if HAVE_XZ && HAVE_LZ4 && HAVE_ZSTD
 #  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
 #elif HAVE_XZ && HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4 && HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_XZ
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #elif HAVE_ZSTD
-#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #else
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_KEYED_HASH
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_KEYED_HASH|HEADER_INCOMPATIBLE_COMPACT)
 #endif
 
 enum {
@@ -227,12 +281,18 @@ enum {
         /* Added in 246 */                              \
         le64_t data_hash_chain_depth;                   \
         le64_t field_hash_chain_depth;                  \
+        /* Added in vnext */                            \
+        le64_t trie_hash_table_offset;                  \
+        le64_t trie_hash_table_size;                    \
+        le64_t n_trie_nodes;                            \
+        le64_t trie_hash_chain_depth;                   \
+        le64_t boot_id_offset;                          \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 256);
+assert_cc(sizeof(struct Header) == 296);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
