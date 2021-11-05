@@ -1840,6 +1840,8 @@ static int manager_rebalance_calculate(Manager *m) {
                                 &h->rebalance_usage,
                                 &h->rebalance_free,
                                 NULL,
+                                NULL,
+                                NULL,
                                 NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to get free space of home '%s', ignoring.", h->user_name);
