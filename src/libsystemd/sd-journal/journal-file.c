@@ -1068,13 +1068,15 @@ int journal_file_append_object(
 }
 
 static int default_data_hash_table_size(JournalFile *f) {
-        uint64_t s;
+        uint64_t s, d;
 
         /* We estimate that we need 1 hash table entry per 768 bytes of journal file and we want to make sure
          * we never get beyond 75% fill level. Calculate the hash table size for the maximum file size based
-         * on these metrics. */
+         * on these metrics. In compact, mode, we estimate we need 1 hash table entry per 1152 bytes of
+         * journal file. */
 
-        s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
+        d = JOURNAL_HEADER_COMPACT(f->header) ? 1152 : 768;
+        s = (f->metrics.max_size * 4 / d / 3) * sizeof(HashItem);
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
                 s = DEFAULT_DATA_HASH_TABLE_SIZE;
 
