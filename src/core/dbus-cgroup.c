@@ -18,10 +18,12 @@
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
+#include "missing_magic.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
 
@@ -701,6 +703,17 @@ static int bus_cgroup_set_transient_property(
                                                 error,
                                                 SD_BUS_ERROR_INVALID_ARGS,
                                                 "%s= expects a normalized absolute path.",
+                                                name);
+
+
+                        r = path_is_fs_type(p, BPF_FS_MAGIC);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s= expects a path in BPF filesystem.",
                                                 name);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
