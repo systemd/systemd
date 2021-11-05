@@ -4,7 +4,10 @@
 
 #include "unit.h"
 
-int bpf_foreign_supported(void);
+static inline int bpf_foreign_supported(void) {
+        return cg_all_unified();
+}
+
 /*
  * Attach cgroup-bpf programs foreign to systemd, i.e. loaded to the kernel by an entity
  * external to systemd.

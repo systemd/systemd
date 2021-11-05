@@ -111,16 +111,6 @@ static int bpf_foreign_prepare(
         return 0;
 }
 
-int bpf_foreign_supported(void) {
-        int r;
-
-        r = cg_all_unified();
-        if (r <= 0)
-                return r;
-
-        return path_is_mount_point("/sys/fs/bpf", NULL, 0);
-}
-
 int bpf_foreign_install(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
         CGroupBPFForeignProgram *p;
