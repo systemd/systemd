@@ -118,7 +118,7 @@ int bpf_foreign_supported(void) {
         if (r <= 0)
                 return r;
 
-        return path_is_mount_point("/sys/fs/bpf", NULL, 0);
+        return 1;
 }
 
 int bpf_foreign_install(Unit *u) {
