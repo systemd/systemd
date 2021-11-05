@@ -166,8 +166,7 @@ custom_target(
         'resolved.conf',
         input : 'resolved.conf.in',
         output : 'resolved.conf',
-        command : [meson_render_jinja2, config_h, '@INPUT@'],
-        capture : true,
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
         install_dir : pkgsysconfdir)
 
