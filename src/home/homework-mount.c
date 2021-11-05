@@ -20,6 +20,17 @@
 #include "user-util.h"
 
 static const char *mount_options_for_fstype(const char *fstype) {
+        const char *e;
+        char *n;
+
+        assert(fstype);
+
+        /* Allow overriding our built-in defaults with an environment variable */
+        n = strjoina("SYSTEMD_HOME_MOUNT_OPTIONS_", fstype);
+        e = getenv(ascii_strupper(n));
+        if (e)
+                return e;
+
         if (streq(fstype, "ext4"))
                 return "noquota,user_xattr";
         if (streq(fstype, "xfs"))
