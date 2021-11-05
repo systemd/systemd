@@ -4,8 +4,10 @@
 #include "bpf-program.h"
 #include "cgroup.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "stat-util.h"
 
 typedef struct BPFForeignKey BPFForeignKey;
 struct BPFForeignKey {
@@ -83,6 +85,14 @@ static int bpf_foreign_prepare(
 
         assert(u);
         assert(bpffs_path);
+
+        r = path_is_fs_type(bpffs_path, BPF_FS_MAGIC);
+        if (r < 0)
+                return log_unit_error_errno(u, r,
+                                "Failed to determine filesystem type of %s: %m", bpffs_path);
+        if (r == 0)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                "Path in BPF filesystem is expected.");
 
         r = bpf_program_new_from_bpffs_path(bpffs_path, &prog);
         if (r < 0)
