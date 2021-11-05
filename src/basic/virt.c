@@ -139,7 +139,7 @@ static int detect_vm_device_tree(void) {
 #endif
 }
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
 static int detect_vm_dmi_vendor(void) {
         static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
@@ -226,10 +226,10 @@ static int detect_vm_smbios(void) {
         log_debug("DMI BIOS Extension table does not indicate virtualization.");
         return SMBIOS_VM_BIT_UNSET;
 }
-#endif /* defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) */
+#endif /* defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64) */
 
 static int detect_vm_dmi(void) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
 
         int r;
         r = detect_vm_dmi_vendor();
