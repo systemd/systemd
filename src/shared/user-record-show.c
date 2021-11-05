@@ -284,6 +284,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 if (hr->file_system_type)
                         printf(" File System: %s\n", user_record_file_system_type(hr));
 
+                if (hr->luks_extra_mount_options)
+                        printf("LUKS MntOpts: %s\n", hr->luks_extra_mount_options);
+
                 if (hr->luks_cipher)
                         printf(" LUKS Cipher: %s\n", hr->luks_cipher);
                 if (hr->luks_cipher_mode)
