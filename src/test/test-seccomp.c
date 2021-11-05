@@ -126,6 +126,9 @@ TEST(architecture_table) {
                        "x32\0"
                        "arm\0"
                        "arm64\0"
+#ifdef SCMP_ARCH_LOONGARCH64
+                       "loongarch64\0"
+#endif
                        "mips\0"
                        "mips64\0"
                        "mips64-n32\0"
@@ -631,7 +634,7 @@ TEST(memory_deny_write_execute_mmap) {
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
-#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #endif
@@ -703,7 +706,7 @@ TEST(memory_deny_write_execute_shmat) {
 
                 p = shmat(shmid, NULL, SHM_EXEC);
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(SHM_EXEC): %m");
-#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #endif
