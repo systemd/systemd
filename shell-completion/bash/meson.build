@@ -14,8 +14,7 @@ custom_target(
         'systemctl',
         input : 'systemctl.in',
         output : 'systemctl',
-        command : [meson_render_jinja2, config_h, '@INPUT@'],
-        capture : true,
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
         install : bashcompletiondir != 'no',
         install_dir : bashcompletiondir)
 
