@@ -81,6 +81,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* rebalance:
+  - homectl: turn off rebalance on manual resize
+  - documentation
+  - tests
+  - on login, if we can't fallocate initially, but rebalance is on, then allow
+    login in discard mode, then immediately rebalance, then turn off discard
+  - bring default create size in sync with weights
+
 * add tiny service that decrypts encrypted user records passed via initrd
   credential logic and drops them into /run where nss-systemd can pick them up,
   similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
