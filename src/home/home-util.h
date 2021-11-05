@@ -25,3 +25,5 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
 /* Many of our operations might be slow due to crypto, fsck, recursive chown() and so on. For these
  * operations permit a *very* long timeout */
 #define HOME_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
+
+const char *home_record_dir(void);
