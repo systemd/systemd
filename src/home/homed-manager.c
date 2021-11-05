@@ -436,7 +436,7 @@ unlink_this_file:
         if (unlinkat(dir_fd, fname, 0) < 0)
                 return log_error_errno(errno, "Failed to remove empty user record file %s: %m", fname);
 
-        log_notice("Discovered empty user record file /var/lib/systemd/home/%s, removed automatically.", fname);
+        log_notice("Discovered empty user record file %s/%s, removed automatically.", home_record_dir(), fname);
         return 0;
 }
 
@@ -446,10 +446,10 @@ static int manager_enumerate_records(Manager *m) {
 
         assert(m);
 
-        d = opendir("/var/lib/systemd/home/");
+        d = opendir(home_record_dir());
         if (!d)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open /var/lib/systemd/home/: %m");
+                                      "Failed to open %s: %m", home_record_dir());
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read record directory: %m")) {
                 _cleanup_free_ char *n = NULL;
