@@ -269,7 +269,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("   IO Weight: %" PRIu64 "\n", hr->io_weight);
 
         if (hr->access_mode != MODE_INVALID)
-                printf(" Access Mode: 0%03oo\n", user_record_access_mode(hr));
+                printf(" Access Mode: 0%03o\n", user_record_access_mode(hr));
 
         if (storage == USER_LUKS) {
                 printf("LUKS Discard: online=%s offline=%s\n", yes_no(user_record_luks_discard(hr)), yes_no(user_record_luks_offline_discard(hr)));
