@@ -30,8 +30,7 @@ custom_entities_ent = custom_target(
         'custom-entities.ent',
         input : 'custom-entities.ent.in',
         output : 'custom-entities.ent',
-        command : [meson_render_jinja2, config_h, '@INPUT@'],
-        capture : true)
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'])
 
 man_pages = []
 html_pages = []
