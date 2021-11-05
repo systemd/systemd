@@ -1764,6 +1764,11 @@ static int assess(const SecurityInfo *info,
                         d = strdup("Service runs in special boot phase, option is not appropriate");
                         if (!d)
                                 return log_oom();
+                } else if (weight == 0) {
+                        badness = UINT64_MAX;
+                        d = strdup("Option excluded by policy, skipping");
+                        if (!d)
+                                return log_oom();
                 } else {
                         r = a->assess(a, info, data, &badness, &d);
                         if (r < 0)
