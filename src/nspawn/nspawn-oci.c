@@ -1643,6 +1643,9 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
         } table[] = {
                 { "SCMP_ARCH_AARCH64",     SCMP_ARCH_AARCH64     },
                 { "SCMP_ARCH_ARM",         SCMP_ARCH_ARM         },
+#ifdef SCMP_ARCH_LOONGARCH64
+                { "SCMP_ARCH_LOONGARCH64", SCMP_ARCH_LOONGARCH64 },
+#endif
                 { "SCMP_ARCH_MIPS",        SCMP_ARCH_MIPS        },
                 { "SCMP_ARCH_MIPS64",      SCMP_ARCH_MIPS64      },
                 { "SCMP_ARCH_MIPS64N32",   SCMP_ARCH_MIPS64N32   },
