@@ -36,44 +36,44 @@
 #include "utf8.h"
 
 struct LinkConfigContext {
-        LIST_HEAD(LinkConfig, links);
+        LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
         bool enable_name_policy;
         usec_t network_dirs_ts_usec;
 };
 
-static LinkConfig* link_config_free(LinkConfig *link) {
-        if (!link)
+static LinkConfig* link_config_free(LinkConfig *config) {
+        if (!config)
                 return NULL;
 
-        free(link->filename);
+        free(config->filename);
 
-        net_match_clear(&link->match);
-        condition_free_list(link->conditions);
+        net_match_clear(&config->match);
+        condition_free_list(config->conditions);
 
-        free(link->description);
-        free(link->mac);
-        free(link->name_policy);
-        free(link->name);
-        strv_free(link->alternative_names);
-        free(link->alternative_names_policy);
-        free(link->alias);
-        free(link->wol_password_file);
-        erase_and_free(link->wol_password);
+        free(config->description);
+        free(config->mac);
+        free(config->name_policy);
+        free(config->name);
+        strv_free(config->alternative_names);
+        free(config->alternative_names_policy);
+        free(config->alias);
+        free(config->wol_password_file);
+        erase_and_free(config->wol_password);
 
-        return mfree(link);
+        return mfree(config);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfig*, link_config_free);
 
 static void link_configs_free(LinkConfigContext *ctx) {
-        LinkConfig *link, *link_next;
+        LinkConfig *config, *config_next;
 
         if (!ctx)
                 return;
 
-        LIST_FOREACH_SAFE(links, link, link_next, ctx->links)
-                link_config_free(link);
+        LIST_FOREACH_SAFE(configs, config, config_next, ctx->configs)
+                link_config_free(config);
 }
 
 LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
@@ -105,11 +105,11 @@ int link_config_ctx_new(LinkConfigContext **ret) {
         return 0;
 }
 
-static int link_parse_wol_password(LinkConfig *link, const char *str) {
+static int link_parse_wol_password(LinkConfig *config, const char *str) {
         _cleanup_(erase_and_freep) uint8_t *p = NULL;
         int r;
 
-        assert(link);
+        assert(config);
         assert(str);
 
         assert_cc(sizeof(struct ether_addr) == SOPASS_MAX);
@@ -123,48 +123,48 @@ static int link_parse_wol_password(LinkConfig *link, const char *str) {
         if (r < 0)
                 return r;
 
-        erase_and_free(link->wol_password);
-        link->wol_password = TAKE_PTR(p);
+        erase_and_free(config->wol_password);
+        config->wol_password = TAKE_PTR(p);
         return 0;
 }
 
-static int link_read_wol_password_from_file(LinkConfig *link) {
+static int link_read_wol_password_from_file(LinkConfig *config) {
         _cleanup_(erase_and_freep) char *password = NULL;
         int r;
 
-        assert(link);
+        assert(config);
 
-        if (!link->wol_password_file)
+        if (!config->wol_password_file)
                 return 0;
 
         r = read_full_file_full(
-                        AT_FDCWD, link->wol_password_file, UINT64_MAX, SIZE_MAX,
+                        AT_FDCWD, config->wol_password_file, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
                         NULL, &password, NULL);
         if (r < 0)
                 return r;
 
-        return link_parse_wol_password(link, password);
+        return link_parse_wol_password(config, password);
 }
 
-static int link_read_wol_password_from_cred(LinkConfig *link) {
+static int link_read_wol_password_from_cred(LinkConfig *config) {
         _cleanup_free_ char *base = NULL, *cred_name = NULL;
         _cleanup_(erase_and_freep) char *password = NULL;
         int r;
 
-        assert(link);
-        assert(link->filename);
+        assert(config);
+        assert(config->filename);
 
-        if (link->wol == UINT32_MAX)
+        if (config->wol == UINT32_MAX)
                 return 0; /* WakeOnLan= is not specified. */
-        if (!FLAGS_SET(link->wol, WAKE_MAGICSECURE))
+        if (!FLAGS_SET(config->wol, WAKE_MAGICSECURE))
                 return 0; /* secureon is not specified in WakeOnLan=. */
-        if (link->wol_password)
+        if (config->wol_password)
                 return 0; /* WakeOnLanPassword= is specified. */
-        if (link->wol_password_file)
+        if (config->wol_password_file)
                 return 0; /* a file name is specified in WakeOnLanPassword=, but failed to read it. */
 
-        r = path_extract_filename(link->filename, &base);
+        r = path_extract_filename(config->filename, &base);
         if (r < 0)
                 return r;
 
@@ -178,37 +178,37 @@ static int link_read_wol_password_from_cred(LinkConfig *link) {
         if (r < 0)
                 return r;
 
-        return link_parse_wol_password(link, password);
+        return link_parse_wol_password(config, password);
 }
 
-static int link_adjust_wol_options(LinkConfig *link) {
+static int link_adjust_wol_options(LinkConfig *config) {
         int r;
 
-        assert(link);
+        assert(config);
 
-        r = link_read_wol_password_from_file(link);
+        r = link_read_wol_password_from_file(config);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
-                log_warning_errno(r, "Failed to read WakeOnLan password from %s, ignoring: %m", link->wol_password_file);
+                log_warning_errno(r, "Failed to read WakeOnLan password from %s, ignoring: %m", config->wol_password_file);
 
-        r = link_read_wol_password_from_cred(link);
+        r = link_read_wol_password_from_cred(config);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
                 log_warning_errno(r, "Failed to read WakeOnLan password from credential, ignoring: %m");
 
-        if (link->wol != UINT32_MAX && link->wol_password)
+        if (config->wol != UINT32_MAX && config->wol_password)
                 /* Enable WAKE_MAGICSECURE flag when WakeOnLanPassword=. Note that when
                  * WakeOnLanPassword= is set without WakeOnLan=, then ethtool_set_wol() enables
                  * WAKE_MAGICSECURE flag and other flags are not changed. */
-                link->wol |= WAKE_MAGICSECURE;
+                config->wol |= WAKE_MAGICSECURE;
 
         return 0;
 }
 
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
-        _cleanup_(link_config_freep) LinkConfig *link = NULL;
+        _cleanup_(link_config_freep) LinkConfig *config = NULL;
         _cleanup_free_ char *name = NULL;
         const char *dropin_dirname;
         size_t i;
@@ -231,11 +231,11 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         if (!name)
                 return -ENOMEM;
 
-        link = new(LinkConfig, 1);
-        if (!link)
+        config = new(LinkConfig, 1);
+        if (!config)
                 return -ENOMEM;
 
-        *link = (LinkConfig) {
+        *config = (LinkConfig) {
                 .filename = TAKE_PTR(name),
                 .mac_address_policy = _MAC_ADDRESS_POLICY_INVALID,
                 .wol = UINT32_MAX, /* UINT32_MAX means do not change WOL setting. */
@@ -250,8 +250,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .coalesce.use_adaptive_tx_coalesce = -1,
         };
 
-        for (i = 0; i < ELEMENTSOF(link->features); i++)
-                link->features[i] = -1;
+        for (i = 0; i < ELEMENTSOF(config->features); i++)
+                config->features[i] = -1;
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(
@@ -260,36 +260,36 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         dropin_dirname,
                         "Match\0Link\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
-                        CONFIG_PARSE_WARN, link, NULL);
+                        CONFIG_PARSE_WARN, config, NULL);
         if (r < 0)
                 return r;
 
-        if (net_match_is_empty(&link->match) && !link->conditions) {
+        if (net_match_is_empty(&config->match) && !config->conditions) {
                 log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
                             "To match all interfaces, add OriginalName=* in the [Match] section.",
                             filename);
                 return 0;
         }
 
-        if (!condition_test_list(link->conditions, environ, NULL, NULL, NULL)) {
+        if (!condition_test_list(config->conditions, environ, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }
 
-        if (IN_SET(link->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM) && link->mac) {
+        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM) && config->mac) {
                 log_warning("%s: MACAddress= in [Link] section will be ignored when MACAddressPolicy= "
                             "is set to \"persistent\" or \"random\".",
                             filename);
-                link->mac = mfree(link->mac);
+                config->mac = mfree(config->mac);
         }
 
-        r = link_adjust_wol_options(link);
+        r = link_adjust_wol_options(config);
         if (r < 0)
                 return r;
 
         log_debug("Parsed configuration file %s", filename);
 
-        LIST_PREPEND(links, ctx->links, TAKE_PTR(link));
+        LIST_PREPEND(configs, ctx->configs, TAKE_PTR(config));
         return 0;
 }
 
@@ -299,7 +299,7 @@ static bool enable_name_policy(void) {
         return proc_cmdline_get_bool("net.ifnames", &b) <= 0 || b;
 }
 
-static int link_unsigned_attribute(sd_device *device, const char *attr, unsigned *type) {
+static int device_unsigned_attribute(sd_device *device, const char *attr, unsigned *type) {
         const char *s;
         int r;
 
@@ -351,7 +351,7 @@ int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device
         unsigned name_assign_type = NET_NAME_UNKNOWN;
         struct hw_addr_data hw_addr, permanent_hw_addr;
         unsigned short iftype;
-        LinkConfig *link;
+        LinkConfig *config;
         const char *name;
         unsigned flags;
         int ifindex, r;
@@ -383,23 +383,23 @@ int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device
                         log_device_debug_errno(device, r, "Failed to get permanent hardware address, ignoring: %m");
         }
 
-        (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
+        (void) device_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
-        LIST_FOREACH(links, link, ctx->links) {
-                r = net_match_config(&link->match, device, &hw_addr, &permanent_hw_addr,
+        LIST_FOREACH(configs, config, ctx->configs) {
+                r = net_match_config(&config->match, device, &hw_addr, &permanent_hw_addr,
                                      NULL, iftype, NULL, NULL, 0, NULL, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
+                if (config->match.ifname && !strv_contains(config->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
                         log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
-                                           link->filename);
+                                           config->filename);
                 else
-                        log_device_debug(device, "Config file %s is applied", link->filename);
+                        log_device_debug(device, "Config file %s is applied", config->filename);
 
-                *ret = link;
+                *ret = config;
                 return 0;
         }
 
@@ -481,7 +481,7 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
 
         assert(IN_SET(policy, MAC_ADDRESS_POLICY_RANDOM, MAC_ADDRESS_POLICY_PERSISTENT));
 
-        r = link_unsigned_attribute(device, "addr_assign_type", &addr_type);
+        r = device_unsigned_attribute(device, "addr_assign_type", &addr_type);
         if (r < 0)
                 return r;
         switch (addr_type) {
@@ -574,7 +574,7 @@ static int link_config_generate_new_name(const LinkConfigContext *ctx, const Lin
         assert(device);
         assert(ret_name);
 
-        (void) link_unsigned_attribute(device, "name_assign_type", &name_type);
+        (void) device_unsigned_attribute(device, "name_assign_type", &name_type);
 
         if (IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED)
             && !naming_scheme_has(NAMING_ALLOW_RERENAMES)) {
@@ -907,7 +907,7 @@ int config_parse_wol_password(
                 void *data,
                 void *userdata) {
 
-        LinkConfig *link = userdata;
+        LinkConfig *config = userdata;
         int r;
 
         assert(filename);
@@ -916,19 +916,19 @@ int config_parse_wol_password(
         assert(userdata);
 
         if (isempty(rvalue)) {
-                link->wol_password = erase_and_free(link->wol_password);
-                link->wol_password_file = mfree(link->wol_password_file);
+                config->wol_password = erase_and_free(config->wol_password);
+                config->wol_password_file = mfree(config->wol_password_file);
                 return 0;
         }
 
         if (path_is_absolute(rvalue) && path_is_safe(rvalue)) {
-                link->wol_password = erase_and_free(link->wol_password);
-                return free_and_strdup_warn(&link->wol_password_file, rvalue);
+                config->wol_password = erase_and_free(config->wol_password);
+                return free_and_strdup_warn(&config->wol_password_file, rvalue);
         }
 
         warn_file_is_world_accessible(filename, NULL, unit, line);
 
-        r = link_parse_wol_password(link, rvalue);
+        r = link_parse_wol_password(config, rvalue);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -937,7 +937,7 @@ int config_parse_wol_password(
                 return 0;
         }
 
-        link->wol_password_file = mfree(link->wol_password_file);
+        config->wol_password_file = mfree(config->wol_password_file);
         return 0;
 }
 
