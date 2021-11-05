@@ -300,9 +300,9 @@ int home_save_record(Home *h) {
                 return r;
 
         (void) mkdir("/var/lib/systemd/", 0755);
-        (void) mkdir("/var/lib/systemd/home/", 0700);
+        (void) mkdir(home_record_dir(), 0700);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
 
         r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
@@ -316,7 +316,7 @@ int home_unlink_record(Home *h) {
 
         assert(h);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 

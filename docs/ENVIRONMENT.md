@@ -401,3 +401,35 @@ and `homectl`:
   current and a future password are required, for example if the password is to
   be changed. In that case `$PASSWORD` shall carry the current (i.e. old)
   password and `$NEWPASSWORD` the new.
+
+`systemd-homed`:
+
+* `$SYSTEMD_HOME_ROOT` – defines an absolute path where to look for home
+  directories/images. When unspecified defaults to `/home/`. This is useful for
+  debugging purposes in order to run a secondary `systemd-homed` instance that
+  operates on a different directory where home directories/images are placed.
+
+* `$SYSTEMD_HOME_RECORD_DIR` – defines an absolute path where to look for
+  fixated home records kept on the host. When unspecified defaults to
+  `/var/lib/systemd/home/`. Similar to `$SYSTEMD_HOME_ROOT` this is useful for
+  debugging purposes, in order to run a secondary `systemd-homed` instance that
+  operates on a record database entirely separate from the host's.
+
+* `$SYSTEMD_HOME_DEBUG_SUFFIX` – takes a short string that is suffixed to
+  `systemd-homed`'s D-Bus and Varlink service names/sockets. This is also
+  understood by `homectl`. This too is useful for running an additiona copy of
+  `systemd-homed` that doesn't interfere with the host's main one.
+
+* `$SYSTEMD_HOMEWORK_PATH` – configures the path to the `systemd-homework`
+  binary to invoke. If not specified defaults to
+  `/usr/lib/systemd/systemd-homework`.
+
+  Combining these four environment variables is pretty useful when
+  debugging/developing `systemd-homed`:
+```sh
+SYSTEMD_HOME_DEBUG_SUFFIX=foo \
+      SYSTEMD_HOMEWORK_PATH=/home/lennart/projects/systemd/build/systemd-homework \
+      SYSTEMD_HOME_ROOT=/home.foo/ \
+      SYSTEMD_HOME_RECORD_DIR=/var/lib/systemd/home.foo/ \
+      /home/lennart/projects/systemd/build/systemd-homed
+```
