@@ -30,6 +30,8 @@ KernelCommandLine=
 Host=
 MACAddress=
 PermanentMACAddress=
+HardwareAddress=
+PermanentHardwareAddress=
 [Link]
 ActivationPolicy=
 RequiredForOnline=
@@ -40,6 +42,7 @@ Unmanaged=
 MTUBytes=
 Multicast=
 MACAddress=
+HardwareAddress=
 Group=
 Promiscuous=
 [SR-IOV]

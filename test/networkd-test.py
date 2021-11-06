@@ -439,9 +439,7 @@ DHCP={dhcp_mode}
             subprocess.call(['ip', 'a', 'show', 'dev', self.iface])
             print('---- networkctl status {} ----'.format(self.iface))
             sys.stdout.flush()
-            rc = subprocess.call(['networkctl', '-n', '0', 'status', self.iface])
-            if rc != 0:
-                print("'networkctl status' exited with an unexpected code {}".format(rc))
+            subprocess.check_call(['networkctl', '-n', '0', 'status', self.iface], env={ 'SYSTEMD_LOG_LEVEL' : 'debug' })
             self.show_journal('systemd-networkd.service')
             self.print_server_log()
             raise
