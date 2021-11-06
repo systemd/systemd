@@ -6,6 +6,8 @@
 #include <stdbool.h>
 
 #include "hash-funcs.h"
+#include "macro.h"
+#include "memory-util.h"
 
 /* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
  * defines a macro of the same name with a much lower size. */
@@ -58,6 +60,26 @@ static inline bool ether_addr_equal(const struct ether_addr *a, const struct eth
 
 static inline bool ether_addr_is_null(const struct ether_addr *addr) {
         return ether_addr_equal(addr, &ETHER_ADDR_NULL);
+}
+
+static inline bool ether_addr_is_broadcast(const struct ether_addr *addr) {
+        assert(addr);
+        return memeqbyte(0xff, addr->ether_addr_octet, ETH_ALEN);
+}
+
+static inline bool ether_addr_is_multicast(const struct ether_addr *addr) {
+        assert(addr);
+        return FLAGS_SET(addr->ether_addr_octet[0], 0x01);
+}
+
+static inline bool ether_addr_is_unicast(const struct ether_addr *addr) {
+        return !ether_addr_is_multicast(addr);
+}
+
+static inline bool ether_addr_is_local(const struct ether_addr *addr) {
+        /* Determine if the Ethernet address is locally-assigned one (IEEE 802) */
+        assert(addr);
+        return !FLAGS_SET(addr->ether_addr_octet[0], 0x02);
 }
 
 int ether_addr_from_string(const char *s, struct ether_addr *ret);
