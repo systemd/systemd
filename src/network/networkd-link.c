@@ -2036,7 +2036,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (hw_addr_equal(&link->hw_addr, &addr))
                 return 0;
 
-        if (hw_addr_is_null(&link->hw_addr))
+        if (link->hw_addr.length == 0)
                 log_link_debug(link, "Saved hardware address: %s", HW_ADDR_TO_STR(&addr));
         else {
                 log_link_debug(link, "Hardware address is changed: %s → %s",
