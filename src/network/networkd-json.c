@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "network-util.h"
+#include "netif-util.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
