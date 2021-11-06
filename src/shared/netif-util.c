@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-id128.h"
-
 #include "arphrd-list.h"
 #include "device-util.h"
 #include "netif-util.h"
@@ -36,7 +34,7 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         return 0;
 }
 
-const char *net_get_name_persistent(sd_device *device) {
+const char *net_get_persistent_name(sd_device *device, bool use_sysname) {
         const char *name, *field;
 
         assert(device);
@@ -46,29 +44,28 @@ const char *net_get_name_persistent(sd_device *device) {
                 if (sd_device_get_property_value(device, field, &name) >= 0)
                         return name;
 
+        /* If no persistent data is available, we fall back to using the actual device name. */
+        if (use_sysname &&
+            sd_device_get_sysname(device, &name) >= 0)
+                return name;
+
         return NULL;
 }
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+#define HASH_KEY_1 SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+#define HASH_KEY_2 SD_ID128_MAKE(70,7d,6d,59,9b,0c,43,62,9c,47,58,aa,52,1d,aa,73)
+#define HASH_KEY_3 SD_ID128_MAKE(08,2c,39,8f,18,b8,4d,c3,94,95,ce,c9,02,61,c2,a7)
+#define HASH_KEY_4 SD_ID128_MAKE(34,71,b2,57,ac,d4,48,66,89,16,42,4a,f6,c4,05,d4)
 
-int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *ret) {
-        size_t l, sz = 0;
-        const char *name;
-        int r;
+static int net_get_unique_predictable_data_from_name(const char *name, const sd_id128_t *key, uint64_t *ret) {
+        size_t l, sz;
         uint8_t *v;
+        int r;
 
-        assert(device);
+        assert(name);
+        assert(key);
+        assert(ret);
 
-        /* net_get_name_persistent() will return one of the device names based on stable information about
-         * the device. If this is not available, we fall back to using the actual device name. */
-        name = net_get_name_persistent(device);
-        if (!name && use_sysname)
-                (void) sd_device_get_sysname(device, &name);
-        if (!name)
-                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
-                                              "No stable identifying information found");
-
-        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
         v = newa(uint8_t, sz);
@@ -81,6 +78,74 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
 
         /* Let's hash the machine ID plus the device name. We use
          * a fixed, but originally randomly created hash key here. */
-        *ret = htole64(siphash24(v, sz, HASH_KEY.bytes));
+        *ret = htole64(siphash24(v, sz, key->bytes));
         return 0;
+}
+
+int net_get_unique_predictable_bytes_from_name(
+                const char *name,
+                const sd_id128_t **keys,
+                size_t len,
+                uint8_t *ret) {
+
+        _cleanup_free_ uint64_t *x = NULL;
+        size_t n;
+        int r;
+
+        assert(name);
+        assert(len == 0 || keys);
+        assert(len == 0 || ret);
+
+        if (len == 0)
+                return 0;
+
+        n = DIV_ROUND_UP(len, sizeof(uint64_t));
+        x = new(uint64_t, n);
+        if (!x)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n; i++) {
+                r = net_get_unique_predictable_data_from_name(name, keys[i], x + i);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < n; i++) {
+                memcpy(ret + i * sizeof(uint64_t), x + i, MIN(len, sizeof(uint64_t)));
+                len = LESS_BY(len, sizeof(uint64_t));
+        }
+
+        return 0;
+}
+
+int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *ret) {
+        const char *name;
+
+        assert(device);
+        assert(ret);
+
+        name = net_get_persistent_name(device, use_sysname);
+        if (!name)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
+                                              "No stable identifying information found");
+
+        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
+        return net_get_unique_predictable_data_from_name(name, &HASH_KEY_1, ret);
+}
+
+int net_get_unique_predictable_bytes(sd_device *device, bool use_sysname, size_t len, uint8_t *ret) {
+        const sd_id128_t *keys[4] = { &HASH_KEY_1, &HASH_KEY_2, &HASH_KEY_3, &HASH_KEY_4, };
+        const char *name;
+
+        assert(device);
+        assert(len <= 4 * sizeof(uint64_t));
+        assert(len == 0 || ret);
+
+        name = net_get_persistent_name(device, use_sysname);
+        if (!name)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
+                                              "No stable identifying information found");
+
+        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
+        return net_get_unique_predictable_bytes_from_name(name, keys, len, ret);
 }
