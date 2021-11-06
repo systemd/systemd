@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         test_table(kill_who, KILL_WHO);
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
-        test_table(mac_address_policy, MAC_ADDRESS_POLICY);
+        test_table(hardware_address_policy, HW_ADDRESS_POLICY);
         test_table(managed_oom_mode, MANAGED_OOM_MODE);
         test_table(managed_oom_preference, MANAGED_OOM_PREFERENCE);
         test_table(manager_state, MANAGER_STATE);
