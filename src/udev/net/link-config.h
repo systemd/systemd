@@ -13,13 +13,13 @@
 typedef struct LinkConfigContext LinkConfigContext;
 typedef struct LinkConfig LinkConfig;
 
-typedef enum MACAddressPolicy {
-        MAC_ADDRESS_POLICY_PERSISTENT,
-        MAC_ADDRESS_POLICY_RANDOM,
-        MAC_ADDRESS_POLICY_NONE,
-        _MAC_ADDRESS_POLICY_MAX,
-        _MAC_ADDRESS_POLICY_INVALID = -EINVAL,
-} MACAddressPolicy;
+typedef enum HardwareAddressPolicy {
+        HW_ADDRESS_POLICY_PERSISTENT,
+        HW_ADDRESS_POLICY_RANDOM,
+        HW_ADDRESS_POLICY_NONE,
+        _HW_ADDRESS_POLICY_MAX,
+        _HW_ADDRESS_POLICY_INVALID = -EINVAL,
+} HardwareAddressPolicy;
 
 typedef enum NamePolicy {
         NAMEPOLICY_KERNEL,
@@ -58,8 +58,8 @@ struct LinkConfig {
         LIST_HEAD(Condition, conditions);
 
         char *description;
-        struct ether_addr *mac;
-        MACAddressPolicy mac_address_policy;
+        struct hw_addr_data hw_addr;
+        HardwareAddressPolicy hw_addr_policy;
         NamePolicy *name_policy;
         NamePolicy *alternative_names_policy;
         char *name;
@@ -111,8 +111,8 @@ NamePolicy name_policy_from_string(const char *p) _pure_;
 const char *alternative_names_policy_to_string(NamePolicy p) _const_;
 NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
 
-const char *mac_address_policy_to_string(MACAddressPolicy p) _const_;
-MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
+const char *hardware_address_policy_to_string(HardwareAddressPolicy p) _const_;
+HardwareAddressPolicy hardware_address_policy_from_string(const char *p) _pure_;
 
 /* gperf lookup function */
 const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
@@ -121,6 +121,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_rx_tx_queues);
 CONFIG_PARSER_PROTOTYPE(config_parse_txqueuelen);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol_password);
-CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_hardware_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
