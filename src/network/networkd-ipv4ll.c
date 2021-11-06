@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <linux/if.h>
 
-#include "network-internal.h"
+#include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"

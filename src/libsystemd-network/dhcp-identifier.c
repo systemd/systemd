@@ -9,7 +9,7 @@
 
 #include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
-#include "network-util.h"
+#include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "stat-util.h"

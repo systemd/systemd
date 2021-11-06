@@ -42,6 +42,7 @@
 #include "macro.h"
 #include "macvlan-util.h"
 #include "main-func.h"
+#include "netif-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "network-util.h"
