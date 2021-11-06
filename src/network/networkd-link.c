@@ -1092,7 +1092,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_to_set_mac(link, /* allow_retry = */ true);
+        r = link_request_to_set_hw_addr(link, /* allow_retry = */ true);
         if (r < 0)
                 return r;
 
@@ -1196,8 +1196,8 @@ static int link_get_network(Link *link, Network **ret) {
                 r = net_match_config(
                                 &network->match,
                                 link->sd_device,
-                                &link->hw_addr.ether,
-                                &link->permanent_mac,
+                                &link->hw_addr,
+                                &link->permanent_hw_addr,
                                 link->driver,
                                 link->iftype,
                                 link->ifname,
@@ -2036,7 +2036,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (hw_addr_equal(&link->hw_addr, &addr))
                 return 0;
 
-        if (hw_addr_is_null(&link->hw_addr))
+        if (link->hw_addr.length == 0)
                 log_link_debug(link, "Saved hardware address: %s", HW_ADDR_TO_STR(&addr));
         else {
                 log_link_debug(link, "Hardware address is changed: %s → %s",
@@ -2400,9 +2400,18 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
 
-        r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
+        r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute, ignoring: %m");
+
+                if (netlink_message_read_hw_addr(message, IFLA_ADDRESS, NULL) >= 0) {
+                        /* Fallback to ethtool, if the link has a hardware address. */
+                        r = ethtool_get_permanent_hw_addr(&manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
+                        if (r < 0)
+                                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
+                }
+        }
 
         r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
         if (r < 0)
