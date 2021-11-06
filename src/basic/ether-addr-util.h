@@ -37,7 +37,8 @@ static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_a
         return hw_addr_compare(a, b) == 0;
 }
 static inline bool hw_addr_is_null(const struct hw_addr_data *addr) {
-        return hw_addr_equal(addr, &HW_ADDR_NULL);
+        assert(addr);
+        return addr->length == 0 || memeqzero(addr->bytes, addr->length);
 }
 
 extern const struct hash_ops hw_addr_hash_ops;
