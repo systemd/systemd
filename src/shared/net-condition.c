@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "log.h"
 #include "net-condition.h"
+#include "netif-util.h"
 #include "network-util.h"
 #include "socket-util.h"
 #include "string-table.h"
