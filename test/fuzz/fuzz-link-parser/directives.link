@@ -15,7 +15,9 @@ KernelVersion=
 Architecture=
 [Link]
 Description=
+HardwareAddressPolicy=
 MACAddressPolicy=
+HardwareAddress=
 MACAddress=
 NamePolicy=
 Name=
