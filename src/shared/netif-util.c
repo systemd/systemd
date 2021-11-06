@@ -9,7 +9,7 @@
 #include "sparse-endian.h"
 #include "strv.h"
 
-int link_get_type_string(sd_device *device, unsigned short iftype, char **ret) {
+int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         const char *t;
         char *p;
 
