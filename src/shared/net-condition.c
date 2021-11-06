@@ -138,7 +138,7 @@ int net_match_config(
 
         assert(match);
 
-        r = link_get_type_string(device, iftype, &iftype_str);
+        r = net_get_type_string(device, iftype, &iftype_str);
         if (r == -ENOMEM)
                 return r;
 
