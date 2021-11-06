@@ -159,7 +159,7 @@ typedef struct NetDevVTable {
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
 
-        /* Generate MAC address or not When MACAddress= is not specified. */
+        /* Generate MAC address when MACAddress= is not specified. */
         bool generate_mac;
 } NetDevVTable;
 
