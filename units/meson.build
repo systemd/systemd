@@ -138,6 +138,7 @@ units = [
         ['systemd-networkd.socket',             'ENABLE_NETWORKD'],
         ['systemd-poweroff.service',            ''],
         ['systemd-reboot.service',              ''],
+        ['systemd-resolv-conf.service',         'ENABLE_RESOLVE'],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
         ['systemd-sysext.service',              'ENABLE_SYSEXT'],
         ['systemd-sysupdate.timer',             'ENABLE_SYSUPDATE'],
