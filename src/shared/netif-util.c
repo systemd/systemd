@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "arphrd-list.h"
 #include "device-util.h"
+#include "log-link.h"
+#include "memory-util.h"
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
@@ -148,4 +152,75 @@ int net_get_unique_predictable_bytes(sd_device *device, bool use_sysname, size_t
 
         log_device_debug(device, "Using \"%s\" as stable identifying information", name);
         return net_get_unique_predictable_bytes_from_name(name, keys, len, ret);
+}
+
+typedef struct Link {
+        const char *ifname;
+} Link;
+
+int net_verify_hardware_address(
+                const char *ifname,
+                bool warn_invalid,
+                uint16_t iftype,
+                const struct hw_addr_data *current_hw_addr,
+                struct hw_addr_data *new_hw_addr) {
+
+        Link link = { .ifname = ifname };
+
+        assert(current_hw_addr);
+        assert(new_hw_addr);
+
+        if (new_hw_addr->length == 0)
+                return 0;
+
+        if (new_hw_addr->length != current_hw_addr->length) {
+                if (warn_invalid)
+                        log_link_debug(&link,
+                                       "Size of the hardware address (%zu) does not match the size of the requested address (%zu), refusing.",
+                                       current_hw_addr->length, new_hw_addr->length);
+                return -EINVAL;
+        }
+
+        if (new_hw_addr->length == ETH_ALEN) {
+                /* see eth_random_addr() in the kernel */
+
+                if (ether_addr_is_null(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified hardware address is null, refusing.");
+                        return -EINVAL;
+                }
+
+                if (ether_addr_is_broadcast(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified hardware address is broadcast, refusing.");
+                        return -EINVAL;
+                }
+
+                if (warn_invalid) {
+                        if (ether_addr_is_multicast(&new_hw_addr->ether))
+                                log_link_warning(&link, "Specified hardware address has multicast bit set, clearing the bit.");
+
+                        if (!ether_addr_is_local(&new_hw_addr->ether))
+                                log_link_warning(&link, "Specified hardware address has not local assignment bit set, setting the bit.");
+                }
+
+                new_hw_addr->bytes[0] &= 0xfe;  /* clear multicast bit */
+                new_hw_addr->bytes[0] |= 0x02;  /* set local assignment bit (IEEE802) */
+
+        } else if (new_hw_addr->length == INFINIBAND_ALEN && iftype == ARPHRD_INFINIBAND) {
+                /* see ipoib_check_lladdr() in the kernel */
+
+                if (warn_invalid && !memeqzero(new_hw_addr->bytes, INFINIBAND_ALEN - 8))
+                        log_link_warning(&link, "Only the last 8 bytes of the Inifniband hardware address can be changed, ignoring the first 12 bytes.");
+
+                if (memeqzero(new_hw_addr->bytes + INFINIBAND_ALEN - 8, 8)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "The last 8 bytes of the Infiniband hardware address cannot be null, refusing.");
+                        return -EINVAL;
+                }
+
+                memcpy(new_hw_addr->bytes, current_hw_addr->bytes, INFINIBAND_ALEN - 8);
+        }
+
+        return 0;
 }
