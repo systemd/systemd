@@ -64,7 +64,7 @@ int rtnl_set_link_properties(
                 sd_netlink **rtnl,
                 int ifindex,
                 const char *alias,
-                const struct ether_addr *mac,
+                const struct hw_addr_data *hw_addr,
                 uint32_t txqueues,
                 uint32_t rxqueues,
                 uint32_t txqueuelen,
@@ -77,8 +77,14 @@ int rtnl_set_link_properties(
         assert(rtnl);
         assert(ifindex > 0);
 
-        if (!alias && !mac && txqueues == 0 && rxqueues == 0 && txqueuelen == UINT32_MAX && mtu == 0 &&
-            gso_max_size == 0 && gso_max_segments == 0)
+        if (!alias &&
+            (!hw_addr || hw_addr->length == 0) &&
+            txqueues == 0 &&
+            rxqueues == 0 &&
+            txqueuelen == UINT32_MAX &&
+            mtu == 0 &&
+            gso_max_size == 0 &&
+            gso_max_segments == 0)
                 return 0;
 
         if (!*rtnl) {
@@ -97,8 +103,8 @@ int rtnl_set_link_properties(
                         return r;
         }
 
-        if (mac) {
-                r = sd_netlink_message_append_ether_addr(message, IFLA_ADDRESS, mac);
+        if (hw_addr && hw_addr->length > 0) {
+                r = netlink_message_append_hw_addr(message, IFLA_ADDRESS, hw_addr);
                 if (r < 0)
                         return r;
         }

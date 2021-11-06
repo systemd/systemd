@@ -35,7 +35,7 @@ Match.KernelVersion,                       config_parse_net_condition,          
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
 Link.MACAddressPolicy,                     config_parse_mac_address_policy,       0,                             offsetof(LinkConfig, mac_address_policy)
-Link.MACAddress,                           config_parse_ether_addr,               0,                             offsetof(LinkConfig, mac)
+Link.MACAddress,                           config_parse_hw_addr,                  0,                             offsetof(LinkConfig, hw_addr)
 Link.NamePolicy,                           config_parse_name_policy,              0,                             offsetof(LinkConfig, name_policy)
 Link.Name,                                 config_parse_ifname,                   0,                             offsetof(LinkConfig, name)
 Link.AlternativeName,                      config_parse_ifnames,                  IFNAME_VALID_ALTERNATIVE,      offsetof(LinkConfig, alternative_names)

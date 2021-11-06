@@ -8,6 +8,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "arphrd-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "creds-util.h"
@@ -52,7 +53,6 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         condition_free_list(config->conditions);
 
         free(config->description);
-        free(config->mac);
         free(config->name_policy);
         free(config->name);
         strv_free(config->alternative_names);
@@ -237,7 +237,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
 
         *config = (LinkConfig) {
                 .filename = TAKE_PTR(name),
-                .mac_address_policy = _MAC_ADDRESS_POLICY_INVALID,
+                .mac_address_policy = MAC_ADDRESS_POLICY_NONE,
                 .wol = UINT32_MAX, /* UINT32_MAX means do not change WOL setting. */
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
@@ -276,12 +276,11 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 return 0;
         }
 
-        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM) && config->mac) {
+        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM) &&
+            config->hw_addr.length > 0)
                 log_warning("%s: MACAddress= in [Link] section will be ignored when MACAddressPolicy= "
                             "is set to \"persistent\" or \"random\".",
                             filename);
-                config->mac = mfree(config->mac);
-        }
 
         r = link_adjust_wol_options(config);
         if (r < 0)
@@ -521,67 +520,141 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         return 0;
 }
 
-static int link_generate_new_mac(Link *link, struct ether_addr *mac) {
+static bool hw_addr_is_valid(Link *link, const struct hw_addr_data *hw_addr) {
+        assert(link);
+        assert(hw_addr);
+
+        switch (link->iftype) {
+        case ARPHRD_ETHER:
+                /* Refuse all zero and all 0xFF. */
+                assert(hw_addr->length == ETH_ALEN);
+                return !ether_addr_is_null(&hw_addr->ether) && !ether_addr_is_broadcast(&hw_addr->ether);
+
+        case ARPHRD_INFINIBAND:
+                /* The last 8 bytes cannot be zero*/
+                assert(hw_addr->length == INFINIBAND_ALEN);
+                return !memeqzero(hw_addr->bytes + INFINIBAND_ALEN - 8, 8);
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
+        struct hw_addr_data hw_addr = HW_ADDR_NULL;
+        bool warn_invalid = false;
+        uint8_t *p;
+        size_t len;
         int r;
 
         assert(link);
         assert(link->config);
-        assert(IN_SET(link->config->mac_address_policy, MAC_ADDRESS_POLICY_RANDOM, MAC_ADDRESS_POLICY_PERSISTENT));
         assert(link->device);
-        assert(mac);
+        assert(ret);
+
+        if (link->hw_addr.length == 0)
+                goto finalize;
+
+        if (link->config->mac_address_policy == MAC_ADDRESS_POLICY_NONE) {
+                log_link_debug(link, "Using static MAC address.");
+                hw_addr = link->config->hw_addr;
+                warn_invalid = true;
+                goto finalize;
+        }
+
+        if (!IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+                goto finalize;
 
         switch (link->addr_assign_type) {
         case NET_ADDR_SET:
-                log_link_debug(link, "MAC on the device already set by userspace");
-                return 0;
+                log_link_debug(link, "MAC address on the device already set by userspace.");
+                goto finalize;
         case NET_ADDR_STOLEN:
-                log_link_debug(link, "MAC on the device already set based on another device");
-                return 0;
+                log_link_debug(link, "MAC address on the device already set based on another device.");
+                goto finalize;
         case NET_ADDR_RANDOM:
         case NET_ADDR_PERM:
                 break;
         default:
                 log_link_warning(link, "Unknown addr_assign_type %u, ignoring", link->addr_assign_type);
-                return 0;
+                goto finalize;
         }
 
         if ((link->config->mac_address_policy == MAC_ADDRESS_POLICY_RANDOM) == (link->addr_assign_type == NET_ADDR_RANDOM)) {
-                log_link_debug(link, "MAC on the device already matches policy *%s*",
+                log_link_debug(link, "MAC address on the device already matches policy \"%s\".",
                                mac_address_policy_to_string(link->config->mac_address_policy));
-                return 0;
+                goto finalize;
         }
 
-        if (link->config->mac_address_policy == MAC_ADDRESS_POLICY_RANDOM) {
-                log_link_debug(link, "Using random bytes to generate MAC");
+        hw_addr = (struct hw_addr_data) {
+                .length = arphrd_to_hw_addr_len(link->iftype),
+        };
 
+        switch (link->iftype) {
+        case ARPHRD_ETHER:
+                p = hw_addr.bytes;
+                len = hw_addr.length;
+                break;
+        case ARPHRD_INFINIBAND:
+                p = hw_addr.bytes + INFINIBAND_ALEN - 8;
+                len = 8;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        if (link->config->mac_address_policy == MAC_ADDRESS_POLICY_RANDOM)
                 /* We require genuine randomness here, since we want to make sure we won't collide with other
                  * systems booting up at the very same time. We do allow RDRAND however, since this is not
                  * cryptographic key material. */
-                r = genuine_random_bytes(mac->ether_addr_octet, ETH_ALEN, RANDOM_ALLOW_RDRAND);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to acquire random data to generate MAC: %m");
-        } else {
+                for (;;) {
+                        r = genuine_random_bytes(p, len, RANDOM_ALLOW_RDRAND);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Failed to acquire random data to generate MAC address: %m");
+
+                        if (hw_addr_is_valid(link, &hw_addr))
+                                break;
+                }
+
+        else {
                 uint64_t result;
 
                 r = net_get_unique_predictable_data(link->device,
                                                     naming_scheme_has(NAMING_STABLE_VIRTUAL_MACS),
                                                     &result);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not generate persistent MAC: %m");
+                        return log_link_warning_errno(link, r, "Could not generate persistent MAC address: %m");
 
-                log_link_debug(link, "Using generated persistent MAC address");
-                assert_cc(ETH_ALEN <= sizeof(result));
-                memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
+                assert(len <= sizeof(result));
+                memcpy(p, &result, len);
+                if (!hw_addr_is_valid(link, &hw_addr))
+                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Could not generate valid persistent MAC address: %m");
         }
 
-        /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;  /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;  /* set local assignment bit (IEEE802) */
-        return 1;
+finalize:
+
+        r = net_verify_hardware_address(link->ifname, warn_invalid, link->iftype, &link->hw_addr, &hw_addr);
+        if (r < 0)
+                return r;
+
+        if (hw_addr_equal(&link->hw_addr, &hw_addr)) {
+                *ret = HW_ADDR_NULL;
+                return 0;
+        }
+
+        if (hw_addr.length > 0)
+                log_link_debug(link, "Applying %s MAC address: %s",
+                               link->config->mac_address_policy == MAC_ADDRESS_POLICY_NONE ? "static" :
+                               mac_address_policy_to_string(link->config->mac_address_policy),
+                               HW_ADDR_TO_STR(&hw_addr));
+
+        *ret = hw_addr;
+        return 0;
 }
 
 static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl) {
-        struct ether_addr generated_mac, *mac = NULL;
+        struct hw_addr_data hw_addr = {};
         LinkConfig *config;
         int r;
 
@@ -591,13 +664,9 @@ static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl) {
 
         config = link->config;
 
-        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM)) {
-                if (link_generate_new_mac(link, &generated_mac) > 0)
-                        mac = &generated_mac;
-        } else
-                mac = config->mac;
+        (void) link_generate_new_hw_addr(link, &hw_addr);
 
-        r = rtnl_set_link_properties(rtnl, link->ifindex, config->alias, mac,
+        r = rtnl_set_link_properties(rtnl, link->ifindex, config->alias, &hw_addr,
                                      config->txqueues, config->rxqueues, config->txqueuelen,
                                      config->mtu, config->gso_max_size, config->gso_max_segments);
         if (r < 0)

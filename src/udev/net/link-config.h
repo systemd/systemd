@@ -58,7 +58,7 @@ struct LinkConfig {
         LIST_HEAD(Condition, conditions);
 
         char *description;
-        struct ether_addr *mac;
+        struct hw_addr_data hw_addr;
         MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
         NamePolicy *alternative_names_policy;

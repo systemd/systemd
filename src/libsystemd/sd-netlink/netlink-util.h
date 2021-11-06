@@ -76,7 +76,7 @@ int rtnl_set_link_properties(
                 sd_netlink **rtnl,
                 int ifindex,
                 const char *alias,
-                const struct ether_addr *mac,
+                const struct hw_addr_data *hw_addr,
                 uint32_t txqueues,
                 uint32_t rxqueues,
                 uint32_t txqueuelen,
