@@ -2,6 +2,8 @@
 
 #include <errno.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/veth.h>
 
 #include "netlink-util.h"
@@ -95,5 +97,6 @@ const NetDevVTable veth_vtable = {
         .fill_message_create = netdev_veth_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_veth_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_ETHER,
+        .generate_hw_addr = true,
 };
