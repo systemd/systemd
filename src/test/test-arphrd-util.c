@@ -2,10 +2,9 @@
 
 #include <linux/if_arp.h>
 
+#include "arphrd-util.h"
 #include "string-util.h"
 #include "tests.h"
-
-#include "arphrd-list.h"
 
 int main(int argc, const char *argv[]) {
         test_setup_logging(LOG_INFO);
