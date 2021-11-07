@@ -2,9 +2,11 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "arphrd-util.h"
 #include "bareudp.h"
 #include "batadv.h"
 #include "bond.h"
@@ -23,6 +25,7 @@
 #include "macvlan.h"
 #include "netdev.h"
 #include "netdevsim.h"
+#include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -229,7 +232,6 @@ static NetDev *netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
-        free(netdev->mac);
         condition_free_list(netdev->conditions);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
@@ -422,48 +424,48 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         return 0;
 }
 
-#define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+#define HASH_KEY_1 SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+#define HASH_KEY_2 SD_ID128_MAKE(5a,44,c9,5f,94,cd,4b,82,bd,38,22,53,18,9b,cd,d1)
+#define HASH_KEY_3 SD_ID128_MAKE(9a,68,7c,81,0e,5d,47,fc,b2,71,37,1a,04,97,fc,83)
+#define HASH_KEY_4 SD_ID128_MAKE(6f,03,52,8d,0b,ab,4e,04,89,45,93,17,77,ee,89,9e)
 
-int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
-        _cleanup_free_ struct ether_addr *mac = NULL;
-        uint64_t result;
-        size_t l, sz;
-        uint8_t *v;
+int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_data *hw_addr) {
+        bool warn_invalid = false;
+        struct hw_addr_data a;
         int r;
 
-        assert(ifname);
-        assert(ret);
+        assert(netdev);
+        assert(name);
+        assert(hw_addr);
 
-        mac = new0(struct ether_addr, 1);
-        if (!mac)
-                return -ENOMEM;
+        if (hw_addr->length == 0) {
+                /* HardwareAddress= is not specified. */
 
-        l = strlen(ifname);
-        sz = sizeof(sd_id128_t) + l;
-        v = newa(uint8_t, sz);
+                if (!NETDEV_VTABLE(netdev)->generate_hw_addr)
+                        return 0;
 
-        /* fetch some persistent data unique to the machine */
-        r = sd_id128_get_machine((sd_id128_t*) v);
+                if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+                        return 0;
+
+                a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
+
+                r = net_get_unique_predictable_bytes_from_name(
+                                name,
+                                (const sd_id128_t* []) { &HASH_KEY_1, &HASH_KEY_2, &HASH_KEY_3, &HASH_KEY_4, },
+                                a.length, a.bytes);
+                if (r < 0)
+                        return r;
+
+        } else {
+                a = *hw_addr;
+                warn_invalid = true;
+        }
+
+        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype, NULL, &a);
         if (r < 0)
                 return r;
 
-        /* combine with some data unique (on this machine) to this
-         * netdev */
-        memcpy(v + sizeof(sd_id128_t), ifname, l);
-
-        /* Let's hash the host machine ID plus the container name. We
-         * use a fixed, but originally randomly created hash key here. */
-        result = siphash24(v, sz, HASH_KEY.bytes);
-
-        assert_cc(ETH_ALEN <= sizeof(result));
-        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
-
-        /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
-
-        *ret = TAKE_PTR(mac);
-
+        *hw_addr = a;
         return 0;
 }
 
@@ -482,82 +484,83 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
                         return r;
 
                 log_netdev_debug(netdev, "Created");
-        } else {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                return 0;
+        }
 
-                r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
+
+        if (netdev->hw_addr.length > 0) {
+                log_netdev_debug(netdev, "Using hardware address: %s", HW_ADDR_TO_STR(&netdev->hw_addr));
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &netdev->hw_addr);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
+        }
 
-                r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (netdev->mtu != 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
+        }
 
-                if (netdev->mac) {
-                        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
-                }
-
-                if (netdev->mtu != 0) {
-                        r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
-                }
-
-                if (link) {
-                        r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
-                }
-
-                r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
+        }
 
-                if (NETDEV_VTABLE(netdev)->fill_message_create) {
-                        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-                        r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
-                        if (r < 0)
-                                return r;
+        if (NETDEV_VTABLE(netdev)->fill_message_create) {
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-                        r = sd_netlink_message_close_container(m);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
-                } else {
-                        r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
-                }
+                r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
+                if (r < 0)
+                        return r;
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-                if (link) {
-                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
-                                               link_netlink_destroy_callback, link);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-                        link_ref(link);
-                } else {
-                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
-                                               netdev_destroy_callback, netdev);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-                        netdev_ref(netdev);
-                }
-
-                netdev->state = NETDEV_STATE_CREATING;
-
-                log_netdev_debug(netdev, "Creating");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+        } else {
+                r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
         }
 
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+
+        if (link) {
+                r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+                                       link_netlink_destroy_callback, link);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+
+                link_ref(link);
+        } else {
+                r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                                       netdev_destroy_callback, netdev);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+
+                netdev_ref(netdev);
+        }
+
+        netdev->state = NETDEV_STATE_CREATING;
+
+        log_netdev_debug(netdev, "Creating");
         return 0;
 }
 
@@ -814,12 +817,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (!netdev->mac && NETDEV_VTABLE(netdev)->generate_mac) {
-                r = netdev_get_mac(netdev->ifname, &netdev->mac);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r,
-                                                      "Failed to generate predictable MAC address: %m");
-        }
+        r = netdev_generate_hw_addr(netdev, netdev->ifname, &netdev->hw_addr);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r,
+                                                "Failed to generate persistent hardware address: %m");
 
         r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
         if (r == -ENOMEM)

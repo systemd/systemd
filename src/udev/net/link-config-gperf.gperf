@@ -21,8 +21,10 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                          config_parse_hwaddrs,                  0,                             offsetof(LinkConfig, match.mac)
-Match.PermanentMACAddress,                 config_parse_hwaddrs,                  0,                             offsetof(LinkConfig, match.permanent_mac)
+Match.HardwareAddress,                     config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.hw_addr)
+Match.MACAddress,                          config_parse_hw_addrs,                 ETH_ALEN,                      offsetof(LinkConfig, match.hw_addr)
+Match.PermanentHardwareAddress,            config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.permanent_hw_addr)
+Match.PermanentMACAddress,                 config_parse_hw_addrs,                 ETH_ALEN,                      offsetof(LinkConfig, match.permanent_hw_addr)
 Match.OriginalName,                        config_parse_match_ifnames,            0,                             offsetof(LinkConfig, match.ifname)
 Match.Path,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.path)
 Match.Driver,                              config_parse_match_strv,               0,                             offsetof(LinkConfig, match.driver)
@@ -34,8 +36,10 @@ Match.KernelCommandLine,                   config_parse_net_condition,          
 Match.KernelVersion,                       config_parse_net_condition,            CONDITION_KERNEL_VERSION,      offsetof(LinkConfig, conditions)
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
-Link.MACAddressPolicy,                     config_parse_mac_address_policy,       0,                             offsetof(LinkConfig, mac_address_policy)
-Link.MACAddress,                           config_parse_hwaddr,                   0,                             offsetof(LinkConfig, mac)
+Link.HardwareAddressPolicy,                config_parse_hardware_address_policy,  0,                             offsetof(LinkConfig, hw_addr_policy)
+Link.MACAddressPolicy,                     config_parse_hardware_address_policy,  0,                             offsetof(LinkConfig, hw_addr_policy)
+Link.HardwareAddress,                      config_parse_hw_addr,                  0,                             offsetof(LinkConfig, hw_addr)
+Link.MACAddress,                           config_parse_hw_addr,                  ETH_ALEN,                      offsetof(LinkConfig, hw_addr)
 Link.NamePolicy,                           config_parse_name_policy,              0,                             offsetof(LinkConfig, name_policy)
 Link.Name,                                 config_parse_ifname,                   0,                             offsetof(LinkConfig, name)
 Link.AlternativeName,                      config_parse_ifnames,                  IFNAME_VALID_ALTERNATIVE,      offsetof(LinkConfig, alternative_names)
