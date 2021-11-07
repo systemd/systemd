@@ -11,6 +11,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
 #include "macsec.h"
@@ -253,3 +254,6 @@ BatmanAdvanced.GatewayBandwidthUp,        config_parse_badadv_bandwidth,        
 BatmanAdvanced.HopPenalty,                config_parse_uint8,                        0,                             offsetof(BatmanAdvanced, hop_penalty)
 BatmanAdvanced.OriginatorIntervalSec,     config_parse_sec,                          0,                             offsetof(BatmanAdvanced, originator_interval)
 BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,     0,                             offsetof(BatmanAdvanced, routing_algorithm)
+IPoIB.PartitionKey,                       config_parse_ipoib_pkey,                   0,                             offsetof(IPoIB, pkey)
+IPoIB.Mode,                               config_parse_ipoib_mode,                   0,                             offsetof(IPoIB, mode)
+IPoIB.IgnoreUserspaceMulticastGroups,     config_parse_tristate,                     0,                             offsetof(IPoIB, umcast)
