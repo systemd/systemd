@@ -189,6 +189,9 @@
 
           <row><entry><varname>batadv</varname></entry>
           <entry><ulink url="https://www.open-mesh.org/projects/open-mesh/wiki">B.A.T.M.A.N. Advanced</ulink> is a routing protocol for multi-hop mobile ad-hoc networks which operates on layer 2.</entry></row>
+
+          <row><entry><varname>ipoib</varname></entry>
+          <entry>An IP over Infiniband subinterface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -2120,6 +2123,49 @@
           of <citerefentry><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
           cannot be changed after interface creation. Defaults to <literal>batman-v</literal>.
           </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPoIB] Section Options</title>
+    <para>The [IPoIB] section only applies for netdevs of kind <literal>ipoib</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PartitionKey=</varname></term>
+        <listitem>
+          <para>Takes an integer in the range 1…0xffff, except for 0x8000. Defaults to unset, and the
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_mode'>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>Takes one of the special values <literal>datagram</literal> or
+          <literal>connected</literal>. Defaults to unset, and the kernel's default is used.</para>
+
+          <para>When <literal>datagram</literal>, the Infiniband unreliable datagram (UD) transport is
+          used, and so the interface MTU is equal to the IB L2 MTU minus the IPoIB encapsulation
+          header (4 bytes). For example, in a typical IB fabric with a 2K MTU, the IPoIB MTU will be
+          2048 - 4 = 2044 bytes.</para>
+
+          <para>When <literal>connected</literal>, the Infiniband reliable connected (RC) transport is
+          used. Connected mode takes advantage of the connected nature of the IB transport and allows
+          an MTU up to the maximal IP packet size of 64K, which reduces the number of IP packets needed
+          for handling large UDP datagrams, TCP segments, etc and increases the performance for large
+          messages.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_umcast'>
+        <term><varname>IgnoreUserspaceMulticastGroup=</varname></term>
+        <listitem>
+          <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
+          userspace. Defaults to unset, and the kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

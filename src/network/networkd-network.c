@@ -852,6 +852,7 @@ int config_parse_stacked_netdev(
         assert(rvalue);
         assert(data);
         assert(IN_SET(kind,
+                      NETDEV_KIND_IPOIB,
                       NETDEV_KIND_IPVLAN,
                       NETDEV_KIND_IPVTAP,
                       NETDEV_KIND_L2TP,

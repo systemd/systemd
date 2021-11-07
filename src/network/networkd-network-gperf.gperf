@@ -87,6 +87,7 @@ Network.BatmanAdvanced,                      config_parse_ifname,               
 Network.Bond,                                config_parse_ifname,                                      0,                             offsetof(Network, bond_name)
 Network.Bridge,                              config_parse_ifname,                                      0,                             offsetof(Network, bridge_name)
 Network.VRF,                                 config_parse_ifname,                                      0,                             offsetof(Network, vrf_name)
+Network.IPoIB,                               config_parse_stacked_netdev,                              NETDEV_KIND_IPOIB,             offsetof(Network, stacked_netdev_names)
 Network.IPVLAN,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVLAN,            offsetof(Network, stacked_netdev_names)
 Network.IPVTAP,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVTAP,            offsetof(Network, stacked_netdev_names)
 Network.L2TP,                                config_parse_stacked_netdev,                              NETDEV_KIND_L2TP,              offsetof(Network, stacked_netdev_names)

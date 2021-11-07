@@ -242,6 +242,7 @@ IgnoreCarrierLoss=
 KeepConfiguration=
 DHCPv6PrefixDelegation=
 BatmanAdvanced=
+IPoIB=
 [IPv6Prefix]
 Prefix=
 OnLink=
