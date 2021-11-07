@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "arphrd-util.h"
 #include "bareudp.h"
 #include "batadv.h"
 #include "bond.h"
@@ -425,28 +426,43 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
 
-int netdev_generate_hw_addr(const char *name, struct hw_addr_data *ret) {
+int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_data *hw_addr) {
+        bool warn_invalid = false;
         struct hw_addr_data a;
         int r;
 
+        assert(netdev);
         assert(name);
-        assert(ret);
+        assert(hw_addr);
 
-        a.length = ETH_ALEN;
+        if (hw_addr->length == 0) {
+                /* HardwareAddress= is not specified. */
 
-        r = net_get_unique_predictable_bytes_from_name(
-                        name,
-                        (const sd_id128_t* []) { &HASH_KEY, },
-                        ETH_ALEN, a.bytes);
+                if (!NETDEV_VTABLE(netdev)->generate_hw_addr)
+                        return 0;
+
+                if (NETDEV_VTABLE(netdev)->iftype != ARPHRD_ETHER)
+                        return 0;
+
+                a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
+
+                r = net_get_unique_predictable_bytes_from_name(
+                                name,
+                                (const sd_id128_t* []) { &HASH_KEY, },
+                                a.length, a.bytes);
+                if (r < 0)
+                        return r;
+
+        } else {
+                a = *hw_addr;
+                warn_invalid = true;
+        }
+
+        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype, NULL, &a);
         if (r < 0)
                 return r;
 
-        r = net_verify_hardware_address(name, /* warn_invalid = */ false, ARPHRD_ETHER,
-                                        NULL, &a);
-        if (r < 0)
-                return r;
-
-        *ret = a;
+        *hw_addr = a;
         return 0;
 }
 
@@ -479,6 +495,7 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
 
         if (netdev->hw_addr.length > 0) {
+                log_netdev_debug(netdev, "Using hardware address: %s", HW_ADDR_TO_STR(&netdev->hw_addr));
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &netdev->hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
@@ -797,12 +814,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (netdev->hw_addr.length == 0 && NETDEV_VTABLE(netdev)->generate_hw_addr) {
-                r = netdev_generate_hw_addr(netdev->ifname, &netdev->hw_addr);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r,
-                                                        "Failed to generate persistent hardware address: %m");
-        }
+        r = netdev_generate_hw_addr(netdev, netdev->ifname, &netdev->hw_addr);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r,
+                                                "Failed to generate persistent hardware address: %m");
 
         r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
         if (r == -ENOMEM)
