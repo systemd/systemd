@@ -4,6 +4,7 @@
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "list.h"
 #include "log-link.h"
 #include "networkd-link.h"
@@ -118,7 +119,7 @@ typedef struct NetDev {
         NetDevKind kind;
         char *description;
         char *ifname;
-        struct ether_addr *mac;
+        struct hw_addr_data hw_addr;
         uint32_t mtu;
         int ifindex;
 } NetDev;
@@ -197,7 +198,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_get_mac(const char *ifname, struct ether_addr **ret);
+int netdev_generate_hw_addr(const char *name, struct hw_addr_data *ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
 int request_process_stacked_netdev(Request *req);

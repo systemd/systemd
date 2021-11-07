@@ -229,7 +229,6 @@ static NetDev *netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
-        free(netdev->mac);
         condition_free_list(netdev->conditions);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
@@ -424,8 +423,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
 
-int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
-        _cleanup_free_ struct ether_addr *mac = NULL;
+int netdev_generate_hw_addr(const char *name, struct hw_addr_data *ret) {
         uint64_t result;
         size_t l, sz;
         uint8_t *v;
@@ -433,10 +431,6 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
 
         assert(ifname);
         assert(ret);
-
-        mac = new0(struct ether_addr, 1);
-        if (!mac)
-                return -ENOMEM;
 
         l = strlen(ifname);
         sz = sizeof(sd_id128_t) + l;
@@ -456,13 +450,12 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         result = siphash24(v, sz, HASH_KEY.bytes);
 
         assert_cc(ETH_ALEN <= sizeof(result));
-        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
+        ret->length = ETH_ALEN;
+        memcpy(ret->bytes, &result, ETH_ALEN);
 
         /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
-
-        *ret = TAKE_PTR(mac);
+        ret->ether.ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        ret->ether.ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 
         return 0;
 }
@@ -494,8 +487,8 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
 
-        if (netdev->mac) {
-                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
+        if (netdev->hw_addr.length > 0) {
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &netdev->hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
@@ -813,8 +806,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (!netdev->mac && NETDEV_VTABLE(netdev)->generate_mac) {
-                r = netdev_get_mac(netdev->ifname, &netdev->mac);
+        if (netdev->hw_addr.length == 0 && NETDEV_VTABLE(netdev)->generate_mac) {
+                r = netdev_generate_hw_addr(netdev->ifname, &netdev->hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
                                                       "Failed to generate predictable MAC address: %m");
