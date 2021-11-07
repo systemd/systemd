@@ -26,6 +26,7 @@
 #include "copy.h"
 #include "def.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
@@ -42,6 +43,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "rm-rf.h"
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
@@ -53,6 +55,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "verb-log-control.h"
@@ -228,6 +231,53 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
 
 static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
+}
+
+static int process_aliases(char *argv[], char *tempdir, char ***ret) {
+        _cleanup_strv_free_ char **filenames = NULL;
+        char **filename;
+        int r;
+
+        assert(argv);
+        assert(tempdir);
+        assert(ret);
+
+        STRV_FOREACH(filename, strv_skip(argv, 1)) {
+                _cleanup_free_ char *src = NULL, *dst = NULL, *arg = NULL;
+                char *parse_arg;
+
+                arg = strdup(*filename);
+                if (!arg)
+                        return -ENOMEM;
+
+                parse_arg = arg;
+                r = extract_first_word((const char **) &parse_arg, &src, ":", 0);
+                if (r < 0)
+                        return r;
+
+                if (!parse_arg) {
+                        r = strv_extend(&filenames, src);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        continue;
+                }
+
+                dst = path_join(tempdir, basename(parse_arg));
+                if (!dst)
+                        return -ENOMEM;
+
+                r = copy_file(src, dst, 0, 0644, 0, 0, COPY_REFLINK);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(&filenames, TAKE_PTR(dst));
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(filenames);
+        return 0;
 }
 
 static UnitTimes* unit_times_free_array(UnitTimes *t) {
@@ -2257,7 +2307,19 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
+        _cleanup_strv_free_ char **filenames = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
+        int r;
+
+        r = mkdtemp_malloc("/tmp/systemd-analyze-XXXXXX", &tempdir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup working directory: %m");
+
+        r = process_aliases(argv, tempdir, &filenames);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't process aliases: %m");
+
+        return verify_units(filenames, arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
