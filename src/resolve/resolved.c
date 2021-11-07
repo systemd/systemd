@@ -93,6 +93,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 
+        /* send queries on shutdown to other servers */
+        (void) manager_write_non_stub_resolv_conf(m);
+
         return 0;
 }
 
