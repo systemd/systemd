@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_macsec.h>
 #include <linux/genetlink.h>
@@ -1230,5 +1231,6 @@ const NetDevVTable macsec_vtable = {
         .done = macsec_done,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_macsec_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
