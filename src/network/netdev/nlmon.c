@@ -8,9 +8,9 @@ static int netdev_nlmon_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
         assert(filename);
 
-        if (netdev->mac) {
+        if (netdev->hw_addr.length > 0) {
                 log_netdev_warning(netdev, "%s: MACAddress= is not supported. Ignoring", filename);
-                netdev->mac = mfree(netdev->mac);
+                netdev->hw_addr = HW_ADDR_NULL;
         }
 
         return 0;
