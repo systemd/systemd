@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -10,6 +11,7 @@
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -79,6 +81,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -2605,6 +2608,128 @@ static int write_credential(
         return 0;
 }
 
+static int append_path_recurse_dir_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        int r;
+        char ***credpaths = userdata;
+
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
+
+        if (!IN_SET(de->d_type, DT_REG, DT_SOCK))
+                return RECURSE_DIR_CONTINUE;
+
+        r = strv_extend(credpaths, path);
+        if (r < 0)
+                return r;
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int load_credential(
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecLoadCredential *lc,
+                const char *unit,
+                int dfd,
+                uid_t uid,
+                bool ownership_ok,
+                uint64_t *left) {
+
+        assert(context);
+        assert(lc);
+        assert(unit);
+        assert(dfd);
+        assert(left);
+
+        ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
+        _cleanup_(erase_and_freep) char *data = NULL;
+        _cleanup_free_ char *j = NULL, *bindname = NULL;
+        bool missing_ok = true;
+        const char *source;
+        size_t size, add;
+        int r;
+
+        if (path_is_absolute(lc->path)) {
+                /* If this is an absolute path, read the data directly from it, and support AF_UNIX sockets */
+                source = lc->path;
+                flags |= READ_FULL_FILE_CONNECT_SOCKET;
+
+                /* Pass some minimal info about the unit and the credential name we are looking to acquire
+                 * via the source socket address in case we read off an AF_UNIX socket. */
+                if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, lc->id) < 0)
+                        return -ENOMEM;
+
+                missing_ok = false;
+
+        } else if (params->received_credentials) {
+                /* If this is a relative path, take it relative to the credentials we received
+                 * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
+                 * on a credential store, i.e. this is guaranteed to be regular files. */
+                j = path_join(params->received_credentials, lc->path);
+                if (!j)
+                        return -ENOMEM;
+
+                source = j;
+        } else
+                source = NULL;
+
+        if (source)
+                r = read_full_file_full(
+                                AT_FDCWD, source,
+                                UINT64_MAX,
+                                lc->encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                flags | (lc->encrypted ? READ_FULL_FILE_UNBASE64 : 0),
+                                bindname,
+                                &data, &size);
+        else
+                r = -ENOENT;
+
+        if (r == -ENOENT && (missing_ok || hashmap_contains(context->set_credentials, lc->id))) {
+                /* Make a missing inherited credential non-fatal, let's just continue. After all apps
+                 * will get clear errors if we don't pass such a missing credential on as they
+                 * themselves will get ENOENT when trying to read them, which should not be much
+                 * worse than when we handle the error here and make it fatal.
+                 *
+                 * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
+                 * we are fine, too. */
+                log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", lc->path);
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read credential '%s': %m", lc->path);
+
+        if (lc->encrypted) {
+                _cleanup_free_ void *plaintext = NULL;
+                size_t plaintext_size = 0;
+
+                r = decrypt_credential_and_warn(lc->id, now(CLOCK_REALTIME), NULL, data, size, &plaintext, &plaintext_size);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(data, plaintext);
+                size = plaintext_size;
+        }
+
+        add = strlen(lc->id) + size;
+        if (add > *left)
+                return -E2BIG;
+
+        r = write_credential(dfd, lc->id, data, size, uid, ownership_ok);
+        if (r < 0)
+                return r;
+
+        *left -= add;
+        return 0;
+}
+
 static int acquire_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2628,82 +2753,69 @@ static int acquire_credentials(
 
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
         HASHMAP_FOREACH(lc, context->load_credentials) {
-                ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
-                _cleanup_(erase_and_freep) char *data = NULL;
-                _cleanup_free_ char *j = NULL, *bindname = NULL;
-                bool missing_ok = true;
-                const char *source;
-                size_t size, add;
+                int sub_fd;
+                bool is_dir = true;
 
-                if (path_is_absolute(lc->path)) {
-                        /* If this is an absolute path, read the data directly from it, and support AF_UNIX sockets */
-                        source = lc->path;
-                        flags |= READ_FULL_FILE_CONNECT_SOCKET;
-
-                        /* Pass some minimal info about the unit and the credential name we are looking to acquire
-                         * via the source socket address in case we read off an AF_UNIX socket. */
-                        if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, lc->id) < 0)
-                                return -ENOMEM;
-
-                        missing_ok = false;
-
-                } else if (params->received_credentials) {
-                        /* If this is a relative path, take it relative to the credentials we received
-                         * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
-                         * on a credential store, i.e. this is guaranteed to be regular files. */
-                        j = path_join(params->received_credentials, lc->path);
-                        if (!j)
-                                return -ENOMEM;
-
-                        source = j;
-                } else
-                        source = NULL;
-
-                if (source)
-                        r = read_full_file_full(
-                                        AT_FDCWD, source,
-                                        UINT64_MAX,
-                                        lc->encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
-                                        flags | (lc->encrypted ? READ_FULL_FILE_UNBASE64 : 0),
-                                        bindname,
-                                        &data, &size);
-                else
-                        r = -ENOENT;
-                if (r == -ENOENT && (missing_ok || hashmap_contains(context->set_credentials, lc->id))) {
-                        /* Make a missing inherited credential non-fatal, let's just continue. After all apps
-                         * will get clear errors if we don't pass such a missing credential on as they
-                         * themselves will get ENOENT when trying to read them, which should not be much
-                         * worse than when we handle the error here and make it fatal.
-                         *
-                         * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
-                         * we are fine, too. */
-                        log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", lc->path);
-                        continue;
+                if (!path_is_absolute(lc->path))
+                        is_dir = false;
+                else {
+                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                        if (sub_fd < 0) {
+                                if (errno == ENOTDIR)
+                                        is_dir = false;
+                                else
+                                        return -errno;
+                        }
                 }
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to read credential '%s': %m", lc->path);
 
-                if (lc->encrypted) {
-                        _cleanup_free_ void *plaintext = NULL;
-                        size_t plaintext_size = 0;
-
-                        r = decrypt_credential_and_warn(lc->id, now(CLOCK_REALTIME), NULL, data, size, &plaintext, &plaintext_size);
+                if (!is_dir) {
+                        r = load_credential(context, params, lc, unit, dfd, uid, ownership_ok, &left);
                         if (r < 0)
                                 return r;
 
-                        free_and_replace(data, plaintext);
-                        size = plaintext_size;
+                } else {
+                        char **path;
+                        _cleanup_strv_free_ char **credpaths = NULL;
+
+                        r = recurse_dir_at(
+                                        dfd,
+                                        lc->path,
+                                        /* statx_mask= */ 0,
+                                        /* n_depth_max= */ UINT_MAX,
+                                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                                        append_path_recurse_dir_cb,
+                                        &credpaths);
+
+                        if (r < 0)
+                                return r;
+
+                        STRV_FOREACH(path, credpaths) {
+                                _cleanup_(exec_load_credential_freep) ExecLoadCredential *sub_lc = NULL;
+                                _cleanup_free_ char *cred = NULL, *sub_id = NULL;
+
+                                r = path_make_relative(lc->path, *path, &cred);
+                                if (r < 0)
+                                        return r;
+                                sub_id = strreplace(cred, "/", "_");
+
+                                sub_lc = new(ExecLoadCredential, 1);
+                                if (!sub_lc)
+                                        return -ENOMEM;
+
+                                *sub_lc = (ExecLoadCredential) {
+                                        .id = strjoin(lc->id, "_", sub_id),
+                                        .path = TAKE_PTR(*path),
+                                        .encrypted = lc->encrypted,
+                                };
+
+                                if (!sub_lc->id)
+                                        return -ENOMEM;
+
+                                r = load_credential(context, params, sub_lc, unit, dfd, uid, ownership_ok, &left);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
-
-                add = strlen(lc->id) + size;
-                if (add > left)
-                        return -E2BIG;
-
-                r = write_credential(dfd, lc->id, data, size, uid, ownership_ok);
-                if (r < 0)
-                        return r;
-
-                left -= add;
         }
 
         /* First we use the literally specified credentials. Note that they might be overridden again below,
