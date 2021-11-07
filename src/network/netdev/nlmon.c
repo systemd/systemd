@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "nlmon.h"
 
 static int netdev_nlmon_verify(NetDev *netdev, const char *filename) {
@@ -19,4 +21,5 @@ const NetDevVTable nlmon_vtable = {
         .sections = NETDEV_COMMON_SECTIONS,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_nlmon_verify,
+        .iftype = ARPHRD_NETLINK,
 };

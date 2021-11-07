@@ -797,7 +797,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (netdev->hw_addr.length == 0 && NETDEV_VTABLE(netdev)->generate_mac) {
+        if (netdev->hw_addr.length == 0 && NETDEV_VTABLE(netdev)->generate_hw_addr) {
                 r = netdev_generate_hw_addr(netdev->ifname, &netdev->hw_addr);
                 if (r < 0)
                         return log_netdev_warning_errno(netdev, r,
