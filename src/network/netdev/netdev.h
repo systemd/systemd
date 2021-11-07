@@ -22,6 +22,7 @@
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
         "-GENEVE\0"                               \
+        "-IPoIB\0"                                \
         "-IPVLAN\0"                               \
         "-IPVTAP\0"                               \
         "-L2TP\0"                                 \
@@ -60,6 +61,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_IP6GRETAP,
         NETDEV_KIND_IP6TNL,
         NETDEV_KIND_IPIP,
+        NETDEV_KIND_IPOIB,
         NETDEV_KIND_IPVLAN,
         NETDEV_KIND_IPVTAP,
         NETDEV_KIND_L2TP,
@@ -201,7 +203,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_generate_hw_addr(NetDev *netdev, const char *name,
+int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
