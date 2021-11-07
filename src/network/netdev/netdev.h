@@ -23,15 +23,15 @@
         "-L2TP\0"                                 \
         "-L2TPSession\0"                          \
         "-MACsec\0"                               \
+        "-MACsecReceiveAssociation\0"             \
         "-MACsecReceiveChannel\0"                 \
         "-MACsecTransmitAssociation\0"            \
-        "-MACsecReceiveAssociation\0"             \
-        "-MACVTAP\0"                              \
         "-MACVLAN\0"                              \
-        "-Tunnel\0"                               \
-        "-Tun\0"                                  \
-        "-Tap\0"                                  \
+        "-MACVTAP\0"                              \
         "-Peer\0"                                 \
+        "-Tap\0"                                  \
+        "-Tun\0"                                  \
+        "-Tunnel\0"                               \
         "-VLAN\0"                                 \
         "-VRF\0"                                  \
         "-VXCAN\0"                                \
@@ -41,42 +41,42 @@
         "-Xfrm\0"
 
 typedef enum NetDevKind {
-        NETDEV_KIND_BRIDGE,
-        NETDEV_KIND_BOND,
-        NETDEV_KIND_VLAN,
-        NETDEV_KIND_MACVLAN,
-        NETDEV_KIND_MACVTAP,
-        NETDEV_KIND_IPVLAN,
-        NETDEV_KIND_IPVTAP,
-        NETDEV_KIND_VXLAN,
-        NETDEV_KIND_IPIP,
-        NETDEV_KIND_GRE,
-        NETDEV_KIND_GRETAP,
-        NETDEV_KIND_IP6GRE,
-        NETDEV_KIND_IP6GRETAP,
-        NETDEV_KIND_SIT,
-        NETDEV_KIND_VETH,
-        NETDEV_KIND_VTI,
-        NETDEV_KIND_VTI6,
-        NETDEV_KIND_IP6TNL,
-        NETDEV_KIND_DUMMY,
-        NETDEV_KIND_TUN,
-        NETDEV_KIND_TAP,
-        NETDEV_KIND_VRF,
-        NETDEV_KIND_VCAN,
-        NETDEV_KIND_GENEVE,
-        NETDEV_KIND_VXCAN,
-        NETDEV_KIND_WIREGUARD,
-        NETDEV_KIND_NETDEVSIM,
-        NETDEV_KIND_FOU,
-        NETDEV_KIND_ERSPAN,
-        NETDEV_KIND_L2TP,
-        NETDEV_KIND_MACSEC,
-        NETDEV_KIND_NLMON,
-        NETDEV_KIND_XFRM,
-        NETDEV_KIND_IFB,
         NETDEV_KIND_BAREUDP,
         NETDEV_KIND_BATADV,
+        NETDEV_KIND_BOND,
+        NETDEV_KIND_BRIDGE,
+        NETDEV_KIND_DUMMY,
+        NETDEV_KIND_ERSPAN,
+        NETDEV_KIND_FOU,
+        NETDEV_KIND_GENEVE,
+        NETDEV_KIND_GRE,
+        NETDEV_KIND_GRETAP,
+        NETDEV_KIND_IFB,
+        NETDEV_KIND_IP6GRE,
+        NETDEV_KIND_IP6GRETAP,
+        NETDEV_KIND_IP6TNL,
+        NETDEV_KIND_IPIP,
+        NETDEV_KIND_IPVLAN,
+        NETDEV_KIND_IPVTAP,
+        NETDEV_KIND_L2TP,
+        NETDEV_KIND_MACSEC,
+        NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_MACVTAP,
+        NETDEV_KIND_NETDEVSIM,
+        NETDEV_KIND_NLMON,
+        NETDEV_KIND_SIT,
+        NETDEV_KIND_TAP,
+        NETDEV_KIND_TUN,
+        NETDEV_KIND_VCAN,
+        NETDEV_KIND_VETH,
+        NETDEV_KIND_VLAN,
+        NETDEV_KIND_VRF,
+        NETDEV_KIND_VTI,
+        NETDEV_KIND_VTI6,
+        NETDEV_KIND_VXCAN,
+        NETDEV_KIND_VXLAN,
+        NETDEV_KIND_WIREGUARD,
+        NETDEV_KIND_XFRM,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -EINVAL,
