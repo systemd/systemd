@@ -152,6 +152,7 @@ const NetDevVTable tun_vtable = {
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .iftype = ARPHRD_NONE,
 };
 
 const NetDevVTable tap_vtable = {
@@ -161,4 +162,5 @@ const NetDevVTable tap_vtable = {
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .iftype = ARPHRD_ETHER,
 };

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -292,5 +294,6 @@ const NetDevVTable geneve_vtable = {
         .fill_message_create = netdev_geneve_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_geneve_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

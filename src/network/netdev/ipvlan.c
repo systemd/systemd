@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "conf-parser.h"
 #include "ipvlan.h"
@@ -63,6 +65,7 @@ const NetDevVTable ipvlan_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "IPVLAN\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 
@@ -72,6 +75,7 @@ const NetDevVTable ipvtap_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "IPVTAP\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 

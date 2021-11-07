@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/if_bridge.h>
 
 #include "bridge.h"
@@ -276,4 +277,5 @@ const NetDevVTable bridge_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
 };

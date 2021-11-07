@@ -2,8 +2,9 @@
 
 #include <netinet/in.h>
 #include <linux/fou.h>
-#include <linux/ip.h>
+#include <linux/if_arp.h>
 #include <linux/if_tunnel.h>
+#include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
 
 #include "conf-parser.h"
@@ -817,7 +818,7 @@ const NetDevVTable ipip_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable sit_vtable = {
@@ -827,7 +828,7 @@ const NetDevVTable sit_vtable = {
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_SIT,
 };
 
 const NetDevVTable vti_vtable = {
@@ -837,7 +838,7 @@ const NetDevVTable vti_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable vti6_vtable = {
@@ -847,7 +848,7 @@ const NetDevVTable vti6_vtable = {
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable gre_vtable = {
@@ -857,7 +858,7 @@ const NetDevVTable gre_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_IPGRE,
 };
 
 const NetDevVTable gretap_vtable = {
@@ -867,6 +868,7 @@ const NetDevVTable gretap_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 
@@ -877,7 +879,7 @@ const NetDevVTable ip6gre_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_IP6GRE,
 };
 
 const NetDevVTable ip6gretap_vtable = {
@@ -887,6 +889,7 @@ const NetDevVTable ip6gretap_vtable = {
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 
@@ -897,7 +900,7 @@ const NetDevVTable ip6tnl_vtable = {
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable erspan_vtable = {
@@ -907,5 +910,6 @@ const NetDevVTable erspan_vtable = {
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

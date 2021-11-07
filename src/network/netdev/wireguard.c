@@ -5,6 +5,8 @@
 
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "sd-resolve.h"
 
@@ -937,5 +939,5 @@ const NetDevVTable wireguard_vtable = {
         .done = wireguard_done,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = wireguard_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_NONE,
 };

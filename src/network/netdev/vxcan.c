@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/can/vxcan.h>
+#include <linux/if_arp.h>
 
 #include "vxcan.h"
 
@@ -70,5 +71,5 @@ const NetDevVTable vxcan_vtable = {
         .fill_message_create = netdev_vxcan_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_vxcan_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_CAN,
 };
