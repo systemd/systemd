@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "arphrd-util.h"
 #include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
@@ -2400,6 +2401,9 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
 
+        log_link_debug(link, "Saved new link: ifindex=%i, iftype=%s(%u), kind=%s",
+                       link->ifindex, strna(arphrd_to_name(link->iftype)), link->iftype, strna(link->kind));
+
         r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
         if (r < 0) {
                 if (r != -ENODATA)
@@ -2412,12 +2416,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                                 log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
                 }
         }
+        if (link->permanent_hw_addr.length > 0)
+                log_link_debug(link, "Saved permanent hardware address: %s", HW_ADDR_TO_STR(&link->permanent_hw_addr));
 
         r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
 
-        log_link_debug(link, "Link %d added", link->ifindex);
         *ret = TAKE_PTR(link);
         return 0;
 }
