@@ -18,6 +18,7 @@
 #include "fou-tunnel.h"
 #include "geneve.h"
 #include "ifb.h"
+#include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
 #include "list.h"
@@ -64,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
         [NETDEV_KIND_IP6TNL]    = &ip6tnl_vtable,
         [NETDEV_KIND_IPIP]      = &ipip_vtable,
+        [NETDEV_KIND_IPOIB]     = &ipoib_vtable,
         [NETDEV_KIND_IPVLAN]    = &ipvlan_vtable,
         [NETDEV_KIND_IPVTAP]    = &ipvtap_vtable,
         [NETDEV_KIND_L2TP]      = &l2tptnl_vtable,
@@ -103,6 +105,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
         [NETDEV_KIND_IP6TNL]    = "ip6tnl",
         [NETDEV_KIND_IPIP]      = "ipip",
+        [NETDEV_KIND_IPOIB]     = "ipoib",
         [NETDEV_KIND_IPVLAN]    = "ipvlan",
         [NETDEV_KIND_IPVTAP]    = "ipvtap",
         [NETDEV_KIND_L2TP]      = "l2tp",

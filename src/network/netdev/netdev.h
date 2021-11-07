@@ -19,6 +19,7 @@
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
         "-GENEVE\0"                               \
+        "-IPoIB\0"                                \
         "-IPVLAN\0"                               \
         "-IPVTAP\0"                               \
         "-L2TP\0"                                 \
@@ -57,6 +58,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_IP6GRETAP,
         NETDEV_KIND_IP6TNL,
         NETDEV_KIND_IPIP,
+        NETDEV_KIND_IPOIB,
         NETDEV_KIND_IPVLAN,
         NETDEV_KIND_IPVTAP,
         NETDEV_KIND_L2TP,
