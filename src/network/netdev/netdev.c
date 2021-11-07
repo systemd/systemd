@@ -424,7 +424,10 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         return 0;
 }
 
-#define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+#define HASH_KEY_1 SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+#define HASH_KEY_2 SD_ID128_MAKE(5a,44,c9,5f,94,cd,4b,82,bd,38,22,53,18,9b,cd,d1)
+#define HASH_KEY_3 SD_ID128_MAKE(9a,68,7c,81,0e,5d,47,fc,b2,71,37,1a,04,97,fc,83)
+#define HASH_KEY_4 SD_ID128_MAKE(6f,03,52,8d,0b,ab,4e,04,89,45,93,17,77,ee,89,9e)
 
 int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_data *hw_addr) {
         bool warn_invalid = false;
@@ -441,14 +444,14 @@ int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_dat
                 if (!NETDEV_VTABLE(netdev)->generate_hw_addr)
                         return 0;
 
-                if (NETDEV_VTABLE(netdev)->iftype != ARPHRD_ETHER)
+                if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
                         return 0;
 
                 a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
 
                 r = net_get_unique_predictable_bytes_from_name(
                                 name,
-                                (const sd_id128_t* []) { &HASH_KEY, },
+                                (const sd_id128_t* []) { &HASH_KEY_1, &HASH_KEY_2, &HASH_KEY_3, &HASH_KEY_4, },
                                 a.length, a.bytes);
                 if (r < 0)
                         return r;
