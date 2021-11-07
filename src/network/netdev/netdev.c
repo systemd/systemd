@@ -18,6 +18,7 @@
 #include "fou-tunnel.h"
 #include "geneve.h"
 #include "ifb.h"
+#include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
 #include "list.h"
@@ -64,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
         [NETDEV_KIND_IP6TNL]    = &ip6tnl_vtable,
         [NETDEV_KIND_IPIP]      = &ipip_vtable,
+        [NETDEV_KIND_IPOIB]     = &ipoib_vtable,
         [NETDEV_KIND_IPVLAN]    = &ipvlan_vtable,
         [NETDEV_KIND_IPVTAP]    = &ipvtap_vtable,
         [NETDEV_KIND_L2TP]      = &l2tptnl_vtable,
@@ -103,6 +105,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
         [NETDEV_KIND_IP6TNL]    = "ip6tnl",
         [NETDEV_KIND_IPIP]      = "ipip",
+        [NETDEV_KIND_IPOIB]     = "ipoib",
         [NETDEV_KIND_IPVLAN]    = "ipvlan",
         [NETDEV_KIND_IPVTAP]    = "ipvtap",
         [NETDEV_KIND_L2TP]      = "l2tp",
@@ -443,7 +446,7 @@ int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_dat
                 if (!NETDEV_VTABLE(netdev)->generate_hw_addr)
                         return 0;
 
-                if (NETDEV_VTABLE(netdev)->iftype != ARPHRD_ETHER)
+                if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
                         return 0;
 
                 r = net_get_unique_predictable_data_from_name(name, &HASH_KEY, &result);
@@ -451,8 +454,20 @@ int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_dat
                         return r;
 
                 a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
-                assert(a.length <= sizeof(result));
-                memcpy(a.bytes, &result, a.length);
+
+                switch (NETDEV_VTABLE(netdev)->iftype) {
+                case ARPHRD_ETHER:
+                        assert(a.length <= sizeof(result));
+                        memcpy(a.bytes, &result, a.length);
+                        break;
+                case ARPHRD_INFINIBAND:
+                        assert(a.length >= sizeof(result));
+                        memzero(a.bytes, a.length - sizeof(result));
+                        memcpy(a.bytes + a.length - sizeof(result), &result, sizeof(result));
+                        break;
+                default:
+                        assert_not_reached();
+                }
 
         } else {
                 a = *hw_addr;
