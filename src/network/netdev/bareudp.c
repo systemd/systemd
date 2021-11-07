@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+
 #include "bareudp.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -79,4 +82,5 @@ const NetDevVTable bare_udp_vtable = {
         .config_verify = netdev_bare_udp_verify,
         .fill_message_create = netdev_bare_udp_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .iftype = ARPHRD_NONE,
 };
