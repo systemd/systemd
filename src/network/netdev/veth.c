@@ -32,7 +32,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Failed to add netlink interface name: %m");
         }
 
-        r = netdev_generate_hw_addr(netdev, v->ifname_peer, &v->hw_addr_peer, &hw_addr);
+        r = netdev_generate_hw_addr(netdev, NULL, v->ifname_peer, &v->hw_addr_peer, &hw_addr);
         if (r < 0)
                 return r;
 
