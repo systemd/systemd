@@ -1662,6 +1662,9 @@ if get_option('efi')
         have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
 else
+        if get_option('gnu-efi') == 'true'
+                error('gnu-efi support requested, but efi support is disabled')
+        endif
         have = false
 endif
 conf.set10('ENABLE_EFI', have)

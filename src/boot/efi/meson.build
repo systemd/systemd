@@ -45,7 +45,7 @@ stub_sources = '''
         cpio.c
 '''.split()
 
-if efi_arch in ['x86', 'x86_64']
+if conf.get('ENABLE_EFI') == 1 and efi_arch in ['x86', 'x86_64']
         stub_sources += 'linux_x86.c'
 else
         stub_sources += 'linux.c'
