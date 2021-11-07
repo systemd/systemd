@@ -570,7 +570,7 @@ tests += [
         [['src/test/test-af-list.c',
           generated_gperf_headers]],
 
-        [['src/test/test-arphrd-list.c',
+        [['src/test/test-arphrd-util.c',
           generated_gperf_headers]],
 
         [['src/test/test-ip-protocol-list.c',

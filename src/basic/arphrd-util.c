@@ -4,7 +4,7 @@
 #include <linux/if_arp.h>
 #include <string.h>
 
-#include "arphrd-list.h"
+#include "arphrd-util.h"
 #include "macro.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);
