@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <inttypes.h>
+#include <netinet/in.h>
 #include <linux/genetlink.h>
+#include <linux/if_arp.h>
 
 #include "batadv.h"
 #include "fileio.h"
@@ -200,4 +202,5 @@ const NetDevVTable batadv_vtable = {
         .fill_message_create = netdev_batadv_fill_message_create,
         .post_create = netdev_batadv_post_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
 };
