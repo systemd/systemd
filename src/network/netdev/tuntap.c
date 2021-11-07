@@ -136,7 +136,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    "Please set it in the corresponding .network file.",
                                    netdev_kind_to_string(netdev->kind), filename);
 
-        if (netdev->mac)
+        if (netdev->hw_addr.length > 0)
                 log_netdev_warning(netdev,
                                    "MACAddress= configured for %s device in %s will be ignored.\n"
                                    "Please set it in the corresponding .network file.",
