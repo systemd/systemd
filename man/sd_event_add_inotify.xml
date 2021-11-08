@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>sd_event_add_inotify</refname>
+    <refname>sd_event_add_inotify_fd</refname>
     <refname>sd_event_source_get_inotify_mask</refname>
     <refname>sd_event_inotify_handler_t</refname>
 
@@ -47,6 +48,16 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_event_add_inotify_fd</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>uint32_t <parameter>mask</parameter></paramdef>
+        <paramdef>sd_event_inotify_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_event_source_get_inotify_mask</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>uint32_t *<parameter>mask</parameter></paramdef>
@@ -70,6 +81,11 @@
     <constant>IN_ACCESS</constant>, <constant>IN_ATTRIB</constant>, <constant>IN_CLOSE_WRITE</constant>, … flags. See
     <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     further information.</para>
+
+    <para><function>sd_event_add_inotify_fd()</function> is identical to
+    <function>sd_event_add_inotify()</function>, except that it takes a file descriptor to an inode (possibly
+    an <constant>O_PATH</constant> one, but any other will do too) instead of a path in the file
+    system.</para>
 
     <para>If multiple event sources are installed for the same inode the backing inotify watch descriptor is
     automatically shared. The mask parameter may contain any flag defined by the inotify API, with the exception of
@@ -155,6 +171,19 @@
           <term><constant>-EDOM</constant></term>
 
           <listitem><para>The passed event source is not an inotify process event source.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>The passed file descriptor is not valid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOSYS</constant></term>
+
+          <listitem><para><function>sd_event_add_inotify_fd()</function> was called without
+          <filename>/proc/</filename> mounted.</para></listitem>
         </varlistentry>
 
       </variablelist>

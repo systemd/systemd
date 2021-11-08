@@ -22,6 +22,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -1820,6 +1821,29 @@ static void event_free_inode_data(
         free(d);
 }
 
+static void event_gc_inotify_data(
+                sd_event *e,
+                struct inotify_data *d) {
+
+        assert(e);
+
+        /* GC's the inotify data object if we don't needed anymore. It's not needed anymore if we don't need
+         * it to watch any inode anymore, which in turn happens if no event source of this priority is
+         * interested in any inode anymore. That said, we maintain an extra busy counter: if non-zero we'll
+         * delay GC (under the expectation that the GC is called again once the counter is decremented). */
+
+        if (!d)
+                return;
+
+        if (!hashmap_isempty(d->inodes))
+                return;
+
+        if (d->n_busy > 0)
+                return;
+
+        event_free_inotify_data(e, d);
+}
+
 static void event_gc_inode_data(
                 sd_event *e,
                 struct inode_data *d) {
@@ -1837,8 +1861,7 @@ static void event_gc_inode_data(
         inotify_data = d->inotify_data;
         event_free_inode_data(e, d);
 
-        if (inotify_data && hashmap_isempty(inotify_data->inodes))
-                event_free_inotify_data(e, inotify_data);
+        event_gc_inotify_data(e, inotify_data);
 }
 
 static int event_make_inode_data(
@@ -2049,6 +2072,32 @@ _public_ int sd_event_add_inotify(
         TAKE_PTR(s);
 
         return 0;
+}
+
+_public_ int sd_event_add_inotify_fd(
+                sd_event *e,
+                sd_event_source **ret,
+                int fd,
+                uint32_t mask,
+                sd_event_inotify_handler_t callback,
+                void *userdata) {
+
+        int r;
+
+        r = sd_event_add_inotify(e, ret, FORMAT_PROC_FD_PATH(fd), mask, callback, userdata);
+        if (r == -ENOENT) {
+                /* Didn't work? If so, then either /proc/ isn't mounted, or the fd is bad */
+
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;
+                if (r > 0)
+                        return -EBADF;
+
+                return -ENOENT; /* OK, no clue, let's propagate the original error */
+        }
+
+        return r;
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
@@ -3556,13 +3605,23 @@ static int source_dispatch(sd_event_source *s) {
                 sz = offsetof(struct inotify_event, name) + d->buffer.ev.len;
                 assert(d->buffer_filled >= sz);
 
+                /* If the inotify callback destroys the event source then this likely means we don't need to
+                 * watch the inode anymore, and thus also won't need the inotify object anymore. But if we'd
+                 * free it immediately, then we couldn't drop the event from the inotify event queue without
+                 * memory corruption anymore, as below. Hence, let's not free it immediately, but mark it
+                 * "busy" with a counter (which will ensure it's not GC'ed away prematurely). Let's then
+                 * explicitly GC it after we are done dropping the inotify event from the buffer. */
+                d->n_busy++;
                 r = s->inotify.callback(s, &d->buffer.ev, s->userdata);
+                d->n_busy--;
 
-                /* When no event is pending anymore on this inotify object, then let's drop the event from the
-                 * buffer. */
+                /* When no event is pending anymore on this inotify object, then let's drop the event from
+                 * the inotify event queue buffer. */
                 if (d->n_pending == 0)
                         event_inotify_data_drop(e, d, sz);
 
+                /* Now we don't want to access 'd' anymore, it's OK to GC now. */
+                event_gc_inotify_data(e, d);
                 break;
         }
 
