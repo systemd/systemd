@@ -617,6 +617,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
                "     --with-dropin=BOOL      Control whether to include drop-in records\n"
                "     --with-varlink=BOOL     Control whether to talk to services at all\n"
+               "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
                "     --json=pretty|short     JSON output mode\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -638,6 +639,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WITH_DROPIN,
                 ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
+                ARG_MULTIPLEXER,
                 ARG_JSON,
         };
 
@@ -652,6 +654,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN  },
                 { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
                 { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
+                { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
                 { "json",         required_argument, NULL, ARG_JSON         },
                 {}
         };
@@ -785,6 +788,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
+                        break;
+
+                case ARG_MULTIPLEXER:
+                        r = parse_boolean_argument("--multiplexer=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
                         break;
 
                 case '?':
