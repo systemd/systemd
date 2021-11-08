@@ -184,9 +184,18 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu users listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No users.\n");
+                }
         }
 
         return ret;
@@ -340,9 +349,18 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu groups listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No groups.\n");
+                }
         }
 
         return ret;
@@ -478,9 +496,18 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No memberships.\n");
+                }
         }
 
         return ret;
@@ -541,14 +568,18 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) <= 0) {
-                log_info("No services.");
-                return 0;
+        if (table_get_rows(t) > 1) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return table_log_print_error(r);
         }
 
-        r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
-        if (r < 0)
-                return table_log_print_error(r);
+        if (arg_legend) {
+                if (table_get_rows(t) > 1)
+                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
+                else
+                        printf("No services.\n");
+        }
 
         return 0;
 }
