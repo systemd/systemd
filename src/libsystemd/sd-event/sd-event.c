@@ -22,6 +22,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -2049,6 +2050,32 @@ _public_ int sd_event_add_inotify(
         TAKE_PTR(s);
 
         return 0;
+}
+
+_public_ int sd_event_add_inotify_fd(
+                sd_event *e,
+                sd_event_source **ret,
+                int fd,
+                uint32_t mask,
+                sd_event_inotify_handler_t callback,
+                void *userdata) {
+
+        int r;
+
+        r = sd_event_add_inotify(e, ret, FORMAT_PROC_FD_PATH(fd), mask, callback, userdata);
+        if (r == -ENOENT) {
+                /* Didn't work? If so, then either /proc/ isn't mounted, or the fd is bad */
+
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;
+                if (r > 0)
+                        return -EBADF;
+
+                return -ENOENT; /* OK, no clue, let's propagate the original error */
+        }
+
+        return r;
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
