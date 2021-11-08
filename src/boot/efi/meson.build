@@ -48,14 +48,6 @@ if efi_cc.length() == 0
         efi_cc = cc.cmd_array()
 endif
 
-efi_ld = find_program(get_option('efi-ld'))
-efi_ld_name = efi_ld.path().split('/')[-1]
-if efi_ld_name == 'lld' or efi_ld_name == 'ld.lld'
-        # LLVM/LLD does not support PE/COFF relocations
-        # https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
-        error('LLVM/lld does not support PE/COFF relocations. Use different linker for EFI image.')
-endif
-
 efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
@@ -258,21 +250,24 @@ foreach arg : get_option('c_args')
         endif
 endforeach
 
-efi_ldflags = ['-T', efi_lds,
-               '-shared',
-               '-Bsymbolic',
-               '-nostdlib',
-               '--no-undefined',
-               '--warn-common',
-               '--fatal-warnings',
-               '-znocombreloc',
-               '--build-id=sha1',
-               '-L', efi_libdir,
-               efi_crt0]
+efi_ldflags = [
+        '-fuse-ld=' + get_option('efi-ld'),
+        '-L', efi_libdir,
+        '-nostdlib',
+        '-shared',
+        '-T', efi_lds,
+        '-Wl,--build-id=sha1',
+        '-Wl,--fatal-warnings',
+        '-Wl,--no-undefined',
+        '-Wl,--warn-common',
+        '-Wl,-Bsymbolic',
+        '-z', 'nocombreloc',
+        efi_crt0,
+]
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
-        efi_ldflags += ['--defsym=EFI_SUBSYSTEM=0xa']
+        efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
         efi_format = ['-O', 'binary']
 else
         efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
@@ -294,7 +289,6 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
-libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
 systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(efi_arch[0])
 stub_elf_name = 'linux@0@.elf.stub'.format(efi_arch[0])
 stub_efi_name = 'linux@0@.efi.stub'.format(efi_arch[0])
@@ -306,7 +300,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_ld, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', libgcc_file_name],
+                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
