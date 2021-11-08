@@ -277,14 +277,14 @@ efi_ldflags = ['-Bsymbolic',
 if get_option('efi-ld') == 'bfd'
         efi_ldflags += '-Wl,--no-dynamic-linker'
 endif
-if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
+# if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
-        efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
-        efi_format = ['-O', 'binary']
-else
-        efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
-endif
+        # efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
+        # efi_format = ['-O', 'binary']
+# else
+       efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
+# endif
 
 systemd_boot_objects = []
 stub_objects = []
