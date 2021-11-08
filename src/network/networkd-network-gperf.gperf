@@ -255,6 +255,8 @@ DHCPv6.IAID,                                 config_parse_iaid,                 
 DHCPv6.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, dhcp6_duid)
 DHCPv6.DUIDRawData,                          config_parse_duid_rawdata,                                0,                             offsetof(Network, dhcp6_duid)
 DHCPv6.RouteTable,                           config_parse_dhcp_or_ra_route_table,                      (RTPROT_DHCP<<16) | AF_INET6,  0
+IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_gateway)
+IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_route_prefix)
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)
