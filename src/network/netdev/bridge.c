@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_bridge.h>
 
 #include "bridge.h"
 #include "netlink-util.h"
@@ -8,11 +10,16 @@
 #include "string-table.h"
 #include "vlan-util.h"
 
+assert_cc((int) MULTICAST_ROUTER_NONE            == (int) MDB_RTR_TYPE_DISABLED);
+assert_cc((int) MULTICAST_ROUTER_TEMPORARY_QUERY == (int) MDB_RTR_TYPE_TEMP_QUERY);
+assert_cc((int) MULTICAST_ROUTER_PERMANENT       == (int) MDB_RTR_TYPE_PERM);
+assert_cc((int) MULTICAST_ROUTER_TEMPORARY       == (int) MDB_RTR_TYPE_TEMP);
+
 static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
-        [MULTICAST_ROUTER_NONE] = "no",
+        [MULTICAST_ROUTER_NONE]            = "no",
         [MULTICAST_ROUTER_TEMPORARY_QUERY] = "query",
-        [MULTICAST_ROUTER_PERMANENT] = "permanent",
-        [MULTICAST_ROUTER_TEMPORARY] = "temporary",
+        [MULTICAST_ROUTER_PERMANENT]       = "permanent",
+        [MULTICAST_ROUTER_TEMPORARY]       = "temporary",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
