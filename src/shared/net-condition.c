@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "log.h"
 #include "net-condition.h"
+#include "netif-util.h"
 #include "network-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -137,7 +138,7 @@ int net_match_config(
 
         assert(match);
 
-        r = link_get_type_string(device, iftype, &iftype_str);
+        r = net_get_type_string(device, iftype, &iftype_str);
         if (r == -ENOMEM)
                 return r;
 

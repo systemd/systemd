@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "network-util.h"
+#include "netif-util.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -45,7 +45,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
         assert(link);
         assert(ret);
 
-        r = link_get_type_string(link->sd_device, link->iftype, &type);
+        r = net_get_type_string(link->sd_device, link->iftype, &type);
         if (r == -ENOMEM)
                 return r;
 
