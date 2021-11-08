@@ -301,6 +301,8 @@ struct Network {
         /* IPv6 accept RA */
         int ipv6_accept_ra;
         bool ipv6_accept_ra_use_dns;
+        bool ipv6_accept_ra_use_gateway;
+        bool ipv6_accept_ra_use_route_prefix;
         bool ipv6_accept_ra_use_autonomous_prefix;
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;

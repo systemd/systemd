@@ -464,6 +464,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipv6_accept_ra = -1,
                 .ipv6_accept_ra_use_dns = true,
+                .ipv6_accept_ra_use_gateway = true,
+                .ipv6_accept_ra_use_route_prefix = true,
                 .ipv6_accept_ra_use_autonomous_prefix = true,
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_use_mtu = true,
