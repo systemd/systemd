@@ -597,6 +597,7 @@ int xdg_autostart_service_generate_unit(
         fprintf(f,
                 "\n[Service]\n"
                 "Type=exec\n"
+                "ExitType=cgroup\n"
                 "ExecStart=:%s\n"
                 "Restart=no\n"
                 "TimeoutSec=5s\n"
