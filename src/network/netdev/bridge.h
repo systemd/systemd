@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <netinet/in.h>
-#include <linux/if_bridge.h>
-
 #include "conf-parser.h"
 #include "netdev.h"
 
@@ -30,10 +27,10 @@ typedef struct Bridge {
 } Bridge;
 
 typedef enum MulticastRouter {
-        MULTICAST_ROUTER_NONE            = MDB_RTR_TYPE_DISABLED,
-        MULTICAST_ROUTER_TEMPORARY_QUERY = MDB_RTR_TYPE_TEMP_QUERY,
-        MULTICAST_ROUTER_PERMANENT       = MDB_RTR_TYPE_PERM,
-        MULTICAST_ROUTER_TEMPORARY       = MDB_RTR_TYPE_TEMP,
+        MULTICAST_ROUTER_NONE,
+        MULTICAST_ROUTER_TEMPORARY_QUERY,
+        MULTICAST_ROUTER_PERMANENT,
+        MULTICAST_ROUTER_TEMPORARY,
         _MULTICAST_ROUTER_MAX,
         _MULTICAST_ROUTER_INVALID = -EINVAL,
 } MulticastRouter;
