@@ -12,8 +12,8 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-09-16 18:04+0000\n"
-"Last-Translator: Christian Wehrli <christian@chw.onl>\n"
+"PO-Revision-Date: 2021-11-08 00:49+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "master/de/>\n"
 "Language: de\n"
@@ -360,14 +360,12 @@ msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
-"Legitmierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung "
-"der Ein-/Ausschaltknopfs des Systems zu erlauben."
+"Legitimierung ist erforderlich, um Anwendungen das Unterbinden der "
+"Auswertung der Ein-/Ausschaltknopfs des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:128
-#, fuzzy
-#| msgid "Allow non-logged-in users to run programs"
 msgid "Allow non-logged-in user to run programs"
-msgstr "Nicht angemeldete Benutzer dürfen Programme ausführen"
+msgstr "Nicht angemeldetem Benutzer die Ausführung von Programmen erlauben"
 
 #: src/login/org.freedesktop.login1.policy:129
 #, fuzzy
@@ -692,10 +690,8 @@ msgid "Change Session"
 msgstr "Sitzung ändern"
 
 #: src/login/org.freedesktop.login1.policy:407
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
+msgstr "Legitimierung ist zum Ändern des virtuellen Terminals notwendig."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -781,10 +777,8 @@ msgid "Set NTP servers"
 msgstr "NTP-Server festlegen"
 
 #: src/network/org.freedesktop.network1.policy:23
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set NTP servers."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr "Legitimierung ist zum Festlegen von NTP-Servern notwendig."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
@@ -793,10 +787,8 @@ msgstr "DNS-Server festlegen"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set DNS servers."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr "Legitimierung ist zum Festlegen von DNS-Servern notwendig."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
@@ -808,7 +800,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Authentication is required to stop '$(unit)'."
 msgid "Authentication is required to set domains."
-msgstr "Legitimierung ist zum Stoppen von »$(unit)« notwendig."
+msgstr "Legitimierung ist zum Festlegen von Domains notwendig."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
@@ -820,7 +812,7 @@ msgstr "Standardroute festlegen"
 #, fuzzy
 #| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set default route."
-msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
+msgstr "Legitimierung ist zum Festlegen der Standardroute notwendig."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
@@ -833,7 +825,7 @@ msgstr "LLMNR aktivieren/deaktivieren"
 #| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
+"Legitimierung ist zum Aktivieren oder Deaktivieren von  LLMNR notwendig."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -845,7 +837,9 @@ msgstr "Multicast-DNS aktivieren/deaktivieren"
 #, fuzzy
 #| msgid "Authentication is required to log into the local host."
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Legitimierung ist zum Anmelden am lokalen Rechner notwendig."
+msgstr ""
+"Legitimierung ist zum Aktivieren oder Deaktivieren von Multicast-DNS "
+"notwendig."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -857,7 +851,9 @@ msgstr "DNS over TLS aktivieren/deaktivieren"
 #, fuzzy
 #| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
+msgstr ""
+"Legitimierung ist zum Aktivieren oder Deaktivieren von DNS over TLS "
+"notwendig."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -870,7 +866,7 @@ msgstr "DNSSEC aktivieren/deaktivieren"
 #| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
+"Legitimierung ist zum Aktivieren oder Deaktivieren von DNSSEC notwendig."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
@@ -883,7 +879,7 @@ msgstr "Negative Vertrauensanker für DNSSEC festlegen"
 #| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
-"Legitimierung ist zum Festlegen der systemweiten Spracheinstellungen "
+"Legitimierung ist zum Festlegen von negativen Vertrauensankern für DNSSEC "
 "erforderlich."
 
 #: src/network/org.freedesktop.network1.policy:121
@@ -891,20 +887,16 @@ msgid "Revert NTP settings"
 msgstr "NTP-Einstellungen zurücksetzen"
 
 #: src/network/org.freedesktop.network1.policy:122
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset NTP settings."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr "Legitimierung ist zum Zurücksetzen der NTP-Einstellungen notwendig."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
 msgstr "DNS-Einstellungen zurücksetzen"
 
 #: src/network/org.freedesktop.network1.policy:133
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset DNS settings."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr "Legitimierung ist zum Zurücksetzen der DNS-Einstellungen notwendig."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
@@ -921,30 +913,26 @@ msgid "Renew dynamic addresses"
 msgstr "Dynamische Adressen erneuern"
 
 #: src/network/org.freedesktop.network1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to renew dynamic addresses."
-msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
+msgstr "Legitimierung ist für die Erneuerung dynamischer Adressen notwendig."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
 msgstr "Netzwerkeinstellungen neu laden"
 
 #: src/network/org.freedesktop.network1.policy:166
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to reload network settings."
-msgstr "Legitimierung ist zum erneuten Laden des systemd-Zustands notwendig."
+msgstr ""
+"Legitimierung ist zum erneuten Laden der Netzwerkeinstellungen notwendig."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
 msgstr "Netzwerkschnittstelle neu konfigurieren"
 
 #: src/network/org.freedesktop.network1.policy:177
-#, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to reconfigure network interface."
-msgstr "Legitimierung ist zum Neustart des Systems notwendig."
+msgstr ""
+"Legitimierung ist zur Neukonfiguration der Netzwerkschnittstelle notwendig."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1010,11 +998,9 @@ msgid "Revert name resolution settings"
 msgstr "Namensauflösungseinstellungen zurücksetzen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
-#, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
-"Legitimierung ist zum Festlegen der Tastatureinstellungen des Systems "
+"Legitimierung ist zum Zurücksetzen der Namensauflösungseinstellungen "
 "erforderlich."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
@@ -1074,13 +1060,12 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Legitimierung ist zum Neustarten von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:535
-#, fuzzy
-#| msgid "Authentication is required to set properties on '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
-"Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$(unit)«"
+" notwendig."
 
 #: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1094,15 +1079,12 @@ msgstr ""
 "Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:708
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
-"Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
-"notwendig"
+"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu "
+"»$(unit)« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:757
 #, fuzzy
