@@ -476,6 +476,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_termination = -1,
+
+                .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
+                .ipoib_umcast = -1,
         };
 
         r = config_parse_many(
