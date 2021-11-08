@@ -114,7 +114,6 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
 
 static int userdb_flags_from_service(Varlink *link, const char *service, UserDBFlags *ret) {
         assert(link);
-        assert(service);
         assert(ret);
 
         if (streq_ptr(service, "io.systemd.NameServiceSwitch"))
@@ -153,7 +152,8 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0) /* return value of < 0 means error (as usual); > 0 means 'already processed and replied,
+                     * we are done'; == 0 means 'not processed, caller should process now' */
                 return r;
 
         if (uid_is_valid(p.uid))
@@ -165,6 +165,14 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
                 r = userdb_all(userdb_flags, &iterator);
+                if (IN_SET(r, -ESRCH, -ENOLINK))
+                        /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
+                         * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
+                         * was off and no other suitable source or entries were found). Let's hide this
+                         * implementation detail and always return NoRecordFound in this case, since from a
+                         * client's perspective it's irrelevant if there was no entry at all or just not on
+                         * the service that the query was limited to. */
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
                         return r;
 
@@ -280,7 +288,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (gid_is_valid(p.gid))
@@ -292,6 +300,8 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
                 r = groupdb_all(userdb_flags, &iterator);
+                if (IN_SET(r, -ESRCH, -ENOLINK))
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
                         return r;
 
@@ -361,7 +371,7 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (p.group_name)
@@ -370,6 +380,8 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 r = membershipdb_by_user(p.user_name, userdb_flags, &iterator);
         else
                 r = membershipdb_all(userdb_flags, &iterator);
+        if (IN_SET(r, -ESRCH, -ENOLINK))
+                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
                 return r;
 
