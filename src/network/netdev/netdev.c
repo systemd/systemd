@@ -2,9 +2,11 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "arphrd-util.h"
 #include "bareudp.h"
 #include "batadv.h"
 #include "bond.h"
@@ -23,6 +25,7 @@
 #include "macvlan.h"
 #include "netdev.h"
 #include "netdevsim.h"
+#include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -423,40 +426,52 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
 
-int netdev_generate_hw_addr(const char *name, struct hw_addr_data *ret) {
-        uint64_t result;
-        size_t l, sz;
-        uint8_t *v;
+int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_data *hw_addr) {
+        bool warn_invalid = false;
+        struct hw_addr_data a;
         int r;
 
-        assert(ifname);
-        assert(ret);
+        assert(netdev);
+        assert(name);
+        assert(hw_addr);
 
-        l = strlen(ifname);
-        sz = sizeof(sd_id128_t) + l;
-        v = newa(uint8_t, sz);
+        if (hw_addr->length == 0) {
+                uint64_t result;
 
-        /* fetch some persistent data unique to the machine */
-        r = sd_id128_get_machine((sd_id128_t*) v);
+                /* HardwareAddress= is not specified. */
+
+                if (!NETDEV_VTABLE(netdev)->generate_mac)
+                        return 0;
+
+                if (NETDEV_VTABLE(netdev)->iftype != ARPHRD_ETHER)
+                        return 0;
+
+                r = net_get_unique_predictable_data_from_name(name, &HASH_KEY, &result);
+                if (r < 0) {
+                        log_netdev_warning_errno(netdev, r,
+                                                 "Failed to generate persistent MAC address, ignoring: %m");
+                        return 0;
+                }
+
+                a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
+                assert(a.length <= sizeof(result));
+                memcpy(a.bytes, &result, a.length);
+
+                if (ether_addr_is_null(&a.ether) || ether_addr_is_broadcast(&a.ether)) {
+                        log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                 "Failed to generate persistent MAC address, ignoring: %m");
+                        return 0;
+                }
+        } else {
+                a = *hw_addr;
+                warn_invalid = true;
+        }
+
+        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype, NULL, &a);
         if (r < 0)
                 return r;
 
-        /* combine with some data unique (on this machine) to this
-         * netdev */
-        memcpy(v + sizeof(sd_id128_t), ifname, l);
-
-        /* Let's hash the host machine ID plus the container name. We
-         * use a fixed, but originally randomly created hash key here. */
-        result = siphash24(v, sz, HASH_KEY.bytes);
-
-        assert_cc(ETH_ALEN <= sizeof(result));
-        ret->length = ETH_ALEN;
-        memcpy(ret->bytes, &result, ETH_ALEN);
-
-        /* see eth_random_addr in the kernel */
-        ret->ether.ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        ret->ether.ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
-
+        *hw_addr = a;
         return 0;
 }
 
@@ -806,12 +821,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        if (netdev->hw_addr.length == 0 && NETDEV_VTABLE(netdev)->generate_mac) {
-                r = netdev_generate_hw_addr(netdev->ifname, &netdev->hw_addr);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r,
-                                                      "Failed to generate predictable MAC address: %m");
-        }
+        r = netdev_generate_hw_addr(netdev, netdev->ifname, &netdev->hw_addr);
+        if (r < 0)
+                return r;
 
         r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
         if (r == -ENOMEM)
