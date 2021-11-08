@@ -8,6 +8,7 @@ Distribution=opensuse
 Release=tumbleweed
 
 [Packages]
+BuildEnvironment=KERNEL_PACKAGE_SCRIPT_DEBUG=6
 BuildPackages=
         docbook-xsl-stylesheets
         fdupes
