@@ -30,6 +30,8 @@ KernelCommandLine=
 Host=
 MACAddress=
 PermanentMACAddress=
+HardwareAddress=
+PermanentHardwareAddress=
 [Link]
 ActivationPolicy=
 RequiredForOnline=
@@ -40,6 +42,7 @@ Unmanaged=
 MTUBytes=
 Multicast=
 MACAddress=
+HardwareAddress=
 Group=
 Promiscuous=
 [SR-IOV]
@@ -242,6 +245,7 @@ IgnoreCarrierLoss=
 KeepConfiguration=
 DHCPv6PrefixDelegation=
 BatmanAdvanced=
+IPoIB=
 [IPv6Prefix]
 Prefix=
 OnLink=
@@ -286,6 +290,9 @@ Loopback=
 OneShot=
 PresumeACK=
 ClassicDataLengthCode=
+[IPoIB]
+Mode=
+IgnoreUserspaceMulticastGroups=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=

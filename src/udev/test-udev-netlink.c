@@ -2,7 +2,7 @@
 
 #include "sd-device.h"
 
-#include "arphrd-list.h"
+#include "arphrd-util.h"
 #include "ether-addr-util.h"
 #include "parse-util.h"
 #include "tests.h"
