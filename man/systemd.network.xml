@@ -2296,6 +2296,22 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseGateway=</varname></term>
+          <listitem>
+            <para>When true (the default), the router address will be configured as the default gateway.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseRoutePrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the routes corresponding to the route prefixes received in
+            the Router Advertisement will be configured.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>UseAutonomousPrefix=</varname></term>
           <listitem>
             <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take

@@ -290,7 +290,6 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
         usec_t lifetime_usec, timestamp_usec;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
@@ -299,7 +298,12 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
+        assert(link->network);
         assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_gateway &&
+            hashmap_isempty(link->network->routes_by_section))
+                return 0;
 
         r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
@@ -339,23 +343,29 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
         }
 
-        r = route_new(&route);
-        if (r < 0)
-                return log_oom();
+        if (link->network->ipv6_accept_ra_use_gateway) {
+                _cleanup_(route_freep) Route *route = NULL;
 
-        route->family = AF_INET6;
-        route->pref = preference;
-        route->gw_family = AF_INET6;
-        route->gw.in6 = gateway;
-        route->lifetime_usec = lifetime_usec;
-        route->mtu = mtu;
+                r = route_new(&route);
+                if (r < 0)
+                        return log_oom();
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not request default route: %m");
+                route->family = AF_INET6;
+                route->pref = preference;
+                route->gw_family = AF_INET6;
+                route->gw.in6 = gateway;
+                route->lifetime_usec = lifetime_usec;
+                route->mtu = mtu;
+
+                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not request default route: %m");
+        }
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
+                _cleanup_(route_freep) Route *route = NULL;
+
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
@@ -583,6 +593,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
+
+        if (!link->network->ipv6_accept_ra_use_route_prefix)
+                return 0;
 
         r = sd_ndisc_router_route_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
