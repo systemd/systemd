@@ -290,6 +290,9 @@ Loopback=
 OneShot=
 PresumeACK=
 ClassicDataLengthCode=
+[IPoIB]
+Mode=
+IgnoreUserspaceMulticastGroups=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=
