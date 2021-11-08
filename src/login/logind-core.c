@@ -721,7 +721,9 @@ int manager_read_utmp(Manager *m) {
                 errno = 0;
                 u = getutxent();
                 if (!u) {
-                        if (errno != 0)
+                        if (errno == ENOENT)
+                                log_debug_errno(errno, _PATH_UTMPX " does not exist, ignoring.");
+                        else if (errno != 0)
                                 log_warning_errno(errno, "Failed to read " _PATH_UTMPX ", ignoring: %m");
                         return 0;
                 }
