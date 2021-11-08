@@ -4,6 +4,7 @@
 #include <linux/if_link.h>
 
 #include "ipoib.h"
+#include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"
 
@@ -52,6 +53,48 @@ static int netdev_ipoib_fill_message_create(NetDev *netdev, Link *link, sd_netli
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_UMCAST attribute: %m");
         }
+
+        return 0;
+}
+
+int ipoib_set_netlink_message(Link *link, sd_netlink_message *m) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(m);
+
+        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not set netlink flags: %m");
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to open IFLA_LINKINFO container: %m");
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not open IFLA_INFO_DATA container: %m");
+
+        if (link->network->ipoib_mode >= 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_IPOIB_MODE, link->network->ipoib_mode);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_IPOIB_MODE attribute: %m");
+        }
+
+        if (link->network->ipoib_umcast >= 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_IPOIB_UMCAST, link->network->ipoib_umcast);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_IPOIB_UMCAST attribute: %m");
+        }
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to close IFLA_INFO_DATA container: %m");
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to close IFLA_LINKINFO container: %m");
 
         return 0;
 }

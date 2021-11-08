@@ -382,6 +382,8 @@ CAN.PresumeACK,                              config_parse_can_control_mode,     
 CAN.FDNonISO,                                config_parse_can_control_mode,                            CAN_CTRLMODE_FD_NON_ISO,       0
 CAN.ClassicDataLengthCode,                   config_parse_can_control_mode,                            CAN_CTRLMODE_CC_LEN8_DLC,      0
 CAN.Termination,                             config_parse_can_termination,                             0,                             0
+IPoIB.Mode,                                  config_parse_ipoib_mode,                                  0,                             offsetof(Network, ipoib_mode)
+IPoIB.IgnoreUserspaceMulticastGroups,        config_parse_tristate,                                    0,                             offsetof(Network, ipoib_umcast)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
 BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0

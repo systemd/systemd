@@ -1101,6 +1101,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_to_set_ipoib(link);
+        if (r < 0)
+                return r;
+
         r = link_request_to_set_flags(link);
         if (r < 0)
                 return r;
