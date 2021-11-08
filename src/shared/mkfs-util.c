@@ -68,7 +68,16 @@ int make_filesystem(
                 return r;
         if (r == 0) {
                 /* Child */
-                if (streq(fstype, "ext4"))
+                if (streq(fstype, "ext2"))
+                        (void) execlp(mkfs, mkfs,
+                                      "-L", label,
+                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      "-I", "256",
+                                      "-m", "0",
+                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                      node, NULL);
+
+                else if (STR_IN_SET(fstype, "ext3", "ext4"))
                         (void) execlp(mkfs, mkfs,
                                       "-L", label,
                                       "-U", ID128_TO_UUID_STRING(uuid),
