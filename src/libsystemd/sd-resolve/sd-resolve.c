@@ -1285,11 +1285,7 @@ _public_  int sd_resolve_detach_event(sd_resolve *resolve) {
         if (!resolve->event)
                 return 0;
 
-        if (resolve->event_source) {
-                sd_event_source_set_enabled(resolve->event_source, SD_EVENT_OFF);
-                resolve->event_source = sd_event_source_unref(resolve->event_source);
-        }
-
+        resolve->event_source = sd_event_source_disable_unref(resolve->event_source);
         resolve->event = sd_event_unref(resolve->event);
         return 1;
 }
