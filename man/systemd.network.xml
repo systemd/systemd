@@ -3228,6 +3228,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[IPoIB] Section Options</title>
+      <para>The [IPoIB] section manages the IP over Infiniband and accepts the following keys:</para>
+      <variablelist class='network-directives'>
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_mode" />
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_umcast" />
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[QDisc] Section Options</title>
     <para>The [QDisc] section manages the traffic control queueing discipline (qdisc).</para>
 

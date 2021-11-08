@@ -24,5 +24,7 @@ typedef struct IPoIB {
 DEFINE_NETDEV_CAST(IPOIB, IPoIB);
 extern const NetDevVTable ipoib_vtable;
 
+int ipoib_set_netlink_message(Link *link, sd_netlink_message *m);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_ipoib_pkey);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipoib_mode);
