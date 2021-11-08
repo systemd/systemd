@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-id128.h"
-
 #include "arphrd-util.h"
 #include "device-util.h"
 #include "netif-util.h"
@@ -49,15 +47,14 @@ const char *net_get_persistent_name(sd_device *device) {
         return NULL;
 }
 
+/* Used when generating hardware address by udev, and IPv4LL seed by networkd. */
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
 int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *ret) {
-        size_t l, sz = 0;
         const char *name;
-        int r;
-        uint8_t *v;
 
         assert(device);
+        assert(ret);
 
         /* net_get_persistent_name() will return one of the device names based on stable information about
          * the device. If this is not available, we fall back to using the actual device name. */
@@ -69,6 +66,25 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
                                               "No stable identifying information found");
 
         log_device_debug(device, "Using \"%s\" as stable identifying information", name);
+
+        return net_get_unique_predictable_data_from_name(name, NULL, ret);
+}
+
+int net_get_unique_predictable_data_from_name(
+                const char *name,
+                const sd_id128_t *key,
+                uint64_t *ret) {
+
+        size_t l, sz;
+        uint8_t *v;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        if (!key)
+                key = &HASH_KEY;
+
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
         v = newa(uint8_t, sz);
@@ -77,10 +93,11 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
         r = sd_id128_get_machine((sd_id128_t*) v);
         if (r < 0)
                  return r;
+
         memcpy(v + sizeof(sd_id128_t), name, l);
 
         /* Let's hash the machine ID plus the device name. We use
          * a fixed, but originally randomly created hash key here. */
-        *ret = htole64(siphash24(v, sz, HASH_KEY.bytes));
+        *ret = htole64(siphash24(v, sz, key->bytes));
         return 0;
 }
