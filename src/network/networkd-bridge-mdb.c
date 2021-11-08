@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <linux/if_bridge.h>
 
 #include "netlink-util.h"
 #include "networkd-bridge-mdb.h"
