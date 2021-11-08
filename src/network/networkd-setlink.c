@@ -600,6 +600,15 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 req->userdata = UINT32_TO_PTR(m);
                 break;
         }
+        case SET_LINK_MTU: {
+                Request req_ipoib = {
+                        .link = link,
+                        .type = REQUEST_TYPE_SET_LINK,
+                        .set_link_operation_ptr = INT_TO_PTR(op),
+                };
+
+                return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
+        }
         default:
                 break;
         }
