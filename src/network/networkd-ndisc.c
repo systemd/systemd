@@ -290,7 +290,6 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
         usec_t lifetime_usec, timestamp_usec;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
@@ -300,6 +299,10 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         assert(link);
         assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_gateway &&
+            hashmap_isempty(link->network->routes_by_section))
+                return 0;
 
         r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
@@ -339,23 +342,29 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
         }
 
-        r = route_new(&route);
-        if (r < 0)
-                return log_oom();
+        if (link->network->ipv6_accept_ra_use_gateway) {
+                _cleanup_(route_freep) Route *route = NULL;
 
-        route->family = AF_INET6;
-        route->pref = preference;
-        route->gw_family = AF_INET6;
-        route->gw.in6 = gateway;
-        route->lifetime_usec = lifetime_usec;
-        route->mtu = mtu;
+                r = route_new(&route);
+                if (r < 0)
+                        return log_oom();
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not request default route: %m");
+                route->family = AF_INET6;
+                route->pref = preference;
+                route->gw_family = AF_INET6;
+                route->gw.in6 = gateway;
+                route->lifetime_usec = lifetime_usec;
+                route->mtu = mtu;
+
+                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not request default route: %m");
+        }
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
+                _cleanup_(route_freep) Route *route = NULL;
+
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
@@ -391,6 +400,9 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         assert(link);
         assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_autonomous_prefix)
+                return 0;
 
         r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
@@ -481,6 +493,9 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+                return 0;
+
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
@@ -516,6 +531,52 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
+        unsigned prefixlen;
+        struct in6_addr a;
+        uint8_t flags;
+        int r;
+
+        r = sd_ndisc_router_prefix_get_address(rt, &a);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix length: %m");
+
+        if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *b = NULL;
+
+                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
+                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
+                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
+                        else
+                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
+                }
+                return 0;
+        }
+
+        r = sd_ndisc_router_prefix_get_flags(rt, &flags);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get RA prefix flags: %m");
+
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
+                r = ndisc_router_process_onlink_prefix(link, rt);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
+                r = ndisc_router_process_autonomous_prefix(link, rt);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
         unsigned preference, prefixlen;
@@ -525,6 +586,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
+
+        if (!link->network->ipv6_accept_ra_use_route_prefix)
+                return 0;
 
         r = sd_ndisc_router_route_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
@@ -621,6 +685,9 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (!link->network->ipv6_accept_ra_use_dns)
+                return 0;
+
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
@@ -712,6 +779,9 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_NO)
+                return 0;
+
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
@@ -793,51 +863,11 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
                 switch (type) {
 
-                case SD_NDISC_OPTION_PREFIX_INFORMATION: {
-                        unsigned prefixlen;
-                        struct in6_addr a;
-                        uint8_t flags;
-
-                        r = sd_ndisc_router_prefix_get_address(rt, &a);
+                case SD_NDISC_OPTION_PREFIX_INFORMATION:
+                        r = ndisc_router_process_prefix(link, rt);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
-
-                        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get prefix length: %m");
-
-                        if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                                if (DEBUG_LOGGING) {
-                                        _cleanup_free_ char *b = NULL;
-
-                                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
-                                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
-                                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
-                                        else
-                                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
-                                }
-                                break;
-                        }
-
-                        r = sd_ndisc_router_prefix_get_flags(rt, &flags);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get RA prefix flags: %m");
-
-                        if (link->network->ipv6_accept_ra_use_onlink_prefix &&
-                            FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
-                                r = ndisc_router_process_onlink_prefix(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (link->network->ipv6_accept_ra_use_autonomous_prefix &&
-                            FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
-                                r = ndisc_router_process_autonomous_prefix(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                                return r;
                         break;
-                }
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
                         r = ndisc_router_process_route(link, rt);
@@ -846,19 +876,15 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        if (link->network->ipv6_accept_ra_use_dns) {
-                                r = ndisc_router_process_rdnss(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = ndisc_router_process_rdnss(link, rt);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        if (link->network->ipv6_accept_ra_use_dns) {
-                                r = ndisc_router_process_dnssl(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = ndisc_router_process_dnssl(link, rt);
+                        if (r < 0)
+                                return r;
                         break;
                 }
         }
@@ -961,6 +987,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         r = ndisc_router_process_default(link, rt);
         if (r < 0)
                 return r;
+
         r = ndisc_router_process_options(link, rt);
         if (r < 0)
                 return r;
