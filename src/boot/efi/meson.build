@@ -248,6 +248,12 @@ if get_option('b_ndebug') == 'true' or (
         get_option('b_ndebug') == 'if-release' and get_option('buildtype') in ['plain', 'release'])
         compile_args += ['-DNDEBUG']
 endif
+if get_option('b_lto') and cc.get_id() == 'gcc'
+        # For some reason clang does not initialize static variables or optimizes them away
+        # in lto builds (resulting in secure boot breaking and freezes on key input),
+        # so we only allow this for gcc.
+        compile_args += ['-flto']
+endif
 
 foreach arg : get_option('c_args')
         if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG']
@@ -307,7 +313,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
+                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, compile_args, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
