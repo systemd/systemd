@@ -51,11 +51,11 @@ jobs:
         KERNEL_PACKAGE_SCRIPT_DEBUG: 3
       run: sudo -E python3 -m mkosi build
 
-    - name: Show ${{ matrix.distro }} image summary
-      run: sudo python3 -m mkosi summary
-
-    - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi boot
-
-    - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi qemu
+      #    - name: Show ${{ matrix.distro }} image summary
+      #      run: sudo python3 -m mkosi summary
+      #
+      #    - name: Boot ${{ matrix.distro }} systemd-nspawn
+      #      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi boot
+      #
+      #    - name: Boot ${{ matrix.distro }} QEMU
+      #      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi qemu
