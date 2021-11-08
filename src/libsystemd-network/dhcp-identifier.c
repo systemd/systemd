@@ -9,7 +9,7 @@
 
 #include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
-#include "network-util.h"
+#include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
@@ -193,7 +193,7 @@ int dhcp_identifier_set_iaid(
                         /* device is under renaming */
                         return -EBUSY;
 
-                name = net_get_name_persistent(device);
+                name = net_get_persistent_name(device, /* use_sysname = */ false);
         }
 
         if (name)

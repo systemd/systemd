@@ -11,6 +11,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "hashmap.h"
+#include "ipoib.h"
 #include "net-condition.h"
 #include "netdev.h"
 #include "networkd-bridge-vlan.h"
@@ -94,7 +95,7 @@ struct Network {
         Hashmap *stacked_netdev_names;
 
         /* [Link] section */
-        struct ether_addr *mac;
+        struct hw_addr_data hw_addr;
         uint32_t mtu;
         uint32_t group;
         bool group_set;
@@ -285,6 +286,10 @@ struct Network {
         uint32_t can_control_mode_flags;
         uint16_t can_termination;
         bool can_termination_set;
+
+        /* IPoIB support */
+        IPoIBConnectMode ipoib_mode;
+        int ipoib_umcast;
 
         /* sysctl settings */
         AddressFamily ip_forward;

@@ -58,6 +58,7 @@ MulticastIGMPVersion=
 TableId=
 Table=
 [Peer]
+HardwareAddress=
 MACAddress=
 Name=
 [WireGuardPeer]
@@ -177,6 +178,7 @@ Group=
 User=
 [NetDev]
 Kind=
+HardwareAddress=
 MACAddress=
 MTUBytes=
 Description=
@@ -237,3 +239,7 @@ GatewayBandwithUp=
 GatewayBandwidthDown=
 GatewayBandwidthUp=
 RoutingAlgorithm=
+[IPoIB]
+PartitionKey=
+ConnectionMode=
+IgnoreUserspaceMulticastGroups=
