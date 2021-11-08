@@ -36,7 +36,7 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         return 0;
 }
 
-const char *net_get_name_persistent(sd_device *device) {
+const char *net_get_persistent_name(sd_device *device) {
         const char *name, *field;
 
         assert(device);
@@ -59,9 +59,9 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
 
         assert(device);
 
-        /* net_get_name_persistent() will return one of the device names based on stable information about
+        /* net_get_persistent_name() will return one of the device names based on stable information about
          * the device. If this is not available, we fall back to using the actual device name. */
-        name = net_get_name_persistent(device);
+        name = net_get_persistent_name(device);
         if (!name && use_sysname)
                 (void) sd_device_get_sysname(device, &name);
         if (!name)
