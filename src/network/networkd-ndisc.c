@@ -673,6 +673,9 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (!link->network->ipv6_accept_ra_use_dns)
+                return 0;
+
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
@@ -763,6 +766,9 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
 
         assert(link);
         assert(rt);
+
+        if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_NO)
+                return 0;
 
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
@@ -858,19 +864,15 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        if (link->network->ipv6_accept_ra_use_dns) {
-                                r = ndisc_router_process_rdnss(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = ndisc_router_process_rdnss(link, rt);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        if (link->network->ipv6_accept_ra_use_dns) {
-                                r = ndisc_router_process_dnssl(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = ndisc_router_process_dnssl(link, rt);
+                        if (r < 0)
+                                return r;
                         break;
                 }
         }
