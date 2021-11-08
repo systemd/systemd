@@ -1820,6 +1820,29 @@ static void event_free_inode_data(
         free(d);
 }
 
+static void event_gc_inotify_data(
+                sd_event *e,
+                struct inotify_data *d) {
+
+        assert(e);
+
+        /* GCs the inotify data object if we don't need it anymore. That's the case if we don't want to watch
+         * any inode with it anymore, which in turn happens if no event source of this priority is interested
+         * in any inode any longer. That said, we maintain an extra busy counter: if non-zero we'll delay GC
+         * (under the expectation that the GC is called again once the counter is decremented). */
+
+        if (!d)
+                return;
+
+        if (!hashmap_isempty(d->inodes))
+                return;
+
+        if (d->n_busy > 0)
+                return;
+
+        event_free_inotify_data(e, d);
+}
+
 static void event_gc_inode_data(
                 sd_event *e,
                 struct inode_data *d) {
@@ -1837,8 +1860,7 @@ static void event_gc_inode_data(
         inotify_data = d->inotify_data;
         event_free_inode_data(e, d);
 
-        if (inotify_data && hashmap_isempty(inotify_data->inodes))
-                event_free_inotify_data(e, inotify_data);
+        event_gc_inotify_data(e, inotify_data);
 }
 
 static int event_make_inode_data(
@@ -3556,13 +3578,23 @@ static int source_dispatch(sd_event_source *s) {
                 sz = offsetof(struct inotify_event, name) + d->buffer.ev.len;
                 assert(d->buffer_filled >= sz);
 
+                /* If the inotify callback destroys the event source then this likely means we don't need to
+                 * watch the inode anymore, and thus also won't need the inotify object anymore. But if we'd
+                 * free it immediately, then we couldn't drop the event from the inotify event queue without
+                 * memory corruption anymore, as below. Hence, let's not free it immediately, but mark it
+                 * "busy" with a counter (which will ensure it's not GC'ed away prematurely). Let's then
+                 * explicitly GC it after we are done dropping the inotify event from the buffer. */
+                d->n_busy++;
                 r = s->inotify.callback(s, &d->buffer.ev, s->userdata);
+                d->n_busy--;
 
-                /* When no event is pending anymore on this inotify object, then let's drop the event from the
-                 * buffer. */
+                /* When no event is pending anymore on this inotify object, then let's drop the event from
+                 * the inotify event queue buffer. */
                 if (d->n_pending == 0)
                         event_inotify_data_drop(e, d, sz);
 
+                /* Now we don't want to access 'd' anymore, it's OK to GC now. */
+                event_gc_inotify_data(e, d);
                 break;
         }
 
