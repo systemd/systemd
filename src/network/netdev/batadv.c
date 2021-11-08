@@ -203,4 +203,5 @@ const NetDevVTable batadv_vtable = {
         .post_create = netdev_batadv_post_create,
         .create_type = NETDEV_CREATE_MASTER,
         .iftype = ARPHRD_ETHER,
+        .generate_mac = true,
 };
