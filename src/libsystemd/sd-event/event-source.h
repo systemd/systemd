@@ -214,6 +214,11 @@ struct inotify_data {
          * the events locally if they can't be coalesced). */
         unsigned n_pending;
 
+        /* If this counter is non-zero, don't GC the inotify data object even if not used to watch any inode
+         * anymore. This is useful to pin the object for a bit longer, after the last event source needing it
+         * is gone. */
+        unsigned n_busy;
+
         /* A linked list of all inotify objects with data already read, that still need processing. We keep this list
          * to make it efficient to figure out what inotify objects to process data on next. */
         LIST_FIELDS(struct inotify_data, buffered);
