@@ -184,7 +184,7 @@ int config_parse_dhcp_static_lease_hwaddr(
                 return 0;
         }
 
-        r = ether_addr_from_string(rvalue, &hwaddr);
+        r = parse_ether_addr(rvalue, &hwaddr);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse MAC address for DHCPv4 static lease, ignoring assignment: %s", rvalue);

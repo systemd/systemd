@@ -2,8 +2,11 @@
 
 #include <errno.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/veth.h>
 
+#include "netlink-util.h"
 #include "veth.h"
 
 static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -28,8 +31,9 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Failed to add netlink interface name: %m");
         }
 
-        if (v->mac_peer) {
-                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
+        if (v->hw_addr_peer.length > 0) {
+                log_netdev_debug(netdev, "Using hardware address for peer: %s", HW_ADDR_TO_STR(&netdev->hw_addr));
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &v->hw_addr_peer);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
@@ -64,15 +68,11 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
-        if (!v->mac_peer) {
-                r = netdev_get_mac(v->ifname_peer, &v->mac_peer);
-                if (r < 0) {
-                        log_netdev_warning(netdev,
-                                           "Failed to generate predictable MAC address for %s. Ignoring",
-                                           v->ifname_peer);
-                        return -EINVAL;
-                }
-        }
+        r = netdev_generate_hw_addr(netdev, v->ifname_peer, &v->hw_addr_peer);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r,
+                                                "Failed to generate persistent hardware address for peer '%s': %m",
+                                                v->ifname_peer);
 
         return 0;
 }
@@ -87,7 +87,6 @@ static void veth_done(NetDev *n) {
         assert(v);
 
         free(v->ifname_peer);
-        free(v->mac_peer);
 }
 
 const NetDevVTable veth_vtable = {
@@ -97,5 +96,6 @@ const NetDevVTable veth_vtable = {
         .fill_message_create = netdev_veth_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_veth_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_ETHER,
+        .generate_hw_addr = true,
 };

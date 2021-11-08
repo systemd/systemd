@@ -9,8 +9,8 @@ basic_sources = files('''
         alloc-util.h
         architecture.c
         architecture.h
-        arphrd-list.c
-        arphrd-list.h
+        arphrd-util.c
+        arphrd-util.h
         async.c
         async.h
         audit-util.c
