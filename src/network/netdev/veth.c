@@ -66,13 +66,9 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
                                                 "Veth NetDev without peer name configured in %s. Ignoring",
                                                 filename);
 
-        if (v->hw_addr_peer.length == 0) {
-                r = netdev_generate_hw_addr(v->ifname_peer, &v->hw_addr_peer);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r,
-                                                        "Failed to generate persistent hardware address for peer '%s': %m",
-                                                        v->ifname_peer);
-        }
+        r = netdev_generate_hw_addr(netdev, v->ifname_peer, &v->hw_addr_peer);
+        if (r < 0)
+                return r;
 
         return 0;
 }
