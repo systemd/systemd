@@ -72,6 +72,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
+
+        <listitem><para>Selects JSON out mode (like <option>--output=json</option>) and selects the precise
+        display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
+        <literal>pretty</literal> human-friendly whitespace and newlines are inserted in the output to make
+        the JSON data more readable. If <literal>short</literal> all superfluous whitespace is
+        suppressed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--service=</option><replaceable>SERVICE</replaceable><optional>:<replaceable>SERVICE…</replaceable></optional></term>
         <term><option>-s</option> <replaceable>SERVICE</replaceable>:<replaceable>SERVICE…</replaceable></term>
 
@@ -126,6 +136,14 @@
         <option>--synthesize=no</option>. Use this option to show only records that are natively defined as
         JSON user or group records, with all NSS/glibc compatibility and all implicit synthesis turned
         off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--multiplexer=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
+        default) or do lookups in the client (if specified as false). Using the multiplexer service is
+        typically preferable, since it runs in a locked down sandbox.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

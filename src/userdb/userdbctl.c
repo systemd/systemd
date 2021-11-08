@@ -33,6 +33,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
@@ -58,7 +59,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                json_variant_dump(ur->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -152,35 +153,49 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = userdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate users: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                for (;;) {
-                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                                r = userdb_iterator_get(iterator, &ur);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected user database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next user: %m");
 
-                        r = userdb_iterator_get(iterator, &ur);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected user database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next user: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_user(ur, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_user(ur, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
         }
 
         if (table) {
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu users listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No users.\n");
+                }
         }
 
         return ret;
@@ -211,7 +226,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                json_variant_dump(gr->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -303,36 +318,49 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = groupdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate groups: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                for (;;) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                                r = groupdb_iterator_get(iterator, &gr);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected group database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next group: %m");
 
-                        r = groupdb_iterator_get(iterator, &gr);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected group database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next group: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_group(gr, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_group(gr, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
-
         }
 
         if (table) {
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu groups listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No groups.\n");
+                }
         }
 
         return ret;
@@ -362,7 +390,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
-                json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
                 break;
         }
 
@@ -442,30 +470,44 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate memberships: %m");
+                else {
+                        for (;;) {
+                                _cleanup_free_ char *user = NULL, *group = NULL;
 
-                for (;;) {
-                        _cleanup_free_ char *user = NULL, *group = NULL;
+                                r = membershipdb_iterator_get(iterator, &user, &group);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected membership database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next membership: %m");
 
-                        r = membershipdb_iterator_get(iterator, &user, &group);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected membership database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next membership: %m");
-
-                        r = show_membership(user, group, table);
-                        if (r < 0)
-                                return r;
+                                r = show_membership(user, group, table);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
         if (table) {
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No memberships.\n");
+                }
         }
 
         return ret;
@@ -526,15 +568,18 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) <= 0) {
-                log_info("No services.");
-                return 0;
+        if (table_get_rows(t) > 1) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return table_log_print_error(r);
         }
 
-        if (arg_output == OUTPUT_JSON)
-                table_print_json(t, NULL, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO);
-        else
-                table_print(t, NULL);
+        if (arg_legend) {
+                if (table_get_rows(t) > 1)
+                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
+                else
+                        printf("No services.\n");
+        }
 
         return 0;
 }
@@ -603,6 +648,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
                "     --with-dropin=BOOL      Control whether to include drop-in records\n"
                "     --with-varlink=BOOL     Control whether to talk to services at all\n"
+               "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
+               "     --json=pretty|short     JSON output mode\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -623,19 +670,23 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WITH_DROPIN,
                 ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
+                ARG_MULTIPLEXER,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'             },
-                { "version",      no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND   },
-                { "output",       required_argument, NULL, ARG_OUTPUT      },
-                { "service",      required_argument, NULL, 's'             },
-                { "with-nss",     required_argument, NULL, ARG_WITH_NSS    },
-                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
+                { "output",       required_argument, NULL, ARG_OUTPUT       },
+                { "service",      required_argument, NULL, 's'              },
+                { "with-nss",     required_argument, NULL, ARG_WITH_NSS     },
+                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN  },
                 { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
-                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE  },
+                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
+                { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
+                { "json",         required_argument, NULL, ARG_JSON         },
                 {}
         };
 
@@ -682,7 +733,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (streq(optarg, "classic"))
+                        if (isempty(optarg))
+                                arg_output = _OUTPUT_INVALID;
+                        else if (streq(optarg, "classic"))
                                 arg_output = OUTPUT_CLASSIC;
                         else if (streq(optarg, "friendly"))
                                 arg_output = OUTPUT_FRIENDLY;
@@ -699,9 +752,19 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
 
+                        arg_json_format_flags = arg_output == OUTPUT_JSON ? JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO : JSON_FORMAT_OFF;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        arg_output = FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
                         break;
 
                 case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
                         arg_output = OUTPUT_JSON;
                         break;
 
@@ -756,6 +819,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
+                        break;
+
+                case ARG_MULTIPLEXER:
+                        r = parse_boolean_argument("--multiplexer=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
                         break;
 
                 case '?':
