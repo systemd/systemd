@@ -518,6 +518,9 @@ static bool link_is_ready_to_call_set_link(Request *req) {
         int r;
 
         assert(req);
+        assert(req->link);
+        assert(req->link->manager);
+        assert(req->link->network);
 
         link = req->link;
         op = PTR_TO_INT(req->set_link_operation_ptr);
@@ -566,8 +569,6 @@ static bool link_is_ready_to_call_set_link(Request *req) {
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
 
-                assert(link->network);
-
                 if (link->network->batadv) {
                         if (!netdev_is_ready(link->network->batadv))
                                 return false;
@@ -599,6 +600,15 @@ static bool link_is_ready_to_call_set_link(Request *req) {
 
                 req->userdata = UINT32_TO_PTR(m);
                 break;
+        }
+        case SET_LINK_MTU: {
+                Request req_ipoib = {
+                        .link = link,
+                        .type = REQUEST_TYPE_SET_LINK,
+                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_IPOIB),
+                };
+
+                return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
         }
         default:
                 break;
