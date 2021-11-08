@@ -108,7 +108,6 @@ StdoutStream* stdout_stream_free(StdoutStream *s) {
                 return NULL;
 
         if (s->server) {
-
                 if (s->context)
                         client_context_release(s->server, s->context);
 
@@ -122,11 +121,7 @@ StdoutStream* stdout_stream_free(StdoutStream *s) {
                 (void) server_start_or_stop_idle_timer(s->server); /* Maybe we are idle now? */
         }
 
-        if (s->event_source) {
-                sd_event_source_set_enabled(s->event_source, SD_EVENT_OFF);
-                s->event_source = sd_event_source_unref(s->event_source);
-        }
-
+        sd_event_source_disable_unref(s->event_source);
         safe_close(s->fd);
         free(s->label);
         free(s->identifier);
