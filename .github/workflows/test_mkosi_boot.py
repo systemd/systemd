@@ -7,7 +7,8 @@ import sys
 
 
 def run() -> None:
-    p = pexpect.spawnu(" ".join(sys.argv[1:]), logfile=sys.stdout, timeout=300)
+    p = pexpect.spawnu(" ".join(sys.argv[1:]), logfile=sys.stdout, timeout=300,
+            env={"KERNEL_PACKAGE_SCRIPT_DEBUG": "1"})
 
     # distro-independent root prompt
     p.expect(re.compile("~[^#]{0,3}#"))
