@@ -75,23 +75,29 @@ int make_filesystem(
                                       "-I", "256",
                                       "-O", "has_journal",
                                       "-m", "0",
-                                      "-E", discard ? "lazy_itable_init=1,discard" : "lazy_itable_init=1,nodiscard",
+                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                       node, NULL);
 
                 else if (streq(fstype, "btrfs")) {
-                        if (discard)
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), node, NULL);
-                        else
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), "--nodiscard", node, NULL);
+                        (void) execlp(mkfs, mkfs,
+                                      "-L", label,
+                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      node,
+                                      discard ? NULL : "--nodiscard",
+                                      NULL);
 
                 } else if (streq(fstype, "xfs")) {
                         const char *j;
 
                         j = strjoina("uuid=", ID128_TO_UUID_STRING(uuid));
-                        if (discard)
-                                (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", node, NULL);
-                        else
-                                (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", "-K", node, NULL);
+
+                        (void) execlp(mkfs, mkfs,
+                                      "-L", label,
+                                      "-m", j,
+                                      "-m", "reflink=1",
+                                      node,
+                                      discard ? NULL : "-K",
+                                      NULL);
 
                 } else if (streq(fstype, "vfat")) {
                         char mangled_label[8 + 3 + 1], vol_id[8 + 1];
