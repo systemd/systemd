@@ -48,14 +48,6 @@ if efi_cc.length() == 0
         efi_cc = cc.cmd_array()
 endif
 
-efi_ld = find_program(get_option('efi-ld'))
-efi_ld_name = efi_ld.path().split('/')[-1]
-if efi_ld_name == 'lld' or efi_ld_name == 'ld.lld'
-        # LLVM/LLD does not support PE/COFF relocations
-        # https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
-        error('LLVM/lld does not support PE/COFF relocations. Use different linker for EFI image.')
-endif
-
 efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
@@ -260,24 +252,50 @@ foreach arg : get_option('c_args')
         endif
 endforeach
 
-efi_ldflags = ['-T', efi_lds,
-               '-shared',
-               '-Bsymbolic',
-               '-nostdlib',
-               '--no-undefined',
-               '--warn-common',
-               '--fatal-warnings',
-               '-znocombreloc',
-               '--build-id=sha1',
-               '-L', efi_libdir,
-               efi_crt0]
+efi_ldflags = [
+        '-fuse-ld=' + get_option('efi-ld'),
+        '-L', efi_libdir,
+        '-nostdlib',
+        '-shared',
+        '-T', efi_lds,
+        '-Wl,--build-id=sha1',
+        '-Wl,--fatal-warnings',
+        '-Wl,--no-undefined',
+        '-Wl,--warn-common',
+        '-Wl,-Bsymbolic',
+        '-z', 'nocombreloc',
+        efi_crt0,
+]
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
-        efi_ldflags += ['--defsym=EFI_SUBSYSTEM=0xa']
+        efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
         efi_format = ['-O', 'binary']
 else
         efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
+endif
+
+if run_command('grep', '-q', '__CTOR_LIST__', efi_lds).returncode() == 0
+        # fedora has a patched gnu-efi that adds support for ELF constructors.
+        # If ld is called by gcc something about these symbols breaks, resulting
+        # in sd-boot freezing when gnu-efi runs the constructors. Force defining
+        # them seems to work around this.
+        efi_ldflags += [
+                '-Wl,--defsym=_init_array=0',
+                '-Wl,--defsym=_init_array_end=0',
+                '-Wl,--defsym=_fini_array=0',
+                '-Wl,--defsym=_fini_array_end=0',
+                '-Wl,--defsym=__CTOR_LIST__=0',
+                '-Wl,--defsym=__CTOR_END__=0',
+                '-Wl,--defsym=__DTOR_LIST__=0',
+                '-Wl,--defsym=__DTOR_END__=0',
+        ]
+endif
+
+efi_cc_version = run_command(efi_cc, '--version').stdout().split('\n')[0]
+if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[-1].to_int() <= 10
+        # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
+        efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
 endif
 
 systemd_boot_objects = []
@@ -308,7 +326,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_ld, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', libgcc_file_name],
+                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', libgcc_file_name],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
