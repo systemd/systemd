@@ -114,7 +114,6 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
 
 static int userdb_flags_from_service(Varlink *link, const char *service, UserDBFlags *ret) {
         assert(link);
-        assert(service);
         assert(ret);
 
         if (streq_ptr(service, "io.systemd.NameServiceSwitch"))
@@ -153,7 +152,7 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (uid_is_valid(p.uid))
@@ -288,7 +287,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (gid_is_valid(p.gid))
@@ -371,7 +370,7 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         r = userdb_flags_from_service(link, p.service, &userdb_flags);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (p.group_name)
