@@ -261,10 +261,9 @@
           devices, the <varname>MACAddress=</varname> setting in the [NetDev] section is not
           supported and will be ignored. Please specify it in the [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          file. If this option is not set, <literal>bridge</literal> and <literal>vlan</literal> devices
-          inherit the MAC address of the first slave device or the physical interface, respectively. For other
-          kind of netdevs, if this option is not set, then the MAC address is generated based on the interface
-          name and the
+          file. If this option is not set, <literal>vlan</literal> device inherits the MAC address of
+          the master interface. For other kind of netdevs, if this option is not set, then the MAC
+          address is generated based on the interface name and the
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
           <para>Note, even if <literal>none</literal> is specified, <command>systemd-udevd</command>
