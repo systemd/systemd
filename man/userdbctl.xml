@@ -128,6 +128,14 @@
         off.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--multiplexer=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
+        default) or do lookups in the client (if specified as false). Using the multiplexer service is
+        typically preferable, since it runs in a locked down sandbox.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
