@@ -33,6 +33,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
@@ -58,7 +59,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                json_variant_dump(ur->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -183,7 +184,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return table_log_print_error(r);
         }
@@ -216,7 +217,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                json_variant_dump(gr->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -339,7 +340,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return table_log_print_error(r);
         }
@@ -371,7 +372,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
-                json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
                 break;
         }
 
@@ -477,7 +478,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return table_log_print_error(r);
         }
@@ -545,10 +546,9 @@ static int display_services(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (arg_output == OUTPUT_JSON)
-                table_print_json(t, NULL, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO);
-        else
-                table_print(t, NULL);
+        r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        if (r < 0)
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -617,6 +617,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
                "     --with-dropin=BOOL      Control whether to include drop-in records\n"
                "     --with-varlink=BOOL     Control whether to talk to services at all\n"
+               "     --json=pretty|short     JSON output mode\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -637,19 +638,21 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WITH_DROPIN,
                 ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'             },
-                { "version",      no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND   },
-                { "output",       required_argument, NULL, ARG_OUTPUT      },
-                { "service",      required_argument, NULL, 's'             },
-                { "with-nss",     required_argument, NULL, ARG_WITH_NSS    },
-                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
+                { "output",       required_argument, NULL, ARG_OUTPUT       },
+                { "service",      required_argument, NULL, 's'              },
+                { "with-nss",     required_argument, NULL, ARG_WITH_NSS     },
+                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN  },
                 { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
-                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE  },
+                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
+                { "json",         required_argument, NULL, ARG_JSON         },
                 {}
         };
 
@@ -696,7 +699,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (streq(optarg, "classic"))
+                        if (isempty(optarg))
+                                arg_output = _OUTPUT_INVALID;
+                        else if (streq(optarg, "classic"))
                                 arg_output = OUTPUT_CLASSIC;
                         else if (streq(optarg, "friendly"))
                                 arg_output = OUTPUT_FRIENDLY;
@@ -713,9 +718,19 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
 
+                        arg_json_format_flags = arg_output == OUTPUT_JSON ? JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO : JSON_FORMAT_OFF;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        arg_output = FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
                         break;
 
                 case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
                         arg_output = OUTPUT_JSON;
                         break;
 
