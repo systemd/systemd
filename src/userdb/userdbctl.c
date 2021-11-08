@@ -152,28 +152,33 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = userdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate users: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                for (;;) {
-                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                                r = userdb_iterator_get(iterator, &ur);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected user database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next user: %m");
 
-                        r = userdb_iterator_get(iterator, &ur);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected user database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next user: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_user(ur, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_user(ur, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
         }
 
@@ -303,30 +308,34 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = groupdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate groups: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                for (;;) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                                r = groupdb_iterator_get(iterator, &gr);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected group database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next group: %m");
 
-                        r = groupdb_iterator_get(iterator, &gr);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected group database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next group: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_group(gr, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_group(gr, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
-
         }
 
         if (table) {
@@ -442,23 +451,28 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate memberships: %m");
+                else {
+                        for (;;) {
+                                _cleanup_free_ char *user = NULL, *group = NULL;
 
-                for (;;) {
-                        _cleanup_free_ char *user = NULL, *group = NULL;
+                                r = membershipdb_iterator_get(iterator, &user, &group);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected membership database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next membership: %m");
 
-                        r = membershipdb_iterator_get(iterator, &user, &group);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected membership database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next membership: %m");
-
-                        r = show_membership(user, group, table);
-                        if (r < 0)
-                                return r;
+                                r = show_membership(user, group, table);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
