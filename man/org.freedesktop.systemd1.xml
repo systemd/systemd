@@ -2304,6 +2304,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Type = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExitType = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Restart = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s PIDFile = '...';
@@ -2898,6 +2900,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property Type is not documented!-->
 
+    <!--property ExitType is not documented!-->
+
     <!--property Restart is not documented!-->
 
     <!--property PIDFile is not documented!-->
@@ -3427,6 +3431,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Type"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExitType"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Restart"/>
 
