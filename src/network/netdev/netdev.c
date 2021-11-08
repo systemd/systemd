@@ -46,81 +46,81 @@
 #include "xfrm.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
-        [NETDEV_KIND_BATADV] = &batadv_vtable,
-        [NETDEV_KIND_BRIDGE] = &bridge_vtable,
-        [NETDEV_KIND_BOND] = &bond_vtable,
-        [NETDEV_KIND_VLAN] = &vlan_vtable,
-        [NETDEV_KIND_MACVLAN] = &macvlan_vtable,
-        [NETDEV_KIND_MACVTAP] = &macvtap_vtable,
-        [NETDEV_KIND_IPVLAN] = &ipvlan_vtable,
-        [NETDEV_KIND_IPVTAP] = &ipvtap_vtable,
-        [NETDEV_KIND_VXLAN] = &vxlan_vtable,
-        [NETDEV_KIND_IPIP] = &ipip_vtable,
-        [NETDEV_KIND_GRE] = &gre_vtable,
-        [NETDEV_KIND_GRETAP] = &gretap_vtable,
-        [NETDEV_KIND_IP6GRE] = &ip6gre_vtable,
+        [NETDEV_KIND_BAREUDP]   = &bare_udp_vtable,
+        [NETDEV_KIND_BATADV]    = &batadv_vtable,
+        [NETDEV_KIND_BOND]      = &bond_vtable,
+        [NETDEV_KIND_BRIDGE]    = &bridge_vtable,
+        [NETDEV_KIND_DUMMY]     = &dummy_vtable,
+        [NETDEV_KIND_ERSPAN]    = &erspan_vtable,
+        [NETDEV_KIND_FOU]       = &foutnl_vtable,
+        [NETDEV_KIND_GENEVE]    = &geneve_vtable,
+        [NETDEV_KIND_GRE]       = &gre_vtable,
+        [NETDEV_KIND_GRETAP]    = &gretap_vtable,
+        [NETDEV_KIND_IFB]       = &ifb_vtable,
+        [NETDEV_KIND_IP6GRE]    = &ip6gre_vtable,
         [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
-        [NETDEV_KIND_SIT] = &sit_vtable,
-        [NETDEV_KIND_VTI] = &vti_vtable,
-        [NETDEV_KIND_VTI6] = &vti6_vtable,
-        [NETDEV_KIND_VETH] = &veth_vtable,
-        [NETDEV_KIND_DUMMY] = &dummy_vtable,
-        [NETDEV_KIND_TUN] = &tun_vtable,
-        [NETDEV_KIND_TAP] = &tap_vtable,
-        [NETDEV_KIND_IP6TNL] = &ip6tnl_vtable,
-        [NETDEV_KIND_VRF] = &vrf_vtable,
-        [NETDEV_KIND_VCAN] = &vcan_vtable,
-        [NETDEV_KIND_GENEVE] = &geneve_vtable,
-        [NETDEV_KIND_VXCAN] = &vxcan_vtable,
-        [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
+        [NETDEV_KIND_IP6TNL]    = &ip6tnl_vtable,
+        [NETDEV_KIND_IPIP]      = &ipip_vtable,
+        [NETDEV_KIND_IPVLAN]    = &ipvlan_vtable,
+        [NETDEV_KIND_IPVTAP]    = &ipvtap_vtable,
+        [NETDEV_KIND_L2TP]      = &l2tptnl_vtable,
+        [NETDEV_KIND_MACSEC]    = &macsec_vtable,
+        [NETDEV_KIND_MACVLAN]   = &macvlan_vtable,
+        [NETDEV_KIND_MACVTAP]   = &macvtap_vtable,
         [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
-        [NETDEV_KIND_FOU] = &foutnl_vtable,
-        [NETDEV_KIND_ERSPAN] = &erspan_vtable,
-        [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
-        [NETDEV_KIND_MACSEC] = &macsec_vtable,
-        [NETDEV_KIND_NLMON] = &nlmon_vtable,
-        [NETDEV_KIND_XFRM] = &xfrm_vtable,
-        [NETDEV_KIND_IFB] = &ifb_vtable,
-        [NETDEV_KIND_BAREUDP] = &bare_udp_vtable,
+        [NETDEV_KIND_NLMON]     = &nlmon_vtable,
+        [NETDEV_KIND_SIT]       = &sit_vtable,
+        [NETDEV_KIND_TAP]       = &tap_vtable,
+        [NETDEV_KIND_TUN]       = &tun_vtable,
+        [NETDEV_KIND_VCAN]      = &vcan_vtable,
+        [NETDEV_KIND_VETH]      = &veth_vtable,
+        [NETDEV_KIND_VLAN]      = &vlan_vtable,
+        [NETDEV_KIND_VRF]       = &vrf_vtable,
+        [NETDEV_KIND_VTI6]      = &vti6_vtable,
+        [NETDEV_KIND_VTI]       = &vti_vtable,
+        [NETDEV_KIND_VXCAN]     = &vxcan_vtable,
+        [NETDEV_KIND_VXLAN]     = &vxlan_vtable,
+        [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
+        [NETDEV_KIND_XFRM]      = &xfrm_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
-        [NETDEV_KIND_BAREUDP] = "bareudp",
-        [NETDEV_KIND_BATADV] = "batadv",
-        [NETDEV_KIND_BRIDGE] = "bridge",
-        [NETDEV_KIND_BOND] = "bond",
-        [NETDEV_KIND_VLAN] = "vlan",
-        [NETDEV_KIND_MACVLAN] = "macvlan",
-        [NETDEV_KIND_MACVTAP] = "macvtap",
-        [NETDEV_KIND_IPVLAN] = "ipvlan",
-        [NETDEV_KIND_IPVTAP] = "ipvtap",
-        [NETDEV_KIND_VXLAN] = "vxlan",
-        [NETDEV_KIND_IPIP] = "ipip",
-        [NETDEV_KIND_GRE] = "gre",
-        [NETDEV_KIND_GRETAP] = "gretap",
-        [NETDEV_KIND_IP6GRE] = "ip6gre",
+        [NETDEV_KIND_BAREUDP]   = "bareudp",
+        [NETDEV_KIND_BATADV]    = "batadv",
+        [NETDEV_KIND_BOND]      = "bond",
+        [NETDEV_KIND_BRIDGE]    = "bridge",
+        [NETDEV_KIND_DUMMY]     = "dummy",
+        [NETDEV_KIND_ERSPAN]    = "erspan",
+        [NETDEV_KIND_FOU]       = "fou",
+        [NETDEV_KIND_GENEVE]    = "geneve",
+        [NETDEV_KIND_GRE]       = "gre",
+        [NETDEV_KIND_GRETAP]    = "gretap",
+        [NETDEV_KIND_IFB]       = "ifb",
+        [NETDEV_KIND_IP6GRE]    = "ip6gre",
         [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
-        [NETDEV_KIND_SIT] = "sit",
-        [NETDEV_KIND_VETH] = "veth",
-        [NETDEV_KIND_VTI] = "vti",
-        [NETDEV_KIND_VTI6] = "vti6",
-        [NETDEV_KIND_DUMMY] = "dummy",
-        [NETDEV_KIND_TUN] = "tun",
-        [NETDEV_KIND_TAP] = "tap",
-        [NETDEV_KIND_IP6TNL] = "ip6tnl",
-        [NETDEV_KIND_VRF] = "vrf",
-        [NETDEV_KIND_VCAN] = "vcan",
-        [NETDEV_KIND_GENEVE] = "geneve",
-        [NETDEV_KIND_VXCAN] = "vxcan",
-        [NETDEV_KIND_WIREGUARD] = "wireguard",
+        [NETDEV_KIND_IP6TNL]    = "ip6tnl",
+        [NETDEV_KIND_IPIP]      = "ipip",
+        [NETDEV_KIND_IPVLAN]    = "ipvlan",
+        [NETDEV_KIND_IPVTAP]    = "ipvtap",
+        [NETDEV_KIND_L2TP]      = "l2tp",
+        [NETDEV_KIND_MACSEC]    = "macsec",
+        [NETDEV_KIND_MACVLAN]   = "macvlan",
+        [NETDEV_KIND_MACVTAP]   = "macvtap",
         [NETDEV_KIND_NETDEVSIM] = "netdevsim",
-        [NETDEV_KIND_FOU] = "fou",
-        [NETDEV_KIND_ERSPAN] = "erspan",
-        [NETDEV_KIND_L2TP] = "l2tp",
-        [NETDEV_KIND_MACSEC] = "macsec",
-        [NETDEV_KIND_NLMON] = "nlmon",
-        [NETDEV_KIND_XFRM] = "xfrm",
-        [NETDEV_KIND_IFB] = "ifb",
+        [NETDEV_KIND_NLMON]     = "nlmon",
+        [NETDEV_KIND_SIT]       = "sit",
+        [NETDEV_KIND_TAP]       = "tap",
+        [NETDEV_KIND_TUN]       = "tun",
+        [NETDEV_KIND_VCAN]      = "vcan",
+        [NETDEV_KIND_VETH]      = "veth",
+        [NETDEV_KIND_VLAN]      = "vlan",
+        [NETDEV_KIND_VRF]       = "vrf",
+        [NETDEV_KIND_VTI6]      = "vti6",
+        [NETDEV_KIND_VTI]       = "vti",
+        [NETDEV_KIND_VXCAN]     = "vxcan",
+        [NETDEV_KIND_VXLAN]     = "vxlan",
+        [NETDEV_KIND_WIREGUARD] = "wireguard",
+        [NETDEV_KIND_XFRM]      = "xfrm",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -482,82 +482,82 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
                         return r;
 
                 log_netdev_debug(netdev, "Created");
-        } else {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                return 0;
+        }
 
-                r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
+
+        if (netdev->mac) {
+                r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
+        }
 
-                r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (netdev->mtu != 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
+        }
 
-                if (netdev->mac) {
-                        r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
-                }
-
-                if (netdev->mtu != 0) {
-                        r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
-                }
-
-                if (link) {
-                        r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
-                }
-
-                r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
+        }
 
-                if (NETDEV_VTABLE(netdev)->fill_message_create) {
-                        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-                        r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
-                        if (r < 0)
-                                return r;
+        if (NETDEV_VTABLE(netdev)->fill_message_create) {
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-                        r = sd_netlink_message_close_container(m);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
-                } else {
-                        r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
-                }
+                r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
+                if (r < 0)
+                        return r;
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-                if (link) {
-                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
-                                               link_netlink_destroy_callback, link);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-                        link_ref(link);
-                } else {
-                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
-                                               netdev_destroy_callback, netdev);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-                        netdev_ref(netdev);
-                }
-
-                netdev->state = NETDEV_STATE_CREATING;
-
-                log_netdev_debug(netdev, "Creating");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+        } else {
+                r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
         }
 
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+
+        if (link) {
+                r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+                                       link_netlink_destroy_callback, link);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+
+                link_ref(link);
+        } else {
+                r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                                       netdev_destroy_callback, netdev);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+
+                netdev_ref(netdev);
+        }
+
+        netdev->state = NETDEV_STATE_CREATING;
+
+        log_netdev_debug(netdev, "Creating");
         return 0;
 }
 
