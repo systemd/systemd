@@ -392,6 +392,9 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         assert(link);
         assert(rt);
 
+        if (!link->network->ipv6_accept_ra_use_autonomous_prefix)
+                return 0;
+
         r = sd_ndisc_router_get_timestamp(rt, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
@@ -481,6 +484,9 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+                return 0;
+
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
@@ -512,6 +518,52 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not request prefix route: %m");;
+
+        return 0;
+}
+
+static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
+        unsigned prefixlen;
+        struct in6_addr a;
+        uint8_t flags;
+        int r;
+
+        r = sd_ndisc_router_prefix_get_address(rt, &a);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix length: %m");
+
+        if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *b = NULL;
+
+                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
+                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
+                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
+                        else
+                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
+                }
+                return 0;
+        }
+
+        r = sd_ndisc_router_prefix_get_flags(rt, &flags);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get RA prefix flags: %m");
+
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
+                r = ndisc_router_process_onlink_prefix(link, rt);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
+                r = ndisc_router_process_autonomous_prefix(link, rt);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -793,51 +845,11 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
                 switch (type) {
 
-                case SD_NDISC_OPTION_PREFIX_INFORMATION: {
-                        unsigned prefixlen;
-                        struct in6_addr a;
-                        uint8_t flags;
-
-                        r = sd_ndisc_router_prefix_get_address(rt, &a);
+                case SD_NDISC_OPTION_PREFIX_INFORMATION:
+                        r = ndisc_router_process_prefix(link, rt);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
-
-                        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get prefix length: %m");
-
-                        if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                                if (DEBUG_LOGGING) {
-                                        _cleanup_free_ char *b = NULL;
-
-                                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
-                                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
-                                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
-                                        else
-                                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
-                                }
-                                break;
-                        }
-
-                        r = sd_ndisc_router_prefix_get_flags(rt, &flags);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to get RA prefix flags: %m");
-
-                        if (link->network->ipv6_accept_ra_use_onlink_prefix &&
-                            FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
-                                r = ndisc_router_process_onlink_prefix(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (link->network->ipv6_accept_ra_use_autonomous_prefix &&
-                            FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
-                                r = ndisc_router_process_autonomous_prefix(link, rt);
-                                if (r < 0)
-                                        return r;
-                        }
+                                return r;
                         break;
-                }
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
                         r = ndisc_router_process_route(link, rt);
@@ -961,6 +973,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         r = ndisc_router_process_default(link, rt);
         if (r < 0)
                 return r;
+
         r = ndisc_router_process_options(link, rt);
         if (r < 0)
                 return r;
