@@ -470,7 +470,17 @@ ECN=
 Parent=
 Handle=
 Bandwidth=
+AutoRateIngress=
 OverheadBytes=
+MPUBytes=
+CompensationMode=
+UseRawPacketSize=
+FlowIsolationMode=
+NAT=
+PriorityQueueingPreset=
+FirewallMark=
+Wash=
+SplitGSO=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
