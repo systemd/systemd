@@ -48,7 +48,6 @@ int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_spa)),       /* A <- SPA */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 1),                                  /* A == X ? */
                 BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                         /* accept */
-                BPF_STMT(BPF_LDX + BPF_IMM, htobe32(a->s_addr)),                               /* A <- clients IP */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_tpa)),       /* A <- TPA */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 1),                                  /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                         /* accept */
