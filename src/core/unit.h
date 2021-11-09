@@ -730,7 +730,7 @@ static inline Unit* UNIT_TRIGGER(Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
 }
 
-static inline Unit* UNIT_GET_SLICE(const Unit *u) {
+static inline Unit* UNIT_GET_SLICE_DEPENDENCY(const Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
 }
 

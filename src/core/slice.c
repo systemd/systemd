@@ -53,7 +53,7 @@ static int slice_add_parent_slice(Slice *s) {
 
         assert(s);
 
-        if (UNIT_GET_SLICE(u))
+        if (UNIT_GET_SLICE_DEPENDENCY(u))
                 return 0;
 
         r = slice_build_parent_slice(u->id, &a);
@@ -96,7 +96,7 @@ static int slice_verify(Slice *s) {
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to determine parent slice: %m");
 
-        if (parent ? !unit_has_name(UNIT_GET_SLICE(UNIT(s)), parent) : !!UNIT_GET_SLICE(UNIT(s)))
+        if (parent ? !unit_has_name(UNIT_GET_SLICE_DEPENDENCY(UNIT(s)), parent) : !!UNIT_GET_SLICE_DEPENDENCY(UNIT(s)))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Located outside of parent slice. Refusing.");
 
         return 0;

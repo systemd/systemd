@@ -70,13 +70,13 @@ static int test_cgroup_mask(void) {
         assert_se(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep) >= 0);
         assert_se(manager_load_startable_unit_or_warn(m, "nomem.slice", NULL, &nomem_parent) >= 0);
         assert_se(manager_load_startable_unit_or_warn(m, "nomemleaf.service", NULL, &nomem_leaf) >= 0);
-        assert_se(UNIT_GET_SLICE(son) == parent);
-        assert_se(UNIT_GET_SLICE(daughter) == parent);
-        assert_se(UNIT_GET_SLICE(parent_deep) == parent);
-        assert_se(UNIT_GET_SLICE(grandchild) == parent_deep);
-        assert_se(UNIT_GET_SLICE(nomem_leaf) == nomem_parent);
-        root = UNIT_GET_SLICE(parent);
-        assert_se(UNIT_GET_SLICE(nomem_parent) == root);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(son) == parent);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(daughter) == parent);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(parent_deep) == parent);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(grandchild) == parent_deep);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(nomem_leaf) == nomem_parent);
+        root = UNIT_GET_SLICE_DEPENDENCY(parent);
+        assert_se(UNIT_GET_SLICE_DEPENDENCY(nomem_parent) == root);
 
         /* Verify per-unit cgroups settings. */
         ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(son), CGROUP_MASK_CPU);
