@@ -2498,7 +2498,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
-                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title, entry->loader, err);
+                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
                         goto out;
                 }
 
