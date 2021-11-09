@@ -554,7 +554,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
 
         info->has_mac_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
-                !hw_addr_is_null(&info->hw_address);
+                info->hw_address.length > 0;
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
