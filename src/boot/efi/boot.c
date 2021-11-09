@@ -1651,14 +1651,14 @@ static void config_sort_entries(Config *config) {
         sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
-static INTN config_entry_find(Config *config, CHAR16 *needle) {
+static INTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
         if (!needle)
                 return -1;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (MetaiMatch(config->entries[i]->id, needle))
+                if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
                         return (INTN) i;
 
         return -1;
