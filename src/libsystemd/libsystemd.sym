@@ -766,4 +766,5 @@ global:
 LIBSYSTEMD_250 {
 global:
         sd_device_get_diskseq;
+        sd_event_add_inotify_fd;
 } LIBSYSTEMD_249;

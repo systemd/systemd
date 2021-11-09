@@ -2365,14 +2365,8 @@ int varlink_server_detach_event(VarlinkServer *s) {
 
         assert_return(s, -EINVAL);
 
-        LIST_FOREACH(sockets, ss, s->sockets) {
-
-                if (!ss->event_source)
-                        continue;
-
-                (void) sd_event_source_set_enabled(ss->event_source, SD_EVENT_OFF);
-                ss->event_source = sd_event_source_unref(ss->event_source);
-        }
+        LIST_FOREACH(sockets, ss, s->sockets)
+                ss->event_source = sd_event_source_disable_unref(ss->event_source);
 
         sd_event_unref(s->event);
         return 0;
