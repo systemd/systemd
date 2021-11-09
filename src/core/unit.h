@@ -203,6 +203,9 @@ typedef struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
+        Unit *slice;
+        UnitDependencyMask slice_dep_mask;
+
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 

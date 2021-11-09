@@ -565,6 +565,8 @@ static void unit_clear_dependencies(Unit *u) {
         }
 
         u->dependencies = hashmap_free(u->dependencies);
+        u->slice = NULL;
+        u->slice_dep_mask = 0;
 }
 
 static void unit_remove_transient(Unit *u) {
@@ -1465,7 +1467,6 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
-        Unit *slice;
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1476,9 +1477,18 @@ static int unit_add_slice_dependencies(Unit *u) {
            relationship). */
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
-        slice = UNIT_GET_SLICE_DEPENDENCY(u);
-        if (slice)
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
+        if (u->slice) {
+                int r;
+
+                /* Only allow adding one slice dependency */
+                assert_se(UNIT_GET_SLICE_DEPENDENCY(u) == NULL);
+
+                r = unit_add_dependency(u, UNIT_IN_SLICE, u->slice, true, u->slice_dep_mask);
+                if (r < 0)
+                        return r;
+
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, u->slice, true, u->slice_dep_mask);
+        }
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -3285,8 +3295,6 @@ reset:
 }
 
 int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
-        int r;
-
         assert(u);
         assert(slice);
 
@@ -3317,9 +3325,8 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
         if (UNIT_GET_SLICE_DEPENDENCY(u) && u->cgroup_realized)
                 return -EBUSY;
 
-        r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
-        if (r < 0)
-                return r;
+        u->slice = slice;
+        u->slice_dep_mask = mask;
 
         return 1;
 }
@@ -3334,7 +3341,7 @@ int unit_set_default_slice(Unit *u) {
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
 
-        if (UNIT_GET_SLICE_DEPENDENCY(u))
+        if (u->slice)
                 return 0;
 
         if (u->instance) {
