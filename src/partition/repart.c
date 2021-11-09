@@ -528,16 +528,9 @@ static int free_area_compare(FreeArea *const *a, FreeArea *const*b) {
 }
 
 static uint64_t charge_size(uint64_t total, uint64_t amount) {
-        uint64_t rounded;
-
-        assert(amount <= total);
-
         /* Subtract the specified amount from total, rounding up to multiple of 4K if there's room */
-        rounded = round_up_size(amount, 4096);
-        if (rounded >= total)
-                return 0;
-
-        return total - rounded;
+        assert(amount <= total);
+        return LESS_BY(total, round_up_size(amount, 4096));
 }
 
 static uint64_t charge_weight(uint64_t total, uint64_t amount) {
@@ -1491,11 +1484,7 @@ static int determine_current_padding(
         offset = round_up_size(offset, 4096);
         next = round_down_size(next, 4096);
 
-        if (next >= offset) /* Check again, rounding might have fucked things up */
-                *ret = next - offset;
-        else
-                *ret = 0;
-
+        *ret = LESS_BY(next, offset); /* Saturated substraction, rounding might have fucked things up */
         return 0;
 }
 
