@@ -988,18 +988,27 @@ static BOOLEAN menu_run(
         return run;
 }
 
-static void config_add_entry(Config *config, ConfigEntry *entry) {
+static EFI_STATUS config_add_entry(Config *config, ConfigEntry *entry) {
         assert(config);
         assert(entry);
 
         if ((config->entry_count & 15) == 0) {
+                ConfigEntry **new_entries;
                 UINTN i = config->entry_count + 16;
-                config->entries = ReallocatePool(
+
+                new_entries = ReallocatePool(
                                 config->entries,
                                 sizeof(void *) * config->entry_count,
                                 sizeof(void *) * i);
+                if (!new_entries)
+                        return EFI_OUT_OF_RESOURCES;
+
+                config->entries = new_entries;
+
         }
+
         config->entries[config->entry_count++] = entry;
+        return EFI_SUCCESS;
 }
 
 static void config_entry_free(ConfigEntry *entry) {
