@@ -243,27 +243,27 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
         assert(ret);
 
         STRV_FOREACH(filename, strv_skip(argv, 1)) {
-                _cleanup_free_ char *src = NULL, *dst = NULL, *arg = NULL;
-                char *parse_arg;
+                _cleanup_free_ char *src = NULL, *dst = NULL, *base = NULL;
+                const char *parse_arg;
 
-                arg = strdup(*filename);
-                if (!arg)
-                        return -ENOMEM;
-
-                parse_arg = arg;
-                r = extract_first_word((const char **) &parse_arg, &src, ":", 0);
+                parse_arg = *filename;
+                r = extract_first_word(&parse_arg, &src, ":", EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return r;
 
                 if (!parse_arg) {
-                        r = strv_extend(&filenames, src);
+                        r = strv_consume(&filenames, TAKE_PTR(src));
                         if (r < 0)
-                                return -ENOMEM;
+                                return r;
 
                         continue;
                 }
 
-                dst = path_join(tempdir, basename(parse_arg));
+                r = path_extract_filename(parse_arg, &base);
+                if (r < 0)
+                        return r;
+
+                dst = path_join(tempdir, base);
                 if (!dst)
                         return -ENOMEM;
 
@@ -273,7 +273,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
 
                 r = strv_consume(&filenames, TAKE_PTR(dst));
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
         }
 
         *ret = TAKE_PTR(filenames);
