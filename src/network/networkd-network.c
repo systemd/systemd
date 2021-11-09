@@ -77,16 +77,16 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
 
         if (netdev->kind != kind && !(kind == _NETDEV_KIND_TUNNEL &&
                                       IN_SET(netdev->kind,
-                                             NETDEV_KIND_IPIP,
-                                             NETDEV_KIND_SIT,
+                                             NETDEV_KIND_ERSPAN,
                                              NETDEV_KIND_GRE,
                                              NETDEV_KIND_GRETAP,
                                              NETDEV_KIND_IP6GRE,
                                              NETDEV_KIND_IP6GRETAP,
-                                             NETDEV_KIND_VTI,
-                                             NETDEV_KIND_VTI6,
                                              NETDEV_KIND_IP6TNL,
-                                             NETDEV_KIND_ERSPAN)))
+                                             NETDEV_KIND_IPIP,
+                                             NETDEV_KIND_SIT,
+                                             NETDEV_KIND_VTI,
+                                             NETDEV_KIND_VTI6)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: NetDev %s is not a %s, ignoring assignment",
                                          network->filename, name, kind_string);
@@ -825,10 +825,16 @@ int config_parse_stacked_netdev(
         assert(rvalue);
         assert(data);
         assert(IN_SET(kind,
-                      NETDEV_KIND_VLAN, NETDEV_KIND_MACVLAN, NETDEV_KIND_MACVTAP,
-                      NETDEV_KIND_IPVLAN, NETDEV_KIND_IPVTAP, NETDEV_KIND_VXLAN,
-                      NETDEV_KIND_L2TP, NETDEV_KIND_MACSEC, _NETDEV_KIND_TUNNEL,
-                      NETDEV_KIND_XFRM));
+                      NETDEV_KIND_IPVLAN,
+                      NETDEV_KIND_IPVTAP,
+                      NETDEV_KIND_L2TP,
+                      NETDEV_KIND_MACSEC,
+                      NETDEV_KIND_MACVLAN,
+                      NETDEV_KIND_MACVTAP,
+                      NETDEV_KIND_VLAN,
+                      NETDEV_KIND_VXLAN,
+                      NETDEV_KIND_XFRM,
+                      _NETDEV_KIND_TUNNEL));
 
         if (!ifname_valid(rvalue)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
