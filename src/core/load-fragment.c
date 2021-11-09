@@ -3793,7 +3793,7 @@ int config_parse_unit_slice(
                 return 0;
         }
 
-        r = unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
+        r = unit_set_slice(u, slice);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to assign slice %s to unit %s, ignoring: %m", slice->id, u->id);
                 return 0;

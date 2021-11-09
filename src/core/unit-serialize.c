@@ -593,6 +593,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 { UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT, "mountinfo-implicit" },
                 { UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,  "mountinfo-default"  },
                 { UNIT_DEPENDENCY_PROC_SWAP,          "proc-swap"          },
+                { UNIT_DEPENDENCY_SLICE_PROPERTY,     "slice-property"     },
         };
 
         assert(f);
