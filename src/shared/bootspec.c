@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "bootspec-fundamental.h"
 #include "bootspec.h"
 #include "conf-files.h"
 #include "def.h"
@@ -287,13 +288,13 @@ static int boot_entry_load_unified(
                 const char *cmdline,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
+        _cleanup_free_ char *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_UNIFIED,
         };
+        const char *k, *good_name, *good_version;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *k;
-        char *b;
         int r;
 
         assert(root);
@@ -310,23 +311,41 @@ static int boot_entry_load_unified(
 
         r = parse_env_file(f, "os-release",
                            "PRETTY_NAME", &os_pretty_name,
+                           "IMAGE_ID", &os_image_id,
+                           "NAME", &os_name,
                            "ID", &os_id,
-                           "VERSION_ID", &version_id,
-                           "BUILD_ID", &build_id);
+                           "IMAGE_VERSION", &os_image_version,
+                           "VERSION", &os_version,
+                           "VERSION_ID", &os_version_id,
+                           "BUILD_ID", &os_build_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
 
-        if (!os_pretty_name || !os_id || !(version_id || build_id))
+        if (!bootspec_pick_name_version(
+                            os_pretty_name,
+                            os_image_id,
+                            os_name,
+                            os_id,
+                            os_image_version,
+                            os_version,
+                            os_version_id,
+                            os_build_id,
+                            &good_name,
+                            &good_version))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
-        b = basename(path);
-        tmp.id = strdup(b);
-        tmp.id_old = strjoin(os_id, "-", version_id ?: build_id);
-        if (!tmp.id || !tmp.id_old)
-                return log_oom();
+        r = path_extract_filename(path, &tmp.id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+
+        if (os_id && os_version_id) {
+                tmp.id_old = strjoin(os_id, "-", os_version_id);
+                if (!tmp.id_old)
+                        return log_oom();
+        }
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -346,7 +365,13 @@ static int boot_entry_load_unified(
 
         delete_trailing_chars(tmp.options[0], WHITESPACE);
 
-        tmp.title = TAKE_PTR(os_pretty_name);
+        tmp.title = strdup(good_name);
+        if (!tmp.title)
+                return log_oom();
+
+        tmp.version = strdup(good_version);
+        if (!tmp.version)
+                return log_oom();
 
         *ret = tmp;
         tmp = (BootEntry) {};
