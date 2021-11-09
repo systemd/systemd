@@ -1840,7 +1840,8 @@ static ConfigEntry *config_entry_add_loader(
                 const CHAR16 *loader,
                 const CHAR16 *version) {
 
-        ConfigEntry *entry;
+        _cleanup_freepool_ CHAR16 *dt = NULL, *dv = NULL, *dl = NULL, *di = NULL;
+        _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
 
         assert(config);
         assert(device);
@@ -1848,23 +1849,46 @@ static ConfigEntry *config_entry_add_loader(
         assert(title);
         assert(loader);
 
+        dt = StrDuplicate(title);
+        if (!dt)
+                return NULL;
+
+        if (version) {
+                dv = StrDuplicate(version);
+                if (!dv)
+                        return NULL;
+        }
+
+        dl = StrDuplicate(loader);
+        if (!dl)
+                return NULL;
+
+        di = StrDuplicate(id);
+        if (!di)
+                return NULL;
+
+        StrLwr(di);
+
         entry = AllocatePool(sizeof(ConfigEntry));
+        if (!entry)
+                return NULL;
+
         *entry = (ConfigEntry) {
                 .type = type,
-                .title = StrDuplicate(title),
-                .version = version ? StrDuplicate(version) : NULL,
+                .title = TAKE_PTR(dt),
+                .version = TAKE_PTR(dv),
                 .device = device,
-                .loader = StrDuplicate(loader),
-                .id = StrDuplicate(id),
+                .loader = TAKE_PTR(dl),
+                .id = TAKE_PTR(di),
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
 
-        StrLwr(entry->id);
+        if (EFI_ERROR(config_add_entry(config, entry)))
+                return NULL;
 
-        config_add_entry(config, entry);
-        return entry;
+        return TAKE_PTR(entry);
 }
 
 static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
