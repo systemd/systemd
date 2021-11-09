@@ -4462,19 +4462,23 @@ static int merge_settings(Settings *settings, const char *path) {
 
         if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
 
-                if (!arg_settings_trusted && !strv_isempty(settings->syscall_allow_list))
-                        log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
-                else {
-                        strv_free_and_replace(arg_syscall_allow_list, settings->syscall_allow_list);
-                        strv_free_and_replace(arg_syscall_deny_list, settings->syscall_deny_list);
+                if (!strv_isempty(settings->syscall_allow_list) || !strv_isempty(settings->syscall_deny_list)) {
+                        if (!arg_settings_trusted && !strv_isempty(settings->syscall_allow_list))
+                                log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
+                        else {
+                                strv_free_and_replace(arg_syscall_allow_list, settings->syscall_allow_list);
+                                strv_free_and_replace(arg_syscall_deny_list, settings->syscall_deny_list);
+                        }
                 }
 
 #if HAVE_SECCOMP
-                if (!arg_settings_trusted && settings->seccomp)
-                        log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
-                else {
-                        seccomp_release(arg_seccomp);
-                        arg_seccomp = TAKE_PTR(settings->seccomp);
+                if (settings->seccomp) {
+                        if (!arg_settings_trusted)
+                                log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
+                        else {
+                                seccomp_release(arg_seccomp);
+                                arg_seccomp = TAKE_PTR(settings->seccomp);
+                        }
                 }
 #endif
         }
