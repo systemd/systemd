@@ -3285,7 +3285,7 @@ reset:
         return r;
 }
 
-int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
+int unit_set_slice(Unit *u, Unit *slice) {
         int r;
 
         assert(u);
@@ -3318,7 +3318,11 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
         if (UNIT_GET_SLICE(u) && u->cgroup_realized)
                 return -EBUSY;
 
-        r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
+        /* Remove any slices assigned prior; we should only have one UNIT_IN_SLICE dependency */
+        if (UNIT_GET_SLICE(u))
+                unit_remove_dependencies(u, UNIT_DEPENDENCY_SLICE_PROPERTY);
+
+        r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, UNIT_DEPENDENCY_SLICE_PROPERTY);
         if (r < 0)
                 return r;
 
@@ -3374,7 +3378,7 @@ int unit_set_default_slice(Unit *u) {
         if (r < 0)
                 return r;
 
-        return unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
+        return unit_set_slice(u, slice);
 }
 
 const char *unit_slice_name(Unit *u) {

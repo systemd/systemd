@@ -2273,7 +2273,7 @@ static int bus_unit_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
+                        r = unit_set_slice(u, slice);
                         if (r < 0)
                                 return r;
 

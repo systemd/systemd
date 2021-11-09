@@ -8,6 +8,7 @@
 #include "manager-dump.h"
 #include "rm-rf.h"
 #include "service.h"
+#include "slice.h"
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
@@ -75,7 +76,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
-                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL;
+                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL,
+                *tomato = NULL, *sauce = NULL, *fruit = NULL, *zupa = NULL;
         Job *j;
         int r;
 
@@ -259,6 +261,33 @@ int main(int argc, char *argv[]) {
         assert_se(mm == 3U*5U*7U*11U*13U);
 
         verify_dependency_atoms();
+
+        /* Test adding multiple Slice= dependencies; only the last should remain */
+        assert_se(unit_new_for_name(m, sizeof(Service), "tomato.service", &tomato) >= 0);
+        assert_se(unit_new_for_name(m, sizeof(Slice), "sauce.slice", &sauce) >= 0);
+        assert_se(unit_new_for_name(m, sizeof(Slice), "fruit.slice", &fruit) >= 0);
+        assert_se(unit_new_for_name(m, sizeof(Slice), "zupa.slice", &zupa) >= 0);
+
+        unit_set_slice(tomato, sauce);
+        unit_set_slice(tomato, fruit);
+        unit_set_slice(tomato, zupa);
+
+        assert_se(UNIT_GET_SLICE(tomato) == zupa);
+        assert_se(!unit_has_dependency(tomato, UNIT_ATOM_IN_SLICE, sauce));
+        assert_se(!unit_has_dependency(tomato, UNIT_ATOM_IN_SLICE, fruit));
+        assert_se(unit_has_dependency(tomato, UNIT_ATOM_IN_SLICE, zupa));
+
+        assert_se(!unit_has_dependency(tomato, UNIT_ATOM_REFERENCES, sauce));
+        assert_se(!unit_has_dependency(tomato, UNIT_ATOM_REFERENCES, fruit));
+        assert_se(unit_has_dependency(tomato, UNIT_ATOM_REFERENCES, zupa));
+
+        assert_se(!unit_has_dependency(sauce, UNIT_ATOM_SLICE_OF, tomato));
+        assert_se(!unit_has_dependency(fruit, UNIT_ATOM_SLICE_OF, tomato));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_SLICE_OF, tomato));
+
+        assert_se(!unit_has_dependency(sauce, UNIT_ATOM_REFERENCED_BY, tomato));
+        assert_se(!unit_has_dependency(fruit, UNIT_ATOM_REFERENCED_BY, tomato));
+        assert_se(unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, tomato));
 
         return 0;
 }
