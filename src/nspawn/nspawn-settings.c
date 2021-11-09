@@ -285,9 +285,6 @@ int config_parse_capability(
                 }
         }
 
-        if (u == 0)
-                return 0;
-
         *result |= u;
         return 0;
 }
