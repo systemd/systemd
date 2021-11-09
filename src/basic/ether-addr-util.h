@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "hash-funcs.h"
+#include "in-addr-util.h"
 #include "macro.h"
 #include "memory-util.h"
 
@@ -18,9 +19,17 @@ struct hw_addr_data {
         union {
                 struct ether_addr ether;
                 uint8_t infiniband[INFINIBAND_ALEN];
+                struct in_addr in;
+                struct in6_addr in6;
                 uint8_t bytes[HW_ADDR_MAX_SIZE];
         };
 };
+
+int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *ret);
+static inline int parse_hw_addr(const char *s, struct hw_addr_data *ret) {
+        return parse_hw_addr_full(s, 0, ret);
+}
+int parse_ether_addr(const char *s, struct ether_addr *ret);
 
 #define HW_ADDR_TO_STRING_MAX (3*HW_ADDR_MAX_SIZE)
 char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]);
@@ -42,6 +51,7 @@ static inline bool hw_addr_is_null(const struct hw_addr_data *addr) {
 }
 
 extern const struct hash_ops hw_addr_hash_ops;
+extern const struct hash_ops hw_addr_hash_ops_free;
 
 #define ETHER_ADDR_FORMAT_STR "%02X%02X%02X%02X%02X%02X"
 #define ETHER_ADDR_FORMAT_VAL(x) (x).ether_addr_octet[0], (x).ether_addr_octet[1], (x).ether_addr_octet[2], (x).ether_addr_octet[3], (x).ether_addr_octet[4], (x).ether_addr_octet[5]
@@ -83,6 +93,5 @@ static inline bool ether_addr_is_local(const struct ether_addr *addr) {
         return !FLAGS_SET(addr->ether_addr_octet[0], 0x02);
 }
 
-int ether_addr_from_string(const char *s, struct ether_addr *ret);
-
 extern const struct hash_ops ether_addr_hash_ops;
+extern const struct hash_ops ether_addr_hash_ops_free;
