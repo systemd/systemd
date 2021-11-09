@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_macsec.h>
 #include <linux/genetlink.h>
@@ -620,7 +621,7 @@ int config_parse_macsec_hw_address(
         if (r < 0)
                 return log_oom();
 
-        r = ether_addr_from_string(rvalue, b ? &b->sci.mac : &c->sci.mac);
+        r = parse_ether_addr(rvalue, b ? &b->sci.mac : &c->sci.mac);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse MAC address for secure channel identifier. "
@@ -1230,5 +1231,6 @@ const NetDevVTable macsec_vtable = {
         .done = macsec_done,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_macsec_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
