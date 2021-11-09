@@ -170,6 +170,8 @@ Settings* settings_free(Settings *s) {
 bool settings_private_network(Settings *s) {
         assert(s);
 
+        /* Determines whether we shall open up our own private network */
+
         return
                 s->private_network > 0 ||
                 s->network_veth > 0 ||
@@ -188,6 +190,25 @@ bool settings_network_veth(Settings *s) {
                 s->network_veth > 0 ||
                 s->network_bridge ||
                 s->network_zone;
+}
+
+bool settings_network_configured(Settings *s) {
+        assert(s);
+
+        /* Determines whether any network configuration setting was used. (i.e. in contrast to
+         * settings_private_network() above this might also indicate if private networking was explicitly
+         * turned off.) */
+
+        return
+                s->private_network >= 0 ||
+                s->network_veth >= 0 ||
+                s->network_bridge ||
+                s->network_zone ||
+                s->network_interfaces ||
+                s->network_macvlan ||
+                s->network_ipvlan ||
+                s->network_veth_extra ||
+                s->network_namespace_path;
 }
 
 int settings_allocate_properties(Settings *s) {
