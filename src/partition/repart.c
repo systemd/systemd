@@ -796,7 +796,9 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 uint64_t m, xsz;
 
                 assert(a->after->new_size != UINT64_MAX);
-                m = a->after->new_size + span;
+
+                /* Calculate new size and align (but ensure this doesn't shrink the size) */
+                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, 4096));
 
                 xsz = partition_max_size(a->after);
                 if (xsz != UINT64_MAX && m > xsz)
@@ -821,7 +823,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                                 continue;
 
                         assert(p->new_size != UINT64_MAX);
-                        m = p->new_size + span;
+                        m = MAX(p->new_size, round_down_size(p->new_size + span, 4096));
 
                         xsz = partition_max_size(p);
                         if (xsz != UINT64_MAX && m > xsz)
@@ -4973,7 +4975,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Now calculate where each partition gets placed */
+        /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
 
         /* Make sure each partition has a unique UUID and unique label */
