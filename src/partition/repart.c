@@ -644,6 +644,8 @@ typedef enum GrowPartitionPhase {
 
         /* The third phase: we distribute what remains among the remaining partitions, according to the weights */
         PHASE_DISTRIBUTE,
+
+        _GROW_PARTITION_PHASE_MAX,
 } GrowPartitionPhase;
 
 static int context_grow_partitions_phase(
@@ -779,20 +781,14 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 span += round_up_size(a->after->offset + a->after->current_size, 4096) - a->after->offset;
         }
 
-        GrowPartitionPhase phase = PHASE_OVERCHARGE;
-        for (;;) {
+        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;) {
                 r = context_grow_partitions_phase(context, a, phase, &span, &weight_sum);
                 if (r < 0)
                         return r;
                 if (r == 0) /* not done yet, re-run this phase */
                         continue;
 
-                if (phase == PHASE_OVERCHARGE)
-                        phase = PHASE_UNDERCHARGE;
-                else if (phase == PHASE_UNDERCHARGE)
-                        phase = PHASE_DISTRIBUTE;
-                else if (phase == PHASE_DISTRIBUTE)
-                        break;
+                phase++; /* got to next phase */
         }
 
         /* We still have space left over? Donate to preceding partition if we have one */
