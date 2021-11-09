@@ -242,6 +242,8 @@ Settings* settings_free(Settings *s);
 
 bool settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
+bool settings_network_configured(Settings *s);
+
 int settings_allocate_properties(Settings *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
