@@ -89,7 +89,10 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
 
-        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 8) - 1,
+        /* A dependency for units in slices assigned by directly setting Slice= */
+        UNIT_DEPENDENCY_SLICE_PROPERTY     = 1 << 8,
+
+        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 9) - 1,
 } UnitDependencyMask;
 
 /* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can
@@ -782,7 +785,7 @@ Unit *unit_follow_merge(Unit *u) _pure_;
 int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
-int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
+int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
