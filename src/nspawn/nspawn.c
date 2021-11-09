@@ -4284,7 +4284,8 @@ static int merge_settings(Settings *settings, const char *path) {
                 strv_free_and_replace(arg_parameters, settings->parameters);
         }
 
-        if ((arg_settings_mask & SETTING_EPHEMERAL) == 0)
+        if ((arg_settings_mask & SETTING_EPHEMERAL) == 0 &&
+            settings->ephemeral >= 0)
                 arg_ephemeral = settings->ephemeral;
 
         if ((arg_settings_mask & SETTING_DIRECTORY) == 0 &&
@@ -4336,7 +4337,8 @@ static int merge_settings(Settings *settings, const char *path) {
                 plus = settings->capability;
                 minus = settings->drop_capability;
 
-                if ((arg_settings_mask & SETTING_NETWORK) == 0) {
+                if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
+                    settings_network_configured(settings)) {
                         if (settings_private_network(settings))
                                 plus |= UINT64_C(1) << CAP_NET_ADMIN;
                         else
@@ -4407,15 +4409,7 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
-            (settings->private_network >= 0 ||
-             settings->network_veth >= 0 ||
-             settings->network_bridge ||
-             settings->network_zone ||
-             settings->network_interfaces ||
-             settings->network_macvlan ||
-             settings->network_ipvlan ||
-             settings->network_veth_extra ||
-             settings->network_namespace_path)) {
+            settings_network_configured(settings)) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", path);
@@ -4459,27 +4453,33 @@ static int merge_settings(Settings *settings, const char *path) {
                 }
         }
 
-        if ((arg_settings_mask & SETTING_BIND_USER) == 0)
+        if ((arg_settings_mask & SETTING_BIND_USER) == 0 &&
+            !strv_isempty(settings->bind_user))
                 strv_free_and_replace(arg_bind_user, settings->bind_user);
 
-        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
+        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0 &&
+            settings->notify_ready >= 0)
                 arg_notify_ready = settings->notify_ready;
 
         if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
 
-                if (!arg_settings_trusted && !strv_isempty(settings->syscall_allow_list))
-                        log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
-                else {
-                        strv_free_and_replace(arg_syscall_allow_list, settings->syscall_allow_list);
-                        strv_free_and_replace(arg_syscall_deny_list, settings->syscall_deny_list);
+                if (!strv_isempty(settings->syscall_allow_list) || !strv_isempty(settings->syscall_deny_list)) {
+                        if (!arg_settings_trusted && !strv_isempty(settings->syscall_allow_list))
+                                log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
+                        else {
+                                strv_free_and_replace(arg_syscall_allow_list, settings->syscall_allow_list);
+                                strv_free_and_replace(arg_syscall_deny_list, settings->syscall_deny_list);
+                        }
                 }
 
 #if HAVE_SECCOMP
-                if (!arg_settings_trusted && settings->seccomp)
-                        log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
-                else {
-                        seccomp_release(arg_seccomp);
-                        arg_seccomp = TAKE_PTR(settings->seccomp);
+                if (settings->seccomp) {
+                        if (!arg_settings_trusted)
+                                log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
+                        else {
+                                seccomp_release(arg_seccomp);
+                                arg_seccomp = TAKE_PTR(settings->seccomp);
+                        }
                 }
 #endif
         }
@@ -4585,7 +4585,8 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_console_mode = settings->console_mode;
         }
 
-        if ((arg_settings_mask & SETTING_SUPPRESS_SYNC) == 0)
+        if ((arg_settings_mask & SETTING_SUPPRESS_SYNC) == 0 &&
+            settings->suppress_sync >= 0)
                 arg_suppress_sync = settings->suppress_sync;
 
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
