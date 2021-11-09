@@ -565,6 +565,8 @@ static void unit_clear_dependencies(Unit *u) {
         }
 
         u->dependencies = hashmap_free(u->dependencies);
+        u->slice = NULL;
+        u->slice_dep_mask = 0;
 }
 
 static void unit_remove_transient(Unit *u) {
@@ -700,7 +702,7 @@ Unit* unit_free(Unit *u) {
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         unit_clear_dependencies(u);
         if (slice)
                 unit_add_family_to_cgroup_realize_queue(slice);
@@ -1465,7 +1467,6 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
-        Unit *slice;
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1476,9 +1477,18 @@ static int unit_add_slice_dependencies(Unit *u) {
            relationship). */
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
-        slice = UNIT_GET_SLICE(u);
-        if (slice)
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
+        if (u->slice) {
+                int r;
+
+                /* Only allow adding one slice dependency */
+                assert_se(UNIT_GET_SLICE_DEPENDENCY(u) == NULL);
+
+                r = unit_add_dependency(u, UNIT_IN_SLICE, u->slice, true, u->slice_dep_mask);
+                if (r < 0)
+                        return r;
+
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, u->slice, true, u->slice_dep_mask);
+        }
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -3286,8 +3296,6 @@ reset:
 }
 
 int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
-        int r;
-
         assert(u);
         assert(slice);
 
@@ -3311,16 +3319,15 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
             !unit_has_name(slice, SPECIAL_ROOT_SLICE))
                 return -EPERM;
 
-        if (UNIT_GET_SLICE(u) == slice)
+        if (UNIT_GET_SLICE_DEPENDENCY(u) == slice)
                 return 0;
 
         /* Disallow slice changes if @u is already bound to cgroups */
-        if (UNIT_GET_SLICE(u) && u->cgroup_realized)
+        if (UNIT_GET_SLICE_DEPENDENCY(u) && u->cgroup_realized)
                 return -EBUSY;
 
-        r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
-        if (r < 0)
-                return r;
+        u->slice = slice;
+        u->slice_dep_mask = mask;
 
         return 1;
 }
@@ -3335,7 +3342,7 @@ int unit_set_default_slice(Unit *u) {
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
 
-        if (UNIT_GET_SLICE(u))
+        if (u->slice)
                 return 0;
 
         if (u->instance) {
@@ -3381,7 +3388,7 @@ const char *unit_slice_name(Unit *u) {
         Unit *slice;
         assert(u);
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (!slice)
                 return NULL;
 

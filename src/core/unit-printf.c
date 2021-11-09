@@ -139,7 +139,7 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
 
         bad_specifier(u, specifier);
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice) {
                 if (slice->cgroup_path)
                         n = strdup(slice->cgroup_path);

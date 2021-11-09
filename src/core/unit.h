@@ -203,6 +203,9 @@ typedef struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
+        Unit *slice;
+        UnitDependencyMask slice_dep_mask;
+
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
@@ -730,7 +733,7 @@ static inline Unit* UNIT_TRIGGER(Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
 }
 
-static inline Unit* UNIT_GET_SLICE(const Unit *u) {
+static inline Unit* UNIT_GET_SLICE_DEPENDENCY(const Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
 }
 

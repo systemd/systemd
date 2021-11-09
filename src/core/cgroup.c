@@ -722,7 +722,7 @@ int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const
                 if (c && c->entry##_set)                                \
                         return c->entry;                                \
                                                                         \
-                while ((u = UNIT_GET_SLICE(u))) {                       \
+                while ((u = UNIT_GET_SLICE_DEPENDENCY(u))) {            \
                         c = unit_get_cgroup_context(u);                 \
                         if (c && c->default_##entry##_set)              \
                                 return c->default_##entry;              \
@@ -1620,7 +1620,7 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
                 return true;
 
         /* If any parent slice has an IP access list defined, it applies too */
-        for (Unit *p = UNIT_GET_SLICE(u); p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = UNIT_GET_SLICE_DEPENDENCY(u); p; p = UNIT_GET_SLICE_DEPENDENCY(p)) {
                 c = unit_get_cgroup_context(p);
                 if (!c)
                         return false;
@@ -1803,7 +1803,7 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
          * require, i.e. the members mask of the unit's parent slice
          * if there is one. */
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice)
                 return unit_get_members_mask(slice);
 
@@ -1830,7 +1830,7 @@ CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
         /* Returns the mask of controllers which are marked as forcibly
          * disabled in any ancestor unit or the unit in question. */
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice)
                 mask |= unit_get_ancestor_disable_mask(slice);
 
@@ -1881,7 +1881,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u) {
         /* Recurse invalidate the member masks cache all the way up the tree */
         u->cgroup_members_mask_valid = false;
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice)
                 unit_invalidate_cgroup_members_masks(slice);
 }
@@ -1897,7 +1897,7 @@ const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
                     FLAGS_SET(u->cgroup_realized_mask, mask))
                         return u->cgroup_path;
 
-                u = UNIT_GET_SLICE(u);
+                u = UNIT_GET_SLICE_DEPENDENCY(u);
         }
 
         return NULL;
@@ -1920,7 +1920,7 @@ char *unit_default_cgroup_path(const Unit *u) {
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return strdup(u->manager->cgroup_root);
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice && !unit_has_name(slice, SPECIAL_ROOT_SLICE)) {
                 r = cg_slice_to_path(slice->id, &slice_path);
                 if (r < 0)
@@ -2430,7 +2430,7 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
 
         /* First go deal with this unit's parent, or we won't be able to enable
          * any new controllers at this layer. */
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice) {
                 r = unit_realize_cgroup_now_enable(slice, state);
                 if (r < 0)
@@ -2557,7 +2557,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
                 return r;
 
         /* Enable controllers above us, if there are any */
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice) {
                 r = unit_realize_cgroup_now_enable(slice, state);
                 if (r < 0)
@@ -2650,7 +2650,7 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u) {
                 /* Parent comes after children */
                 unit_add_to_cgroup_realize_queue(u);
 
-                u = UNIT_GET_SLICE(u);
+                u = UNIT_GET_SLICE_DEPENDENCY(u);
         } while (u);
 }
 
@@ -2671,7 +2671,7 @@ int unit_realize_cgroup(Unit *u) {
          * This call will defer work on the siblings and derealized ancestors to the next event loop
          * iteration and synchronously creates the parent cgroups (unit_realize_cgroup_now). */
 
-        slice = UNIT_GET_SLICE(u);
+        slice = UNIT_GET_SLICE_DEPENDENCY(u);
         if (slice)
                 unit_add_family_to_cgroup_realize_queue(slice);
 
@@ -3560,7 +3560,7 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
         if (unit_context->memory_max != UINT64_MAX || unit_context->memory_high != UINT64_MAX)
                 available = LESS_BY(MIN(unit_context->memory_max, unit_context->memory_high), unit_current);
 
-        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
+        for (Unit *slice = UNIT_GET_SLICE_DEPENDENCY(u); slice; slice = UNIT_GET_SLICE_DEPENDENCY(slice)) {
                 uint64_t slice_current, slice_available = UINT64_MAX;
                 CGroupContext *slice_context;
 

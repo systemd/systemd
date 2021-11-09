@@ -47,20 +47,27 @@ static void slice_set_state(Slice *t, SliceState state) {
 }
 
 static int slice_add_parent_slice(Slice *s) {
-        Unit *u = UNIT(s);
+        Unit *u = UNIT(s), *slice;
         _cleanup_free_ char *a = NULL;
         int r;
 
         assert(s);
 
-        if (UNIT_GET_SLICE(u))
+        if (UNIT_GET_SLICE_DEPENDENCY(u))
                 return 0;
 
         r = slice_build_parent_slice(u->id, &a);
         if (r <= 0) /* 0 means root slice */
                 return r;
 
-        return unit_add_dependency_by_name(u, UNIT_IN_SLICE, a, true, UNIT_DEPENDENCY_IMPLICIT);
+        r = manager_load_unit(u->manager, a, NULL, NULL, &slice);
+        if (r < 0)
+                return r;
+
+        u->slice = slice;
+        u->slice_dep_mask = UNIT_DEPENDENCY_IMPLICIT;
+
+        return 1;
 }
 
 static int slice_add_default_dependencies(Slice *s) {
@@ -96,7 +103,7 @@ static int slice_verify(Slice *s) {
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to determine parent slice: %m");
 
-        if (parent ? !unit_has_name(UNIT_GET_SLICE(UNIT(s)), parent) : !!UNIT_GET_SLICE(UNIT(s)))
+        if (parent ? !unit_has_name(UNIT(s)->slice, parent) : !!UNIT(s)->slice)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Located outside of parent slice. Refusing.");
 
         return 0;
