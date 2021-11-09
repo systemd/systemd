@@ -39,6 +39,8 @@ int make_filesystem(
                 bool discard) {
 
         _cleanup_free_ char *mkfs = NULL;
+        char mangled_label[8 + 3 + 1], mangled_uuid[8 + 1];
+        const char *vol_id;
         int r;
 
         assert(node);
@@ -63,49 +65,80 @@ int make_filesystem(
                         return log_oom();
         }
 
+        if (streq(fstype, "vfat")) {
+                /* Classic FAT only allows 11 character uppercase labels */
+                strncpy(mangled_label, label, sizeof(mangled_label)-1);
+                mangled_label[sizeof(mangled_label)-1] = 0;
+                ascii_strupper(mangled_label);
+
+                /* mkfs.vfat: Labels with characters *?.,;:/\|+=<>[]" are not allowed */
+                for (char *p = mangled_label; *p; p++)
+                        if (strchr("*?.,;:/\\|+=<>[]\"", *p))
+                                *p = '_';
+
+                xsprintf(mangled_uuid, "%08" PRIx32,
+                         ((uint32_t) uuid.bytes[0] << 24) |
+                         ((uint32_t) uuid.bytes[1] << 16) |
+                         ((uint32_t) uuid.bytes[2] << 8) |
+                         ((uint32_t) uuid.bytes[3])); /* Take first 32 bytes of UUID */
+
+                label = mangled_label;
+                vol_id = mangled_uuid;
+        } else
+                vol_id = ID128_TO_UUID_STRING(uuid);
+
         r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
-                if (streq(fstype, "ext4"))
+
+                /* When changing this conditional, also adjust the log statement below. */
+                if (streq(fstype, "ext2"))
                         (void) execlp(mkfs, mkfs,
+                                      "-q",
                                       "-L", label,
-                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      "-U", vol_id,
+                                      "-I", "256",
+                                      "-m", "0",
+                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                      node, NULL);
+
+                else if (STR_IN_SET(fstype, "ext3", "ext4"))
+                        (void) execlp(mkfs, mkfs,
+                                      "-q",
+                                      "-L", label,
+                                      "-U", vol_id,
                                       "-I", "256",
                                       "-O", "has_journal",
                                       "-m", "0",
-                                      "-E", discard ? "lazy_itable_init=1,discard" : "lazy_itable_init=1,nodiscard",
+                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                       node, NULL);
 
                 else if (streq(fstype, "btrfs")) {
-                        if (discard)
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), node, NULL);
-                        else
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), "--nodiscard", node, NULL);
+                        (void) execlp(mkfs, mkfs,
+                                      "-q",
+                                      "-L", label,
+                                      "-U", vol_id,
+                                      node,
+                                      discard ? NULL : "--nodiscard",
+                                      NULL);
 
                 } else if (streq(fstype, "xfs")) {
                         const char *j;
 
-                        j = strjoina("uuid=", ID128_TO_UUID_STRING(uuid));
-                        if (discard)
-                                (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", node, NULL);
-                        else
-                                (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", "-K", node, NULL);
+                        j = strjoina("uuid=", vol_id);
 
-                } else if (streq(fstype, "vfat")) {
-                        char mangled_label[8 + 3 + 1], vol_id[8 + 1];
+                        (void) execlp(mkfs, mkfs,
+                                      "-q",
+                                      "-L", label,
+                                      "-m", j,
+                                      "-m", "reflink=1",
+                                      node,
+                                      discard ? NULL : "-K",
+                                      NULL);
 
-                        /* Classic FAT only allows 11 character uppercase labels */
-                        strncpy(mangled_label, label, sizeof(mangled_label)-1);
-                        mangled_label[sizeof(mangled_label)-1] = 0;
-                        ascii_strupper(mangled_label);
-
-                        xsprintf(vol_id, "%08" PRIx32,
-                                 ((uint32_t) uuid.bytes[0] << 24) |
-                                 ((uint32_t) uuid.bytes[1] << 16) |
-                                 ((uint32_t) uuid.bytes[2] << 8) |
-                                 ((uint32_t) uuid.bytes[3])); /* Take first 32 byte of UUID */
+                } else if (streq(fstype, "vfat"))
 
                         (void) execlp(mkfs, mkfs,
                                       "-i", vol_id,
@@ -113,14 +146,16 @@ int make_filesystem(
                                       "-F", "32",  /* yes, we force FAT32 here */
                                       node, NULL);
 
-                } else if (streq(fstype, "swap")) {
+                else if (streq(fstype, "swap"))
+                        /* TODO: add --quiet here if
+                         * https://github.com/util-linux/util-linux/issues/1499 resolved. */
 
                         (void) execlp(mkfs, mkfs,
                                       "-L", label,
-                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      "-U", vol_id,
                                       node, NULL);
 
-                } else
+                else
                         /* Generic fallback for all other file systems */
                         (void) execlp(mkfs, mkfs, node, NULL);
 
@@ -128,6 +163,13 @@ int make_filesystem(
 
                 _exit(EXIT_FAILURE);
         }
+
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "xfs", "vfat", "swap"))
+                log_info("%s successfully formatted as %s (label \"%s\", uuid %s)",
+                         node, fstype, label, vol_id);
+        else
+                log_info("%s successfully formatted as %s (no label or uuid specified)",
+                         node, fstype);
 
         return 0;
 }
