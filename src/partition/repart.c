@@ -505,18 +505,21 @@ static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
 
         avail = free_area_available(a);
         if (a->after) {
-                uint64_t need, space;
+                uint64_t need, space_end, new_end;
 
                 need = partition_min_size_with_padding(a->after);
 
                 assert(a->after->offset != UINT64_MAX);
                 assert(a->after->current_size != UINT64_MAX);
 
-                space = round_up_size(a->after->offset + a->after->current_size, 4096) - a->after->offset + avail;
-                if (need >= space)
-                        return 0;
+                /* Calculate where the free area ends, based on the offset of the partition preceding it */
+                space_end = round_up_size(a->after->offset + a->after->current_size, 4096) + avail;
 
-                return space - need;
+                /* Calculate where the partition would end when we give it as much as it needs */
+                new_end = round_up_size(a->after->offset + need, 4096);
+
+                /* Calculate saturated difference of the two: that's how much we have free for other partitions */
+                return LESS_BY(space_end, new_end);
         }
 
         return avail;
@@ -528,16 +531,9 @@ static int free_area_compare(FreeArea *const *a, FreeArea *const*b) {
 }
 
 static uint64_t charge_size(uint64_t total, uint64_t amount) {
-        uint64_t rounded;
-
-        assert(amount <= total);
-
         /* Subtract the specified amount from total, rounding up to multiple of 4K if there's room */
-        rounded = round_up_size(amount, 4096);
-        if (rounded >= total)
-                return 0;
-
-        return total - rounded;
+        assert(amount <= total);
+        return LESS_BY(total, round_up_size(amount, 4096));
 }
 
 static uint64_t charge_weight(uint64_t total, uint64_t amount) {
@@ -651,6 +647,8 @@ typedef enum GrowPartitionPhase {
 
         /* The third phase: we distribute what remains among the remaining partitions, according to the weights */
         PHASE_DISTRIBUTE,
+
+        _GROW_PARTITION_PHASE_MAX,
 } GrowPartitionPhase;
 
 static int context_grow_partitions_phase(
@@ -786,20 +784,14 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 span += round_up_size(a->after->offset + a->after->current_size, 4096) - a->after->offset;
         }
 
-        GrowPartitionPhase phase = PHASE_OVERCHARGE;
-        for (;;) {
+        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;) {
                 r = context_grow_partitions_phase(context, a, phase, &span, &weight_sum);
                 if (r < 0)
                         return r;
                 if (r == 0) /* not done yet, re-run this phase */
                         continue;
 
-                if (phase == PHASE_OVERCHARGE)
-                        phase = PHASE_UNDERCHARGE;
-                else if (phase == PHASE_UNDERCHARGE)
-                        phase = PHASE_DISTRIBUTE;
-                else if (phase == PHASE_DISTRIBUTE)
-                        break;
+                phase++; /* got to next phase */
         }
 
         /* We still have space left over? Donate to preceding partition if we have one */
@@ -807,7 +799,9 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 uint64_t m, xsz;
 
                 assert(a->after->new_size != UINT64_MAX);
-                m = a->after->new_size + span;
+
+                /* Calculate new size and align (but ensure this doesn't shrink the size) */
+                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, 4096));
 
                 xsz = partition_max_size(a->after);
                 if (xsz != UINT64_MAX && m > xsz)
@@ -832,7 +826,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                                 continue;
 
                         assert(p->new_size != UINT64_MAX);
-                        m = p->new_size + span;
+                        m = MAX(p->new_size, round_down_size(p->new_size + span, 4096));
 
                         xsz = partition_max_size(p);
                         if (xsz != UINT64_MAX && m > xsz)
@@ -1491,11 +1485,7 @@ static int determine_current_padding(
         offset = round_up_size(offset, 4096);
         next = round_down_size(next, 4096);
 
-        if (next >= offset) /* Check again, rounding might have fucked things up */
-                *ret = next - offset;
-        else
-                *ret = 0;
-
+        *ret = LESS_BY(next, offset); /* Saturated substraction, rounding might have fucked things up */
         return 0;
 }
 
@@ -4988,7 +4978,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Now calculate where each partition gets placed */
+        /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
 
         /* Make sure each partition has a unique UUID and unique label */
