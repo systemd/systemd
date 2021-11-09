@@ -505,18 +505,21 @@ static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
 
         avail = free_area_available(a);
         if (a->after) {
-                uint64_t need, space;
+                uint64_t need, space_end, new_end;
 
                 need = partition_min_size_with_padding(a->after);
 
                 assert(a->after->offset != UINT64_MAX);
                 assert(a->after->current_size != UINT64_MAX);
 
-                space = round_up_size(a->after->offset + a->after->current_size, 4096) - a->after->offset + avail;
-                if (need >= space)
-                        return 0;
+                /* Calculate where the free area ends, based on the offset of the partition preceding it */
+                space_end = round_up_size(a->after->offset + a->after->current_size, 4096) + avail;
 
-                return space - need;
+                /* Calculate where the partition would end when we give it as much as it needs */
+                new_end = round_up_size(a->after->offset + need, 4096);
+
+                /* Calculate saturated difference of the two: that's how much we have free for other partitions */
+                return LESS_BY(space_end, new_end);
         }
 
         return avail;
