@@ -10,6 +10,7 @@
 #include "veth.h"
 
 static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        struct hw_addr_data hw_addr;
         Veth *v;
         int r;
 
@@ -31,8 +32,13 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Failed to add netlink interface name: %m");
         }
 
-        if (v->hw_addr_peer.length > 0 && !hw_addr_equal(&v->hw_addr_peer, &HW_ADDR_NULL)) {
-                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &v->hw_addr_peer);
+        r = netdev_generate_hw_addr(netdev, v->ifname_peer, &v->hw_addr_peer, &hw_addr);
+        if (r < 0)
+                return r;
+
+        if (hw_addr.length > 0) {
+                log_netdev_debug(netdev, "Using MAC address for peer: %s", HW_ADDR_TO_STR(&hw_addr));
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
@@ -52,7 +58,6 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
 static int netdev_veth_verify(NetDev *netdev, const char *filename) {
         Veth *v;
-        int r;
 
         assert(netdev);
         assert(filename);
@@ -65,10 +70,6 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "Veth NetDev without peer name configured in %s. Ignoring",
                                                 filename);
-
-        r = netdev_generate_hw_addr(netdev, v->ifname_peer, &v->hw_addr_peer);
-        if (r < 0)
-                return r;
 
         return 0;
 }
