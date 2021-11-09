@@ -1732,13 +1732,9 @@ static void config_title_generate(Config *config) {
 
         /* set title */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                CHAR16 *title;
-
                 FreePool(config->entries[i]->title_show);
-                title = config->entries[i]->title;
-                if (!title)
-                        title = config->entries[i]->id;
-                config->entries[i]->title_show = StrDuplicate(title);
+                config->entries[i]->title_show = StrDuplicate(
+                                config->entries[i]->title ?: config->entries[i]->id);
         }
 
         if (!find_nonunique(config->entries, config->entry_count))
