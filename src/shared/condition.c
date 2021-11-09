@@ -509,7 +509,7 @@ static int condition_test_architecture(Condition *c, char **env) {
         return a == b;
 }
 
-#define DTCOMPAT_FILE "/sys/firmware/devicetree/base/compatible"
+#define DTCOMPAT_FILE "/proc/device-tree/compatible"
 static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         int r;
         _cleanup_free_ char *dtcompat = NULL;
@@ -530,11 +530,8 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
                 return false;
         }
 
-        /*
-         * /sys/firmware/devicetree/base/compatible consists of one or more
-         * strings, each ending in '\0'. So the last character in dtcompat must
-         * be a '\0'.
-         */
+         /* /proc/device-tree/compatible consists of one or more strings, each ending in '\0'.
+          * So the last character in dtcompat must be a '\0'. */
         if (dtcompat[size - 1] != '\0') {
                 log_debug("%s is in an unknown format, assuming machine is incompatible", DTCOMPAT_FILE);
                 return false;
