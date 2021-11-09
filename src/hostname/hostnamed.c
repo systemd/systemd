@@ -302,7 +302,7 @@ try_acpi:
         }
 
 try_devicetree:
-        r = read_one_line_file("/sys/firmware/devicetree/base/chassis-type", &type);
+        r = read_one_line_file("/proc/device-tree/chassis-type", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
                 return NULL;
