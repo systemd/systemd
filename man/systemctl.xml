@@ -1660,8 +1660,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           completion is implemented for property names.</para>
 
           <para>For the manager itself,
-          <command>systemctl show</command> will show all available
-          properties. Those properties are documented in
+          <command>systemctl show</command>
+          will show all available properties, most of which are derived or closely match the options described in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
 
