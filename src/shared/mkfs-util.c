@@ -8,6 +8,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "utf8.h"
 
 int mkfs_exists(const char *fstype) {
         const char *mkfs;
@@ -31,6 +32,30 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
+static int mangle_fat_label(const char *s, char **ret) {
+        assert(s);
+
+        _cleanup_free_ char *q = NULL;
+        int r;
+
+        r = utf8_to_ascii(s, '_', &q);
+        if (r < 0)
+                return r;
+
+        /* Classic FAT only allows 11 character uppercase labels */
+        strshorten(q, 11);
+        ascii_strupper(q);
+
+        /* mkfs.vfat: Labels with characters *?.,;:/\|+=<>[]" are not allowed.
+         * Let's also replace any control chars. */
+        for (char *p = q; *p; p++)
+                if (strchr("*?.,;:/\\|+=<>[]\"", *p) || char_is_cc(*p))
+                        *p = '_';
+
+        *ret = TAKE_PTR(q);
+        return 0;
+}
+
 int make_filesystem(
                 const char *node,
                 const char *fstype,
@@ -38,9 +63,8 @@ int make_filesystem(
                 sd_id128_t uuid,
                 bool discard) {
 
-        _cleanup_free_ char *mkfs = NULL;
-        char mangled_label[8 + 3 + 1],
-             vol_id[CONST_MAX(ID128_UUID_STRING_MAX, 8 + 1)] = {};
+        _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
+        char vol_id[CONST_MAX(ID128_UUID_STRING_MAX, 8 + 1)] = {};
         int r;
 
         assert(node);
@@ -66,10 +90,9 @@ int make_filesystem(
         }
 
         if (streq(fstype, "vfat")) {
-                /* Classic FAT only allows 11 character uppercase labels */
-                strncpy(mangled_label, label, sizeof(mangled_label)-1);
-                mangled_label[sizeof(mangled_label)-1] = 0;
-                ascii_strupper(mangled_label);
+                r = mangle_fat_label(label, &mangled_label);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine FAT label from string \"%s\": %m", label);
                 label = mangled_label;
 
                 xsprintf(vol_id, "%08" PRIx32,
