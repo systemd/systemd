@@ -71,6 +71,11 @@ int make_filesystem(
                 mangled_label[sizeof(mangled_label)-1] = 0;
                 ascii_strupper(mangled_label);
 
+                /* mkfs.vfat: Labels with characters *?.,;:/\|+=<>[]" are not allowed */
+                for (char *p = mangled_label; *p; p++)
+                        if (strchr("*?.,;:/\\|+=<>[]\"", *p))
+                                *p = '_';
+
                 xsprintf(mangled_uuid, "%08" PRIx32,
                          ((uint32_t) uuid.bytes[0] << 24) |
                          ((uint32_t) uuid.bytes[1] << 16) |
