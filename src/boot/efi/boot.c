@@ -44,10 +44,10 @@ enum loader_type {
 };
 
 typedef struct {
-        CHAR16 *id; /* The unique identifier for this entry */
-        CHAR16 *title_show;
-        CHAR16 *title;
-        CHAR16 *version;
+        CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
+        CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
+        CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        CHAR16 *version;    /* The raw (human readable) version string of the entry */
         CHAR16 *machine_id;
         EFI_HANDLE *device;
         enum loader_type type;
