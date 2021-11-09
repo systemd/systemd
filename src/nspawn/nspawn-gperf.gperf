@@ -20,7 +20,7 @@ struct ConfigPerfItem;
 %includes
 %%
 Exec.Boot,                    config_parse_boot,           0,                 0
-Exec.Ephemeral,               config_parse_bool,           0,                 offsetof(Settings, ephemeral)
+Exec.Ephemeral,               config_parse_tristate,       0,                 offsetof(Settings, ephemeral)
 Exec.ProcessTwo,              config_parse_pid2,           0,                 0
 Exec.Parameters,              config_parse_strv,           0,                 offsetof(Settings, parameters)
 Exec.Environment,             config_parse_strv,           0,                 offsetof(Settings, environment)
@@ -34,7 +34,7 @@ Exec.MachineID,               config_parse_id128,          0,                 of
 Exec.WorkingDirectory,        config_parse_path,           0,                 offsetof(Settings, working_directory)
 Exec.PivotRoot,               config_parse_pivot_root,     0,                 0
 Exec.PrivateUsers,            config_parse_private_users,  0,                 0
-Exec.NotifyReady,             config_parse_bool,           0,                 offsetof(Settings, notify_ready)
+Exec.NotifyReady,             config_parse_tristate,       0,                 offsetof(Settings, notify_ready)
 Exec.SystemCallFilter,        config_parse_syscall_filter, 0,                 0,
 Exec.LimitCPU,                config_parse_rlimit,         RLIMIT_CPU,        offsetof(Settings, rlimit)
 Exec.LimitFSIZE,              config_parse_rlimit,         RLIMIT_FSIZE,      offsetof(Settings, rlimit)
@@ -59,7 +59,7 @@ Exec.CPUAffinity,             config_parse_cpu_affinity,   0,                 0
 Exec.ResolvConf,              config_parse_resolv_conf,    0,                 offsetof(Settings, resolv_conf)
 Exec.LinkJournal,             config_parse_link_journal,   0,                 0
 Exec.Timezone,                config_parse_timezone,       0,                 offsetof(Settings, timezone)
-Exec.SuppressSync,            config_parse_bool,           0,                 offsetof(Settings, suppress_sync)
+Exec.SuppressSync,            config_parse_tristate,       0,                 offsetof(Settings, suppress_sync)
 Files.ReadOnly,               config_parse_tristate,       0,                 offsetof(Settings, read_only)
 Files.Volatile,               config_parse_volatile_mode,  0,                 offsetof(Settings, volatile_mode)
 Files.Bind,                   config_parse_bind,           0,                 0

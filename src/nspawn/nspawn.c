@@ -4284,7 +4284,8 @@ static int merge_settings(Settings *settings, const char *path) {
                 strv_free_and_replace(arg_parameters, settings->parameters);
         }
 
-        if ((arg_settings_mask & SETTING_EPHEMERAL) == 0)
+        if ((arg_settings_mask & SETTING_EPHEMERAL) == 0 &&
+            settings->ephemeral >= 0)
                 arg_ephemeral = settings->ephemeral;
 
         if ((arg_settings_mask & SETTING_DIRECTORY) == 0 &&
@@ -4454,7 +4455,8 @@ static int merge_settings(Settings *settings, const char *path) {
         if ((arg_settings_mask & SETTING_BIND_USER) == 0)
                 strv_free_and_replace(arg_bind_user, settings->bind_user);
 
-        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
+        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0 &&
+            settings->notify_ready >= 0)
                 arg_notify_ready = settings->notify_ready;
 
         if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
@@ -4577,7 +4579,8 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_console_mode = settings->console_mode;
         }
 
-        if ((arg_settings_mask & SETTING_SUPPRESS_SYNC) == 0)
+        if ((arg_settings_mask & SETTING_SUPPRESS_SYNC) == 0 &&
+            settings->suppress_sync >= 0)
                 arg_suppress_sync = settings->suppress_sync;
 
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we

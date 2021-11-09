@@ -27,6 +27,7 @@ Settings *settings_new(void) {
 
         *s = (Settings) {
                 .start_mode = _START_MODE_INVALID,
+                .ephemeral = -1,
                 .personality = PERSONALITY_INVALID,
 
                 .resolv_conf = _RESOLV_CONF_MODE_INVALID,
@@ -57,6 +58,9 @@ Settings *settings_new(void) {
 
                 .clone_ns_flags = ULONG_MAX,
                 .use_cgns = -1,
+
+                .notify_ready = -1,
+                .suppress_sync = -1,
         };
 
         return s;

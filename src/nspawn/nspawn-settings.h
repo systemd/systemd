@@ -162,7 +162,7 @@ typedef struct OciHook {
 typedef struct Settings {
         /* [Exec] */
         StartMode start_mode;
-        bool ephemeral;
+        int ephemeral;
         char **parameters;
         char **environment;
         char *user;
@@ -177,7 +177,7 @@ typedef struct Settings {
         char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
-        bool notify_ready;
+        int notify_ready;
         char **syscall_allow_list;
         char **syscall_deny_list;
         struct rlimit *rlimit[_RLIMIT_MAX];
@@ -190,7 +190,7 @@ typedef struct Settings {
         LinkJournal link_journal;
         bool link_journal_try;
         TimezoneMode timezone;
-        bool suppress_sync;
+        int suppress_sync;
 
         /* [Files] */
         int read_only;
