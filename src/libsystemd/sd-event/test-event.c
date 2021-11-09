@@ -713,6 +713,40 @@ static void test_simple_timeout(void) {
         assert_se(t >= usec_add(f, some_time));
 }
 
+static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        sd_event_source **p = userdata;
+
+        assert_se(ev);
+        assert_se(p);
+        assert_se(*p == s);
+
+        assert_se(FLAGS_SET(ev->mask, IN_ATTRIB));
+
+        assert_se(sd_event_exit(sd_event_source_get_event(s), 0) >= 0);
+
+        *p = sd_event_source_unref(*p); /* here's what we actually intend to test: we destroy the event
+                                         * source from inside the event source handler */
+        return 1;
+}
+
+static void test_inotify_self_destroy(void) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        char path[] = "/tmp/inotifyXXXXXX";
+        _cleanup_close_ int fd = -1;
+
+        /* Tests that destroying an inotify event source from its own handler is safe */
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        fd = mkostemp_safe(path);
+        assert_se(fd >= 0);
+        assert_se(sd_event_add_inotify_fd(e, &s, fd, IN_ATTRIB, inotify_self_destroy_handler, &s) >= 0);
+        fd = safe_close(fd);
+        assert_se(unlink(path) >= 0); /* This will trigger IN_ATTRIB because link count goes to zero */
+        assert_se(sd_event_loop(e) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -730,6 +764,8 @@ int main(int argc, char *argv[]) {
         test_pidfd();
 
         test_ratelimit();
+
+        test_inotify_self_destroy();
 
         return 0;
 }

@@ -1820,6 +1820,29 @@ static void event_free_inode_data(
         free(d);
 }
 
+static void event_gc_inotify_data(
+                sd_event *e,
+                struct inotify_data *d) {
+
+        assert(e);
+
+        /* GCs the inotify data object if we don't need it anymore. That's the case if we don't want to watch
+         * any inode with it anymore, which in turn happens if no event source of this priority is interested
+         * in any inode any longer. That said, we maintain an extra busy counter: if non-zero we'll delay GC
+         * (under the expectation that the GC is called again once the counter is decremented). */
+
+        if (!d)
+                return;
+
+        if (!hashmap_isempty(d->inodes))
+                return;
+
+        if (d->n_busy > 0)
+                return;
+
+        event_free_inotify_data(e, d);
+}
+
 static void event_gc_inode_data(
                 sd_event *e,
                 struct inode_data *d) {
@@ -1837,8 +1860,7 @@ static void event_gc_inode_data(
         inotify_data = d->inotify_data;
         event_free_inode_data(e, d);
 
-        if (inotify_data && hashmap_isempty(inotify_data->inodes))
-                event_free_inotify_data(e, inotify_data);
+        event_gc_inotify_data(e, inotify_data);
 }
 
 static int event_make_inode_data(
@@ -1967,24 +1989,25 @@ static int inotify_exit_callback(sd_event_source *s, const struct inotify_event 
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-_public_ int sd_event_add_inotify(
+static int event_add_inotify_fd_internal(
                 sd_event *e,
                 sd_event_source **ret,
-                const char *path,
+                int fd,
+                bool donate,
                 uint32_t mask,
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
+        _cleanup_close_ int donated_fd = donate ? fd : -1;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct inotify_data *inotify_data = NULL;
         struct inode_data *inode_data = NULL;
-        _cleanup_close_ int fd = -1;
-        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct stat st;
         int r;
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(path, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -1996,12 +2019,6 @@ _public_ int sd_event_add_inotify(
          * the user can't use them for us. */
         if (mask & IN_MASK_ADD)
                 return -EINVAL;
-
-        fd = open(path, O_PATH|O_CLOEXEC|
-                  (mask & IN_ONLYDIR ? O_DIRECTORY : 0)|
-                  (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
-        if (fd < 0)
-                return -errno;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -2022,14 +2039,24 @@ _public_ int sd_event_add_inotify(
 
         r = event_make_inode_data(e, inotify_data, st.st_dev, st.st_ino, &inode_data);
         if (r < 0) {
-                event_free_inotify_data(e, inotify_data);
+                event_gc_inotify_data(e, inotify_data);
                 return r;
         }
 
         /* Keep the O_PATH fd around until the first iteration of the loop, so that we can still change the priority of
          * the event source, until then, for which we need the original inode. */
         if (inode_data->fd < 0) {
-                inode_data->fd = TAKE_FD(fd);
+                if (donated_fd >= 0)
+                        inode_data->fd = TAKE_FD(donated_fd);
+                else {
+                        inode_data->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (inode_data->fd < 0) {
+                                r = -errno;
+                                event_gc_inode_data(e, inode_data);
+                                return r;
+                        }
+                }
+
                 LIST_PREPEND(to_close, e->inode_data_to_close, inode_data);
         }
 
@@ -2042,13 +2069,53 @@ _public_ int sd_event_add_inotify(
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(s, path);
-
         if (ret)
                 *ret = s;
         TAKE_PTR(s);
 
         return 0;
+}
+
+_public_ int sd_event_add_inotify_fd(
+                sd_event *e,
+                sd_event_source **ret,
+                int fd,
+                uint32_t mask,
+                sd_event_inotify_handler_t callback,
+                void *userdata) {
+
+        return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ false, mask, callback, userdata);
+}
+
+_public_ int sd_event_add_inotify(
+                sd_event *e,
+                sd_event_source **ret,
+                const char *path,
+                uint32_t mask,
+                sd_event_inotify_handler_t callback,
+                void *userdata) {
+
+        sd_event_source *s;
+        int fd, r;
+
+        assert_return(path, -EINVAL);
+
+        fd = open(path, O_PATH|O_CLOEXEC|
+                  (mask & IN_ONLYDIR ? O_DIRECTORY : 0)|
+                  (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        if (fd < 0)
+                return -errno;
+
+        r = event_add_inotify_fd_internal(e, &s, fd, /* donate= */ true, mask, callback, userdata);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, path);
+
+        if (ret)
+                *ret = s;
+
+        return r;
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
@@ -3556,13 +3623,23 @@ static int source_dispatch(sd_event_source *s) {
                 sz = offsetof(struct inotify_event, name) + d->buffer.ev.len;
                 assert(d->buffer_filled >= sz);
 
+                /* If the inotify callback destroys the event source then this likely means we don't need to
+                 * watch the inode anymore, and thus also won't need the inotify object anymore. But if we'd
+                 * free it immediately, then we couldn't drop the event from the inotify event queue without
+                 * memory corruption anymore, as below. Hence, let's not free it immediately, but mark it
+                 * "busy" with a counter (which will ensure it's not GC'ed away prematurely). Let's then
+                 * explicitly GC it after we are done dropping the inotify event from the buffer. */
+                d->n_busy++;
                 r = s->inotify.callback(s, &d->buffer.ev, s->userdata);
+                d->n_busy--;
 
-                /* When no event is pending anymore on this inotify object, then let's drop the event from the
-                 * buffer. */
+                /* When no event is pending anymore on this inotify object, then let's drop the event from
+                 * the inotify event queue buffer. */
                 if (d->n_pending == 0)
                         event_inotify_data_drop(e, d, sz);
 
+                /* Now we don't want to access 'd' anymore, it's OK to GC now. */
+                event_gc_inotify_data(e, d);
                 break;
         }
 
