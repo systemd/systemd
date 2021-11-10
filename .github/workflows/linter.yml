@@ -13,6 +13,9 @@ jobs:
   build:
     name: Lint Code Base
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Repo checkout
