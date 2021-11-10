@@ -113,7 +113,7 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         }
 
         if (c->split_gso >= 0) {
-                r = sd_netlink_message_append_u32(req, TCA_CAKE_SPLIT_GSO, c->wash);
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_SPLIT_GSO, c->split_gso);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_CAKE_SPLIT_GSO attribute: %m");
         }
