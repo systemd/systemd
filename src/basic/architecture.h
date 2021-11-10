@@ -210,8 +210,7 @@ int uname_architecture(void);
 #elif defined(__nios2__)
 #  define native_architecture() ARCHITECTURE_NIOS2
 #  define LIB_ARCH_TUPLE "nios2-linux-gnu"
-#elif defined(__riscv__) || defined(__riscv)
-        /* __riscv__ is obsolete, remove in 2018 */
+#elif defined(__riscv)
 #  if __SIZEOF_POINTER__ == 4
 #    define native_architecture() ARCHITECTURE_RISCV32
 #    define LIB_ARCH_TUPLE "riscv32-linux-gnu"
