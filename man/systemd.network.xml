@@ -132,6 +132,7 @@
         <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
         <xi:include href="systemd.link.xml" xpointer="kernel-version" />
         <xi:include href="systemd.link.xml" xpointer="architecture" />
+        <xi:include href="systemd.link.xml" xpointer="firmware" />
       </variablelist>
 
   </refsect1>
