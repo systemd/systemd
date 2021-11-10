@@ -4,6 +4,16 @@
 #include "string-util.h"
 #include "utf8.h"
 
+/* Gently push people towards defining GPT type UUIDs for all architectures we know */
+#if !defined(GPT_ROOT_NATIVE) ||                                        \
+        !defined(GPT_ROOT_NATIVE_VERITY) ||                             \
+        !defined(GPT_ROOT_NATIVE_VERITY_SIG) ||                         \
+        !defined(GPT_USR_NATIVE) ||                                     \
+        !defined(GPT_USR_NATIVE_VERITY) ||                              \
+        !defined(GPT_USR_NATIVE_VERITY_SIG)
+#pragma message "Please define GPT partition types for your architecture."
+#endif
+
 const GptPartitionType gpt_partition_type_table[] = {
         { GPT_ROOT_X86,                    "root-x86"                    },
         { GPT_ROOT_X86_VERITY,             "root-x86-verity"             },
