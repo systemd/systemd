@@ -1,0 +1,42 @@
+name: "CodeQL"
+
+on:
+  # It takes the workflow approximately 30 minutes to analyze the code base
+  # so it doesn't seem to make much sense to trigger it on every PR or commit.
+  # It runs daily at 01:00 to avoid colliding with the Coverity workflow.
+  schedule:
+    - cron: '0 1 * * *'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.language }}-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp', 'python' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: ${{ matrix.language }}
+
+    - run: sudo -E .github/workflows/unit_tests.sh SETUP
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v1
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
