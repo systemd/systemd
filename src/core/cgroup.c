@@ -1264,9 +1264,21 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
+/* Convert the normal io.weight value to io.bfq.weight */
+#define BFQ_WEIGHT(weight) \
+        (weight <= CGROUP_WEIGHT_DEFAULT ? \
+         CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN) : \
+         CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT))
+
+assert_cc(BFQ_WEIGHT(1) == 1);
+assert_cc(BFQ_WEIGHT(50) == 50);
+assert_cc(BFQ_WEIGHT(100) == 100);
+assert_cc(BFQ_WEIGHT(500) == 136);
+assert_cc(BFQ_WEIGHT(5000) == 545);
+assert_cc(BFQ_WEIGHT(10000) == 1000);
+
 static void set_io_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("default \n")+DECIMAL_STR_MAX(uint64_t)];
-        uint64_t bfq_weight;
 
         assert(u);
 
@@ -1274,12 +1286,7 @@ static void set_io_weight(Unit *u, uint64_t weight) {
          * See also: https://github.com/systemd/systemd/pull/13335 and
          * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
          * The range is 1..1000 apparently, and the default is 100. */
-        if (weight <= CGROUP_WEIGHT_DEFAULT)
-                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN);
-        else
-                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
-
-        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
         (void) set_attribute_and_warn(u, "io", "io.bfq.weight", buf);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
@@ -1288,20 +1295,11 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
 static void set_blkio_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("\n")+DECIMAL_STR_MAX(uint64_t)];
-        uint64_t bfq_weight;
 
         assert(u);
 
-        /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
-         * See also: https://github.com/systemd/systemd/pull/13335 and
-         * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
-         * The range is 1..1000 apparently, and the default is 100. */
-        if (weight <= CGROUP_BLKIO_WEIGHT_DEFAULT)
-                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_BLKIO_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_BLKIO_WEIGHT_DEFAULT - CGROUP_BLKIO_WEIGHT_MIN);
-        else
-                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_BLKIO_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_BLKIO_WEIGHT_MAX - CGROUP_BLKIO_WEIGHT_DEFAULT);
-
-        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        /* FIXME: see comment in set_io_weight(). */
+        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
         (void) set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf);
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
