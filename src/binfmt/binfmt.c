@@ -189,7 +189,7 @@ static int run(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
 
         log_setup();
 
