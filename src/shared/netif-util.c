@@ -67,7 +67,7 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
 
         log_device_debug(device, "Using \"%s\" as stable identifying information", name);
 
-        return net_get_unique_predictable_data_from_name(name, NULL, ret);
+        return net_get_unique_predictable_data_from_name(name, &HASH_KEY, ret);
 }
 
 int net_get_unique_predictable_data_from_name(
@@ -80,10 +80,8 @@ int net_get_unique_predictable_data_from_name(
         int r;
 
         assert(name);
+        assert(key);
         assert(ret);
-
-        if (!key)
-                key = &HASH_KEY;
 
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
