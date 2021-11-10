@@ -81,6 +81,46 @@ Janitorial Clean-ups:
 
 Features:
 
+* userdb: when synthesizing NSS records, pick "best" password from defined
+  passwords, not just the first. i.e. if there are multiple defined, prefer
+  unlocked over locked and prefer non-empty over empty.
+
+* maybe add a tool inspired by the GPT auto discovery spec that runs in the
+  initrd and rearranges the rootfs hierarchy via bind mounts, if
+  enabled. Specifically in some top-level dir /@auto/ it will look for
+  dirs/symlinks/subvolumes that are named after their purpose, and optionally
+  encode a version as well as assessment counters, and then mount them into the
+  file system tree to boot into, similar to how we do that for the gpt auto
+  logic. Maybe then bind mount the original root into /.superior or something
+  like that (so that update tools can look there). Further discussion in this
+  thread:
+  https://lists.freedesktop.org/archives/systemd-devel/2021-November/047059.html
+  The GPT dissection logic should automatically enable this tool whenever we
+  detect a specially marked root fs (i.e introduce a new generic root gpt type
+  for this, that is arch independent). The also implement this in the image
+  dissection logic, so that nspawn/RootImage= and so on grok it. Maybe make
+  generic enough so that it can also work for ostrees arrangements.
+
+* if a path ending in ".auto.d/" is set for RootDirectory=/RootImage= then do a
+  strverscmp() of everything inside that dir and use that. i.e. implement very
+  simple version control. Also use this in systemd-nspawn --image= and so on.
+
+* homed: while a home dir is not activated generate slightly different NSS
+  records for it, that reports the home dir as "/" and the shell as some binary
+  provided by us. Then, when an SSH login happens and SSH permits it our binary
+  is invoked. This binary can then talk to homed and activate the homedir if
+  it's not around yet, prompting the user for a password. Once that succeeded
+  we'll switch to the real user record, i.e. home dir and shell, and our tool
+  exec()s the latter. Net effect: ssh'ing into a homed account will just work:
+  we'll neatly prompt for the homedir's password if its needed. –– Building on
+  this we could take this even further: since this tool will potentially have
+  access to the client's ssh-agent (if ssh-agent forwarding is enabled) we
+  could implement SSH unlocking of a homedir with that: when enrolling a new
+  ssh pubkey in a user record we'd ask the ssh-agent to sign some random value
+  with the privkey, then use that as luks key to unlock the home dir. Will not
+  work for ECDSA keys since their signatures contain a random component, but
+  will work for RSA and Ed25519 keys.
+
 * add tiny service that decrypts encrypted user records passed via initrd
   credential logic and drops them into /run where nss-systemd can pick them up,
   similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
