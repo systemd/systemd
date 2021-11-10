@@ -306,11 +306,9 @@ installation processes of Linux a bit more robust and self-descriptive.
 
 ### Why did you only define the root partition for these listed architectures?
 
-The automatic discovery of the root partition is defined to operate on the disk
-containing the current EFI System Partition (ESP). Since EFI only exists on
-x86, x86-64, ia64, ARM, LoongArch and RISC-V so far, we only defined root
-partition UUIDs for these architectures.  Should EFI become more common on
-other architectures, we can define additional UUIDs for them.
+Please submit a patch that adds appropriate partition type UUIDs for the
+architecture of your choice should they be missing so far. The only reason they
+aren't defined yet is that nobody submitted them yet.
 
 ### Why define distinct root partition UUIDs for the various architectures?
 
