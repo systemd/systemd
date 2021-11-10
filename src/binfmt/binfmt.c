@@ -200,15 +200,13 @@ static int run(int argc, char *argv[]) {
         if (arg_unregister)
                 return disable_binfmt();
 
-        if (argc > optind) {
-                int i;
-
-                for (i = optind; i < argc; i++) {
+        if (argc > optind)
+                for (int i = optind; i < argc; i++) {
                         k = apply_file(argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
-        } else {
+        else {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
