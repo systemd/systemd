@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'systemd/systemd'
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ github.ref }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
