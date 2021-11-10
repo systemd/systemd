@@ -243,13 +243,13 @@ int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name
                 r = sd_event_add_defer(s->events, &source->buffer_event,
                                        dispatch_raw_source_until_block, source);
                 if (r == 0)
-                        sd_event_source_set_enabled(source->buffer_event, SD_EVENT_OFF);
+                        r = sd_event_source_set_enabled(source->buffer_event, SD_EVENT_OFF);
         } else if (r == -EPERM) {
                 log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, name);
                 r = sd_event_add_defer(s->events, &source->event,
                                        dispatch_blocking_source_event, source);
                 if (r == 0)
-                        sd_event_source_set_enabled(source->event, SD_EVENT_ON);
+                        r = sd_event_source_set_enabled(source->event, SD_EVENT_ON);
         }
         if (r < 0) {
                 log_error_errno(r, "Failed to register event source for fd:%d: %m",

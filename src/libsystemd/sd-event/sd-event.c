@@ -3664,7 +3664,7 @@ static int source_dispatch(sd_event_source *s) {
         if (s->n_ref == 0)
                 source_free(s);
         else if (r < 0)
-                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
 
         return 1;
 }
@@ -3705,7 +3705,7 @@ static int event_prepare(sd_event *e) {
                 if (s->n_ref == 0)
                         source_free(s);
                 else if (r < 0)
-                        sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
         }
 
         return 0;
