@@ -20,6 +20,9 @@ jobs:
   Fuzzing:
     runs-on: ubuntu-latest
     if: github.repository == 'systemd/systemd'
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
