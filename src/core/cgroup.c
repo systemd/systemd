@@ -2284,6 +2284,8 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                 if (z < 0)
                                         log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, empty_to_root(p));
                                 else
+                                        if (ret >= 0)
+                                                ret++; /* Count successful additions */
                                         continue; /* When the bus thing worked via the bus we are fully done for this PID. */
                         }
 
