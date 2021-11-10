@@ -17,32 +17,32 @@ on:
     branches:
       - main
 jobs:
- Fuzzing:
-   runs-on: ubuntu-latest
-   if: github.repository == 'systemd/systemd'
-   strategy:
-     fail-fast: false
-     matrix:
-       sanitizer: [address, undefined, memory]
-   steps:
-   - name: Build Fuzzers (${{ matrix.sanitizer }})
-     id: build
-     uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
-     with:
-       oss-fuzz-project-name: 'systemd'
-       dry-run: false
-       allowed-broken-targets-percentage: 0
-       sanitizer: ${{ matrix.sanitizer }}
-   - name: Run Fuzzers (${{ matrix.sanitizer }})
-     uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
-     with:
-       oss-fuzz-project-name: 'systemd'
-       fuzz-seconds: 600
-       dry-run: false
-       sanitizer: ${{ matrix.sanitizer }}
-   - name: Upload Crash
-     uses: actions/upload-artifact@v1
-     if: failure() && steps.build.outcome == 'success'
-     with:
-       name: ${{ matrix.sanitizer }}-artifacts
-       path: ./out/artifacts
+  Fuzzing:
+    runs-on: ubuntu-latest
+    if: github.repository == 'systemd/systemd'
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined, memory]
+    steps:
+      - name: Build Fuzzers (${{ matrix.sanitizer }})
+        id: build
+        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+        with:
+          oss-fuzz-project-name: 'systemd'
+          dry-run: false
+          allowed-broken-targets-percentage: 0
+          sanitizer: ${{ matrix.sanitizer }}
+      - name: Run Fuzzers (${{ matrix.sanitizer }})
+        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+        with:
+          oss-fuzz-project-name: 'systemd'
+          fuzz-seconds: 600
+          dry-run: false
+          sanitizer: ${{ matrix.sanitizer }}
+      - name: Upload Crash
+        uses: actions/upload-artifact@v1
+        if: failure() && steps.build.outcome == 'success'
+        with:
+          name: ${{ matrix.sanitizer }}-artifacts
+          path: ./out/artifacts
