@@ -4,10 +4,6 @@
 #
 name: Unit tests
 on:
-  # On push/merge to main we only run the GCC job, to get coverage data uploaded to coveralls.io
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -15,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -22,10 +21,7 @@ jobs:
     steps:
       - name: Repository checkout
         uses: actions/checkout@v2
-        if: github.event_name == 'pull_request' || matrix.run_phase == 'GCC'
       - name: Install build dependencies
         run: sudo -E .github/workflows/unit_tests.sh SETUP
-        if: github.event_name == 'pull_request' || matrix.run_phase == 'GCC'
       - name: Build & test (${{ matrix.run_phase }})
         run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
-        if: github.event_name == 'pull_request' || matrix.run_phase == 'GCC'
