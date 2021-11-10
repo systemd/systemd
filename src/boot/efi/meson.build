@@ -242,9 +242,12 @@ if get_option('b_ndebug') == 'true' or (
    get_option('b_ndebug') == 'if-release' and get_option('buildtype') in ['plain', 'release'])
         compile_args += ['-DNDEBUG']
 endif
+if get_option('b_lto')
+        compile_args += ['-flto']
+endif
 
 foreach arg : get_option('c_args')
-        if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG']
+        if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG', '-flto', '-fno-lto']
                 message('Using "@0@" from c_args for EFI compiler'.format(arg))
                 compile_args += arg
         endif
@@ -254,7 +257,6 @@ efi_ldflags = [
         '-fuse-ld=' + get_option('efi-ld'),
         '-L', efi_libdir,
         '-nostdlib',
-        '-shared',
         '-T', efi_lds,
         '-Wl,--build-id=sha1',
         '-Wl,--fatal-warnings',
@@ -265,15 +267,21 @@ efi_ldflags = [
         efi_crt0,
 ]
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
+        efi_ldflags += ['-shared', '-fwhole-program']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
         efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
         efi_format = ['-O', 'binary']
 else
+        efi_ldflags += ['-pie']
+        if get_option('efi-ld') == 'bfd'
+                efi_ldflags += '-Wl,--no-dynamic-linker'
+        endif
         efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
 endif
 
-if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
+efi_cc_version = run_command(efi_cc, '--version').stdout().split('\n')[0]
+if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[-1].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
 endif
@@ -305,7 +313,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
+                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, compile_args, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
@@ -314,6 +322,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 input : so,
                 output : tuple[1],
                 command : [objcopy,
+                           '-j', '.bss*',
                            '-j', '.data',
                            '-j', '.dynamic',
                            '-j', '.dynsym',
