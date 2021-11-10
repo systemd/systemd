@@ -27,77 +27,82 @@ static bool arg_cat_config = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_unregister = false;
 
-static int delete_rule(const char *rule) {
-        _cleanup_free_ char *x = NULL, *fn = NULL;
-        char *e;
-
-        assert(rule);
-        assert(rule[0]);
-
-        e = strchrnul(rule + 1, rule[0]);
-        x = strndup(rule + 1, e - rule - 1);
-        if (!x)
-                return log_oom();
-
-        if (!filename_is_valid(x) ||
-            STR_IN_SET(x, "register", "status"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Rule file name '%s' is not valid, refusing.", x);
-
-        fn = path_join("/proc/sys/fs/binfmt_misc", x);
-        if (!fn)
-                return log_oom();
-
+static int delete_rule(const char *rulename) {
+        const char *fn = strjoina("/proc/sys/fs/binfmt_misc/", rulename);
         return write_string_file(fn, "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
-static int apply_rule(const char *rule) {
+static int apply_rule(const char *filename, unsigned line, const char *rule) {
+        assert(filename);
+        assert(line > 0);
+        assert(rule);
+        assert(rule[0]);
+
+        _cleanup_free_ char *rulename = NULL;
+        const char *e;
         int r;
 
-        (void) delete_rule(rule);
+        e = strchrnul(rule + 1, rule[0]);
+        rulename = strndup(rule + 1, e - rule - 1);
+        if (!rulename)
+                return log_oom();
+
+        if (!filename_is_valid(rulename) ||
+            STR_IN_SET(rulename, "register", "status"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s:%u: Rule name '%s' is not valid, refusing.",
+                                       filename, line, rulename);
+        r = delete_rule(rulename);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "%s:%u: Failed to delete rule '%s', ignoring: %m",
+                                  filename, line, rulename);
+        if (r >= 0)
+                log_debug("%s:%u: Rule '%s' deleted.", filename, line, rulename);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_error_errno(r, "Failed to add binary format: %m");
+                return log_error_errno(r, "%s:%u: Failed to add binary format '%s': %m",
+                                       filename, line, rulename);
 
+        log_debug("%s:%u: Binary format '%s' registered.", filename, line, rulename);
         return 0;
 }
 
-static int apply_file(const char *path, bool ignore_enoent) {
+static int apply_file(const char *filename, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
         int r;
 
-        assert(path);
+        assert(filename);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
+        r = search_and_fopen(filename, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                return log_error_errno(r, "Failed to open file '%s': %m", path);
+                return log_error_errno(r, "Failed to open file '%s': %m", filename);
         }
 
-        log_debug("apply: %s", pp);
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
+        log_debug("Applying %s…", pp);
+        for (unsigned line = 1;; line++) {
+                _cleanup_free_ char *text = NULL;
                 char *p;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &line);
+                k = read_line(f, LONG_LINE_MAX, &text);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read file '%s': %m", pp);
                 if (k == 0)
                         break;
 
-                p = strstrip(line);
+                p = strstrip(text);
                 if (isempty(p))
                         continue;
                 if (strchr(COMMENTS, p[0]))
                         continue;
 
-                k = apply_rule(p);
-                if (k < 0 && r == 0)
+                k = apply_rule(filename, line, p);
+                if (k < 0 && r >= 0)
                         r = k;
         }
 
@@ -203,7 +208,7 @@ static int run(int argc, char *argv[]) {
         if (argc > optind)
                 for (int i = optind; i < argc; i++) {
                         k = apply_file(argv[i], false);
-                        if (k < 0 && r == 0)
+                        if (k < 0 && r >= 0)
                                 r = k;
                 }
         else {
@@ -221,11 +226,15 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                (void) write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to flush binfmt_misc rules, ignoring: %m");
+                else
+                        log_debug("Flushed all binfmt_misc rules.");
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);
-                        if (k < 0 && r == 0)
+                        if (k < 0 && r >= 0)
                                 r = k;
                 }
         }
