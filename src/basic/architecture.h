@@ -44,6 +44,7 @@ enum {
         ARCHITECTURE_RISCV64,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
+        ARCHITECTURE_LOONGARCH64,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -EINVAL,
 };
@@ -229,6 +230,9 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_ARC
 #    define LIB_ARCH_TUPLE "arc-linux"
 #  endif
+#elif defined(__loongarch64)
+#    define native_architecture() ARCHITECTURE_LOONGARCH64
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnu"
 #else
 #  error "Please register your architecture here!"
 #endif
