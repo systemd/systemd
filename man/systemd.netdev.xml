@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.network</title>
@@ -197,78 +198,16 @@
   <refsect1>
     <title>[Match] Section Options</title>
 
-    <para>A virtual network device is only created if the
-    [Match] section matches the current
-    environment, or if the section is empty. The following keys are
-    accepted:</para>
+    <para>A virtual network device is only created if the [Match] section matches the current
+    environment, or if the section is empty. The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Host=</varname></term>
-        <listitem>
-          <para>Matches against the hostname or machine ID of the host. See
-          <literal>ConditionHost=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Virtualization=</varname></term>
-        <listitem>
-          <para>Checks whether the system is executed in a virtualized environment and optionally test
-          whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>KernelCommandLine=</varname></term>
-        <listitem>
-          <para>Checks whether a specific kernel command line option is set. See
-          <literal>ConditionKernelCommandLine=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>KernelVersion=</varname></term>
-        <listitem>
-          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
-          certain expression. See <literal>ConditionKernelVersion=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Architecture=</varname></term>
-        <listitem>
-          <para>Checks whether the system is running on a specific architecture. See
-          <literal>ConditionArchitecture=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Firmware=</varname></term>
-        <listitem>
-          <para>Checks whether the system is running on a machine with the specified firmware. See
-          <literal>ConditionFirmware=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="systemd.link.xml" xpointer="host" />
+      <xi:include href="systemd.link.xml" xpointer="virtualization" />
+      <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
+      <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="architecture" />
+      <xi:include href="systemd.link.xml" xpointer="firmware" />
     </variablelist>
   </refsect1>
 
