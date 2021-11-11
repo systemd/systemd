@@ -15,11 +15,6 @@ typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 
-union lladdr_union {
-        struct ether_addr mac;
-        union in_addr_union ip;
-};
-
 typedef struct Neighbor {
         Network *network;
         Link *link;
@@ -29,8 +24,7 @@ typedef struct Neighbor {
 
         int family;
         union in_addr_union in_addr;
-        union lladdr_union lladdr;
-        size_t lladdr_size;
+        struct hw_addr_data ll_addr;
 } Neighbor;
 
 Neighbor *neighbor_free(Neighbor *neighbor);
@@ -52,5 +46,4 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Neighbor, neighbor);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
-CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_lladdr);
