@@ -611,19 +611,26 @@ int config_parse_neighbor_address(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
+        Network *network = userdata;
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return log_oom();
+
+        if (isempty(rvalue)) {
+                n->family = AF_UNSPEC;
+                n->in_addr = IN_ADDR_NULL;
+                TAKE_PTR(n);
+                return 0;
+        }
 
         r = in_addr_from_string_auto(rvalue, &n->family, &n->in_addr);
         if (r < 0) {
@@ -633,7 +640,6 @@ int config_parse_neighbor_address(
         }
 
         TAKE_PTR(n);
-
         return 0;
 }
 
@@ -649,19 +655,25 @@ int config_parse_neighbor_lladdr(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
+        Network *network = userdata;
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return log_oom();
+
+        if (isempty(rvalue)) {
+                n->ll_addr = HW_ADDR_NULL;
+                TAKE_PTR(n);
+                return 0;
+        }
 
         r = parse_hw_addr(rvalue, &n->ll_addr);
         if (r < 0) {
