@@ -12,5 +12,5 @@ int network_build_json(Network *network, JsonVariant **ret) {
         }
 
         return json_build(ret, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR("NetworkFile", JSON_BUILD_STRING(network->filename))));
+                                JSON_BUILD_PAIR_STRING("NetworkFile", network->filename)));
 }
