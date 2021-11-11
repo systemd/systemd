@@ -61,6 +61,8 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unu
 #define FORMAT_LIFETIME(lifetime) \
         format_lifetime((char[FORMAT_TIMESPAN_MAX+STRLEN("for ")]){}, FORMAT_TIMESPAN_MAX+STRLEN("for "), lifetime)
 
+int address_flags_to_string_alloc(uint32_t flags, int family, char **ret);
+
 int address_new(Address **ret);
 Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);

@@ -13,7 +13,7 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "parse-util.h"

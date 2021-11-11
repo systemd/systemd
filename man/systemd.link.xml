@@ -89,12 +89,48 @@
       <varlistentry id='mac-address'>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
-          This option may appear more than once, in which case the lists are merged. If the empty string is assigned to this option, the list
-          of hardware addresses defined prior to this is reset.</para>
+          <para>A whitespace-separated list of hardware addresses. The acceptable formats are:</para>
 
-          <para>Example:
-          <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
+          <variablelist>
+            <varlistentry>
+              <term><option>colon-delimited hexadecimal</option></term>
+              <listitem><para>
+                Each field must be one byte.
+                E.g. <literal>12:34:56:78:90:ab</literal> or <literal>AA:BB:CC:DD:EE:FF</literal>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hyphen-delimited hexadecimal</option></term>
+              <listitem><para>
+                Each field must be one byte.
+                E.g. <literal>12-34-56-78-90-ab</literal> or <literal>AA-BB-CC-DD-EE-FF</literal>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dot-delimited hexadecimal</option></term>
+              <listitem><para>
+                Each field must be two bytes.
+                E.g. <literal>1234.5678.90ab</literal> or <literal>AABB.CCDD.EEFF</literal>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>IPv4 address format</option></term>
+              <listitem><para>
+                E.g. <literal>127.0.0.1</literal> or <literal>192.168.0.1</literal>.
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>IPv6 address format</option></term>
+              <listitem><para>
+                E.g. <literal>2001:0db8:85a3::8a2e:0370:7334</literal> or <literal>::1</literal>.
+              </para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>The total length of each MAC address must be 4 (for IPv4 tunnel), 6 (for Ethernet), 16
+          (for IPv6 tunnel), or 20 (for InfiniBand). This option may appear more than once, in which
+          case the lists are merged. If the empty string is assigned to this option, the list of
+          hardware addresses defined prior to this is reset. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
@@ -104,9 +140,10 @@
           <para>A whitespace-separated list of hardware's permanent addresses. While
           <varname>MACAddress=</varname> matches the device's current MAC address, this matches the
           device's permanent MAC address, which may be different from the current one. Use full
-          colon-, hyphen- or dot-delimited hexadecimal. This option may appear more than once, in
-          which case the lists are merged. If the empty string is assigned to this option, the list
-          of hardware addresses defined prior to this is reset.</para>
+          colon-, hyphen- or dot-delimited hexadecimal, or IPv4 or IPv6 address format. This option may
+          appear more than once, in which case the lists are merged. If the empty string is assigned to
+          this option, the list of hardware addresses defined prior to this is reset. Defaults to
+          unset.</para>
         </listitem>
       </varlistentry>
 
