@@ -4,6 +4,7 @@
 #include <efigpt.h>
 #include <efilib.h>
 
+#include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
 #include "disk.h"
@@ -28,8 +29,9 @@
 
 #define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
-/* magic string to find in the binary image */
-_used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
+/* Magic string for recognizing our own binaries */
+_used_ _section_(".sdmagic") static const char magic[] =
+        "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
 /* Makes systemd-boot available from \EFI\Linux\ for testing purposes. */
 _used_ _section_(".osrel") static const char osrel[] =
@@ -44,10 +46,10 @@ enum loader_type {
 };
 
 typedef struct {
-        CHAR16 *id; /* The unique identifier for this entry */
-        CHAR16 *title_show;
-        CHAR16 *title;
-        CHAR16 *version;
+        CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
+        CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
+        CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        CHAR16 *version;    /* The raw (human readable) version string of the entry */
         CHAR16 *machine_id;
         EFI_HANDLE *device;
         enum loader_type type;
@@ -1651,14 +1653,14 @@ static void config_sort_entries(Config *config) {
         sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
-static INTN config_entry_find(Config *config, CHAR16 *needle) {
+static INTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
         if (!needle)
                 return -1;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (MetaiMatch(config->entries[i]->id, needle))
+                if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
                         return (INTN) i;
 
         return -1;
@@ -1732,13 +1734,9 @@ static void config_title_generate(Config *config) {
 
         /* set title */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                CHAR16 *title;
-
                 FreePool(config->entries[i]->title_show);
-                title = config->entries[i]->title;
-                if (!title)
-                        title = config->entries[i]->id;
-                config->entries[i]->title_show = StrDuplicate(title);
+                config->entries[i]->title_show = StrDuplicate(
+                                config->entries[i]->title ?: config->entries[i]->id);
         }
 
         if (!find_nonunique(config->entries, config->entry_count))
@@ -2044,8 +2042,10 @@ static void config_entry_add_linux(
                         NULL,
                 };
 
-                _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL, *os_image_version = NULL;
+                _cleanup_freepool_ CHAR16 *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL,
+                        *path = NULL;
+                const CHAR16 *good_name, *good_version;
                 _cleanup_freepool_ CHAR8 *content = NULL;
                 UINTN offs[_SECTION_MAX] = {};
                 UINTN szs[_SECTION_MAX] = {};
@@ -2077,39 +2077,27 @@ static void config_entry_add_linux(
 
                 /* read properties from the embedded os-release file */
                 while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
-                        if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
-                                FreePool(os_name_pretty);
-                                os_name_pretty = stra_to_str(value);
+                        if (strcmpa((const CHAR8*) "PRETTY_NAME", key) == 0) {
+                                FreePool(os_pretty_name);
+                                os_pretty_name = stra_to_str(value);
                                 continue;
                         }
 
-                        if (strcmpa((CHAR8 *)"NAME", key) == 0) {
+                        if (strcmpa((const CHAR8*) "IMAGE_ID", key) == 0) {
+                                FreePool(os_image_id);
+                                os_image_id = stra_to_str(value);
+                                continue;
+                        }
+
+                        if (strcmpa((const CHAR8*) "NAME", key) == 0) {
                                 FreePool(os_name);
                                 os_name = stra_to_str(value);
                                 continue;
                         }
 
-                        if (strcmpa((CHAR8 *)"ID", key) == 0) {
+                        if (strcmpa((const CHAR8*) "ID", key) == 0) {
                                 FreePool(os_id);
                                 os_id = stra_to_str(value);
-                                continue;
-                        }
-
-                        if (strcmpa((CHAR8 *)"VERSION", key) == 0) {
-                                FreePool(os_version);
-                                os_version = stra_to_str(value);
-                                continue;
-                        }
-
-                        if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
-                                FreePool(os_version_id);
-                                os_version_id = stra_to_str(value);
-                                continue;
-                        }
-
-                        if (strcmpa((CHAR8 *)"BUILD_ID", key) == 0) {
-                                FreePool(os_build_id);
-                                os_build_id = stra_to_str(value);
                                 continue;
                         }
 
@@ -2118,41 +2106,72 @@ static void config_entry_add_linux(
                                 os_image_version = stra_to_str(value);
                                 continue;
                         }
+
+                        if (strcmpa((const CHAR8*) "VERSION", key) == 0) {
+                                FreePool(os_version);
+                                os_version = stra_to_str(value);
+                                continue;
+                        }
+
+                        if (strcmpa((const CHAR8*) "VERSION_ID", key) == 0) {
+                                FreePool(os_version_id);
+                                os_version_id = stra_to_str(value);
+                                continue;
+                        }
+
+                        if (strcmpa((const CHAR8*) "BUILD_ID", key) == 0) {
+                                FreePool(os_build_id);
+                                os_build_id = stra_to_str(value);
+                                continue;
+                        }
                 }
 
-                if ((os_name_pretty || os_name) && os_id && (os_image_version || os_version || os_version_id || os_build_id)) {
-                        _cleanup_freepool_ CHAR16 *path = NULL;
+                if (!bootspec_pick_name_version(
+                                    os_pretty_name,
+                                    os_image_id,
+                                    os_name,
+                                    os_id,
+                                    os_image_version,
+                                    os_version,
+                                    os_version_id,
+                                    os_build_id,
+                                    &good_name,
+                                    &good_version))
+                        continue;
 
-                        path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
+                path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
+                if (!path)
+                        return (void) log_oom();
 
-                        entry = config_entry_add_loader(
-                                        config,
-                                        device,
-                                        LOADER_LINUX,
-                                        f->FileName,
-                                        /* key= */ 'l',
-                                        os_name_pretty ?: os_name,
-                                        path,
-                                        os_image_version ?: (os_version ?: (os_version_id ? : os_build_id)));
+                entry = config_entry_add_loader(
+                                config,
+                                device,
+                                LOADER_LINUX,
+                                f->FileName,
+                                /* key= */ 'l',
+                                good_name,
+                                path,
+                                good_version);
+                if (!entry)
+                        return (void) log_oom();
 
-                        config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
+                config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
 
-                        if (szs[SECTION_CMDLINE] == 0)
-                                continue;
+                if (szs[SECTION_CMDLINE] == 0)
+                        continue;
 
-                        FreePool(content);
-                        content = NULL;
+                content = mfree(content);
 
-                        /* read the embedded cmdline file */
-                        err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
-                        if (!EFI_ERROR(err)) {
+                /* read the embedded cmdline file */
+                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
+                if (!EFI_ERROR(err)) {
+                        /* chomp the newline */
+                        if (content[szs[SECTION_CMDLINE] - 1] == '\n')
+                                content[szs[SECTION_CMDLINE] - 1] = '\0';
 
-                                /* chomp the newline */
-                                if (content[szs[SECTION_CMDLINE] - 1] == '\n')
-                                        content[szs[SECTION_CMDLINE] - 1] = '\0';
-
-                                entry->options = stra_to_str(content);
-                        }
+                        entry->options = stra_to_str(content);
+                        if (!entry->options)
+                                return (void) log_oom();
                 }
         }
 }
@@ -2480,7 +2499,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
-                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title, entry->loader, err);
+                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
                         goto out;
                 }
 
