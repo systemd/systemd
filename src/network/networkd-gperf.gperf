@@ -8,7 +8,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-conf.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-manager.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 %}
 struct ConfigPerfItem;
 %null_strings

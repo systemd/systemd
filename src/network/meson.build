@@ -115,6 +115,8 @@ sources = files('''
         networkd-nexthop.h
         networkd-queue.c
         networkd-queue.h
+        networkd-route-util.c
+        networkd-route-util.h
         networkd-route.c
         networkd-route.h
         networkd-routing-policy-rule.c

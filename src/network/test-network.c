@@ -12,7 +12,7 @@
 #include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

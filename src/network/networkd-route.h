@@ -80,8 +80,6 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 int route_remove(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
-int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret);
-bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw);
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
@@ -104,9 +102,6 @@ int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
 
-int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
-int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret);
-
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router);
 
@@ -124,5 +119,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_table_names);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);
