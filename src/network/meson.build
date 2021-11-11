@@ -133,6 +133,8 @@ sources = files('''
         networkd-route-util.h
         networkd-route.c
         networkd-route.h
+        networkd-routing-policy-rule-json.c
+        networkd-routing-policy-rule-json.h
         networkd-routing-policy-rule.c
         networkd-routing-policy-rule.h
         networkd-setlink.c
