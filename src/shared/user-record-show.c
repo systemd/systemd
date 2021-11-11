@@ -141,10 +141,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                                ansi_normal());
                         break;
                 }
-                if (*hr->hashed_password[0] == 33 ||
-                    *hr->hashed_password[0] == 42) {
-                        /* If the hash begins with '!' or '*' */
-                        printf(" Password OK: %sno%s (locked)\n", ansi_highlight_red(), ansi_normal());
+                if (!hashed_password_is_locked_or_invalid(*hr->hashed_password)) {
+                        printf(" Password OK: %sno%s (locked)\n", ansi_highlight(), ansi_normal());
                         break;
                 }
 
