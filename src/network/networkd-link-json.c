@@ -10,8 +10,12 @@
 static int device_build_json(sd_device *device, JsonVariant **ret) {
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL;
 
-        assert(device);
         assert(ret);
+
+        if (!device) {
+                *ret = NULL;
+                return 0;
+        }
 
         (void) sd_device_get_property_value(device, "ID_NET_LINK_FILE", &link);
         (void) sd_device_get_property_value(device, "ID_PATH", &path);
@@ -30,7 +34,7 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
 }
 
 int link_build_json(Link *link, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL;
         int r;
 
@@ -57,29 +61,24 @@ int link_build_json(Link *link, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        if (link->network) {
-                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
 
-                r = network_build_json(link->network, &w);
-                if (r < 0)
-                        return r;
+        r = network_build_json(link->network, &w);
+        if (r < 0)
+                return r;
 
-                r = json_variant_merge(&v, w);
-                if (r < 0)
-                        return r;
-        }
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
 
-        if (link->sd_device) {
-                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        w = json_variant_unref(w);
 
-                r = device_build_json(link->sd_device, &w);
-                if (r < 0)
-                        return r;
+        r = device_build_json(link->sd_device, &w);
+        if (r < 0)
+                return r;
 
-                r = json_variant_merge(&v, w);
-                if (r < 0)
-                        return r;
-        }
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(v);
         return 0;
