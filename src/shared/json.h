@@ -9,6 +9,7 @@
 
 #include "sd-id128.h"
 
+#include "in-addr-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "log.h"
@@ -259,6 +260,9 @@ enum {
 #define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, (const sd_id128_t*) { &(id) }
 #define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_IN_ADDR(v) JSON_BUILD_BYTE_ARRAY(v, sizeof(struct in_addr))
+#define JSON_BUILD_IN6_ADDR(v) JSON_BUILD_BYTE_ARRAY(v, sizeof(struct in6_addr))
+#define JSON_BUILD_IN_ADDR_UNION(v, f) JSON_BUILD_BYTE_ARRAY((v)->bytes, FAMILY_ADDRESS_SIZE_SAFE(f))
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
