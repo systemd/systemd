@@ -7,4 +7,4 @@ typedef struct Link Link;
 typedef struct Manager Manager;
 
 int link_build_json(Link *link, JsonVariant **ret);
-int manager_build_json(Manager *manager, JsonVariant **ret);
+int links_build_json(Manager *manager, JsonVariant **ret);
