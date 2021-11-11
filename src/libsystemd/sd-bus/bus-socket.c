@@ -968,7 +968,7 @@ int bus_socket_exec(sd_bus *b) {
                 _cleanup_free_ char *line = NULL;
 
                 if (b->exec_argv)
-                        line = quote_command_line(b->exec_argv);
+                        line = quote_command_line(b->exec_argv, SHELL_ESCAPE_EMPTY);
 
                 log_debug("sd-bus: starting bus%s%s with %s%s",
                           b->description ? " " : "", strempty(b->description),

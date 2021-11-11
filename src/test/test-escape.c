@@ -206,7 +206,7 @@ static void test_shell_maybe_quote(void) {
 static void test_quote_command_line_one(char **argv, const char *expected) {
         _cleanup_free_ char *s;
 
-        assert_se(s = quote_command_line(argv));
+        assert_se(s = quote_command_line(argv, SHELL_ESCAPE_EMPTY));
         log_info("%s", s);
         assert_se(streq(s, expected));
 }
