@@ -22,6 +22,7 @@ struct Automount {
         AutomountState state, deserialized_state;
 
         char *where;
+        char *options;
         usec_t timeout_idle_usec;
 
         int pipe_fd;
