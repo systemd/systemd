@@ -29,8 +29,9 @@
 
 #define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
-/* magic string to find in the binary image */
-_used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
+/* Magic string for recognizing our own binaries */
+_used_ _section_(".sdmagic") static const char magic[] =
+        "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
 /* Makes systemd-boot available from \EFI\Linux\ for testing purposes. */
 _used_ _section_(".osrel") static const char osrel[] =
