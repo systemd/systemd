@@ -2908,7 +2908,7 @@ fail:
         return r;
 }
 
-static int event_source_leave_ratelimit(sd_event_source *s) {
+static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
         int r;
 
         assert(s);
@@ -2940,6 +2940,30 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
         ratelimit_reset(&s->rate_limit);
 
         log_debug("Event source %p (%s) left rate limit state.", s, strna(s->description));
+
+        if (run_callback && s->ratelimit_expire_callback) {
+                s->dispatching = true;
+                r = s->ratelimit_expire_callback(s, s->userdata);
+                s->dispatching = false;
+
+                if (r < 0) {
+                        log_debug_errno(r, "Ratelimit expiry callback of event source %s (type %s) returned error, %s: %m",
+                                        strna(s->description),
+                                        event_source_type_to_string(s->type),
+                                        s->exit_on_failure ? "exiting" : "disabling");
+
+                        if (s->exit_on_failure)
+                                (void) sd_event_exit(s->event, r);
+                }
+
+                if (s->n_ref == 0)
+                        source_free(s);
+                else if (r < 0)
+                        sd_event_source_set_enabled(s, SD_EVENT_OFF);
+
+                return 1;
+        }
+
         return 0;
 
 fail:
@@ -3139,6 +3163,7 @@ static int process_timer(
                 struct clock_data *d) {
 
         sd_event_source *s;
+        bool callback_invoked = false;
         int r;
 
         assert(e);
@@ -3156,9 +3181,11 @@ static int process_timer(
                          * again. */
                         assert(s->ratelimited);
 
-                        r = event_source_leave_ratelimit(s);
+                        r = event_source_leave_ratelimit(s, /* run_callback */ true);
                         if (r < 0)
                                 return r;
+                        else if (r == 1)
+                                callback_invoked = true;
 
                         continue;
                 }
@@ -3173,7 +3200,7 @@ static int process_timer(
                 event_source_time_prioq_reshuffle(s);
         }
 
-        return 0;
+        return callback_invoked;
 }
 
 static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priority) {
@@ -4097,15 +4124,15 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
+        r = process_inotify(e);
+        if (r < 0)
+                goto finish;
+
         r = process_timer(e, e->timestamp.realtime, &e->realtime);
         if (r < 0)
                 goto finish;
 
         r = process_timer(e, e->timestamp.boottime, &e->boottime);
-        if (r < 0)
-                goto finish;
-
-        r = process_timer(e, e->timestamp.monotonic, &e->monotonic);
         if (r < 0)
                 goto finish;
 
@@ -4117,9 +4144,20 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
-        r = process_inotify(e);
+        r = process_timer(e, e->timestamp.monotonic, &e->monotonic);
         if (r < 0)
                 goto finish;
+        else if (r == 1) {
+                /* Ratelimit expiry callback was called. Let's postpone processing pending sources and
+                 * put loop in the initial state in order to evaluate (in the next iteration) also sources
+                 * there were potentially re-enabled by the callback.
+                 *
+                 * Wondering why we treat only this invocation of process_timer() differently? Once event
+                 * source is ratelimited we essentially transform it into CLOCK_MONOTONIC timer hence
+                 * ratelimit expiry callback is never called for any other timer type. */
+                r = 0;
+                goto finish;
+        }
 
         if (event_next_pending(e)) {
                 e->state = SD_EVENT_PENDING;
@@ -4488,11 +4526,18 @@ _public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval
 
         /* When ratelimiting is configured we'll always reset the rate limit state first and start fresh,
          * non-ratelimited. */
-        r = event_source_leave_ratelimit(s);
+        r = event_source_leave_ratelimit(s, /* run_callback */ false);
         if (r < 0)
                 return r;
 
         s->rate_limit = (RateLimit) { interval, burst };
+        return 0;
+}
+
+_public_ int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback) {
+        assert_return(s, -EINVAL);
+
+        s->ratelimit_expire_callback = callback;
         return 0;
 }
 

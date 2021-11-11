@@ -1904,9 +1904,9 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        /* Check start rate limiting early so that failure conditions don't cause us to enter a busy loop. */
-        if (UNIT_VTABLE(u)->test_start_limit) {
-                r = UNIT_VTABLE(u)->test_start_limit(u);
+        /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
+        if (UNIT_VTABLE(u)->can_start) {
+                r = UNIT_VTABLE(u)->can_start(u);
                 if (r < 0)
                         return r;
         }

@@ -767,4 +767,5 @@ LIBSYSTEMD_250 {
 global:
         sd_device_get_diskseq;
         sd_event_add_inotify_fd;
+        sd_event_source_set_ratelimit_expire_callback;
 } LIBSYSTEMD_249;
