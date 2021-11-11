@@ -8,7 +8,7 @@ fundamental_headers = files(
         'macro-fundamental.h',
         'sha256.h',
         'string-util-fundamental.h',
-        'type.h')
+        'types-fundamental.h')
 
 sources = '''
         bootspec-fundamental.c
