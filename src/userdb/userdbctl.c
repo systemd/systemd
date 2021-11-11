@@ -5,6 +5,7 @@
 
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -34,6 +35,7 @@ static bool arg_legend = true;
 static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static bool arg_chain = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
@@ -586,33 +588,84 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
 static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        char **chain_invocation;
         int r;
+
+        assert(argc >= 2);
+
+        if (arg_chain) {
+                /* If --chain is specified, the rest of the command line is the chain command */
+
+                if (argc < 3)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No chain command line specified, refusing.");
+
+                /* Make similar restrictions on the chain command as OpenSSH itself makes on the primary command. */
+                if (!path_is_absolute(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Chain invocation of ssh-authorized-keys commands requires an absolute binary path argument.");
+
+                if (!path_is_normalized(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Chain invocation of ssh-authorized-keys commands requires an normalized binary path argument.");
+
+                chain_invocation = argv + 2;
+        } else {
+                /* If --chain is not specified, then refuse any further arguments */
+
+                if (argc > 2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
+
+                chain_invocation = NULL;
+        }
 
         r = userdb_by_name(argv[1], arg_userdb_flags, &ur);
         if (r == -ESRCH)
-                return log_error_errno(r, "User %s does not exist.", argv[1]);
+                log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
-                return log_error_errno(r, "Selected user database service is not available for this request.");
+                log_error_errno(r, "Selected user database service is not available for this request.");
         else if (r == -EINVAL)
-                return log_error_errno(r, "Failed to find user %s: %m (Invalid user name?)", argv[1]);
+                log_error_errno(r, "Failed to find user %s: %m (Invalid user name?)", argv[1]);
         else if (r < 0)
-                return log_error_errno(r, "Failed to find user %s: %m", argv[1]);
-
-        if (strv_isempty(ur->ssh_authorized_keys))
-                log_debug("User record for %s has no public SSH keys.", argv[1]);
+                log_error_errno(r, "Failed to find user %s: %m", argv[1]);
         else {
-                char **i;
+                if (strv_isempty(ur->ssh_authorized_keys))
+                        log_debug("User record for %s has no public SSH keys.", argv[1]);
+                else {
+                        char **i;
 
-                STRV_FOREACH(i, ur->ssh_authorized_keys)
-                        printf("%s\n", *i);
+                        STRV_FOREACH(i, ur->ssh_authorized_keys)
+                                printf("%s\n", *i);
+                }
+
+                if (ur->incomplete) {
+                        fflush(stdout);
+                        log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", ur->user_name);
+                }
         }
 
-        if (ur->incomplete) {
-                fflush(stdout);
-                log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", ur->user_name);
+        if (chain_invocation) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *s = NULL;
+
+                        s = quote_command_line(chain_invocation, SHELL_ESCAPE_EMPTY);
+                        if (!s)
+                                return log_oom();
+
+                        log_debug("Chain invoking: %s", s);
+                }
+
+                execv(chain_invocation[0], chain_invocation);
+                if (errno == ENOENT) /* Let's handle ENOENT gracefully */
+                        log_warning_errno(errno, "Chain executable '%s' does not exist, ignoring chain invocation.", chain_invocation[0]);
+                else {
+                        log_error_errno(errno, "Failed to invoke chain executable '%s': %m", chain_invocation[0]);
+                        if (r >= 0)
+                                r = -errno;
+                }
         }
 
-        return EXIT_SUCCESS;
+        return r;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -633,6 +686,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  users-in-group [GROUP…]    Show users that are members of specified group(s)\n"
                "  groups-of-user [USER…]     Show groups the specified user(s) is a member of\n"
                "  services                   Show enabled database services\n"
+               "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
                "\nOptions:\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -650,6 +704,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --with-varlink=BOOL     Control whether to talk to services at all\n"
                "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
                "     --json=pretty|short     JSON output mode\n"
+               "     --chain                 Chain another command\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -672,6 +727,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYNTHESIZE,
                 ARG_MULTIPLEXER,
                 ARG_JSON,
+                ARG_CHAIN,
         };
 
         static const struct option options[] = {
@@ -687,6 +743,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
                 { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
                 { "json",         required_argument, NULL, ARG_JSON         },
+                { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 {}
         };
 
@@ -712,7 +769,9 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hjs:N", options, NULL);
+                c = getopt_long(argc, argv,
+                                arg_chain ? "+hjs:N" : "hjs:N", /* When --chain was used disable parsing of further switches */
+                                options, NULL);
                 if (c < 0)
                         break;
 
@@ -829,6 +888,10 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
                         break;
 
+                case ARG_CHAIN:
+                        arg_chain = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -851,7 +914,7 @@ static int run(int argc, char *argv[]) {
 
                 /* This one is a helper for sshd_config's AuthorizedKeysCommand= setting, it's not a
                  * user-facing verb and thus should not appear in man pages or --help texts. */
-                { "ssh-authorized-keys", 2,        2,        0,            ssh_authorized_keys },
+                { "ssh-authorized-keys", 2,        VERB_ANY, 0,            ssh_authorized_keys },
                 {}
         };
 
