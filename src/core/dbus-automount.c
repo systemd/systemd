@@ -11,6 +11,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, automount_result, Autom
 const sd_bus_vtable bus_automount_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Automount, where), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtraOptions", "s", NULL, offsetof(Automount, extra_options), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Automount, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Automount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TimeoutIdleUSec", "t", bus_property_get_usec, offsetof(Automount, timeout_idle_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -34,6 +35,9 @@ static int bus_automount_set_transient_property(
 
         if (streq(name, "Where"))
                 return bus_set_transient_path(u, name, &a->where, message, flags, error);
+
+        if (streq(name, "ExtraOptions"))
+                return bus_set_transient_string(u, name, &a->extra_options, message, flags, error);
 
         if (streq(name, "TimeoutIdleUSec"))
                 return bus_set_transient_usec_fix_0(u, name, &a->timeout_idle_usec, message, flags, error);
