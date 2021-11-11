@@ -11,7 +11,11 @@
 #include "macro.h"
 #include "string-util.h"
 
-char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]) {
+char *hw_addr_to_string_full(
+                const struct hw_addr_data *addr,
+                HardwareAddressToStringFlags flags,
+                char buffer[static HW_ADDR_TO_STRING_MAX]) {
+
         assert(addr);
         assert(buffer);
         assert(addr->length <= HW_ADDR_MAX_SIZE);
@@ -19,10 +23,13 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
         for (size_t i = 0, j = 0; i < addr->length; i++) {
                 buffer[j++] = hexchar(addr->bytes[i] >> 4);
                 buffer[j++] = hexchar(addr->bytes[i] & 0x0f);
-                buffer[j++] = ':';
+                if (!FLAGS_SET(flags, HW_ADDR_TO_STRING_NO_COLON))
+                        buffer[j++] = ':';
         }
 
-        buffer[addr->length > 0 ? addr->length * 3 - 1 : 0] = '\0';
+        buffer[addr->length == 0 || FLAGS_SET(flags, HW_ADDR_TO_STRING_NO_COLON) ?
+               addr->length * 2 :
+               addr->length * 3 - 1] = '\0';
         return buffer;
 }
 

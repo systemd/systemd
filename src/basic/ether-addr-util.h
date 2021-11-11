@@ -31,13 +31,24 @@ static inline int parse_hw_addr(const char *s, struct hw_addr_data *ret) {
 }
 int parse_ether_addr(const char *s, struct ether_addr *ret);
 
+typedef enum HardwareAddressToStringFlags {
+        HW_ADDR_TO_STRING_NO_COLON = 1 << 0,
+} HardwareAddressToStringFlags;
+
 #define HW_ADDR_TO_STRING_MAX (3*HW_ADDR_MAX_SIZE)
-char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]);
+char *hw_addr_to_string_full(
+                const struct hw_addr_data *addr,
+                HardwareAddressToStringFlags flags,
+                char buffer[static HW_ADDR_TO_STRING_MAX]);
+static inline char *hw_addr_to_string(const struct hw_addr_data *addr, char buffer[static HW_ADDR_TO_STRING_MAX]) {
+        return hw_addr_to_string_full(addr, 0, buffer);
+}
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
-#define HW_ADDR_TO_STR(hw_addr) hw_addr_to_string((hw_addr), (char[HW_ADDR_TO_STRING_MAX]){})
+#define HW_ADDR_TO_STR_FULL(hw_addr, flags) hw_addr_to_string_full((hw_addr), flags, (char[HW_ADDR_TO_STRING_MAX]){})
+#define HW_ADDR_TO_STR(hw_addr) HW_ADDR_TO_STR_FULL(hw_addr, 0)
 
 #define HW_ADDR_NULL ((const struct hw_addr_data){})
 
