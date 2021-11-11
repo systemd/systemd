@@ -561,5 +561,5 @@ char* quote_command_line(char **argv, ShellEscapeFlags flags) {
                         return NULL;
         }
 
-        return TAKE_PTR(result);
+        return str_realloc(TAKE_PTR(result));
 }
