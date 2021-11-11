@@ -730,10 +730,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Set the SELinux security context of the executed process. If set, this will override the
         automated domain transition. However, the policy still needs to authorize the transition. This directive is
-        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, all errors will be ignored. This does not
-        affect commands prefixed with <literal>+</literal>.  See <citerefentry
-        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details.</para></listitem>
+        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
+        security context will be ignored, but it's still possible that the subsequent
+        <function>execve()</function> may fail if the policy doesn't allow the transition for the
+        non-overridden context. This does not affect commands prefixed with <literal>+</literal>.  See
+        <citerefentry
+        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
