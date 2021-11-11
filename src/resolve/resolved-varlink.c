@@ -196,7 +196,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
                                JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
-                                               JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
+                                               JSON_BUILD_PAIR("address", JSON_BUILD_IN_ADDR_UNION((const union in_addr_union*) p, family))));
                 if (r < 0)
                         goto finish;
 
@@ -265,7 +265,7 @@ static int parse_as_address(Varlink *link, LookupParameters *p) {
                                                 JSON_BUILD_OBJECT(
                                                         JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                         JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(ff)),
-                                                        JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
+                                                        JSON_BUILD_PAIR("address", JSON_BUILD_IN_ADDR_UNION(&parsed, ff))))),
                                 JSON_BUILD_PAIR("name", JSON_BUILD_STRING(canonical)),
                                 JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
                                                                             SD_RESOLVED_SYNTHETIC))));
