@@ -91,7 +91,6 @@ void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
-        siphash24_compress(&neighbor->lladdr_size, sizeof(neighbor->lladdr_size), state);
 
         switch (neighbor->family) {
         case AF_INET:
@@ -104,17 +103,13 @@ void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
                 break;
         }
 
-        siphash24_compress(&neighbor->lladdr, neighbor->lladdr_size, state);
+        hw_addr_hash_func(&neighbor->ll_addr, state);
 }
 
 int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         int r;
 
         r = CMP(a->family, b->family);
-        if (r != 0)
-                return r;
-
-        r = CMP(a->lladdr_size, b->lladdr_size);
         if (r != 0)
                 return r;
 
@@ -126,7 +121,7 @@ int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
                         return r;
         }
 
-        return memcmp(&a->lladdr, &b->lladdr, a->lladdr_size);
+        return hw_addr_compare(&a->ll_addr, &b->ll_addr);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func, neighbor_free);
@@ -163,7 +158,7 @@ static int neighbor_add(Link *link, Neighbor *neighbor) {
 }
 
 static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *lladdr = NULL, *dst = NULL;
+        _cleanup_free_ char *state = NULL, *dst = NULL;
 
         assert(neighbor);
         assert(str);
@@ -172,19 +167,12 @@ static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const 
                 return;
 
         (void) network_config_state_to_string_alloc(neighbor->state, &state);
-        if (neighbor->lladdr_size == sizeof(struct ether_addr))
-                (void) ether_addr_to_string_alloc(&neighbor->lladdr.mac, &lladdr);
-        else if (neighbor->lladdr_size == sizeof(struct in_addr))
-                (void) in_addr_to_string(AF_INET, &neighbor->lladdr.ip, &lladdr);
-        else if (neighbor->lladdr_size == sizeof(struct in6_addr))
-                (void) in_addr_to_string(AF_INET6, &neighbor->lladdr.ip, &lladdr);
-
         (void) in_addr_to_string(neighbor->family, &neighbor->in_addr, &dst);
 
         log_link_debug(link,
                        "%s %s neighbor (%s): lladdr: %s, dst: %s",
                        str, strna(network_config_source_to_string(neighbor->source)), strna(state),
-                       strna(lladdr), strna(dst));
+                       HW_ADDR_TO_STR(&neighbor->ll_addr), strna(dst));
 }
 
 static int neighbor_configure(
@@ -213,7 +201,7 @@ static int neighbor_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set state: %m");
 
-        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
+        r = netlink_message_append_hw_addr(req, NDA_LLADDR, &neighbor->ll_addr);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
 
@@ -466,7 +454,6 @@ int request_process_neighbor(Request *req) {
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
-        _cleanup_free_ void *lladdr = NULL;
         Neighbor *neighbor = NULL;
         uint16_t type, state;
         int ifindex, r;
@@ -536,15 +523,11 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
         }
 
-        r = sd_netlink_message_read_data(message, NDA_LLADDR, &tmp->lladdr_size, &lladdr);
+        r = netlink_message_read_hw_addr(message, NDA_LLADDR, &tmp->ll_addr);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid lladdr, ignoring: %m");
-                return 0;
-        } else if (!IN_SET(tmp->lladdr_size, sizeof(struct ether_addr), sizeof(struct in_addr), sizeof(struct in6_addr))) {
-                log_link_warning(link, "rtnl: received neighbor message with invalid lladdr size (%zu), ignoring: %m", tmp->lladdr_size);
+                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid link layer address, ignoring: %m");
                 return 0;
         }
-        memcpy(&tmp->lladdr, lladdr, tmp->lladdr_size);
 
         (void) neighbor_get(link, tmp, &neighbor);
 
@@ -596,7 +579,7 @@ static int neighbor_section_verify(Neighbor *neighbor) {
                                          "Ignoring [Neighbor] section from line %u.",
                                          neighbor->section->filename, neighbor->section->line);
 
-        if (neighbor->lladdr_size == 0)
+        if (neighbor->ll_addr.length == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Neighbor section without LinkLayerAddress= configured. "
                                          "Ignoring [Neighbor] section from line %u.",
@@ -668,51 +651,6 @@ int config_parse_neighbor_lladdr(
 
         Network *network = userdata;
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        int family, r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = neighbor_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        r = parse_ether_addr(rvalue, &n->lladdr.mac);
-        if (r >= 0)
-                n->lladdr_size = sizeof(n->lladdr.mac);
-        else {
-                r = in_addr_from_string_auto(rvalue, &family, &n->lladdr.ip);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Neighbor LinkLayerAddress= is invalid, ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
-                n->lladdr_size = family == AF_INET ? sizeof(n->lladdr.ip.in) : sizeof(n->lladdr.ip.in6);
-        }
-
-        TAKE_PTR(n);
-
-        return 0;
-}
-
-int config_parse_neighbor_hwaddr(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
         int r;
 
         assert(filename);
@@ -725,15 +663,14 @@ int config_parse_neighbor_hwaddr(
         if (r < 0)
                 return log_oom();
 
-        r = parse_ether_addr(rvalue, &n->lladdr.mac);
+        r = parse_hw_addr(rvalue, &n->ll_addr);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);
+                           "Neighbor %s= is invalid, ignoring assignment: %s",
+                           lvalue, rvalue);
                 return 0;
         }
 
-        n->lladdr_size = sizeof(n->lladdr.mac);
         TAKE_PTR(n);
-
         return 0;
 }
