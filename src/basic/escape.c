@@ -544,7 +544,7 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         return str_realloc(buf);
 }
 
-char* quote_command_line(char **argv) {
+char* quote_command_line(char **argv, ShellEscapeFlags flags) {
         _cleanup_free_ char *result = NULL;
 
         assert(argv);
@@ -553,7 +553,7 @@ char* quote_command_line(char **argv) {
         STRV_FOREACH(a, argv) {
                 _cleanup_free_ char *t = NULL;
 
-                t = shell_maybe_quote(*a, SHELL_ESCAPE_EMPTY);
+                t = shell_maybe_quote(*a, flags);
                 if (!t)
                         return NULL;
 
