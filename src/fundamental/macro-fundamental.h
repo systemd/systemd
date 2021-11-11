@@ -85,8 +85,8 @@
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
 #define __ONCE(o)                                                       \
         ({                                                              \
-                static bool (o) = false;                                \
-                __sync_bool_compare_and_swap(&(o), false, true);        \
+                static bool (o) = sd_false;                             \
+                __sync_bool_compare_and_swap(&(o), sd_false, sd_true);  \
         })
 
 #undef MAX
@@ -236,7 +236,7 @@
 
 #define IN_SET(x, ...)                          \
         ({                                      \
-                sd_bool _found = false;         \
+                sd_bool _found = sd_false;      \
                 /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
@@ -245,7 +245,7 @@
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
                 switch(x) {                     \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__) \
-                        _found = true;          \
+                        _found = sd_true;       \
                         break;                  \
                 default:                        \
                         break;                  \

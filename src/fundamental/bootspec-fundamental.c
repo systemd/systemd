@@ -44,7 +44,7 @@ sd_bool bootspec_pick_name_version(
         good_version = os_image_version ?: (os_version ?: (os_version_id ? : os_build_id));
 
         if (!good_name || !good_version)
-                return false;
+                return sd_false;
 
         if (ret_name)
                 *ret_name = good_name;
@@ -52,5 +52,5 @@ sd_bool bootspec_pick_name_version(
         if (ret_version)
                 *ret_version = good_version;
 
-        return true;
+        return sd_true;
 }
