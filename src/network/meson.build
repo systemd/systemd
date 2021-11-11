@@ -89,10 +89,10 @@ sources = files('''
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
-        networkd-json.c
-        networkd-json.h
         networkd-link-bus.c
         networkd-link-bus.h
+        networkd-link-json.c
+        networkd-link-json.h
         networkd-link.c
         networkd-link.h
         networkd-lldp-rx.c
@@ -101,6 +101,8 @@ sources = files('''
         networkd-lldp-tx.h
         networkd-manager-bus.c
         networkd-manager-bus.h
+        networkd-manager-json.c
+        networkd-manager-json.h
         networkd-manager.c
         networkd-manager.h
         networkd-ndisc.c
@@ -111,6 +113,8 @@ sources = files('''
         networkd-radv.h
         networkd-network-bus.c
         networkd-network-bus.h
+        networkd-network-json.c
+        networkd-network-json.h
         networkd-network.c
         networkd-network.h
         networkd-nexthop.c
