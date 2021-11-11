@@ -85,7 +85,7 @@
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
 #define __ONCE(o)                                                       \
         ({                                                              \
-                static bool (o) = sd_false;                             \
+                static sd_bool (o) = sd_false;                          \
                 __sync_bool_compare_and_swap(&(o), sd_false, sd_true);  \
         })
 
