@@ -123,6 +123,8 @@ sources = files('''
         networkd-nexthop.h
         networkd-queue.c
         networkd-queue.h
+        networkd-route-json.c
+        networkd-route-json.h
         networkd-route-util.c
         networkd-route-util.h
         networkd-route.c
