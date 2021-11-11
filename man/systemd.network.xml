@@ -2558,7 +2558,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
           to its network interface and all socket communication will be restricted to this interface.
           Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
-          in which case it defaults defaults to <literal>no</literal>.</para>
+          in which case it defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
