@@ -128,7 +128,7 @@
           datagram. This field is only included if the <varname>MESSAGE=</varname>
           field was modified compared to the original payload or the timestamp could
           not be located properly and is not included in
-          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when when
+          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when
           the message contains leading or trailing whitespace (trailing and leading
           whitespace is stripped), or it contains an embedded
           <constant>NUL</constant> byte (the <constant>NUL</constant> byte and

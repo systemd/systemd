@@ -33,7 +33,7 @@
     <title>Description</title>
 
     <para>An nspawn container settings file (suffix <filename>.nspawn</filename>) contains runtime
-    configuration for a local container, and is used used by
+    configuration for a local container, and is used by
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     Files of this type are named after the containers they define settings for. They are optional, and only
     required for containers whose execution environment shall differ from the defaults. Files of this type
