@@ -416,7 +416,7 @@
         …  suffixes (to the base of 1024). If <varname>SizeMinBytes=</varname> is specified the partition is
         created at or grown to at least the specified size. If <varname>SizeMaxBytes=</varname> is specified
         the partition is created at or grown to at most the specified size. The precise size is determined
-        through the weight value value configured with <varname>Weight=</varname>, see above. When
+        through the weight value configured with <varname>Weight=</varname>, see above. When
         <varname>SizeMinBytes=</varname> is set equal to <varname>SizeMaxBytes=</varname> the configured
         weight has no effect as the partition is explicitly sized to the specified fixed value. Note that
         partitions are never created smaller than 4096 bytes, and since partitions are never shrunk the
