@@ -6,7 +6,7 @@
 #endif
 
 #include <limits.h>
-#include "type.h"
+#include "types-fundamental.h"
 
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _const_ __attribute__((__const__))
