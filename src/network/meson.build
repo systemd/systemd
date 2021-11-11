@@ -109,6 +109,8 @@ sources = files('''
         networkd-manager.h
         networkd-ndisc.c
         networkd-ndisc.h
+        networkd-neighbor-json.c
+        networkd-neighbor-json.h
         networkd-neighbor.c
         networkd-neighbor.h
         networkd-radv.c
