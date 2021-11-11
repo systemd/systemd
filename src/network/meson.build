@@ -121,6 +121,8 @@ sources = files('''
         networkd-network-json.h
         networkd-network.c
         networkd-network.h
+        networkd-nexthop-json.c
+        networkd-nexthop-json.h
         networkd-nexthop.c
         networkd-nexthop.h
         networkd-queue.c
