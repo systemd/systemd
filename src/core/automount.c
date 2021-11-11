@@ -19,6 +19,7 @@
 #include "dbus-unit.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fstab-util.h"
 #include "io-util.h"
 #include "label.h"
 #include "mkdir.h"
@@ -109,6 +110,7 @@ static void automount_done(Unit *u) {
         unmount_autofs(a);
 
         a->where = mfree(a->where);
+        a->options = mfree(a->options);
 
         a->tokens = set_free(a->tokens);
         a->expire_tokens = set_free(a->expire_tokens);
@@ -313,11 +315,13 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sAutomount State: %s\n"
                 "%sResult: %s\n"
                 "%sWhere: %s\n"
+                "%sOptions: %s\n"
                 "%sDirectoryMode: %04o\n"
                 "%sTimeoutIdleUSec: %s\n",
                 prefix, automount_state_to_string(a->state),
                 prefix, automount_result_to_string(a->result),
                 prefix, a->where,
+                prefix, a->options,
                 prefix, a->directory_mode,
                 prefix, FORMAT_TIMESPAN(a->timeout_idle_usec, USEC_PER_SEC));
 }
@@ -558,8 +562,7 @@ static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct")
-                     + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
+        _cleanup_free_ char *options = NULL, *user_options = NULL;
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -573,6 +576,22 @@ static void automount_enter_waiting(Automount *a) {
         r = unit_fail_if_noncanonical(UNIT(a), a->where);
         if (r < 0)
                 goto fail;
+
+        r = fstab_filter_options(
+                a->options,
+                "fd\0"
+                "pgrp\0"
+                "minproto\0"
+                "maxproto\0"
+                "direct\0"
+                "indirect\0",
+                NULL,
+                NULL,
+                NULL,
+                &user_options);
+        if (r < 0)
+                goto fail;
+
 
         (void) mkdir_p_label(a->where, a->directory_mode);
 
@@ -592,7 +611,17 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
+
+        if (asprintf(
+                    &options,
+                    "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct,%s",
+                    p[1],
+                    getpgrp(),
+                    user_options) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
         r = mount_nofollow(name, a->where, "autofs", 0, options);
         if (r < 0)
