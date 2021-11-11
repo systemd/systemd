@@ -101,6 +101,53 @@ enum {
         TIMEOUT_TYPE_MAX    = UINT32_MAX,
 };
 
+#define _returns_nonnull_ __attribute__((__returns_nonnull__))
+#define _allocate_pool_ __attribute__((__malloc__, __malloc__(FreePool, 1), __warn_unused_result__))
+#define assert_alloc_return(p) ({ \
+        if (_likely_(p))          \
+                return p;         \
+        log_oom();                \
+        __builtin_trap();         \
+})
+
+_allocate_pool_ _returns_nonnull_ void *new_nofail(UINTN size) {
+        void *p = AllocatePool(size);
+        assert_alloc_return(p);
+}
+
+_allocate_pool_ _returns_nonnull_ void *new0_nofail(UINTN size) {
+        void *p = new_nofail(size);
+        ZeroMem(p, size);
+        return p;
+}
+
+_allocate_pool_ _returns_nonnull_ CHAR16 *pool_print_nofail(const CHAR16 *fmt, ...) {
+        assert(fmt);
+        va_list args;
+        va_start(args, fmt);
+        CHAR16 *p = VPoolPrint(fmt, args);
+        va_end(args);
+        assert_alloc_return(p);
+}
+
+_allocate_pool_ _returns_nonnull_ CHAR16 *strdup_nofail(const CHAR16 *src) {
+        assert(src);
+        CHAR16 *dup = StrDuplicate(src);
+        assert_alloc_return(dup);
+}
+
+_allocate_pool_ _returns_nonnull_ CHAR16 *stra_to_path_nofail(const CHAR8 *stra) {
+        assert(stra);
+        CHAR16 *path = stra_to_path(stra);
+        assert_alloc_return(path);
+}
+
+_allocate_pool_ _returns_nonnull_ CHAR16 *stra_to_str_nofail(const CHAR8 *stra) {
+        assert(stra);
+        CHAR16 *str = stra_to_str(stra);
+        assert_alloc_return(str);
+}
+
 static void cursor_left(UINTN *cursor, UINTN *first) {
         assert(cursor);
         assert(first);
@@ -142,15 +189,11 @@ static BOOLEAN line_edit(
                 line_in = L"";
 
         size = StrLen(line_in) + 1024;
-        line = AllocatePool(size * sizeof(CHAR16));
-        if (!line)
-                return FALSE;
+        line = new_nofail(size * sizeof(CHAR16));
 
         StrCpy(line, line_in);
         len = StrLen(line);
-        print = AllocatePool((x_max+1) * sizeof(CHAR16));
-        if (!print)
-                return FALSE;
+        print = new_nofail((x_max+1) * sizeof(CHAR16));
 
         first = 0;
         cursor = 0;
@@ -420,13 +463,13 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
 
         switch (*t) {
         case TIMEOUT_UNSET:
-                return StrDuplicate(L"Menu timeout defined by configuration file.");
+                return strdup_nofail(L"Menu timeout defined by configuration file.");
         case TIMEOUT_MENU_FORCE:
-                return StrDuplicate(L"Timeout disabled, menu will always be shown.");
+                return strdup_nofail(L"Timeout disabled, menu will always be shown.");
         case TIMEOUT_MENU_HIDDEN:
-                return StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
+                return strdup_nofail(L"Menu disabled. Hold down key at bootup to show menu.");
         default:
-                return PoolPrint(L"Menu timeout set to %u s.", *t);
+                return pool_print_nofail(L"Menu timeout set to %u s.", *t);
         }
 }
 
@@ -654,21 +697,12 @@ static BOOLEAN menu_run(
                         clearline = mfree(clearline);
 
                         /* menu entries title lines */
-                        lines = AllocatePool((config->entry_count + 1) * sizeof(CHAR16 *));
-                        if (!lines) {
-                                log_oom();
-                                return FALSE;
-                        }
+                        lines = new_nofail((config->entry_count + 1) * sizeof(CHAR16 *));
 
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 UINTN j, padding;
 
-                                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
-                                if (!lines[i]) {
-                                        log_oom();
-                                        return FALSE;
-                                }
-
+                                lines[i] = new_nofail((line_width + 1) * sizeof(CHAR16));
                                 padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
@@ -683,12 +717,7 @@ static BOOLEAN menu_run(
                         }
                         lines[config->entry_count] = NULL;
 
-                        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
-                        if (!clearline) {
-                                log_oom();
-                                return FALSE;
-                        }
-
+                        clearline = new_nofail((x_max+1) * sizeof(CHAR16));
                         for (UINTN i = 0; i < x_max; i++)
                                 clearline[i] = ' ';
                         clearline[x_max] = 0;
@@ -726,7 +755,7 @@ static BOOLEAN menu_run(
 
                 if (timeout_remain > 0) {
                         FreePool(status);
-                        status = PoolPrint(L"Boot in %u s.", timeout_remain);
+                        status = pool_print_nofail(L"Boot in %u s.", timeout_remain);
                 }
 
                 /* print status at last line of screen */
@@ -831,7 +860,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
-                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
+                        status = strdup_nofail(L"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -843,17 +872,13 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != (INTN)idx_highlight) {
                                 FreePool(config->entry_default_efivar);
-                                config->entry_default_efivar = StrDuplicate(config->entries[idx_highlight]->id);
-                                if (!config->entry_default_efivar) {
-                                        log_oom();
-                                        return FALSE;
-                                }
+                                config->entry_default_efivar = strdup_nofail(config->entries[idx_highlight]->id);
                                 config->idx_default_efivar = idx_highlight;
-                                status = StrDuplicate(L"Default boot entry selected.");
+                                status = strdup_nofail(L"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
                                 config->idx_default_efivar = -1;
-                                status = StrDuplicate(L"Default boot entry cleared.");
+                                status = strdup_nofail(L"Default boot entry cleared.");
                         }
                         config->use_saved_entry_efivar = FALSE;
                         refresh = TRUE;
@@ -885,7 +910,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
-                        status = PoolPrint(L"systemd-boot " GIT_VERSION " (" EFI_MACHINE_TYPE_NAME "), UEFI Specification %d.%02d, Vendor %s %d.%02d",
+                        status = pool_print_nofail(L"systemd-boot " GIT_VERSION " (" EFI_MACHINE_TYPE_NAME "), UEFI Specification %d.%02d, Vendor %s %d.%02d",
                                            ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff,
                                            ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                         break;
@@ -904,10 +929,10 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'r'):
                         err = console_set_mode(CONSOLE_MODE_NEXT);
                         if (EFI_ERROR(err))
-                                status = PoolPrint(L"Error changing console mode: %r", err);
+                                status = pool_print_nofail(L"Error changing console mode: %r", err);
                         else {
                                 config->console_mode_efivar = ST->ConOut->Mode->Mode;
-                                status = PoolPrint(L"Console mode changed to %ld.", config->console_mode_efivar);
+                                status = pool_print_nofail(L"Console mode changed to %ld.", config->console_mode_efivar);
                         }
                         new_mode = TRUE;
                         break;
@@ -917,9 +942,9 @@ static BOOLEAN menu_run(
                         err = console_set_mode(config->console_mode == CONSOLE_MODE_KEEP ?
                                                console_mode_initial : config->console_mode);
                         if (EFI_ERROR(err))
-                                status = PoolPrint(L"Error resetting console mode: %r", err);
+                                status = pool_print_nofail(L"Error resetting console mode: %r", err);
                         else
-                                status = PoolPrint(L"Console mode reset to %s default.",
+                                status = pool_print_nofail(L"Console mode reset to %s default.",
                                                    config->console_mode == CONSOLE_MODE_KEEP ? L"firmware" : L"configuration file");
                         new_mode = TRUE;
                         break;
@@ -933,9 +958,9 @@ static BOOLEAN menu_run(
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                                 firmware_setup = TRUE;
                                 /* Let's make sure the user really wants to do this. */
-                                status = PoolPrint(L"Press Enter to reboot into firmware interface.");
+                                status = pool_print_nofail(L"Press Enter to reboot into firmware interface.");
                         } else
-                                status = PoolPrint(L"Reboot into firmware interface not supported.");
+                                status = pool_print_nofail(L"Reboot into firmware interface not supported.");
                         break;
 
                 default:
@@ -1115,7 +1140,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else {
                                 _cleanup_freepool_ CHAR16 *s = NULL;
 
-                                s = stra_to_str(value);
+                                s = stra_to_str_nofail(value);
                                 config->timeout_sec_config = MIN(Atoi(s), TIMEOUT_TYPE_MAX);
                         }
                         config->timeout_sec = config->timeout_sec_config;
@@ -1128,7 +1153,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 continue;
                         }
                         FreePool(config->entry_default_config);
-                        config->entry_default_config = stra_to_str(value);
+                        config->entry_default_config = stra_to_str_nofail(value);
                         continue;
                 }
 
@@ -1163,7 +1188,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else {
                                 _cleanup_freepool_ CHAR16 *s = NULL;
 
-                                s = stra_to_str(value);
+                                s = stra_to_str_nofail(value);
                                 config->console_mode = MIN(Atoi(s), (UINTN)CONSOLE_MODE_RANGE_MAX);
                         }
 
@@ -1299,16 +1324,16 @@ good:
         entry->tries_left = left;
         entry->tries_done = done;
 
-        entry->path = StrDuplicate(path);
-        entry->current_name = StrDuplicate(file);
+        entry->path = strdup_nofail(path);
+        entry->current_name = strdup_nofail(file);
 
         next_left = left <= 0 ? 0 : left - 1;
         next_done = done >= (UINTN) -2 ? (UINTN) -2 : done + 1;
 
-        prefix = StrDuplicate(file);
+        prefix = strdup_nofail(file);
         prefix[i] = 0;
 
-        entry->next_name = PoolPrint(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
+        entry->next_name = pool_print_nofail(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
 }
 
 static void config_entry_bump_counters(
@@ -1330,7 +1355,7 @@ static void config_entry_bump_counters(
         if (!entry->path || !entry->current_name || !entry->next_name)
                 return;
 
-        old_path = PoolPrint(L"%s\\%s", entry->path, entry->current_name);
+        old_path = pool_print_nofail(L"%s\\%s", entry->path, entry->current_name);
 
         err = root_dir->Open(root_dir, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err))
@@ -1353,7 +1378,7 @@ static void config_entry_bump_counters(
 
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
-        new_path = PoolPrint(L"%s\\%s", entry->path, entry->next_name);
+        new_path = pool_print_nofail(L"%s\\%s", entry->path, entry->next_name);
         efivar_set(LOADER_GUID, L"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
@@ -1387,8 +1412,7 @@ static void config_entry_add_from_file(
         assert(file);
         assert(content);
 
-        entry = AllocatePool(sizeof(ConfigEntry));
-
+        entry = new_nofail(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
@@ -1397,26 +1421,26 @@ static void config_entry_add_from_file(
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"title", key) == 0) {
                         FreePool(entry->title);
-                        entry->title = stra_to_str(value);
+                        entry->title = stra_to_str_nofail(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"version", key) == 0) {
                         FreePool(entry->version);
-                        entry->version = stra_to_str(value);
+                        entry->version = stra_to_str_nofail(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"machine-id", key) == 0) {
                         FreePool(entry->machine_id);
-                        entry->machine_id = stra_to_str(value);
+                        entry->machine_id = stra_to_str_nofail(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"linux", key) == 0) {
                         FreePool(entry->loader);
                         entry->type = LOADER_LINUX;
-                        entry->loader = stra_to_path(value);
+                        entry->loader = stra_to_path_nofail(value);
                         entry->key = 'l';
                         continue;
                 }
@@ -1424,7 +1448,7 @@ static void config_entry_add_from_file(
                 if (strcmpa((CHAR8 *)"efi", key) == 0) {
                         entry->type = LOADER_EFI;
                         FreePool(entry->loader);
-                        entry->loader = stra_to_path(value);
+                        entry->loader = stra_to_path_nofail(value);
 
                         /* do not add an entry for ourselves */
                         if (loaded_image_path && StriCmp(entry->loader, loaded_image_path) == 0) {
@@ -1445,22 +1469,22 @@ static void config_entry_add_from_file(
 
                 if (strcmpa((CHAR8 *)"devicetree", key) == 0) {
                         FreePool(entry->devicetree);
-                        entry->devicetree = stra_to_path(value);
+                        entry->devicetree = stra_to_path_nofail(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"initrd", key) == 0) {
                         _cleanup_freepool_ CHAR16 *new = NULL;
 
-                        new = stra_to_path(value);
+                        new = stra_to_path_nofail(value);
                         if (initrd) {
                                 CHAR16 *s;
 
-                                s = PoolPrint(L"%s initrd=%s", initrd, new);
+                                s = pool_print_nofail(L"%s initrd=%s", initrd, new);
                                 FreePool(initrd);
                                 initrd = s;
                         } else
-                                initrd = PoolPrint(L"initrd=%s", new);
+                                initrd = pool_print_nofail(L"initrd=%s", new);
 
                         continue;
                 }
@@ -1468,11 +1492,11 @@ static void config_entry_add_from_file(
                 if (strcmpa((CHAR8 *)"options", key) == 0) {
                         _cleanup_freepool_ CHAR16 *new = NULL;
 
-                        new = stra_to_str(value);
+                        new = stra_to_str_nofail(value);
                         if (entry->options) {
                                 CHAR16 *s;
 
-                                s = PoolPrint(L"%s %s", entry->options, new);
+                                s = pool_print_nofail(L"%s %s", entry->options, new);
                                 FreePool(entry->options);
                                 entry->options = s;
                         } else
@@ -1496,7 +1520,7 @@ static void config_entry_add_from_file(
                 if (entry->options) {
                         CHAR16 *s;
 
-                        s = PoolPrint(L"%s %s", initrd, entry->options);
+                        s = pool_print_nofail(L"%s %s", initrd, entry->options);
                         FreePool(entry->options);
                         entry->options = s;
                 } else
@@ -1504,7 +1528,7 @@ static void config_entry_add_from_file(
         }
 
         entry->device = device;
-        entry->id = StrDuplicate(file);
+        entry->id = strdup_nofail(file);
         StrLwr(entry->id);
 
         config_add_entry(config, entry);
@@ -1738,7 +1762,7 @@ static void config_title_generate(Config *config) {
                 title = config->entries[i]->title;
                 if (!title)
                         title = config->entries[i]->id;
-                config->entries[i]->title_show = StrDuplicate(title);
+                config->entries[i]->title_show = strdup_nofail(title);
         }
 
         if (!find_nonunique(config->entries, config->entry_count))
@@ -1753,7 +1777,7 @@ static void config_title_generate(Config *config) {
                 if (!config->entries[i]->version)
                         continue;
 
-                s = PoolPrint(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->version);
+                s = pool_print_nofail(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->version);
                 FreePool(config->entries[i]->title_show);
                 config->entries[i]->title_show = s;
         }
@@ -1771,9 +1795,9 @@ static void config_title_generate(Config *config) {
                 if (!config->entries[i]->machine_id)
                         continue;
 
-                m = StrDuplicate(config->entries[i]->machine_id);
+                m = strdup_nofail(config->entries[i]->machine_id);
                 m[8] = '\0';
-                s = PoolPrint(L"%s (%s)", config->entries[i]->title_show, m);
+                s = pool_print_nofail(L"%s (%s)", config->entries[i]->title_show, m);
                 FreePool(config->entries[i]->title_show);
                 config->entries[i]->title_show = s;
         }
@@ -1787,7 +1811,7 @@ static void config_title_generate(Config *config) {
 
                 if (!config->entries[i]->non_unique)
                         continue;
-                s = PoolPrint(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->id);
+                s = pool_print_nofail(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->id);
                 FreePool(config->entries[i]->title_show);
                 config->entries[i]->title_show = s;
                 config->entries[i]->non_unique = FALSE;
@@ -1807,10 +1831,10 @@ static BOOLEAN config_entry_add_call(
         assert(title);
         assert(call);
 
-        entry = AllocatePool(sizeof(ConfigEntry));
+        entry = new_nofail(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
-                .id = StrDuplicate(id),
-                .title = StrDuplicate(title),
+                .id = strdup_nofail(id),
+                .title = strdup_nofail(title),
                 .call = call,
                 .no_autoselect = TRUE,
                 .tries_done = UINTN_MAX,
@@ -1839,14 +1863,14 @@ static ConfigEntry *config_entry_add_loader(
         assert(title);
         assert(loader);
 
-        entry = AllocatePool(sizeof(ConfigEntry));
+        entry = new_nofail(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
                 .type = type,
-                .title = StrDuplicate(title),
-                .version = version ? StrDuplicate(version) : NULL,
+                .title = strdup_nofail(title),
+                .version = version ? strdup_nofail(version) : NULL,
                 .device = device,
-                .loader = StrDuplicate(loader),
-                .id = StrDuplicate(id),
+                .loader = strdup_nofail(loader),
+                .id = strdup_nofail(id),
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
@@ -2079,43 +2103,43 @@ static void config_entry_add_linux(
                 while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
                         if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
                                 FreePool(os_name_pretty);
-                                os_name_pretty = stra_to_str(value);
+                                os_name_pretty = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((CHAR8 *)"NAME", key) == 0) {
                                 FreePool(os_name);
-                                os_name = stra_to_str(value);
+                                os_name = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((CHAR8 *)"ID", key) == 0) {
                                 FreePool(os_id);
-                                os_id = stra_to_str(value);
+                                os_id = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((CHAR8 *)"VERSION", key) == 0) {
                                 FreePool(os_version);
-                                os_version = stra_to_str(value);
+                                os_version = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
                                 FreePool(os_version_id);
-                                os_version_id = stra_to_str(value);
+                                os_version_id = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((CHAR8 *)"BUILD_ID", key) == 0) {
                                 FreePool(os_build_id);
-                                os_build_id = stra_to_str(value);
+                                os_build_id = stra_to_str_nofail(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "IMAGE_VERSION", key) == 0) {
                                 FreePool(os_image_version);
-                                os_image_version = stra_to_str(value);
+                                os_image_version = stra_to_str_nofail(value);
                                 continue;
                         }
                 }
@@ -2123,7 +2147,7 @@ static void config_entry_add_linux(
                 if ((os_name_pretty || os_name) && os_id && (os_image_version || os_version || os_version_id || os_build_id)) {
                         _cleanup_freepool_ CHAR16 *path = NULL;
 
-                        path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
+                        path = pool_print_nofail(L"\\EFI\\Linux\\%s", f->FileName);
 
                         entry = config_entry_add_loader(
                                         config,
@@ -2151,7 +2175,7 @@ static void config_entry_add_linux(
                                 if (content[szs[SECTION_CMDLINE] - 1] == '\n')
                                         content[szs[SECTION_CMDLINE] - 1] = '\0';
 
-                                entry->options = stra_to_str(content);
+                                entry->options = stra_to_str_nofail(content);
                         }
                 }
         }
@@ -2254,8 +2278,7 @@ static void config_write_entries_to_variable(Config *config) {
         for (UINTN i = 0; i < config->entry_count; i++)
                 sz += StrSize(config->entries[i]->id);
 
-        p = buffer = AllocatePool(sz);
-
+        p = buffer = new_nofail(sz);
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN l;
 
@@ -2319,10 +2342,10 @@ static void export_variables(
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
-        infostr = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+        infostr = pool_print_nofail(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", infostr, 0);
 
-        typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        typestr = pool_print_nofail(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, 0);
 
         (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);
