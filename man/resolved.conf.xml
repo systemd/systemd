@@ -210,7 +210,7 @@
         true all connections to the server will be encrypted. Note that this
         mode requires a DNS server that supports DNS-over-TLS and has a valid
         certificate. If the hostname was specified in <varname>DNS=</varname>
-        by using the format format <literal>address#server_name</literal> it
+        by using the format <literal>address#server_name</literal> it
         is used to validate its certificate and also to enable Server Name
         Indication (SNI) when opening a TLS connection. Otherwise
         the certificate is checked against the server's IP.
