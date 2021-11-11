@@ -219,20 +219,9 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 if (!args)
                         return -ENOMEM;
 
-                for (size_t i = 0; args[i]; i++) {
-                        char *e;
-
-                        e = shell_maybe_quote(args[i], shflags);
-                        if (!e)
-                                return -ENOMEM;
-
-                        free_and_replace(args[i], e);
-                }
-
-                ans = strv_join(args, " ");
+                ans = quote_command_line(args, shflags);
                 if (!ans)
                         return -ENOMEM;
-
         } else {
                 /* Arguments are separated by NULs. Let's replace those with spaces. */
                 for (size_t i = 0; i < k - 1; i++)

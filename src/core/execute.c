@@ -3999,16 +3999,15 @@ static int exec_child(
         exec_context_tty_reset(context, params);
 
         if (unit_shall_confirm_spawn(unit)) {
-                const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
 
-                cmdline = quote_command_line(command->argv);
+                cmdline = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
                 if (!cmdline) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
                 }
 
-                r = ask_for_confirmation(context, vc, unit, cmdline);
+                r = ask_for_confirmation(context, params->confirm_spawn, unit, cmdline);
                 if (r != CONFIRM_EXECUTE) {
                         if (r == CONFIRM_PRETEND_SUCCESS) {
                                 *exit_status = EXIT_SUCCESS;
@@ -4884,7 +4883,7 @@ static int exec_child(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line = NULL;
 
-                line = quote_command_line(final_argv);
+                line = quote_command_line(final_argv, SHELL_ESCAPE_EMPTY);
                 if (!line) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
@@ -4976,7 +4975,7 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        line = quote_command_line(command->argv);
+        line = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
         if (!line)
                 return log_oom();
 
@@ -6230,7 +6229,7 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         prefix = strempty(prefix);
         prefix2 = strjoina(prefix, "\t");
 
-        cmd = quote_command_line(c->argv);
+        cmd = quote_command_line(c->argv, SHELL_ESCAPE_EMPTY);
         fprintf(f,
                 "%sCommand Line: %s\n",
                 prefix, cmd ? cmd : strerror_safe(ENOMEM));
