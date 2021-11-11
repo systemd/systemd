@@ -64,7 +64,7 @@ int rtnl_set_link_properties(
                 sd_netlink **rtnl,
                 int ifindex,
                 const char *alias,
-                const struct ether_addr *mac,
+                const struct hw_addr_data *hw_addr,
                 uint32_t txqueues,
                 uint32_t rxqueues,
                 uint32_t txqueuelen,
@@ -77,8 +77,14 @@ int rtnl_set_link_properties(
         assert(rtnl);
         assert(ifindex > 0);
 
-        if (!alias && !mac && txqueues == 0 && rxqueues == 0 && txqueuelen == UINT32_MAX && mtu == 0 &&
-            gso_max_size == 0 && gso_max_segments == 0)
+        if (!alias &&
+            (!hw_addr || hw_addr->length == 0) &&
+            txqueues == 0 &&
+            rxqueues == 0 &&
+            txqueuelen == UINT32_MAX &&
+            mtu == 0 &&
+            gso_max_size == 0 &&
+            gso_max_segments == 0)
                 return 0;
 
         if (!*rtnl) {
@@ -97,8 +103,8 @@ int rtnl_set_link_properties(
                         return r;
         }
 
-        if (mac) {
-                r = sd_netlink_message_append_ether_addr(message, IFLA_ADDRESS, mac);
+        if (hw_addr && hw_addr->length > 0) {
+                r = netlink_message_append_hw_addr(message, IFLA_ADDRESS, hw_addr);
                 if (r < 0)
                         return r;
         }
@@ -355,8 +361,16 @@ int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
         return r;
 }
 
-int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags) {
+int rtnl_get_link_info(
+                sd_netlink **rtnl,
+                int ifindex,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        struct hw_addr_data addr = HW_ADDR_NULL, perm_addr = HW_ADDR_NULL;
         unsigned short iftype;
         unsigned flags;
         int r;
@@ -395,10 +409,26 @@ int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftyp
                         return r;
         }
 
+        if (ret_hw_addr) {
+                r = netlink_message_read_hw_addr(reply, IFLA_ADDRESS, &addr);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (ret_permanent_hw_addr) {
+                r = netlink_message_read_hw_addr(reply, IFLA_PERM_ADDRESS, &perm_addr);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
         if (ret_iftype)
                 *ret_iftype = iftype;
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_hw_addr)
+                *ret_hw_addr = addr;
+        if (ret_permanent_hw_addr)
+                *ret_permanent_hw_addr = perm_addr;
         return 0;
 }
 
