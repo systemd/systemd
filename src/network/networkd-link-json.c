@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "netif-util.h"
+#include "networkd-address-json.h"
 #include "networkd-link-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -73,6 +74,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = device_build_json(link->sd_device, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = addresses_build_json(link->addresses, &w);
         if (r < 0)
                 return r;
 
