@@ -2,7 +2,28 @@
 
 #include "networkd-link-json.h"
 #include "networkd-manager-json.h"
+#include "networkd-manager.h"
+#include "networkd-route-json.h"
 
 int manager_build_json(Manager *manager, JsonVariant **ret) {
-        return links_build_json(manager, ret);
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        int r;
+
+        assert(manager);
+        assert(ret);
+
+        r = links_build_json(manager, &v);
+        if (r < 0)
+                return r;
+
+        r = routes_build_json(manager->routes, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }
