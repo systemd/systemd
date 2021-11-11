@@ -143,6 +143,23 @@ systemd-run --unit=test20-mainpidsh3.service \
 # Test that this failed due to timeout, and not some other error
 test "$(systemctl show -P Result test20-mainpidsh3.service)" = timeout
 
+# Test that scope units work
+systemd-run --scope --unit test20-true.scope /bin/true
+test "$(systemctl show -P Result test20-true.scope)" = success
+
+# Test that user scope units work as well
+
+runas() {
+    declare userid=$1
+    shift
+    # shellcheck disable=SC2016
+    su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
+}
+
+systemctl start user@4711.service
+runas testuser systemd-run --scope --user --unit test20-true.scope /bin/true
+test "$(systemctl show -P Result test20-true.scope)" = success
+
 systemd-analyze log-level info
 
 echo OK >/testok
