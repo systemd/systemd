@@ -146,6 +146,14 @@
         typically preferable, since it runs in a locked down sandbox.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--chain</option></term>
+
+        <listitem><para>When used with the <command>ssh-authorized-keys</command> command, this will allow
+        passing an additional command line after the user name that is chain executed after the lookup
+        completed. This allows chaining multiple tools that show SSH authorized keys.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -201,8 +209,8 @@
       <varlistentry>
         <term><command>ssh-authorized-keys</command></term>
 
-        <listitem><para>This operation is not a public, user-facing interface. It is used to allow the SSH daemon to pick
-        up authorized keys from user records, see below.</para></listitem>
+        <listitem><para>Show SSH authorized keys for this account. This command is intended to be used to
+        allow the SSH daemon to pick up authorized keys from user records, see below.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -301,6 +309,19 @@
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 …</programlisting>
+
+    <para>Sometimes it's useful to allow chain invocation of another program to list SSH authorized keys. By
+    using the <option>--chain</option> such a tool may be chain executed by <command>userdbctl
+    ssh-authorized-keys</command> once a lookup completes (regardless if an SSH key was found or
+    not). Example:</para>
+
+    <programlisting>…
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain /usr/bin/othertool %u
+AuthorizedKeysCommandUser root
+…</programlisting>
+
+    <para>The above will first query the userdb database for SSH keys, and then chain execute
+    <command>/usr/bin/othertool</command> to also be queried.</para>
   </refsect1>
 
   <refsect1>
