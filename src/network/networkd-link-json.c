@@ -5,6 +5,7 @@
 #include "networkd-link-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-neighbor-json.h"
 #include "networkd-network-json.h"
 #include "networkd-route-json.h"
 #include "sort-util.h"
@@ -95,6 +96,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = routes_build_json(link->routes, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = neighbors_build_json(link->neighbors, &w);
         if (r < 0)
                 return r;
 
