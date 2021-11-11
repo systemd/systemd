@@ -156,7 +156,7 @@ IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix, 
 IPv6AddressLabel.Label,                      config_parse_address_label,                               0,                             0
 Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
 Neighbor.LinkLayerAddress,                   config_parse_neighbor_lladdr,                             0,                             0
-Neighbor.MACAddress,                         config_parse_neighbor_hwaddr,                             0,                             0 /* deprecated */
+Neighbor.MACAddress,                         config_parse_neighbor_lladdr,                             0,                             0 /* deprecated */
 RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule_tos,                     0,                             0
 RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule_priority,                0,                             0
 RoutingPolicyRule.Table,                     config_parse_routing_policy_rule_table,                   0,                             0
