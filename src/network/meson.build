@@ -55,6 +55,8 @@ sources = files('''
         netdev/xfrm.h
         networkd-address-generation.c
         networkd-address-generation.h
+        networkd-address-json.c
+        networkd-address-json.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
