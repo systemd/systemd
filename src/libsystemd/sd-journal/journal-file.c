@@ -1666,7 +1666,7 @@ static int journal_file_append_data(
         const void *eq;
 
         assert(f);
-        assert(data || size == 0);
+        assert(data && size > 0);
 
         hash = journal_file_hash_data(f, data, size);
 
@@ -1683,6 +1683,10 @@ static int journal_file_append_data(
 
                 return 0;
         }
+
+        eq = memchr(data, '=', size);
+        if (!eq)
+                return -EINVAL;
 
         osize = offsetof(Object, data.payload) + size;
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
@@ -1728,23 +1732,17 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        if (!data)
-                eq = NULL;
-        else
-                eq = memchr(data, '=', size);
-        if (eq && eq > data) {
-                Object *fo = NULL;
-                uint64_t fp;
+        Object *fo = NULL;
+        uint64_t fp;
 
-                /* Create field object ... */
-                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
-                if (r < 0)
-                        return r;
+        /* Create field object ... */
+        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+        if (r < 0)
+                return r;
 
-                /* ... and link it in. */
-                o->data.next_field_offset = fo->field.head_data_offset;
-                fo->field.head_data_offset = le64toh(p);
-        }
+        /* ... and link it in. */
+        o->data.next_field_offset = fo->field.head_data_offset;
+        fo->field.head_data_offset = le64toh(p);
 
         if (ret)
                 *ret = o;
@@ -2124,7 +2122,7 @@ int journal_file_append_entry(
 
         assert(f);
         assert(f->header);
-        assert(iovec || n_iovec == 0);
+        assert(iovec && n_iovec > 0);
 
         if (ts) {
                 if (!VALID_REALTIME(ts->realtime))
@@ -3857,6 +3855,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         const sd_id128_t *boot_id;
         dual_timestamp ts;
         EntryItem *items;
+        size_t n_items = 0;
         int r;
 
         assert(from);
@@ -3922,6 +3921,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 } else
                         data = o->data.payload;
 
+                if (l == 0)
+                        continue;
+
                 r = journal_file_append_data(to, data, l, &u, &h);
                 if (r < 0)
                         return r;
@@ -3931,16 +3933,16 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i].object_offset = htole64(h);
-                items[i].hash = u->data.hash;
+                items[n_items].object_offset = htole64(h);
+                items[n_items].hash = u->data.hash;
+                n_items++;
 
                 r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
                 if (r < 0)
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
-                                               NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n_items, NULL, NULL, NULL);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;
