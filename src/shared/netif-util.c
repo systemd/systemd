@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "arphrd-util.h"
 #include "device-util.h"
+#include "log-link.h"
+#include "memory-util.h"
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
@@ -97,5 +101,100 @@ int net_get_unique_predictable_data_from_name(
         /* Let's hash the machine ID plus the device name. We use
          * a fixed, but originally randomly created hash key here. */
         *ret = htole64(siphash24(v, sz, key->bytes));
+        return 0;
+}
+
+typedef struct Link {
+        const char *ifname;
+} Link;
+
+int net_verify_hardware_address(
+                const char *ifname,
+                bool warn_invalid,
+                uint16_t iftype,
+                const struct hw_addr_data *current_hw_addr,
+                struct hw_addr_data *new_hw_addr) {
+
+        Link link = { .ifname = ifname };
+
+        assert(new_hw_addr);
+
+        if (new_hw_addr->length == 0)
+                return 0;
+
+        if (new_hw_addr->length != arphrd_to_hw_addr_len(iftype)) {
+                if (warn_invalid)
+                        log_link_warning(&link,
+                                         "Specified MAC address with invalid length (%zu, expected %zu), refusing.",
+                                         new_hw_addr->length, arphrd_to_hw_addr_len(iftype));
+                return -EINVAL;
+        }
+
+        if (current_hw_addr && current_hw_addr->length != new_hw_addr->length) {
+                if (warn_invalid)
+                        log_link_warning(&link,
+                                         "Size of the requested MAC address (%zu) does not match "
+                                         "the size of the current MAC address (%zu), refusing.",
+                                         new_hw_addr->length, current_hw_addr->length);
+                return -EINVAL;
+        }
+
+        switch (iftype) {
+        case ARPHRD_ETHER:
+                /* see eth_random_addr() in the kernel */
+
+                if (ether_addr_is_null(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified MAC address is null, refusing.");
+                        return -EINVAL;
+                }
+
+                if (ether_addr_is_broadcast(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified MAC address is broadcast, refusing.");
+                        return -EINVAL;
+                }
+
+                if (ether_addr_is_multicast(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified MAC address has multicast bit set, clearing the bit.");
+
+                        new_hw_addr->bytes[0] &= 0xfe;
+                }
+
+                if (!ether_addr_is_local(&new_hw_addr->ether)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "Specified MAC address has not local assignment bit set, setting the bit.");
+
+                        new_hw_addr->bytes[0] |= 0x02;
+                }
+
+                break;
+
+        case ARPHRD_INFINIBAND:
+                /* see ipoib_check_lladdr() in the kernel */
+
+                if (warn_invalid && !memeqzero(new_hw_addr->bytes, INFINIBAND_ALEN - 8))
+                        log_link_warning(&link, "Only the last 8 bytes of the InifniBand MAC address can be changed, ignoring the first 12 bytes.");
+
+                if (memeqzero(new_hw_addr->bytes + INFINIBAND_ALEN - 8, 8)) {
+                        if (warn_invalid)
+                                log_link_warning(&link, "The last 8 bytes of the InfiniBand MAC address cannot be null, refusing.");
+                        return -EINVAL;
+                }
+
+                if (current_hw_addr)
+                        memcpy(new_hw_addr->bytes, current_hw_addr->bytes, INFINIBAND_ALEN - 8);
+                else
+                        memzero(new_hw_addr->bytes, INFINIBAND_ALEN - 8);
+                break;
+
+        default:
+                if (warn_invalid)
+                        log_link_warning(&link, "Unsupported interface type %s%u to set MAC address, refusing.",
+                                         strna(arphrd_to_name(iftype)), iftype);
+                return -EINVAL;
+        }
+
         return 0;
 }
