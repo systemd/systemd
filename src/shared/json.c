@@ -3242,7 +3242,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
         };
 
         for (;;) {
-                _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *add = NULL, *add_more = NULL;
                 size_t n_subtract = 0; /* how much to subtract from current->n_suppress, i.e. how many elements would
                                         * have been added to the current variant */
                 JsonStack *current;
@@ -3707,6 +3707,34 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_HW_ADDR: {
+                        const struct hw_addr_data *hw_addr;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        assert_se(hw_addr = va_arg(ap, struct hw_addr_data*));
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_array_bytes(&add, hw_addr->bytes, hw_addr->length);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_OBJECT_BEGIN:
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3806,16 +3834,298 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         current->expect = EXPECT_OBJECT_VALUE;
                         break;
-                }}
+                }
 
-                /* If a variant was generated, add it to our current variant, but only if we are not supposed to suppress additions */
+                case _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO: {
+                        const char *n;
+                        uint64_t u;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        u = va_arg(ap, uint64_t);
+
+                        if (u != 0 && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_unsigned(&add_more, u);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_FINITE_USEC: {
+                        const char *n;
+                        usec_t u;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        u = va_arg(ap, usec_t);
+
+                        if (u != USEC_INFINITY && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_unsigned(&add_more, u);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_STRING_NON_EMPTY: {
+                        const char *n, *s;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        s = va_arg(ap, const char *);
+
+                        if (!isempty(s) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_string(&add_more, s);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_STRV_NON_EMPTY: {
+                        const char *n;
+                        char **l;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        l = va_arg(ap, char **);
+
+                        if (!strv_isempty(l) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_strv(&add_more, l);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_VARIANT_NON_NULL: {
+                        JsonVariant *v;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        v = va_arg(ap, JsonVariant *);
+
+                        if (v && !json_variant_is_null(v) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                add_more = json_variant_ref(v);
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL: {
+                        const struct in_addr *a;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct in_addr *);
+
+                        if (in4_addr_is_set(a) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_bytes(&add_more, a, sizeof(struct in_addr));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL: {
+                        const struct in6_addr *a;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct in6_addr *);
+
+                        if (in6_addr_is_set(a) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_bytes(&add_more, a, sizeof(struct in6_addr));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL: {
+                        const union in_addr_union *a;
+                        const char *n;
+                        int f;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const union in_addr_union *);
+                        f = va_arg(ap, int);
+
+                        if (in_addr_is_set(f, a) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL: {
+                        const struct ether_addr *a;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct ether_addr *);
+
+                        if (!ether_addr_is_null(a) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_bytes(&add_more, a->ether_addr_octet, sizeof(struct ether_addr));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_HW_ADDR_NON_NULL: {
+                        const struct hw_addr_data *a;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct hw_addr_data *);
+
+                        if (!hw_addr_is_null(a) && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_array_bytes(&add_more, a->bytes, a->length);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+                }
+
+                /* If variants were generated, add them to our current variant, but only if we are not supposed to suppress additions */
                 if (add && current->n_suppress == 0) {
-                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 1)) {
+                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 1 + !!add_more)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
                         current->elements[current->n_elements++] = TAKE_PTR(add);
+                        if (add_more)
+                                current->elements[current->n_elements++] = TAKE_PTR(add_more);
                 }
 
                 /* If we are supposed to suppress items, let's subtract how many items where generated from that
