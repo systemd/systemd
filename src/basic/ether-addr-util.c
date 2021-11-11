@@ -39,7 +39,7 @@ int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b) 
         return memcmp(a->bytes, b->bytes, a->length);
 }
 
-static void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
+void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
         assert(p);
         assert(state);
 
