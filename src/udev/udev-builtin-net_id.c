@@ -957,7 +957,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         if (names_mac(dev, &info) >= 0) {
                 char str[ALTIFNAMSIZ];
 
-                xsprintf(str, "%s%s", prefix, HW_ADDR_TO_STR(&info.hw_addr));
+                xsprintf(str, "%s%s", prefix, HW_ADDR_TO_STR_FULL(&info.hw_addr, HW_ADDR_TO_STRING_NO_COLON));
                 udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
 
                 ieee_oui(dev, &info, test);
