@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "netif-util.h"
-#include "networkd-json.h"
+#include "networkd-link-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
-#include "networkd-network.h"
+#include "networkd-network-json.h"
 #include "sort-util.h"
-
-static int network_build_json(Network *network, JsonVariant **ret) {
-        assert(network);
-        assert(ret);
-
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("NetworkFile", JSON_BUILD_STRING(network->filename))));
-}
 
 static int device_build_json(sd_device *device, JsonVariant **ret) {
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL;
@@ -105,7 +97,7 @@ static int link_json_compare(JsonVariant * const *a, JsonVariant * const *b) {
         return CMP(index_a, index_b);
 }
 
-int manager_build_json(Manager *manager, JsonVariant **ret) {
+int links_build_json(Manager *manager, JsonVariant **ret) {
         JsonVariant **elements;
         Link *link;
         size_t n = 0;
