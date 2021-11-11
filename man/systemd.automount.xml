@@ -145,6 +145,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ExtraOptions=</varname></term>
+        <listitem><para>Extra mount options to use when creating the autofs
+        mountpoint. This takes a comma-separated list of options. This setting
+        is optional. Note that the usual specifier expansion is applied to this
+        setting, literal percent characters should hence be written as
+        <literal class='specifiers'>%%</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DirectoryMode=</varname></term>
         <listitem><para>Directories of automount points (and any
         parent directories) are automatically created if needed. This
