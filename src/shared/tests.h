@@ -43,3 +43,50 @@ bool can_memlock(void);
 
 /* Provide a convenient way to check if we're running in CI. */
 const char *ci_environment(void);
+
+typedef struct TestFunc {
+        void (*f)(void);
+        const char * const n;
+} TestFunc;
+
+/* See static-destruct.h for an explanation of how this works. */
+#define REGISTER_TEST(func)                                                              \
+        static void func(void);                                                          \
+        _section_("SYSTEMD_TEST_TABLE") _alignptr_ _used_ _variable_no_sanitize_address_ \
+        static const TestFunc UNIQ_T(static_test_table_entry, UNIQ) = {                  \
+                .f = &(func),                                                            \
+                .n = STRINGIFY(func),                                                    \
+        }
+
+extern const TestFunc _weak_ __start_SYSTEMD_TEST_TABLE[];
+extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
+
+#define TEST(name)                  \
+        REGISTER_TEST(test_##name); \
+        static void test_##name(void)
+
+static inline void run_test_table(void) {
+        if (!__start_SYSTEMD_TEST_TABLE)
+                return;
+
+        const TestFunc *t = ALIGN_TO_PTR(__start_SYSTEMD_TEST_TABLE, sizeof(TestFunc*));
+        while (t < __stop_SYSTEMD_TEST_TABLE) {
+                log_info("/* %s */", t->n);
+                t->f();
+                t = ALIGN_TO_PTR(t + 1, sizeof(TestFunc*));
+        }
+}
+
+#define DEFINE_TEST_MAIN                      \
+        int main(int argc, char *argv[]) {    \
+                test_setup_logging(LOG_INFO); \
+                run_test_table();             \
+                return EXIT_SUCCESS;          \
+        }
+
+#define DEFINE_CUSTOM_TEST_MAIN(impl)         \
+        int main(int argc, char *argv[]) {    \
+                test_setup_logging(LOG_INFO); \
+                run_test_table();             \
+                return impl();                \
+        }
