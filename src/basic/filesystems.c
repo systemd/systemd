@@ -59,6 +59,14 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "pipefs\0"
                 "sockfs\0"
         },
+        [FILESYSTEM_SET_APPLICATION] = {
+                .name = "@application",
+                .help = "Application virtual filesystems",
+                .value =
+                "autofs\0"
+                "fuse\0"
+                "overlay\0"
+        },
         [FILESYSTEM_SET_AUXILIARY_API] = {
                 .name = "@auxiliary-api",
                 .help = "Auxiliary filesystem API",
