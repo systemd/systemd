@@ -1920,7 +1920,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received route message without route protocol: %m");
+                log_warning_errno(r, "rtnl: received route message without route protocol, ignoring: %m");
                 return 0;
         }
 
@@ -2012,7 +2012,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_netlink_message_enter_container(message, RTA_METRICS);
         if (r < 0 && r != -ENODATA) {
-                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container: %m");
+                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container, ignoring: %m");
                 return 0;
         }
         if (r >= 0) {
@@ -2036,7 +2036,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0) {
-                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
+                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container, ignoring: %m");
                         return 0;
                 }
         }
