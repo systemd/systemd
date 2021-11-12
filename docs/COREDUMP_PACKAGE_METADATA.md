@@ -67,6 +67,16 @@ Value: a JSON string with the structure described below
 }
 ```
 
+When it comes to JSON numbers, this specification assumes that JSON parsers
+processing this information are capable of reproducing the full signed 53bit
+integer range (i.e. -2⁵³+1…+2⁵³-1) as well as the full 64bit IEEE floating
+point number range losslessly (with the exception of NaN/-inf/+inf, since JSON
+cannot encode that), as per recommendations of
+[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#page-8). Fields in
+these JSON objects are thus permitted to encode numeric values from these
+ranges as JSON numbers, and should not use numeric values not covered by these
+types and ranges.
+
 A reference implementations of a [build-time tool is provided](https://github.com/systemd/package-notes)
 and can be used to generate a linker script, which can then be used at build time via
 ```LDFLAGS="-Wl,-T,/path/to/generated/script"``` to include the note in the binary.
