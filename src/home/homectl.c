@@ -36,6 +36,7 @@
 #include "rlimit-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
+#include "uid-alloc-range.h"
 #include "user-record-pwquality.h"
 #include "user-record-show.h"
 #include "user-record-util.h"

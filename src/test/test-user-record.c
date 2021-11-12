@@ -7,9 +7,9 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "tmpfile-util.h"
 #include "tests.h"
-#include "user-record.h"
+#include "tmpfile-util.h"
+#include "uid-alloc-range.h"
 
 static void test_read_login_defs(const char *path) {
         log_info("/* %s(\"%s\") */", __func__, path ?: "<custom>");
