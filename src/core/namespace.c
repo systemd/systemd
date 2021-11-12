@@ -806,8 +806,7 @@ static int clone_device_node(
                 *make_devnode = false;
         }
 
-        /* We're about to fall back to bind-mounting the device
-         * node. So create a dummy bind-mount target.
+        /* We're about to fall back to bind-mounting the device node. So create a dummy bind-mount target.
          * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);
         if (r < 0 && errno != EEXIST)
@@ -853,12 +852,9 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
-        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         assert(m);
-
-        u = umask(0000);
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
@@ -930,10 +926,8 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
-        /* Create the /dev directory if missing. It is more likely to be
-         * missing when the service is started with RootDirectory. This is
-         * consistent with mount units creating the mount points when missing.
-         */
+        /* Create the /dev directory if missing. It is more likely to be missing when the service is started
+         * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
@@ -975,8 +969,8 @@ static int mount_bind_dev(const MountEntry *m) {
 
         assert(m);
 
-        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
-         * /dev. This is only used when RootDirectory= is set. */
+        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the
+         * service's /dev. This is only used when RootDirectory= is set. */
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
@@ -1085,7 +1079,8 @@ static int mount_tmpfs(const MountEntry *m) {
         entry_path = mount_entry_path(m);
         inner_path = mount_entry_unprefixed_path(m);
 
-        /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new
+         * tmpfs */
 
         (void) mkdir_p_label(entry_path, 0755);
         (void) umount_recursive(entry_path, 0);
@@ -1900,6 +1895,10 @@ int setup_namespace(
 
         assert(ns_info);
 
+        /* Make sure that all mknod(), mkdir() calls we do are unaffected by the umask, and the access modes
+         * we configure take effect */
+        BLOCK_WITH_UMASK(0000);
+
         if (!isempty(propagate_dir) && !isempty(incoming_dir))
                 setup_propagate = true;
 
@@ -1972,11 +1971,11 @@ int setup_namespace(
                  * we create it if it doesn't already exist. */
                 (void) mkdir_p_label("/run/systemd", 0755);
 
-                /* Always create the mount namespace in a temporary directory, instead of operating
-                 * directly in the root. The temporary directory prevents any mounts from being
-                 * potentially obscured my other mounts we already applied.
-                 * We use the same mount point for all images, which is safe, since they all live
-                 * in their own namespaces after all, and hence won't see each other. */
+                /* Always create the mount namespace in a temporary directory, instead of operating directly
+                 * in the root. The temporary directory prevents any mounts from being potentially obscured
+                 * my other mounts we already applied.  We use the same mount point for all images, which is
+                 * safe, since they all live in their own namespaces after all, and hence won't see each
+                 * other. */
 
                 root = "/run/systemd/unit-root";
                 (void) mkdir_label(root, 0700);
@@ -2240,8 +2239,8 @@ int setup_namespace(
                 (void) mkdir_p(propagate_dir, 0600);
 
         if (n_extension_images > 0)
-                /* ExtensionImages mountpoint directories will be created
-                 * while parsing the mounts to create, so have the parent ready */
+                /* ExtensionImages mountpoint directories will be created while parsing the mounts to create,
+                 * so have the parent ready */
                 (void) mkdir_p(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
@@ -2509,7 +2508,8 @@ static int make_tmp_prefix(const char *prefix) {
         if (errno != ENOENT)
                 return -errno;
 
-        r = mkdir_parents(prefix, 0755);
+        RUN_WITH_UMASK(000)
+                r = mkdir_parents(prefix, 0755);
         if (r < 0)
                 return r;
 
@@ -2517,7 +2517,8 @@ static int make_tmp_prefix(const char *prefix) {
         if (r < 0)
                 return r;
 
-        if (mkdir(t, 0777) < 0)
+        if (mkdir(t, 0777) < 0) /* umask will corrupt this access mode, but that doesn't matter, we need to
+                                 * call chmod() anyway for the suid bit, below. */
                 return -errno;
 
         if (chmod(t, 01777) < 0) {
@@ -2575,10 +2576,9 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (!y)
                         return -ENOMEM;
 
-                RUN_WITH_UMASK(0000) {
+                RUN_WITH_UMASK(0000)
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
-                }
 
                 r = label_fix_container(y, prefix, 0);
                 if (r < 0)
@@ -2590,7 +2590,8 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
                  * file system. */
-                r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
+                RUN_WITH_UMASK(0000)
+                        r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
                 if (r < 0)
                         return r;
 

@@ -1109,6 +1109,10 @@ static void test_exec_condition(Manager *m) {
         test_service(m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
 }
 
+static void test_exec_umask_namespace(Manager *m) {
+        test(m, "exec-umask-namespace.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+}
+
 typedef struct test_entry {
         test_function_t f;
         const char *name;
@@ -1191,6 +1195,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_specifier),
                 entry(test_exec_execsearchpath_specifier),
                 entry(test_exec_systemcallfilter_system),
+                entry(test_exec_umask_namespace),
                 {},
         };
         int r;
