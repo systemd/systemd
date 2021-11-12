@@ -7,6 +7,13 @@
 #include "uid-alloc-range.h"
 #include "user-util.h"
 
+static const UGIDAllocationRange default_ugid_allocation_range = {
+        .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
+        .system_uid_max = SYSTEM_UID_MAX,
+        .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
+        .system_gid_max = SYSTEM_GID_MAX,
+};
+
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
 static int parse_alloc_uid(const char *path, const char *name, const char *t, uid_t *ret_uid) {
         uid_t uid;
@@ -24,15 +31,9 @@ static int parse_alloc_uid(const char *path, const char *name, const char *t, ui
 #endif
 
 int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root) {
-        UGIDAllocationRange defs = {
-                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
-                .system_uid_max = SYSTEM_UID_MAX,
-                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
-                .system_gid_max = SYSTEM_GID_MAX,
-        };
-
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
         _cleanup_fclose_ FILE *f = NULL;
+        UGIDAllocationRange defs;
         int r;
 
         if (!path)
@@ -40,9 +41,11 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
 
         r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
-                goto assign;
+                goto defaults;
         if (r < 0)
                 return log_debug_errno(r, "Failed to open %s: %m", path);
+
+        defs = default_ugid_allocation_range;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -64,7 +67,6 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
                         (void) parse_alloc_uid(path, "SYS_GID_MAX", t, &defs.system_gid_max);
         }
 
- assign:
         if (defs.system_alloc_uid_min > defs.system_uid_max) {
                 log_debug("%s: SYS_UID_MIN > SYS_UID_MAX, resetting.", path);
                 defs.system_alloc_uid_min = MIN(defs.system_uid_max - 1, (uid_t) SYSTEM_ALLOC_UID_MIN);
@@ -75,38 +77,35 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
                 defs.system_alloc_gid_min = MIN(defs.system_gid_max - 1, (gid_t) SYSTEM_ALLOC_GID_MIN);
                 /* Look at sys_gid_max to make sure sys_gid_min..sys_gid_max remains a valid range. */
         }
-#endif
 
         *ret_defs = defs;
+        return 1;
+defaults:
+#endif
+        *ret_defs = default_ugid_allocation_range;
         return 0;
 }
 
 const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
-        static thread_local UGIDAllocationRange defs = {
-#else
-        static const UGIDAllocationRange defs = {
-#endif
-                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
-                .system_uid_max = SYSTEM_UID_MAX,
-                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
-                .system_gid_max = SYSTEM_GID_MAX,
-        };
+        static thread_local UGIDAllocationRange defs;
+        static thread_local int initialized = 0; /* == 0 → not initialized yet
+                                                  * < 0 → failure
+                                                  * > 0 → success */
 
-#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
         /* This function will ignore failure to read the file, so it should only be called from places where
          * we don't crucially depend on the answer. In other words, it's appropriate for journald, but
          * probably not for sysusers. */
 
-        static thread_local bool initialized = false;
-
-        if (!initialized) {
-                (void) read_login_defs(&defs, NULL, NULL);
-                initialized = true;
-        }
-#endif
+        if (initialized == 0)
+                initialized = read_login_defs(&defs, NULL, NULL) < 0 ? -1 : 1;
+        if (initialized < 0)
+                return &default_ugid_allocation_range;
 
         return &defs;
+
+#endif
+        return &default_ugid_allocation_range;
 }
 
 bool uid_is_system(uid_t uid) {
