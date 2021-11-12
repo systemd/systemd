@@ -26,6 +26,8 @@ int route_protocol_to_string_alloc(int t, char **ret);
 int route_protocol_full_from_string(const char *s);
 int route_protocol_full_to_string_alloc(int t, char **ret);
 
+int route_flags_to_string_alloc(uint32_t flags, char **ret);
+
 int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
 int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret);
 

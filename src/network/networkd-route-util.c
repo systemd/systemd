@@ -219,6 +219,32 @@ static const char * const route_protocol_full_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_protocol_full, int, UINT8_MAX);
 
+int route_flags_to_string_alloc(uint32_t flags, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        static const struct {
+                uint32_t flag;
+                const char *name;
+        } map[] = {
+                { RTNH_F_DEAD,       "dead"       }, /* Nexthop is dead (used by multipath) */
+                { RTNH_F_PERVASIVE,  "pervasive"  }, /* Do recursive gateway lookup */
+                { RTNH_F_ONLINK,     "onlink"     }, /* Gateway is forced on link */
+                { RTNH_F_OFFLOAD,    "offload"    }, /* Nexthop is offloaded */
+                { RTNH_F_LINKDOWN,   "linkdown"   }, /* carrier-down on nexthop */
+                { RTNH_F_UNRESOLVED, "unresolved" }, /* The entry is unresolved (ipmr) */
+                { RTNH_F_TRAP,       "trap"       }, /* Nexthop is trapping packets */
+        };
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag &&
+                    !strextend_with_separator(&str, ",", map[i].name))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
 static const char * const route_table_table[] = {
         [RT_TABLE_DEFAULT] = "default",
         [RT_TABLE_MAIN]    = "main",
