@@ -657,6 +657,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--luks-extra-mount-options=</option><replaceable>OPTIONS</replaceable></term>
+
+        <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
+        volume. If specified, this string will be appended to the default, built-in mount
+        options.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--luks-cipher=</option><replaceable>CIPHER</replaceable></term>
         <term><option>--luks-cipher-mode=</option><replaceable>MODE</replaceable></term>
         <term><option>--luks-volume-key-size=</option><replaceable>BITS</replaceable></term>

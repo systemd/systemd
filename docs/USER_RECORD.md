@@ -476,6 +476,9 @@ executed to make sure the image matches the selected option.
 to trim/allocate the file system/backing file when deactivating the home
 directory.
 
+`luksExtraMountOptions` → A string with additional mount options to append to
+the default mount options for the file system in the LUKS volume.
+
 `luksCipher` → A string, indicating the cipher to use for the LUKS storage mechanism.
 
 `luksCipherMode` → A string, selecting the cipher mode to use for the LUKS storage mechanism.
