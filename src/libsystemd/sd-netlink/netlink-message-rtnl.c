@@ -316,7 +316,7 @@ int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags) {
         assert_return(m->hdr->nlmsg_type == RTM_NEWNEXTHOP, -EINVAL);
 
         nhm = NLMSG_DATA(m->hdr);
-        nhm->nh_flags |= flags;
+        nhm->nh_flags = flags;
 
         return 0;
 }
@@ -357,7 +357,7 @@ int sd_rtnl_message_neigh_set_flags(sd_netlink_message *m, uint8_t flags) {
         assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
 
         ndm = NLMSG_DATA(m->hdr);
-        ndm->ndm_flags |= flags;
+        ndm->ndm_flags = flags;
 
         return 0;
 }
@@ -370,7 +370,7 @@ int sd_rtnl_message_neigh_set_state(sd_netlink_message *m, uint16_t state) {
         assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
 
         ndm = NLMSG_DATA(m->hdr);
-        ndm->ndm_state |= state;
+        ndm->ndm_state = state;
 
         return 0;
 }
@@ -927,7 +927,7 @@ int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, uint32_
         assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
 
         frh = NLMSG_DATA(m->hdr);
-        frh->flags |= flags;
+        frh->flags = flags;
 
         return 0;
 }
