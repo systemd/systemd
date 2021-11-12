@@ -32,9 +32,10 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "uid-alloc-range.h"
+#include "user-record-pwquality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record-pwquality.h"
 #include "user-record.h"
 #include "user-util.h"
 
