@@ -1352,7 +1352,7 @@ int home_setup_luks(
                 if (r < 0)
                         return r;
 
-                r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
+                r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
                 if (r < 0)
                         return r;
 
@@ -2223,7 +2223,7 @@ int home_create_luks(
 
         log_info("Formatting file system completed.");
 
-        r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h));
+        r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
         if (r < 0)
                 return r;
 
@@ -2413,7 +2413,13 @@ static int can_resize_fs(int fd, uint64_t old_size, uint64_t new_size) {
         return CAN_RESIZE_ONLINE;
 }
 
-static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool discard, unsigned long flags) {
+static int ext4_offline_resize_fs(
+                HomeSetup *setup,
+                uint64_t new_size,
+                bool discard,
+                unsigned long flags,
+                const char *extra_mount_options) {
+
         _cleanup_free_ char *size_str = NULL;
         bool re_open = false, re_mount = false;
         pid_t resize_pid, fsck_pid;
@@ -2488,7 +2494,7 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
 
         /* Re-establish mounts and reopen the directory */
         if (re_mount) {
-                r = home_mount_node(setup->dm_node, "ext4", discard, flags);
+                r = home_mount_node(setup->dm_node, "ext4", discard, flags, extra_mount_options);
                 if (r < 0)
                         return r;
 
@@ -2930,7 +2936,7 @@ int home_resize_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resize file system: %m");
         } else {
-                r = ext4_offline_resize_fs(setup, new_fs_size, user_record_luks_discard(h), user_record_mount_flags(h));
+                r = ext4_offline_resize_fs(setup, new_fs_size, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
                 if (r < 0)
                         return r;
         }
