@@ -27,6 +27,7 @@ int mkdir_safe_internal(
         int r;
 
         assert(path);
+        assert(mode != MODE_INVALID);
         assert(_mkdir && _mkdir != mkdir);
 
         if (_mkdir(path, mode) >= 0) {
