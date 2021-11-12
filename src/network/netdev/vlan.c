@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <net/if.h>
+#include <linux/if_arp.h>
 #include <linux/if_vlan.h>
 
 #include "parse-util.h"
@@ -229,4 +230,5 @@ const NetDevVTable vlan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vlan_verify,
         .done = vlan_done,
+        .iftype = ARPHRD_ETHER,
 };

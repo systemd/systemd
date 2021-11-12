@@ -13,6 +13,8 @@ sources = files('''
         netdev/dummy.h
         netdev/ifb.c
         netdev/ifb.h
+        netdev/ipoib.c
+        netdev/ipoib.h
         netdev/ipvlan.c
         netdev/ipvlan.h
         netdev/macvlan.c
@@ -53,6 +55,8 @@ sources = files('''
         netdev/xfrm.h
         networkd-address-generation.c
         networkd-address-generation.h
+        networkd-address-json.c
+        networkd-address-json.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
@@ -87,10 +91,10 @@ sources = files('''
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
-        networkd-json.c
-        networkd-json.h
         networkd-link-bus.c
         networkd-link-bus.h
+        networkd-link-json.c
+        networkd-link-json.h
         networkd-link.c
         networkd-link.h
         networkd-lldp-rx.c
@@ -99,24 +103,38 @@ sources = files('''
         networkd-lldp-tx.h
         networkd-manager-bus.c
         networkd-manager-bus.h
+        networkd-manager-json.c
+        networkd-manager-json.h
         networkd-manager.c
         networkd-manager.h
         networkd-ndisc.c
         networkd-ndisc.h
+        networkd-neighbor-json.c
+        networkd-neighbor-json.h
         networkd-neighbor.c
         networkd-neighbor.h
         networkd-radv.c
         networkd-radv.h
         networkd-network-bus.c
         networkd-network-bus.h
+        networkd-network-json.c
+        networkd-network-json.h
         networkd-network.c
         networkd-network.h
+        networkd-nexthop-json.c
+        networkd-nexthop-json.h
         networkd-nexthop.c
         networkd-nexthop.h
         networkd-queue.c
         networkd-queue.h
+        networkd-route-json.c
+        networkd-route-json.h
+        networkd-route-util.c
+        networkd-route-util.h
         networkd-route.c
         networkd-route.h
+        networkd-routing-policy-rule-json.c
+        networkd-routing-policy-rule-json.h
         networkd-routing-policy-rule.c
         networkd-routing-policy-rule.h
         networkd-setlink.c
