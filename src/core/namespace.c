@@ -2508,7 +2508,8 @@ static int make_tmp_prefix(const char *prefix) {
         if (errno != ENOENT)
                 return -errno;
 
-        r = mkdir_parents(prefix, 0755);
+        RUN_WITH_UMASK(000)
+                r = mkdir_parents(prefix, 0755);
         if (r < 0)
                 return r;
 
@@ -2516,7 +2517,8 @@ static int make_tmp_prefix(const char *prefix) {
         if (r < 0)
                 return r;
 
-        if (mkdir(t, 0777) < 0)
+        if (mkdir(t, 0777) < 0) /* umask will corrupt this access mode, but that doesn't matter, we need to
+                                 * call chmod() anyway for the suid bit, below. */
                 return -errno;
 
         if (chmod(t, 01777) < 0) {
@@ -2574,10 +2576,9 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (!y)
                         return -ENOMEM;
 
-                RUN_WITH_UMASK(0000) {
+                RUN_WITH_UMASK(0000)
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
-                }
 
                 r = label_fix_container(y, prefix, 0);
                 if (r < 0)
@@ -2589,7 +2590,8 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
                  * file system. */
-                r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
+                RUN_WITH_UMASK(0000)
+                        r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
                 if (r < 0)
                         return r;
 
