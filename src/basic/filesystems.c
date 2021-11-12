@@ -51,6 +51,14 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "proc\0"
                 "sysfs\0"
         },
+        [FILESYSTEM_SET_ANONYMOUS] = {
+                .name = "@anonymous",
+                .help = "Anonymous inodes",
+                .value =
+                "anon_inodefs\0"
+                "pipefs\0"
+                "sockfs\0"
+        },
         [FILESYSTEM_SET_AUXILIARY_API] = {
                 .name = "@auxiliary-api",
                 .help = "Auxiliary filesystem API",
@@ -103,6 +111,14 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "debugfs\0"
                 "pstore\0"
                 "tracefs\0"
+        },
+        [FILESYSTEM_SET_SECURITY] = {
+                .name = "@security",
+                .help = "Security/MAC API VFS",
+                .value =
+                "apparmorfs\0"
+                "selinuxfs\0"
+                "smackfs\0"
         },
         [FILESYSTEM_SET_TEMPORARY] = {
                 .name = "@temporary",
