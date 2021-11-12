@@ -863,7 +863,6 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
 }
 
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
-        unsigned flags;
         int r;
 
         assert(route);
@@ -918,11 +917,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set scope: %m");
 
-        flags = route->flags;
-        if (route->gateway_onlink >= 0)
-                SET_FLAG(flags, RTNH_F_ONLINK, route->gateway_onlink);
-
-        r = sd_rtnl_message_route_set_flags(req, flags);
+        r = sd_rtnl_message_route_set_flags(req, route->flags & RTNH_F_ONLINK);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set flags: %m");
 
@@ -1633,11 +1628,11 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         return 0;
 }
 
-bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw) {
+bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw) {
         assert(link);
         assert(gw);
 
-        if (onlink > 0)
+        if (onlink)
                 return true;
 
         if (!in_addr_is_set(family, gw))
@@ -1688,7 +1683,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         return r;
         }
 
-        if (!gateway_is_ready(link, route->gateway_onlink, route->gw_family, &route->gw))
+        if (!gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw))
                 return false;
 
         MultipathRoute *m;
@@ -1706,7 +1701,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         m->ifindex = l->ifindex;
                 }
 
-                if (!gateway_is_ready(l ?: link, route->gateway_onlink, m->gateway.family, &a))
+                if (!gateway_is_ready(l ?: link, FLAGS_SET(route->flags, RTNH_F_ONLINK), m->gateway.family, &a))
                         return false;
         }
 
@@ -1802,6 +1797,7 @@ static int process_route_one(
         switch (type) {
         case RTM_NEWROUTE:
                 if (route) {
+                        route->flags = tmp->flags;
                         route_enter_configured(route);
                         log_route_debug(route, "Received remembered", link, manager);
 
@@ -1921,6 +1917,12 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received route message without route protocol, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_flags(message, &tmp->flags);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: received route message without route flags, ignoring: %m");
                 return 0;
         }
 
@@ -3158,6 +3160,9 @@ static int route_section_verify(Route *route, Network *network) {
                             network->filename);
                 route->gateway_onlink = true;
         }
+
+        if (route->gateway_onlink >= 0)
+                SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
 
         if (route->family == AF_INET6) {
                 MultipathRoute *m;
