@@ -1840,15 +1840,12 @@ static bool mount_is_mounted(Mount *m) {
 
 static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
-        int r;
 
         assert(m);
 
-        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so let's
-         * make sure we dispatch them in the next iteration. */
-        r = sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_ONESHOT);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable run queue event source, ignoring: %m");
+        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so
+         * let's make sure we dispatch them in the next iteration. */
+        manager_trigger_run_queue(m);
 
         return 0;
 }
