@@ -1933,7 +1933,7 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = mkdir_errno_wrapper("/run/udev", 0755);
+        r = RET_NERRNO(mkdir("/run/udev", 0755));
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
