@@ -433,3 +433,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
       SYSTEMD_HOME_RECORD_DIR=/var/lib/systemd/home.foo/ \
       /home/lennart/projects/systemd/build/systemd-homed
 ```
+
+* `$SYSTEMD_HOME_MOUNT_OPTIONS_BTRFS`, `$SYSTEMD_HOME_MOUNT_OPTIONS_EXT4`,
+  `$SYSTEMD_HOME_MOUNT_OPTIONS_XFS` – configure the default mount options to
+  use for LUKS home directories, overriding the built-in default mount
+  options. There's one variable for each of the supported file systems for the
+  LUKS home directory backend.
