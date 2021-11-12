@@ -4,10 +4,7 @@
 # https://github.com/marketplace/actions/super-linter
 name: Lint Code Base
 
-on:
-  pull_request:
-    branches:
-      - main
+on: [pull_request]
 
 jobs:
   build:
