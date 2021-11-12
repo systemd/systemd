@@ -2078,6 +2078,21 @@ static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
         return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
 
+static size_t remove_duplicate_entry_items(EntryItem items[], size_t n) {
+
+        /* This function relies on the items array being sorted. */
+        size_t j = 1;
+
+        if (n <= 1)
+                return n;
+
+        for (size_t i = 1; i < n; i++)
+                if (items[i].object_offset != items[j - 1].object_offset)
+                        items[j++] = items[i];
+
+        return j;
+}
+
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -2148,6 +2163,7 @@ int journal_file_append_entry(
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
         typesafe_qsort(items, n_iovec, entry_item_cmp);
+        n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
         r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, ret_offset);
 
