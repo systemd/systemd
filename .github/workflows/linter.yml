@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - v[0-9]+-stable
 
 jobs:
   build:
