@@ -46,7 +46,7 @@
 #include "hostname-setup.h"
 #include "id128-util.h"
 #include "import-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

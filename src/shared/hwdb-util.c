@@ -12,7 +12,7 @@
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "label.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "sort-util.h"

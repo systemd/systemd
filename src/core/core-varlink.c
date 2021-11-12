@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "core-varlink.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
 #include "varlink.h"

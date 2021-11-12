@@ -27,6 +27,7 @@
 #include "logind-user-dbus.h"
 #include "logind.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"

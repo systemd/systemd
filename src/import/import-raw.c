@@ -18,7 +18,7 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "machine-pool.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"

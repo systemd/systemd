@@ -10,7 +10,7 @@
 #include "fileio.h"
 #include "generator.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "strv.h"
@@ -31,7 +31,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         from = strjoina(SYSTEM_DATA_UNIT_DIR "/", fservice);
         to = strjoina(arg_dest, "/getty.target.wants/", tservice);
 
-        mkdir_parents_label(to, 0755);
+        (void) mkdir_parents_label(to, 0755);
 
         r = symlink(from, to);
         if (r < 0) {

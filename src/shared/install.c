@@ -26,7 +26,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -461,7 +461,7 @@ static int create_symlink(
          * the right place, or negative on error.
          */
 
-        mkdir_parents_label(new_path, 0755);
+        (void) mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
                 unit_file_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);

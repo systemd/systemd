@@ -4,7 +4,7 @@
 
 #include "generator-setup.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "rm-rf.h"
 
 int lookup_paths_mkdir_generator(LookupPaths *p) {

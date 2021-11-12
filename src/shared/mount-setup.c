@@ -20,7 +20,7 @@
 #include "label.h"
 #include "log.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

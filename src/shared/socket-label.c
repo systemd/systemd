@@ -14,7 +14,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing_socket.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "umask-util.h"

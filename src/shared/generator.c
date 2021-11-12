@@ -13,7 +13,7 @@
 #include "generator.h"
 #include "log.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "special.h"
 #include "specifier.h"
@@ -63,7 +63,7 @@ int generator_add_symlink(const char *dir, const char *dst, const char *dep_type
         from = path_is_absolute(src) ? src : strjoina("../", src);
         to = strjoina(dir, "/", dst, ".", dep_type, "/", basename(src));
 
-        mkdir_parents_label(to, 0755);
+        (void) mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)
                 if (errno != EEXIST)
                         return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);

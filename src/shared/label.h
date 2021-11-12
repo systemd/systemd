@@ -15,12 +15,6 @@ static inline int label_fix(const char *path, LabelFixFlags flags) {
         return label_fix_container(path, path, flags);
 }
 
-int mkdirat_label(int dirfd, const char *path, mode_t mode);
-
-static inline int mkdir_label(const char *path, mode_t mode) {
-        return mkdirat_label(AT_FDCWD, path, mode);
-}
-
 int symlink_label(const char *old_path, const char *new_path);
 int symlink_atomic_label(const char *from, const char *to);
 int mknod_label(const char *pathname, mode_t mode, dev_t dev);

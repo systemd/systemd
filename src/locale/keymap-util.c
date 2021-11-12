@@ -18,7 +18,7 @@
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "process-util.h"
 #include "string-util.h"
