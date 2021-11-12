@@ -176,7 +176,7 @@ static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
         return 0;
 }
 
-int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
+int mac_smack_fix_at(int dir_fd, const char *path, LabelFixFlags flags) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
         int r;
@@ -186,7 +186,14 @@ int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
         if (!mac_smack_use())
                 return 0;
 
-        fd = openat(dirfd, path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (dir_fd < 0) {
+                if (dir_fd != AT_FDCWD)
+                        return -EBADF;
+
+                return mac_smack_fix(path, flags);
+        }
+
+        fd = openat(dir_fd, path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
                 if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
                         return 0;
