@@ -852,12 +852,9 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
-        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         assert(m);
-
-        u = umask(0000);
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
@@ -1897,6 +1894,10 @@ int setup_namespace(
         int r;
 
         assert(ns_info);
+
+        /* Make sure that all mknod(), mkdir() calls we do are unaffected by the umask, and the access modes
+         * we configure take effect */
+        BLOCK_WITH_UMASK(0000);
 
         if (!isempty(propagate_dir) && !isempty(incoming_dir))
                 setup_propagate = true;
