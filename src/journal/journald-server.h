@@ -16,6 +16,7 @@ typedef struct Server Server;
 #include "journald-stream.h"
 #include "list.h"
 #include "prioq.h"
+#include "ratelimit.h"
 #include "time-util.h"
 #include "varlink.h"
 
@@ -142,6 +143,7 @@ struct Server {
 
         uint64_t *kernel_seqnum;
         bool dev_kmsg_readable:1;
+        RateLimit kmsg_own_ratelimit;
 
         bool send_watchdog:1;
         bool sent_notify_ready:1;
