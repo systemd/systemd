@@ -1021,30 +1021,6 @@ static uint64_t journal_file_entry_seqnum(
         return ret;
 }
 
-static void journal_file_revert_entry_seqnum(
-                JournalFile *f,
-                uint64_t *seqnum,
-                uint64_t revert_seqnum) {
-
-        assert(f);
-        assert(f->header);
-
-        if (revert_seqnum == 0) /* sequence number 0? can't go back */
-                return;
-
-        /* Undoes the effect of journal_file_entry_seqnum() above: if we fail to append an entry to a file,
-         * let's revert the seqnum we were about to use, so that we can use it on the next entry. */
-
-        if (le64toh(f->header->tail_entry_seqnum) == revert_seqnum)
-                f->header->tail_entry_seqnum = htole64(revert_seqnum - 1);
-
-        if (le64toh(f->header->head_entry_seqnum) == revert_seqnum)
-                f->header->head_entry_seqnum = 0;
-
-        if (seqnum && *seqnum == revert_seqnum)
-                *seqnum = revert_seqnum - 1;
-}
-
 int journal_file_append_object(
                 JournalFile *f,
                 ObjectType type,
@@ -2000,12 +1976,12 @@ static int journal_file_append_entry_internal(
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 #endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = o;
@@ -2013,10 +1989,6 @@ static int journal_file_append_entry_internal(
         if (ret_offset)
                 *ret_offset = np;
 
-        return 0;
-
-fail:
-        journal_file_revert_entry_seqnum(f, seqnum, le64toh(o->entry.seqnum));
         return r;
 }
 
