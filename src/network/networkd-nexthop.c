@@ -483,11 +483,9 @@ static int nexthop_configure(
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
 
-                        if (nexthop->onlink > 0) {
-                                r = sd_rtnl_message_nexthop_set_flags(req, RTNH_F_ONLINK);
-                                if (r < 0)
-                                        return log_link_error_errno(link, r, "Failed to set RTNH_F_ONLINK flag: %m");
-                        }
+                        r = sd_rtnl_message_nexthop_set_flags(req, nexthop->flags & RTNH_F_ONLINK);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to set nexthop flags: %m");
                 }
         }
 
@@ -801,7 +799,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 }
         }
 
-        return gateway_is_ready(link, nexthop->onlink, nexthop->family, &nexthop->gw);
+        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
 }
 
 int request_process_nexthop(Request *req) {
@@ -890,6 +888,12 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
+        r = sd_rtnl_message_nexthop_get_flags(message, &tmp->flags);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: could not get nexthop flags, ignoring: %m");
+                return 0;
+        }
+
         r = sd_netlink_message_read_data(message, NHA_GROUP, &raw_group_size, &raw_group);
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
@@ -971,6 +975,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         switch (type) {
         case RTM_NEWNEXTHOP:
                 if (nexthop) {
+                        nexthop->flags = tmp->flags;
                         nexthop_enter_configured(nexthop);
                         log_nexthop_debug(tmp, "Received remembered", link);
                 } else {
@@ -1047,6 +1052,9 @@ static int nexthop_section_verify(NextHop *nh) {
                             nh->section->filename);
                 nh->onlink = true;
         }
+
+        if (nh->onlink >= 0)
+                SET_FLAG(nh->flags, RTNH_F_ONLINK, nh->onlink);
 
         return 0;
 }

@@ -474,6 +474,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_termination = -1,
+
+                .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
+                .ipoib_umcast = -1,
         };
 
         r = config_parse_many(
@@ -672,7 +675,6 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_allow_listed_ip);
         set_free(network->dhcp_request_options);
         set_free(network->dhcp6_request_options);
-        free(network->mac);
         free(network->dhcp6_mudurl);
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);
@@ -825,6 +827,7 @@ int config_parse_stacked_netdev(
         assert(rvalue);
         assert(data);
         assert(IN_SET(kind,
+                      NETDEV_KIND_IPOIB,
                       NETDEV_KIND_IPVLAN,
                       NETDEV_KIND_IPVTAP,
                       NETDEV_KIND_L2TP,
