@@ -1933,9 +1933,8 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = mkdir_errno_wrapper("/run/udev", 0755);
-        if (r < 0 && r != -EEXIST)
-                return log_error_errno(r, "Failed to create /run/udev: %m");
+        if (mkdir("/run/udev", 0755) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create /run/udev: %m");
 
         if (getppid() == 1 && sd_booted() > 0) {
                 /* Get our own cgroup, we regularly kill everything udev has left behind.
