@@ -50,7 +50,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
-#include "user-record.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps */

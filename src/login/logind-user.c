@@ -32,6 +32,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "uid-alloc-range.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
