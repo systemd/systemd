@@ -312,6 +312,37 @@ char *ascii_is_valid_n(const char *str, size_t len) {
         return (char*) str;
 }
 
+int utf8_to_ascii(const char *str, char replacement_char, char **ret) {
+        /* Convert to a string that has only ASCII chars, replacing anything that is not ASCII
+         * by replacement_char. */
+
+        _cleanup_free_ char *ans = new(char, strlen(str) + 1);
+        if (!ans)
+                return -ENOMEM;
+
+        char *q = ans;
+
+        for (const char *p = str; *p; q++) {
+                int l;
+
+                l = utf8_encoded_valid_unichar(p, SIZE_MAX);
+                if (l < 0)  /* Non-UTF-8, let's not even try to propagate the garbage */
+                        return l;
+
+                if (l == 1)
+                        *q = *p;
+                else
+                        /* non-ASCII, we need to replace it */
+                        *q = replacement_char;
+
+                p += l;
+        }
+        *q = '\0';
+
+        *ret = TAKE_PTR(ans);
+        return 0;
+}
+
 /**
  * utf8_encode_unichar() - Encode single UCS-4 character as UTF-8
  * @out_utf8: output buffer of at least 4 bytes or NULL
