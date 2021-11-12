@@ -165,7 +165,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         Object *o;
         uint64_t p;
         char t[] = "/var/tmp/journal-XXXXXX";
-        char data[2048] = {0};
+        char data[2048] = "FIELD=";
         bool is_compressed;
         int r;
 
