@@ -22,7 +22,7 @@
 #include "libmount-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

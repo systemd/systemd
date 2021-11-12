@@ -10,7 +10,7 @@
 #include "generator.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -84,7 +84,7 @@ static int process_resume(void) {
         if (!lnk)
                 return log_oom();
 
-        mkdir_parents_label(lnk, 0755);
+        (void) mkdir_parents_label(lnk, 0755);
         if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-hibernate-resume@.service", lnk) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
