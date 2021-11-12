@@ -331,6 +331,7 @@ typedef struct UserRecord {
         uint64_t luks_pbkdf_time_cost_usec;
         uint64_t luks_pbkdf_memory_cost;
         uint64_t luks_pbkdf_parallel_threads;
+        char *luks_extra_mount_options;
 
         uint64_t disk_usage;
         uint64_t disk_free;
