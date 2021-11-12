@@ -102,7 +102,11 @@ static inline bool ether_addr_is_unicast(const struct ether_addr *addr) {
 static inline bool ether_addr_is_local(const struct ether_addr *addr) {
         /* Determine if the Ethernet address is locally-assigned one (IEEE 802) */
         assert(addr);
-        return !FLAGS_SET(addr->ether_addr_octet[0], 0x02);
+        return FLAGS_SET(addr->ether_addr_octet[0], 0x02);
+}
+
+static inline bool ether_addr_is_global(const struct ether_addr *addr) {
+        return !ether_addr_is_local(addr);
 }
 
 extern const struct hash_ops ether_addr_hash_ops;
