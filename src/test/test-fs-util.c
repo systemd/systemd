@@ -765,7 +765,6 @@ static void test_rename_noreplace(void) {
 
 static void test_chmod_and_chown(void) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        _unused_ _cleanup_umask_ mode_t u = umask(0000);
         struct stat st;
         const char *p;
 
@@ -773,6 +772,8 @@ static void test_chmod_and_chown(void) {
                 return;
 
         log_info("/* %s */", __func__);
+
+        BLOCK_WITH_UMASK(0000);
 
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);
 
