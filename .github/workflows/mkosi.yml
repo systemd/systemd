@@ -8,9 +8,11 @@ on:
   push:
     branches:
       - main
+      - v[0-9]+-stable
   pull_request:
     branches:
       - main
+      - v[0-9]+-stable
 
 jobs:
   ci:
