@@ -5,10 +5,21 @@
 
 #include "manager.h"
 
-int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
+/* forward declaration */
+typedef struct MacUnitCallbackUserdata MacUnitCallbackUserdata;
+
+int mac_selinux_access_check_internal(sd_bus_message *message,
+                                      const char *path,
+                                      const char *permission,
+                                      const char *function,
+                                      sd_bus_error *error);
 
 #define mac_selinux_access_check(message, permission, error) \
-        mac_selinux_generic_access_check((message), NULL, (permission), (error))
+        mac_selinux_access_check_internal((message), NULL, (permission), __func__, (error))
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
-        mac_selinux_generic_access_check((message), unit_label_path(unit), (permission), (error))
+        mac_selinux_access_check_internal((message), unit_label_path(unit), (permission), __func__, (error))
+
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata);
