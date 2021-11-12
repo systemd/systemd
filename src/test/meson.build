@@ -261,7 +261,7 @@ tests += [
 
         [['src/test/test-import-util.c']],
 
-        [['src/test/test-user-record.c']],
+        [['src/test/test-uid-alloc-range.c']],
 
         [['src/test/test-user-util.c']],
 
