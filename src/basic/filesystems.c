@@ -63,6 +63,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 .name = "@auxiliary-api",
                 .help = "Auxiliary filesystem API",
                 .value =
+                "binfmt_misc\0"
                 "configfs\0"
                 "efivarfs\0"
                 "fusectl\0"
