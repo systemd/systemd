@@ -30,6 +30,7 @@
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -3206,51 +3207,41 @@ void journal_file_dump(JournalFile *f) {
 
         p = le64toh(READ_NOW(f->header->header_size));
         while (p != 0) {
+                const char *s;
+
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0)
                         goto fail;
 
+                s = journal_object_type_to_string(o->object.type);
+
                 switch (o->object.type) {
 
-                case OBJECT_UNUSED:
-                        printf("Type: OBJECT_UNUSED\n");
-                        break;
-
-                case OBJECT_DATA:
-                        printf("Type: OBJECT_DATA\n");
-                        break;
-
-                case OBJECT_FIELD:
-                        printf("Type: OBJECT_FIELD\n");
-                        break;
-
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                        assert(s);
+
+                        printf("Type: %s seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                               s,
                                le64toh(o->entry.seqnum),
                                le64toh(o->entry.monotonic),
                                le64toh(o->entry.realtime));
                         break;
 
-                case OBJECT_FIELD_HASH_TABLE:
-                        printf("Type: OBJECT_FIELD_HASH_TABLE\n");
-                        break;
-
-                case OBJECT_DATA_HASH_TABLE:
-                        printf("Type: OBJECT_DATA_HASH_TABLE\n");
-                        break;
-
-                case OBJECT_ENTRY_ARRAY:
-                        printf("Type: OBJECT_ENTRY_ARRAY\n");
-                        break;
-
                 case OBJECT_TAG:
-                        printf("Type: OBJECT_TAG seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                        assert(s);
+
+                        printf("Type: %s seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                               s,
                                le64toh(o->tag.seqnum),
                                le64toh(o->tag.epoch));
                         break;
 
                 default:
-                        printf("Type: unknown (%i)\n", o->object.type);
+                        if (s)
+                                printf("Type: %s \n", s);
+                        else
+                                printf("Type: unknown (%i)", o->object.type);
+
                         break;
                 }
 
@@ -4195,3 +4186,16 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
         return false;
 }
+
+static const char * const journal_object_type_table[] = {
+        [OBJECT_UNUSED] = "unused",
+        [OBJECT_DATA] = "data",
+        [OBJECT_FIELD] = "field",
+        [OBJECT_ENTRY] = "entry",
+        [OBJECT_DATA_HASH_TABLE] = "data hash table",
+        [OBJECT_FIELD_HASH_TABLE] = "field hash table",
+        [OBJECT_ENTRY_ARRAY] = "entry array",
+        [OBJECT_TAG] = "tag",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
