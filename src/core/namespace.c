@@ -806,8 +806,7 @@ static int clone_device_node(
                 *make_devnode = false;
         }
 
-        /* We're about to fall back to bind-mounting the device
-         * node. So create a dummy bind-mount target.
+        /* We're about to fall back to bind-mounting the device node. So create a dummy bind-mount target.
          * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);
         if (r < 0 && errno != EEXIST)
@@ -930,10 +929,8 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
-        /* Create the /dev directory if missing. It is more likely to be
-         * missing when the service is started with RootDirectory. This is
-         * consistent with mount units creating the mount points when missing.
-         */
+        /* Create the /dev directory if missing. It is more likely to be missing when the service is started
+         * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
@@ -975,8 +972,8 @@ static int mount_bind_dev(const MountEntry *m) {
 
         assert(m);
 
-        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
-         * /dev. This is only used when RootDirectory= is set. */
+        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the
+         * service's /dev. This is only used when RootDirectory= is set. */
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
@@ -1085,7 +1082,8 @@ static int mount_tmpfs(const MountEntry *m) {
         entry_path = mount_entry_path(m);
         inner_path = mount_entry_unprefixed_path(m);
 
-        /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new
+         * tmpfs */
 
         (void) mkdir_p_label(entry_path, 0755);
         (void) umount_recursive(entry_path, 0);
@@ -1972,11 +1970,11 @@ int setup_namespace(
                  * we create it if it doesn't already exist. */
                 (void) mkdir_p_label("/run/systemd", 0755);
 
-                /* Always create the mount namespace in a temporary directory, instead of operating
-                 * directly in the root. The temporary directory prevents any mounts from being
-                 * potentially obscured my other mounts we already applied.
-                 * We use the same mount point for all images, which is safe, since they all live
-                 * in their own namespaces after all, and hence won't see each other. */
+                /* Always create the mount namespace in a temporary directory, instead of operating directly
+                 * in the root. The temporary directory prevents any mounts from being potentially obscured
+                 * my other mounts we already applied.  We use the same mount point for all images, which is
+                 * safe, since they all live in their own namespaces after all, and hence won't see each
+                 * other. */
 
                 root = "/run/systemd/unit-root";
                 (void) mkdir_label(root, 0700);
@@ -2240,8 +2238,8 @@ int setup_namespace(
                 (void) mkdir_p(propagate_dir, 0600);
 
         if (n_extension_images > 0)
-                /* ExtensionImages mountpoint directories will be created
-                 * while parsing the mounts to create, so have the parent ready */
+                /* ExtensionImages mountpoint directories will be created while parsing the mounts to create,
+                 * so have the parent ready */
                 (void) mkdir_p(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
