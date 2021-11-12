@@ -347,7 +347,7 @@ typedef struct LinkInfo {
         char *ssid;
         struct ether_addr bssid;
 
-        bool has_mac_address:1;
+        bool has_hw_address:1;
         bool has_permanent_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
@@ -552,7 +552,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
         info->ifindex = ifindex;
         info->alternative_names = TAKE_PTR(altnames);
 
-        info->has_mac_address =
+        info->has_hw_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
                 info->hw_address.length > 0;
 
@@ -1457,6 +1457,34 @@ static int dump_statistics(Table *table, const LinkInfo *info) {
         return 0;
 }
 
+static int dump_hw_address(Table *table, sd_hwdb *hwdb, const char *field, const struct hw_addr_data *addr) {
+        _cleanup_free_ char *description = NULL;
+        int r;
+
+        assert(table);
+        assert(field);
+        assert(addr);
+
+        if (addr->length == ETH_ALEN)
+                (void) ieee_oui(hwdb, &addr->ether, &description);
+
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, field);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
+                                   HW_ADDR_TO_STR(addr),
+                                   description ? " (" : "",
+                                   strempty(description),
+                                   description ? ")" : "");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
@@ -1676,24 +1704,10 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (info->has_mac_address) {
-                _cleanup_free_ char *description = NULL;
-
-                if (info->hw_address.length == ETH_ALEN)
-                        (void) ieee_oui(hwdb, &info->hw_address.ether, &description);
-
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "HW Address:");
+        if (info->has_hw_address) {
+                r = dump_hw_address(table, hwdb, "Hardware Address:", &info->hw_address);
                 if (r < 0)
-                        return table_log_add_error(r);
-                r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           HW_ADDR_TO_STR(&info->hw_address),
-                                           description ? " (" : "",
-                                           strempty(description),
-                                           description ? ")" : "");
-                if (r < 0)
-                        return table_log_add_error(r);
+                        return r;
         }
 
         if (info->has_permanent_mac_address) {
@@ -1703,7 +1717,7 @@ static int link_status_one(
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
-                                   TABLE_STRING, "HW Permanent Address:");
+                                   TABLE_STRING, "Permanent Hardware Address:");
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
