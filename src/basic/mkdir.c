@@ -42,16 +42,13 @@ int mkdir_safe_internal(
         if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks(path, NULL, CHASE_NONEXISTENT, &p, NULL);
+                r = chase_symlinks_and_stat(path, NULL, CHASE_NONEXISTENT, &p, &st, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return mkdir_safe_internal(p, mode, uid, gid,
                                                    flags & ~MKDIR_FOLLOW_SYMLINK,
                                                    _mkdir);
-
-                if (lstat(p, &st) < 0)
-                        return -errno;
         }
 
         if (!S_ISDIR(st.st_mode))
