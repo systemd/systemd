@@ -45,7 +45,7 @@ typedef struct Route {
         uint32_t advmss;
         unsigned char pref;
         unsigned flags;
-        int gateway_onlink;
+        int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
         uint32_t nexthop_id;
 
         bool scope_set:1;
@@ -81,7 +81,7 @@ int route_remove(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
 int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret);
-bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw);
+bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw);
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
