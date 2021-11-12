@@ -1107,17 +1107,13 @@ void job_add_to_run_queue(Job *j) {
         if (j->in_run_queue)
                 return;
 
-        if (prioq_isempty(j->manager->run_queue)) {
-                r = sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to enable job run queue event source, ignoring: %m");
-        }
-
         r = prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
         if (r < 0)
                 log_warning_errno(r, "Failed put job in run queue, ignoring: %m");
         else
                 j->in_run_queue = true;
+
+        manager_trigger_run_queue(j->manager);
 }
 
 void job_add_to_dbus_queue(Job *j) {
