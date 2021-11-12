@@ -32,6 +32,36 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
+static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
+        /* Not more than max_len bytes (12 or 16) */
+
+        assert(s);
+        assert(max_len > 0);
+        assert(ret);
+
+        const char *q;
+        char *ans;
+
+        for (q = s; *q;) {
+                int l;
+
+                l = utf8_encoded_valid_unichar(q, SIZE_MAX);
+                if (l < 0)
+                        return l;
+
+                if ((size_t) (q - s + l) > max_len)
+                        break;
+                q += l;
+        }
+
+        ans = memdup_suffix0(s, q - s);
+        if (!ans)
+                return -ENOMEM;
+
+        *ret = ans;
+        return 0;
+}
+
 static int mangle_fat_label(const char *s, char **ret) {
         assert(s);
 
@@ -89,7 +119,13 @@ int make_filesystem(
                         return log_oom();
         }
 
-        if (streq(fstype, "vfat")) {
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "xfs")) {
+                r = mangle_linux_fs_label(label, streq(fstype, "xfs") ? 12 : 16, &mangled_label);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine fs label from string \"%s\": %m", label);
+                label = mangled_label;
+
+        } else if (streq(fstype, "vfat")) {
                 r = mangle_fat_label(label, &mangled_label);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine FAT label from string \"%s\": %m", label);
