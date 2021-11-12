@@ -124,15 +124,34 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         case -ESTALE:
                 printf(" Password OK: %slast password change in future%s\n", ansi_highlight_yellow(), ansi_normal());
                 break;
-
         default:
                 if (r < 0) {
                         errno = -r;
                         printf(" Password OK: %sno%s (%m)\n", ansi_highlight_yellow(), ansi_normal());
                         break;
                 }
+                if (!hr->hashed_password) {
+                        printf(" Password OK: %sno%s\n", ansi_highlight(), ansi_normal());
+                        break;
+                }
+                if (strv_contains(hr->hashed_password, "")) {
+                        printf(" Password OK: %sno%s (empty)\n",
+                               user_record_disposition(hr) == USER_REGULAR ? ansi_highlight_yellow() :
+                                                                             ansi_highlight(),
+                               ansi_normal());
+                        break;
+                }
+                for (int i = 0; hr->hashed_password[i] != NULL; i++) {
+                        if (!hashed_password_is_locked_or_invalid(hr->hashed_password[i]))
+                                continue;
+                        if (hashed_password_is_locked_or_invalid(hr->hashed_password[i])) {
+                                printf(" Password OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                                goto ok;
+                        }
+                }
 
-                printf(" Password OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                printf(" Password OK: %sno%s (locked)\n", ansi_highlight(), ansi_normal());
+ok:
                 break;
         }
 
