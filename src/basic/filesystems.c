@@ -97,6 +97,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 .value =
                 "afs\0"
                 "cifs\0"
+                "ceph\0"
                 "gfs\0"
                 "gfs2\0"
                 "ncpfs\0"

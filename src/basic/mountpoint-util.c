@@ -373,7 +373,6 @@ bool fstype_is_network(const char *fstype) {
 
         /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
-                          "ceph",
                           "davfs",
                           "glusterfs",
                           "lustre",
