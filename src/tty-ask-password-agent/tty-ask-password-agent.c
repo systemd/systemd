@@ -30,7 +30,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
