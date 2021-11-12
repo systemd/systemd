@@ -302,7 +302,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         int r;
 
         /* We don't do any real authentication here. Instead, we if
-         * the owner of this bus wanted authentication he should have
+         * the owner of this bus wanted authentication they should have
          * checked SO_PEERCRED before even creating the bus object. */
 
         if (!b->anonymous_auth && !b->ucred_valid)
