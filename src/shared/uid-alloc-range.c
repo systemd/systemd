@@ -7,6 +7,13 @@
 #include "uid-alloc-range.h"
 #include "user-util.h"
 
+static const UGIDAllocationRange default_ugid_allocation_range = {
+        .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
+        .system_uid_max = SYSTEM_UID_MAX,
+        .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
+        .system_gid_max = SYSTEM_GID_MAX,
+};
+
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
 static int parse_alloc_uid(const char *path, const char *name, const char *t, uid_t *ret_uid) {
         uid_t uid;
@@ -24,12 +31,7 @@ static int parse_alloc_uid(const char *path, const char *name, const char *t, ui
 #endif
 
 int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root) {
-        UGIDAllocationRange defs = {
-                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
-                .system_uid_max = SYSTEM_UID_MAX,
-                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
-                .system_gid_max = SYSTEM_GID_MAX,
-        };
+        UGIDAllocationRange defs = default_ugid_allocation_range;
 
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
         _cleanup_fclose_ FILE *f = NULL;
@@ -83,30 +85,23 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
 
 const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
-        static thread_local UGIDAllocationRange defs = {
-#else
-        static const UGIDAllocationRange defs = {
-#endif
-                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
-                .system_uid_max = SYSTEM_UID_MAX,
-                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
-                .system_gid_max = SYSTEM_GID_MAX,
-        };
+        static thread_local UGIDAllocationRange defs;
+        static thread_local bool initialized = false;
 
-#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
         /* This function will ignore failure to read the file, so it should only be called from places where
          * we don't crucially depend on the answer. In other words, it's appropriate for journald, but
          * probably not for sysusers. */
 
-        static thread_local bool initialized = false;
-
         if (!initialized) {
+                defs = default_ugid_allocation_range;
                 (void) read_login_defs(&defs, NULL, NULL);
                 initialized = true;
         }
-#endif
 
         return &defs;
+#else
+        return &default_ugid_allocation_range;
+#endif
 }
 
 bool uid_is_system(uid_t uid) {
