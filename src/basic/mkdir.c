@@ -21,16 +21,16 @@ int mkdir_safe_internal(
                 mode_t mode,
                 uid_t uid, gid_t gid,
                 MkdirFlags flags,
-                mkdir_func_t _mkdir) {
+                mkdirat_func_t _mkdirat) {
 
         struct stat st;
         int r;
 
         assert(path);
         assert(mode != MODE_INVALID);
-        assert(_mkdir && _mkdir != mkdir);
+        assert(_mkdirat && _mkdirat != mkdirat);
 
-        if (_mkdir(path, mode) >= 0) {
+        if (_mkdirat(AT_FDCWD, path, mode) >= 0) {
                 r = chmod_and_chown(path, mode, uid, gid);
                 if (r < 0)
                         return r;
@@ -48,7 +48,7 @@ int mkdir_safe_internal(
                 if (r == 0)
                         return mkdir_safe_internal(p, mode, uid, gid,
                                                    flags & ~MKDIR_FOLLOW_SYMLINK,
-                                                   _mkdir);
+                                                   _mkdirat);
         }
 
         if (!S_ISDIR(st.st_mode))
@@ -76,24 +76,20 @@ int mkdir_safe_internal(
         return 0;
 }
 
-int mkdir_errno_wrapper(const char *pathname, mode_t mode) {
-        return RET_NERRNO(mkdir(pathname, mode));
-}
-
 int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode) {
         return RET_NERRNO(mkdirat(dirfd, pathname, mode));
 }
 
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdir_errno_wrapper);
+        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
+int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
         const char *p, *e = NULL;
         int r;
 
         assert(path);
-        assert(_mkdir != mkdir);
+        assert(_mkdirat != mkdirat);
 
         if (prefix) {
                 p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
@@ -142,7 +138,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
                 s[n] = '\0';
 
                 if (!prefix || !path_startswith_full(prefix, path, /* accept_dot_dot= */ false)) {
-                        r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdir);
+                        r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdirat);
                         if (r < 0 && r != -EEXIST)
                                 return r;
                 }
@@ -152,30 +148,30 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
 }
 
 int mkdir_parents(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdir_errno_wrapper);
+        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
 }
 
 int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_parents_internal(prefix, path, mode, uid, gid, flags, mkdir_errno_wrapper);
+        return mkdir_parents_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
+int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
         int r;
 
         /* Like mkdir -p */
 
-        assert(_mkdir != mkdir);
+        assert(_mkdirat != mkdirat);
 
-        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags, _mkdir);
+        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags, _mkdirat);
         if (r < 0)
                 return r;
 
         if (!uid_is_valid(uid) && !gid_is_valid(gid) && flags == 0) {
-                r = _mkdir(path, mode);
+                r = _mkdirat(AT_FDCWD, path, mode);
                 if (r < 0 && (r != -EEXIST || is_dir(path, true) <= 0))
                         return r;
         } else {
-                r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdir);
+                r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdirat);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -184,11 +180,11 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t ui
 }
 
 int mkdir_p(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdir_errno_wrapper);
+        return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
 }
 
 int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdir_errno_wrapper);
+        return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
 int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
