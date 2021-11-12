@@ -172,6 +172,7 @@ int sd_rtnl_message_route_get_type(sd_netlink_message *m, unsigned char *type);
 
 int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int nh_family, unsigned char nh_protocol);
 int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags);
+int sd_rtnl_message_nexthop_get_flags(sd_netlink_message *m, uint8_t *ret);
 int sd_rtnl_message_nexthop_get_family(sd_netlink_message *m, uint8_t *family);
 int sd_rtnl_message_nexthop_get_protocol(sd_netlink_message *m, uint8_t *protocol);
 

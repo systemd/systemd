@@ -321,6 +321,20 @@ int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags) {
         return 0;
 }
 
+int sd_rtnl_message_nexthop_get_flags(sd_netlink_message *m, uint8_t *ret) {
+        struct nhmsg *nhm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        nhm = NLMSG_DATA(m->hdr);
+        *ret = nhm->nh_flags;
+
+        return 0;
+}
+
 int sd_rtnl_message_nexthop_get_family(sd_netlink_message *m, uint8_t *family) {
         struct nhmsg *nhm;
 
