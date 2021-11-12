@@ -124,11 +124,9 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
 }
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
-        const char *p;
-
         assert(str);
 
-        for (p = str; length > 0;) {
+        for (const char *p = str; length > 0;) {
                 int encoded_len, r;
                 char32_t val;
 
@@ -289,14 +287,12 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool
 }
 
 char *ascii_is_valid(const char *str) {
-        const char *p;
-
         /* Check whether the string consists of valid ASCII bytes,
          * i.e values between 0 and 127, inclusive. */
 
         assert(str);
 
-        for (p = str; *p; p++)
+        for (const char *p = str; *p; p++)
                 if ((unsigned char) *p >= 128)
                         return NULL;
 
