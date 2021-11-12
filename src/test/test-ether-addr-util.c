@@ -4,6 +4,36 @@
 #include "string-util.h"
 #include "tests.h"
 
+static void test_ether_addr_helpers(void) {
+        struct ether_addr a;
+
+        log_info("/* %s */", __func__);
+
+        a = ETHER_ADDR_NULL;
+        assert_se(ether_addr_is_null(&a));
+        assert_se(!ether_addr_is_broadcast(&a));
+        assert_se(!ether_addr_is_multicast(&a));
+        assert_se(ether_addr_is_unicast(&a));
+        assert_se(!ether_addr_is_local(&a));
+        assert_se(ether_addr_is_global(&a));
+
+        memset(a.ether_addr_octet, 0xff, sizeof(a));
+        assert_se(!ether_addr_is_null(&a));
+        assert_se(ether_addr_is_broadcast(&a));
+        assert_se(ether_addr_is_multicast(&a));
+        assert_se(!ether_addr_is_unicast(&a));
+        assert_se(ether_addr_is_local(&a));
+        assert_se(!ether_addr_is_global(&a));
+
+        a = (struct ether_addr) { { 0x01, 0x23, 0x34, 0x56, 0x78, 0x9a } };
+        assert_se(!ether_addr_is_null(&a));
+        assert_se(!ether_addr_is_broadcast(&a));
+        assert_se(ether_addr_is_multicast(&a));
+        assert_se(!ether_addr_is_unicast(&a));
+        assert_se(!ether_addr_is_local(&a));
+        assert_se(ether_addr_is_global(&a));
+}
+
 #define INFINIBAD_ADDR_1 ((const struct hw_addr_data){ .length = 20, .infiniband = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20} })
 
 static void test_HW_ADDR_TO_STRING(void) {
@@ -138,6 +168,7 @@ static void test_parse_hw_addr(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
+        test_ether_addr_helpers();
         test_HW_ADDR_TO_STRING();
         test_parse_hw_addr();
         return 0;
