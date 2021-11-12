@@ -81,6 +81,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* extend src/basic/filesystems.[ch] so that it can be used to translate any fs
+  magic into a string. Then use that to replace fstype_magic_to_name() in homed
+  sources, and similar code.
+
 * userdb: when synthesizing NSS records, pick "best" password from defined
   passwords, not just the first. i.e. if there are multiple defined, prefer
   unlocked over locked and prefer non-empty over empty.
@@ -1290,7 +1294,6 @@ Features:
   - make size of $XDG_RUNTIME_DIR configurable in user record
   - query password from kernel keyring first
   - update even if record is "absent"
-  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
   - move acct mgmt stuff from pam_systemd_home to pam_systemd?
   - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
   - make slice for users configurable (requires logind rework)
