@@ -119,10 +119,15 @@ int make_filesystem(
                         return log_oom();
         }
 
-        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "xfs")) {
-                r = mangle_linux_fs_label(label, streq(fstype, "xfs") ? 12 : 16, &mangled_label);
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "xfs", "swap")) {
+                size_t max_len =
+                        streq(fstype, "xfs") ? 12 :
+                        streq(fstype, "swap") ? 15 :
+                        16;
+
+                r = mangle_linux_fs_label(label, max_len, &mangled_label);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine fs label from string \"%s\": %m", label);
+                        return log_error_errno(r, "Failed to determine volume label from string \"%s\": %m", label);
                 label = mangled_label;
 
         } else if (streq(fstype, "vfat")) {
