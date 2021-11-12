@@ -81,13 +81,12 @@ int make_inaccessible_nodes(
                 { "inaccessible/blk",  S_IFBLK  | 0000 },
         };
 
-        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         if (!parent_dir)
                 parent_dir = "/run/systemd";
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         /* Set up inaccessible (and empty) file nodes of all types. This are used to as mount sources for over-mounting
          * ("masking") file nodes that shall become inaccessible and empty for specific containers or services. We try
