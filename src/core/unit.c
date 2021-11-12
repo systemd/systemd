@@ -37,7 +37,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing_audit.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"

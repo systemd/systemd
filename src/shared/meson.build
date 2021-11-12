@@ -207,6 +207,7 @@ shared_sources = files('''
         macvlan-util.h
         main-func.h
         mkdir-label.c
+        mkdir-label.h
         mkfs-util.c
         mkfs-util.h
         module-util.h

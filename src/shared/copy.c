@@ -20,6 +20,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "rm-rf.h"

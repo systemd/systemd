@@ -1887,14 +1887,14 @@ int userns_lchown(const char *p, uid_t uid, gid_t gid) {
 
 int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
         const char *q;
-        int r;
 
         q = prefix_roota(root, path);
-        r = mkdir_errno_wrapper(q, mode);
-        if (r == -EEXIST)
-                return 0;
-        if (r < 0)
-                return r;
+        if (mkdir(q, mode) < 0) {
+                if (errno == EEXIST)
+                        return 0;
+
+                return -errno;
+        }
 
         return userns_lchown(q, uid, gid);
 }
@@ -2346,9 +2346,8 @@ static int setup_pts(const char *dest) {
 
         /* Mount /dev/pts itself */
         p = prefix_roota(dest, "/dev/pts");
-        r = mkdir_errno_wrapper(p, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /dev/pts: %m");
+        if (mkdir(p, 0755) < 0)
+                return log_error_errno(errno, "Failed to create /dev/pts: %m");
 
         r = mount_nofollow_verbose(LOG_ERR, "devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options);
         if (r < 0)
@@ -2672,13 +2671,12 @@ static int setup_journal(const char *directory) {
                 /* don't create parents here — if the host doesn't have
                  * permanent journal set up, don't force it here */
 
-                r = mkdir_errno_wrapper(p, 0755);
-                if (r < 0 && r != -EEXIST) {
+                if (mkdir(p, 0755) < 0 && errno != EEXIST) {
                         if (try) {
-                                log_debug_errno(r, "Failed to create %s, skipping journal setup: %m", p);
+                                log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
                         } else
-                                return log_error_errno(r, "Failed to create %s: %m", p);
+                                return log_error_errno(errno, "Failed to create %s: %m", p);
                 }
 
         } else if (access(p, F_OK) < 0)
