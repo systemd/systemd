@@ -6,10 +6,8 @@
 #include "macro.h"
 #include "tests.h"
 
-static void test_align_power2(void) {
+TEST(align_power2) {
         unsigned long i, p2;
-
-        log_info("/* %s */", __func__);
 
         assert_se(ALIGN_POWER2(0) == 0);
         assert_se(ALIGN_POWER2(1) == 1);
@@ -50,7 +48,7 @@ static void test_align_power2(void) {
         }
 }
 
-static void test_max(void) {
+TEST(max) {
         static const struct {
                 int a;
                 int b[CONST_MAX(10, 100)];
@@ -64,8 +62,6 @@ static void test_max(void) {
         const unsigned long long arr[] = {9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL};
         void *p = (void *)str;
         void *q = (void *)&str[16];
-
-        log_info("/* %s */", __func__);
 
         assert_cc(sizeof(val1.b) == sizeof(int) * 100);
 
@@ -134,15 +130,13 @@ static void test_max(void) {
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
-static void test_container_of(void) {
+TEST(container_of) {
         struct mytype {
                 uint8_t pad1[3];
                 uint64_t v1;
                 uint8_t pad2[2];
                 uint32_t v2;
         } myval = { };
-
-        log_info("/* %s */", __func__);
 
         assert_cc(sizeof(myval) >= 17);
         assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
@@ -156,10 +150,8 @@ static void test_container_of(void) {
 
 #pragma GCC diagnostic pop
 
-static void test_div_round_up(void) {
+TEST(div_round_up) {
         int div;
-
-        log_info("/* %s */", __func__);
 
         /* basic tests */
         assert_se(DIV_ROUND_UP(0, 8) == 0);
@@ -191,9 +183,7 @@ static void test_div_round_up(void) {
         assert_se(0xfffffffdU / 10U + !!(0xfffffffdU % 10U) == 429496730U);
 }
 
-static void test_ptr_to_int(void) {
-        log_info("/* %s */", __func__);
-
+TEST(ptr_to_int) {
         /* Primary reason to have this test is to validate that pointers are large enough to hold entire int range */
         assert_se(PTR_TO_INT(INT_TO_PTR(0)) == 0);
         assert_se(PTR_TO_INT(INT_TO_PTR(1)) == 1);
@@ -202,9 +192,7 @@ static void test_ptr_to_int(void) {
         assert_se(PTR_TO_INT(INT_TO_PTR(INT_MIN)) == INT_MIN);
 }
 
-static void test_in_set(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_set) {
         assert_se(IN_SET(1, 1));
         assert_se(IN_SET(1, 1, 2, 3, 4));
         assert_se(IN_SET(2, 1, 2, 3, 4));
@@ -214,11 +202,9 @@ static void test_in_set(void) {
         assert_se(!IN_SET(0, 1, 2, 3, 4));
 }
 
-static void test_foreach_pointer(void) {
+TEST(foreach_pointer) {
         int a, b, c, *i;
         size_t k = 0;
-
-        log_info("/* %s */", __func__);
 
         FOREACH_POINTER(i, &a, &b, &c) {
                 switch (k) {
@@ -295,9 +281,7 @@ static void test_foreach_pointer(void) {
         assert_se(k == 11);
 }
 
-static void test_align_to(void) {
-        log_info("/* %s */", __func__);
-
+TEST(align_to) {
         assert_se(ALIGN_TO(0, 1) == 0);
         assert_se(ALIGN_TO(1, 1) == 1);
         assert_se(ALIGN_TO(2, 1) == 2);
@@ -336,7 +320,7 @@ static void test_align_to(void) {
         assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(SIZE_MAX, 512)), void));
 }
 
-static void test_flags(void) {
+TEST(flags) {
         enum {
                 F1 = 1 << 0,
                 F2 = 1 << 1,
@@ -344,8 +328,6 @@ static void test_flags(void) {
                 F_ALL = F1 | F2 | F3
         };
         unsigned n, f;
-
-        log_info("/* %s */", __func__);
 
         assert_se(FLAGS_SET(0, 0));
         assert_se(FLAGS_SET(F1, F1));
@@ -405,18 +387,4 @@ static void test_flags(void) {
         assert_se(f == F2);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_align_power2();
-        test_max();
-        test_container_of();
-        test_div_round_up();
-        test_in_set();
-        test_foreach_pointer();
-        test_ptr_to_int();
-        test_align_to();
-        test_flags();
-
-        return 0;
-}
+DEFINE_TEST_MAIN;
