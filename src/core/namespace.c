@@ -21,7 +21,7 @@
 #include "list.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

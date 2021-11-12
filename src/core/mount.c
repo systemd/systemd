@@ -17,7 +17,7 @@
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount.h"
 #include "mountpoint-util.h"
