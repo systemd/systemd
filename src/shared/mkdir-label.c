@@ -12,23 +12,6 @@
 #include "smack-util.h"
 #include "user-util.h"
 
-int mkdir_label(const char *path, mode_t mode) {
-        int r;
-
-        assert(path);
-
-        r = mac_selinux_create_file_prepare(path, S_IFDIR);
-        if (r < 0)
-                return r;
-
-        r = mkdir_errno_wrapper(path, mode);
-        mac_selinux_create_file_clear();
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(path, 0);
-}
-
 int mkdirat_label(int dirfd, const char *path, mode_t mode) {
         int r;
 
