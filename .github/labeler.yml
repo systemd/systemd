@@ -38,3 +38,19 @@ timedate:
   - src/timedate/*
 timesync:
   - src/timesync/*
+waiting-for-ghaction-pull-request-labeler:
+  - .github/workflows/labeler.yml
+waiting-for-ghaction-coverity:
+  - .github/workflows/coverity.yml
+waiting-for-ghaction-mkosi:
+  - .github/workflows/mkosi.yml
+waiting-for-ghaction-codeql:
+  - .github/workflows/codeql-analysis.yml
+waiting-for-ghaction-unit-tests:
+  - .github/workflows/unit_tests.yml
+waiting-for-ghaction-lint-code-base:
+  - .github/workflows/linter.yml
+waiting-for-ghaction-cifuzz:
+  - .github/workflows/cifuzz.yml
+waiting-for-ghaction-build-test:
+  - .github/workflows/build_test.yml
