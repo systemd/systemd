@@ -11,6 +11,7 @@ typedef enum FilesystemGroups {
         /* Please leave BASIC_API first and KNOWN last, but sort the rest alphabetically */
         FILESYSTEM_SET_BASIC_API,
         FILESYSTEM_SET_ANONYMOUS,
+        FILESYSTEM_SET_APPLICATION,
         FILESYSTEM_SET_AUXILIARY_API,
         FILESYSTEM_SET_COMMON_BLOCK,
         FILESYSTEM_SET_HISTORICAL_BLOCK,
