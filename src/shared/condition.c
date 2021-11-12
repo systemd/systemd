@@ -47,7 +47,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tomoyo-util.h"
-#include "user-record.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
