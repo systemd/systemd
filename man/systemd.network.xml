@@ -905,6 +905,7 @@ Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPoIB=</varname></term>
           <term><varname>IPVLAN=</varname></term>
           <term><varname>IPVTAP=</varname></term>
           <term><varname>L2TP=</varname></term>
@@ -916,8 +917,8 @@ Table=1234</programlisting></para>
           <term><varname>VXLAN=</varname></term>
           <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of an IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
-            Xfrm to be created on the link. See
+            <para>The name of an IPoIB, IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
+            VXLAN, or Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -3175,6 +3176,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             length code (DLC). When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPoIB] Section Options</title>
+      <para>The [IPoIB] section manages the IP over Infiniband and accepts the following keys:</para>
+      <variablelist class='network-directives'>
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_mode" />
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_umcast" />
       </variablelist>
   </refsect1>
 
