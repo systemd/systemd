@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for UMask= + namespacing
+
+[Service]
+ExecStart=/bin/ls -lahd /tmp/subdir
+Type=oneshot
+User=65534
+Group=65534
+TemporaryFileSystem=/tmp:ro
+BindPaths=/etc:/tmp/subdir/subsub
+UMask=0007
