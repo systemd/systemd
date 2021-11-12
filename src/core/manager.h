@@ -195,7 +195,7 @@ struct Manager {
 
         sd_event *event;
 
-        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
+        /* This maps PIDs we care about to units that are interested in. We allow multiple units to be interested in
          * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
          * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
          * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll

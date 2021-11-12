@@ -297,7 +297,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
   used for detecting programming errors, not for runtime errors. `assert()` and
-  `assert_return()` by usage of `_likely_()` inform the compiler that he should
+  `assert_return()` by usage of `_likely_()` inform the compiler that it should
   not expect these checks to fail, and they inform fellow programmers about the
   expected validity and range of parameters.
 
