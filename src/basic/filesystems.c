@@ -74,7 +74,12 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 .help = "Common block device filesystems",
                 .value =
                 "btrfs\0"
+                "erofs\0"
+                "exfat\0"
                 "ext4\0"
+                "iso9660\0"
+                "squashfs\0"
+                "udf\0"
                 "vfat\0"
                 "xfs\0"
         },
