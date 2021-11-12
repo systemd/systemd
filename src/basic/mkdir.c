@@ -56,9 +56,8 @@ int mkdir_safe_internal(
         if (!S_ISDIR(st.st_mode))
                 return log_full_errno(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG, SYNTHETIC_ERRNO(ENOTDIR),
                                       "Path \"%s\" already exists and is not a directory, refusing.", path);
-        if ((st.st_mode & 0007) > (mode & 0007) ||
-            (st.st_mode & 0070) > (mode & 0070) ||
-            (st.st_mode & 0700) > (mode & 0700))
+
+        if ((st.st_mode & ~mode & 0777) != 0)
                 return log_full_errno(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG, SYNTHETIC_ERRNO(EEXIST),
                                       "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
                                       path, st.st_mode & 0777, mode);
