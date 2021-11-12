@@ -539,7 +539,7 @@ static void dmi_table_decode(const uint8_t *buf, size_t len, uint16_t num) {
 
                 /* If a short entry is found (less than 4 bytes), not only it
                  * is invalid, but we cannot reliably locate the next entry.
-                 * Better stop at this point, and let the user know his/her
+                 * Better stop at this point, and let the user know their
                  * table is broken. */
                 if (h.length < 4)
                         break;
