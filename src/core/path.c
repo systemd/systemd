@@ -811,7 +811,7 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static int path_test_start_limit(Unit *u) {
+static int path_can_start(Unit *u) {
         Path *p = PATH(u);
         int r;
 
@@ -823,7 +823,7 @@ static int path_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
@@ -882,5 +882,5 @@ const UnitVTable path_vtable = {
 
         .bus_set_property = bus_path_set_property,
 
-        .test_start_limit = path_test_start_limit,
+        .can_start = path_can_start,
 };

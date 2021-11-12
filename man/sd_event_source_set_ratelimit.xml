@@ -19,6 +19,7 @@
     <refname>sd_event_source_set_ratelimit</refname>
     <refname>sd_event_source_get_ratelimit</refname>
     <refname>sd_event_source_is_ratelimited</refname>
+    <refname>sd_event_source_set_ratelimit_expire_callback</refname>
 
     <refpurpose>Configure rate limiting on event sources</refpurpose>
   </refnamediv>
@@ -44,6 +45,12 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_is_ratelimited</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_ratelimit_expire_callback</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_handler_t<parameter>callback</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -78,6 +85,10 @@
     is currently affected by rate limiting, i.e. it has recently hit the rate limit and is currently
     temporarily disabled due to that.</para>
 
+    <para><function>sd_event_source_set_ratelimit_expire_callback</function> may be used to set a callback
+    function that is invoked every time the event source leaves rate limited state. Note that function is
+    called in the same event loop iteration in which state transition occured.</para>
+
     <para>Rate limiting is currently implemented for I/O, timer, signal, defer and inotify event
     sources.</para>
   </refsect1>
@@ -85,11 +96,12 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_source_set_ratelimit()</function> and
-    <function>sd_event_source_get_ratelimit()</function> return a non-negative integer. On failure, they
-    return a negative errno-style error code. <function>sd_event_source_is_ratelimited</function> returns
-    zero if rate limiting is currently not in effect and greater than zero if it is in effect; it returns a
-    negative errno-style error code on failure.</para>
+    <para>On success, <function>sd_event_source_set_ratelimit()</function>,
+    <function>sd_event_source_set_ratelimit_expire_callback</function> and
+    <function>sd_event_source_get_ratelimit()</function> return a non-negative integer. On failure, they return
+    a negative errno-style error code. <function>sd_event_source_is_ratelimited</function> returns zero if rate
+    limiting is currently not in effect and greater than zero if it is in effect; it returns a negative
+    errno-style error code on failure.</para>
 
     <refsect2>
       <title>Errors</title>

@@ -166,6 +166,7 @@ int sd_event_source_set_exit_on_failure(sd_event_source *s, int b);
 int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, unsigned burst);
 int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, unsigned *ret_burst);
 int sd_event_source_is_ratelimited(sd_event_source *s);
+int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);
