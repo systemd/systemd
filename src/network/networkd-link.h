@@ -72,6 +72,8 @@ typedef struct Link {
         unsigned flags;
         uint8_t kernel_operstate;
 
+        sd_event_source *carrier_lost_timer;
+
         Network *network;
 
         LinkState state;
