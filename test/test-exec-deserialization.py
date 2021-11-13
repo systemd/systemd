@@ -27,7 +27,7 @@ class ExecutionResumeTest(unittest.TestCase):
     def setUp(self):
         self.unit = 'test-issue-518.service'
         self.unitfile_path = '/run/systemd/system/{0}'.format(self.unit)
-        self.output_file = tempfile.mktemp()
+        self.output_file = tempfile.NamedTemporaryFile()
         self.unit_files = {}
 
         unit_file_content = '''
@@ -35,7 +35,7 @@ class ExecutionResumeTest(unittest.TestCase):
         Type=oneshot
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.NO_CHANGE] = unit_file_content
 
         unit_file_content = '''
@@ -43,7 +43,7 @@ class ExecutionResumeTest(unittest.TestCase):
         Type=oneshot
         ExecStart=/bin/bash -c "echo foo >> {0}"
         ExecStart=/bin/sleep 3
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.LINES_SWAPPED] = unit_file_content
 
         unit_file_content = '''
@@ -52,7 +52,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo bar >> {0}"
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.COMMAND_ADDED_BEFORE] = unit_file_content
 
         unit_file_content = '''
@@ -61,7 +61,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         ExecStart=/bin/bash -c "echo bar >> {0}"
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.COMMAND_ADDED_AFTER] = unit_file_content
 
         unit_file_content = '''
@@ -71,7 +71,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         ExecStart=/bin/bash -c "echo bar >> {0}"
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.COMMAND_INTERLEAVED] = unit_file_content
 
         unit_file_content = '''
@@ -79,7 +79,7 @@ class ExecutionResumeTest(unittest.TestCase):
         Type=oneshot
         ExecStart=/bin/bash -c "echo bar >> {0}"
         ExecStart=/bin/bash -c "echo baz >> {0}"
-        '''.format(self.output_file)
+        '''.format(self.output_file.name)
         self.unit_files[UnitFileChange.REMOVAL] = unit_file_content
 
     def reload(self):
@@ -98,7 +98,7 @@ class ExecutionResumeTest(unittest.TestCase):
 
     def check_output(self, expected_output):
         try:
-            with open(self.output_file, 'r') as log:
+            with open(self.output_file.name, 'r') as log:
                 output = log.read()
         except IOError:
             self.fail()
@@ -127,7 +127,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
         time.sleep(4)
 
-        self.assertTrue(not os.path.exists(self.output_file))
+        self.assertTrue(not os.path.exists(self.output_file.name))
 
     def test_added_before(self):
         expected_output = 'foo\n'
@@ -165,7 +165,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
         time.sleep(4)
 
-        self.assertTrue(not os.path.exists(self.output_file))
+        self.assertTrue(not os.path.exists(self.output_file.name))
 
     def test_issue_6533(self):
         unit = "test-issue-6533.service"
@@ -199,7 +199,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.assertTrue(subprocess.call("journalctl -b _PID=1  | grep -q 'Freezing execution'", shell=True) != 0)
 
     def tearDown(self):
-        for f in [self.output_file, self.unitfile_path]:
+        for f in [self.output_file.name, self.unitfile_path]:
             try:
                 os.remove(f)
             except OSError:

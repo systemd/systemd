@@ -2959,7 +2959,7 @@ static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
                 if (s->n_ref == 0)
                         source_free(s);
                 else if (r < 0)
-                        sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
 
                 return 1;
         }
