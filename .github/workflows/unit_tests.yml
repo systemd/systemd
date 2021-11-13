@@ -9,7 +9,7 @@ on:
       - main
       - v[0-9]+-stable
 
-permissions: read-all
+permissions:
 
 jobs:
   build:
