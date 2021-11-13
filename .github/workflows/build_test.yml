@@ -12,7 +12,7 @@ on:
       - 'src/**'
       - 'test/fuzz/**'
 
-permissions: read-all
+permissions:
 
 jobs:
   build:
