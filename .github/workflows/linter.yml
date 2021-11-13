@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Repo checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
         with:
           # We need a full repo clone
           fetch-depth: 0
