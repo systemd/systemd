@@ -55,8 +55,9 @@ endif
 
 #####################################################################
 
+fs = import('fs')
 if get_option('split-usr') == 'auto'
-        split_usr = run_command('test', '-L', '/bin').returncode() != 0
+        split_usr = not fs.is_symlink('/bin')
 else
         split_usr = get_option('split-usr') == 'true'
 endif
@@ -69,7 +70,7 @@ conf.set10('HAVE_SPLIT_USR', split_usr,
            description : '/usr/bin and /bin directories are separate')
 
 if get_option('split-bin') == 'auto'
-        split_bin = run_command('test', '-L', '/usr/sbin').returncode() != 0
+        split_bin = not fs.is_symlink('/usr/sbin')
 else
         split_bin = get_option('split-bin') == 'true'
 endif
@@ -593,7 +594,6 @@ versiondep = declare_dependency(sources: version_h)
 
 sh = find_program('sh')
 echo = find_program('echo')
-test = find_program('test')
 sed = find_program('sed')
 awk = find_program('awk')
 stat = find_program('stat')
@@ -742,7 +742,7 @@ endif
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"').stdout().strip()
-        if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
+        if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags').stdout().strip()
                 time_epoch = run_command(git, 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
