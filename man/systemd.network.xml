@@ -2223,7 +2223,7 @@ Table=1234</programlisting></para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>prefixstable[:<replaceable>ADDRESS</replaceable>]</option></term>
+              <term><option>prefixstable[:<replaceable>ADDRESS</replaceable>][,<replaceable>UUID</replaceable>]</option></term>
               <listitem>
                 <para>
                   The algorithm specified in
@@ -2232,6 +2232,19 @@ Table=1234</programlisting></para>
                   separated with a colon (<literal>:</literal>). If an IPv6 address is specified,
                   then an interface identifier is generated only when a prefix received in an RA
                   message matches the supplied address.
+                </para>
+                <para>
+                  This mode can also optionally take a non-null UUID in the format which
+                  <function>sd_id128_from_string()</function> accepts, e.g.
+                  <literal>86b123b969ba4b7eb8b3d8605123525a</literal> or
+                  <literal>86b123b9-69ba-4b7e-b8b3-d8605123525a</literal>. If a UUID is specified, the
+                  value is used as the secret key to generate interface identifiers. If not specified,
+                  then an application specific ID generated with the system's machine-ID will be used
+                  as the secret key. See
+                  <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                  <citerefentry><refentrytitle>sd_id128_from_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                  and
+                  <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 </para>
                 <para>
                   Note that the <literal>prefixstable</literal> algorithm uses both the interface
