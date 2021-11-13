@@ -20,6 +20,7 @@
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
 #include "ethtool-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -258,6 +259,8 @@ static Link *link_free(Link *link) {
 
         network_unref(link->network);
 
+        sd_event_source_disable_unref(link->carrier_lost_timer);
+
         return mfree(link);
 }
 
@@ -404,6 +407,8 @@ void link_enter_failed(Link *link) {
         link_set_state(link, LINK_STATE_FAILED);
 
         (void) link_stop_engines(link, false);
+
+        (void) event_source_disable(link->carrier_lost_timer);
 }
 
 void link_check_ready(Link *link) {
@@ -982,6 +987,8 @@ static Link *link_drop(Link *link) {
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+
+        (void) event_source_disable(link->carrier_lost_timer);
         return link_unref(link);
 }
 
@@ -1584,6 +1591,10 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        r = event_source_disable(link->carrier_lost_timer);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
+
         r = link_handle_bound_by_list(link);
         if (r < 0)
                 return r;
@@ -1605,6 +1616,42 @@ static int link_carrier_gained(Link *link) {
         return 0;
 }
 
+static int link_carrier_lost_impl(Link *link) {
+        int r, ret = 0;
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        r = link_stop_engines(link, false);
+        if (r < 0)
+                ret = r;
+
+        r = link_drop_config(link);
+        if (r < 0 && ret >= 0)
+                ret = r;
+
+        return r;
+}
+
+static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+
+        r = link_carrier_lost_impl(userdata);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to process carrier lost event: %m");
+                link_enter_failed(link);
+        }
+
+        return 0;
+}
+
 static int link_carrier_lost(Link *link) {
         int r;
 
@@ -1621,16 +1668,22 @@ static int link_carrier_lost(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->ignore_carrier_loss)
+        if (link->network->ignore_carrier_loss_usec == USEC_INFINITY)
                 return 0;
 
-        r = link_stop_engines(link, false);
-        if (r < 0) {
-                link_enter_failed(link);
-                return r;
-        }
+        if (link->network->ignore_carrier_loss_usec == 0)
+                return link_carrier_lost_impl(link);
 
-        return link_drop_config(link);
+        return event_reset_time_relative(link->manager->event,
+                                         &link->carrier_lost_timer,
+                                         clock_boottime_or_monotonic(),
+                                         link->network->ignore_carrier_loss_usec,
+                                         0,
+                                         link_carrier_lost_handler,
+                                         link,
+                                         0,
+                                         "link-carrier-loss",
+                                         true);
 }
 
 static int link_admin_state_up(Link *link) {
