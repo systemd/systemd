@@ -1028,3 +1028,105 @@ int parse_cifs_service(
 
         return 0;
 }
+
+int resolve_auto_dir(const char *path, bool want_dir, char **ret_path) {
+        _cleanup_free_ char *parent = NULL;
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_free_ char *versioned_path = NULL;
+        _cleanup_closedir_ DIR *dirp = NULL;
+        int r;
+
+        if (!path)
+                return -EINVAL;
+
+        log_debug("Checking for versions of %s.", path);
+
+        const char *auto_dir = path;
+        const char *prefix = NULL;
+        struct stat st;
+        r = stat(path, &st);
+        if (r < 0) {
+                /* Does the path match pattern "*.auto.d/filename"? */
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
+                r = path_extract_filename(path, &filename);
+                if (r < 0)
+                        return r;
+                auto_dir = parent;
+                prefix = filename;
+                r = stat(auto_dir, &st);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!S_ISDIR(st.st_mode) || !endswith(auto_dir, ".auto.d"))
+                goto not_auto;
+
+        log_debug("Checking versioned directory %s.", auto_dir);
+
+        dirp = opendir(auto_dir);
+        if (!dirp)
+                return errno;
+
+        for (;;) {
+                struct dirent *entry;
+                entry = readdir(dirp);
+                if (!entry)
+                        break;
+
+                /* Reserved for future extensions */
+                if (entry->d_name[0] == '@') {
+                        log_debug("Ignoring versioned directory entry with '@': %s.", entry->d_name);
+                        continue;
+                }
+
+                if (entry->d_name[0] == '.' ||
+                    (prefix && !startswith(entry->d_name, prefix)) ||
+                    (want_dir && !IN_SET(entry->d_type, DT_DIR, DT_LNK, DT_UNKNOWN)) ||
+                    (!want_dir && !IN_SET(entry->d_type, DT_BLK, DT_LNK, DT_REG, DT_UNKNOWN)))
+                        continue;
+
+                log_debug("Found possible version %s.", entry->d_name);
+
+                if (!versioned_path) {
+                        versioned_path = strdup(entry->d_name);
+                        if (!versioned_path)
+                                return -ENOMEM;
+                        continue;
+                }
+
+                if (strverscmp_improved(versioned_path, entry->d_name) < 0) {
+                        free(versioned_path);
+                        versioned_path = strdup(entry->d_name);
+                        if (!versioned_path)
+                                return -ENOMEM;
+                }
+        }
+
+        if (!versioned_path)
+                goto not_auto;
+
+        if (ret_path) {
+                _cleanup_free_ char *full_path = NULL;
+
+                full_path = path_join(auto_dir, versioned_path);
+                if (!full_path)
+                        return -ENOMEM;
+
+                log_debug("Versioned path from %s to %s.", path, full_path);
+                *ret_path = TAKE_PTR(full_path);
+        }
+        return 0;
+
+ not_auto:
+        if (ret_path) {
+                char *dup_path;
+
+                dup_path = strdup(path);
+                if (!dup_path)
+                        return -ENOMEM;
+                *ret_path = TAKE_PTR(dup_path);
+        }
+        return 0;
+}

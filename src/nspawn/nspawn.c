@@ -2988,6 +2988,23 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
 static int determine_names(void) {
         int r;
 
+        /* Find newest version in case directory ends with "auto.d", but not if we found it with machine */
+        if (arg_image) {
+                char *arg_image_unresolved = arg_image;
+                r = resolve_auto_dir(arg_image, false, &arg_image);
+                if (r < 0)
+                        return log_error_errno(r, "Failed in versioning image '%s'.", arg_image);
+                free(arg_image_unresolved);
+        }
+
+        if (arg_directory) {
+                char *arg_directory_unresolved = arg_directory;
+                r = resolve_auto_dir(arg_directory, true, &arg_directory);
+                if (r < 0)
+                        return log_error_errno(r, "Failed in versioning directory '%s'.", arg_directory);
+                free(arg_directory_unresolved);
+        }
+
         if (arg_template && !arg_directory && arg_machine) {
 
                 /* If --template= was specified then we should not
