@@ -49,7 +49,7 @@ static int run(int argc, char *argv[]) {
                 if (lock_fd < 0)
                         return log_error_errno(lock_fd, "Failed to lock whole block device of \"%s\": %m", device);
         } else
-                log_info("%s is not a block device.", device);
+                log_debug("%s is not a block device, no need to lock.", device);
 
         r = probe_filesystem(device, &detected);
         if (r == -EUCLEAN)

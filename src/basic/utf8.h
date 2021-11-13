@@ -21,6 +21,8 @@ static inline char *utf8_is_valid(const char *s) {
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 
+int utf8_to_ascii(const char *str, char replacement_char, char **ret);
+
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
