@@ -5,7 +5,8 @@
 
 name: CIFuzz
 
-permissions: read-all
+permissions:
+  contents: read
 
 on:
   pull_request:
