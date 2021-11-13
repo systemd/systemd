@@ -7,6 +7,7 @@ typedef struct Home Home;
 #include "homed-operation.h"
 #include "list.h"
 #include "ordered-set.h"
+#include "stat-util.h"
 #include "user-record.h"
 
 typedef enum HomeState {
@@ -189,6 +190,8 @@ int home_lock(Home *h, sd_bus_error *error);
 int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error);
 
 HomeState home_get_state(Home *h);
+
+int home_get_disk_status(Home *h, uint64_t *ret_disk_size,uint64_t *ret_disk_usage, uint64_t *ret_disk_free, uint64_t *ret_disk_ceiling, uint64_t *ret_disk_floor, statfs_f_type_t *ret_fstype, mode_t *ret_access_mode);
 
 void home_process_notify(Home *h, char **l, int fd);
 
