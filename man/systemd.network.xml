@@ -209,7 +209,7 @@
         <listitem>
           <para>Link groups are similar to port ranges found in managed switches. When network interfaces
           are added to a numbered group, operations on all the interfaces from that group can be
-          performed at once. Takes an unsigned integer in the range 0…4294967295. Defaults to unset.
+          performed at once. Takes an unsigned integer in the range 0…2147483647. Defaults to unset.
           </para>
         </listitem>
       </varlistentry>
