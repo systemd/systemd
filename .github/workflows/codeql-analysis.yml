@@ -1,6 +1,8 @@
 name: "CodeQL"
 
 on:
+  pull_request:
+    branches: [main]
   # It takes the workflow approximately 30 minutes to analyze the code base
   # so it doesn't seem to make much sense to trigger it on every PR or commit.
   # It runs daily at 01:00 to avoid colliding with the Coverity workflow.
@@ -29,14 +31,14 @@ jobs:
       uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@5581e08a65fc3811c3ac78939dd59e7a8adbf003
       with:
         languages: ${{ matrix.language }}
 
     - run: sudo -E .github/workflows/unit_tests.sh SETUP
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
+      uses: github/codeql-action/autobuild@5581e08a65fc3811c3ac78939dd59e7a8adbf003
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@5581e08a65fc3811c3ac78939dd59e7a8adbf003
