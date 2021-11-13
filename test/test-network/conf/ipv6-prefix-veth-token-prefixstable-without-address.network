@@ -7,3 +7,4 @@ IPv6AcceptRA=true
 
 [IPv6AcceptRA]
 Token=prefixstable
+Token=prefixstable,86b123b969ba4b7eb8b3d8605123525a

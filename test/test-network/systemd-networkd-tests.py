@@ -3951,8 +3951,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, '2002:da8:1:0')
-        self.assertRegex(output, '2002:da8:2:0.*78:9abc') # EUI
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
+        self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc', output) # EUI64
 
     def test_ipv6_token_prefixstable_without_address(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-prefixstable-without-address.network')
@@ -3961,8 +3961,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, '2002:da8:1:0')
-        self.assertRegex(output, '2002:da8:2:0')
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
+        self.assertIn('2002:da8:2:0:f689:561a:8eda:7443', output)
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     links = [
