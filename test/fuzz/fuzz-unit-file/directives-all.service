@@ -561,6 +561,7 @@ Scope=
 SendHostname=
 Source=
 SuppressPrefixLength=
+SuppressIfGroup=
 TCP6SegmentationOffload=
 TCPSegmentationOffload=
 TOS=
