@@ -135,7 +135,7 @@ Network.ProxyARP,                            config_parse_tristate,             
 Network.IPv6ProxyNDPAddress,                 config_parse_ipv6_proxy_ndp_address,                      0,                             0
 Network.BindCarrier,                         config_parse_strv,                                        0,                             offsetof(Network, bind_carrier)
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
-Network.IgnoreCarrierLoss,                   config_parse_tristate,                                    0,                             offsetof(Network, ignore_carrier_loss)
+Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,                         0,                             0
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_pd)

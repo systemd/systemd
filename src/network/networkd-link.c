@@ -21,6 +21,7 @@
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
 #include "ethtool-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -244,6 +245,7 @@ static Link *link_free(Link *link) {
         strv_free(link->alternative_names);
         free(link->kind);
         free(link->ssid);
+        free(link->previous_ssid);
         free(link->driver);
 
         unlink_and_free(link->lease_file);
@@ -258,6 +260,8 @@ static Link *link_free(Link *link) {
         set_free_with_destructor(link->slaves, link_unref);
 
         network_unref(link->network);
+
+        sd_event_source_disable_unref(link->carrier_lost_timer);
 
         return mfree(link);
 }
@@ -1581,16 +1585,30 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
 }
 
 static int link_carrier_gained(Link *link) {
+        bool force_reconfigure;
         int r;
 
         assert(link);
+
+        r = event_source_disable(link->carrier_lost_timer);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
+
+        /* If the SSID is changed, then the connected wireless network could be changed. So, always
+         * reconfigure the link. Which means e.g. the DHCP client will be restarted, and the correct
+         * network information will be gained.
+         * For non-wireless interfaces, we have no way to detect the connected network change. So,
+         * setting force_reconfigure = false. Note, both ssid and previous_ssid should be NULL for
+         * non-wireless interfaces, and streq_ptr() returns true. */
+        force_reconfigure = !streq_ptr(link->previous_ssid, link->ssid);
+        link->previous_ssid = mfree(link->previous_ssid);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 /* At this stage, both wlan and link information should be up-to-date. Hence,
                  * it is not necessary to call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or
                  * NL80211_CMD_GET_STATION commands, and simply call link_reconfigure_impl().
                  * Note, link_reconfigure_impl() returns 1 when the link is reconfigured. */
-                r = link_reconfigure_impl(link, /* force = */ false);
+                r = link_reconfigure_impl(link, force_reconfigure);
                 if (r != 0)
                         return r;
         }
@@ -1616,6 +1634,45 @@ static int link_carrier_gained(Link *link) {
         return 0;
 }
 
+static int link_carrier_lost_impl(Link *link) {
+        int r, ret = 0;
+
+        assert(link);
+
+        link->previous_ssid = mfree(link->previous_ssid);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        r = link_stop_engines(link, false);
+        if (r < 0)
+                ret = r;
+
+        r = link_drop_config(link);
+        if (r < 0 && ret >= 0)
+                ret = r;
+
+        return ret;
+}
+
+static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+
+        r = link_carrier_lost_impl(link);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to process carrier lost event: %m");
+                link_enter_failed(link);
+        }
+
+        return 0;
+}
+
 static int link_carrier_lost(Link *link) {
         int r;
 
@@ -1632,16 +1689,22 @@ static int link_carrier_lost(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->ignore_carrier_loss)
+        if (link->network->ignore_carrier_loss_usec == USEC_INFINITY)
                 return 0;
 
-        r = link_stop_engines(link, false);
-        if (r < 0) {
-                link_enter_failed(link);
-                return r;
-        }
+        if (link->network->ignore_carrier_loss_usec == 0)
+                return link_carrier_lost_impl(link);
 
-        return link_drop_config(link);
+        return event_reset_time_relative(link->manager->event,
+                                         &link->carrier_lost_timer,
+                                         clock_boottime_or_monotonic(),
+                                         link->network->ignore_carrier_loss_usec,
+                                         0,
+                                         link_carrier_lost_handler,
+                                         link,
+                                         0,
+                                         "link-carrier-loss",
+                                         true);
 }
 
 static int link_admin_state_up(Link *link) {
