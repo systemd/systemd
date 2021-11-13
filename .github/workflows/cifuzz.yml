@@ -6,7 +6,7 @@
 name: CIFuzz
 
 permissions:
-  contents: read
+  metadata: read
 
 on:
   pull_request:

@@ -11,7 +11,7 @@ on:
       - v[0-9]+-stable
 
 permissions:
-  contents: read
+  metadata: read
 
 jobs:
   build:
