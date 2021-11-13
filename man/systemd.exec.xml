@@ -128,6 +128,10 @@
         the <function>chroot()</function> jail. Note that setting this parameter might result in additional
         dependencies to be added to the unit (see above).</para>
 
+        <para>In case the name of the parent directory ends with <filename>auto.d</filename> suffix, the path
+        is searched for items starting with the path but using versioned suffixes. The highest version is
+        selected.</para>
+
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
         in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para>
 
@@ -158,6 +162,10 @@
         with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
         that follows the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
         Specification</ulink>.</para>
+
+        <para>In case the name of the parent directory ends with <filename>auto.d</filename> suffix, the path
+        is searched for items starting with the path but using versioned suffixes. The highest version is
+        selected.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is

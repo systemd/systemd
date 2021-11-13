@@ -3028,6 +3028,14 @@ static int determine_names(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
         }
 
+        /* Find newest version in case directory ends with "auto.d" */
+        char *arg_image_unresolved = arg_image;
+        arg_image = resolve_auto_dir(arg_image);
+        free(arg_image_unresolved);
+        char *arg_directory_unresolved = arg_directory;
+        arg_directory = resolve_auto_dir(arg_directory);
+        free(arg_directory_unresolved);
+
         if (!arg_machine) {
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
