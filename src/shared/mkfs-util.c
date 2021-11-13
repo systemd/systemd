@@ -183,6 +183,17 @@ int make_filesystem(
                                       discard ? NULL : "--nodiscard",
                                       NULL);
 
+                } else if (streq(fstype, "f2fs")) {
+                        (void) execlp(mkfs, mkfs,
+                                      "-q",
+                                      "-g",  /* "default options" */
+                                      "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
+                                      "-l", label,
+                                      "-U", vol_id,
+                                      "-t", one_zero(discard),
+                                      node,
+                                      NULL);
+
                 } else if (streq(fstype, "xfs")) {
                         const char *j;
 
@@ -223,7 +234,7 @@ int make_filesystem(
                 _exit(EXIT_FAILURE);
         }
 
-        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "xfs", "vfat", "swap"))
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "f2fs", "xfs", "vfat", "swap"))
                 log_info("%s successfully formatted as %s (label \"%s\", uuid %s)",
                          node, fstype, label, vol_id);
         else
