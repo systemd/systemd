@@ -1,6 +1,8 @@
 name: "CodeQL"
 
 on:
+  pull_request:
+    branches: [main]
   # It takes the workflow approximately 30 minutes to analyze the code base
   # so it doesn't seem to make much sense to trigger it on every PR or commit.
   # It runs daily at 01:00 to avoid colliding with the Coverity workflow.
