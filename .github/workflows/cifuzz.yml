@@ -38,7 +38,7 @@ jobs:
         with:
           oss-fuzz-project-name: 'systemd'
           dry-run: false
-          allowed-broken-targets-percentage: 0
+          allowed-broken-targets-percentage: 50
           sanitizer: ${{ matrix.sanitizer }}
       - name: Run Fuzzers (${{ matrix.sanitizer }})
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
