@@ -67,10 +67,13 @@ typedef struct Link {
         /* wlan */
         enum nl80211_iftype wlan_iftype;
         char *ssid;
+        char *previous_ssid;
         struct ether_addr bssid;
 
         unsigned flags;
         uint8_t kernel_operstate;
+
+        sd_event_source *carrier_lost_timer;
 
         Network *network;
 
