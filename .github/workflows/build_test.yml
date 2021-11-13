@@ -12,7 +12,8 @@ on:
       - 'src/**'
       - 'test/fuzz/**'
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   build:
