@@ -61,7 +61,7 @@ foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
                run_command('realpath', '-e',
                         '/usr/lib' / run_command(efi_cc, '-print-multi-os-directory').stdout().strip()).stdout().strip()]
-        if run_command(test, '-d', dir).returncode() == 0
+        if dir != '' and fs.is_dir(dir)
                 efi_libdir = dir
                 break
         endif
@@ -83,7 +83,7 @@ foreach location : [ # New locations first introduced with gnu-efi 3.0.11
                      efi_libdir / 'gnuefi' / 'crt0-efi-@0@.o'.format(efi_arch[1])],
                     [efi_libdir / 'elf_@0@_efi.lds'.format(efi_arch[1]),
                      efi_libdir / 'crt0-efi-@0@.o'.format(efi_arch[1])]]
-        if run_command(test, '-f', location[0], '-a', '-f', location[1]).returncode() == 0
+        if fs.is_file(location[0]) and fs.is_file(location[1])
                 efi_lds = location[0]
                 efi_crt0 = location[1]
                 break
