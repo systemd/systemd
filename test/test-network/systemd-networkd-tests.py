@@ -3961,8 +3961,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, '2002:da8:1:0')
-        self.assertRegex(output, '2002:da8:2:0')
+        self.assertRegex(output, '2002:da8:1:0:b47e:7975:fc7a:7d6e')
+        self.assertRegex(output, '2002:da8:2:0:f689:561a:8eda:7443')
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     links = [
