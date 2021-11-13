@@ -4,6 +4,7 @@
 
 #include "sd-id128.h"
 
+#include "id128-util.h"
 #include "memory-util.h"
 #include "networkd-address-generation.h"
 #include "networkd-link.h"
@@ -35,6 +36,8 @@ typedef enum AddressGenerationType {
 typedef struct IPv6Token {
         AddressGenerationType type;
         struct in6_addr address;
+        bool has_key;
+        sd_id128_t secret_key;
 } IPv6Token;
 
 static void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
@@ -117,11 +120,12 @@ static void generate_stable_private_address_one(
 static int generate_stable_private_address(
                 Link *link,
                 const sd_id128_t *app_id,
+                const sd_id128_t *secret_key,
                 const struct in6_addr *prefix,
                 struct in6_addr *ret) {
 
         struct in6_addr addr;
-        sd_id128_t secret_key;
+        sd_id128_t secret_machine_key;
         uint8_t i;
         int r;
 
@@ -130,16 +134,20 @@ static int generate_stable_private_address(
         assert(prefix);
         assert(ret);
 
-        r = sd_id128_get_machine_app_specific(*app_id, &secret_key);
-        if (r < 0)
-               return log_link_debug_errno(link, r, "Failed to generate secret key for IPv6 stable private address: %m");
+        if (!secret_key) {
+                r = sd_id128_get_machine_app_specific(*app_id, &secret_machine_key);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to generate secret key for IPv6 stable private address: %m");
+
+                secret_key = &secret_machine_key;
+        }
 
         /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop does
          * not actually attempt Duplicate Address Detection; the counter will be incremented only when
          * the address generation algorithm produces an invalid address, and the loop may exit with an
          * address which ends up being unusable due to duplication on the link. */
         for (i = 0; i < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; i++) {
-                generate_stable_private_address_one(link, &secret_key, prefix, i, &addr);
+                generate_stable_private_address_one(link, secret_key, prefix, i, &addr);
 
                 if (stable_private_address_is_valid(&addr))
                         break;
@@ -192,7 +200,7 @@ static int generate_addresses(
                         if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
                                 continue;
 
-                        if (generate_stable_private_address(link, app_id, &masked, &addr) < 0)
+                        if (generate_stable_private_address(link, app_id, j->has_key ? &j->secret_key : NULL, &masked, &addr) < 0)
                                 continue;
 
                         break;
@@ -243,6 +251,9 @@ int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *pref
 
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
         siphash24_compress(&p->type, sizeof(p->type), state);
+        siphash24_compress_boolean(p->has_key, state);
+        if (p->has_key)
+                id128_hash_func(&p->secret_key, state);
         siphash24_compress(&p->address, sizeof(p->address), state);
 }
 
@@ -252,6 +263,16 @@ static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
         r = CMP(a->type, b->type);
         if (r != 0)
                 return r;
+
+        r = CMP(a->has_key, b->has_key);
+        if (r != 0)
+                return r;
+
+        if (a->has_key) {
+                r = id128_compare_func(&a->secret_key, &b->secret_key);
+                if (r != 0)
+                        return r;
+        }
 
         return memcmp(&a->address, &b->address, sizeof(struct in6_addr));
 }
@@ -263,11 +284,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ipv6_token_compare_func,
                 free);
 
-static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct in6_addr *addr) {
+static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct in6_addr *addr, const sd_id128_t *secret_key) {
         IPv6Token *p;
 
         assert(tokens);
         assert(type >= 0 && type < _ADDRESS_GENERATION_TYPE_MAX);
+        assert(type == ADDRESS_GENERATION_PREFIXSTABLE || !secret_key);
         assert(addr);
 
         p = new(IPv6Token, 1);
@@ -277,6 +299,8 @@ static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct
         *p = (IPv6Token) {
                  .type = type,
                  .address = *addr,
+                 .has_key = secret_key,
+                 .secret_key = secret_key ? *secret_key : SD_ID128_NULL,
         };
 
         return set_ensure_consume(tokens, &ipv6_token_hash_ops, p);
@@ -294,10 +318,13 @@ int config_parse_address_generation_type(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *addr_alloc = NULL;
         union in_addr_union buffer = {};
         AddressGenerationType type;
         Set **tokens = data;
-        const char *p;
+        const char *addr;
+        bool has_key = false;
+        sd_id128_t secret_key = SD_ID128_NULL;
         int r;
 
         assert(filename);
@@ -310,33 +337,59 @@ int config_parse_address_generation_type(
                 return 0;
         }
 
-        if ((p = startswith(rvalue, "prefixstable"))) {
+        if ((addr = startswith(rvalue, "prefixstable"))) {
+                const char *comma;
+
                 type = ADDRESS_GENERATION_PREFIXSTABLE;
 
-                if (*p == ':')
-                        p++;
-                else if (*p == '\0')
-                        p = NULL;
-                else {
+                if (*addr == ':') {
+                        addr++;
+
+                        comma = strchr(addr, ',');
+                        if (comma) {
+                                addr_alloc = strndup(addr, comma - addr);
+                                if (!addr_alloc)
+                                        return log_oom();
+
+                                addr = addr_alloc;
+                        }
+                } else if (*addr == ',') {
+                        comma = addr;
+                        addr = NULL;
+                } else if (*addr == '\0') {
+                        comma = NULL;
+                        addr = NULL;
+                } else {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid IPv6 token mode in %s=, ignoring assignment: %s",
                                    lvalue, rvalue);
                         return 0;
                 }
 
+                if (comma) {
+                        r = sd_id128_from_string(comma + 1, &secret_key);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Failed to parse secret key in %s=, ignoring assignment: %s",
+                                           lvalue, rvalue);
+                                return 0;
+                        }
+                        has_key = true;
+                }
+
         } else if (streq(rvalue, "eui64")) {
                 type = ADDRESS_GENERATION_EUI64;
-                p = NULL;
+                addr = NULL;
         } else {
                 type = ADDRESS_GENERATION_STATIC;
 
-                p = startswith(rvalue, "static:");
-                if (!p)
-                        p = rvalue;
+                addr = startswith(rvalue, "static:");
+                if (!addr)
+                        addr = rvalue;
         }
 
-        if (p) {
-                r = in_addr_from_string(AF_INET6, p, &buffer);
+        if (addr) {
+                r = in_addr_from_string(AF_INET6, addr, &buffer);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse IP address in %s=, ignoring assignment: %s",
@@ -371,7 +424,7 @@ int config_parse_address_generation_type(
                 assert_not_reached();
         }
 
-        r = ipv6_token_add(tokens, type, &buffer.in6);
+        r = ipv6_token_add(tokens, type, &buffer.in6, has_key ? &secret_key : NULL);
         if (r < 0)
                 return log_oom();
 
