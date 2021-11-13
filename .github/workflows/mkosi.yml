@@ -14,6 +14,8 @@ on:
       - main
       - v[0-9]+-stable
 
+permissions: read-all
+
 jobs:
   ci:
     runs-on: ubuntu-20.04

@@ -9,6 +9,8 @@ on:
     # Run Coverity daily at midnight
     - cron:  '0 0 * * *'
 
+permissions: read-all
+
 jobs:
   build:
     runs-on: ubuntu-20.04
