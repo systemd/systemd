@@ -12,6 +12,8 @@ on:
       - 'src/**'
       - 'test/fuzz/**'
 
+permissions: read-all
+
 jobs:
   build:
     runs-on: ubuntu-20.04

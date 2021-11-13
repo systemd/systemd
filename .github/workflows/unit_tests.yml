@@ -9,6 +9,8 @@ on:
       - main
       - v[0-9]+-stable
 
+permissions: read-all
+
 jobs:
   build:
     runs-on: ubuntu-20.04

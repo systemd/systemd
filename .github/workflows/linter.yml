@@ -10,6 +10,8 @@ on:
       - main
       - v[0-9]+-stable
 
+permissions: read-all
+
 jobs:
   build:
     name: Lint Code Base
