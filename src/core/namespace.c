@@ -1838,8 +1838,8 @@ static int verity_settings_prepare(
 }
 
 int setup_namespace(
-                const char* root_directory,
-                const char* root_image,
+                const char* root_directory_unresolved,
+                const char* root_image_unresolved,
                 const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
@@ -1904,6 +1904,12 @@ int setup_namespace(
 
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
+
+        /* Find newest version in case directory ends with "auto.d" */
+        _cleanup_free_ char *root_image;
+        root_image = resolve_auto_dir(root_image_unresolved);
+        _cleanup_free_ char *root_directory;
+        root_directory = resolve_auto_dir(root_directory_unresolved);
 
         if (root_image) {
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
