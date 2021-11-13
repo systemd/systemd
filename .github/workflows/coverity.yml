@@ -9,7 +9,8 @@ on:
     # Run Coverity daily at midnight
     - cron:  '0 0 * * *'
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   build:
