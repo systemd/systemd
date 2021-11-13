@@ -4,6 +4,10 @@
 # See: https://google.github.io/oss-fuzz/getting-started/continuous-integration/
 
 name: CIFuzz
+
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
