@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
@@ -1027,4 +1028,45 @@ int parse_cifs_service(
                 *ret_path = TAKE_PTR(x);
 
         return 0;
+}
+
+char *resolve_auto_dir(const char *path) {
+        _cleanup_free_ char *parent = NULL;
+        _cleanup_free_ char *glob_path = NULL;
+        _cleanup_globfree_ glob_t pglob = {};
+        int r;
+
+        if (!path)
+                return NULL;
+
+        log_debug("Trying to version %s.", path);
+        r = path_extract_directory(path, &parent);
+        if (r < 0 || !endswith(parent, "auto.d"))
+                goto error;
+
+        r = asprintf(&glob_path, "%s*", path);
+        if (r < 0)
+                goto error;
+
+        r = safe_glob(glob_path, 0, &pglob);
+        if (r < 0 || pglob.gl_pathc == 0)
+                goto error;
+
+        const char *versioned_path = NULL;
+        for (unsigned n = 0; n < pglob.gl_pathc; n++) {
+                log_debug("Found possible version %s.", pglob.gl_pathv[n]);
+                if (!versioned_path) {
+                        versioned_path = pglob.gl_pathv[n];
+                        continue;
+                }
+
+                if (strverscmp_improved(versioned_path, pglob.gl_pathv[n]) < 0)
+                        versioned_path = pglob.gl_pathv[n];
+        }
+        log_debug("Versioned path from %s to %s.", path, versioned_path);
+        return strdup(versioned_path);
+
+ error:
+        log_debug("Versioning %s failed.", path);
+        return strdup(path);
 }
