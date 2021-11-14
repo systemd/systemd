@@ -19,6 +19,7 @@
 #include "efi-loader.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
@@ -1077,7 +1078,7 @@ static int verify_fsroot_dir(
                         if (!parent)
                                 return log_oom();
 
-                        r = stat(parent, &st2) < 0 ? -errno : 0;
+                        r = RET_NERRNO(stat(parent, &st2));
                 }
 
                 if (r < 0)
