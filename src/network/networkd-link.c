@@ -1585,6 +1585,16 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                /* At this stage, both wlan and link information should be up-to-date. Hence,
+                 * it is not necessary to call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or
+                 * NL80211_CMD_GET_STATION commands, and simply call link_reconfigure_impl().
+                 * Note, link_reconfigure_impl() returns 1 when the link is reconfigured. */
+                r = link_reconfigure_impl(link, /* force = */ false);
+                if (r != 0)
+                        return r;
+        }
+
         r = link_handle_bound_by_list(link);
         if (r < 0)
                 return r;
@@ -1957,15 +1967,6 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         if (!had_carrier && link_has_carrier(link)) {
                 log_link_info(link, "Gained carrier");
-
-                if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                        /* At this stage, both wlan and link information should be up-to-date. Hence,
-                         * it is not necessary to call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or
-                         * NL80211_CMD_GET_STATION commands, and simply call link_reconfigure_impl(). */
-                        r = link_reconfigure_impl(link, /* force = */ false);
-                        if (r < 0)
-                                return r;
-                }
 
                 r = link_carrier_gained(link);
                 if (r < 0)
