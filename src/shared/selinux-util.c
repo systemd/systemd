@@ -376,11 +376,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (sclass == 0)
                 return -ENOSYS;
 
-        r = security_compute_create_raw(mycon, fcon, sclass, label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -388,18 +384,12 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 
 int mac_selinux_get_our_label(char **label) {
 #if HAVE_SELINUX
-        int r;
-
         assert(label);
 
         if (!mac_selinux_use())
                 return -EOPNOTSUPP;
 
-        r = getcon_raw(label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(getcon_raw(label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -461,11 +451,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         if (sclass == 0)
                 return -ENOSYS;
 
-        r = security_compute_create_raw(mycon, fcon, sclass, label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -684,7 +670,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                         context_changed = true;
         }
 
-        r = bind(fd, addr, addrlen) < 0 ? -errno : 0;
+        r = RET_NERRNO(bind(fd, addr, addrlen));
 
         if (context_changed)
                 (void) setfscreatecon_raw(NULL);
@@ -693,8 +679,5 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 skipped:
 #endif
-        if (bind(fd, addr, addrlen) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bind(fd, addr, addrlen));
 }
