@@ -29,6 +29,9 @@
 #include "virt.h"
 #include "volatile-util.h"
 
+#define ROOT_NAME "root"
+#define USR_NAME "usr"
+
 typedef enum MountPointFlags {
         MOUNT_NOAUTO    = 1 << 0,
         MOUNT_NOFAIL    = 1 << 1,
@@ -50,6 +53,7 @@ static int arg_root_rw = -1;
 static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
+static char *arg_usr_hash = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_what, freep);
@@ -59,6 +63,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
@@ -969,6 +974,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
 
+        } else if (streq(key, "usrhash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_usr_hash, value);
+
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
@@ -997,22 +1009,34 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int determine_root(void) {
-        /* If we have a root hash but no root device then Verity is used, and we use the "root" DM device as root. */
+static int determine_device(char **what, const char *hash, const char *name) {
 
-        if (arg_root_what)
+        assert(what);
+        assert(name);
+
+        /* If we have a hash but no device then Verity is used, and we use the DM device. */
+        if (*what)
                 return 0;
 
-        if (!arg_root_hash)
+        if (!hash)
                 return 0;
 
-        arg_root_what = strdup("/dev/mapper/root");
-        if (!arg_root_what)
+        *what = path_join("/dev/mapper/", name);
+
+        if (!*what)
                 return log_oom();
 
-        log_info("Using verity root device %s.", arg_root_what);
+        log_info("Using verity %s device %s.", name, *what);
 
         return 1;
+}
+
+static int determine_root(void) {
+        return determine_device(&arg_root_what, arg_root_hash, ROOT_NAME);
+}
+
+static int determine_usr(void) {
+        return determine_device(&arg_usr_what, arg_usr_hash, USR_NAME);
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
@@ -1026,6 +1050,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         (void) determine_root();
+        (void) determine_usr();
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
