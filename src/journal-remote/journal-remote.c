@@ -429,9 +429,14 @@ static int dispatch_raw_source_until_block(sd_event_source *event,
         sd_event_source_ref(event);
 
         r = journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
-        if (r != 1)
+        if (r != 1) {
+                int k;
+
                 /* No more data for now */
-                sd_event_source_set_enabled(event, SD_EVENT_OFF);
+                k = sd_event_source_set_enabled(event, SD_EVENT_OFF);
+                if (k < 0)
+                        r = k;
+        }
 
         sd_event_source_unref(event);
 
@@ -449,10 +454,15 @@ static int dispatch_raw_source_event(sd_event_source *event,
         assert(source->buffer_event);
 
         r = journal_remote_handle_raw_source(event, fd, EPOLLIN, journal_remote_server_global);
-        if (r == 1)
+        if (r == 1) {
+                int k;
+
                 /* Might have more data. We need to rerun the handler
                  * until we are sure the buffer is exhausted. */
-                sd_event_source_set_enabled(source->buffer_event, SD_EVENT_ON);
+                k = sd_event_source_set_enabled(source->buffer_event, SD_EVENT_ON);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
