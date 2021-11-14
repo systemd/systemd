@@ -121,10 +121,7 @@ int read_attr_fd(int fd, unsigned *ret) {
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
 
-        if (ioctl(fd, FS_IOC_GETFLAGS, ret) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, FS_IOC_GETFLAGS, ret));
 }
 
 int read_attr_path(const char *p, unsigned *ret) {

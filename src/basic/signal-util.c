@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#include "errno-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "signal-util.h"
@@ -39,10 +40,7 @@ int reset_signal_mask(void) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(sigprocmask(SIG_SETMASK, &ss, NULL));
 }
 
 int sigaction_many_internal(const struct sigaction *sa, ...) {
@@ -247,11 +245,7 @@ int signal_is_blocked(int sig) {
         if (r != 0)
                 return -r;
 
-        r = sigismember(&ss, sig);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(sigismember(&ss, sig));
 }
 
 int pop_pending_signal_internal(int sig, ...) {
