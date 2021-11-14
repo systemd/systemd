@@ -1879,10 +1879,7 @@ int userns_lchown(const char *p, uid_t uid, gid_t gid) {
                         return -EOVERFLOW;
         }
 
-        if (lchown(p, uid, gid) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(lchown(p, uid, gid));
 }
 
 int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {

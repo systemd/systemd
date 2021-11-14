@@ -3224,10 +3224,7 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
 
 int set_unit_path(const char *p) {
         /* This is mostly for debug purposes */
-        if (setenv("SYSTEMD_UNIT_PATH", p, 1) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
 }
 
 char *unit_dbus_path(Unit *u) {
