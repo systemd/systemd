@@ -13,6 +13,8 @@ sources = files('''
         netdev/dummy.h
         netdev/ifb.c
         netdev/ifb.h
+        netdev/ipoib.c
+        netdev/ipoib.h
         netdev/ipvlan.c
         netdev/ipvlan.h
         netdev/macvlan.c
@@ -115,6 +117,8 @@ sources = files('''
         networkd-nexthop.h
         networkd-queue.c
         networkd-queue.h
+        networkd-route-util.c
+        networkd-route-util.h
         networkd-route.c
         networkd-route.h
         networkd-routing-policy-rule.c
