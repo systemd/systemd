@@ -107,7 +107,7 @@ static int link_json_compare(JsonVariant * const *a, JsonVariant * const *b) {
         return CMP(index_a, index_b);
 }
 
-int manager_build_json(Manager *manager, JsonVariant **ret) {
+static int links_build_json(Manager *manager, JsonVariant **ret) {
         JsonVariant **elements;
         Link *link;
         size_t n = 0;
@@ -135,4 +135,8 @@ finalize:
         json_variant_unref_many(elements, n);
         free(elements);
         return r;
+}
+
+int manager_build_json(Manager *manager, JsonVariant **ret) {
+        return links_build_json(manager, ret);
 }
