@@ -7,14 +7,6 @@
 #include "networkd-network.h"
 #include "sort-util.h"
 
-static int network_build_json(Network *network, JsonVariant **ret) {
-        assert(network);
-        assert(ret);
-
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("NetworkFile", JSON_BUILD_STRING(network->filename))));
-}
-
 static int device_build_json(sd_device *device, JsonVariant **ret) {
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL;
 
@@ -31,10 +23,10 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
                 (void) sd_device_get_property_value(device, "ID_MODEL", &model);
 
         return json_build(ret, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("LinkFile", JSON_BUILD_STRING(link)),
-                                        JSON_BUILD_PAIR("Path", JSON_BUILD_STRING(path)),
-                                        JSON_BUILD_PAIR("Vendor", JSON_BUILD_STRING(vendor)),
-                                        JSON_BUILD_PAIR("Model", JSON_BUILD_STRING(model))));
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("LinkFile", link),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", path),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Vendor", vendor),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model)));
 }
 
 int link_build_json(Link *link, JsonVariant **ret) {
@@ -50,32 +42,21 @@ int link_build_json(Link *link, JsonVariant **ret) {
                 return r;
 
         r = json_build(&v, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("Index", JSON_BUILD_INTEGER(link->ifindex)),
-                                        JSON_BUILD_PAIR("Name", JSON_BUILD_STRING(link->ifname)),
-                                        JSON_BUILD_PAIR("AlternativeNames", JSON_BUILD_STRV(link->alternative_names)),
-                                        JSON_BUILD_PAIR("Type", JSON_BUILD_STRING(type)),
-                                        JSON_BUILD_PAIR("Driver", JSON_BUILD_STRING(link->driver)),
-                                        JSON_BUILD_PAIR("SetupState", JSON_BUILD_STRING(link_state_to_string(link->state))),
-                                        JSON_BUILD_PAIR("OperationalState", JSON_BUILD_STRING(link_operstate_to_string(link->operstate))),
-                                        JSON_BUILD_PAIR("CarrierState", JSON_BUILD_STRING(link_carrier_state_to_string(link->carrier_state))),
-                                        JSON_BUILD_PAIR("AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->address_state))),
-                                        JSON_BUILD_PAIR("IPv4AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->ipv4_address_state))),
-                                        JSON_BUILD_PAIR("IPv6AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->ipv6_address_state))),
-                                        JSON_BUILD_PAIR("OnlineState", JSON_BUILD_STRING(link_online_state_to_string(link->online_state)))));
+                                JSON_BUILD_PAIR_INTEGER("Index", link->ifindex),
+                                JSON_BUILD_PAIR_STRING("Name", link->ifname),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("AlternativeNames", link->alternative_names),
+                                JSON_BUILD_PAIR_STRING("Type", type),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Driver", link->driver),
+                                JSON_BUILD_PAIR_STRING("SetupState", link_state_to_string(link->state)),
+                                JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
+                                JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
+                                JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(link->address_state)),
+                                JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(link->ipv4_address_state)),
+                                JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
+                                JSON_BUILD_PAIR_STRING("OnlineState", link_online_state_to_string(link->online_state)),
+                                JSON_BUILD_PAIR_CONDITION(link->network, "NetworkFile", JSON_BUILD_STRING(link->network->filename))));
         if (r < 0)
                 return r;
-
-        if (link->network) {
-                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-
-                r = network_build_json(link->network, &w);
-                if (r < 0)
-                        return r;
-
-                r = json_variant_merge(&v, w);
-                if (r < 0)
-                        return r;
-        }
 
         if (link->sd_device) {
                 _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
