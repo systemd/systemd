@@ -24,7 +24,7 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
-static int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
+int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         _cleanup_free_ char *str = NULL;
         static const struct {
                 uint32_t flag;
