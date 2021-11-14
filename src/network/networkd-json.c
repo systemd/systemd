@@ -16,6 +16,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "sort-util.h"
 #include "user-util.h"
+#include "wifi-util.h"
 
 static int address_build_json(Address *address, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -492,7 +493,7 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
 
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
-        _cleanup_free_ char *type = NULL;
+        _cleanup_free_ char *type = NULL, *flags = NULL;
         int r;
 
         assert(link);
@@ -502,12 +503,39 @@ int link_build_json(Link *link, JsonVariant **ret) {
         if (r == -ENOMEM)
                 return r;
 
+        r = link_flags_to_string_alloc(link->flags, &flags);
+        if (r < 0)
+                return r;
+
         r = json_build(&v, JSON_BUILD_OBJECT(
+                                /* basic information */
                                 JSON_BUILD_PAIR_INTEGER("Index", link->ifindex),
                                 JSON_BUILD_PAIR_STRING("Name", link->ifname),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("AlternativeNames", link->alternative_names),
+                                JSON_BUILD_PAIR_CONDITION(link->master_ifindex > 0,
+                                                          "MasterInterfaceIndex", JSON_BUILD_INTEGER(link->master_ifindex)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Kind", link->kind),
                                 JSON_BUILD_PAIR_STRING("Type", type),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Driver", link->driver),
+                                JSON_BUILD_PAIR_UNSIGNED("Flags", link->flags),
+                                JSON_BUILD_PAIR_STRING("FlagsString", flags),
+                                JSON_BUILD_PAIR_UNSIGNED("KernelOperationalState", link->kernel_operstate),
+                                JSON_BUILD_PAIR_STRING("KernelOperationalStateString", kernel_operstate_to_string(link->kernel_operstate)),
+                                JSON_BUILD_PAIR_UNSIGNED("MTU", link->mtu),
+                                JSON_BUILD_PAIR_UNSIGNED("MinimumMTU", link->min_mtu),
+                                JSON_BUILD_PAIR_UNSIGNED("MaximumMTU", link->max_mtu),
+                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("HardwareAddress", &link->hw_addr),
+                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("PermanentHardwareAddress", &link->permanent_hw_addr),
+                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("BroadcastAddress", &link->bcast_addr),
+                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("IPv6LinkLocalAddress", &link->ipv6ll_address),
+                                /* wlan information */
+                                JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceType",
+                                                          JSON_BUILD_UNSIGNED(link->wlan_iftype)),
+                                JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceTypeString",
+                                                          JSON_BUILD_STRING(nl80211_iftype_to_string(link->wlan_iftype))),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SSID", link->ssid),
+                                JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL("BSSID", &link->bssid),
+                                /* link state */
                                 JSON_BUILD_PAIR_STRING("SetupState", link_state_to_string(link->state)),
                                 JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
                                 JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
