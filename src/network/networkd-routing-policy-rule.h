@@ -51,6 +51,7 @@ typedef struct RoutingPolicyRule {
         struct fib_rule_uid_range uid_range;
 
         int suppress_prefixlen;
+        int32_t suppress_ifgroup;
 } RoutingPolicyRule;
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
@@ -88,4 +89,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_ifgroup);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);

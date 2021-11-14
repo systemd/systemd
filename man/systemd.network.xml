@@ -209,7 +209,7 @@
         <listitem>
           <para>Link groups are similar to port ranges found in managed switches. When network interfaces
           are added to a numbered group, operations on all the interfaces from that group can be
-          performed at once. Takes an unsigned integer in the range 0…4294967295. Defaults to unset.
+          performed at once. Takes an unsigned integer in the range 0…2147483647. Defaults to unset.
           </para>
         </listitem>
       </varlistentry>
@@ -1280,6 +1280,14 @@ Table=1234</programlisting></para>
             <para>Takes a number <replaceable>N</replaceable> in the range 0…128 and rejects routing
             decisions that have a prefix length of <replaceable>N</replaceable> or less. Defaults to
             unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SuppressInterfaceGroup=</varname></term>
+          <listitem>
+            <para>Takes an integer in the range 0…2147483647 and rejects routing
+            decisions that have an interface with the same group id. It has the same meaning as
+            <option>suppress_ifgroup</option> in <command>ip rule</command>, defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
