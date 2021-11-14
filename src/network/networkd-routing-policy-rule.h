@@ -54,6 +54,9 @@ typedef struct RoutingPolicyRule {
         int32_t suppress_ifgroup;
 } RoutingPolicyRule;
 
+int fr_act_type_from_string(const char *s) _pure_;
+const char *fr_act_type_to_string(int t) _const_;
+
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
 void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state);
