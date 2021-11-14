@@ -274,6 +274,8 @@ mouse:usb:v04b3p3107:name:*
 
 # Kensington Expert Mouse trackball
 mouse:usb:v047dp1020:*Kensington Expert Mouse*:*
+mouse:usb:v047dp8018:name:Kensington Expert Wireless TB Mouse:*
+mouse:bluetooth:v047dp8019:name:Expert Wireless TB Mouse:*
  ID_INPUT_TRACKBALL=1
  MOUSE_DPI=400@125
 
