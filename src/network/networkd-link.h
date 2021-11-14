@@ -227,3 +227,6 @@ int link_reconfigure_after_sleep(Link *link);
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
+int link_flags_to_string_alloc(uint32_t flags, char **ret);
+const char *kernel_operstate_to_string(int t) _const_;
