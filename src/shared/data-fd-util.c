@@ -49,14 +49,9 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
          * It sucks a bit that depending on the situation we return very different objects here, but that's Linux I
          * figure. */
 
-        if (size == 0 && ((flags & ACQUIRE_NO_DEV_NULL) == 0)) {
+        if (size == 0 && ((flags & ACQUIRE_NO_DEV_NULL) == 0))
                 /* As a special case, return /dev/null if we have been called for an empty data block */
-                r = open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (r < 0)
-                        return -errno;
-
-                return r;
-        }
+                return RET_NERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY));
 
         if ((flags & ACQUIRE_NO_MEMFD) == 0) {
                 fd = memfd_new("data-fd");

@@ -472,7 +472,7 @@ static int delete_dm(MountPoint *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
 
-        if (ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
+        return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {
                         DM_VERSION_MAJOR,
                         DM_VERSION_MINOR,
@@ -480,10 +480,7 @@ static int delete_dm(MountPoint *m) {
                 },
                 .data_size = sizeof(struct dm_ioctl),
                 .dev = m->devnum,
-        }) < 0)
-                return -errno;
-
-        return 0;
+        }));
 }
 
 static int delete_md(MountPoint *m) {
@@ -500,10 +497,7 @@ static int delete_md(MountPoint *m) {
         if (fsync(fd) < 0)
                 log_debug_errno(errno, "Failed to sync MD block device %s, ignoring: %m", m->path);
 
-        if (ioctl(fd, STOP_ARRAY, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
 }
 
 static bool nonunmountable_path(const char *path) {

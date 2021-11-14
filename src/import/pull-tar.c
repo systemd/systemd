@@ -520,7 +520,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         if (i->flags & PULL_BTRFS_SUBVOL)
                 r = btrfs_subvol_make_fallback(where, 0755);
         else
-                r = mkdir(where, 0755) < 0 ? -errno : 0;
+                r = RET_NERRNO(mkdir(where, 0755));
         if (r == -EEXIST && (i->flags & PULL_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
                                                        * because in that case our temporary path collided */
                 r = 0;
