@@ -9,9 +9,13 @@
 
 #include "sd-id128.h"
 
+#include "ether-addr-util.h"
+#include "in-addr-util.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
-#include "log.h"
+#include "strv.h"
+#include "time-util.h"
 
 /*
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
@@ -259,6 +263,59 @@ enum {
 #define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, (const sd_id128_t*) { &(id) }
 #define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_IN4_ADDR(v) JSON_BUILD_BYTE_ARRAY(v, sizeof(struct in_addr))
+#define JSON_BUILD_IN6_ADDR(v) JSON_BUILD_BYTE_ARRAY(v, sizeof(struct in6_addr))
+#define JSON_BUILD_IN_ADDR(v, f) JSON_BUILD_BYTE_ARRAY((v)->bytes, FAMILY_ADDRESS_SIZE_SAFE(f))
+#define JSON_BUILD_ETHER_ADDR(v) JSON_BUILD_BYTE_ARRAY((v)->ether_addr_octet, sizeof(struct ether_addr))
+#define JSON_BUILD_HW_ADDR(v) JSON_BUILD_BYTE_ARRAY((v)->bytes, (v)->length) /* This evaluates the argument twice. */
+#define JSON_BUILD_USEC(t) JSON_BUILD_UNSIGNED(t)
+#define JSON_BUILD_TIMESTAMP(t) JSON_BUILD_STRING(FORMAT_TIMESTAMP(t))
+#define JSON_BUILD_TIMESTAMP_RELATIVE(t) JSON_BUILD_STRING(FORMAT_TIMESTAMP_RELATIVE(t))
+#define JSON_BUILD_TIMESPAN(t, a) JSON_BUILD_STRING(FORMAT_TIMESPAN(t, a))
+
+#define JSON_BUILD_PAIR_STRING(name, s) JSON_BUILD_PAIR(name, JSON_BUILD_STRING(s))
+#define JSON_BUILD_PAIR_INTEGER(name, i) JSON_BUILD_PAIR(name, JSON_BUILD_INTEGER(i))
+#define JSON_BUILD_PAIR_UNSIGNED(name, u) JSON_BUILD_PAIR(name, JSON_BUILD_UNSIGNED(u))
+#define JSON_BUILD_PAIR_REAL(name, d) JSON_BUILD_PAIR(name, JSON_BUILD_REAL(d))
+#define JSON_BUILD_PAIR_BOOLEAN(name, b) JSON_BUILD_PAIR(name, JSON_BUILD_BOOLEAN(b))
+#define JSON_BUILD_PAIR_ARRAY(name, ...) JSON_BUILD_PAIR(name, JSON_BUILD_ARRAY(__VA_ARGS__))
+#define JSON_BUILD_PAIR_EMPTY_ARRAY(name) JSON_BUILD_PAIR(name, JSON_BUILD_EMPTY_ARRAY)
+#define JSON_BUILD_PAIR_OBJECT(name, ...) JSON_BUILD_PAIR(name, JSON_BUILD_OBJECT(__VA_ARGS__))
+#define JSON_BUILD_PAIR_EMPTY_OBJECT(name) JSON_BUILD_PAIR(name, JSON_BUILD_EMPTY_OBJECT)
+#define JSON_BUILD_PAIR_NULL(name) JSON_BUILD_PAIR(name, JSON_BUILD_NULL)
+#define JSON_BUILD_PAIR_VARIANT(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_VARIANT(v))
+#define JSON_BUILD_PAIR_VARIANT_ARRAY(name, v, n) JSON_BUILD_PAIR(name, JSON_BUILD_VARIANT_ARRAY(v, n))
+#define JSON_BUILD_PAIR_LITERAL(name, l) JSON_BUILD_PAIR(name, JSON_BUILD_LITERAL(l))
+#define JSON_BUILD_PAIR_STRV(name, l) JSON_BUILD_PAIR(name, JSON_BUILD_STRV(l))
+#define JSON_BUILD_PAIR_BASE64(name, p, n) JSON_BUILD_PAIR(name, JSON_BUILD_BASE64(p, n))
+#define JSON_BUILD_PAIR_HEX(name, p, n) JSON_BUILD_PAIR(name, JSON_BUILD_HEX(p, n))
+#define JSON_BUILD_PAIR_ID128(name, id) JSON_BUILD_PAIR(name, JSON_BUILD_ID128(id))
+#define JSON_BUILD_PAIR_BYTE_ARRAY(name, v, n) JSON_BUILD_PAIR(name, JSON_BUILD_BYTE_ARRAY(v, n))
+#define JSON_BUILD_PAIR_IN4_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_IN4_ADDR(v))
+#define JSON_BUILD_PAIR_IN6_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_IN6_ADDR(v))
+#define JSON_BUILD_PAIR_IN_ADDR(name, v, f) JSON_BUILD_PAIR(name, JSON_BUILD_IN_ADDR(v, f))
+#define JSON_BUILD_PAIR_ETHER_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_ETHER_ADDR(v))
+#define JSON_BUILD_PAIR_HW_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_HW_ADDR(v)) /* This evaluates the argument twice. */
+#define JSON_BUILD_PAIR_USEC(name, t) JSON_BUILD_PAIR(name, JSON_BUILD_USEC(t))
+#define JSON_BUILD_PAIR_TIMESTAMP(name, t) JSON_BUILD_PAIR(name, JSON_BUILD_TIMESTAMP(t))
+#define JSON_BUILD_PAIR_TIMESTAMP_RELATIVE(name, t) JSON_BUILD_PAIR(name, JSON_BUILD_TIMESTAMP_RELATIVE(t))
+#define JSON_BUILD_PAIR_TIMESPAN(name, t, a) JSON_BUILD_PAIR(name, JSON_BUILD_TIMESPAN(t, a))
+
+/* The following macros evalute arguent(s) more than once. */
+#define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) JSON_BUILD_PAIR_CONDITION((u) != 0, name, JSON_BUILD_UNSIGNED(u))
+#define JSON_BUILD_PAIR_STRING_NON_EMPTY(name, s) JSON_BUILD_PAIR_CONDITION(!isempty(s), name, JSON_BUILD_STRING(s))
+#define JSON_BUILD_PAIR_STRV_NON_EMPTY(name, s) JSON_BUILD_PAIR_CONDITION(!strv_isempty(s), name, JSON_BUILD_STRV(s))
+#define JSON_BUILD_PAIR_VARIANT_NON_NULL(name, v) JSON_BUILD_PAIR_CONDITION((v) && !json_variant_is_null(v), name, JSON_BUILD_VARIANT(v))
+#define JSON_BUILD_PAIR_VARIANT_ARRAY_NON_EMPTY(name, v, n) JSON_BUILD_PAIR_CONDITION((n) > 0, name, JSON_BUILD_VARIANT_ARRAY(v, n))
+#define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, s) JSON_BUILD_PAIR_CONDITION(in4_addr_is_set(s), name, JSON_BUILD_IN4_ADDR(s))
+#define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, s) JSON_BUILD_PAIR_CONDITION(in6_addr_is_set(s), name, JSON_BUILD_IN6_ADDR(s))
+#define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, s, f) JSON_BUILD_PAIR_CONDITION(in_addr_is_set(f, s), name, JSON_BUILD_IN_ADDR(s, f))
+#define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, s) JSON_BUILD_PAIR_CONDITION(!ether_addr_is_null(s), name, JSON_BUILD_ETHER_ADDR(s))
+#define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, s) JSON_BUILD_PAIR_CONDITION(!hw_addr_is_null(s), name, JSON_BUILD_HW_ADDR(s))
+#define JSON_BUILD_PAIR_FINITE_USEC(name, t) JSON_BUILD_PAIR_CONDITION((t) != USEC_INFINITY, name, JSON_BUILD_USEC(t))
+#define JSON_BUILD_PAIR_FINITE_TIMESTAMP(name, t) JSON_BUILD_PAIR_CONDITION((t) != USEC_INFINITY, name, JSON_BUILD_TIMESTAMP(t))
+#define JSON_BUILD_PAIR_FINITE_TIMESTAMP_RELATIVE(name, t) JSON_BUILD_PAIR_CONDITION((t) != USEC_INFINITY, name, JSON_BUILD_TIMESTAMP_RELATIVE(t))
+#define JSON_BUILD_PAIR_FINITE_TIMESPAN(name, t, a) JSON_BUILD_PAIR_CONDITION((t) != USEC_INFINITY, name, JSON_BUILD_TIMESPAN(t, a))
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);

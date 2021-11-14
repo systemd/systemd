@@ -13,7 +13,7 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "parse-util.h"
@@ -30,7 +30,7 @@ static const char *const fr_act_type_table[__FR_ACT_MAX] = {
 };
 
 assert_cc(__FR_ACT_MAX <= UINT8_MAX);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fr_act_type, int);
+DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int);
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         if (!rule)
