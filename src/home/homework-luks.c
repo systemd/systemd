@@ -185,10 +185,7 @@ static int block_get_size_by_fd(int fd, uint64_t *ret) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        if (ioctl(fd, BLKGETSIZE64, ret) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BLKGETSIZE64, ret));
 }
 
 static int block_get_size_by_path(const char *path, uint64_t *ret) {

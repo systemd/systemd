@@ -813,7 +813,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
                 if (n >= until)
                         break;
 
-                r = sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)) < 0 ? -errno : 0;
+                r = RET_NERRNO(sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)));
                 /* Assuming we woke due to the child exiting. */
                 if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
                         if (status.si_pid == pid) {
@@ -871,7 +871,7 @@ void sigterm_wait(pid_t pid) {
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
-        r = kill(pid, sig) < 0 ? -errno : 0;
+        r = RET_NERRNO(kill(pid, sig));
 
         /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent which isn't
          * affected by a process being suspended anyway. */
