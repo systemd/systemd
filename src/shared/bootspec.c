@@ -530,9 +530,11 @@ static int boot_entry_load_unified(
         if (!tmp.sort_key)
                 return log_oom();
 
-        tmp.version = strdup(good_version);
-        if (!tmp.version)
-                return log_oom();
+        if (good_version) {
+                tmp.version = strdup(good_version);
+                if (!tmp.version)
+                        return log_oom();
+        }
 
         *ret = tmp;
         tmp = (BootEntry) {};
