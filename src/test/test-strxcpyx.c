@@ -83,10 +83,13 @@ static void test_sd_event_code_migration(void) {
         char c[100 * DECIMAL_STR_MAX(unsigned) + 1], *p;
         unsigned i;
         size_t l;
-        int o;
+        int o, r;
 
-        for (i = o = 0; i < 100; i++)
-                o += snprintf(&b[o], sizeof(b) - o, "%u ", i);
+        for (i = o = 0; i < 100; i++) {
+                r = snprintf(&b[o], sizeof(b) - o, "%u ", i);
+                assert_se(r >= 0 && r < (int) sizeof(b) - o);
+                o += r;
+        }
 
         p = c;
         l = sizeof(c);
