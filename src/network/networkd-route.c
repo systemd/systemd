@@ -544,7 +544,7 @@ void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_a
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
         _cleanup_free_ char *state = NULL, *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
-                *table = NULL, *scope = NULL, *proto = NULL;
+                *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *gw = NULL;
 
         assert(route);
@@ -592,15 +592,16 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         (void) route_scope_to_string_alloc(route->scope, &scope);
         (void) manager_get_route_table_to_string(manager, route->table, &table);
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
+        (void) route_flags_to_string_alloc(route->flags, &flags);
 
         log_link_debug(link,
                        "%s %s route (%s): dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, "
-                       "proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32,
+                       "proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32", flags: %s",
                        str, strna(network_config_source_to_string(route->source)), strna(state),
                        strna(dst), strna(src), strna(gw), strna(prefsrc),
                        strna(scope), strna(table), strna(proto),
                        strna(route_type_to_string(route->type)),
-                       route->nexthop_id, route->priority);
+                       route->nexthop_id, route->priority, strna(flags));
 }
 
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
