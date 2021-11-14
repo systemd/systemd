@@ -11,6 +11,9 @@ on:
   schedule:
     - cron: '0 1 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze
@@ -20,7 +23,6 @@ jobs:
       cancel-in-progress: true
     permissions:
       actions: read
-      contents: read
       security-events: write
 
     strategy:
