@@ -565,7 +565,7 @@ static int link_is_managed(Link *l) {
         if (r < 0)
                 return r;
 
-        return !STR_IN_SET(state, "pending", "unmanaged");
+        return !STR_IN_SET(state, "pending", "initialized", "unmanaged");
 }
 
 static void link_read_settings(Link *l) {
