@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "env-file.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -327,11 +328,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         /* Open writing side */
-        r = open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK));
 }
 
 static void inhibitor_remove_fifo(Inhibitor *i) {
