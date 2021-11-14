@@ -1,3 +1,7 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
 name: "CodeQL"
 
 on:
@@ -6,6 +10,9 @@ on:
   # It runs daily at 01:00 to avoid colliding with the Coverity workflow.
   schedule:
     - cron: '0 1 * * *'
+
+permissions:
+  contents: read
 
 jobs:
   analyze:
@@ -16,7 +23,6 @@ jobs:
       cancel-in-progress: true
     permissions:
       actions: read
-      contents: read
       security-events: write
 
     strategy:
