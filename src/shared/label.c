@@ -35,9 +35,7 @@ int symlink_label(const char *old_path, const char *new_path) {
         if (r < 0)
                 return r;
 
-        if (symlink(old_path, new_path) < 0)
-                r = -errno;
-
+        r = RET_NERRNO(symlink(old_path, new_path));
         mac_selinux_create_file_clear();
 
         if (r < 0)
@@ -56,9 +54,7 @@ int symlink_atomic_label(const char *from, const char *to) {
         if (r < 0)
                 return r;
 
-        if (symlink_atomic(from, to) < 0)
-                r = -errno;
-
+        r = symlink_atomic(from, to);
         mac_selinux_create_file_clear();
 
         if (r < 0)
@@ -76,9 +72,7 @@ int mknod_label(const char *pathname, mode_t mode, dev_t dev) {
         if (r < 0)
                 return r;
 
-        if (mknod(pathname, mode, dev) < 0)
-                r = -errno;
-
+        r = RET_NERRNO(mknod(pathname, mode, dev));
         mac_selinux_create_file_clear();
 
         if (r < 0)

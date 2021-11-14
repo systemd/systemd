@@ -335,10 +335,7 @@ static int boot_entry_file_check(const char *root, const char *p) {
         if (!path)
                 return log_oom();
 
-        if (access(path, F_OK) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(access(path, F_OK));
 }
 
 static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
