@@ -2,6 +2,7 @@
 
 #include <linux/nexthop.h>
 
+#include "ip-protocol-list.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-json.h"
@@ -12,7 +13,9 @@
 #include "networkd-network.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-routing-policy-rule.h"
 #include "sort-util.h"
+#include "user-util.h"
 
 static int address_build_json(Address *address, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -354,6 +357,101 @@ finalize:
         return r;
 }
 
+static int routing_policy_rule_build_json(RoutingPolicyRule *rule, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *table = NULL, *protocol = NULL, *state = NULL;
+        int r;
+
+        assert(rule);
+        assert(rule->manager);
+        assert(ret);
+
+        r = manager_get_route_table_to_string(rule->manager, rule->table, &table);
+        if (r < 0 && r != -EINVAL)
+                return r;
+
+        r = route_protocol_to_string_alloc(rule->protocol, &protocol);
+        if (r < 0)
+                return r;
+
+        r = network_config_state_to_string_alloc(rule->state, &state);
+        if (r < 0)
+                return r;
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("Family", rule->family),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("FromPrefix", &rule->from, rule->family),
+                                JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->from),
+                                                          "FromPrefixLength", JSON_BUILD_UNSIGNED(rule->from_prefixlen)),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ToPrefix", &rule->to, rule->family),
+                                JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->to),
+                                                          "ToPrefixLength", JSON_BUILD_UNSIGNED(rule->to_prefixlen)),
+                                JSON_BUILD_PAIR_UNSIGNED("Protocol", rule->protocol),
+                                JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                                JSON_BUILD_PAIR_UNSIGNED("TOS", rule->tos),
+                                JSON_BUILD_PAIR_UNSIGNED("Type", rule->type),
+                                JSON_BUILD_PAIR_STRING("TypeString", fr_act_type_full_to_string(rule->type)),
+                                JSON_BUILD_PAIR_UNSIGNED("IPProtocol", rule->ipproto),
+                                JSON_BUILD_PAIR_STRING("IPProtocolString", ip_protocol_to_name(rule->ipproto)),
+                                JSON_BUILD_PAIR_UNSIGNED("Priority", rule->priority),
+                                JSON_BUILD_PAIR_UNSIGNED("FirewallMark", rule->fwmark),
+                                JSON_BUILD_PAIR_UNSIGNED("FirewallMask", rule->fwmask),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Table", rule->table),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("TableString", table),
+                                JSON_BUILD_PAIR_BOOLEAN("Invert", rule->invert_rule),
+                                JSON_BUILD_PAIR_CONDITION(rule->suppress_prefixlen >= 0,
+                                                          "SuppressPrefixLength", JSON_BUILD_UNSIGNED(rule->suppress_prefixlen)),
+                                JSON_BUILD_PAIR_CONDITION(rule->suppress_ifgroup >= 0,
+                                                          "SuppressInterfaceGroup", JSON_BUILD_UNSIGNED(rule->suppress_ifgroup)),
+                                JSON_BUILD_PAIR_CONDITION(rule->sport.start != 0 || rule->sport.end != 0, "SourcePort",
+                                                          JSON_BUILD_ARRAY(JSON_BUILD_UNSIGNED(rule->sport.start), JSON_BUILD_UNSIGNED(rule->sport.end))),
+                                JSON_BUILD_PAIR_CONDITION(rule->dport.start != 0 || rule->dport.end != 0, "DestinationPort",
+                                                          JSON_BUILD_ARRAY(JSON_BUILD_UNSIGNED(rule->dport.start), JSON_BUILD_UNSIGNED(rule->dport.end))),
+                                JSON_BUILD_PAIR_CONDITION(rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID, "User",
+                                                          JSON_BUILD_ARRAY(JSON_BUILD_UNSIGNED(rule->uid_range.start), JSON_BUILD_UNSIGNED(rule->uid_range.end))),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("IncomingInterface", rule->iif),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("OutgoingInterface", rule->oif),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(rule->source)),
+                                JSON_BUILD_PAIR_STRING("ConfigState", state)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int routing_policy_rules_build_json(Set *rules, JsonVariant **ret) {
+        JsonVariant **elements;
+        RoutingPolicyRule *rule;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        if (set_isempty(rules)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        elements = new(JsonVariant*, set_size(rules));
+        if (!elements)
+                return -ENOMEM;
+
+        SET_FOREACH(rule, rules) {
+                r = routing_policy_rule_build_json(rule, elements + n);
+                if (r < 0)
+                        goto finalize;
+                n++;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("RoutingPolicyRules", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 static int network_build_json(Network *network, JsonVariant **ret) {
         assert(ret);
 
@@ -546,6 +644,16 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = routes_build_json(manager->routes, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = routing_policy_rules_build_json(manager->rules, &w);
         if (r < 0)
                 return r;
 
