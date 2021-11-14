@@ -31,6 +31,29 @@ static inline int negative_errno(void) {
         return -errno;
 }
 
+static inline int RET_NERRNO(int ret) {
+
+        /* Helper to wrap system calls in to make them return negative errno errors. This brings system call
+         * error handling in sync with how we usually handle errors in our own code, i.e. with immediate
+         * returning of negative errno. Usage is like this:
+         *
+         *     …
+         *     r = RET_NERRNO(unlink(t));
+         *     …
+         *
+         * or
+         *
+         *     …
+         *     fd = RET_NERRNO(open("/etc/fstab", O_RDONLY|O_CLOEXEC));
+         *     …
+         */
+
+        if (ret < 0)
+                return negative_errno();
+
+        return ret;
+}
+
 static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
         return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
