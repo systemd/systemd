@@ -29,8 +29,18 @@ static const char *const fr_act_type_table[__FR_ACT_MAX] = {
         [FR_ACT_PROHIBIT]    = "prohibit",
 };
 
+static const char *const fr_act_type_full_table[__FR_ACT_MAX] = {
+        [FR_ACT_TO_TBL]      = "table",
+        [FR_ACT_GOTO]        = "goto",
+        [FR_ACT_NOP]         = "nop",
+        [FR_ACT_BLACKHOLE]   = "blackhole",
+        [FR_ACT_UNREACHABLE] = "unreachable",
+        [FR_ACT_PROHIBIT]    = "prohibit",
+};
+
 assert_cc(__FR_ACT_MAX <= UINT8_MAX);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fr_act_type, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(fr_act_type_full, int);
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         if (!rule)
