@@ -458,7 +458,7 @@ static int link_configure(
                 break;
         }
         case SET_LINK_GROUP:
-                r = sd_netlink_message_append_u32(req, IFLA_GROUP, link->network->group);
+                r = sd_netlink_message_append_u32(req, IFLA_GROUP, (uint32_t) link->network->group);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_GROUP attribute: %m");
                 break;
@@ -770,7 +770,7 @@ int link_request_to_set_group(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link->network->group_set)
+        if (link->network->group < 0)
                 return 0;
 
         return link_request_set_link(link, SET_LINK_GROUP, link_set_group_handler, NULL);

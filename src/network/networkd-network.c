@@ -1256,6 +1256,7 @@ int config_parse_link_group(
 
         Network *network = userdata;
         int r;
+        int32_t group;
 
         assert(filename);
         assert(lvalue);
@@ -1263,19 +1264,24 @@ int config_parse_link_group(
         assert(network);
 
         if (isempty(rvalue)) {
-                network->group = 0;
-                network->group_set = false;
+                network->group = -1;
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &network->group);
+        r = safe_atoi32(rvalue, &group);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse Group=, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        network->group_set = true;
+        if (group < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Value of Group= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->group = group;
         return 0;
 }
 
