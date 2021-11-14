@@ -15,7 +15,7 @@
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "parse-util.h"
 #include "radv-internal.h"
 #include "string-util.h"

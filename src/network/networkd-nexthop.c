@@ -12,7 +12,7 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "parse-util.h"
 #include "set.h"
 #include "stdio-util.h"
