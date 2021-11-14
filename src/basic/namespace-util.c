@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_fs.h"
@@ -177,10 +178,7 @@ int detach_mount_namespace(void) {
         if (unshare(CLONE_NEWNS) < 0)
                 return -errno;
 
-        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL));
 }
 
 int userns_acquire(const char *uid_map, const char *gid_map) {
