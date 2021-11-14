@@ -189,7 +189,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   strna(p->options));
 
         if (FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK))
-                r = mount(p->what, p->where, p->type, p->flags, p->options) < 0 ? -errno : 0;
+                r = RET_NERRNO(mount(p->what, p->where, p->type, p->flags, p->options));
         else
                 r = mount_nofollow(p->what, p->where, p->type, p->flags, p->options);
         if (r < 0) {

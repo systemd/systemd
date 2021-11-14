@@ -30,18 +30,13 @@
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 
 int unlink_noerrno(const char *path) {
         PROTECT_ERRNO;
-        int r;
-
-        r = unlink(path);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(unlink(path));
 }
 
 int rmdir_parents(const char *path, const char *stop) {
@@ -97,8 +92,8 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
          * want — though not atomic (i.e. for a short period both the new and the old filename will exist). */
         if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0) {
 
-                if (unlinkat(olddirfd, oldpath, 0) < 0) {
-                        r = -errno; /* Backup errno before the following unlinkat() alters it */
+                r = RET_NERRNO(unlinkat(olddirfd, oldpath, 0));
+                if (r < 0) {
                         (void) unlinkat(newdirfd, newpath, 0);
                         return r;
                 }
@@ -117,10 +112,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         if (errno != ENOENT)
                 return -errno;
 
-        if (renameat(olddirfd, oldpath, newdirfd, newpath) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(renameat(olddirfd, oldpath, newdirfd, newpath));
 }
 
 int readlinkat_malloc(int fd, const char *p, char **ret) {
@@ -286,14 +278,9 @@ int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t 
 }
 
 int fchmod_umask(int fd, mode_t m) {
-        mode_t u;
-        int r;
+        _cleanup_umask_ mode_t u = umask(0777);
 
-        u = umask(0777);
-        r = fchmod(fd, m & (~u)) < 0 ? -errno : 0;
-        umask(u);
-
-        return r;
+        return RET_NERRNO(fchmod(fd, m & (~u)));
 }
 
 int fchmod_opath(int fd, mode_t m) {
@@ -822,7 +809,7 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
 
 int open_parent(const char *path, int flags, mode_t mode) {
         _cleanup_free_ char *parent = NULL;
-        int fd, r;
+        int r;
 
         r = path_extract_directory(path, &parent);
         if (r < 0)
@@ -836,11 +823,7 @@ int open_parent(const char *path, int flags, mode_t mode) {
         else if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY|O_RDONLY;
 
-        fd = open(parent, flags, mode);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        return RET_NERRNO(open(parent, flags, mode));
 }
 
 int conservative_renameat(

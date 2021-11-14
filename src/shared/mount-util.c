@@ -484,10 +484,7 @@ int mount_move_root(const char *path) {
         if (chroot(".") < 0)
                 return -errno;
 
-        if (chdir("/") < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(chdir("/"));
 }
 
 int repeat_unmount(const char *path, int flags) {
@@ -683,7 +680,7 @@ int mount_verbose_full(
                           strna(what), strna(type), where, strnull(fl), strempty(o));
 
         if (follow_symlink)
-                r = mount(what, where, type, f, o) < 0 ? -errno : 0;
+                r = RET_NERRNO(mount(what, where, type, f, o));
         else
                 r = mount_nofollow(what, where, type, f, o);
         if (r < 0)

@@ -1226,10 +1226,7 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 
         /* Call with NULL to drop binding */
 
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen_ptr(ifname)) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen_ptr(ifname)));
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
@@ -1238,13 +1235,9 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
 
         assert(fd >= 0);
 
-        if (ifindex <= 0) {
+        if (ifindex <= 0)
                 /* Drop binding */
-                if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0) < 0)
-                        return -errno;
-
-                return 0;
-        }
+                return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0));
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
         if (r != -ENOPROTOOPT)
@@ -1332,16 +1325,10 @@ int socket_set_unicast_if(int fd, int af, int ifi) {
         switch (af) {
 
         case AF_INET:
-                if (setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex_be, sizeof(ifindex_be)) < 0)
-                        return -errno;
-
-                return 0;
+                return RET_NERRNO(setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex_be, sizeof(ifindex_be)));
 
         case AF_INET6:
-                if (setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex_be, sizeof(ifindex_be)) < 0)
-                        return -errno;
-
-                return 0;
+                return RET_NERRNO(setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex_be, sizeof(ifindex_be)));
 
         default:
                 return -EAFNOSUPPORT;

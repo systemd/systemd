@@ -306,7 +306,7 @@ static int connect_journal_socket(
                 }
         }
 
-        r = connect(fd, &sa.sa, sa_len) < 0 ? -errno : 0;
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
@@ -519,13 +519,13 @@ static int setup_input(
         case EXEC_INPUT_SOCKET:
                 assert(socket_fd >= 0);
 
-                return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+                return RET_NERRNO(dup2(socket_fd, STDIN_FILENO));
 
         case EXEC_INPUT_NAMED_FD:
                 assert(named_iofds[STDIN_FILENO] >= 0);
 
                 (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
-                return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+                return RET_NERRNO(dup2(named_iofds[STDIN_FILENO], STDIN_FILENO));
 
         case EXEC_INPUT_DATA: {
                 int fd;
@@ -641,7 +641,7 @@ static int setup_output(
 
                 /* Duplicate from stdout if possible */
                 if (can_inherit_stderr_from_stdout(context, o, e))
-                        return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
 
                 o = e;
 
@@ -652,7 +652,7 @@ static int setup_output(
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
                 if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
@@ -669,7 +669,7 @@ static int setup_output(
 
         case EXEC_OUTPUT_TTY:
                 if (is_terminal_input(i))
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
@@ -704,13 +704,13 @@ static int setup_output(
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
 
-                return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
+                return RET_NERRNO(dup2(socket_fd, fileno));
 
         case EXEC_OUTPUT_NAMED_FD:
                 assert(named_iofds[fileno] >= 0);
 
                 (void) fd_nonblock(named_iofds[fileno], false);
-                return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
+                return RET_NERRNO(dup2(named_iofds[fileno], fileno));
 
         case EXEC_OUTPUT_FILE:
         case EXEC_OUTPUT_FILE_APPEND:
@@ -724,7 +724,7 @@ static int setup_output(
                         streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
 
                 if (rw)
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 flags = O_WRONLY;
                 if (o == EXEC_OUTPUT_FILE_APPEND)
@@ -6238,7 +6238,7 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         cmd = quote_command_line(c->argv, SHELL_ESCAPE_EMPTY);
         fprintf(f,
                 "%sCommand Line: %s\n",
-                prefix, cmd ? cmd : strerror_safe(ENOMEM));
+                prefix, cmd ?: strerror_safe(ENOMEM));
 
         exec_status_dump(&c->exec_status, f, prefix2);
 }

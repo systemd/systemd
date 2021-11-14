@@ -2160,18 +2160,17 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                         /* rm_if_wrong_type_safe already logs errors. */
                         return r;
 
-                next_fd = openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                next_fd = RET_NERRNO(openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY));
                 if (next_fd < 0) {
                         _cleanup_free_ char *parent_name = NULL;
 
-                        r = -errno;
                         (void) fd_get_path(parent_fd, &parent_name);
-                        return log_error_errno(r, "Failed to open \"%s\" at \"%s\": %m", t, strnull(parent_name));
+                        return log_error_errno(next_fd, "Failed to open \"%s\" at \"%s\": %m", t, strnull(parent_name));
                 }
-                if (fstat(next_fd, &parent_st) < 0) {
+                r = RET_NERRNO(fstat(next_fd, &parent_st));
+                if (r < 0) {
                         _cleanup_free_ char *parent_name = NULL;
 
-                        r = -errno;
                         (void) fd_get_path(parent_fd, &parent_name);
                         return log_error_errno(r, "Failed to stat \"%s\" at \"%s\": %m", t, strnull(parent_name));
                 }
@@ -2309,7 +2308,7 @@ static int create_item(Item *i) {
                                                         return log_error_errno(r, "rm -fr %s failed: %m", i->path);
 
                                                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                                r = symlink(i->argument, i->path) < 0 ? -errno : 0;
+                                                r = RET_NERRNO(symlink(i->argument, i->path));
                                                 mac_selinux_create_file_clear();
                                         }
                                         if (r < 0)

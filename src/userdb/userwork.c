@@ -528,11 +528,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 (void) rename_process("systemd-userwork: waiting...");
-
-                fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-                if (fd < 0)
-                        fd = -errno;
-
+                fd = RET_NERRNO(accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
                 (void) rename_process("systemd-userwork: processing...");
 
                 if (fd == -EAGAIN)

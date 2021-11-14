@@ -680,10 +680,7 @@ int reset_uid_gid(void) {
         if (setresgid(0, 0, 0) < 0)
                 return -errno;
 
-        if (setresuid(0, 0, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setresuid(0, 0, 0));
 }
 
 int take_etc_passwd_lock(const char *root) {
@@ -943,10 +940,7 @@ int maybe_setgroups(size_t size, const gid_t *list) {
                 }
         }
 
-        if (setgroups(size, list) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setgroups(size, list));
 }
 
 bool synthesize_nobody(void) {

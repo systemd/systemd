@@ -74,10 +74,7 @@ int chvt(int vt) {
                 vt = tiocl[0] <= 0 ? 1 : tiocl[0];
         }
 
-        if (ioctl(fd, VT_ACTIVATE, vt) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, VT_ACTIVATE, vt));
 }
 
 int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
@@ -409,8 +406,7 @@ int acquire_terminal(
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                r = ioctl(fd, TIOCSCTTY,
-                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
+                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE));
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
@@ -500,7 +496,7 @@ int release_terminal(void) {
          * by our own TIOCNOTTY */
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
-        r = ioctl(fd, TIOCNOTTY) < 0 ? -errno : 0;
+        r = RET_NERRNO(ioctl(fd, TIOCNOTTY));
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
@@ -509,11 +505,7 @@ int release_terminal(void) {
 
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, TIOCVHANGUP) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
 int terminal_vhangup(const char *name) {
@@ -1361,10 +1353,7 @@ int vt_reset_keyboard(int fd) {
         /* If we can't read the default, then default to unicode. It's 2017 after all. */
         kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
 
-        if (ioctl(fd, KDSKBMODE, kb) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
 }
 
 int vt_restore(int fd) {

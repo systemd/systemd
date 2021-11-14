@@ -629,10 +629,7 @@ int cg_set_xattr(const char *controller, const char *path, const char *name, con
         if (r < 0)
                 return r;
 
-        if (setxattr(fs, name, value, size, flags) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setxattr(fs, name, value, size, flags));
 }
 
 int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size) {
@@ -697,10 +694,7 @@ int cg_remove_xattr(const char *controller, const char *path, const char *name) 
         if (r < 0)
                 return r;
 
-        if (removexattr(fs, name) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(removexattr(fs, name));
 }
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {

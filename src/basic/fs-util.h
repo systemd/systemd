@@ -47,7 +47,7 @@ int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
 #define laccess(path, mode)                                             \
-        (faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW) < 0 ? -errno : 0)
+        RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);

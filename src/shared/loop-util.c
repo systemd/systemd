@@ -887,10 +887,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
                 .datalen = sizeof(bp),
         };
 
-        if (ioctl(whole_fd, BLKPG, &ba) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(whole_fd, BLKPG, &ba));
 }
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
@@ -927,10 +924,7 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         if (offset != UINT64_MAX)
                 info.lo_offset = offset;
 
-        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(d->fd, LOOP_SET_STATUS64, &info));
 }
 
 int loop_device_flock(LoopDevice *d, int operation) {
@@ -939,10 +933,7 @@ int loop_device_flock(LoopDevice *d, int operation) {
         if (d->fd < 0)
                 return -EBADF;
 
-        if (flock(d->fd, operation) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(flock(d->fd, operation));
 }
 
 int loop_device_sync(LoopDevice *d) {
@@ -954,8 +945,5 @@ int loop_device_sync(LoopDevice *d) {
         if (d->fd < 0)
                 return -EBADF;
 
-        if (fsync(d->fd) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fsync(d->fd));
 }

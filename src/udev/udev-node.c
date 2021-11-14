@@ -53,10 +53,7 @@ static int create_symlink(const char *target, const char *slink) {
                         return r;
 
                 mac_selinux_create_file_prepare(slink, S_IFLNK);
-                if (symlink(target, slink) < 0)
-                        r = -errno;
-                else
-                        r = 0;
+                r = RET_NERRNO(symlink(target, slink));
                 mac_selinux_create_file_clear();
                 if (r != -ENOENT)
                         return r;

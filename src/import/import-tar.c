@@ -228,7 +228,7 @@ static int tar_import_fork_tar(TarImport *i) {
         if (i->flags & IMPORT_BTRFS_SUBVOL)
                 r = btrfs_subvol_make_fallback(d, 0755);
         else
-                r = mkdir(d, 0755) < 0 ? -errno : 0;
+                r = RET_NERRNO(mkdir(d, 0755));
         if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
                                                          * because in that case our temporary path collided */
                 r = 0;

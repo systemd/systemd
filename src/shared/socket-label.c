@@ -51,14 +51,13 @@ int socket_address_listen(
                         return r;
         }
 
-        fd = socket(socket_address_family(a), a->type | flags, a->protocol);
-        r = fd < 0 ? -errno : 0;
+        fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags, a->protocol));
 
         if (label)
                 mac_selinux_create_socket_clear();
 
-        if (r < 0)
-                return r;
+        if (fd < 0)
+                return fd;
 
         if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
                 r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_V6ONLY, only == SOCKET_ADDRESS_IPV6_ONLY);

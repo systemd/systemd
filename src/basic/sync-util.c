@@ -66,10 +66,7 @@ int fsync_directory_of_file(int fd) {
                         return dfd;
         }
 
-        if (fsync(dfd) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fsync(dfd));
 }
 
 int fsync_full(int fd) {
@@ -77,7 +74,7 @@ int fsync_full(int fd) {
 
         /* Sync both the file and the directory */
 
-        r = fsync(fd) < 0 ? -errno : 0;
+        r = RET_NERRNO(fsync(fd));
 
         q = fsync_directory_of_file(fd);
         if (r < 0) /* Return earlier error */
@@ -109,10 +106,7 @@ int fsync_path_at(int at_fd, const char *path) {
                 fd = opened_fd;
         }
 
-        if (fsync(fd) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fsync(fd));
 }
 
 int fsync_parent_at(int at_fd, const char *path) {
@@ -126,10 +120,7 @@ int fsync_parent_at(int at_fd, const char *path) {
                 if (opened_fd < 0)
                         return -errno;
 
-                if (fsync(opened_fd) < 0)
-                        return -errno;
-
-                return 0;
+                return RET_NERRNO(fsync(opened_fd));
         }
 
         opened_fd = openat(at_fd, path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
@@ -160,7 +151,7 @@ int syncfs_path(int at_fd, const char *path) {
 
         if (isempty(path)) {
                 if (at_fd != AT_FDCWD)
-                        return syncfs(at_fd) < 0 ? -errno : 0;
+                        return RET_NERRNO(syncfs(at_fd));
 
                 fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         } else
@@ -168,8 +159,5 @@ int syncfs_path(int at_fd, const char *path) {
         if (fd < 0)
                 return -errno;
 
-        if (syncfs(fd) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(syncfs(fd));
 }

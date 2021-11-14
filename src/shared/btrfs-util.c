@@ -124,10 +124,7 @@ int btrfs_subvol_make_fd(int fd, const char *subvolume) {
 
         strncpy(args.name, subvolume, sizeof(args.name)-1);
 
-        if (ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args));
 }
 
 int btrfs_subvol_make(const char *path) {
@@ -192,10 +189,7 @@ int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         if (flags == nflags)
                 return 0;
 
-        if (ioctl(fd, BTRFS_IOC_SUBVOL_SETFLAGS, &nflags) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_SUBVOL_SETFLAGS, &nflags));
 }
 
 int btrfs_subvol_set_read_only(const char *path, bool b) {
@@ -238,10 +232,7 @@ int btrfs_reflink(int infd, int outfd) {
         if (r < 0)
                 return r;
 
-        if (ioctl(outfd, BTRFS_IOC_CLONE, infd) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(outfd, BTRFS_IOC_CLONE, infd));
 }
 
 int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
@@ -261,10 +252,7 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
         if (r < 0)
                 return r;
 
-        if (ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args));
 }
 
 int btrfs_get_block_device_fd(int fd, dev_t *dev) {
@@ -775,10 +763,7 @@ int btrfs_quota_enable_fd(int fd, bool b) {
         if (!r)
                 return -ENOTTY;
 
-        if (ioctl(fd, BTRFS_IOC_QUOTA_CTL, &args) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_QUOTA_CTL, &args));
 }
 
 int btrfs_quota_enable(const char *path, bool b) {
@@ -982,19 +967,13 @@ int btrfs_quota_scan_start(int fd) {
 
         assert(fd >= 0);
 
-        if (ioctl(fd, BTRFS_IOC_QUOTA_RESCAN, &args) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_QUOTA_RESCAN, &args));
 }
 
 int btrfs_quota_scan_wait(int fd) {
         assert(fd >= 0);
 
-        if (ioctl(fd, BTRFS_IOC_QUOTA_RESCAN_WAIT) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_QUOTA_RESCAN_WAIT));
 }
 
 int btrfs_quota_scan_ongoing(int fd) {
