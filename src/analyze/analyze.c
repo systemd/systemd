@@ -1944,8 +1944,29 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
 
                         strv_sort(l);
 
-                        STRV_FOREACH(filesystem, l)
+                        STRV_FOREACH(filesystem, l) {
+                                const statfs_f_type_t *magic;
+                                bool is_primary = false;
+
+                                assert(fs_type_from_string(*filesystem, &magic) >= 0);
+
+                                for (size_t i = 0; magic[i] != 0; i++) {
+                                        const char *primary;
+
+                                        primary = fs_type_to_string(magic[i]);
+                                        assert(primary);
+
+                                        if (streq(primary, *filesystem))
+                                                is_primary = true;
+                                }
+
+                                if (!is_primary) {
+                                        log_debug("Skipping ungrouped file system '%s', because it's an alias for another one.", *filesystem);
+                                        continue;
+                                }
+
                                 printf("#   %s\n", *filesystem);
+                        }
                 }
 
                 if (k < 0) {
