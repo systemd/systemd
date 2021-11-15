@@ -339,16 +339,16 @@ basic_disabled_warnings = [
 possible_common_cc_flags = [
         '-Wdate-time',
         '-Wendif-labels',
-        '-Werror=format=2',
-        '-Werror=implicit-function-declaration',
-        '-Werror=incompatible-pointer-types',
-        '-Werror=int-conversion',
-        '-Werror=overflow',
-        '-Werror=return-type',
-        '-Werror=shift-count-overflow',
-        '-Werror=shift-overflow=2',
-        '-Werror=undef',
-        '-Werror=unused-function',
+        '-Wformat=2',
+        '-Wimplicit-function-declaration',
+        '-Wincompatible-pointer-types',
+        '-Wint-conversion',
+        '-Woverflow',
+        '-Wreturn-type',
+        '-Wshift-count-overflow',
+        '-Wshift-overflow=2',
+        '-Wundef',
+        '-Wunused-function',
         '-Wfloat-equal',
         '-Wimplicit-fallthrough=5',
         '-Winit-self',
@@ -406,8 +406,8 @@ if cc.get_id() == 'clang'
 endif
 
 possible_cc_flags = possible_common_cc_flags + [
-        '-Werror=missing-declarations',
-        '-Werror=missing-prototypes',
+        '-Wmissing-declarations',
+        '-Wmissing-prototypes',
         '-fdiagnostics-show-option',
         '-ffast-math',
         '-fno-common',
@@ -443,8 +443,8 @@ if cc.compiles('''
            struct timespec now;
            return 0;
    }
-''', args: '-Werror=shadow', name : '-Werror=shadow with local shadowing')
-        add_project_arguments('-Werror=shadow', language : 'c')
+''', args: '-Wshadow', name : '-Wshadow with local shadowing')
+        add_project_arguments('-Wshadow', language : 'c')
 endif
 
 if cxx_cmd != ''
