@@ -409,7 +409,6 @@ possible_cc_flags = possible_common_cc_flags + [
         '-Werror=missing-declarations',
         '-Werror=missing-prototypes',
         '-fdiagnostics-show-option',
-        '-ffast-math',
         '-fno-common',
         '-fno-strict-aliasing',
         '-fstack-protector',
