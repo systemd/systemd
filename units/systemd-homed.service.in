@@ -16,7 +16,7 @@ After=home.mount
 
 [Service]
 BusName=org.freedesktop.home1
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE CAP_SETPCAP CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE CAP_SETPCAP CAP_DAC_READ_SEARCH CAP_SETFCAP
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=/dev/mapper/control rw
 DeviceAllow=block-* rw
@@ -28,7 +28,7 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG AF_INET AF_INET6
-RestrictNamespaces=mnt
+RestrictNamespaces=mnt user
 RestrictRealtime=yes
 StateDirectory=systemd/home
 SystemCallArchitectures=native
