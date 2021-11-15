@@ -1509,6 +1509,8 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 }
         }
 
+        setup->undo_dm = false;
+
         if (user_record_luks_offline_discard(h))
                 log_debug("Not allocating on logout.");
         else
