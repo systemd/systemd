@@ -26,7 +26,9 @@ inspect() {
 systemd-analyze log-level debug
 systemd-analyze log-target console
 
-NEWPASSWORD=xEhErW0ndafV4s homectl create test-user --disk-size=20M
+# we enable --luks-discard= since we run our tests in a tight VM, hence don't
+# needlessly pressure for storage
+NEWPASSWORD=xEhErW0ndafV4s homectl create test-user --disk-size=256M --luks-discard=yes
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
