@@ -34,9 +34,11 @@ binfmt_misc,     {BINFMTFS_MAGIC}
 bpf,             {BPF_FS_MAGIC}
 btrfs,           {BTRFS_SUPER_MAGIC}
 btrfs_test_fs,   {BTRFS_TEST_MAGIC}
+# cpuset's magic got reassigned to cgroupfs
 cpuset,          {CGROUP_SUPER_MAGIC}
 ceph,            {CEPH_SUPER_MAGIC}
 cgroup2,         {CGROUP2_SUPER_MAGIC}
+# note that the cgroupfs magic got reassigned from cpuset
 cgroup,          {CGROUP_SUPER_MAGIC}
 cifs,            {CIFS_MAGIC_NUMBER}
 coda,            {CODA_SUPER_MAGIC}
@@ -46,20 +48,24 @@ dax,             {DAXFS_MAGIC}
 debugfs,         {DEBUGFS_MAGIC}
 devmem,          {DEVMEM_MAGIC}
 devpts,          {DEVPTS_SUPER_MAGIC}
+# devtmpfs is just a special instance of tmpfs, hence it reports its magic
 devtmpfs,        {TMPFS_MAGIC}
 dmabuf,          {DMA_BUF_MAGIC}
 ecryptfs,        {ECRYPTFS_SUPER_MAGIC}
 efivarfs,        {EFIVARFS_MAGIC}
 efs,             {EFS_SUPER_MAGIC}
 erofs,           {EROFS_SUPER_MAGIC_V1}
+# ext2 + ext3 + ext4 use the same magic
 ext2,            {EXT2_SUPER_MAGIC}
 ext3,            {EXT3_SUPER_MAGIC}
 ext4,            {EXT4_SUPER_MAGIC}
 exfat,           {EXFAT_SUPER_MAGIC}
 f2fs,            {F2FS_SUPER_MAGIC}
+# fuseblk is so closely related to fuse that it shares the same magic
 fuseblk,         {FUSE_SUPER_MAGIC}
 fuse,            {FUSE_SUPER_MAGIC}
 fusectl,         {FUSE_CTL_SUPER_MAGIC}
+# gfs is an old version of gfs2 and reuses the magic
 gfs,             {GFS2_MAGIC}
 gfs2,            {GFS2_MAGIC}
 hostfs,          {HOSTFS_SUPER_MAGIC}
@@ -69,9 +75,12 @@ iso9660,         {ISOFS_SUPER_MAGIC}
 jffs2,           {JFFS2_SUPER_MAGIC}
 minix,           {MINIX_SUPER_MAGIC, MINIX_SUPER_MAGIC2, MINIX2_SUPER_MAGIC, MINIX2_SUPER_MAGIC2, MINIX3_SUPER_MAGIC}
 mqueue,          {MQUEUE_MAGIC}
+# msdos is an older legacy version of vfat, shares the magic
 msdos,           {MSDOS_SUPER_MAGIC}
+# ncp/ncpfs have been removed from the kernel, but ncpfs was the offical name
 ncp,             {NCP_SUPER_MAGIC}
 ncpfs,           {NCP_SUPER_MAGIC}
+# nfs is the old version of nfs4, and they share the same magic
 nfs,             {NFS_SUPER_MAGIC}
 nfs4,            {NFS_SUPER_MAGIC}
 nilfs2,          {NILFS_SUPER_MAGIC}
@@ -84,6 +93,7 @@ pipefs,          {PIPEFS_MAGIC}
 ppc-cmm,         {PPC_CMM_MAGIC}
 proc,            {PROC_SUPER_MAGIC}
 pstore,          {PSTOREFS_MAGIC}
+# pvfs2 is the old version of orangefs
 pvfs2,           {ORANGEFS_DEVREQ_MAGIC}
 qnx4,            {QNX4_SUPER_MAGIC}
 qnx6,            {QNX6_SUPER_MAGIC}
@@ -96,16 +106,20 @@ securityfs,      {SECURITYFS_MAGIC}
 selinuxfs,       {SELINUX_MAGIC}
 shiftfs,         {SHIFTFS_MAGIC}
 smackfs,         {SMACK_MAGIC}
+# smb3 is an alias for cifs
 smb3,            {CIFS_MAGIC_NUMBER}
+# smbfs was removed from the kernel in 2010, the magic remains
 smbfs,           {SMB_SUPER_MAGIC}
 sockfs,          {SOCKFS_MAGIC}
 squashfs,        {SQUASHFS_MAGIC}
 sysfs,           {SYSFS_MAGIC}
+# note that devtmpfs shares the same magic with tmpfs, given it is just a special named instance of it.
 tmpfs,           {TMPFS_MAGIC}
 tracefs,         {TRACEFS_MAGIC}
 udf,             {UDF_SUPER_MAGIC}
 usbdevfs,        {USBDEVICE_SUPER_MAGIC}
 vboxsf,          {VBOXSF_SUPER_MAGIC}
+# note that msdos shares the same magic (and is the older version)
 vfat,            {MSDOS_SUPER_MAGIC}
 v9fs,            {V9FS_MAGIC}
 xenfs,           {XENFS_SUPER_MAGIC}
