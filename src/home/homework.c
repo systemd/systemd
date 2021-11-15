@@ -924,21 +924,47 @@ static int home_deactivate(UserRecord *h, bool force) {
         if (r < 0)
                 return r;
         if (r == USER_TEST_MOUNTED) {
-                if (user_record_storage(h) == USER_LUKS) {
-                        r = home_trim_luks(h);
-                        if (r < 0)
-                                return r;
-                }
+                /* Before we do anything, let's move the home mount away. */
+                r = home_unshare_and_mkdir();
+                if (r < 0)
+                        return r;
+
+                r = mount_nofollow_verbose(LOG_ERR, user_record_home_directory(h), HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return r;
+
+                setup.undo_mount = true; /* remember to unmount the new bind mount from HOME_RUNTIME_WORK_DIR */
+
+                /* Let's explicitly open the new root fs, using the moved path */
+                setup.root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (setup.root_fd < 0)
+                        return log_error_errno(errno, "Failed to open moved home directory: %m");
+
+                /* Now get rid of the home at its original place (we only keep the bind mount we created above) */
+                r = umount_verbose(LOG_ERR, user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));
+                if (r < 0)
+                        return r;
+
+                if (user_record_storage(h) == USER_LUKS)
+                        (void) home_trim_luks(h, &setup);
 
                 /* Sync explicitly, so that the drop caches logic below can work as documented */
-                r = syncfs_path(AT_FDCWD, user_record_home_directory(h));
-                if (r < 0)
-                        log_debug_errno(r, "Failed to synchronize home directory, ignoring: %m");
+                if (syncfs(setup.root_fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize home directory, ignoring: %m");
                 else
                         log_info("Syncing completed.");
 
-                if (umount2(user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0)) < 0)
-                        return log_error_errno(errno, "Failed to unmount %s: %m", user_record_home_directory(h));
+                setup.root_fd = safe_close(setup.root_fd);
+
+                /* Now get rid of the bind mount, too */
+                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));
+                if (r < 0)
+                        return r;
+
+                setup.undo_mount = false; /* Remember that the bind mount doesn't need to be unmounted anymore */
+
+                if (user_record_drop_caches(h))
+                        setup.do_drop_caches = true;
 
                 log_info("Unmounting completed.");
                 done = true;
@@ -956,8 +982,10 @@ static int home_deactivate(UserRecord *h, bool force) {
         if (!done)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home is not active.");
 
-        if (user_record_drop_caches(h))
+        if (setup.do_drop_caches) {
+                setup.do_drop_caches = false;
                 drop_caches_now();
+        }
 
         log_info("Everything completed.");
         return 0;
