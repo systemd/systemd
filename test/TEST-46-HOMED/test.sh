@@ -3,9 +3,21 @@
 set -e
 
 TEST_DESCRIPTION="testing homed"
-TEST_NO_QEMU=1
+
+# Skip the qemu version of the test, unless we have btrfs
+(modprobe -nv btrfs && command -v mkfs.btrfs) || TEST_NO_QEMU=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
+
+# Need loop devices for mounting images
+test_append_files() {
+    (
+        instmods loop =block
+        install_dmevent
+        install_btrfs
+        generate_module_dependencies
+    )
+}
 
 do_test "$@"
