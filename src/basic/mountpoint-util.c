@@ -373,7 +373,6 @@ bool fstype_is_network(const char *fstype) {
 
         /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
-                          "ceph",
                           "davfs",
                           "glusterfs",
                           "lustre",
@@ -412,8 +411,8 @@ bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
         return STR_IN_SET(fstype,
                           "DM_verity_hash",
-                          "iso9660",
                           "erofs",
+                          "iso9660",
                           "squashfs");
 }
 

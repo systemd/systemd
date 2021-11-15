@@ -17,6 +17,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
@@ -2466,19 +2467,6 @@ int home_get_disk_status(
                         ret_access_mode);
 }
 
-static const char *fstype_magic_to_name(statfs_f_type_t magic) {
-        /* For now, let's only translate the magic values of the file systems we actually are able to manage */
-
-        if (F_TYPE_EQUAL(magic, EXT4_SUPER_MAGIC))
-                return "ext4";
-        if (F_TYPE_EQUAL(magic, XFS_SUPER_MAGIC))
-                return "xfs";
-        if (F_TYPE_EQUAL(magic, BTRFS_SUPER_MAGIC))
-                return "btrfs";
-
-        return NULL;
-}
-
 int home_augment_status(
                 Home *h,
                 UserRecordLoadFlags flags,
@@ -2518,7 +2506,7 @@ int home_augment_status(
         if (r < 0)
                 return r;
 
-        fstype = fstype_magic_to_name(magic);
+        fstype = fs_type_to_string(magic);
 
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
