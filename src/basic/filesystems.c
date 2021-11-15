@@ -87,6 +87,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "efivarfs\0"
                 "fusectl\0"
                 "hugetlbfs\0"
+                "rpc_pipefs\0"
                 "securityfs\0"
         },
         [FILESYSTEM_SET_COMMON_BLOCK] = {
