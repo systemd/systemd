@@ -383,8 +383,8 @@ filesystem_includes = ['linux/magic.h',
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command([check_filesystems, cpp, 'filesystems-gperf.gperf'] + filesystem_includes)
 if r.returncode() != 0
-    error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
-    r.stdout()
+        error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
+        r.stdout()
 endif
 
 filesystems_gperf_h = custom_target(
@@ -403,7 +403,17 @@ filesystem_list_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-basic_sources += [filesystem_list_h, filesystems_gperf_h]
+generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
+fname = 'filesystem-switch-case.h'
+filesystem_switch_case_h = custom_target(
+        fname,
+        input : 'filesystems-gperf.gperf',
+        output : 'filesystem-switch-case.h',
+        command : [generate_filesystem_switch_case_h,
+                   '@INPUT@'],
+        capture : true)
+
+basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
 libbasic = static_library(
         'basic',
