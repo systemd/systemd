@@ -326,6 +326,10 @@ int home_setup_undo_dm(HomeSetup *setup, int level) {
                 if (r < 0)
                         return log_full_errno(level, r, "Failed to deactivate LUKS device: %m");
 
+                /* In case the device was already remove asynchronously by an early unmount via the deferred
+                 * remove logic, let's wait for it */
+                (void) wait_for_block_device_gone(setup, USEC_PER_SEC * 30);
+
                 setup->undo_dm = false;
                 ret = 1;
         } else

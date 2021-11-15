@@ -12,8 +12,8 @@
 #include "user-record-util.h"
 
 typedef struct HomeSetup {
-        char *dm_name;
-        char *dm_node;
+        char *dm_name;   /* "home-<username>" */
+        char *dm_node;   /* "/dev/mapper/home-<username>" */
 
         LoopDevice *loop;
         struct crypt_device *crypt_device;
