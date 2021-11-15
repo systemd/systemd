@@ -57,6 +57,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "cgroup\0"
                 "cgroup2\0"
                 "devpts\0"
+                "devtmpfs\0"
                 "mqueue\0"
                 "proc\0"
                 "sysfs\0"
