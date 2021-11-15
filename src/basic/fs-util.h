@@ -108,3 +108,6 @@ static inline int conservative_rename(const char *oldpath, const char *newpath) 
 int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
+
+/* If the directory ends with ".auto.d", return the highest version of the file. */
+int resolve_auto_dir(const char *path, bool want_dir, char **ret_path);

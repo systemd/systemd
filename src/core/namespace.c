@@ -1838,8 +1838,8 @@ static int verity_settings_prepare(
 }
 
 int setup_namespace(
-                const char* root_directory,
-                const char* root_image,
+                const char* root_directory_unresolved,
+                const char* root_image_unresolved,
                 const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
@@ -1879,6 +1879,8 @@ int setup_namespace(
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_free_ char *root_image = NULL;
+        _cleanup_free_ char *root_directory = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
         const char *root, *extension_dir = "/run/systemd/unit-extensions";
@@ -1905,7 +1907,10 @@ int setup_namespace(
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
-        if (root_image) {
+        if (root_image_unresolved) {
+                r = resolve_auto_dir(root_image_unresolved, false, &root_image);
+                if (r < 0)
+                        return r;
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
                                    ns_info->protect_system) &&
@@ -1963,9 +1968,13 @@ int setup_namespace(
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
 
-        if (root_directory)
+        if (root_directory_unresolved) {
+                r = resolve_auto_dir(root_directory_unresolved, true, &root_directory);
+                if (r < 0)
+                        return r;
+
                 root = root_directory;
-        else {
+        } else {
                 /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
                  * when running tests (test-execute), it might not have been created yet so let's make sure
                  * we create it if it doesn't already exist. */

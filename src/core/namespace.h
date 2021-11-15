@@ -111,8 +111,8 @@ struct MountImage {
 };
 
 int setup_namespace(
-                const char *root_directory,
-                const char *root_image,
+                const char* root_directory_unresolved,
+                const char* root_image_unresolved,
                 const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char **read_write_paths,
