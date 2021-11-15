@@ -462,10 +462,8 @@ int ethtool_set_wol(
                 return 0;
         }
 
-        r = 0;
         ecmd.cmd = ETHTOOL_SWOL;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                r = -errno;
+        r = RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 
         explicit_bzero_safe(&ecmd, sizeof(ecmd));
         return r;
@@ -516,10 +514,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
                 return 0;
 
         ecmd.cmd = ETHTOOL_SRINGPARAM;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
 static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_stringset stringset_id, struct ethtool_gstrings **ret) {
@@ -878,10 +873,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
 static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
@@ -912,10 +904,7 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
 int ethtool_set_glinksettings(
@@ -1053,10 +1042,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCHANNELS;
-        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*fd, SIOCETHTOOL, &ifr));
 }
 
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
@@ -1097,10 +1083,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
                 return 0;
 
         ecmd.cmd = ETHTOOL_SPAUSEPARAM;
-        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*fd, SIOCETHTOOL, &ifr));
 }
 
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce) {
@@ -1220,10 +1203,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCOALESCE;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
 int config_parse_advertise(
