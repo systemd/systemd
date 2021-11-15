@@ -3793,10 +3793,7 @@ static int arm_watchdog(sd_event *e) {
         if (its.it_value.tv_sec == 0 && its.it_value.tv_nsec == 0)
                 its.it_value.tv_nsec = 1;
 
-        if (timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL));
 }
 
 static int process_watchdog(sd_event *e) {
@@ -3906,7 +3903,7 @@ static int epoll_wait_usec(
                 int maxevents,
                 usec_t timeout) {
 
-        int r, msec;
+        int msec;
 #if 0
         static bool epoll_pwait2_absent = false;
 
@@ -3946,14 +3943,7 @@ static int epoll_wait_usec(
                         msec = (int) k;
         }
 
-        r = epoll_wait(fd,
-                       events,
-                       maxevents,
-                       msec);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
 }
 
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
