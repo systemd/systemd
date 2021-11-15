@@ -96,7 +96,7 @@ securityfs,      {SECURITYFS_MAGIC}
 selinuxfs,       {SELINUX_MAGIC}
 shiftfs,         {SHIFTFS_MAGIC}
 smackfs,         {SMACK_MAGIC}
-smb3,            {SMB_SUPER_MAGIC}
+smb3,            {CIFS_MAGIC_NUMBER}
 smbfs,           {SMB_SUPER_MAGIC}
 sockfs,          {SOCKFS_MAGIC}
 squashfs,        {SQUASHFS_MAGIC}
