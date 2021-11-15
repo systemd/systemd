@@ -587,10 +587,7 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
          * - we can modify the hierarchy. */
 
         cpath = strjoina("/sys/fs/cgroup/", dn, root, root ? "/cgroup.procs" : NULL);
-        if (laccess(cpath, root ? W_OK : F_OK) < 0)
-                return -errno;
-
-        return 0;
+        return laccess(cpath, root ? W_OK : F_OK);
 }
 
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs) {
@@ -632,10 +629,7 @@ int cg_set_xattr(const char *controller, const char *path, const char *name, con
         if (r < 0)
                 return r;
 
-        if (setxattr(fs, name, value, size, flags) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setxattr(fs, name, value, size, flags));
 }
 
 int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size) {
@@ -700,10 +694,7 @@ int cg_remove_xattr(const char *controller, const char *path, const char *name) 
         if (r < 0)
                 return r;
 
-        if (removexattr(fs, name) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(removexattr(fs, name));
 }
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
