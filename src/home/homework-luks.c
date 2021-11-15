@@ -13,6 +13,8 @@
 #endif
 
 #include "sd-daemon.h"
+#include "sd-device.h"
+#include "sd-event.h"
 
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -45,6 +47,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "user-util.h"
 
 /* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
@@ -1506,6 +1509,7 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 }
         }
 
+        (void) wait_for_block_device_gone(setup, USEC_PER_SEC * 30);
         setup->undo_dm = false;
 
         if (user_record_luks_offline_discard(h))
@@ -3194,5 +3198,129 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
                 return log_error_errno(r, "Failed to resume LUKS superblock: %m");
 
         log_info("LUKS device resumed.");
+        return 0;
+}
+
+static int device_is_gone(HomeSetup *setup) {
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        struct stat st;
+        int r;
+
+        assert(setup);
+
+        if (!setup->dm_node)
+                return true;
+
+        if (stat(setup->dm_node, &st) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat block device node %s: %m", setup->dm_node);
+
+                return true;
+        }
+
+        r = sd_device_new_from_stat_rdev(&d, &st);
+        if (r < 0) {
+                if (r != -ENODEV)
+                        return log_error_errno(errno, "Failed to allocate device object from block device node %s: %m", setup->dm_node);
+
+                return true;
+        }
+
+        return false;
+}
+
+static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        HomeSetup *setup = userdata;
+        int r;
+
+        assert(setup);
+
+        if (!device_for_action(device, SD_DEVICE_REMOVE))
+                return 0;
+
+        /* We don't really care for the device object passed to us, we just check if the device node still
+         * exists */
+
+        r = device_is_gone(setup);
+        if (r < 0)
+                return r;
+        if (r > 0) /* Yay! we are done! */
+                (void) sd_event_exit(sd_device_monitor_get_event(monitor), 0);
+
+        return 0;
+}
+
+int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert(setup);
+
+        /* So here's the thing: we enable "deferred deactivation" on our dm-crypt volumes. This means they
+         * are automatically torn down once not used anymore (i.e. once unmounted). Which is great. It also
+         * means that when we deactivate a home directory and try to tear down the volume that backs it, it
+         * possibly is aleady torn down or in the process of being torn down, since we race against the
+         * automatic tearing down. Which is fine, we handle errors from that. However, we lose the ability to
+         * naturally wait for the tear down operation to complete: if we are not the ones who tear down the
+         * device we are also not the ones who naturally block on that operation. Hence let's add some code
+         * to actively wait for the device to go away, via sd-device. We'll call this whenever tearing down a
+         * LUKS device, to ensure the device is really really gone before we proceed. Net effect: "homectl
+         * deactivate foo && homectl activate foo" will work reliably, i.e. deactivation immediately followed
+         * by activation will work. Also, by the time deactivation completes we can guarantee that all data
+         * is sync'ed down to the lowest block layer as all higher levels are fully and entirely
+         * destructed. */
+
+        if (!setup->dm_name)
+                return 0;
+
+        assert(setup->dm_node);
+        log_debug("Waiting until %s disappears.", setup->dm_node);
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_device_monitor_new(&m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m, "block", "disk");
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure device monitor match: %m");
+
+        r = sd_device_monitor_attach_event(m, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach device monitor to event loop: %m");
+
+        r = sd_device_monitor_start(m, device_monitor_handler, setup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
+
+        r = device_is_gone(setup);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                log_debug("%s has already disappeared before entering wait loop.", setup->dm_node);
+                return 0; /* gone already */
+        }
+
+        if (timeout_usec != USEC_INFINITY) {
+                r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, timeout_usec, 0, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add timer event: %m");
+        }
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        r = device_is_gone(setup);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_error_errno(r, "Device %s still around.", setup->dm_node);
+
+        log_debug("Successfully waited until device %s disappeared.", setup->dm_node);
         return 0;
 }
