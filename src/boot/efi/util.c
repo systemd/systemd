@@ -358,7 +358,7 @@ static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         return len;
 }
 
-CHAR16 *stra_to_str(const CHAR8 *stra) {
+CHAR16 *xstra_to_str(const CHAR8 *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
@@ -367,9 +367,7 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
         assert(stra);
 
         len = strlena(stra);
-        str = AllocatePool((len + 1) * sizeof(CHAR16));
-        if (!str)
-                return NULL;
+        str = xnew(CHAR16, len + 1);
 
         strlen = 0;
         i = 0;
@@ -390,7 +388,7 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
         return str;
 }
 
-CHAR16 *stra_to_path(const CHAR8 *stra) {
+CHAR16 *xstra_to_path(const CHAR8 *stra) {
         CHAR16 *str;
         UINTN strlen;
         UINTN len;
@@ -399,9 +397,7 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
         assert(stra);
 
         len = strlena(stra);
-        str = AllocatePool((len + 2) * sizeof(CHAR16));
-        if (!str)
-                return NULL;
+        str = xnew(CHAR16, len + 2);
 
         str[0] = '\\';
         strlen = 1;

@@ -46,13 +46,9 @@ static EFI_STATUS loaded_image_register(
                 .ImageSize = linux_length
         };
 
-        /* if a cmdline is set convert it to UTF16 */
+        /* if a cmdline is set convert it to UCS2 */
         if (cmdline) {
-                loaded_image->LoadOptions = stra_to_str(cmdline);
-                if (!loaded_image->LoadOptions) {
-                        loaded_image = loaded_image_free(loaded_image);
-                        return EFI_OUT_OF_RESOURCES;
-                }
+                loaded_image->LoadOptions = xstra_to_str(cmdline);
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
         }
 

@@ -1096,7 +1096,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else {
                                 _cleanup_freepool_ CHAR16 *s = NULL;
 
-                                s = stra_to_str(value);
+                                s = xstra_to_str(value);
                                 config->timeout_sec_config = MIN(Atoi(s), TIMEOUT_TYPE_MAX);
                         }
                         config->timeout_sec = config->timeout_sec_config;
@@ -1109,7 +1109,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 continue;
                         }
                         FreePool(config->entry_default_config);
-                        config->entry_default_config = stra_to_str(value);
+                        config->entry_default_config = xstra_to_str(value);
                         continue;
                 }
 
@@ -1144,7 +1144,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else {
                                 _cleanup_freepool_ CHAR16 *s = NULL;
 
-                                s = stra_to_str(value);
+                                s = xstra_to_str(value);
                                 config->console_mode = MIN(Atoi(s), (UINTN)CONSOLE_MODE_RANGE_MAX);
                         }
 
@@ -1377,26 +1377,26 @@ static void config_entry_add_from_file(
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"title", key) == 0) {
                         FreePool(entry->title);
-                        entry->title = stra_to_str(value);
+                        entry->title = xstra_to_str(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"version", key) == 0) {
                         FreePool(entry->version);
-                        entry->version = stra_to_str(value);
+                        entry->version = xstra_to_str(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"machine-id", key) == 0) {
                         FreePool(entry->machine_id);
-                        entry->machine_id = stra_to_str(value);
+                        entry->machine_id = xstra_to_str(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"linux", key) == 0) {
                         FreePool(entry->loader);
                         entry->type = LOADER_LINUX;
-                        entry->loader = stra_to_path(value);
+                        entry->loader = xstra_to_path(value);
                         entry->key = 'l';
                         continue;
                 }
@@ -1404,7 +1404,7 @@ static void config_entry_add_from_file(
                 if (strcmpa((CHAR8 *)"efi", key) == 0) {
                         entry->type = LOADER_EFI;
                         FreePool(entry->loader);
-                        entry->loader = stra_to_path(value);
+                        entry->loader = xstra_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (loaded_image_path && StriCmp(entry->loader, loaded_image_path) == 0) {
@@ -1425,14 +1425,14 @@ static void config_entry_add_from_file(
 
                 if (strcmpa((CHAR8 *)"devicetree", key) == 0) {
                         FreePool(entry->devicetree);
-                        entry->devicetree = stra_to_path(value);
+                        entry->devicetree = xstra_to_path(value);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"initrd", key) == 0) {
                         _cleanup_freepool_ CHAR16 *new = NULL;
 
-                        new = stra_to_path(value);
+                        new = xstra_to_path(value);
                         if (initrd) {
                                 CHAR16 *s;
 
@@ -1448,7 +1448,7 @@ static void config_entry_add_from_file(
                 if (strcmpa((CHAR8 *)"options", key) == 0) {
                         _cleanup_freepool_ CHAR16 *new = NULL;
 
-                        new = stra_to_str(value);
+                        new = xstra_to_str(value);
                         if (entry->options) {
                                 CHAR16 *s;
 
@@ -2057,49 +2057,49 @@ static void config_entry_add_linux(
                 while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
                         if (strcmpa((const CHAR8*) "PRETTY_NAME", key) == 0) {
                                 FreePool(os_pretty_name);
-                                os_pretty_name = stra_to_str(value);
+                                os_pretty_name = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "IMAGE_ID", key) == 0) {
                                 FreePool(os_image_id);
-                                os_image_id = stra_to_str(value);
+                                os_image_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "NAME", key) == 0) {
                                 FreePool(os_name);
-                                os_name = stra_to_str(value);
+                                os_name = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "ID", key) == 0) {
                                 FreePool(os_id);
-                                os_id = stra_to_str(value);
+                                os_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "IMAGE_VERSION", key) == 0) {
                                 FreePool(os_image_version);
-                                os_image_version = stra_to_str(value);
+                                os_image_version = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "VERSION", key) == 0) {
                                 FreePool(os_version);
-                                os_version = stra_to_str(value);
+                                os_version = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "VERSION_ID", key) == 0) {
                                 FreePool(os_version_id);
-                                os_version_id = stra_to_str(value);
+                                os_version_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (strcmpa((const CHAR8*) "BUILD_ID", key) == 0) {
                                 FreePool(os_build_id);
-                                os_build_id = stra_to_str(value);
+                                os_build_id = xstra_to_str(value);
                                 continue;
                         }
                 }
@@ -2142,9 +2142,7 @@ static void config_entry_add_linux(
                         if (content[szs[SECTION_CMDLINE] - 1] == '\n')
                                 content[szs[SECTION_CMDLINE] - 1] = '\0';
 
-                        entry->options = stra_to_str(content);
-                        if (!entry->options)
-                                return (void) log_oom();
+                        entry->options = xstra_to_str(content);
                 }
         }
 }
