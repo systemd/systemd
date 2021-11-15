@@ -8,6 +8,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
 #include "homework-cifs.h"
@@ -704,14 +705,7 @@ static const char *file_system_type_fd(int fd) {
                 return NULL;
         }
 
-        if (is_fs_type(&sfs, XFS_SB_MAGIC))
-                return "xfs";
-        if (is_fs_type(&sfs, EXT4_SUPER_MAGIC))
-                return "ext4";
-        if (is_fs_type(&sfs, BTRFS_SUPER_MAGIC))
-                return "btrfs";
-
-        return NULL;
+        return fs_type_to_string(sfs.f_type);
 }
 
 int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *setup) {
