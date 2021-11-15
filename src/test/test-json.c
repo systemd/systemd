@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <float.h>
 #include <math.h>
 
 #include "alloc-util.h"
@@ -521,6 +522,58 @@ static void test_bisect(void) {
         }
 }
 
+static void test_float_match(JsonVariant *v) {
+        const long double delta = 0.0001;
+
+        assert_se(json_variant_is_array(v));
+        assert_se(json_variant_elements(v) == 9);
+        assert_se(fabsl((long double) 1.0 - ((long double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
+        assert_se(fabsl((long double) 1.0 - ((long double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
+        assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
+        assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
+        assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
+        assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
+                  fabsl((long double) 1.0 - ((long double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+        assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
+                  json_variant_is_integer(json_variant_by_index(v, 6)) &&
+                  json_variant_integer(json_variant_by_index(v, 6)) == 0);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 7)) &&
+                  json_variant_is_integer(json_variant_by_index(v, 7)) &&
+                  json_variant_integer(json_variant_by_index(v, 7)) == 10);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 8)) &&
+                  json_variant_is_integer(json_variant_by_index(v, 8)) &&
+                  json_variant_integer(json_variant_by_index(v, 8)) == -10);
+}
+
+static void test_float(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_free_ char *text = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(json_build(&v, JSON_BUILD_ARRAY(
+                                             JSON_BUILD_REAL(DBL_MIN),
+                                             JSON_BUILD_REAL(DBL_MAX),
+                                             JSON_BUILD_REAL(NAN),
+                                             JSON_BUILD_REAL(INFINITY),
+                                             JSON_BUILD_REAL(-INFINITY),
+                                             JSON_BUILD_REAL(HUGE_VAL),
+                                             JSON_BUILD_REAL(0),
+                                             JSON_BUILD_REAL(10),
+                                             JSON_BUILD_REAL(-10))) >= 0);
+
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        test_float_match(v);
+
+        assert_se(json_variant_format(v, 0, &text) >= 0);
+        assert_se(json_parse(text, 0, &w, NULL, NULL) >= 0);
+
+        json_variant_dump(w, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        test_float_match(w);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -573,6 +626,7 @@ int main(int argc, char *argv[]) {
 
         test_normalize();
         test_bisect();
+        test_float();
 
         return 0;
 }
