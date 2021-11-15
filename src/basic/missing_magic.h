@@ -177,3 +177,13 @@
 #ifndef RPC_PIPEFS_SUPER_MAGIC
 #define RPC_PIPEFS_SUPER_MAGIC 0x67596969
 #endif
+
+/* Not exposed yet, defined at fs/ntfs/ntfs.h */
+#ifndef NTFS_SB_MAGIC
+#define NTFS_SB_MAGIC 0x5346544e
+#endif
+
+/* Not exposed yet, encoded literally in fs/ntfs3/super.c. */
+#ifndef NTFS3_SUPER_MAGIC
+#define NTFS3_SUPER_MAGIC 0x7366746e
+#endif
