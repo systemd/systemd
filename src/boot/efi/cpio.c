@@ -330,7 +330,7 @@ EFI_STATUS pack_cpio(
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *j = NULL;
+        _cleanup_freepool_ CHAR16 *extra_dir_path = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
@@ -346,15 +346,11 @@ EFI_STATUS pack_cpio(
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
 
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
+        extra_dir_path = PoolPrint(L"%D" EXTRA_DIR_SUFFIX, loaded_image->FilePath);
+        if (!extra_dir_path)
                 return log_oom();
 
-        j = PoolPrint(L"%s" EXTRA_DIR_SUFFIX, loaded_image_path);
-        if (!j)
-                return log_oom();
-
-        err = open_directory(root, j, &extra_dir);
+        err = open_directory(root, extra_dir_path, &extra_dir);
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;
