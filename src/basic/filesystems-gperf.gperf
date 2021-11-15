@@ -85,6 +85,8 @@ nfs,             {NFS_SUPER_MAGIC}
 nfs4,            {NFS_SUPER_MAGIC}
 nilfs2,          {NILFS_SUPER_MAGIC}
 nsfs,            {NSFS_MAGIC}
+ntfs,            {NTFS_SB_MAGIC}
+ntfs3,           {NTFS3_SUPER_MAGIC}
 ocfs2,           {OCFS2_SUPER_MAGIC}
 openpromfs,      {OPENPROM_SUPER_MAGIC}
 orangefs,        {ORANGEFS_DEVREQ_MAGIC}
