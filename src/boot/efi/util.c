@@ -516,6 +516,12 @@ EFI_STATUS log_oom(void) {
         return EFI_OUT_OF_RESOURCES;
 }
 
+void halt(const CHAR16 *msg) {
+        log_error_stall(msg);
+        for (;;)
+                BS->Stall(60 * 1000 * 1000);
+}
+
 void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
         assert(haystack || haystack_len == 0);
         assert(needle || needle_len == 0);
