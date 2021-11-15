@@ -6,6 +6,9 @@ import sys
 keywords_section = False
 
 for line in open(sys.argv[1]):
+    if line[0] == '#':
+        continue
+
     if keywords_section:
         print('"{}\\0"'.format(line.split(',')[0].strip()))
     elif line.startswith('%%'):
