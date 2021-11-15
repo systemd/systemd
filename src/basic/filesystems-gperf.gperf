@@ -34,6 +34,7 @@ binfmt_misc,     {BINFMTFS_MAGIC}
 bpf,             {BPF_FS_MAGIC}
 btrfs,           {BTRFS_SUPER_MAGIC}
 btrfs_test_fs,   {BTRFS_TEST_MAGIC}
+cpuset,          {CGROUP_SUPER_MAGIC}
 ceph,            {CEPH_SUPER_MAGIC}
 cgroup2,         {CGROUP2_SUPER_MAGIC}
 cgroup,          {CGROUP_SUPER_MAGIC}
@@ -45,6 +46,7 @@ dax,             {DAXFS_MAGIC}
 debugfs,         {DEBUGFS_MAGIC}
 devmem,          {DEVMEM_MAGIC}
 devpts,          {DEVPTS_SUPER_MAGIC}
+devtmpfs,        {TMPFS_MAGIC}
 dmabuf,          {DMA_BUF_MAGIC}
 ecryptfs,        {ECRYPTFS_SUPER_MAGIC}
 efivarfs,        {EFIVARFS_MAGIC}
@@ -88,6 +90,7 @@ qnx6,            {QNX6_SUPER_MAGIC}
 ramfs,           {RAMFS_MAGIC}
 resctrl,         {RDTGROUP_SUPER_MAGIC}
 reiserfs,        {REISERFS_SUPER_MAGIC}
+rpc_pipefs,      {RPC_PIPEFS_SUPER_MAGIC}
 secretmem,       {SECRETMEM_MAGIC}
 securityfs,      {SECURITYFS_MAGIC}
 selinuxfs,       {SELINUX_MAGIC}

@@ -172,3 +172,8 @@
 #ifndef EXFAT_SUPER_MAGIC
 #define EXFAT_SUPER_MAGIC 0x2011BAB0UL
 #endif
+
+/* Not exposed yet, internally actually called RPCAUTH_GSSMAGIC. Defined in net/sunrpc/rpc_pipe.c */
+#ifndef RPC_PIPEFS_SUPER_MAGIC
+#define RPC_PIPEFS_SUPER_MAGIC 0x67596969
+#endif
