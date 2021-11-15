@@ -98,6 +98,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "erofs\0"
                 "exfat\0"
                 "ext4\0"
+                "f2fs\0"
                 "iso9660\0"
                 "ntfs3\0"
                 "squashfs\0"
