@@ -2091,6 +2091,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1,254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
         check_output('ip link add veth99 type veth peer veth-peer')
@@ -2287,6 +2290,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'from 0.0.0.0/8')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 10')
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
@@ -2512,6 +2518,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('2001:1234:5:7fff:ff:ff:ff:ff', output)
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
         self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
         copy_unit_to_networkd_unit_path('25-address-static.network')
         check_output(*networkctl_cmd, 'reload', env=env)
@@ -2746,6 +2755,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
     def test_neighbor_reconfigure(self):
         copy_unit_to_networkd_unit_path('25-neighbor-section.network', '12-dummy.netdev')
         start_networkd()
@@ -2781,6 +2793,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip neigh list dev ip6gretun97')
         print(output)
         self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_link_local_addressing(self):
         copy_unit_to_networkd_unit_path('25-link-local-addressing-yes.network', '11-dummy.netdev',
@@ -3123,6 +3138,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertIn('10.10.10.14 nhid 21 proto static', output)
             self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
             self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
+
+            # TODO: check json string
+            check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
         copy_unit_to_networkd_unit_path('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
                                         '12-dummy.netdev', '25-nexthop-dummy.network')
