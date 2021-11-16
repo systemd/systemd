@@ -1011,3 +1011,77 @@ int parse_cifs_service(
 
         return 0;
 }
+
+int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
+        _cleanup_close_ int fd = -1, parent_fd = -1;
+        _cleanup_free_ char *fname = NULL;
+        bool made;
+        int r;
+
+        /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
+         * do. Guarantees that the returned fd refers to a directory. If O_EXCL is specified will fail if the
+         * dir already exists. Otherwise will open an existing dir, but only if it is one.  */
+
+        if (flags & ~(O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_EXCL|O_NOATIME|O_NOFOLLOW|O_PATH))
+                return -EINVAL;
+        if ((flags & O_ACCMODE) != O_RDONLY)
+                return -EINVAL;
+
+        /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
+         * flags actually make sense to specify: O_CLOEXEC, O_EXCL, O_NOATIME, O_PATH */
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (!filename_is_valid(path)) {
+                _cleanup_free_ char *parent = NULL;
+
+                /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
+                 * that we can pin it, and operate below it. */
+
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_filename(path, &fname);
+                if (r < 0)
+                        return r;
+
+                parent_fd = openat(dirfd, parent, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (parent_fd < 0)
+                        return -errno;
+
+                dirfd = parent_fd;
+                path = fname;
+        }
+
+        r = RET_NERRNO(mkdirat(dirfd, path, mode));
+        if (r == -EEXIST) {
+                if (FLAGS_SET(flags, O_EXCL))
+                        return -EEXIST;
+
+                made = false;
+        } else if (r < 0)
+                return r;
+        else
+                made = true;
+
+        fd = RET_NERRNO(openat(dirfd, path, (flags & ~O_EXCL)|O_DIRECTORY|O_NOFOLLOW));
+        if (fd < 0) {
+                if (fd == -ENOENT)  /* We got ENOENT? then someone else immediately removed it after we
+                                     * created it. In that case let's return immediately without unlinking
+                                     * anything, because there simply isn't anything to unlink anymore. */
+                        return -ENOENT;
+                if (fd == -ELOOP)   /* is a symlink? exists already → created by someone else, don't unlink */
+                        return -EEXIST;
+                if (fd == -ENOTDIR) /* not a directory? exists already → created by someone else, don't unlink */
+                        return -EEXIST;
+
+                if (made)
+                        (void) unlinkat(dirfd, path, AT_REMOVEDIR);
+
+                return fd;
+        }
+
+        return TAKE_FD(fd);
+}
