@@ -16,6 +16,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=proc-sys-fs-binfmt_misc.automount
 After=proc-sys-fs-binfmt_misc.mount
+After=local-fs.target
 Before=sysinit.target shutdown.target
 ConditionPathIsReadWrite=/proc/sys/
 ConditionDirectoryNotEmpty=|/lib/binfmt.d

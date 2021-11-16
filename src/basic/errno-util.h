@@ -13,7 +13,7 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO                                                   \
+#define PROTECT_ERRNO                           \
         _cleanup_(_reset_errno_) _unused_ int _saved_errno_ = errno
 
 #define UNPROTECT_ERRNO                         \
