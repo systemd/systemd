@@ -103,20 +103,20 @@ _udevadm_test-builtin(){
 
 (( $+functions[_udevadm_mounts] )) ||
 _udevadm_mounts(){
-  local dev_tmp dpath_tmp mp_tmp mline
+    local dev_tmp dpath_tmp mp_tmp mline
 
     tmp=( "${(@f)$(< /proc/self/mounts)}" )
     dev_tmp=( "${(@)${(@)tmp%% *}:#none}" )
     mp_tmp=( "${(@)${(@)tmp#* }%% *}" )
 
-  local MATCH
-  mp_tmp=("${(@q)mp_tmp//(#m)\\[0-7](#c3)/${(#)$(( 8#${MATCH[2,-1]} ))}}")
-  dpath_tmp=( "${(@Mq)dev_tmp:#/*}" )
-  dev_tmp=( "${(@q)dev_tmp:#/*}" )
+    local MATCH
+    mp_tmp=("${(@q)mp_tmp//(#m)\\[0-7](#c3)/${(#)$(( 8#${MATCH[2,-1]} ))}}")
+    dpath_tmp=( "${(@Mq)dev_tmp:#/*}" )
+    dev_tmp=( "${(@q)dev_tmp:#/*}" )
 
-  _alternative \
-    'device-paths: device path:compadd -a dpath_tmp' \
-    'directories:mount point:compadd -a mp_tmp'
+    _alternative \
+        'device-paths: device path:compadd -a dpath_tmp' \
+        'directories:mount point:compadd -a mp_tmp'
 }
 
 (( $+functions[_udevadm_commands] )) ||
