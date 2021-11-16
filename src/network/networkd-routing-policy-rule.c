@@ -1061,14 +1061,8 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
                 return 0;
         }
-        if (r >= 0) {
-                /* kernel does not limit this value, but we do. */
-                if (suppress_prefixlen > 128) {
-                        log_warning("rtnl: received invalid FRA_SUPPRESS_PREFIXLEN attribute value %"PRIu32", ignoring.", suppress_prefixlen);
-                        return 0;
-                }
+        if (r >= 0)
                 tmp->suppress_prefixlen = (int32_t) suppress_prefixlen;
-        }
 
         uint32_t suppress_ifgroup;
         r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_IFGROUP, &suppress_ifgroup);
@@ -1076,13 +1070,8 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_IFGROUP attribute, ignoring: %m");
                 return 0;
         }
-        if (r >= 0) {
-                if (suppress_ifgroup > INT32_MAX) {
-                        log_warning("rtnl: received invalid FRA_SUPPRESS_IFGROUP attribute value %"PRIu32", ignoring.", suppress_ifgroup);
-                        return 0;
-                }
+        if (r >= 0)
                 tmp->suppress_ifgroup = (int32_t) suppress_ifgroup;
-        }
 
         if (adjust_protocol)
                 /* As .network files does not have setting to specify protocol, we can assume the
