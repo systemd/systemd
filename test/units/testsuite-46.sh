@@ -26,7 +26,9 @@ inspect() {
 systemd-analyze log-level debug
 systemd-analyze log-target console
 
-NEWPASSWORD=xEhErW0ndafV4s homectl create test-user --disk-size=20M
+# we enable --luks-discard= since we run our tests in a tight VM, hence don't
+# needlessly pressure for storage
+NEWPASSWORD=xEhErW0ndafV4s homectl create test-user --disk-size=256M --luks-discard=yes
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
@@ -66,6 +68,39 @@ inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
 inspect test-user
+
+# Do some resize tests, but only if we run on real kernels, as quota inside of containers will fail
+if ! systemd-detect-virt -cq ; then
+    # grow while inactive
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 300M
+    inspect test-user
+
+    # minimize while inactive
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 0
+    inspect test-user
+
+    PASSWORD=xEhErW0ndafV4s homectl activate test-user
+    inspect test-user
+
+    # grow while active
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 300M
+    inspect test-user
+
+    # minimize while active
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 0
+    inspect test-user
+
+    # grow while active
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 300M
+    inspect test-user
+
+    # shrink to original size while active
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 256M
+    inspect test-user
+
+    PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
+    inspect test-user
+fi
 
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \

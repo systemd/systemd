@@ -10,13 +10,6 @@
 #include "missing_resource.h"
 #include "time-util.h"
 
-/* But some limits on disk sizes: not less than 5M, not more than 5T */
-#define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
-#define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
-
-/* The default disk size to use when nothing else is specified, relative to free disk space */
-#define USER_DISK_SIZE_DEFAULT_PERCENT 85
-
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
         USER_SYSTEM,      /* statically allocated users for system services */
