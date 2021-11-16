@@ -20,7 +20,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event.pull_request.user.login == 'dependabot'
+    if: github.event_name == 'schedule' || github.event.pull_request.user.login == 'dependabot[bot]'
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.language }}-${{ github.ref }}
       cancel-in-progress: true
