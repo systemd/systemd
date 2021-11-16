@@ -591,7 +591,7 @@ static int verify_data(
         return 0;
 }
 
-static int verify_hash_table(
+static int verify_data_hash_table(
                 JournalFile *f,
                 MMapFileDescriptor *cache_data_fd, uint64_t n_data,
                 MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
@@ -820,6 +820,43 @@ static int verify_entry_array(
 
                 a = next;
         }
+
+        return 0;
+}
+
+static int verify_hash_table(
+                Object *o, uint64_t p, uint64_t *n_hash_tables, uint64_t header_offset, uint64_t header_size) {
+
+        assert(o);
+        assert(n_hash_tables);
+
+        if (*n_hash_tables > 1) {
+                error(p,
+                      "More than one %s: %" PRIu64,
+                      journal_object_type_to_string(o->object.type),
+                      *n_hash_tables);
+                return -EBADMSG;
+        }
+
+        if (header_offset != p + offsetof(HashTableObject, items)) {
+                error(p,
+                      "Header offset for %s invalid (%" PRIu64 " != %" PRIu64 ")",
+                      journal_object_type_to_string(o->object.type),
+                      header_offset,
+                      p + offsetof(HashTableObject, items));
+                return -EBADMSG;
+        }
+
+        if (header_size != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                error(p,
+                      "Header size for %s invalid (%" PRIu64 " != %" PRIu64 ")",
+                      journal_object_type_to_string(o->object.type),
+                      header_size,
+                      le64toh(o->object.size) - offsetof(HashTableObject, items));
+                return -EBADMSG;
+        }
+
+        (*n_hash_tables)++;
 
         return 0;
 }
@@ -1069,37 +1106,20 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_DATA_HASH_TABLE:
-                        if (n_data_hash_tables > 1) {
-                                error(p, "More than one data hash table");
-                                r = -EBADMSG;
+                        r = verify_hash_table(o, p, &n_data_hash_tables,
+                                              le64toh(f->header->data_hash_table_offset),
+                                              le64toh(f->header->data_hash_table_size));
+                        if (r < 0)
                                 goto fail;
-                        }
-
-                        if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items) ||
-                            le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                error(p, "header fields for data hash table invalid");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        n_data_hash_tables++;
                         break;
 
                 case OBJECT_FIELD_HASH_TABLE:
-                        if (n_field_hash_tables > 1) {
-                                error(p, "More than one field hash table");
-                                r = -EBADMSG;
+                        r = verify_hash_table(o, p, &n_field_hash_tables,
+                                              le64toh(f->header->field_hash_table_offset),
+                                              le64toh(f->header->field_hash_table_size));
+                        if (r < 0)
                                 goto fail;
-                        }
 
-                        if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items) ||
-                            le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                error(p, "Header fields for field hash table invalid");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        n_field_hash_tables++;
                         break;
 
                 case OBJECT_ENTRY_ARRAY:
@@ -1325,12 +1345,12 @@ int journal_file_verify(
         if (r < 0)
                 goto fail;
 
-        r = verify_hash_table(f,
-                              cache_data_fd, n_data,
-                              cache_entry_fd, n_entries,
-                              cache_entry_array_fd, n_entry_arrays,
-                              &last_usec,
-                              show_progress);
+        r = verify_data_hash_table(f,
+                                   cache_data_fd, n_data,
+                                   cache_entry_fd, n_entries,
+                                   cache_entry_array_fd, n_entry_arrays,
+                                   &last_usec,
+                                   show_progress);
         if (r < 0)
                 goto fail;
 
