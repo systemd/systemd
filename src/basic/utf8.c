@@ -124,11 +124,9 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
 }
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
-        const char *p;
-
         assert(str);
 
-        for (p = str; length > 0;) {
+        for (const char *p = str; length > 0;) {
                 int encoded_len, r;
                 char32_t val;
 
@@ -289,14 +287,12 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool
 }
 
 char *ascii_is_valid(const char *str) {
-        const char *p;
-
         /* Check whether the string consists of valid ASCII bytes,
          * i.e values between 0 and 127, inclusive. */
 
         assert(str);
 
-        for (p = str; *p; p++)
+        for (const char *p = str; *p; p++)
                 if ((unsigned char) *p >= 128)
                         return NULL;
 
@@ -314,6 +310,37 @@ char *ascii_is_valid_n(const char *str, size_t len) {
                         return NULL;
 
         return (char*) str;
+}
+
+int utf8_to_ascii(const char *str, char replacement_char, char **ret) {
+        /* Convert to a string that has only ASCII chars, replacing anything that is not ASCII
+         * by replacement_char. */
+
+        _cleanup_free_ char *ans = new(char, strlen(str) + 1);
+        if (!ans)
+                return -ENOMEM;
+
+        char *q = ans;
+
+        for (const char *p = str; *p; q++) {
+                int l;
+
+                l = utf8_encoded_valid_unichar(p, SIZE_MAX);
+                if (l < 0)  /* Non-UTF-8, let's not even try to propagate the garbage */
+                        return l;
+
+                if (l == 1)
+                        *q = *p;
+                else
+                        /* non-ASCII, we need to replace it */
+                        *q = replacement_char;
+
+                p += l;
+        }
+        *q = '\0';
+
+        *ret = TAKE_PTR(ans);
+        return 0;
 }
 
 /**
