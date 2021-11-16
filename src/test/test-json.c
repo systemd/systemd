@@ -526,7 +526,7 @@ static void test_float_match(JsonVariant *v) {
         const long double delta = 0.0001;
 
         assert_se(json_variant_is_array(v));
-        assert_se(json_variant_elements(v) == 9);
+        assert_se(json_variant_elements(v) == 11);
         assert_se(fabsl((long double) 1.0 - ((long double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
         assert_se(fabsl((long double) 1.0 - ((long double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
@@ -534,15 +534,20 @@ static void test_float_match(JsonVariant *v) {
         assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
                   fabsl((long double) 1.0 - ((long double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
-        assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
-                  json_variant_is_integer(json_variant_by_index(v, 6)) &&
-                  json_variant_integer(json_variant_by_index(v, 6)) == 0);
-        assert_se(json_variant_is_real(json_variant_by_index(v, 7)) &&
-                  json_variant_is_integer(json_variant_by_index(v, 7)) &&
-                  json_variant_integer(json_variant_by_index(v, 7)) == 10);
-        assert_se(json_variant_is_real(json_variant_by_index(v, 8)) &&
-                  json_variant_is_integer(json_variant_by_index(v, 8)) &&
-                  json_variant_integer(json_variant_by_index(v, 8)) == -10);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 6)));
+        assert_se(json_variant_is_integer(json_variant_by_index(v, 6)));
+        assert_se(json_variant_integer(json_variant_by_index(v, 6)) == 0);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 7)));
+        assert_se(json_variant_integer(json_variant_by_index(v, 7)) == (json_variant_is_integer(json_variant_by_index(v, 7)) ? 10 : 0));
+        assert_se(json_variant_is_real(json_variant_by_index(v, 8)));
+        assert_se(json_variant_is_integer(json_variant_by_index(v, 8)));
+        assert_se(json_variant_integer(json_variant_by_index(v, 8)) == (json_variant_is_integer(json_variant_by_index(v, 8)) ? -10 : 0));
+        assert_se(json_variant_is_real(json_variant_by_index(v, 9)));
+        assert_se(json_variant_is_integer(json_variant_by_index(v, 9)));
+        assert_se(json_variant_integer(json_variant_by_index(v, 9)) == 8);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 10)));
+        assert_se(json_variant_is_integer(json_variant_by_index(v, 10)));
+        assert_se(json_variant_integer(json_variant_by_index(v, 10)) == -8);
 }
 
 static void test_float(void) {
@@ -560,7 +565,9 @@ static void test_float(void) {
                                              JSON_BUILD_REAL(HUGE_VAL),
                                              JSON_BUILD_REAL(0),
                                              JSON_BUILD_REAL(10),
-                                             JSON_BUILD_REAL(-10))) >= 0);
+                                             JSON_BUILD_REAL(-10),
+                                             JSON_BUILD_REAL(8),
+                                             JSON_BUILD_REAL(-8))) >= 0);
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
