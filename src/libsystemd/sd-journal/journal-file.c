@@ -91,6 +91,59 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
+static int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
+        Object tail;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(ret_offset);
+
+        p = le64toh(f->header->tail_object_offset);
+        if (p == 0)
+                p = le64toh(f->header->header_size);
+        else {
+                uint64_t sz;
+
+                r = journal_file_read_object(f, OBJECT_UNUSED, p, &tail);
+                if (r < 0)
+                        return r;
+
+                sz = le64toh(tail.object.size);
+                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
+                        return -EBADMSG;
+
+                sz = ALIGN64(sz);
+                if (p > UINT64_MAX - sz)
+                        return -EBADMSG;
+
+                p += sz;
+        }
+
+        *ret_offset = p;
+
+        return 0;
+}
+
+static int journal_file_truncate(JournalFile *f) {
+        uint64_t p;
+        int r;
+
+        /* truncate excess from the end of archives */
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine end of tail object: %m");
+
+        /* arena_size can't exceed the file size, ensure it's updated before truncating */
+        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
+
+        if (ftruncate(f->fd, p) < 0)
+                log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+
+        return 0;
+}
+
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */
@@ -117,6 +170,9 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                         break;
 
                 case OFFLINE_SYNCING:
+                        if (f->archive)
+                                (void) journal_file_truncate(f);
+
                         (void) fsync(f->fd);
 
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
@@ -1089,7 +1145,7 @@ int journal_file_append_object(
 
         int r;
         uint64_t p;
-        Object *tail, *o;
+        Object *o;
         void *t;
 
         assert(f);
@@ -1101,26 +1157,9 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        p = le64toh(f->header->tail_object_offset);
-        if (p == 0)
-                p = le64toh(f->header->header_size);
-        else {
-                uint64_t sz;
-
-                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
-                if (r < 0)
-                        return r;
-
-                sz = le64toh(READ_NOW(tail->object.size));
-                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
-                        return -EBADMSG;
-
-                sz = ALIGN64(sz);
-                if (p > UINT64_MAX - sz)
-                        return -EBADMSG;
-
-                p += sz;
-        }
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return r;
 
         r = journal_file_allocate(f, p, size);
         if (r < 0)
