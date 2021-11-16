@@ -485,8 +485,6 @@ static int hardlink_context_setup(
 }
 
 static int hardlink_context_realize(HardlinkContext *c) {
-        int r;
-
         if (!c)
                 return 0;
 
@@ -498,15 +496,9 @@ static int hardlink_context_realize(HardlinkContext *c) {
 
         assert(c->subdir);
 
-        if (mkdirat(c->parent_fd, c->subdir, 0700) < 0)
-                return -errno;
-
-        c->dir_fd = openat(c->parent_fd, c->subdir, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (c->dir_fd < 0) {
-                r = -errno;
-                (void) unlinkat(c->parent_fd, c->subdir, AT_REMOVEDIR);
-                return r;
-        }
+        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_EXCL|O_CLOEXEC, 0700);
+        if (c->dir_fd < 0)
+                return c->dir_fd;
 
         return 1;
 }
