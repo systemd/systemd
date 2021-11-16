@@ -2099,7 +2099,7 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         putchar('\n');
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 static int test_timestamp_one(const char *p) {
