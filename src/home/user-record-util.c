@@ -639,9 +639,6 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
         if (!h->json)
                 return -EUNATCH;
 
-        if (disk_size < USER_DISK_SIZE_MIN || disk_size > USER_DISK_SIZE_MAX)
-                return -ERANGE;
-
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return r;
