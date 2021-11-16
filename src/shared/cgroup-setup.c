@@ -292,7 +292,7 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        r = mkdir_errno_wrapper(fs, 0755);
+        r = RET_NERRNO(mkdir(fs, 0755));
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
