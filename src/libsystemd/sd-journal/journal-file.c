@@ -351,6 +351,71 @@ bool journal_file_is_offlining(JournalFile *f) {
         return true;
 }
 
+static int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
+        Object *tail;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(ret_offset);
+
+        p = le64toh(f->header->tail_object_offset);
+        if (p == 0)
+                p = le64toh(f->header->header_size);
+        else {
+                uint64_t sz;
+
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
+                if (r < 0)
+                        return r;
+
+                sz = le64toh(READ_NOW(tail->object.size));
+                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
+                        return -EBADMSG;
+
+                sz = ALIGN64(sz);
+                if (p > UINT64_MAX - sz)
+                        return -EBADMSG;
+
+                p += sz;
+        }
+
+        *ret_offset = p;
+
+        return 0;
+}
+
+static int journal_file_truncate(JournalFile *f) {
+        uint64_t p;
+        int r;
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (f->fd < 0 || !f->header)
+                return -EINVAL;
+
+        /* truncate excess from the end of archives */
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine end of tail object: %m");
+
+        /* arena_size can't exceed the file size, ensure it's updated before truncating */
+        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
+
+        log_debug(
+                "Truncating %s from %s bytes to %s bytes",
+                f->path,
+                FORMAT_BYTES(f->last_stat.st_size),
+                FORMAT_BYTES(p));
+
+        if (ftruncate(f->fd, p) < 0)
+                return log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+
+        return 0;
+}
+
 JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
@@ -372,6 +437,9 @@ JournalFile* journal_file_close(JournalFile *f) {
 
                 sd_event_source_disable_unref(f->post_change_timer);
         }
+
+        if (f->archive)
+                (void) journal_file_truncate(f);
 
         journal_file_set_offline(f, true);
 
@@ -1053,7 +1121,7 @@ int journal_file_append_object(
 
         int r;
         uint64_t p;
-        Object *tail, *o;
+        Object *o;
         void *t;
 
         assert(f);
@@ -1065,26 +1133,9 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        p = le64toh(f->header->tail_object_offset);
-        if (p == 0)
-                p = le64toh(f->header->header_size);
-        else {
-                uint64_t sz;
-
-                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
-                if (r < 0)
-                        return r;
-
-                sz = le64toh(READ_NOW(tail->object.size));
-                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
-                        return -EBADMSG;
-
-                sz = ALIGN64(sz);
-                if (p > UINT64_MAX - sz)
-                        return -EBADMSG;
-
-                p += sz;
-        }
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return r;
 
         r = journal_file_allocate(f, p, size);
         if (r < 0)
