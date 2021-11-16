@@ -710,8 +710,7 @@ static void test_revert(const char *root) {
         changes = NULL; n_changes = 0;
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/xx.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
-        assert_se(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE) >= 0);
+        assert_se(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         /* Revert the dropin file */
         assert_se(unit_file_revert(UNIT_FILE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
@@ -813,10 +812,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -826,10 +824,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -839,10 +836,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-3.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -852,10 +848,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-4a.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-4a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -944,10 +939,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1@.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -957,10 +951,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2@instance-1.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -971,10 +964,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-3@.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
