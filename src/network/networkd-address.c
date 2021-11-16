@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -1770,21 +1771,14 @@ int config_parse_address_scope(
                 return 0;
         }
 
-        if (streq(rvalue, "host"))
-                n->scope = RT_SCOPE_HOST;
-        else if (streq(rvalue, "link"))
-                n->scope = RT_SCOPE_LINK;
-        else if (streq(rvalue, "global"))
-                n->scope = RT_SCOPE_UNIVERSE;
-        else {
-                r = safe_atou8(rvalue , &n->scope);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
-                        return 0;
-                }
+        r = route_scope_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
         }
 
+        n->scope = r;
         n->scope_set = true;
         TAKE_PTR(n);
         return 0;
@@ -1924,8 +1918,8 @@ static int address_section_verify(Address *address) {
 
                 if (address->scope_set && address->scope != RT_SCOPE_HOST)
                         log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                          "%s: non-host scope is set in the [Address] section from line %u. "
-                                          "Ignoring Scope= setting.",
+                                          "%s: non-host scope is set for localhost address. "
+                                          "Ignoring Scope= setting in the [Address] section from line %u. ",
                                           address->section->filename, address->section->line);
 
                 address->scope = RT_SCOPE_HOST;
