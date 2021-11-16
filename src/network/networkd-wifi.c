@@ -273,7 +273,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                                strna(nl80211_cmd_to_string(cmd)), cmd);
 
                 link->bssid = ETHER_ADDR_NULL;
-                link->ssid = mfree(link->ssid);
+                free_and_replace(link->previous_ssid, link->ssid);
                 break;
 
         default:

@@ -952,18 +952,21 @@ Table=1234</programlisting></para>
         <term><varname>ConfigureWithoutCarrier=</varname></term>
         <listitem>
           <para>Takes a boolean. Allows networkd to configure a specific link even if it has no carrier.
-          Defaults to false. If <option>IgnoreCarrierLoss=</option> is not explicitly set, it will
-          default to this value.
+          Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname> setting is not
+          explicitly set, then it is enabled as well.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>IgnoreCarrierLoss=</varname></term>
         <listitem>
-          <para>Takes a boolean. Allows networkd to retain both the static and dynamic configuration
-          of the interface even if its carrier is lost. When unset, the value specified with
-          <option>ConfigureWithoutCarrier=</option> is used.
-          </para>
+          <para>Takes a boolean or a timespan. When true, networkd retains both the static and dynamic
+          configuration of the interface even if its carrier is lost. When a timespan is specified,
+          networkd waits for the specified timespan, and ignores the carrier loss if the link regain
+          its carrier within the timespan. Setting a finite timespan may be useful for a wireless
+          interface connecting to a network which has multiple access points with the same SSID, or an
+          interface which is reset on changing MTU. When unset, the value specified with
+          <varname>ConfigureWithoutCarrier=</varname> is used.</para>
 
           <para>When <varname>ActivationPolicy=</varname> is set to <literal>always-up</literal>, this
           is forced to <literal>true</literal>.
@@ -1813,6 +1816,9 @@ Table=1234</programlisting></para>
             <para>When true, the interface maximum transmission unit from the DHCP server will be used on the
             current link. If <varname>MTUBytes=</varname> is set, then this setting is ignored. Defaults to
             false.</para>
+            <para>Note, some drivers will reset the interfaces if the MTU is changed. For such
+            interfaces, please try to use <varname>IgnoreCarrierLoss=</varname> with a short timespan,
+            e.g. <literal>3 seconds</literal>.</para>
           </listitem>
         </varlistentry>
 
