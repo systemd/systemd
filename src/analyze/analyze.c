@@ -1708,7 +1708,7 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         if (strv_isempty(strv_skip(argv, 1))) {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
                 const char *sys;
-                int k;
+                int k = 0;  /* explicit initialization to appease gcc */
 
                 NULSTR_FOREACH(sys, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value)
                         if (set_put_strdup(&known, sys) < 0)
