@@ -1918,8 +1918,8 @@ static int address_section_verify(Address *address) {
 
                 if (address->scope_set && address->scope != RT_SCOPE_HOST)
                         log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                          "%s: non-host scope is set in the [Address] section from line %u. "
-                                          "Ignoring Scope= setting.",
+                                          "%s: non-host scope is set for localhost address. "
+                                          "Ignoring Scope= setting in the [Address] section from line %u. ",
                                           address->section->filename, address->section->line);
 
                 address->scope = RT_SCOPE_HOST;
