@@ -116,6 +116,17 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                         break;
 
                 case OFFLINE_SYNCING:
+                        for (size_t i = 0; i < f->offline_ops_size; i++) {
+                                OfflineOperation op = f->offline_ops[i];
+
+                                switch (op.type) {
+                                case OFFLINE_OPERATION_TRUNCATE:
+                                        if (ftruncate(f->fd, op.truncate.size) < 0)
+                                                log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+                                        break;
+                                }
+                        }
+
                         (void) fsync(f->fd);
 
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
@@ -196,6 +207,68 @@ static bool journal_file_set_offline_try_restart(JournalFile *f) {
                         return false;
                 }
         }
+}
+
+static int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
+        Object *tail;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(ret_offset);
+
+        p = le64toh(f->header->tail_object_offset);
+        if (p == 0)
+                p = le64toh(f->header->header_size);
+        else {
+                uint64_t sz;
+
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
+                if (r < 0)
+                        return r;
+
+                sz = le64toh(READ_NOW(tail->object.size));
+                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
+                        return -EBADMSG;
+
+                sz = ALIGN64(sz);
+                if (p > UINT64_MAX - sz)
+                        return -EBADMSG;
+
+                p += sz;
+        }
+
+        *ret_offset = p;
+
+        return 0;
+}
+
+static int journal_file_queue_truncate(JournalFile *f) {
+        uint64_t p;
+        int r;
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (f->fd < 0 || !f->header)
+                return -EINVAL;
+
+        /* truncate excess from the end of archives */
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine end of tail object: %m");
+
+        /* arena_size can't exceed the file size, ensure it's updated before truncating */
+        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
+
+        if (!GREEDY_REALLOC(f->offline_ops, f->offline_ops_size + 1))
+                return -ENOMEM;
+
+        f->offline_ops[f->offline_ops_size++] = (OfflineOperation){ .type = OFFLINE_OPERATION_TRUNCATE,
+                                                                    .truncate.size = p };
+
+        return 0;
 }
 
 /* Sets a journal offline.
@@ -373,6 +446,9 @@ JournalFile* journal_file_close(JournalFile *f) {
                 sd_event_source_disable_unref(f->post_change_timer);
         }
 
+        if (f->archive && !f->offline_ops)
+                (void) journal_file_queue_truncate(f);
+
         journal_file_set_offline(f, true);
 
         if (f->mmap && f->cache_fd)
@@ -413,6 +489,8 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (f->hmac)
                 gcry_md_close(f->hmac);
 #endif
+
+        free(f->offline_ops);
 
         return mfree(f);
 }
@@ -1053,7 +1131,7 @@ int journal_file_append_object(
 
         int r;
         uint64_t p;
-        Object *tail, *o;
+        Object *o;
         void *t;
 
         assert(f);
@@ -1065,26 +1143,9 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        p = le64toh(f->header->tail_object_offset);
-        if (p == 0)
-                p = le64toh(f->header->header_size);
-        else {
-                uint64_t sz;
-
-                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
-                if (r < 0)
-                        return r;
-
-                sz = le64toh(READ_NOW(tail->object.size));
-                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
-                        return -EBADMSG;
-
-                sz = ALIGN64(sz);
-                if (p > UINT64_MAX - sz)
-                        return -EBADMSG;
-
-                p += sz;
-        }
+        r = journal_file_tail_end(f, &p);
+        if (r < 0)
+                return r;
 
         r = journal_file_allocate(f, p, size);
         if (r < 0)
@@ -3716,6 +3777,9 @@ JournalFile* journal_initiate_close(
         int r;
 
         assert(f);
+
+        if (f->archive && !f->offline_ops)
+                (void) journal_file_queue_truncate(f);
 
         if (deferred_closes) {
 

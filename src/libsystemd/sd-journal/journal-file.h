@@ -56,6 +56,20 @@ typedef enum OfflineState {
         OFFLINE_DONE
 } OfflineState;
 
+typedef enum {
+        OFFLINE_OPERATION_TRUNCATE,
+} OfflineOperationType;
+
+typedef struct {
+      OfflineOperationType type;
+
+      union {
+              struct {
+                      uint64_t size;
+              } truncate;
+      };
+} OfflineOperation;
+
 typedef struct JournalFile {
         int fd;
         MMapFileDescriptor *cache_fd;
@@ -126,6 +140,9 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 #endif
+
+        OfflineOperation *offline_ops;
+        size_t offline_ops_size;
 } JournalFile;
 
 int journal_file_open(
