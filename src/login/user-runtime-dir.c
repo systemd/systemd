@@ -12,7 +12,7 @@
 #include "label.h"
 #include "limits-util.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"

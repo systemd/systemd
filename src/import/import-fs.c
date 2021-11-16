@@ -14,7 +14,7 @@
 #include "import-util.h"
 #include "install-file.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-argument.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
