@@ -58,6 +58,7 @@ typedef enum OfflineState {
 
 typedef enum {
         OFFLINE_OPERATION_TRUNCATE,
+        OFFLINE_OPERATION_PUNCH_HOLE,
 } OfflineOperationType;
 
 typedef struct {
@@ -67,6 +68,10 @@ typedef struct {
               struct {
                       uint64_t size;
               } truncate;
+              struct {
+                      uint64_t offset;
+                      uint64_t size;
+              } punch_hole;
       };
 } OfflineOperation;
 
