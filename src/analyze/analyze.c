@@ -1800,8 +1800,8 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 
 static int load_available_kernel_filesystems(Set **ret) {
         _cleanup_set_free_ Set *filesystems = NULL;
+        _cleanup_free_ char *t = NULL;
         int r;
-        char *t;
 
         assert(ret);
 
