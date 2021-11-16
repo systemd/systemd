@@ -31,8 +31,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
                 _cleanup_free_ char *path;
 
                 assert_se(path = path_join(tmp_dir, files));
-                (void) mkdir_parents(path, 0755);
-                assert_se(write_string_file(path, "foobar", WRITE_STRING_FILE_CREATE) >= 0);
+                assert_se(write_string_file(path, "foobar", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
                 files = va_arg(ap, const char *);
         }
