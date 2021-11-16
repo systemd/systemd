@@ -411,6 +411,7 @@ bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
         return STR_IN_SET(fstype,
                           "DM_verity_hash",
+                          "cramfs",
                           "erofs",
                           "iso9660",
                           "squashfs");
