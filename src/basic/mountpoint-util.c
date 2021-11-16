@@ -420,6 +420,7 @@ bool fstype_is_ro(const char *fstype) {
 bool fstype_can_discard(const char *fstype) {
         return STR_IN_SET(fstype,
                           "btrfs",
+                          "f2fs",
                           "ext4",
                           "vfat",
                           "xfs");
