@@ -1101,6 +1101,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_to_set_ipoib(link);
+        if (r < 0)
+                return r;
+
         r = link_request_to_set_flags(link);
         if (r < 0)
                 return r;
@@ -1201,8 +1205,8 @@ static int link_get_network(Link *link, Network **ret) {
                 r = net_match_config(
                                 &network->match,
                                 link->sd_device,
-                                link->hw_addr.length == ETH_ALEN ? &link->hw_addr.ether : NULL,
-                                link->permanent_hw_addr.length == ETH_ALEN ? &link->permanent_hw_addr.ether : NULL,
+                                &link->hw_addr,
+                                &link->permanent_hw_addr,
                                 link->driver,
                                 link->iftype,
                                 link->ifname,
@@ -2663,3 +2667,53 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+
+int link_flags_to_string_alloc(uint32_t flags, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        static const struct {
+                uint32_t flag;
+                const char *name;
+        } map[] = {
+                { IFF_UP,          "up"             }, /* interface is up. */
+                { IFF_BROADCAST,   "broadcast"      }, /* broadcast address valid.*/
+                { IFF_DEBUG,       "debug"          }, /* turn on debugging. */
+                { IFF_LOOPBACK,    "loopback"       }, /* interface is a loopback net. */
+                { IFF_POINTOPOINT, "point-to-point" }, /* interface has p-p link. */
+                { IFF_NOTRAILERS,  "no-trailers"    }, /* avoid use of trailers. */
+                { IFF_RUNNING,     "running"        }, /* interface RFC2863 OPER_UP. */
+                { IFF_NOARP,       "no-arp"         }, /* no ARP protocol. */
+                { IFF_PROMISC,     "promiscuous"    }, /* receive all packets. */
+                { IFF_ALLMULTI,    "all-multicast"  }, /* receive all multicast packets. */
+                { IFF_MASTER,      "master"         }, /* master of a load balancer. */
+                { IFF_SLAVE,       "slave"          }, /* slave of a load balancer. */
+                { IFF_MULTICAST,   "multicast"      }, /* supports multicast.*/
+                { IFF_PORTSEL,     "portsel"        }, /* can set media type. */
+                { IFF_AUTOMEDIA,   "auto-media"     }, /* auto media select active. */
+                { IFF_DYNAMIC,     "dynamic"        }, /* dialup device with changing addresses. */
+                { IFF_LOWER_UP,    "lower-up"       }, /* driver signals L1 up. */
+                { IFF_DORMANT,     "dormant"        }, /* driver signals dormant. */
+                { IFF_ECHO,        "echo"           }, /* echo sent packets. */
+        };
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag &&
+                    !strextend_with_separator(&str, ",", map[i].name))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
+static const char * const kernel_operstate_table[] = {
+        [IF_OPER_UNKNOWN]        = "unknown",
+        [IF_OPER_NOTPRESENT]     = "not-present",
+        [IF_OPER_DOWN]           = "down",
+        [IF_OPER_LOWERLAYERDOWN] = "lower-layer-down",
+        [IF_OPER_TESTING]        = "testing",
+        [IF_OPER_DORMANT]        = "dormant",
+        [IF_OPER_UP]             = "up",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
