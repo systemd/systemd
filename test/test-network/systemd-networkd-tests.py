@@ -23,6 +23,8 @@ networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 
+udev_rules_dir='/run/udev/rules.d'
+
 dnsmasq_pid_file='/run/networkd-ci/test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq.log'
 dnsmasq_lease_file='/run/networkd-ci/test-dnsmasq.lease'
@@ -273,9 +275,12 @@ def setUpModule():
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_conf_dropin_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
+    os.makedirs(udev_rules_dir, exist_ok=True)
 
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
+
+    shutil.copy(os.path.join(networkd_ci_path, '00-debug-net.rules'), udev_rules_dir)
 
     for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service',
               'systemd-udevd-kernel.socket', 'systemd-udevd-control.socket', 'systemd-udevd.service',
@@ -372,6 +377,7 @@ def tearDownModule():
     global running_units
 
     shutil.rmtree(networkd_ci_path)
+    os.remove(os.path.join(udev_rules_dir, '00-debug-net.rules'))
 
     for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service']:
         check_output(f'systemctl stop {u}')
