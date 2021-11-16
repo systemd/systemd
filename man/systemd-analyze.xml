@@ -1197,6 +1197,12 @@ $ systemd-analyze verify /tmp/source:alias.service
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <varlistentry>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress hints and other non-essential output.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
