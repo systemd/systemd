@@ -348,7 +348,7 @@ possible_common_cc_flags = [
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
         '-Werror=undef',
-        '-Werror=unused-function',
+        '-Wunused-function',
         '-Wfloat-equal',
         '-Wimplicit-fallthrough=5',
         '-Winit-self',
