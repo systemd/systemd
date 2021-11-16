@@ -144,6 +144,91 @@ static int journal_file_truncate(JournalFile *f) {
         return 0;
 }
 
+static int journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
+        Object o;
+        uint64_t offset, sz, n_items = 0, n_unused;
+        int r;
+
+        if (n_entries == 0)
+                return 0;
+
+        for (uint64_t q = p; q != 0; q = le64toh(o.entry_array.next_entry_array_offset)) {
+                r = journal_file_read_object(f, OBJECT_ENTRY_ARRAY, q, &o);
+                if (r < 0)
+                        return r;
+
+                n_items += journal_file_entry_array_n_items(&o);
+                p = q;
+        }
+
+        if (p == 0)
+                return 0;
+
+        if (n_entries > n_items)
+                return -EBADMSG;
+
+        /* Amount of unused items in the final entry array. */
+        n_unused = n_items - n_entries;
+
+        if (n_unused == 0)
+                return 0;
+
+        offset = p + offsetof(Object, entry_array.items) +
+                (journal_file_entry_array_n_items(&o) - n_unused) * sizeof(le64_t);
+        sz = p + le64toh(o.object.size) - offset;
+
+        if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
+                return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
+
+        return 0;
+}
+
+static int journal_file_punch_holes(JournalFile *f) {
+        HashItem items[4096 / sizeof(HashItem)];
+        uint64_t p, sz;
+        size_t to_read;
+        int r;
+
+        r = journal_file_entry_array_punch_hole(
+                f, le64toh(f->header->entry_array_offset), le64toh(f->header->n_entries));
+        if (r < 0)
+                return r;
+
+        p = le64toh(f->header->data_hash_table_offset);
+        sz = le64toh(f->header->data_hash_table_size);
+        to_read = MIN((size_t) f->last_stat.st_blksize, sizeof(items));
+
+        for (uint64_t i = p; i < p + sz; i += sizeof(items)) {
+                ssize_t n_read;
+
+                n_read = pread(f->fd, items, MIN(to_read, p + sz - i), i);
+                if (n_read < 0)
+                        return n_read;
+
+                for (size_t j = 0; j < (size_t) n_read / sizeof(HashItem); j++) {
+                        Object o;
+
+                        for (uint64_t q = le64toh(items[j].head_hash_offset); q != 0;
+                             q = le64toh(o.data.next_hash_offset)) {
+
+                                r = journal_file_read_object(f, OBJECT_DATA, q, &o);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Invalid data object: %m, ignoring");
+                                        break;
+                                }
+
+                                if (le64toh(o.data.n_entries) == 0)
+                                        continue;
+
+                                (void) journal_file_entry_array_punch_hole(
+                                        f, le64toh(o.data.entry_array_offset), le64toh(o.data.n_entries) - 1);
+                        }
+                }
+        }
+
+        return 0;
+}
+
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */
@@ -170,8 +255,10 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                         break;
 
                 case OFFLINE_SYNCING:
-                        if (f->archive)
+                        if (f->archive) {
                                 (void) journal_file_truncate(f);
+                                (void) journal_file_punch_holes(f);
+                        }
 
                         (void) fsync(f->fd);
 
