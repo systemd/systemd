@@ -444,6 +444,19 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->drop_caches >= 0 || user_record_drop_caches(hr))
                 printf(" Drop Caches: %s\n", yes_no(user_record_drop_caches(hr)));
 
+        if (hr->auto_resize_mode >= 0)
+                printf(" Auto Resize: %s\n", auto_resize_mode_to_string(user_record_auto_resize_mode(hr)));
+
+        if (hr->rebalance_weight != REBALANCE_WEIGHT_UNSET) {
+                uint64_t rb;
+
+                rb = user_record_rebalance_weight(hr);
+                if (rb == REBALANCE_WEIGHT_OFF)
+                        printf(" Reb. Weight: rebalance off\n");
+                else
+                        printf(" Reb. Weight: %" PRIu64 "\n", rb);
+        }
+
         if (!strv_isempty(hr->ssh_authorized_keys))
                 printf("SSH Pub. Key: %zu\n", strv_length(hr->ssh_authorized_keys));
 

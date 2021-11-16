@@ -33,6 +33,7 @@
 #include "homework-mount.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mkdir.h"
@@ -63,6 +64,10 @@
                 _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
         })
 
+/* How much larger will the image on disk be than the fs inside it, i.e. the space we pay for the GPT and LUKS2 envelope. */
+#define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
+
+static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
 int run_mark_dirty(int fd, bool b) {
         char x = '1';
@@ -247,15 +252,59 @@ static int run_fsck(const char *node, const char *fstype) {
         return 1;
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(key_serial_t, keyring_unlink, -1);
+
+static int upload_to_keyring(
+                UserRecord *h,
+                const char *password,
+                key_serial_t *ret_key_serial) {
+
+        _cleanup_free_ char *name = NULL;
+        key_serial_t serial;
+
+        assert(h);
+        assert(password);
+
+        /* If automatic rebalancing is turned on, we need to keep the key we used to unlock the LUKS volume
+         * around, since we'll need it when automatically resizing (since we can't ask the user there
+         * again). We do this by uploading it into the kernel keyring, specifically the "session" one. This
+         * is done under the assumption systemd-homed gets its private per-session keyring (i.e. default
+         * service behaviour, given that KeyringMode=private is the default). It will survive between
+         * our systemd-homework invocations that way.
+         *
+         * If rebalancing is disabled we'll skip this step, to be frugal with sensitive data. */
+
+        if (!user_record_shall_rebalance(h)) {  /* Won't need it */
+                *ret_key_serial = -1;
+                return 0;
+        }
+
+        name = strjoin("homework-user-", h->user_name);
+        if (!name)
+                return -ENOMEM;
+
+        serial = add_key("user", name, password, strlen(password), KEY_SPEC_SESSION_KEYRING);
+        if (serial == -1)
+                return -errno;
+
+        if (ret_key_serial)
+                *ret_key_serial = serial;
+
+        return 1;
+}
+
 static int luks_try_passwords(
+                UserRecord *h,
                 struct crypt_device *cd,
                 char **passwords,
                 void *volume_key,
-                size_t *volume_key_size) {
+                size_t *volume_key_size,
+                key_serial_t *ret_key_serial) {
 
         char **pp;
         int r;
 
+        assert(h);
         assert(cd);
 
         STRV_FOREACH(pp, passwords) {
@@ -269,6 +318,16 @@ static int luks_try_passwords(
                                 *pp,
                                 strlen(*pp));
                 if (r >= 0) {
+                        if (ret_key_serial) {
+                                /* If ret_key_serial is non-NULL, let's try to upload the password that
+                                 * worked, and return its serial. */
+                                r = upload_to_keyring(h, *pp, ret_key_serial);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to upload LUKS password to kernel keyring, ignoring: %m");
+                                        *ret_key_serial = -1;
+                                }
+                        }
+
                         *volume_key_size = vks;
                         return 0;
                 }
@@ -280,6 +339,7 @@ static int luks_try_passwords(
 }
 
 static int luks_setup(
+                UserRecord *h,
                 const char *node,
                 const char *dm_name,
                 sd_id128_t uuid,
@@ -292,8 +352,10 @@ static int luks_setup(
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
-                size_t *ret_volume_key_size) {
+                size_t *ret_volume_key_size,
+                key_serial_t *ret_key_serial) {
 
+        _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
@@ -301,6 +363,7 @@ static int luks_setup(
         char **list;
         int r;
 
+        assert(h);
         assert(node);
         assert(dm_name);
         assert(ret);
@@ -352,10 +415,11 @@ static int luks_setup(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         passwords) {
-                r = luks_try_passwords(cd, list, vk, &vks);
+                r = luks_try_passwords(h, cd, list, vk, &vks, ret_key_serial ? &key_serial : NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -382,6 +446,8 @@ static int luks_setup(
                 *ret_volume_key = TAKE_PTR(vk);
         if (ret_volume_key_size)
                 *ret_volume_key_size = vks;
+        if (ret_key_serial)
+                *ret_key_serial = TAKE_KEY_SERIAL(key_serial);
 
         return 0;
 }
@@ -490,10 +556,11 @@ static int luks_open(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
-                r = luks_try_passwords(setup->crypt_device, list, vk, &vks);
+                r = luks_try_passwords(h, setup->crypt_device, list, vk, &vks, NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -1164,55 +1231,67 @@ int home_setup_luks(
                 PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
-        sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
+        sd_id128_t found_partition_uuid = SD_ID128_NULL, found_luks_uuid = SD_ID128_NULL, found_fs_uuid = SD_ID128_NULL;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         size_t volume_key_size = 0;
         uint64_t offset, size;
+        struct stat st;
         int r;
 
         assert(h);
         assert(setup);
-        assert(setup->dm_name);
-        assert(setup->dm_node);
-        assert(setup->root_fd < 0);
-        assert(!setup->crypt_device);
-        assert(!setup->loop);
-
         assert(user_record_storage(h) == USER_LUKS);
 
         r = dlopen_cryptsetup();
         if (r < 0)
                 return r;
 
+        r = make_dm_names(h, setup);
+        if (r < 0)
+                return r;
+
+        /* Reuse the image fd if it has already been opened by an earlier step */
+        if (setup->image_fd < 0) {
+                setup->image_fd = open_image_file(h, force_image_path, &st);
+                if (setup->image_fd < 0)
+                        return setup->image_fd;
+        } else if (fstat(setup->image_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat image: %m");
+
         if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
                 struct loop_info64 info;
                 const char *n;
 
-                r = luks_open(h,
-                              setup,
-                              cache,
-                              &found_luks_uuid,
-                              &volume_key,
-                              &volume_key_size);
-                if (r < 0)
-                        return r;
+                if (!setup->crypt_device) {
+                        r = luks_open(h,
+                                      setup,
+                                      cache,
+                                      &found_luks_uuid,
+                                      &volume_key,
+                                      &volume_key_size);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
-                if (r < 0)
-                        return r;
+                if (ret_luks_home) {
+                        r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
+                        if (r < 0)
+                                return r;
+                }
 
                 n = sym_crypt_get_device_name(setup->crypt_device);
                 if (!n)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine backing device for DM %s.", setup->dm_name);
 
-                r = loop_device_open(n, O_RDWR, &setup->loop);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open loopback device %s: %m", n);
+                if (!setup->loop) {
+                        r = loop_device_open(n, O_RDWR, &setup->loop);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open loopback device %s: %m", n);
+                }
 
                 if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
                         _cleanup_free_ char *sysfs = NULL;
-                        struct stat st;
 
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
@@ -1264,29 +1343,26 @@ int home_setup_luks(
 
                 log_info("Discovered used loopback device %s.", setup->loop->node);
 
-                setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                if (setup->root_fd < 0) {
+                        setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                        if (setup->root_fd < 0)
+                                return log_error_errno(errno, "Failed to open home directory: %m");
+                }
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
-                bool has_stat = false;
                 const char *ip;
-                struct stat st;
+
+                /* When we aren't reopening the home directory we are allocating it fresh, hence the relevant
+                 * objects can't be allocated yet. */
+                assert(setup->root_fd < 0);
+                assert(!setup->crypt_device);
+                assert(!setup->loop);
 
                 ip = force_image_path ?: user_record_image_path(h);
 
                 subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
                 if (!subdir)
                         return log_oom();
-
-                /* Reuse the image fd if it has already been opened by an earlier step */
-                if (setup->image_fd < 0) {
-                        setup->image_fd = open_image_file(h, force_image_path, &st);
-                        if (setup->image_fd < 0)
-                                return setup->image_fd;
-
-                        has_stat = true;
-                }
 
                 r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
@@ -1298,7 +1374,7 @@ int home_setup_luks(
                         setup->do_mark_clean = true;
 
                 if (!user_record_luks_discard(h)) {
-                        r = run_fallocate(setup->image_fd, has_stat ? &st : NULL);
+                        r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
                 }
@@ -1313,7 +1389,8 @@ int home_setup_luks(
 
                 log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
-                r = luks_setup(setup->loop->node ?: ip,
+                r = luks_setup(h,
+                               setup->loop->node ?: ip,
                                setup->dm_name,
                                h->luks_uuid,
                                h->luks_cipher,
@@ -1325,15 +1402,18 @@ int home_setup_luks(
                                &setup->crypt_device,
                                &found_luks_uuid,
                                &volume_key,
-                               &volume_key_size);
+                               &volume_key_size,
+                               &setup->key_serial);
                 if (r < 0)
                         return r;
 
                 setup->undo_dm = true;
 
-                r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
-                if (r < 0)
-                        return r;
+                if (ret_luks_home) {
+                        r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = fs_validate(setup->dm_node, h->file_system_uuid, &fstype, &found_fs_uuid);
                 if (r < 0)
@@ -1359,13 +1439,21 @@ int home_setup_luks(
                 setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
         }
 
-        setup->found_partition_uuid = found_partition_uuid;
-        setup->found_luks_uuid = found_luks_uuid;
-        setup->found_fs_uuid = found_fs_uuid;
+        if (!sd_id128_is_null(found_partition_uuid))
+                setup->found_partition_uuid = found_partition_uuid;
+        if (!sd_id128_is_null(found_luks_uuid))
+                setup->found_luks_uuid = found_luks_uuid;
+        if (!sd_id128_is_null(found_fs_uuid))
+                setup->found_fs_uuid = found_fs_uuid;
+
         setup->partition_offset = offset;
         setup->partition_size = size;
-        setup->volume_key = TAKE_PTR(volume_key);
-        setup->volume_key_size = volume_key_size;
+
+        if (volume_key) {
+                erase_and_free(setup->volume_key);
+                setup->volume_key = TAKE_PTR(volume_key);
+                setup->volume_key_size = volume_key_size;
+        }
 
         if (ret_luks_home)
                 *ret_luks_home = TAKE_PTR(luks_home);
@@ -1381,6 +1469,42 @@ static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, cons
                  FORMAT_BYTES(encrypted_size),
                  FORMAT_BYTES((uint64_t) sfs->f_blocks * (uint64_t) sfs->f_frsize),
                  FORMAT_BYTES((uint64_t) sfs->f_bfree * (uint64_t) sfs->f_frsize));
+}
+
+static int home_auto_grow_luks(
+                UserRecord *h,
+                HomeSetup *setup,
+                PasswordCache *cache) {
+
+        struct statfs sfs;
+
+        assert(h);
+        assert(setup);
+
+        if (!IN_SET(user_record_auto_resize_mode(h), AUTO_RESIZE_GROW, AUTO_RESIZE_SHRINK_AND_GROW))
+                return 0;
+
+        assert(setup->root_fd >= 0);
+
+        if (fstatfs(setup->root_fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs home directory: %m");
+
+        if (!fs_can_online_shrink_and_grow(sfs.f_type)) {
+                log_debug("Not auto-grow file system, since selected file system cannot do both online shrink and grow.");
+                return 0;
+        }
+
+        log_debug("Initiating auto-grow...");
+
+        return home_resize_luks(
+                        h,
+                        HOME_SETUP_ALREADY_ACTIVATED|
+                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
+                        HOME_SETUP_RESIZE_DONT_SHRINK|
+                        HOME_SETUP_RESIZE_DONT_UNDO,
+                        setup,
+                        cache,
+                        NULL);
 }
 
 int home_activate_luks(
@@ -1420,6 +1544,10 @@ int home_activate_luks(
                         setup,
                         cache,
                         &luks_home_record);
+        if (r < 0)
+                return r;
+
+        r = home_auto_grow_luks(h, setup, cache);
         if (r < 0)
                 return r;
 
@@ -1464,8 +1592,9 @@ int home_activate_luks(
         setup->do_offline_fallocate = false;
         setup->do_mark_clean = false;
         setup->do_drop_caches = false;
+        TAKE_KEY_SERIAL(setup->key_serial); /* Leave key in kernel keyring */
 
-        log_info("Everything completed.");
+        log_info("Activation completed.");
 
         print_size_summary(host_size, encrypted_size, &sfs);
 
@@ -1479,7 +1608,6 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
 
         assert(h);
         assert(setup);
-        assert(!setup->crypt_device);
 
         /* Note that the DM device and loopback device are set to auto-detach, hence strictly speaking we
          * don't have to explicitly have to detach them. However, we do that nonetheless (in case of the DM
@@ -1487,13 +1615,17 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
          * don't bother about the loopback device because unlike the DM device it doesn't have a fixed
          * name. */
 
-        r = acquire_open_luks_device(h, setup, /* graceful= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
-        if (r == 0) {
-                log_debug("LUKS device %s has already been detached.", setup->dm_name);
-                we_detached = false;
-        } else {
+        if (!setup->crypt_device) {
+                r = acquire_open_luks_device(h, setup, /* graceful= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+                if (r == 0) {
+                        log_debug("LUKS device %s has already been detached.", setup->dm_name);
+                        we_detached = false;
+                }
+        }
+
+        if (setup->crypt_device) {
                 log_info("Discovered used LUKS device %s.", setup->dm_node);
 
                 cryptsetup_enable_logging(setup->crypt_device);
@@ -1762,6 +1894,8 @@ static int make_partition_table(
         assert(first_lba <= UINT64_MAX/512);
         start = DISK_SIZE_ROUND_UP(first_lba * 512); /* Round up to multiple of 4K */
 
+        log_debug("Starting partition at offset %" PRIu64, start);
+
         if (start == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Overflow while rounding up start LBA.");
 
@@ -1895,36 +2029,33 @@ static int wait_for_devlink(const char *path) {
         }
 }
 
-static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *ret) {
+static int calculate_initial_image_size(UserRecord *h, int image_fd, const char *fstype, uint64_t *ret) {
+        uint64_t upper_boundary, lower_boundary;
         struct statfs sfs;
-        uint64_t m;
 
         assert(h);
-        assert(parent_dir);
+        assert(image_fd >= 0);
         assert(ret);
 
-        if (h->disk_size != UINT64_MAX) {
-                *ret = DISK_SIZE_ROUND_DOWN(h->disk_size);
-                return 0;
-        }
+        if (fstatfs(image_fd, &sfs) < 0)
+                return log_error_errno(errno, "statfs() on image failed: %m");
 
-        if (statfs(parent_dir, &sfs) < 0)
-                return log_error_errno(errno, "statfs() on %s failed: %m", parent_dir);
+        upper_boundary = DISK_SIZE_ROUND_DOWN((uint64_t) sfs.f_bsize * sfs.f_bavail);
 
-        m = sfs.f_bsize * sfs.f_bavail;
+        if (h->disk_size != UINT64_MAX)
+                *ret = MIN(DISK_SIZE_ROUND_DOWN(h->disk_size), upper_boundary);
+        else if (h->disk_size_relative == UINT64_MAX) {
 
-        if (h->disk_size_relative == UINT64_MAX) {
-
-                if (m > UINT64_MAX / USER_DISK_SIZE_DEFAULT_PERCENT)
+                if (upper_boundary > UINT64_MAX / USER_DISK_SIZE_DEFAULT_PERCENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Disk size too large.");
 
-                *ret = DISK_SIZE_ROUND_DOWN(m * USER_DISK_SIZE_DEFAULT_PERCENT / 100);
+                *ret = DISK_SIZE_ROUND_DOWN(upper_boundary * USER_DISK_SIZE_DEFAULT_PERCENT / 100);
 
                 log_info("Sizing home to %u%% of available disk space, which is %s.",
                          USER_DISK_SIZE_DEFAULT_PERCENT,
                          FORMAT_BYTES(*ret));
         } else {
-                *ret = DISK_SIZE_ROUND_DOWN((uint64_t) ((double) m * (double) h->disk_size_relative / (double) UINT32_MAX));
+                *ret = DISK_SIZE_ROUND_DOWN((uint64_t) ((double) upper_boundary * (double) CLAMP(h->disk_size_relative, 0U, UINT32_MAX) / (double) UINT32_MAX));
 
                 log_info("Sizing home to %" PRIu64 ".%01" PRIu64 "%% of available disk space, which is %s.",
                          (h->disk_size_relative * 100) / UINT32_MAX,
@@ -1932,8 +2063,14 @@ static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *
                          FORMAT_BYTES(*ret));
         }
 
-        if (*ret < USER_DISK_SIZE_MIN)
-                *ret = USER_DISK_SIZE_MIN;
+        lower_boundary = minimal_size_by_fs_name(fstype);
+        if (lower_boundary != UINT64_MAX)
+                lower_boundary += GPT_LUKS2_OVERHEAD;
+        if (lower_boundary == UINT64_MAX || lower_boundary < USER_DISK_SIZE_MIN)
+                lower_boundary = USER_DISK_SIZE_MIN;
+
+        if (*ret < lower_boundary)
+                *ret = lower_boundary;
 
         return 0;
 }
@@ -1941,7 +2078,6 @@ static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *
 static int home_truncate(
                 UserRecord *h,
                 int fd,
-                const char *path,
                 uint64_t size) {
 
         bool trunc;
@@ -1949,7 +2085,6 @@ static int home_truncate(
 
         assert(h);
         assert(fd >= 0);
-        assert(path);
 
         trunc = user_record_luks_discard(h);
         if (!trunc) {
@@ -1967,14 +2102,14 @@ static int home_truncate(
 
         if (r < 0) {
                 if (ERRNO_IS_DISK_SPACE(errno)) {
-                        log_error_errno(errno, "Not enough disk space to allocate home.");
+                        log_debug_errno(errno, "Not enough disk space to allocate home of size %s.", FORMAT_BYTES(size));
                         return -ENOSPC; /* make recognizable */
                 }
 
-                return log_error_errno(errno, "Failed to truncate home image %s: %m", path);
+                return log_error_errno(errno, "Failed to truncate home image: %m");
         }
 
-        return 0;
+        return !trunc; /* Return == 0 if we managed to truncate, > 0 if we managed to allocate */
 }
 
 int home_create_luks(
@@ -2104,7 +2239,7 @@ int home_create_luks(
                 else
                         host_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
 
-                if (!supported_fs_size(fstype, host_size))
+                if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
                                                "Selected file system size too small for %s.", fstype);
 
@@ -2124,22 +2259,11 @@ int home_create_luks(
                                 log_info("Full device discard completed.");
                 }
         } else {
-                _cleanup_free_ char *parent = NULL, *t = NULL;
+                _cleanup_free_ char *t = NULL;
 
-                parent = dirname_malloc(ip);
-                if (!parent)
-                        return log_oom();
-
-                r = mkdir_p(parent, 0755);
+                r = mkdir_parents(ip, 0755);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create parent directory %s: %m", parent);
-
-                r = calculate_disk_size(h, parent, &host_size);
-                if (r < 0)
-                        return r;
-
-                if (!supported_fs_size(fstype, host_size))
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", fstype);
+                        return log_error_errno(r, "Failed to create parent directory of %s: %m", ip);
 
                 r = tempfn_random(ip, "homework", &t);
                 if (r < 0)
@@ -2156,7 +2280,11 @@ int home_create_luks(
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
-                r = home_truncate(h, setup->image_fd, setup->temporary_image_path, host_size);
+                r = calculate_initial_image_size(h, setup->image_fd, fstype, &host_size);
+                if (r < 0)
+                        return r;
+
+                r = resize_image_loop(h, setup, 0, host_size, &host_size);
                 if (r < 0)
                         return r;
 
@@ -2334,9 +2462,11 @@ int home_create_luks(
         if (disk_uuid_path)
                 (void) wait_for_devlink(disk_uuid_path);
 
-        log_info("Everything completed.");
+        log_info("Creation completed.");
 
         print_size_summary(host_size, encrypted_size, &sfs);
+
+        log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
@@ -2745,6 +2875,39 @@ static int get_smallest_fs_size(int fd, uint64_t *ret) {
         return 0;
 }
 
+static int get_largest_image_size(int fd, const struct stat *st, uint64_t *ret) {
+        uint64_t used, avail, sum;
+        struct statfs sfs;
+        int r;
+
+        assert(fd >= 0);
+        assert(st);
+        assert(ret);
+
+        /* Determines the maximum file size we might be able to grow the image file referenced by the fd to. */
+
+        r = stat_verify_regular(st);
+        if (r < 0)
+                return log_error_errno(r, "Image file is not a regular file, refusing: %m");
+
+        if (syncfs(fd) < 0)
+                return log_error_errno(errno, "Failed to synchronize file system backing image file: %m");
+
+        if (fstatfs(fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs() image file: %m");
+
+        used = (uint64_t) st->st_blocks * 512;
+        avail = (uint64_t) sfs.f_bsize * sfs.f_bavail;
+
+        if (avail > UINT64_MAX - used)
+                sum = UINT64_MAX;
+        else
+                sum = avail + used;
+
+        *ret = DISK_SIZE_ROUND_DOWN(MIN(sum, USER_DISK_SIZE_MAX));
+        return 0;
+}
+
 static int resize_fs_loop(
                 UserRecord *h,
                 HomeSetup *setup,
@@ -2828,6 +2991,77 @@ static int resize_fs_loop(
 
         if (ret_fs_size)
                 *ret_fs_size = current_fs_size;
+
+        return 0;
+}
+
+static int resize_image_loop(
+                UserRecord *h,
+                HomeSetup *setup,
+                uint64_t old_image_size,
+                uint64_t new_image_size,
+                uint64_t *ret_image_size) {
+
+        uint64_t current_image_size;
+        unsigned n_iterations = 0;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(setup->image_fd >= 0);
+
+        /* A bisection loop trying to find the closest size to what the user asked for. (Well, we bisect like
+         * this only when we *grow* the image — if we shrin the image then there's no need to bisect.) */
+
+        current_image_size = old_image_size;
+        for (uint64_t lower_boundary = old_image_size, upper_boundary = new_image_size, try_image_size = new_image_size;;) {
+                bool worked;
+
+                n_iterations++;
+
+                r = home_truncate(h, setup->image_fd, try_image_size);
+                if (r < 0) {
+                        if (!ERRNO_IS_DISK_SPACE(r) || new_image_size < old_image_size) /* Not a disk space issue? Not trying to grow? */
+                                return r;
+
+                        log_debug_errno(r, "Growing from %s to %s didn't work, not enough space on backing disk.", FORMAT_BYTES(current_image_size), FORMAT_BYTES(try_image_size));
+                        worked = false;
+                } else if (r > 0) { /* Success: allocation worked */
+                        log_debug("Resizing from %s to %s via allocation worked successfully.", FORMAT_BYTES(current_image_size), FORMAT_BYTES(try_image_size));
+                        current_image_size = try_image_size;
+                        worked = true;
+                } else { /* Success, but through truncation, not allocation. */
+                        log_debug("Resizing from %s to %s via truncation worked successfully.", FORMAT_BYTES(old_image_size), FORMAT_BYTES(try_image_size));
+                        current_image_size = try_image_size;
+                        break; /* there's no point in the bisection logic if this was plain truncation and
+                                * not allocation, let's exit immediately. */
+                }
+
+                if (new_image_size < old_image_size) /* If we are shrinking we are done after one iteration */
+                        break;
+
+                /* If we are growing then let's adjust our bisection boundries and try again */
+                if (worked)
+                        lower_boundary = MAX(lower_boundary, try_image_size);
+                else
+                        upper_boundary = MIN(upper_boundary, try_image_size);
+
+                if (lower_boundary >= upper_boundary) {
+                        log_debug("Image can't be grown further (range to try is empty).");
+                        break;
+                }
+
+                try_image_size = DISK_SIZE_ROUND_DOWN(lower_boundary + (upper_boundary - lower_boundary) / 2);
+                if (try_image_size <= lower_boundary || try_image_size >= upper_boundary) {
+                        log_debug("Image can't be grown further (remaining range to try too small).");
+                        break;
+                }
+        }
+
+        log_debug("Bisection loop completed after %u iterations.", n_iterations);
+
+        if (ret_image_size)
+                *ret_image_size = current_image_size;
 
         return 0;
 }
@@ -2969,11 +3203,17 @@ int home_resize_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Old partition doesn't fit in backing storage, refusing.");
 
         if (S_ISREG(st.st_mode)) {
-                uint64_t partition_table_extra;
+                uint64_t partition_table_extra, largest_size;
 
                 partition_table_extra = old_image_size - setup->partition_size;
 
-                if (new_image_size <= partition_table_extra)
+                r = get_largest_image_size(setup->image_fd, &st, &largest_size);
+                if (r < 0)
+                        return r;
+                if (new_image_size > largest_size)
+                        new_image_size = largest_size;
+
+                if (new_image_size < partition_table_extra)
                         new_image_size = partition_table_extra;
 
                 new_partition_size = DISK_SIZE_ROUND_DOWN(new_image_size - partition_table_extra);
@@ -3090,12 +3330,35 @@ int home_resize_luks(
         if (new_fs_size > old_fs_size) { /* → Grow */
 
                 if (S_ISREG(st.st_mode)) {
+                        uint64_t resized_image_size;
+
                         /* Grow file size */
-                        r = home_truncate(h, image_fd, ip, new_image_size);
+                        r = resize_image_loop(h, setup, old_image_size, new_image_size, &resized_image_size);
                         if (r < 0)
                                 return r;
 
-                        log_info("Growing of image file completed.");
+                        if (resized_image_size == old_image_size) {
+                                log_info("Couldn't change image size.");
+                                return 0;
+                        }
+
+                        assert(resized_image_size > old_image_size);
+
+                        log_info("Growing of image file from %s to %s completed.", FORMAT_BYTES(old_image_size), FORMAT_BYTES(resized_image_size));
+
+                        if (resized_image_size < new_image_size) {
+                                uint64_t sub;
+
+                                /* If the growing we managed to do is smaller than what we wanted we need to
+                                 * adjust the partition/file system sizes we are going for, too */
+                                sub = new_image_size - resized_image_size;
+                                assert(new_partition_size >= sub);
+                                new_partition_size -= sub;
+                                assert(new_fs_size >= sub);
+                                new_fs_size -= sub;
+                        }
+
+                        new_image_size = resized_image_size;
                 } else {
                         assert(S_ISBLK(st.st_mode));
                         assert(new_image_size == old_image_size);
@@ -3240,11 +3503,13 @@ int home_resize_luks(
         if (r < 0)
                 return r;
 
-        r = home_setup_done(setup);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_UNDO)) {
+                r = home_setup_done(setup);
+                if (r < 0)
+                        return r;
+        }
 
-        log_info("Everything completed.");
+        log_info("Resizing completed.");
 
         print_size_summary(new_image_size, new_fs_size, &sfs);
 
@@ -3256,9 +3521,10 @@ int home_resize_luks(
 
 int home_passwd_luks(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
-                const PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
-                char **effective_passwords /* new passwords */) {
+                const PasswordCache *cache, /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                char **effective_passwords  /* new passwords */) {
 
         size_t volume_key_size, max_key_slots, n_effective;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
@@ -3295,11 +3561,12 @@ int home_passwd_luks(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
+                        cache ? cache->keyring_passswords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
 
-                r = luks_try_passwords(setup->crypt_device, list, volume_key, &volume_key_size);
+                r = luks_try_passwords(h, setup->crypt_device, list, volume_key, &volume_key_size, NULL);
                 if (r != -ENOKEY)
                         break;
         }
@@ -3345,6 +3612,13 @@ int home_passwd_luks(
                         return log_error_errno(r, "Failed to set up LUKS password: %m");
 
                 log_info("Updated LUKS key slot %zu.", i);
+
+                /* If we changed the password, then make sure to update the copy in the keyring, so that
+                 * auto-rebalance continues to work. We only do this if we operate on an active home dir. */
+                if (i == 0 && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
+                        key_serial_t serial = -1;
+                        upload_to_keyring(h, effective_passwords[i], &serial);
+                }
         }
 
         return 1;
@@ -3565,4 +3839,40 @@ int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
 
         log_debug("Successfully waited until device %s disappeared.", setup->dm_node);
         return 0;
+}
+
+int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache) {
+        struct statfs sfs;
+        int r;
+
+        assert(h);
+        assert(user_record_storage(h) == USER_LUKS);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        if (user_record_auto_resize_mode(h) != AUTO_RESIZE_SHRINK_AND_GROW)
+                return 0;
+
+        if (fstatfs(setup->root_fd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs home directory: %m");
+
+        if (!fs_can_online_shrink_and_grow(sfs.f_type)) {
+                log_debug("Not auto-shrinking file system, since selected file system cannot do both online shrink and grow.");
+                return 0;
+        }
+
+        r = home_resize_luks(
+                        h,
+                        HOME_SETUP_ALREADY_ACTIVATED|
+                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
+                        HOME_SETUP_RESIZE_MINIMIZE|
+                        HOME_SETUP_RESIZE_DONT_GROW|
+                        HOME_SETUP_RESIZE_DONT_UNDO,
+                        setup,
+                        cache,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
