@@ -22,10 +22,12 @@ manager, please consider supporting the following interfaces.
    (that file overrides whatever is pre-initialized by the container manager).
 
 2. Make sure to pre-mount `/proc/`, `/sys/`, and `/sys/fs/selinux/` before
-   invoking systemd, and mount `/proc/sys/`, `/sys/`, and `/sys/fs/selinux/`
-   read-only in order to prevent the container from altering the host kernel's
-   configuration settings. (As a special exception, if your container has
-   network namespaces enabled, feel free to make `/proc/sys/net/` writable).
+   invoking systemd, and mount `/sys/`, `/sys/fs/selinux/` and `/proc/sys/`
+   read-only (the latter via e.g. a read-only bind mount on itself) in order
+   to prevent the container from altering the host kernel's configuration
+   settings. (As a special exception, if your container has network namespaces
+   enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
    systemd and various other subsystems (such as the SELinux userspace) have
    been modified to behave accordingly when these file systems are read-only.
    (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
