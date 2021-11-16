@@ -37,6 +37,20 @@
         _sd_unit_files
     }
 
+(( $+functions[_systemd-analyze_syscall-filter] )) ||
+    _systemd-analyze_syscall-filter() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager syscall-filter | grep '^@') )
+        _describe -t groups 'syscall groups' _groups || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_filesystems] )) ||
+    _systemd-analyze_filesystems() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager filesystems | grep '^@') )
+        _describe -t groups 'file system groups' _groups || compadd "$@"
+    }
+
 (( $+functions[_systemd-analyze_commands] )) ||
     _systemd-analyze_commands(){
         local -a _systemd_analyze_cmds
@@ -52,7 +66,9 @@
             'unit-files:List files and symlinks for units'
             'unit-paths:List unit load paths'
             'exit-status:List known exit statuses'
-            'syscall-filter:List syscalls in seccomp filter'
+            'capability:List capability definitions'
+            'syscall-filter:List syscalls in seccomp filters'
+            'filesystems:List known filesystems'
             'condition:Evaluate Condition*= and Assert*= assignments'
             'verify:Check unit files for correctness'
             'calendar:Validate repetitive calendar time events'
@@ -90,12 +106,13 @@ _arguments \
     '--root=[Add support for root argument]:PATH' \
     '--image=[Add support for discrete images]:PATH' \
     '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
-    '--offline=[Perform a security review of the specified unit file(s)]:BOOL' \
+    '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
     '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
     '--security-policy=[Allow user to use customized requirements to compare unit file(s) against]: PATH' \
     '--json=[Generate a JSON output of the security analysis table]:MODE:(pretty short off)' \
     '--no-pager[Do not pipe output into a pager]' \
-    '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
+    '--man=[Do (not) check for existence of man pages]:BOOL:(yes no)' \
+    '--generators=[Do (not) run unit generators]:BOOL:(yes no)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
     '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
