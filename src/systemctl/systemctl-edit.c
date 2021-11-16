@@ -5,7 +5,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
