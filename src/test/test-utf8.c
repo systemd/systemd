@@ -66,6 +66,33 @@ static void test_ascii_is_valid_n(void) {
         assert_se( ascii_is_valid_n("\342\204\242", 0));
 }
 
+static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *expected) {
+        _cleanup_free_ char *ans = NULL;
+        int r;
+
+        r = utf8_to_ascii(s, '*', &ans);
+        log_debug("\"%s\" → %d/\"%s\" (expected %d/\"%s\")", s, r, strnull(ans), r_expected, strnull(expected));
+        assert_se(r == r_expected);
+        assert_se(streq_ptr(ans, expected));
+}
+
+static void test_utf8_to_ascii(void) {
+        log_info("/* %s */", __func__);
+
+        test_utf8_to_ascii_one("asdf", 0, "asdf");
+        test_utf8_to_ascii_one("dąb", 0, "d*b");
+        test_utf8_to_ascii_one("żęśłą óźń", 0, "***** ***");
+        test_utf8_to_ascii_one("\342\204\242", 0, "*");
+        test_utf8_to_ascii_one("\342\204", -EINVAL, NULL); /* truncated */
+        test_utf8_to_ascii_one("\342", -EINVAL, NULL); /* truncated */
+        test_utf8_to_ascii_one("\302\256", 0, "*");
+        test_utf8_to_ascii_one("", 0, "");
+        test_utf8_to_ascii_one(" ", 0, " ");
+        test_utf8_to_ascii_one("\t", 0, "\t");
+        test_utf8_to_ascii_one("串", 0, "*");
+        test_utf8_to_ascii_one("…👊🔪💐…", 0, "*****");
+}
+
 static void test_utf8_encoded_valid_unichar(void) {
         log_info("/* %s */", __func__);
 
@@ -241,6 +268,7 @@ int main(int argc, char *argv[]) {
         test_utf8_is_printable();
         test_ascii_is_valid();
         test_ascii_is_valid_n();
+        test_utf8_to_ascii();
         test_utf8_encoded_valid_unichar();
         test_utf8_escape_invalid();
         test_utf8_escape_non_printable();
