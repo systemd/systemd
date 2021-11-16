@@ -43,3 +43,5 @@ int run_fallocate(int backing_fd, const struct stat *st);
 int run_fallocate_by_path(const char *backing_path);
 int run_mark_dirty(int fd, bool b);
 int run_mark_dirty_by_path(const char *path, bool b);
+
+int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec);
