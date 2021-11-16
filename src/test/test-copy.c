@@ -103,8 +103,7 @@ static void test_copy_tree(void) {
 
                 assert_se(f = path_join(original_dir, *p));
 
-                assert_se(mkdir_parents(f, 0755) >= 0);
-                assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE) == 0);
+                assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) == 0);
 
                 assert_se(base64mem(*p, strlen(*p), &c) >= 0);
 
