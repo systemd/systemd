@@ -416,6 +416,88 @@ static int journal_file_truncate(JournalFile *f) {
         return 0;
 }
 
+static int journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
+        Object *o;
+        uint64_t offset, sz, n_items = 0, n_unused;
+        int r;
+
+        if (n_entries == 0)
+                return 0;
+
+        for (uint64_t q = p; q != 0; q = le64toh(o->entry_array.next_entry_array_offset)) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, q, &o);
+                if (r < 0)
+                        return r;
+
+                n_items += journal_file_entry_array_n_items(o);
+                p = q;
+        }
+
+        if (p == 0)
+                return 0;
+
+        if (n_entries > n_items)
+                return -EBADMSG;
+
+        /* Amount of unused items in the final entry array. */
+        n_unused = n_items - n_entries;
+
+        offset = p + offsetof(Object, entry_array.items) +
+                (journal_file_entry_array_n_items(o) - n_unused) * sizeof(le64_t);
+        sz = p + le64toh(o->object.size) - offset;
+
+        if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
+                return log_debug_errno(errno, "Failed to punch hole in entry array: %m");
+
+        return 0;
+}
+
+static int journal_file_punch_holes(JournalFile *f) {
+        uint64_t n;
+        int r;
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (f->fd < 0 || !f->header)
+                return -EINVAL;
+
+        r = journal_file_entry_array_punch_hole(
+                f, le64toh(f->header->entry_array_offset), le64toh(f->header->n_entries));
+        if (r < 0)
+                return r;
+
+        n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        if (n <= 0)
+                return 0;
+
+        r = journal_file_map_data_hash_table(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map data hash table: %m");
+
+        for (uint64_t i = 0; i < n; i++) {
+                Object *o;
+
+                for (uint64_t p = le64toh(f->data_hash_table[i].head_hash_offset); p != 0;
+                     p = le64toh(o->data.next_hash_offset)) {
+
+                        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                        if (r < 0)
+                                return r;
+
+                        if (le64toh(o->data.n_entries) == 0)
+                                return -EBADMSG;
+
+                        r = journal_file_entry_array_punch_hole(
+                                f, le64toh(o->data.entry_array_offset), le64toh(o->data.n_entries) - 1);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
@@ -438,8 +520,10 @@ JournalFile* journal_file_close(JournalFile *f) {
                 sd_event_source_disable_unref(f->post_change_timer);
         }
 
-        if (f->archive)
+        if (f->archive) {
+                (void) journal_file_punch_holes(f);
                 (void) journal_file_truncate(f);
+        }
 
         journal_file_set_offline(f, true);
 
