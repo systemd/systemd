@@ -6,6 +6,7 @@
 int manager_check_resolv_conf(const Manager *m);
 int manager_read_resolv_conf(Manager *m);
 int manager_write_resolv_conf(Manager *m);
+void manager_write_non_stub_resolv_conf(Manager *m);
 
 typedef enum ResolvConfMode {
         RESOLV_CONF_UPLINK,
