@@ -593,7 +593,7 @@ static int verify_data(
         return 0;
 }
 
-static int verify_hash_table(
+static int verify_data_hash_table(
                 JournalFile *f,
                 MMapFileDescriptor *cache_data_fd, uint64_t n_data,
                 MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
@@ -824,6 +824,33 @@ static int verify_entry_array(
                 }
 
                 a = next;
+        }
+
+        return 0;
+}
+
+static int verify_hash_table(
+                Object *o, uint64_t p, uint64_t n_hash_tables, uint64_t header_offset, uint64_t header_size) {
+
+        if (n_hash_tables > 1) {
+                error(p, "More than one data hash table: %" PRIu64, n_hash_tables);
+                return -EBADMSG;
+        }
+
+        if (header_offset != p + offsetof(HashTableObject, items)) {
+                error(p,
+                      "Header offset for data hash table invalid (%" PRIu64 " != %" PRIu64 ")",
+                      header_offset,
+                      p + offsetof(HashTableObject, items));
+                return -EBADMSG;
+        }
+
+        if (header_size != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                error(p,
+                      "Header size for data hash table invalid (%" PRIu64 " != %" PRIu64 ")",
+                      header_size,
+                      le64toh(o->object.size) - offsetof(HashTableObject, items));
+                return -EBADMSG;
         }
 
         return 0;
@@ -1092,59 +1119,15 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_DATA_HASH_TABLE:
-                        if (n_data_hash_tables > 1) {
-                                error(p, "More than one data hash table: %"PRIu64, n_data_hash_tables);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items)) {
-                                error(p,
-                                      "Header offset for data hash table invalid (%"PRIu64" != %"PRIu64")",
-                                      le64toh(f->header->data_hash_table_offset),
-                                      p + offsetof(HashTableObject, items));
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                error(p,
-                                      "Header size for data hash table invalid (%"PRIu64" != %"PRIu64")",
-                                      le64toh(f->header->data_hash_table_size),
-                                      le64toh(o->object.size) - offsetof(HashTableObject, items));
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        n_data_hash_tables++;
+                        verify_hash_table(o, p, n_data_hash_tables++,
+                                          le64toh(f->header->data_hash_table_offset),
+                                          le64toh(f->header->data_hash_table_size));
                         break;
 
                 case OBJECT_FIELD_HASH_TABLE:
-                        if (n_field_hash_tables > 1) {
-                                error(p, "More than one field hash table: %"PRIu64"", n_field_hash_tables);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items)) {
-                                error(p,
-                                      "Header offset for field hash table invalid (%"PRIu64" != %"PRIu64")",
-                                      le64toh(f->header->field_hash_table_offset),
-                                      p + offsetof(HashTableObject, items));
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                error(p,
-                                      "Header size for field hash table invalid (%"PRIu64" != %"PRIu64")",
-                                      le64toh(f->header->field_hash_table_size),
-                                      le64toh(o->object.size) - offsetof(HashTableObject, items));
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        n_field_hash_tables++;
+                        verify_hash_table(o, p, n_field_hash_tables++,
+                                          le64toh(f->header->field_hash_table_offset),
+                                          le64toh(f->header->field_hash_table_size));
                         break;
 
                 case OBJECT_ENTRY_ARRAY:
@@ -1408,12 +1391,12 @@ int journal_file_verify(
         if (r < 0)
                 goto fail;
 
-        r = verify_hash_table(f,
-                              cache_data_fd, n_data,
-                              cache_entry_fd, n_entries,
-                              cache_entry_array_fd, n_entry_arrays,
-                              &last_usec,
-                              show_progress);
+        r = verify_data_hash_table(f,
+                                   cache_data_fd, n_data,
+                                   cache_entry_fd, n_entries,
+                                   cache_entry_array_fd, n_entry_arrays,
+                                   &last_usec,
+                                   show_progress);
         if (r < 0)
                 goto fail;
 
