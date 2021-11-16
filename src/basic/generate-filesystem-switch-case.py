@@ -7,32 +7,22 @@ import sys
 def filter_fsname(name):
     # File system magics are sometimes not unique, because file systems got new
     # revisions or got renamed. Let's prefer newer over older here, and thus
-    # ignore the old names. Specifically:
-    #
-    # → cgroupfs took over the magic of cpuset
-    # → devtmpfs is not a file system of its own, but just a "named superblock" of tmpfs
-    # → ext4 is the newest revision of ext2 + ext3
-    # → fuseblk is closely related to fuse, so close that they share a single magic, but the latter is more common
-    # → gfs2 is the newest revision of gfs
-    # → vfat is the newest revision of msdos
-    # → ncpfs (not ncp) was the last name of the netware `file_system_type` name before it was removed in 2018
-    # → nfs4 is the newest revision of nfs
-    # → orangefs is the new name of pvfs2
-    # → smb3 is an alias for cifs
+    # ignore the old names.
 
-    return name in (
-        "cpuset",
-        "devtmpfs",
-        "ext2",
+    return name in {
+        "cpuset",    # magic taken over by cgroupfs
+        "devtmpfs",  # not a file system of its own, but just a "named superblock" of tmpfs
+        "ext2",      # ext4 is the newest revision of ext2 + ext3
         "ext3",
-        "fuseblk",
-        "gfs",
-        "msdos",
-        "ncp",
-        "nfs",
-        "pvfs2",
-        "smb3",
-    )
+        "fuseblk",   # closely related to fuse; they share a single magic, but the latter is more common
+        "gfs",       # magic taken over by gfs2
+        "msdos",     # vfat is the newest revision of msdos
+        "ncp",       # ncpfs (not ncp) was the last name of the netware `file_system_type`
+                     # name before it was removed in 2018
+        "nfs",       # nfs4 is the newest revision of nfs
+        "pvfs2",     # orangefs is the new name of pvfs2
+        "smb3",      # smb3 is an alias for cifs
+    }
 
 
 gperf_file = sys.argv[1]
