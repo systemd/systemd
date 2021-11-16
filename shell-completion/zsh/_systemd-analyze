@@ -1,30 +1,9 @@
 #compdef systemd-analyze
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-(( $+functions[_systemd-analyze_log-level] )) ||
-    _systemd-analyze_log-level() {
-        local -a _levels
-        _levels=(debug info notice warning err crit alert emerg)
-        _describe -t level 'logging level' _levels || compadd "$@"
-    }
-
-(( $+functions[_systemd-analyze_log-target] )) ||
-    _systemd-analyze_log-target() {
-        local -a _targets
-        _targets=(console journal kmsg journal-or-kmsg null)
-        _describe -t target 'logging target' _targets || compadd "$@"
-    }
-
 (( $+functions[_systemd-analyze_verify] )) ||
     _systemd-analyze_verify() {
         _sd_unit_files
-    }
-
-(( $+functions[_systemd-analyze_service-watchdogs] )) ||
-    _systemd-analyze_service-watchdogs() {
-        local -a _states
-        _states=(on off)
-        _describe -t state 'state' _states || compadd "$@"
     }
 
 (( $+functions[_systemd-analyze_cat-config] )) ||
@@ -75,9 +54,7 @@
             'timestamp:Parse a systemd syntax timestamp'
             'timespan:Parse a systemd syntax timespan'
             'security:Analyze security settings of a service'
-            # 'log-level:Get/set systemd log threshold'
-            # 'log-target:Get/set systemd log target'
-            # 'service-watchdogs:Get/set service watchdog status'
+            # log-level, log-target, service-watchdogs have been deprecated
         )
 
         if (( CURRENT == 1 )); then
