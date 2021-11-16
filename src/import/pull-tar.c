@@ -16,7 +16,7 @@
 #include "import-util.h"
 #include "install-file.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "pull-common.h"

@@ -1887,7 +1887,7 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
         int r;
 
         q = prefix_roota(root, path);
-        r = mkdir_errno_wrapper(q, mode);
+        r = RET_NERRNO(mkdir(q, mode));
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
@@ -2341,7 +2341,7 @@ static int setup_pts(const char *dest) {
 
         /* Mount /dev/pts itself */
         p = prefix_roota(dest, "/dev/pts");
-        r = mkdir_errno_wrapper(p, 0755);
+        r = RET_NERRNO(mkdir(p, 0755));
         if (r < 0)
                 return log_error_errno(r, "Failed to create /dev/pts: %m");
 
@@ -2666,7 +2666,7 @@ static int setup_journal(const char *directory) {
                 /* don't create parents here — if the host doesn't have
                  * permanent journal set up, don't force it here */
 
-                r = mkdir_errno_wrapper(p, 0755);
+                r = RET_NERRNO(mkdir(p, 0755));
                 if (r < 0 && r != -EEXIST) {
                         if (try) {
                                 log_debug_errno(r, "Failed to create %s, skipping journal setup: %m", p);

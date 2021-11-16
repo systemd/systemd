@@ -13,7 +13,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "missing_syscall.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
