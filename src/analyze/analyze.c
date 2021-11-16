@@ -1850,8 +1850,9 @@ static void filesystem_set_remove(Set *s, const FilesystemSet *set) {
         }
 }
 
-static void dump_filesystem(const FilesystemSet *set) {
+static void dump_filesystem_set(const FilesystemSet *set) {
         const char *filesystem;
+        int r;
 
         if (!set)
                 return;
@@ -1863,8 +1864,38 @@ static void dump_filesystem(const FilesystemSet *set) {
                ansi_normal(),
                set->help);
 
-        NULSTR_FOREACH(filesystem, set->value)
-                printf("    %s%s%s\n", filesystem[0] == '@' ? ansi_underline() : "", filesystem, ansi_normal());
+        NULSTR_FOREACH(filesystem, set->value) {
+                const statfs_f_type_t *magic;
+
+                if (filesystem[0] == '@') {
+                        printf("    %s%s%s\n", ansi_underline(), filesystem, ansi_normal());
+                        continue;
+                }
+
+                r = fs_type_from_string(filesystem, &magic);
+                assert_se(r >= 0);
+
+                printf("    %s", filesystem);
+
+                for (size_t i = 0; magic[i] != 0; i++) {
+                        const char *primary;
+                        if (i == 0)
+                                printf(" %s(magic: ", ansi_grey());
+                        else
+                                printf(", ");
+
+                        printf("0x%llx", (unsigned long long) magic[i]);
+
+                        primary = fs_type_to_string(magic[i]);
+                        if (primary && !streq(primary, filesystem))
+                                printf("[%s]", primary);
+
+                        if (magic[i+1] == 0)
+                                printf(")%s", ansi_normal());
+                }
+
+                printf("\n");
+        }
 }
 
 static int dump_filesystems(int argc, char *argv[], void *userdata) {
@@ -1892,7 +1923,7 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
                         if (!first)
                                 puts("");
 
-                        dump_filesystem(set);
+                        dump_filesystem_set(set);
                         filesystem_set_remove(kernel, set);
                         if (i != FILESYSTEM_SET_KNOWN)
                                 filesystem_set_remove(known, set);
@@ -1913,8 +1944,29 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
 
                         strv_sort(l);
 
-                        STRV_FOREACH(filesystem, l)
+                        STRV_FOREACH(filesystem, l) {
+                                const statfs_f_type_t *magic;
+                                bool is_primary = false;
+
+                                assert(fs_type_from_string(*filesystem, &magic) >= 0);
+
+                                for (size_t i = 0; magic[i] != 0; i++) {
+                                        const char *primary;
+
+                                        primary = fs_type_to_string(magic[i]);
+                                        assert(primary);
+
+                                        if (streq(primary, *filesystem))
+                                                is_primary = true;
+                                }
+
+                                if (!is_primary) {
+                                        log_debug("Skipping ungrouped file system '%s', because it's an alias for another one.", *filesystem);
+                                        continue;
+                                }
+
                                 printf("#   %s\n", *filesystem);
+                        }
                 }
 
                 if (k < 0) {
@@ -1956,7 +2008,7 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
                                                        "Filesystem set \"%s\" not found.", *name);
                         }
 
-                        dump_filesystem(set);
+                        dump_filesystem_set(set);
                         first = false;
                 }
         }
