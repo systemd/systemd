@@ -104,6 +104,7 @@ static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
 static char *arg_unit = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -1361,7 +1362,7 @@ static int dot(int argc, char *argv[], void *userdata) {
                  "                 red       = Conflicts\n"
                  "                 green     = After\n");
 
-        if (on_tty())
+        if (on_tty() && !arg_quiet)
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
 
@@ -1713,7 +1714,8 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                         if (set_put_strdup(&known, sys) < 0)
                                 return log_oom();
 
-                k = load_kernel_syscalls(&kernel);
+                if (!arg_quiet)
+                        k = load_kernel_syscalls(&kernel);
 
                 for (int i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                         const SyscallFilterSet *set = syscall_filter_sets + i;
@@ -1726,6 +1728,9 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                                 syscall_set_remove(known, set);
                         first = false;
                 }
+
+                if (arg_quiet)  /* Let's not show the extra stuff in quiet mode */
+                        return 0;
 
                 if (!set_isempty(known)) {
                         _cleanup_free_ char **l = NULL;
@@ -1748,7 +1753,8 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                 if (k < 0) {
                         fputc('\n', stdout);
                         fflush(stdout);
-                        log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
+                        if (!arg_quiet)
+                                log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
                 } else if (!set_isempty(kernel)) {
                         _cleanup_free_ char **l = NULL;
                         char **syscall;
@@ -1929,6 +1935,9 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
                                 filesystem_set_remove(known, set);
                         first = false;
                 }
+
+                if (arg_quiet)  /* Let's not show the extra stuff in quiet mode */
+                        return 0;
 
                 if (!set_isempty(known)) {
                         _cleanup_free_ char **l = NULL;
@@ -2452,9 +2461,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unit-paths                 List load directories for units\n"
                "  exit-status [STATUS...]    List exit status definitions\n"
                "  capability [CAP...]        List capability definitions\n"
-               "  syscall-filter [NAME...]   Print list of syscalls in seccomp\n"
-               "                             filter\n"
-               "  filesystems [NAME...]      Print list of filesystems\n"
+               "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
+               "  filesystems [NAME...]      List known filesystems\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  verify FILE...             Check unit files for correctness\n"
                "  calendar SPEC...           Validate repetitive calendar time\n"
@@ -2463,12 +2471,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  timespan SPAN...           Validate a time span\n"
                "  security [UNIT...]         Analyze security of unit\n"
                "\nOptions:\n"
-               "  -h --help                  Show this help\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
                "     --threshold=N           Exit with a non-zero status when overall\n"
                "                             exposure level is over threshold value\n"
-               "     --version               Show package version\n"
                "     --security-policy=PATH  Use custom JSON security policy instead\n"
                "                             of built-in one\n"
                "     --json=pretty|short|off Generate JSON output of the security\n"
@@ -2491,6 +2497,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --iterations=N          Show the specified number of iterations\n"
                "     --base-time=TIMESTAMP   Calculate calendar times relative to\n"
                "                             specified time\n"
+               "  -h --help                  Show this help\n"
+               "     --version               Show package version\n"
+               "  -q --quiet                 Do not emit hints\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2532,6 +2541,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",             no_argument,       NULL, 'h'                  },
                 { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "quiet",            no_argument,       NULL, 'q'                  },
                 { "order",            no_argument,       NULL, ARG_ORDER            },
                 { "require",          no_argument,       NULL, ARG_REQUIRE          },
                 { "root",             required_argument, NULL, ARG_ROOT             },
@@ -2569,6 +2579,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         return help(0, NULL, NULL);
 
+                case ARG_VERSION:
+                        return version();
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case ARG_RECURSIVE_ERRORS:
                         if (streq(optarg, "help")) {
                                 DUMP_STRING_TABLE(recursive_errors, RecursiveErrors, _RECURSIVE_ERRORS_MAX);
@@ -2580,9 +2597,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_recursive_errors = r;
                         break;
-
-                case ARG_VERSION:
-                        return version();
 
                 case ARG_ROOT:
                         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
