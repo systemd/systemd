@@ -1703,9 +1703,17 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                                                "Relative disk size specification currently not supported when resizing.");
 
         if (argc > 2) {
-                r = parse_size(argv[2], 1024, &ds);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                if (streq(argv[2], "min"))
+                        ds = 0;
+                else if (streq(argv[2], "max"))
+                        ds = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX spcial marker */
+                else {
+                        r = parse_size(argv[2], 1024, &ds);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                        if (ds >= UINT64_MAX) /* UINT64_MAX has special meaning for us ("dont change"), refuse */
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size out of range: %s", argv[2]);
+                }
         }
 
         if (arg_disk_size != UINT64_MAX) {
@@ -1990,6 +1998,32 @@ static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int rebalance(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "Rebalance");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_REBALANCE_NOT_NEEDED))
+                        log_info("No homes needed rebalancing.");
+                else
+                        return log_error_errno(r, "Failed to rebalance: %s", bus_error_message(&error, r));
+        } else
+                log_info("Completed rebalancing.");
+
+        return 0;
+}
+
 static int drop_from_identity(const char *field) {
         int r;
 
@@ -2044,6 +2078,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unlock USER…                 Unlock a temporarily locked home area\n"
                "  lock-all                     Lock all suitable home areas\n"
                "  deactivate-all               Deactivate all active home areas\n"
+               "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
@@ -2156,6 +2191,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Number of parallel threads for PKBDF\n"
                "     --luks-extra-mount-options=OPTIONS\n"
                "                               LUKS extra mount options\n"
+               "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
+               "     --rebalance-weight=WEIGHT Weight while rebalancing\n"
                "\n%4$sMounting User Record Properties:%5$s\n"
                "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
                "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
@@ -2255,6 +2292,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
+                ARG_AUTO_RESIZE_MODE,
+                ARG_REBALANCE_WEIGHT,
         };
 
         static const struct option options[] = {
@@ -2340,6 +2379,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
                 { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
+                { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
+                { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
                 {}
         };
 
@@ -2829,9 +2870,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_permyriad(optarg);
                         if (r < 0) {
-                                r = parse_size(optarg, 1024, &arg_disk_size);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                if (streq(optarg, "min"))
+                                        arg_disk_size = 0; /* Shrink to min */
+                                else if (streq(optarg, "max"))
+                                        arg_disk_size = UINT64_MAX-1; /* Grow to max; largest possible value that is not UINT64_MAX which we use as marker for "not set" */
+                                else {
+                                        r = parse_size(optarg, 1024, &arg_disk_size);
+                                        if (r < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                        if (arg_disk_size == UINT64_MAX) /* don't allow unsetting the value this way */
+                                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size '%s' too large.", optarg);
+                                }
 
                                 r = drop_from_identity("diskSizeRelative");
                                 if (r < 0)
@@ -3436,6 +3485,53 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_AUTO_RESIZE_MODE:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("autoResizeMode");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = auto_resize_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
+
+                        r = json_variant_set_field_string(&arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
+
+                        break;
+
+                case ARG_REBALANCE_WEIGHT: {
+                        uint64_t u;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("rebalanceWeight");
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (streq(optarg, "off"))
+                                u = 0;
+                        else {
+                                r = safe_atou64(optarg, &u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
+
+                                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "…%" PRIu64 ": %s",
+                                                               REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX, optarg);
+                        }
+
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
+
+                        break;
+                }
+
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
@@ -3569,6 +3665,7 @@ static int run(int argc, char *argv[]) {
                 { "with",           2,        VERB_ANY, 0,            with_home            },
                 { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
                 { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
+                { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
                 {}
         };
 
