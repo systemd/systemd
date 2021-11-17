@@ -6,7 +6,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <libfdisk.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
@@ -31,6 +30,7 @@
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fdisk-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -1419,11 +1419,6 @@ static int context_read_definitions(
 
         return 0;
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_parttype*, fdisk_unref_parttype, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_table*, fdisk_unref_table, NULL);
 
 static int determine_current_padding(
                 struct fdisk_context *c,
