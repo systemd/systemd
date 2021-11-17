@@ -712,11 +712,14 @@ static int link_config_apply_alternative_names(sd_netlink **rtnl, const LinkConf
 
         strv_uniq(altnames);
         strv_sort(altnames);
+
+        _cleanup_free_ char *joined = strv_join(altnames, " ");
+        log_device_debug(device, "Setting alternative names: %s", strna(joined));
+
         r = rtnl_set_link_alternative_names(rtnl, ifindex, altnames);
         if (r < 0)
                 log_device_full_errno(device, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, r,
                                       "Could not set AlternativeName= or apply AlternativeNamesPolicy=, ignoring: %m");
-
         return 0;
 }
 
