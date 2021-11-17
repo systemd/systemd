@@ -81,6 +81,10 @@ static const BaseFilesystem table[] = {
 #elif defined(__riscv)
 #  if __riscv_xlen == 32
 #  elif __riscv_xlen == 64
+        /* Same situation as for aarch64 */
+        { "lib64",    0, "usr/lib/riscv64-linux-gnu\0"
+                         "usr/lib64\0",                "ld-linux-riscv64-lp64d.so.1" },
+#    define KNOW_LIB64_DIRS 1
 #  else
 #    error "Unknown RISC-V ABI"
 #  endif
