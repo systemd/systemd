@@ -30,6 +30,7 @@
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -497,7 +498,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                 flags = (flags & any) & ~supported;
                 if (flags) {
                         const char* strv[5];
-                        unsigned n = 0;
+                        size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
                         if (compatible) {
@@ -1018,30 +1019,6 @@ static uint64_t journal_file_entry_seqnum(
                 f->header->head_entry_seqnum = htole64(ret);
 
         return ret;
-}
-
-static void journal_file_revert_entry_seqnum(
-                JournalFile *f,
-                uint64_t *seqnum,
-                uint64_t revert_seqnum) {
-
-        assert(f);
-        assert(f->header);
-
-        if (revert_seqnum == 0) /* sequence number 0? can't go back */
-                return;
-
-        /* Undoes the effect of journal_file_entry_seqnum() above: if we fail to append an entry to a file,
-         * let's revert the seqnum we were about to use, so that we can use it on the next entry. */
-
-        if (le64toh(f->header->tail_entry_seqnum) == revert_seqnum)
-                f->header->tail_entry_seqnum = htole64(revert_seqnum - 1);
-
-        if (le64toh(f->header->head_entry_seqnum) == revert_seqnum)
-                f->header->head_entry_seqnum = 0;
-
-        if (seqnum && *seqnum == revert_seqnum)
-                *seqnum = revert_seqnum - 1;
 }
 
 int journal_file_append_object(
@@ -1659,14 +1636,13 @@ static int journal_file_append_data(
                 const void *data, uint64_t size,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t hash, p;
-        uint64_t osize;
-        Object *o;
+        uint64_t hash, p, fp, osize;
+        Object *o, *fo;
         int r, compression = 0;
         const void *eq;
 
         assert(f);
-        assert(data || size == 0);
+        assert(data && size > 0);
 
         hash = journal_file_hash_data(f, data, size);
 
@@ -1683,6 +1659,10 @@ static int journal_file_append_data(
 
                 return 0;
         }
+
+        eq = memchr(data, '=', size);
+        if (!eq)
+                return -EINVAL;
 
         osize = offsetof(Object, data.payload) + size;
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
@@ -1728,23 +1708,14 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        if (!data)
-                eq = NULL;
-        else
-                eq = memchr(data, '=', size);
-        if (eq && eq > data) {
-                Object *fo = NULL;
-                uint64_t fp;
+        /* Create field object ... */
+        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+        if (r < 0)
+                return r;
 
-                /* Create field object ... */
-                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
-                if (r < 0)
-                        return r;
-
-                /* ... and link it in. */
-                o->data.next_field_offset = fo->field.head_data_offset;
-                fo->field.head_data_offset = le64toh(p);
-        }
+        /* ... and link it in. */
+        o->data.next_field_offset = fo->field.head_data_offset;
+        fo->field.head_data_offset = le64toh(p);
 
         if (ret)
                 *ret = o;
@@ -1972,7 +1943,7 @@ static int journal_file_append_entry_internal(
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 uint64_t xor_hash,
-                const EntryItem items[], unsigned n_items,
+                const EntryItem *items, size_t n_items,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
         uint64_t np;
@@ -2003,12 +1974,12 @@ static int journal_file_append_entry_internal(
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 #endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = o;
@@ -2016,10 +1987,6 @@ static int journal_file_append_entry_internal(
         if (ret_offset)
                 *ret_offset = np;
 
-        return 0;
-
-fail:
-        journal_file_revert_entry_seqnum(f, seqnum, le64toh(o->entry.seqnum));
         return r;
 }
 
@@ -2109,11 +2076,24 @@ static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
         return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
 
+static size_t remove_duplicate_entry_items(EntryItem *items, size_t n) {
+        size_t j = 1;
+
+        if (n == 0)
+                return 0;
+
+        for (size_t i = 1; i < n; i++)
+                if (items[i].object_offset != items[j - 1].object_offset)
+                        items[j++] = items[i];
+
+        return j;
+}
+
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec *iovec, size_t n_iovec,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
 
@@ -2124,7 +2104,7 @@ int journal_file_append_entry(
 
         assert(f);
         assert(f->header);
-        assert(iovec || n_iovec == 0);
+        assert(iovec && n_iovec > 0);
 
         if (ts) {
                 if (!VALID_REALTIME(ts->realtime))
@@ -2148,7 +2128,7 @@ int journal_file_append_entry(
 
         items = newa(EntryItem, n_iovec);
 
-        for (unsigned i = 0; i < n_iovec; i++) {
+        for (size_t i = 0; i < n_iovec; i++) {
                 uint64_t p;
                 Object *o;
 
@@ -2170,13 +2150,16 @@ int journal_file_append_entry(
                 else
                         xor_hash ^= le64toh(o->data.hash);
 
-                items[i].object_offset = htole64(p);
-                items[i].hash = o->data.hash;
+                items[i] = (EntryItem) {
+                        .object_offset = htole64(p),
+                        .hash = o->data.hash,
+                };
         }
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
         typesafe_qsort(items, n_iovec, entry_item_cmp);
+        n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
         r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, ret_offset);
 
@@ -3204,51 +3187,37 @@ void journal_file_dump(JournalFile *f) {
 
         p = le64toh(READ_NOW(f->header->header_size));
         while (p != 0) {
+                const char *s;
+
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0)
                         goto fail;
 
+                s = journal_object_type_to_string(o->object.type);
+
                 switch (o->object.type) {
 
-                case OBJECT_UNUSED:
-                        printf("Type: OBJECT_UNUSED\n");
-                        break;
-
-                case OBJECT_DATA:
-                        printf("Type: OBJECT_DATA\n");
-                        break;
-
-                case OBJECT_FIELD:
-                        printf("Type: OBJECT_FIELD\n");
-                        break;
-
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                        printf("Type: %s seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                               s,
                                le64toh(o->entry.seqnum),
                                le64toh(o->entry.monotonic),
                                le64toh(o->entry.realtime));
                         break;
 
-                case OBJECT_FIELD_HASH_TABLE:
-                        printf("Type: OBJECT_FIELD_HASH_TABLE\n");
-                        break;
-
-                case OBJECT_DATA_HASH_TABLE:
-                        printf("Type: OBJECT_DATA_HASH_TABLE\n");
-                        break;
-
-                case OBJECT_ENTRY_ARRAY:
-                        printf("Type: OBJECT_ENTRY_ARRAY\n");
-                        break;
-
                 case OBJECT_TAG:
-                        printf("Type: OBJECT_TAG seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                        printf("Type: %s seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                               s,
                                le64toh(o->tag.seqnum),
                                le64toh(o->tag.epoch));
                         break;
 
                 default:
-                        printf("Type: unknown (%i)\n", o->object.type);
+                        if (s)
+                                printf("Type: %s \n", s);
+                        else
+                                printf("Type: unknown (%i)", o->object.type);
+
                         break;
                 }
 
@@ -3867,8 +3836,10 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         if (!to->writable)
                 return -EPERM;
 
-        ts.monotonic = le64toh(o->entry.monotonic);
-        ts.realtime = le64toh(o->entry.realtime);
+        ts = (dual_timestamp) {
+                .monotonic = le64toh(o->entry.monotonic),
+                .realtime = le64toh(o->entry.realtime),
+        };
         boot_id = &o->entry.boot_id;
 
         n = journal_file_entry_n_items(o);
@@ -3922,6 +3893,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 } else
                         data = o->data.payload;
 
+                if (l == 0)
+                        return -EBADMSG;
+
                 r = journal_file_append_data(to, data, l, &u, &h);
                 if (r < 0)
                         return r;
@@ -3931,16 +3905,17 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i].object_offset = htole64(h);
-                items[i].hash = u->data.hash;
+                items[i] = (EntryItem) {
+                        .object_offset = htole64(h),
+                        .hash = u->data.hash,
+                };
 
                 r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
                 if (r < 0)
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
-                                               NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;
@@ -4189,3 +4164,16 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
         return false;
 }
+
+static const char * const journal_object_type_table[] = {
+        [OBJECT_UNUSED] = "unused",
+        [OBJECT_DATA] = "data",
+        [OBJECT_FIELD] = "field",
+        [OBJECT_ENTRY] = "entry",
+        [OBJECT_DATA_HASH_TABLE] = "data hash table",
+        [OBJECT_FIELD_HASH_TABLE] = "field hash table",
+        [OBJECT_ENTRY_ARRAY] = "entry array",
+        [OBJECT_TAG] = "tag",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
