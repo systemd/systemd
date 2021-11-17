@@ -82,7 +82,7 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
 
 static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *ifi = userdata;
-        intmax_t t;
+        int64_t t;
 
         assert(variant);
         assert(ifi);
@@ -100,7 +100,7 @@ static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDis
 
 static int json_dispatch_family(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *family = userdata;
-        intmax_t t;
+        int64_t t;
 
         assert(variant);
         assert(family);
@@ -160,7 +160,7 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                intmax_t b;
+                int64_t b;
 
                 if (!json_variant_is_integer(i))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));

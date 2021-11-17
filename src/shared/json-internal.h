@@ -12,8 +12,8 @@ typedef union JsonValue  {
         /* Encodes a simple value. This structure is generally 8 bytes wide (as double is 64bit). */
         bool boolean;
         double real;
-        intmax_t integer;
-        uintmax_t unsig;
+        int64_t integer;
+        uint64_t unsig;
 } JsonValue;
 
 /* Let's protect us against accidental structure size changes on our most relevant arch */
