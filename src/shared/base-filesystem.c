@@ -38,25 +38,46 @@ static const BaseFilesystem table[] = {
         { "proc",  0755, NULL,                         NULL, true },
         { "sys",   0755, NULL,                         NULL, true },
         { "dev",   0755, NULL,                         NULL, true },
-#if defined(__i386__) || defined(__x86_64__)
+
         /* Various architecture ABIs define the path to the dynamic loader via the /lib64/ subdirectory of
          * the root directory. When booting from an otherwise empty root file system (where only /usr/ has
          * been mounted into) it is thus necessary to create a symlink pointing to the right subdirectory of
          * /usr/ first — otherwise we couldn't invoke any dynamic binary. Let's detect this case here, and
          * create the symlink as needed should it be missing. We prefer doing this consistently with Debian's
          * multiarch logic, but support Fedora-style multilib too.*/
+#if defined(__aarch64__)
+#elif defined(__alpha__)
+#elif defined(__arc__) || defined(__tilegx__)
+#elif defined(__arm__)
+#elif defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
                          "usr/lib64\0",                "ld-linux-x86-64.so.2" },
-#else
-        /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
-#  define WARN_LIB64 1
+#  define KNOW_LIB64_DIRS 1
+#elif defined(__ia64__)
+#elif defined(__m68k__)
+#elif defined(_MIPS_SIM)
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#  else
+#    error "Unknown MIPS ABI"
+#  endif
+#elif defined(__powerpc__)
+#elif defined(__riscv)
+#  if __riscv_xlen == 32
+#  elif __riscv_xlen == 64
+#  else
+#    error "Unknown RISC-V ABI"
+#  endif
+#elif defined(__s390__)
+#elif defined(__s390x__)
+#elif defined(__sparc__)
 #endif
+        /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
 };
 
-#ifdef WARN_LIB64
-#pragma message "If your architecture knows a /lib64/ or /lib32/ directory, please add an entry creating it here."
-        /* And if your architecture doesn't know these directories, make sure to add ifdeffery here to
-         * suppress this pragma message. */
+#ifndef KNOW_LIB64_DIRS
+#  pragma message "Please add an entry above specifying whether your architecture uses /lib64/, /lib32/, or no such links."
 #endif
 
 int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
