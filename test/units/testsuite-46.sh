@@ -27,9 +27,19 @@ inspect() {
 systemd-analyze log-level debug
 systemd-analyze log-target console
 
+# Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
+mkdir -p /home-pool
+mount -t tmpfs tmpfs /home-pool -o size=290M
+
 # we enable --luks-discard= since we run our tests in a tight VM, hence don't
-# needlessly pressure for storage
-NEWPASSWORD=xEhErW0ndafV4s homectl create test-user --disk-size=256M --luks-discard=yes
+# needlessly pressure for storage. We also set the cheapest KDF, since we don't
+# want to waste CI CPU cycles on it.
+NEWPASSWORD=xEhErW0ndafV4s homectl create test-user \
+           --disk-size=256M \
+           --luks-discard=yes \
+           --image-path=/home-pool/test-user.home \
+           --luks-pbkdf-type=pbkdf2 \
+           --luks-pbkdf-time-cost=1ms
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
@@ -84,7 +94,7 @@ if ! systemd-detect-virt -cq ; then
     inspect test-user
 
     # grow while active
-    PASSWORD=xEhErW0ndafV4s homectl resize test-user 300M
+    PASSWORD=xEhErW0ndafV4s homectl resize test-user 1T
     inspect test-user
 
     # minimize while active
