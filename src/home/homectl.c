@@ -255,6 +255,63 @@ static int acquire_existing_password(
         return 1;
 }
 
+static int acquire_recovery_key(
+                const char *user_name,
+                UserRecord *hr,
+                AskPasswordFlags flags) {
+
+        _cleanup_(strv_free_erasep) char **recovery_key = NULL;
+        _cleanup_free_ char *question = NULL;
+        char *e;
+        int r;
+
+        assert(user_name);
+        assert(hr);
+
+        e = getenv("RECOVERY_KEY");
+        if (e) {
+                /* People really shouldn't use environment variables for passing secrets. We support this
+                 * only for testing purposes, and do not document the behaviour, so that people won't
+                 * actually use this outside of testing. */
+
+                r = user_record_set_password(hr, STRV_MAKE(e), true); /* recovery keys are stored in the record exactly like regular passwords! */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to store recovery key: %m");
+
+                assert_se(unsetenv_erase("RECOVERY_KEY") >= 0);
+                return 1;
+        }
+
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
+
+        if (asprintf(&question, "Please enter recovery key for user %s:", user_name) < 0)
+                return log_oom();
+
+        r = ask_password_auto(question,
+                              /* icon= */ "user-home",
+                              NULL,
+                              /* key_name= */ "home-recovery-key",
+                              /* credential_name= */ "home.recovery-key",
+                              USEC_INFINITY,
+                              flags,
+                              &recovery_key);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no recovery key was found and asking interactively was
+                              * disabled via the flags. Not an error for us. */
+                log_debug_errno(r, "No recovery keys acquired.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire recovery keys: %m");
+
+        r = user_record_set_password(hr, recovery_key, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store recovery keys: %m");
+
+        return 1;
+}
+
 static int acquire_token_pin(
                 const char *user_name,
                 UserRecord *hr,
@@ -339,6 +396,20 @@ static int handle_generic_user_record_error(
                                 user_name,
                                 hr,
                                 emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
+                if (r < 0)
+                        return r;
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_RECOVERY_KEY)) {
+
+                if (!strv_isempty(hr->password))
+                        log_notice("Recovery key incorrect or not sufficient, please try again.");
+
+                /* Don't consume cache entries or credentials here, we already tried that unsuccessfully. But
+                 * let's push what we acquire here into the cache */
+                r = acquire_recovery_key(
+                                user_name,
+                                hr,
                                 ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
@@ -463,6 +534,13 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
                 return r;
 
         r = acquire_token_pin(
+                        user_name,
+                        secret,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        r = acquire_recovery_key(
                         user_name,
                         secret,
                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
