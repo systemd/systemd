@@ -24,6 +24,32 @@
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+_noreturn_ void halt(const CHAR16 *msg);
+
+#define assert_alloc_ret(p)                               \
+        ({                                                \
+                void *_p = (p);                           \
+                if (_unlikely_(!_p))                      \
+                        halt(L"Out of memory. Halting."); \
+                _p;                                       \
+        })
+
+#define xnew_alloc(type, n, alloc)                                                       \
+        ({                                                                               \
+                UINTN _alloc_size;                                                       \
+                if (_unlikely_(__builtin_mul_overflow(sizeof(type), (n), &_alloc_size))) \
+                        halt(L"Allocation overflow. Halting.");                          \
+                (type *) alloc(_alloc_size);                                             \
+        })
+
+#define xallocate_pool(size) assert_alloc_ret(AllocatePool(size))
+#define xallocate_zero_pool(size) assert_alloc_ret(AllocateZeroPool(size))
+#define xreallocate_pool(p, old_size, new_size) assert_alloc_ret(ReallocatePool((p), (old_size), (new_size)))
+#define xpool_print(fmt, ...) ((CHAR16 *) assert_alloc_ret(PoolPrint((fmt), ##__VA_ARGS__)))
+#define xstrdup(str) ((CHAR16 *) assert_alloc_ret(StrDuplicate(str)))
+#define xnew(type, n) xnew_alloc(type, (n), xallocate_pool)
+#define xnew0(type, n) xnew_alloc(type, (n), xallocate_zero_pool)
+
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
 
 UINT64 ticks_read(void);
@@ -45,8 +71,8 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
 CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
-CHAR16 *stra_to_path(const CHAR8 *stra);
-CHAR16 *stra_to_str(const CHAR8 *stra);
+CHAR16 *xstra_to_path(const CHAR8 *stra);
+CHAR16 *xstra_to_str(const CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
@@ -106,7 +132,7 @@ EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UIN
 EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
 UINTN strnlena(const CHAR8 *p, UINTN maxlen);
-CHAR8 *strndup8(const CHAR8 *p, UINTN sz);
+CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz);
 
 BOOLEAN is_ascii(const CHAR16 *f);
 
