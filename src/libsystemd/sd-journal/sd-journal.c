@@ -2297,6 +2297,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         n = journal_file_entry_n_items(o);
         for (i = 0; i < n; i++) {
+                Object *d;
                 uint64_t p, l;
                 le64_t le_hash;
                 size_t t;
@@ -2304,20 +2305,20 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
                 p = le64toh(o->entry.items[i].object_offset);
                 le_hash = o->entry.items[i].hash;
-                r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
                 if (r < 0)
                         return r;
 
-                if (le_hash != o->data.hash)
+                if (le_hash != d->data.hash)
                         return -EBADMSG;
 
-                l = le64toh(o->object.size) - offsetof(Object, data.payload);
+                l = le64toh(d->object.size) - offsetof(Object, data.payload);
 
-                compression = o->object.flags & OBJECT_COMPRESSION_MASK;
+                compression = d->object.flags & OBJECT_COMPRESSION_MASK;
                 if (compression) {
 #if HAVE_COMPRESSION
                         r = decompress_startswith(compression,
-                                                  o->data.payload, l,
+                                                  d->data.payload, l,
                                                   &f->compress_buffer,
                                                   field, field_length, '=');
                         if (r < 0)
@@ -2328,7 +2329,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                                 size_t rsize;
 
                                 r = decompress_blob(compression,
-                                                    o->data.payload, l,
+                                                    d->data.payload, l,
                                                     &f->compress_buffer, &rsize,
                                                     j->data_threshold);
                                 if (r < 0)
@@ -2343,23 +2344,19 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                         return -EPROTONOSUPPORT;
 #endif
                 } else if (l >= field_length+1 &&
-                           memcmp(o->data.payload, field, field_length) == 0 &&
-                           o->data.payload[field_length] == '=') {
+                           memcmp(d->data.payload, field, field_length) == 0 &&
+                           d->data.payload[field_length] == '=') {
 
                         t = (size_t) l;
 
                         if ((uint64_t) t != l)
                                 return -E2BIG;
 
-                        *data = o->data.payload;
+                        *data = d->data.payload;
                         *size = t;
 
                         return 0;
                 }
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         return -ENOENT;
