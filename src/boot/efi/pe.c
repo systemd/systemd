@@ -259,7 +259,7 @@ EFI_STATUS pe_file_locate_sections(
                 return EFI_LOAD_ERROR;
 
         section_table_len = pe.FileHeader.NumberOfSections * sizeof(struct PeSectionHeader);
-        section_table = AllocatePool(section_table_len);
+        section_table = xallocate_pool(section_table_len);
         if (!section_table)
                 return EFI_OUT_OF_RESOURCES;
 
