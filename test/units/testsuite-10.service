@@ -7,8 +7,7 @@ ExecStartPre=rm -f /failed /testok
 Type=oneshot
 ExecStart=rm -f /tmp/nonexistent
 ExecStart=systemctl start test10.socket
-ExecStart=sh -x -c 'printf x >test.file'
-ExecStart=-socat -T20 OPEN:test.file UNIX-CONNECT:/run/test.ctl
+ExecStart=-nc -w20 -U /run/test.ctl
 # TriggerLimitIntervalSec= by default is set to 2s. A "sleep 10" should give
 # systemd enough time even on slower machines, to reach the trigger limit.
 ExecStart=sleep 10
