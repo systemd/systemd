@@ -112,6 +112,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
 CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_utmp_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_cost_ctrl);
 CONFIG_PARSER_PROTOTYPE(config_parse_working_directory);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdname);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
