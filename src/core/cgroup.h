@@ -240,6 +240,8 @@ int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
+int lookup_block_device(const char *p, dev_t *ret);
+
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
@@ -311,6 +313,7 @@ int unit_reset_accounting(Unit *u);
 
 bool manager_owns_host_root_cgroup(Manager *m);
 bool unit_has_host_root_cgroup(Unit *u);
+int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
