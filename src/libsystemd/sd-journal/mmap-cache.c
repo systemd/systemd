@@ -480,7 +480,7 @@ outofmem:
         return -ENOMEM;
 }
 
-int mmap_cache_get(
+int mmap_cache_fd_get(
                 MMapFileDescriptor *f,
                 unsigned context,
                 bool keep_always,
@@ -582,7 +582,7 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
         }
 }
 
-bool mmap_cache_got_sigbus(MMapFileDescriptor *f) {
+bool mmap_cache_fd_got_sigbus(MMapFileDescriptor *f) {
         assert(f);
 
         mmap_cache_process_sigbus(f->cache);
@@ -620,7 +620,7 @@ MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot) {
         return f;
 }
 
-void mmap_cache_free_fd(MMapFileDescriptor *f) {
+void mmap_cache_fd_free(MMapFileDescriptor *f) {
         assert(f);
         assert(f->cache);
 

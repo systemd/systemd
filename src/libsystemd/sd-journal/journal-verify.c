@@ -401,7 +401,7 @@ static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
                 if (r < 0)
                         return r;
 
@@ -1336,9 +1336,9 @@ int journal_file_verify(
         if (show_progress)
                 flush_progress();
 
-        mmap_cache_free_fd(cache_data_fd);
-        mmap_cache_free_fd(cache_entry_fd);
-        mmap_cache_free_fd(cache_entry_array_fd);
+        mmap_cache_fd_free(cache_data_fd);
+        mmap_cache_fd_free(cache_entry_fd);
+        mmap_cache_fd_free(cache_entry_array_fd);
 
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
@@ -1360,13 +1360,13 @@ fail:
                   100 * p / f->last_stat.st_size);
 
         if (cache_data_fd)
-                mmap_cache_free_fd(cache_data_fd);
+                mmap_cache_fd_free(cache_data_fd);
 
         if (cache_entry_fd)
-                mmap_cache_free_fd(cache_entry_fd);
+                mmap_cache_fd_free(cache_entry_fd);
 
         if (cache_entry_array_fd)
-                mmap_cache_free_fd(cache_entry_array_fd);
+                mmap_cache_fd_free(cache_entry_array_fd);
 
         return r;
 }
