@@ -27,7 +27,8 @@ project_source_root = meson.current_source_dir()
 project_build_root = meson.current_build_dir()
 relative_source_path = run_command('realpath',
                                    '--relative-to=@0@'.format(project_build_root),
-                                   project_source_root).stdout().strip()
+                                   project_source_root,
+                                   check : true).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
@@ -47,7 +48,7 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # Try to install the git pre-commit hook
 add_git_hook_sh = find_program('tools/add-git-hook.sh', required : false)
 if add_git_hook_sh.found()
-        git_hook = run_command(add_git_hook_sh)
+        git_hook = run_command(add_git_hook_sh, check : false)
         if git_hook.returncode() == 0
                 message(git_hook.stdout().strip())
         endif
@@ -637,13 +638,13 @@ endforeach
 
 conf.set_quoted('TELINIT', get_option('telinit-path'))
 
-if run_command(ln, '--relative', '--help').returncode() != 0
+if run_command(ln, '--relative', '--help', check : false).returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
 endif
 
 ############################################################
 
-if run_command('python3', '-c', 'import jinja2').returncode() != 0
+if run_command('python3', '-c', 'import jinja2', check : false).returncode() != 0
         error('python3 jinja2 missing')
 endif
 
@@ -657,7 +658,8 @@ const char * in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet_format = 'echo foo,bar | @0@ -L ANSI-C'
-gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()))
+gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()),
+                            check : true)
 gperf_test = gperf_test_format.format('size_t', gperf_snippet.stdout())
 if cc.compiles(gperf_test)
         gperf_len_type = 'size_t'
@@ -740,15 +742,22 @@ endif
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
-        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"').stdout().strip()
+        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
         if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
-                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command(git, 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
+                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
+                                         check : false)
+                if latest_tag.returncode() == 0
+                        time_epoch = run_command(
+                                git, 'log', '--no-show-signature', '-1', '--format=%at',
+                                     latest_tag.stdout().strip(),
+                                check : false).stdout()
+                endif
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
-                time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout()
+                time_epoch = run_command(stat, '-c', '%Y', NEWS,
+                                         check : true).stdout()
         endif
         time_epoch = time_epoch.to_int()
 endif
@@ -765,7 +774,8 @@ foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.d
                 v = run_command(
                         awk,
                         '/^\s*@0@\s+/ { uid=$2 } END { print uid }'.format(tuple[1]),
-                        '/etc/login.defs').stdout().strip()
+                        '/etc/login.defs',
+                        check : false).stdout().strip()
                 if v == ''
                         v = tuple[2]
                 else
@@ -795,7 +805,7 @@ nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
 if not meson.is_cross_build()
-        getent_result = run_command('getent', 'passwd', '65534')
+        getent_result = run_command('getent', 'passwd', '65534', check : false)
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_user
@@ -804,7 +814,7 @@ if not meson.is_cross_build()
                                 'Your build will result in an user table setup that is incompatible with the local system.')
                 endif
         endif
-        id_result = run_command('id', '-u', nobody_user)
+        id_result = run_command('id', '-u', nobody_user, check : false)
         if id_result.returncode() == 0
                 id = id_result.stdout().to_int()
                 if id != 65534
@@ -814,7 +824,7 @@ if not meson.is_cross_build()
                 endif
         endif
 
-        getent_result = run_command('getent', 'group', '65534')
+        getent_result = run_command('getent', 'group', '65534', check : false)
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_group
@@ -823,7 +833,7 @@ if not meson.is_cross_build()
                                 'Your build will result in an group table setup that is incompatible with the local system.')
                 endif
         endif
-        id_result = run_command('id', '-g', nobody_group)
+        id_result = run_command('id', '-g', nobody_group, check : false)
         if id_result.returncode() == 0
                 id = id_result.stdout().to_int()
                 if id != 65534
@@ -897,7 +907,8 @@ default_locale = get_option('default-locale')
 if default_locale == ''
         if not meson.is_cross_build()
                 choose_default_locale_sh = find_program('tools/choose-default-locale.sh')
-                default_locale = run_command(choose_default_locale_sh).stdout().strip()
+                default_locale = run_command(choose_default_locale_sh,
+                                             check : true).stdout().strip()
         else
                 default_locale = 'C.UTF-8'
         endif
@@ -3741,17 +3752,19 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(project_source_root),
-                'ls-files', ':/*.[ch]')
+                     'ls-files', ':/*.[ch]',
+                check : false)
+        if all_files.returncode() == 0
+                all_files = files(all_files.stdout().split())
 
-        all_files = files(all_files.stdout().split())
-
-        custom_target(
-                'tags',
-                output : 'tags',
-                command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
-        run_target(
-                'ctags',
-                command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+                custom_target(
+                        'tags',
+                        output : 'tags',
+                        command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
+                run_target(
+                        'ctags',
+                        command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+        endif
 endif
 
 if git.found()
@@ -3763,13 +3776,13 @@ endif
 
 if git.found()
         git_head = run_command(
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'rev-parse', 'HEAD').stdout().strip()
+                git, '--git-dir=@0@/.git'.format(project_source_root),
+                     'rev-parse', 'HEAD',
+                check : false).stdout().strip()
         git_head_short = run_command(
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'rev-parse', '--short=7', 'HEAD').stdout().strip()
+                git, '--git-dir=@0@/.git'.format(project_source_root),
+                     'rev-parse', '--short=7', 'HEAD',
+                check : false).stdout().strip()
 
         run_target(
                 'git-snapshot',
@@ -3793,8 +3806,8 @@ alias_target('update-man-rules', update_man_rules)
 
 ############################################################
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d',
-                             '@@0@'.format(time_epoch)).stdout().strip()
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
+                             check : true).stdout().strip()
 
 summary({
         'build mode' :                      get_option('mode'),
