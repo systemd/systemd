@@ -46,28 +46,23 @@ static void test_tokenizer(const char *data, ...) {
                         assert_se(streq_ptr(nn, str));
 
                 } else if (t == JSON_TOKEN_REAL) {
-                        long double d;
+                        double d;
 
-                        d = va_arg(ap, long double);
-
-                        /* Valgrind doesn't support long double calculations and automatically downgrades to 80bit:
-                         * http://www.valgrind.org/docs/manual/manual-core.html#manual-core.limits.
-                         * Some architectures might not support long double either.
-                         */
+                        d = va_arg(ap, double);
 
                         assert_se(fabsl(d - v.real) < 1e-10 ||
                                   fabsl((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
-                        intmax_t i;
+                        int64_t i;
 
-                        i = va_arg(ap, intmax_t);
+                        i = va_arg(ap, int64_t);
                         assert_se(i == v.integer);
 
                 } else if (t == JSON_TOKEN_UNSIGNED) {
-                        uintmax_t u;
+                        uint64_t u;
 
-                        u = va_arg(ap, uintmax_t);
+                        u = va_arg(ap, uint64_t);
                         assert_se(u == v.unsig);
 
                 } else if (t == JSON_TOKEN_BOOLEAN) {
@@ -523,17 +518,17 @@ static void test_bisect(void) {
 }
 
 static void test_float_match(JsonVariant *v) {
-        const long double delta = 0.0001;
+        const double delta = 0.0001;
 
         assert_se(json_variant_is_array(v));
         assert_se(json_variant_elements(v) == 9);
-        assert_se(fabsl((long double) 1.0 - ((long double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
-        assert_se(fabsl((long double) 1.0 - ((long double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
+        assert_se(fabsl((double) 1.0 - ((double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
+        assert_se(fabsl((double) 1.0 - ((double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
-                  fabsl((long double) 1.0 - ((long double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+                  fabsl((double) 1.0 - ((double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
                   json_variant_is_integer(json_variant_by_index(v, 6)) &&
                   json_variant_integer(json_variant_by_index(v, 6)) == 0);
@@ -580,19 +575,19 @@ int main(int argc, char *argv[]) {
         test_tokenizer("x", -EINVAL);
         test_tokenizer("", JSON_TOKEN_END);
         test_tokenizer(" ", JSON_TOKEN_END);
-        test_tokenizer("0", JSON_TOKEN_UNSIGNED, (uintmax_t) 0, JSON_TOKEN_END);
-        test_tokenizer("-0", JSON_TOKEN_INTEGER, (intmax_t) 0, JSON_TOKEN_END);
-        test_tokenizer("1234", JSON_TOKEN_UNSIGNED, (uintmax_t) 1234, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (intmax_t) -1234, JSON_TOKEN_END);
-        test_tokenizer("18446744073709551615", JSON_TOKEN_UNSIGNED, (uintmax_t) UINT64_MAX, JSON_TOKEN_END);
-        test_tokenizer("-9223372036854775808", JSON_TOKEN_INTEGER, (intmax_t) INT64_MIN, JSON_TOKEN_END);
-        test_tokenizer("18446744073709551616", JSON_TOKEN_REAL, (long double) 18446744073709551616.0L, JSON_TOKEN_END);
-        test_tokenizer("-9223372036854775809", JSON_TOKEN_REAL, (long double) -9223372036854775809.0L, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (intmax_t) -1234, JSON_TOKEN_END);
-        test_tokenizer("3.141", JSON_TOKEN_REAL, (long double) 3.141, JSON_TOKEN_END);
-        test_tokenizer("0.0", JSON_TOKEN_REAL, (long double) 0.0, JSON_TOKEN_END);
-        test_tokenizer("7e3", JSON_TOKEN_REAL, (long double) 7e3, JSON_TOKEN_END);
-        test_tokenizer("-7e-3", JSON_TOKEN_REAL, (long double) -7e-3, JSON_TOKEN_END);
+        test_tokenizer("0", JSON_TOKEN_UNSIGNED, (uint64_t) 0, JSON_TOKEN_END);
+        test_tokenizer("-0", JSON_TOKEN_INTEGER, (int64_t) 0, JSON_TOKEN_END);
+        test_tokenizer("1234", JSON_TOKEN_UNSIGNED, (uint64_t) 1234, JSON_TOKEN_END);
+        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
+        test_tokenizer("18446744073709551615", JSON_TOKEN_UNSIGNED, (uint64_t) UINT64_MAX, JSON_TOKEN_END);
+        test_tokenizer("-9223372036854775808", JSON_TOKEN_INTEGER, (int64_t) INT64_MIN, JSON_TOKEN_END);
+        test_tokenizer("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
+        test_tokenizer("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
+        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
+        test_tokenizer("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
+        test_tokenizer("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
+        test_tokenizer("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
+        test_tokenizer("-7e-3", JSON_TOKEN_REAL, (double) -7e-3, JSON_TOKEN_END);
         test_tokenizer("true", JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_END);
         test_tokenizer("false", JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_END);
         test_tokenizer("null", JSON_TOKEN_NULL, JSON_TOKEN_END);
@@ -612,7 +607,7 @@ int main(int argc, char *argv[]) {
         test_tokenizer("\"\\udc00\\udc00\"", -EINVAL);
         test_tokenizer("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
 
-        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uintmax_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uintmax_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (intmax_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uint64_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uint64_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (int64_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
 
         test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);

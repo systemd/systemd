@@ -133,9 +133,9 @@ static int dump_link_description(char **patterns) {
                 return log_oom();
 
         JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(v, "Interfaces")) {
-                char ifindex_str[DECIMAL_STR_MAX(intmax_t)];
+                char ifindex_str[DECIMAL_STR_MAX(int64_t)];
                 const char *name;
-                intmax_t index;
+                int64_t index;
                 size_t pos;
 
                 name = json_variant_string(json_variant_by_key(i, "Name"));
