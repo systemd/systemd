@@ -59,8 +59,8 @@ typedef enum JsonVariantType {
 int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n);
 int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n);
-int json_variant_new_integer(JsonVariant **ret, intmax_t i);
-int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u);
+int json_variant_new_integer(JsonVariant **ret, int64_t i);
+int json_variant_new_unsigned(JsonVariant **ret, uint64_t u);
 int json_variant_new_real(JsonVariant **ret, double d);
 int json_variant_new_boolean(JsonVariant **ret, bool b);
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n);
@@ -81,8 +81,8 @@ void json_variant_unref_many(JsonVariant **array, size_t n);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant *, json_variant_unref);
 
 const char *json_variant_string(JsonVariant *v);
-intmax_t json_variant_integer(JsonVariant *v);
-uintmax_t json_variant_unsigned(JsonVariant *v);
+int64_t json_variant_integer(JsonVariant *v);
+uint64_t json_variant_unsigned(JsonVariant *v);
 double json_variant_real(JsonVariant *v);
 bool json_variant_boolean(JsonVariant *v);
 
@@ -189,8 +189,8 @@ int json_variant_filter(JsonVariant **v, char **to_remove);
 
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
 int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value);
-int json_variant_set_field_integer(JsonVariant **v, const char *field, intmax_t value);
-int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_t value);
+int json_variant_set_field_integer(JsonVariant **v, const char *field, int64_t value);
+int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t value);
 int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b);
 int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l);
 
@@ -240,8 +240,8 @@ enum {
 };
 
 #define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, (const char*) { s }
-#define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (intmax_t) { i }
-#define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, (uintmax_t) { u }
+#define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (int64_t) { i }
+#define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, (uint64_t) { u }
 #define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, (double) { d }
 #define JSON_BUILD_BOOLEAN(b) _JSON_BUILD_BOOLEAN, (bool) { b }
 #define JSON_BUILD_ARRAY(...) _JSON_BUILD_ARRAY_BEGIN, __VA_ARGS__, _JSON_BUILD_ARRAY_END
@@ -297,20 +297,14 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
 int json_dispatch_boolean(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_tristate(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
-int json_dispatch_intmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
-int json_dispatch_uintmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_int64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
-
-assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
-#define json_dispatch_uint64 json_dispatch_uintmax
-
-assert_cc(sizeof(intmax_t) == sizeof(int64_t));
-#define json_dispatch_int64 json_dispatch_intmax
 
 assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 #define json_dispatch_uint json_dispatch_uint32

@@ -252,7 +252,7 @@ int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlag
 
 static int json_dispatch_nice(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *nl = userdata;
-        intmax_t m;
+        int64_t m;
 
         if (json_variant_is_null(variant)) {
                 *nl = INT_MAX;
@@ -276,10 +276,10 @@ static int json_dispatch_rlimit_value(const char *name, JsonVariant *variant, Js
         if (json_variant_is_null(variant))
                 *ret = RLIM_INFINITY;
         else if (json_variant_is_unsigned(variant)) {
-                uintmax_t w;
+                uint64_t w;
 
                 w = json_variant_unsigned(variant);
-                if (w == RLIM_INFINITY || (uintmax_t) w != json_variant_unsigned(variant))
+                if (w == RLIM_INFINITY || (uint64_t) w != json_variant_unsigned(variant))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Resource limit value '%s' is out of range.", name);
 
                 *ret = (rlim_t) w;
@@ -453,7 +453,7 @@ static int json_dispatch_image_path(const char *name, JsonVariant *variant, Json
 
 static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         mode_t *m = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         if (json_variant_is_null(variant)) {
                 *m = MODE_INVALID;
@@ -473,7 +473,7 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
 
 static int json_dispatch_access_mode(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         mode_t *m = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         if (json_variant_is_null(variant)) {
                 *m = MODE_INVALID;
@@ -564,8 +564,7 @@ static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDis
 }
 
 static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *limit = userdata;
-        uintmax_t k;
+        uint64_t *limit = userdata, k;
 
         if (json_variant_is_null(variant)) {
                 *limit = UINT64_MAX;
@@ -584,8 +583,7 @@ static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *vari
 }
 
 static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *weight = userdata;
-        uintmax_t k;
+        uint64_t *weight = userdata, k;
 
         if (json_variant_is_null(variant)) {
                 *weight = UINT64_MAX;

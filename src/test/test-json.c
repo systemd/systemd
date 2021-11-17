@@ -54,15 +54,15 @@ static void test_tokenizer(const char *data, ...) {
                                   fabsl((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
-                        intmax_t i;
+                        int64_t i;
 
-                        i = va_arg(ap, intmax_t);
+                        i = va_arg(ap, int64_t);
                         assert_se(i == v.integer);
 
                 } else if (t == JSON_TOKEN_UNSIGNED) {
-                        uintmax_t u;
+                        uint64_t u;
 
-                        u = va_arg(ap, uintmax_t);
+                        u = va_arg(ap, uint64_t);
                         assert_se(u == v.unsig);
 
                 } else if (t == JSON_TOKEN_BOOLEAN) {
@@ -575,15 +575,15 @@ int main(int argc, char *argv[]) {
         test_tokenizer("x", -EINVAL);
         test_tokenizer("", JSON_TOKEN_END);
         test_tokenizer(" ", JSON_TOKEN_END);
-        test_tokenizer("0", JSON_TOKEN_UNSIGNED, (uintmax_t) 0, JSON_TOKEN_END);
-        test_tokenizer("-0", JSON_TOKEN_INTEGER, (intmax_t) 0, JSON_TOKEN_END);
-        test_tokenizer("1234", JSON_TOKEN_UNSIGNED, (uintmax_t) 1234, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (intmax_t) -1234, JSON_TOKEN_END);
-        test_tokenizer("18446744073709551615", JSON_TOKEN_UNSIGNED, (uintmax_t) UINT64_MAX, JSON_TOKEN_END);
-        test_tokenizer("-9223372036854775808", JSON_TOKEN_INTEGER, (intmax_t) INT64_MIN, JSON_TOKEN_END);
+        test_tokenizer("0", JSON_TOKEN_UNSIGNED, (uint64_t) 0, JSON_TOKEN_END);
+        test_tokenizer("-0", JSON_TOKEN_INTEGER, (int64_t) 0, JSON_TOKEN_END);
+        test_tokenizer("1234", JSON_TOKEN_UNSIGNED, (uint64_t) 1234, JSON_TOKEN_END);
+        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
+        test_tokenizer("18446744073709551615", JSON_TOKEN_UNSIGNED, (uint64_t) UINT64_MAX, JSON_TOKEN_END);
+        test_tokenizer("-9223372036854775808", JSON_TOKEN_INTEGER, (int64_t) INT64_MIN, JSON_TOKEN_END);
         test_tokenizer("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
         test_tokenizer("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (intmax_t) -1234, JSON_TOKEN_END);
+        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
         test_tokenizer("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
         test_tokenizer("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
         test_tokenizer("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
@@ -607,7 +607,7 @@ int main(int argc, char *argv[]) {
         test_tokenizer("\"\\udc00\\udc00\"", -EINVAL);
         test_tokenizer("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
 
-        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uintmax_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uintmax_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (intmax_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uint64_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uint64_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (int64_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
 
         test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);

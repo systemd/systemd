@@ -305,7 +305,7 @@ static int json_variant_new(JsonVariant **ret, JsonVariantType type, size_t spac
         return 0;
 }
 
-int json_variant_new_integer(JsonVariant **ret, intmax_t i) {
+int json_variant_new_integer(JsonVariant **ret, int64_t i) {
         JsonVariant *v;
         int r;
 
@@ -326,7 +326,7 @@ int json_variant_new_integer(JsonVariant **ret, intmax_t i) {
         return 0;
 }
 
-int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u) {
+int json_variant_new_unsigned(JsonVariant **ret, uint64_t u) {
         JsonVariant *v;
         int r;
 
@@ -751,10 +751,10 @@ static size_t json_variant_size(JsonVariant* v) {
                 return offsetof(JsonVariant, value) + sizeof(double);
 
         case JSON_VARIANT_UNSIGNED:
-                return offsetof(JsonVariant, value) + sizeof(uintmax_t);
+                return offsetof(JsonVariant, value) + sizeof(uint64_t);
 
         case JSON_VARIANT_INTEGER:
-                return offsetof(JsonVariant, value) + sizeof(intmax_t);
+                return offsetof(JsonVariant, value) + sizeof(int64_t);
 
         case JSON_VARIANT_BOOLEAN:
                 return offsetof(JsonVariant, value) + sizeof(bool);
@@ -895,7 +895,7 @@ mismatch:
         return false;
 }
 
-intmax_t json_variant_integer(JsonVariant *v) {
+int64_t json_variant_integer(JsonVariant *v) {
         if (!v)
                 goto mismatch;
         if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
@@ -913,16 +913,16 @@ intmax_t json_variant_integer(JsonVariant *v) {
                 return v->value.integer;
 
         case JSON_VARIANT_UNSIGNED:
-                if (v->value.unsig <= INTMAX_MAX)
-                        return (intmax_t) v->value.unsig;
+                if (v->value.unsig <= INT64_MAX)
+                        return (int64_t) v->value.unsig;
 
                 log_debug("Unsigned integer %ju requested as signed integer and out of range, returning 0.", v->value.unsig);
                 return 0;
 
         case JSON_VARIANT_REAL: {
-                intmax_t converted;
+                int64_t converted;
 
-                converted = (intmax_t) v->value.real;
+                converted = (int64_t) v->value.real;
 
                 DISABLE_WARNING_FLOAT_EQUAL;
                 if ((double) converted == v->value.real)
@@ -942,7 +942,7 @@ mismatch:
         return 0;
 }
 
-uintmax_t json_variant_unsigned(JsonVariant *v) {
+uint64_t json_variant_unsigned(JsonVariant *v) {
         if (!v)
                 goto mismatch;
         if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
@@ -958,7 +958,7 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
 
         case JSON_VARIANT_INTEGER:
                 if (v->value.integer >= 0)
-                        return (uintmax_t) v->value.integer;
+                        return (uint64_t) v->value.integer;
 
                 log_debug("Signed integer %ju requested as unsigned integer and out of range, returning 0.", v->value.integer);
                 return 0;
@@ -967,9 +967,9 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
                 return v->value.unsig;
 
         case JSON_VARIANT_REAL: {
-                uintmax_t converted;
+                uint64_t converted;
 
-                converted = (uintmax_t) v->value.real;
+                converted = (uint64_t) v->value.real;
 
                 DISABLE_WARNING_FLOAT_EQUAL;
                 if ((double) converted == v->value.real)
@@ -1009,7 +1009,7 @@ double json_variant_real(JsonVariant *v) {
         case JSON_VARIANT_INTEGER: {
                 double converted = (double) v->value.integer;
 
-                if ((intmax_t) converted == v->value.integer)
+                if ((int64_t) converted == v->value.integer)
                         return converted;
 
                 log_debug("Signed integer %ji requested as real, and cannot be converted losslessly, returning 0.", v->value.integer);
@@ -1019,7 +1019,7 @@ double json_variant_real(JsonVariant *v) {
         case JSON_VARIANT_UNSIGNED: {
                 double converted = (double) v->value.unsig;
 
-                if ((uintmax_t) converted == v->value.unsig)
+                if ((uint64_t) converted == v->value.unsig)
                         return converted;
 
                 log_debug("Unsigned integer %ju requested as real, and cannot be converted losslessly, returning 0.", v->value.unsig);
@@ -1155,21 +1155,21 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         if (rt == JSON_VARIANT_INTEGER && type == JSON_VARIANT_UNSIGNED)
                 return v->value.integer >= 0;
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_INTEGER)
-                return v->value.unsig <= INTMAX_MAX;
+                return v->value.unsig <= INT64_MAX;
 
         /* Any integer that can be converted lossley to a real and back may also be considered a real */
         if (rt == JSON_VARIANT_INTEGER && type == JSON_VARIANT_REAL)
-                return (intmax_t) (double) v->value.integer == v->value.integer;
+                return (int64_t) (double) v->value.integer == v->value.integer;
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_REAL)
-                return (uintmax_t) (double) v->value.unsig == v->value.unsig;
+                return (uint64_t) (double) v->value.unsig == v->value.unsig;
 
         DISABLE_WARNING_FLOAT_EQUAL;
 
         /* Any real that can be converted losslessly to an integer and back may also be considered an integer */
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_INTEGER)
-                return (double) (intmax_t) v->value.real == v->value.real;
+                return (double) (int64_t) v->value.real == v->value.real;
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_UNSIGNED)
-                return (double) (uintmax_t) v->value.real == v->value.real;
+                return (double) (uint64_t) v->value.real == v->value.real;
 
         REENABLE_WARNING;
 
@@ -1961,7 +1961,7 @@ int json_variant_set_field_string(JsonVariant **v, const char *field, const char
         return json_variant_set_field(v, field, m);
 }
 
-int json_variant_set_field_integer(JsonVariant **v, const char *field, intmax_t i) {
+int json_variant_set_field_integer(JsonVariant **v, const char *field, int64_t i) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
 
@@ -1972,7 +1972,7 @@ int json_variant_set_field_integer(JsonVariant **v, const char *field, intmax_t 
         return json_variant_set_field(v, field, m);
 }
 
-int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uintmax_t u) {
+int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t u) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
 
@@ -2189,13 +2189,13 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         t = json_variant_type(v);
         switch (t) {
         case JSON_VARIANT_INTEGER:
-                k = sizeof(intmax_t);
+                k = sizeof(int64_t);
                 value.integer = json_variant_integer(v);
                 source = &value;
                 break;
 
         case JSON_VARIANT_UNSIGNED:
-                k = sizeof(uintmax_t);
+                k = sizeof(uint64_t);
                 value.unsig = json_variant_unsigned(v);
                 source = &value;
                 break;
@@ -2525,8 +2525,8 @@ static int json_parse_string(const char **p, char **ret) {
 static int json_parse_number(const char **p, JsonValue *ret) {
         bool negative = false, exponent_negative = false, is_real = false;
         double x = 0.0, y = 0.0, exponent = 0.0, shift = 1.0;
-        intmax_t i = 0;
-        uintmax_t u = 0;
+        int64_t i = 0;
+        uint64_t u = 0;
         const char *c;
 
         assert(p);
@@ -2550,23 +2550,23 @@ static int json_parse_number(const char **p, JsonValue *ret) {
                         if (!is_real) {
                                 if (negative) {
 
-                                        if (i < INTMAX_MIN / 10) /* overflow */
+                                        if (i < INT64_MIN / 10) /* overflow */
                                                 is_real = true;
                                         else {
-                                                intmax_t t = 10 * i;
+                                                int64_t t = 10 * i;
 
-                                                if (t < INTMAX_MIN + (*c - '0')) /* overflow */
+                                                if (t < INT64_MIN + (*c - '0')) /* overflow */
                                                         is_real = true;
                                                 else
                                                         i = t - (*c - '0');
                                         }
                                 } else {
-                                        if (u > UINTMAX_MAX / 10) /* overflow */
+                                        if (u > UINT64_MAX / 10) /* overflow */
                                                 is_real = true;
                                         else {
-                                                uintmax_t t = 10 * u;
+                                                uint64_t t = 10 * u;
 
-                                                if (t > UINTMAX_MAX - (*c - '0')) /* overflow */
+                                                if (t > UINT64_MAX - (*c - '0')) /* overflow */
                                                         is_real = true;
                                                 else
                                                         u = t + (*c - '0');
@@ -3288,14 +3288,14 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_INTEGER: {
-                        intmax_t j;
+                        int64_t j;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
 
-                        j = va_arg(ap, intmax_t);
+                        j = va_arg(ap, int64_t);
 
                         if (current->n_suppress == 0) {
                                 r = json_variant_new_integer(&add, j);
@@ -3316,14 +3316,14 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_UNSIGNED: {
-                        uintmax_t j;
+                        uint64_t j;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
 
-                        j = va_arg(ap, uintmax_t);
+                        j = va_arg(ap, uint64_t);
 
                         if (current->n_suppress == 0) {
                                 r = json_variant_new_unsigned(&add, j);
@@ -4064,8 +4064,8 @@ int json_dispatch_tristate(const char *name, JsonVariant *variant, JsonDispatchF
         return 0;
 }
 
-int json_dispatch_intmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        intmax_t *i = userdata;
+int json_dispatch_int64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        int64_t *i = userdata;
 
         assert(variant);
         assert(i);
@@ -4077,8 +4077,8 @@ int json_dispatch_intmax(const char *name, JsonVariant *variant, JsonDispatchFla
         return 0;
 }
 
-int json_dispatch_uintmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uintmax_t *u = userdata;
+int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint64_t *u = userdata;
 
         assert(variant);
         assert(u);
@@ -4228,7 +4228,7 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
 
 int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uid_t *uid = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
