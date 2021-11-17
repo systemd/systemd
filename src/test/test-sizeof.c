@@ -57,6 +57,8 @@ int main(void) {
         info(long long unsigned);
         info(__syscall_ulong_t);
         info(__syscall_slong_t);
+        info(intmax_t);
+        info(uintmax_t);
 
         info(float);
         info(double);
