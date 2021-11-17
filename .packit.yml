@@ -37,6 +37,11 @@ jobs:
   trigger: pull_request
   metadata:
     targets:
+    - centos-stream-8-aarch64
+    - centos-stream-8-ppc64le
+    - centos-stream-8-x86_64
+    - centos-stream-9-aarch64
+    - centos-stream-9-x86_64
     - fedora-rawhide-aarch64
     - fedora-rawhide-i386
     - fedora-rawhide-ppc64le
