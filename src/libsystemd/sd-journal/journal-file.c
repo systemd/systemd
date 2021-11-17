@@ -1972,7 +1972,7 @@ static int journal_file_append_entry_internal(
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 uint64_t xor_hash,
-                const EntryItem items[], unsigned n_items,
+                const EntryItem *items, unsigned n_items,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
         uint64_t np;
@@ -2113,7 +2113,7 @@ int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec *iovec, unsigned n_iovec,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
 
