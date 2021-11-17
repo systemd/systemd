@@ -2422,10 +2422,8 @@ static int return_data(
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t p, n;
-        le64_t le_hash;
-        int r;
         Object *o;
+        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -2443,26 +2441,39 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (r < 0)
                 return r;
 
-        n = journal_file_entry_n_items(o);
-        if (j->current_field >= n)
-                return 0;
+        for (uint64_t n = journal_file_entry_n_items(o); j->current_field < n; j->current_field++) {
+                uint64_t p;
+                le64_t le_hash;
 
-        p = le64toh(o->entry.items[j->current_field].object_offset);
-        le_hash = o->entry.items[j->current_field].hash;
-        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
-        if (r < 0)
-                return r;
+                p = le64toh(o->entry.items[j->current_field].object_offset);
+                le_hash = o->entry.items[j->current_field].hash;
+                r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (r == -EBADMSG) {
+                        log_debug("Entry item %"PRIu64" data object is bad, skipping over it.", j->current_field);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
 
-        if (le_hash != o->data.hash)
-                return -EBADMSG;
+                if (le_hash != o->data.hash) {
+                        log_debug("Entry item %"PRIu64" hash is bad, skipping over it.", j->current_field);
+                        continue;
+                }
 
-        r = return_data(j, f, o, data, size);
-        if (r < 0)
-                return r;
+                r = return_data(j, f, o, data, size);
+                if (r == -EBADMSG) {
+                        log_debug("Entry item %"PRIu64" data payload is bad, skipping over it.", j->current_field);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
 
-        j->current_field++;
+                j->current_field++;
 
-        return 1;
+                return 1;
+        }
+
+        return 0;
 }
 
 _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *size) {
