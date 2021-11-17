@@ -582,6 +582,11 @@ set -e
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
+# The env binary (used as shebang) should at least have a buildId, so test the ELF parsing functionality
+if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    systemd-analyze inspect-elf /usr/bin/env --json=pretty | grep -q -F "buildId"
+fi
+
 systemd-analyze log-level info
 
 echo OK >/testok
