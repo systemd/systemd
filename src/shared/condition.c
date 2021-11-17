@@ -39,8 +39,10 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -958,6 +960,113 @@ static int condition_test_file_is_executable(Condition *c, char **env) {
                 (st.st_mode & 0111));
 }
 
+static int condition_test_psi(Condition *c, char **env) {
+        _cleanup_free_ char *first = NULL, *second = NULL, *pressure_path = NULL;
+        loadavg_t *current, limit;
+        ResourcePressure pressure;
+        const char *p, *value;
+        OrderOperator order;
+        PressureType type;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(IN_SET(c->type, CONDITION_MEMORY_PRESSURE, CONDITION_CPU_PRESSURE));
+
+        if (!is_pressure_supported())
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
+
+        type = c->type == CONDITION_CPU_PRESSURE ? PRESSURE_TYPE_SOME : PRESSURE_TYPE_FULL;
+
+        p = c->parameter;
+        r = extract_many_words(&p, ":", 0, &first, &second, NULL);
+        if (r <= 0)
+                return log_debug_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+        /* If only one parameter is passed, then we look at the global system pressure rather than a specific cgroup. */
+        if (r == 1) {
+                pressure_path = path_join("/proc/pressure", c->type == CONDITION_CPU_PRESSURE ? "cpu" : "memory");
+                if (!pressure_path)
+                        return -ENOMEM;
+
+                value = first;
+        } else {
+                CGroupMask mask, required_mask = c->type == CONDITION_CPU_PRESSURE ? CGROUP_MASK_CPU : CGROUP_MASK_MEMORY;
+                const char *controller = c->type == CONDITION_CPU_PRESSURE ? "cpu.pressure" : "memory.pressure";
+                _cleanup_free_ char *slice_path = NULL;
+
+                r = cg_all_unified();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the unified cgroups hierarchy");
+
+                r = cg_mask_supported(&mask);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get supported cgroup controllers: %m");
+
+                if (!FLAGS_SET(mask, required_mask))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Cgroup %s controller not available.",
+                                               required_mask == CGROUP_MASK_CPU ? "CPU" : "memory");
+
+                r = cg_slice_to_path(first, &slice_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", first);
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Error getting cgroup pressure path from %s: %m", slice_path);
+
+                value = second;
+        }
+
+        /* If a value including the average type and comparison are passed, parse them,
+         * otherwise we assume just a plain percentage that will be checked if it is
+         * strictly smaller than the current pressure average over 5 minutes. */
+        if (startswith(value, "avg")) {
+                _cleanup_free_ char *key = NULL;
+                const char *e = value;
+
+                r = extract_first_word(&e, &key, "!<=>", EXTRACT_RETAIN_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse condition parameter %s: %m", c->parameter);
+                if (r == 0 || isempty(e))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+
+                if (startswith(key, "avg10"))
+                        current = &pressure.avg10;
+                else if (startswith(key, "avg60"))
+                        current = &pressure.avg60;
+                else if (startswith(key, "avg300"))
+                        current = &pressure.avg300;
+                else
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+
+                order = parse_order(&e);
+                if (order < 0 || isempty(e))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+
+                value = e;
+        } else {
+                current = &pressure.avg300;
+                order = ORDER_LOWER;
+        }
+
+        r = parse_permyriad(value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse permyriad: %s", c->parameter);
+
+        r = store_loadavg_fixed_point((unsigned long) r / 100, (unsigned long) r % 100, &limit);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse loadavg: %s", c->parameter);
+
+        r = read_resource_pressure(pressure_path, type, &pressure);
+        if (r < 0)
+                return log_debug_errno(r, "Error parsing pressure from %s: %m", pressure_path);
+
+        return test_order(CMP(*current, limit), order);
+}
+
 int condition_test(Condition *c, char **env) {
 
         static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
@@ -990,6 +1099,8 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
                 [CONDITION_OS_RELEASE]               = condition_test_osrelease,
+                [CONDITION_MEMORY_PRESSURE]          = condition_test_psi,
+                [CONDITION_CPU_PRESSURE]             = condition_test_psi,
         };
 
         int r, b;
@@ -1115,6 +1226,8 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
         [CONDITION_OS_RELEASE] = "ConditionOSRelease",
+        [CONDITION_MEMORY_PRESSURE] = "ConditionMemoryPressure",
+        [CONDITION_CPU_PRESSURE] = "ConditionCPUPressure",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -1149,6 +1262,8 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
         [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
         [CONDITION_OS_RELEASE] = "AssertOSRelease",
+        [CONDITION_MEMORY_PRESSURE] = "AssertMemoryPressure",
+        [CONDITION_CPU_PRESSURE] = "AssertCPUPressure",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
