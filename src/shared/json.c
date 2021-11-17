@@ -114,16 +114,16 @@ struct JsonVariant {
         };
 };
 
-/* Inside string arrays we have a series of JasonVariant structures one after the other. In this case, strings longer
+/* Inside string arrays we have a series of JsonVariant structures one after the other. In this case, strings longer
  * than INLINE_STRING_MAX are stored as references, and all shorter ones inline. (This means — on x86-64 — strings up
- * to 15 chars are stored within the array elements, and all others in separate allocations) */
+ * to 7 chars are stored within the array elements, and all others in separate allocations) */
 #define INLINE_STRING_MAX (sizeof(JsonVariant) - offsetof(JsonVariant, string) - 1U)
 
 /* Let's make sure this structure isn't increased in size accidentally. This check is only for our most relevant arch
  * (x86-64). */
 #ifdef __x86_64__
-assert_cc(sizeof(JsonVariant) == 48U);
-assert_cc(INLINE_STRING_MAX == 15U);
+assert_cc(sizeof(JsonVariant) == 40U);
+assert_cc(INLINE_STRING_MAX == 7U);
 #endif
 
 static JsonSource* json_source_new(const char *name) {
@@ -346,7 +346,7 @@ int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u) {
         return 0;
 }
 
-int json_variant_new_real(JsonVariant **ret, long double d) {
+int json_variant_new_real(JsonVariant **ret, double d) {
         JsonVariant *v;
         int r;
 
@@ -748,7 +748,7 @@ static size_t json_variant_size(JsonVariant* v) {
                 return offsetof(JsonVariant, string) + strlen(v->string) + 1;
 
         case JSON_VARIANT_REAL:
-                return offsetof(JsonVariant, value) + sizeof(long double);
+                return offsetof(JsonVariant, value) + sizeof(double);
 
         case JSON_VARIANT_UNSIGNED:
                 return offsetof(JsonVariant, value) + sizeof(uintmax_t);
@@ -925,11 +925,11 @@ intmax_t json_variant_integer(JsonVariant *v) {
                 converted = (intmax_t) v->value.real;
 
                 DISABLE_WARNING_FLOAT_EQUAL;
-                if ((long double) converted == v->value.real)
+                if ((double) converted == v->value.real)
                         return converted;
                 REENABLE_WARNING;
 
-                log_debug("Real %Lg requested as integer, and cannot be converted losslessly, returning 0.", v->value.real);
+                log_debug("Real %g requested as integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
         }
 
@@ -972,11 +972,11 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
                 converted = (uintmax_t) v->value.real;
 
                 DISABLE_WARNING_FLOAT_EQUAL;
-                if ((long double) converted == v->value.real)
+                if ((double) converted == v->value.real)
                         return converted;
                 REENABLE_WARNING;
 
-                log_debug("Real %Lg requested as unsigned integer, and cannot be converted losslessly, returning 0.", v->value.real);
+                log_debug("Real %g requested as unsigned integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
         }
 
@@ -989,7 +989,7 @@ mismatch:
         return 0;
 }
 
-long double json_variant_real(JsonVariant *v) {
+double json_variant_real(JsonVariant *v) {
         if (!v)
                 return 0.0;
         if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
@@ -1007,9 +1007,7 @@ long double json_variant_real(JsonVariant *v) {
                 return v->value.real;
 
         case JSON_VARIANT_INTEGER: {
-                long double converted;
-
-                converted = (long double) v->value.integer;
+                double converted = (double) v->value.integer;
 
                 if ((intmax_t) converted == v->value.integer)
                         return converted;
@@ -1019,9 +1017,7 @@ long double json_variant_real(JsonVariant *v) {
         }
 
         case JSON_VARIANT_UNSIGNED: {
-                long double converted;
-
-                converted = (long double) v->value.unsig;
+                double converted = (double) v->value.unsig;
 
                 if ((uintmax_t) converted == v->value.unsig)
                         return converted;
@@ -1123,10 +1119,11 @@ JsonVariantType json_variant_type(JsonVariant *v) {
         return v->type;
 }
 
-_function_no_sanitize_float_cast_overflow_ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
+_function_no_sanitize_float_cast_overflow_
+bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         JsonVariantType rt;
 
-        /* Note: we turn off ubsan float cast overflo detection for this function, since it would complain
+        /* Note: we turn off ubsan float cast overflow detection for this function, since it would complain
          * about our float casts but we do them explicitly to detect conversion errors. */
 
         v = json_variant_dereference(v);
@@ -1162,17 +1159,17 @@ _function_no_sanitize_float_cast_overflow_ bool json_variant_has_type(JsonVarian
 
         /* Any integer that can be converted lossley to a real and back may also be considered a real */
         if (rt == JSON_VARIANT_INTEGER && type == JSON_VARIANT_REAL)
-                return (intmax_t) (long double) v->value.integer == v->value.integer;
+                return (intmax_t) (double) v->value.integer == v->value.integer;
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_REAL)
-                return (uintmax_t) (long double) v->value.unsig == v->value.unsig;
+                return (uintmax_t) (double) v->value.unsig == v->value.unsig;
 
         DISABLE_WARNING_FLOAT_EQUAL;
 
         /* Any real that can be converted losslessly to an integer and back may also be considered an integer */
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_INTEGER)
-                return (long double) (intmax_t) v->value.real == v->value.real;
+                return (double) (intmax_t) v->value.real == v->value.real;
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_UNSIGNED)
-                return (long double) (uintmax_t) v->value.real == v->value.real;
+                return (double) (uintmax_t) v->value.real == v->value.real;
 
         REENABLE_WARNING;
 
@@ -1576,7 +1573,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
                 if (flags & JSON_FORMAT_COLOR)
                         fputs(ansi_highlight_blue(), f);
 
-                fprintf(f, "%.*Le", DECIMAL_DIG, json_variant_real(v));
+                fprintf(f, "%.*e", DECIMAL_DIG, json_variant_real(v));
 
                 if (flags & JSON_FORMAT_COLOR)
                         fputs(ANSI_NORMAL, f);
@@ -2204,7 +2201,7 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 break;
 
         case JSON_VARIANT_REAL:
-                k = sizeof(long double);
+                k = sizeof(double);
                 value.real = json_variant_real(v);
                 source = &value;
                 break;
@@ -2527,7 +2524,7 @@ static int json_parse_string(const char **p, char **ret) {
 
 static int json_parse_number(const char **p, JsonValue *ret) {
         bool negative = false, exponent_negative = false, is_real = false;
-        long double x = 0.0, y = 0.0, exponent = 0.0, shift = 1.0;
+        double x = 0.0, y = 0.0, exponent = 0.0, shift = 1.0;
         intmax_t i = 0;
         uintmax_t u = 0;
         const char *c;
@@ -2619,7 +2616,7 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         *p = c;
 
         if (is_real) {
-                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10l((exponent_negative ? -1.0 : 1.0) * exponent);
+                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10((exponent_negative ? -1.0 : 1.0) * exponent);
                 return JSON_TOKEN_REAL;
         } else if (negative) {
                 ret->integer = i;
@@ -3347,14 +3344,14 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_REAL: {
-                        long double d;
+                        double d;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
 
-                        d = va_arg(ap, long double);
+                        d = va_arg(ap, double);
 
                         if (current->n_suppress == 0) {
                                 r = json_variant_new_real(&add, d);

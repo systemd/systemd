@@ -29,10 +29,10 @@
 
   Limitations:
   - Doesn't allow embedded NUL in strings
-  - Can't store integers outside of the -9223372036854775808…18446744073709551615 range (it will use 'long double' for
+  - Can't store integers outside of the -9223372036854775808…18446744073709551615 range (it will use 'double' for
     values outside this range, which is lossy)
   - Can't store negative zero (will be treated identical to positive zero, and not retained across serialization)
-  - Can't store non-integer numbers that can't be stored in "long double" losslessly
+  - Can't store non-integer numbers that can't be stored in "double" losslessly
   - Allows creation and parsing of objects with duplicate keys. The "dispatcher" will refuse them however. This means
     we can parse and pass around such objects, but will carefully refuse them when we convert them into our own data.
 
@@ -61,7 +61,7 @@ int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_integer(JsonVariant **ret, intmax_t i);
 int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u);
-int json_variant_new_real(JsonVariant **ret, long double d);
+int json_variant_new_real(JsonVariant **ret, double d);
 int json_variant_new_boolean(JsonVariant **ret, bool b);
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n);
 int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n);
@@ -83,7 +83,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant *, json_variant_unref);
 const char *json_variant_string(JsonVariant *v);
 intmax_t json_variant_integer(JsonVariant *v);
 uintmax_t json_variant_unsigned(JsonVariant *v);
-long double json_variant_real(JsonVariant *v);
+double json_variant_real(JsonVariant *v);
 bool json_variant_boolean(JsonVariant *v);
 
 JsonVariantType json_variant_type(JsonVariant *v);
@@ -242,7 +242,7 @@ enum {
 #define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, (const char*) { s }
 #define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (intmax_t) { i }
 #define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, (uintmax_t) { u }
-#define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, (long double) { d }
+#define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, (double) { d }
 #define JSON_BUILD_BOOLEAN(b) _JSON_BUILD_BOOLEAN, (bool) { b }
 #define JSON_BUILD_ARRAY(...) _JSON_BUILD_ARRAY_BEGIN, __VA_ARGS__, _JSON_BUILD_ARRAY_END
 #define JSON_BUILD_EMPTY_ARRAY _JSON_BUILD_ARRAY_BEGIN, _JSON_BUILD_ARRAY_END
