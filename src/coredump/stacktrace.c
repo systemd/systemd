@@ -320,7 +320,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         return DWARF_CB_OK;
 }
 
-static int parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
+int parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
 
         static const Dwfl_Callbacks callbacks = {
                 .find_elf = dwfl_build_id_find_elf,
@@ -340,13 +340,17 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
         assert(fd >= 0);
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
-                return -errno;
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
+                r = -errno;
+                goto finish;
+        }
 
         if (ret) {
                 c.f = open_memstream_unlocked(&buf, &sz);
-                if (!c.f)
-                        return -ENOMEM;
+                if (!c.f) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
         }
 
         elf_version(EV_CURRENT);
@@ -408,15 +412,10 @@ finish:
 
         free(buf);
 
-        return r;
-}
-
-void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
-        int r;
-
-        r = parse_core(fd, executable, ret, ret_package_metadata);
         if (r == -EINVAL)
                 log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
         else if (r < 0)
                 log_warning_errno(r, "Failed to generate stack trace: %m");
+
+        return r;
 }

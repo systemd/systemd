@@ -825,7 +825,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else if (coredump_fd >= 0)
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
+                (void) parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
 log:
