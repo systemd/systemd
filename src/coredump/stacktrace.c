@@ -113,7 +113,8 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 module_offset = pc - start;
         }
 
-        fprintf(c->f, "#%-2u 0x%016" PRIx64 " %s (%s + 0x%" PRIx64 ")\n", c->n_frame, (uint64_t) pc, strna(symbol), strna(fname), module_offset);
+        if (c->f)
+                fprintf(c->f, "#%-2u 0x%016" PRIx64 " %s (%s + 0x%" PRIx64 ")\n", c->n_frame, (uint64_t) pc, strna(symbol), strna(fname), module_offset);
         c->n_frame++;
 
         return DWARF_CB_OK;
@@ -129,13 +130,15 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         if (c->n_thread >= THREADS_MAX)
                 return DWARF_CB_ABORT;
 
-        if (c->n_thread != 0)
+        if (c->n_thread != 0 && c->f)
                 fputc('\n', c->f);
 
         c->n_frame = 0;
 
-        tid = dwfl_thread_tid(thread);
-        fprintf(c->f, "Stack trace of thread " PID_FMT ":\n", tid);
+        if (c->f) {
+                tid = dwfl_thread_tid(thread);
+                fprintf(c->f, "Stack trace of thread " PID_FMT ":\n", tid);
+        }
 
         if (dwfl_thread_getframes(thread, frame_callback, c) < 0)
                 return DWARF_CB_ABORT;
@@ -203,10 +206,12 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                                 /* First pretty-print to the buffer, so that the metadata goes as
                                  * plaintext in the journal. */
-                                fprintf(c->f, "Metadata for module %s owned by %s found: ",
-                                        name, note_name);
-                                json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
-                                fputc('\n', c->f);
+                                if (c->f) {
+                                        fprintf(c->f, "Metadata for module %s owned by %s found: ",
+                                                name, note_name);
+                                        json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
+                                        fputc('\n', c->f);
+                                }
 
                                 /* Secondly, if we have a build-id, merge it in the same JSON object
                                  * so that it appears all nicely together in the logs/metadata. */
@@ -261,12 +266,13 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * The build-id is easy, as libdwfl parses it during the dwfl_core_file_report() call and
          * stores it separately in an internal library struct. */
         id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
-        if (id_len <= 0)
+        if (id_len <= 0) {
                 /* If we don't find a build-id, note it in the journal message, and try
                  * anyway to find the package metadata. It's unlikely to have the latter
                  * without the former, but there's no hard rule. */
-                fprintf(c->f, "Found module %s without build-id.\n", name);
-        else {
+                if (c->f)
+                        fprintf(c->f, "Found module %s without build-id.\n", name);
+        } else {
                 JsonVariant *build_id;
 
                 /* We will later parse package metadata json and pass it to our caller. Prepare the
@@ -280,7 +286,8 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
 
                 build_id = json_variant_by_key(id_json, "buildId");
                 assert_se(build_id);
-                fprintf(c->f, "Found module %s with build-id: %s\n", name, json_variant_string(build_id));
+                if (c->f)
+                        fprintf(c->f, "Found module %s with build-id: %s\n", name, json_variant_string(build_id));
         }
 
         /* The .note.package metadata is more difficult. From the module, we need to get a reference
@@ -358,14 +365,15 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         int r;
 
         assert(fd >= 0);
-        assert(ret);
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return -errno;
 
-        c.f = open_memstream_unlocked(&buf, &sz);
-        if (!c.f)
-                return -ENOMEM;
+        if (ret) {
+                c.f = open_memstream_unlocked(&buf, &sz);
+                if (!c.f)
+                        return -ENOMEM;
+        }
 
         elf_version(EV_CURRENT);
 
@@ -392,12 +400,14 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", dwfl_errmsg(dwfl_errno()));
 
-        r = fflush_and_check(c.f);
-        if (r < 0)
-                return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
+        if (ret) {
+                r = fflush_and_check(c.f);
+                if (r < 0)
+                        return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
 
-        c.f = safe_fclose(c.f);
-        *ret = TAKE_PTR(buf);
+                c.f = safe_fclose(c.f);
+                *ret = TAKE_PTR(buf);
+        }
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
 
