@@ -8,12 +8,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "elf-util.h"
 #include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
-#include "stacktrace.h"
 #include "string-util.h"
 #include "util.h"
 
