@@ -63,6 +63,7 @@ _systemd_analyze() {
         [CAT_CONFIG]='cat-config'
         [SECURITY]='security'
         [CONDITION]='condition'
+        [INSPECT_ELF]='inspect-elf'
     )
 
     local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -168,6 +169,14 @@ _systemd_analyze() {
                 mode=--system
             fi
             comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[INSPECT_ELF]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --json=off --json=pretty --json=short'
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
         fi
     fi
 

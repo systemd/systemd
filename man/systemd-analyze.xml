@@ -681,6 +681,39 @@ $ systemd-analyze verify /tmp/source:alias.service
 </programlisting>
       </example>
     </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze inspect-elf <replaceable>FILE</replaceable>...</command></title>
+
+      <para>This command will load the specified file(s), and if they are ELF objects (executables,
+      libraries, core files, etc.) it will parse the embedded packaging metadata, if any, and print
+      it in a table or json format. See the <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">
+      Packaging Metadata</ulink> documentation for more information.</para>
+
+      <example>
+        <title>Table output</title>
+
+        <programlisting>$ systemd-analyze inspect-elf --json=pretty /tmp/core.fsverity.1000.f77dac5dc161402aa44e15b7dd9dcf97.58561.1637106137000000
+{
+        "elfType" : "coredump",
+        "elfArchitecture" : "AMD x86-64",
+        "/home/bluca/git/fsverity-utils/fsverity" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "7c895ecd2a271f93e96268f479fdc3c64a2ec4ee"
+        },
+        "/home/bluca/git/fsverity-utils/libfsverity.so.0" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
+        }
+}
+        </programlisting>
+      </example>
+
+    </refsect2>
   </refsect1>
 
   <refsect1>
