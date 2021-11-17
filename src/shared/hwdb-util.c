@@ -639,7 +639,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         if (!hwdb_bin)
                 return -ENOMEM;
 
-        mkdir_parents_label(hwdb_bin, 0755);
+        (void) mkdir_parents_label(hwdb_bin, 0755);
         err = trie_store(trie, hwdb_bin, compat);
         if (err < 0)
                 return log_error_errno(err, "Failed to write database %s: %m", hwdb_bin);
