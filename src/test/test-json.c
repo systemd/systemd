@@ -548,6 +548,7 @@ static void test_float_match(JsonVariant *v) {
 static void test_float(void) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *text = NULL;
+        long double a;
 
         log_info("/* %s */", __func__);
 
@@ -558,13 +559,64 @@ static void test_float(void) {
                                              JSON_BUILD_REAL(INFINITY),
                                              JSON_BUILD_REAL(-INFINITY),
                                              JSON_BUILD_REAL(HUGE_VAL),
-                                             JSON_BUILD_REAL(0),
-                                             JSON_BUILD_REAL(10),
-                                             JSON_BUILD_REAL(-10))) >= 0);
+                                             JSON_BUILD_REAL(0.0),
+                                             JSON_BUILD_REAL(10.0),
+                                             JSON_BUILD_REAL(-10.0))) >= 0);
+
+        log_info("value 10 is integer: %s", yes_no(json_variant_is_integer(json_variant_by_index(v, 7))));
+        log_info("value 10 as double: %Lg", json_variant_real(json_variant_by_index(v, 7)));
+        log_info("value 10 as integer: %ji", json_variant_integer(json_variant_by_index(v, 7)));
+        log_info("value 10 as double→integer→double: %Lg", (long double) (intmax_t) json_variant_real(json_variant_by_index(v, 7)));
+        DISABLE_WARNING_FLOAT_EQUAL;
+        log_info("value 10 conversion same: %s", yes_no(json_variant_real(json_variant_by_index(v, 7)) == (long double) (intmax_t) json_variant_real(json_variant_by_index(v, 7))));
+        REENABLE_WARNING;
+
+        log_info("value -10 is integer: %s", yes_no(json_variant_is_integer(json_variant_by_index(v, 8))));
+        log_info("value -10 as double: %Lg", json_variant_real(json_variant_by_index(v, 8)));
+        log_info("value -10 as integer: %ji", json_variant_integer(json_variant_by_index(v, 8)));
+        log_info("value -10 as double→integer→double: %Lg", (long double) (intmax_t) json_variant_real(json_variant_by_index(v, 8)));
+        DISABLE_WARNING_FLOAT_EQUAL;
+        log_info("value -10 conversion same: %s", yes_no(json_variant_real(json_variant_by_index(v, 8)) == (long double) (intmax_t) json_variant_real(json_variant_by_index(v, 8))));
+        REENABLE_WARNING;
+
+        log_info("size of float: %zu", sizeof(float));
+        log_info("size of double: %zu", sizeof(double));
+        log_info("size of long double: %zu", sizeof(long double));
+
+        a = 10.0;
+        printf("%Lg\n", a);
+        memdump(&a, sizeof(a), NULL);
+        a = -10.0;
+        printf("%Lg\n", a);
+        memdump(&a, sizeof(a), NULL);
+
+        printf("## before json_variant_dump()\n");
+        a = json_variant_real(json_variant_by_index(v, 7));
+        printf("# json_variant_by_index(v, 7)\n");
+        memdump(&a, sizeof(a), NULL);
+        a = json_variant_real(json_variant_by_index(v, 8));
+        printf("# json_variant_by_index(v, 8)\n");
+        memdump(&a, sizeof(a), NULL);
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
+        printf("## after json_variant_dump()\n");
+        a = json_variant_real(json_variant_by_index(v, 7));
+        printf("# json_variant_by_index(v, 7)\n");
+        memdump(&a, sizeof(a), NULL);
+        a = json_variant_real(json_variant_by_index(v, 8));
+        printf("# json_variant_by_index(v, 8)\n");
+        memdump(&a, sizeof(a), NULL);
+
         test_float_match(v);
+
+        printf("## after first test_float_match()\n");
+        a = json_variant_real(json_variant_by_index(v, 7));
+        printf("# json_variant_by_index(v, 7)\n");
+        memdump(&a, sizeof(a), NULL);
+        a = json_variant_real(json_variant_by_index(v, 8));
+        printf("# json_variant_by_index(v, 8)\n");
+        memdump(&a, sizeof(a), NULL);
 
         assert_se(json_variant_format(v, 0, &text) >= 0);
         assert_se(json_parse(text, 0, &w, NULL, NULL) >= 0);

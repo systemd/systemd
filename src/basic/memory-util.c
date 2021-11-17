@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
 #include <unistd.h>
 
+#include "hexdecoct.h"
 #include "memory-util.h"
 
 size_t page_size(void) {
@@ -56,3 +58,38 @@ void* explicit_bzero_safe(void *p, size_t l) {
         return p;
 }
 #endif
+
+void memdump(const void *p, size_t l, FILE *f) {
+        const uint8_t *a = p;
+
+        assert(p || l == 0);
+
+        if (l == 0)
+                return;
+
+        if (!f)
+                f = stdout;
+
+        for (size_t i = 0;; i++) {
+                fputc(hexchar(a[i] >> 4), f);
+                fputc(hexchar(a[i] & 0x0f), f);
+                if (i >= l - 1) {
+                        /* end of buffer */
+                        fputc('\n', f);
+                        return;
+                }
+
+                size_t j = i % 32;
+                if (j == 31) {
+                        /* end of line */
+                        fputc('\n', f);
+                        continue;
+                }
+
+                fputc(' ', f);
+                if (IN_SET(j, 7, 15, 23))
+                        fputc(' ', f);
+                if (j == 15)
+                        fputc(' ', f);
+        }
+}

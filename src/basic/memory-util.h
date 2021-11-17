@@ -113,3 +113,5 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
+
+void memdump(const void *p, size_t l, FILE *f);
