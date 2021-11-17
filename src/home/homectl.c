@@ -837,7 +837,7 @@ static int update_last_change(JsonVariant **v, bool with_password, bool override
 
         c = json_variant_by_key(*v, "lastChangeUSec");
         if (c) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!override)
                         goto update_password;
@@ -860,7 +860,7 @@ update_password:
 
         c = json_variant_by_key(*v, "lastPasswordChangeUSec");
         if (c) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!override)
                         return 0;

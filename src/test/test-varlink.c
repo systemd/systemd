@@ -26,7 +26,7 @@ static int block_write_fd = -1;
 static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;
         JsonVariant *a, *b;
-        intmax_t x, y;
+        int64_t x, y;
         int r;
 
         a = json_variant_by_key(parameters, "a");

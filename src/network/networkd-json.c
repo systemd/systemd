@@ -94,7 +94,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 }
 
 static int link_json_compare(JsonVariant * const *a, JsonVariant * const *b) {
-        intmax_t index_a, index_b;
+        int64_t index_a, index_b;
 
         assert(a && *a);
         assert(b && *b);

@@ -78,7 +78,7 @@ int parse_luks2_tpm2_data(
                 return -EINVAL;
 
         JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!json_variant_is_number(e))
                         return -EINVAL;
