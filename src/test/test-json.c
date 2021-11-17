@@ -558,9 +558,9 @@ static void test_float(void) {
                                              JSON_BUILD_REAL(INFINITY),
                                              JSON_BUILD_REAL(-INFINITY),
                                              JSON_BUILD_REAL(HUGE_VAL),
-                                             JSON_BUILD_REAL(0.0),
-                                             JSON_BUILD_REAL(10.0),
-                                             JSON_BUILD_REAL(-10.0))) >= 0);
+                                             JSON_BUILD_REAL(0.0L),
+                                             JSON_BUILD_REAL(10.0L),
+                                             JSON_BUILD_REAL(-10.0L))) >= 0);
 
         log_info("value 10 is integer: %s", yes_no(json_variant_is_integer(json_variant_by_index(v, 7))));
         log_info("value 10 as double: %Lg", json_variant_real(json_variant_by_index(v, 7)));
