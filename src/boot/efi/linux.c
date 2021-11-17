@@ -36,11 +36,7 @@ static EFI_STATUS loaded_image_register(
         assert(ret_image);
 
         /* create and install new LoadedImage Protocol */
-        loaded_image = AllocatePool(sizeof(EFI_LOADED_IMAGE));
-        if (!loaded_image)
-                return EFI_OUT_OF_RESOURCES;
-
-        /* provide the image base address and size */
+        loaded_image = xnew(EFI_LOADED_IMAGE, 1);
         *loaded_image = (EFI_LOADED_IMAGE) {
                 .ImageBase = (void *) linux_buffer,
                 .ImageSize = linux_length

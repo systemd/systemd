@@ -119,23 +119,15 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                if (s)
-                        efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
-                else
-                        log_oom();
+                s = xpool_print(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                if (s)
-                        efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
-                else
-                        log_oom();
+                s = xpool_print(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
         /* add StubInfo */
@@ -206,9 +198,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
             *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
-                cmdline = cmdline_owned = AllocatePool(cmdline_len);
-                if (!cmdline)
-                        return log_oom();
+                cmdline = cmdline_owned = xallocate_pool(cmdline_len);
 
                 for (UINTN i = 0; i < cmdline_len; i++)
                         cmdline[i] = ((CHAR16 *) loaded_image->LoadOptions)[i];

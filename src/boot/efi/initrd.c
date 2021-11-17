@@ -6,6 +6,7 @@
 #include "initrd.h"
 #include "macro-fundamental.h"
 #include "missing_efi.h"
+#include "util.h"
 
 /* extend LoadFileProtocol */
 struct initrd_loader {
@@ -88,10 +89,7 @@ EFI_STATUS initrd_register(
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
                 return EFI_ALREADY_STARTED;
 
-        loader = AllocatePool(sizeof(struct initrd_loader));
-        if (!loader)
-                return EFI_OUT_OF_RESOURCES;
-
+        loader = xnew(struct initrd_loader, 1);
         *loader = (struct initrd_loader) {
                 .load_file.LoadFile = initrd_load_file,
                 .address = initrd_address,
