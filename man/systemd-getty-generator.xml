@@ -54,9 +54,42 @@
   </refsect1>
 
   <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-getty-generator</filename> understands the following
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.getty_auto=</varname></term>
+
+        <listitem><para>this options take an optional boolean argument, and default to yes.
+        The generator is enabled by default, and a false value may be used to disable it.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_GETTY_AUTO</varname></term>
+
+        <listitem><para>This variable takes an optional boolean argument, and default to yes.
+        The generator is enabled by default, and a false value may be used to disable it.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
