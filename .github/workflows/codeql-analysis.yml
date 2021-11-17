@@ -5,6 +5,8 @@
 name: "CodeQL"
 
 on:
+  pull_request:
+    branches: [main]
   # It takes the workflow approximately 30 minutes to analyze the code base
   # so it doesn't seem to make much sense to trigger it on every PR or commit.
   # It runs daily at 01:00 to avoid colliding with the Coverity workflow.
@@ -18,6 +20,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.pull_request.user.login == 'dependabot[bot]'
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.language }}-${{ github.ref }}
       cancel-in-progress: true
