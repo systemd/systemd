@@ -387,11 +387,10 @@ static int write_uint64(FILE *fp, uint64_t p) {
         return 0;
 }
 
-static int contains_uint64(MMapCache *m, MMapFileDescriptor *f, uint64_t n, uint64_t p) {
+static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
         uint64_t a, b;
         int r;
 
-        assert(m);
         assert(f);
 
         /* Bisection ... */
@@ -402,7 +401,7 @@ static int contains_uint64(MMapCache *m, MMapFileDescriptor *f, uint64_t n, uint
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(m, f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                r = mmap_cache_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
                 if (r < 0)
                         return r;
 
@@ -436,7 +435,7 @@ static int entry_points_to_data(
         assert(f);
         assert(cache_entry_fd);
 
-        if (!contains_uint64(f->mmap, cache_entry_fd, n_entries, entry_p)) {
+        if (!contains_uint64(cache_entry_fd, n_entries, entry_p)) {
                 error(data_p, "Data object references invalid entry at "OFSfmt, entry_p);
                 return -EBADMSG;
         }
@@ -550,7 +549,7 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(f->mmap, cache_entry_array_fd, n_entry_arrays, a)) {
+                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
                         error(p, "Invalid array offset "OFSfmt, a);
                         return -EBADMSG;
                 }
@@ -627,7 +626,7 @@ static int verify_data_hash_table(
                         Object *o;
                         uint64_t next;
 
-                        if (!contains_uint64(f->mmap, cache_data_fd, n_data, p)) {
+                        if (!contains_uint64(cache_data_fd, n_data, p)) {
                                 error(p, "Invalid data object at hash entry %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -716,7 +715,7 @@ static int verify_entry(
                 q = le64toh(o->entry.items[i].object_offset);
                 h = le64toh(o->entry.items[i].hash);
 
-                if (!contains_uint64(f->mmap, cache_data_fd, n_data, q)) {
+                if (!contains_uint64(cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
                         return -EBADMSG;
                 }
@@ -773,7 +772,7 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(f->mmap, cache_entry_array_fd, n_entry_arrays, a)) {
+                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
                         error(a, "Invalid array %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
@@ -799,7 +798,7 @@ static int verify_entry_array(
                         }
                         last = p;
 
-                        if (!contains_uint64(f->mmap, cache_entry_fd, n_entries, p)) {
+                        if (!contains_uint64(cache_entry_fd, n_entries, p)) {
                                 error(a, "Invalid array entry at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -1357,9 +1356,9 @@ int journal_file_verify(
         if (show_progress)
                 flush_progress();
 
-        mmap_cache_free_fd(f->mmap, cache_data_fd);
-        mmap_cache_free_fd(f->mmap, cache_entry_fd);
-        mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
+        mmap_cache_free_fd(cache_data_fd);
+        mmap_cache_free_fd(cache_entry_fd);
+        mmap_cache_free_fd(cache_entry_array_fd);
 
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
@@ -1381,13 +1380,13 @@ fail:
                   100 * p / f->last_stat.st_size);
 
         if (cache_data_fd)
-                mmap_cache_free_fd(f->mmap, cache_data_fd);
+                mmap_cache_free_fd(cache_data_fd);
 
         if (cache_entry_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_fd);
+                mmap_cache_free_fd(cache_entry_fd);
 
         if (cache_entry_array_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
+                mmap_cache_free_fd(cache_entry_array_fd);
 
         return r;
 }

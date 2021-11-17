@@ -164,7 +164,7 @@ static int journal_file_set_offline_thread_join(JournalFile *f) {
 
         f->offline_state = OFFLINE_JOINED;
 
-        if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
+        if (mmap_cache_got_sigbus(f->cache_fd))
                 return -EIO;
 
         return 0;
@@ -324,7 +324,7 @@ static int journal_file_set_online(JournalFile *f) {
                 }
         }
 
-        if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
+        if (mmap_cache_got_sigbus(f->cache_fd))
                 return -EIO;
 
         switch (f->header->state) {
@@ -377,7 +377,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         journal_file_set_offline(f, true);
 
         if (f->mmap && f->cache_fd)
-                mmap_cache_free_fd(f->mmap, f->cache_fd);
+                mmap_cache_free_fd(f->cache_fd);
 
         if (f->fd >= 0 && f->defrag_on_close) {
 
@@ -655,7 +655,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (size > PAGE_ALIGN_DOWN(UINT64_MAX) - offset)
                 return -EINVAL;
 
-        if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
+        if (mmap_cache_got_sigbus(f->cache_fd))
                 return -EIO;
 
         old_header_size = le64toh(READ_NOW(f->header->header_size));
@@ -755,7 +755,7 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret);
+        return mmap_cache_get(f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(Object *o) {
@@ -2188,7 +2188,7 @@ int journal_file_append_entry(
          * it is very likely just an effect of a nullified replacement
          * mapping page */
 
-        if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
+        if (mmap_cache_got_sigbus(f->cache_fd))
                 r = -EIO;
 
         if (f->post_change_timer)
@@ -3564,7 +3564,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_get(f->mmap, f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_get(f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
@@ -3627,7 +3627,7 @@ int journal_file_open(
 #endif
         }
 
-        if (mmap_cache_got_sigbus(f->mmap, f->cache_fd)) {
+        if (mmap_cache_got_sigbus(f->cache_fd)) {
                 r = -EIO;
                 goto fail;
         }
@@ -3649,7 +3649,7 @@ int journal_file_open(
         return 0;
 
 fail:
-        if (f->cache_fd && mmap_cache_got_sigbus(f->mmap, f->cache_fd))
+        if (f->cache_fd && mmap_cache_got_sigbus(f->cache_fd))
                 r = -EIO;
 
         (void) journal_file_close(f);
@@ -3939,7 +3939,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
                                                NULL, NULL, NULL);
 
-        if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
+        if (mmap_cache_got_sigbus(to->cache_fd))
                 return -EIO;
 
         return r;
