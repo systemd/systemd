@@ -1659,6 +1659,29 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionMemoryPressure=</varname></term>
+          <term><varname>ConditionCPUPressure=</varname></term>
+          <term><varname>ConditionIOPressure=</varname></term>
+
+          <listitem><para>Verify that the overall system (memory, CPU or IO) pressure is below or equal to a threshold.
+          This setting takes a threshold value as argument. It can be specified as a simple percentage value,
+          suffixed with <literal>%</literal>, in which case the pressure will be measured as an average over the last
+          five minutes before the attempt to start the unit is performed.
+          Alternatively, the average timespan can also be specified using <literal>/</literal> as a separator, for
+          example: <literal>10%/1min</literal>. The supported timespans match what the kernel provides, and are
+          limited to <literal>10sec</literal>, <literal>1min</literal> and <literal>5min</literal>. The
+          <literal>full</literal> PSI will be checked first, and if not found <literal>some</literal> will be
+          checked. For more details, see the documentation on <ulink
+          url="https://www.kernel.org/doc/html/latest/accounting/psi.html">PSI (Pressure Stall Information)
+          </ulink>.</para>
+
+          <para>Optionally, the threshold value can be prefixed with the slice unit under which the pressure will be checked,
+          followed by a <literal>:</literal>. If the slice unit is not specified, the overall system pressure will be measured,
+          instead of a particular cgroup's.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
@@ -1686,6 +1709,9 @@
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
+          <term><varname>AssertMemoryPressure=</varname></term>
+          <term><varname>AssertCPUPressure=</varname></term>
+          <term><varname>AssertIOPressure=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings
