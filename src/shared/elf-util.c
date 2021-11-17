@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "elf-util.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "fd-util.h"
@@ -19,7 +20,6 @@
 #include "macro.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "stacktrace.h"
 #include "string-util.h"
 #include "util.h"
 
