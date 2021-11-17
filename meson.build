@@ -2822,7 +2822,6 @@ if conf.get('ENABLE_COREDUMP') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libacl,
-                                libdw,
                                 libxz,
                                 liblz4,
                                 libzstd],
