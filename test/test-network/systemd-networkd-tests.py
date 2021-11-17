@@ -172,10 +172,16 @@ def expectedFailureIfRTA_VIAIsNotSupported():
 
 def expectedFailureIfAlternativeNameIsNotAvailable():
     def f(func):
+        supported = False
         call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
         rc = call('ip link prop add dev dummy98 altname hogehogehogehogehoge', stderr=subprocess.DEVNULL)
-        call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
+            rc = call('ip link show dev hogehogehogehogehoge', stderr=subprocess.DEVNULL)
+            if rc == 0:
+                supported = True
+
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if supported:
             return func
         else:
             return unittest.expectedFailure(func)
