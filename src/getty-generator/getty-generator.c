@@ -11,8 +11,10 @@
 #include "generator.h"
 #include "log.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "proc-cmdline.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -20,6 +22,7 @@
 #include "virt.h"
 
 static const char *arg_dest = NULL;
+static bool arg_enabled = true;
 
 static int add_symlink(const char *fservice, const char *tservice) {
         char *from, *to;
@@ -139,10 +142,47 @@ static int run_container(void) {
         }
 }
 
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r;
+
+        assert(key);
+
+        if (proc_cmdline_key_streq(key, "systemd.getty_auto")) {
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse getty_auto switch \"%s\", ignoring: %m", value);
+                else
+                        arg_enabled = r;
+        }
+
+        return 0;
+}
+
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
+        _cleanup_free_ char *getty_auto = NULL;
         int r;
 
         assert_se(arg_dest = dest);
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        r = getenv_for_pid(1, "SYSTEMD_GETTY_AUTO", &getty_auto);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO environment variable, ignoring: %m");
+        else if (r > 0) {
+                r = parse_boolean(getty_auto);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO value \"%s\", ignoring: %m", getty_auto);
+                else
+                        arg_enabled = r;
+        }
+
+        if (!arg_enabled) {
+                log_debug("Disabled, exiting.");
+                return 0;
+        }
 
         if (detect_container() > 0)
                 /* Add console shell and look at $container_ttys, but don't do add any
