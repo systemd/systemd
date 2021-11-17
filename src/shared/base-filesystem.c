@@ -46,6 +46,12 @@ static const BaseFilesystem table[] = {
          * create the symlink as needed should it be missing. We prefer doing this consistently with Debian's
          * multiarch logic, but support Fedora-style multilib too.*/
 #if defined(__aarch64__)
+        /* aarch64 ELF ABI actually says dynamic loader is in /lib/, but Fedora puts it in /lib64/ anyway and
+         * just symlinks /lib/ld-linux-aarch64.so.1 to ../lib64/ld-linux-aarch64.so.1. For this to work
+         * correctly, /lib64/ must be symlinked to /usr/lib64/. */
+        { "lib64",    0, "usr/lib/aarch64-linux-gnu\0"
+                         "usr/lib64\0",                "ld-linux-aarch64.so.1" },
+#  define KNOW_LIB64_DIRS 1
 #elif defined(__alpha__)
 #elif defined(__arc__) || defined(__tilegx__)
 #elif defined(__arm__)
