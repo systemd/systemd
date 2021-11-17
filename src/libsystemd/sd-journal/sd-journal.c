@@ -2306,11 +2306,17 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 p = le64toh(o->entry.items[i].object_offset);
                 le_hash = o->entry.items[i].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
+                if (r == -EBADMSG) {
+                        log_debug("Entry item %"PRIu64" data object is bad, skipping over it.", i);
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
-                if (le_hash != d->data.hash)
-                        return -EBADMSG;
+                if (le_hash != d->data.hash) {
+                        log_debug("Entry item %"PRIu64" hash is bad, skipping over it.", i);
+                        continue;
+                }
 
                 l = le64toh(d->object.size) - offsetof(Object, data.payload);
 
