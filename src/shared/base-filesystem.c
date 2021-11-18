@@ -63,6 +63,8 @@ static const BaseFilesystem table[] = {
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__ia64__)
 #elif defined(__m68k__)
+        /* No link needed. */
+#  define KNOW_LIB64_DIRS 1
 #elif defined(_MIPS_SIM)
 #  if _MIPS_SIM == _MIPS_SIM_ABI32
 #  elif _MIPS_SIM == _MIPS_SIM_NABI32
