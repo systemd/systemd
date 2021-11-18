@@ -8,11 +8,13 @@
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
 #include "bus-polkit.h"
+#include "networkd-dhcp-server-bus.h"
 #include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-network-bus.h"
 #include "path-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -285,7 +287,7 @@ static int property_get_namespace_id(
         return sd_bus_message_append(reply, "t", id);
 }
 
-const sd_bus_vtable manager_vtable[] = {
+static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Manager, operational_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -418,3 +420,10 @@ int manager_send_changed_strv(Manager *manager, char **properties) {
                         "org.freedesktop.network1.Manager",
                         properties);
 }
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/network1",
+        "org.freedesktop.network1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+        .children = BUS_IMPLEMENTATIONS(&dhcp_server_object, &link_object, &network_object),
+};
