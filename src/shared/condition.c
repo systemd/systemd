@@ -39,8 +39,10 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -958,6 +960,38 @@ static int condition_test_file_is_executable(Condition *c, char **env) {
                 (st.st_mode & 0111));
 }
 
+static int condition_test_psi(Condition *c, char **env) {
+        ResourcePressure pressure;
+        PressureType type;
+        loadavg_t limit;
+        char *path;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(IN_SET(c->type, CONDITION_MEMORY_PRESSURE, CONDITION_CPU_PRESSURE));
+
+        if (!is_pressure_supported())
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
+
+        type = c->type == CONDITION_CPU_PRESSURE ? PRESSURE_TYPE_SOME : PRESSURE_TYPE_FULL;
+        path = strjoina("/proc/pressure/", c->type == CONDITION_CPU_PRESSURE ? "cpu" : "memory");
+
+        r = read_resource_pressure(path, type, &pressure);
+        if (r < 0)
+                return log_debug_errno(r, "Error parsing pressure from %s: %m", path);
+
+        r = parse_permyriad(c->parameter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse permyriad: %s", c->parameter);
+
+        r = store_loadavg_fixed_point((unsigned long) r / 100, (unsigned long) r % 100, &limit);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse loadavg: %s", c->parameter);
+
+        return pressure.avg300 < limit;
+}
+
 int condition_test(Condition *c, char **env) {
 
         static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
@@ -990,6 +1024,8 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
                 [CONDITION_OS_RELEASE]               = condition_test_osrelease,
+                [CONDITION_MEMORY_PRESSURE]          = condition_test_psi,
+                [CONDITION_CPU_PRESSURE]             = condition_test_psi,
         };
 
         int r, b;
@@ -1115,6 +1151,8 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
         [CONDITION_OS_RELEASE] = "ConditionOSRelease",
+        [CONDITION_MEMORY_PRESSURE] = "ConditionMemoryPressure",
+        [CONDITION_CPU_PRESSURE] = "ConditionCPUPressure",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -1149,6 +1187,8 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
         [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
         [CONDITION_OS_RELEASE] = "AssertOSRelease",
+        [CONDITION_MEMORY_PRESSURE] = "AssertMemoryPressure",
+        [CONDITION_CPU_PRESSURE] = "AssertCPUPressure",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
