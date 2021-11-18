@@ -26,7 +26,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
         _GPT_ARCH_SEXTET(ARC,         "arc"),
         _GPT_ARCH_SEXTET(ARM,         "arm"),
-        _GPT_ARCH_SEXTET(ARM_64,      "arm64"),
+        _GPT_ARCH_SEXTET(ARM64,       "arm64"),
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
@@ -69,7 +69,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         GPT_##type##_ALPHA##suffix,                     \
         GPT_##type##_ARC##suffix,                       \
         GPT_##type##_ARM##suffix,                       \
-        GPT_##type##_ARM_64##suffix,                    \
+        GPT_##type##_ARM64##suffix,                     \
         GPT_##type##_IA64##suffix,                      \
         GPT_##type##_LOONGARCH64##suffix,               \
         GPT_##type##_MIPS_LE##suffix,                   \
