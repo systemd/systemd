@@ -2238,6 +2238,9 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read alternative names: %m");
 
+        if (strv_equal(altnames, link->alternative_names))
+                return 0;
+
         STRV_FOREACH(n, link->alternative_names)
                 hashmap_remove(link->manager->links_by_name, *n);
 
