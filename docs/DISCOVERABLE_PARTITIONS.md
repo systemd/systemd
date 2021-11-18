@@ -48,7 +48,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Partition (32-bit ARM)_ | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | ditto | ditto |
 | _Root Partition (64-bit ARM/AArch64)_ | `b921b045-1df0-41c3-af44-4c6f280d3fae` | ditto | ditto |
 | _Root Partition (Itanium/IA-64)_ | `993d8d3d-f80e-4225-855a-9daf8ed7ea97` | ditto | ditto |
-| _Root Partition (LoongArch 64-bit)_ | `77055800-792c-4f94-b39a-98c91b762bb6` | ditto | ditto |
+| _Root Partition (LoongArch 64-bit)_ | `77055800-792c-4f94-b39a-99c91b762bb6` | ditto | ditto |
 | _Root Partition (32-bit PowerPC)_ | `1de3f1ef-fa98-47b5-8dcd-4a860a654d78` | ditto | ditto |
 | _Root Partition (64-bit PowerPC BigEndian)_ | `912ade1d-a839-4913-8964-a10eee08fbd2` | ditto | ditto |
 | _Root Partition (64-bit PowerPC LittleEndian)_ | `c31c45e6-3f39-412e-80fb-4809c4980599` | ditto | ditto |
