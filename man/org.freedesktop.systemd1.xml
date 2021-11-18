@@ -7595,6 +7595,8 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Where = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExtraOptions = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u DirectoryMode = ...;
       readonly s Result = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7608,6 +7610,8 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
     </programlisting>
 
     <!--property Where is not documented!-->
+
+    <!--property ExtraOptions is not documented!-->
 
     <!--property DirectoryMode is not documented!-->
 
@@ -7624,6 +7628,8 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
     <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.systemd1.Automount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Where"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtraOptions"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DirectoryMode"/>
 
