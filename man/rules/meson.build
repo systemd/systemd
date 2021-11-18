@@ -57,6 +57,7 @@ manpages = [
  ['org.freedesktop.locale1', '5', [], 'ENABLE_LOCALED'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
+ ['org.freedesktop.network1', '5', [], 'ENABLE_NETWORKD'],
  ['org.freedesktop.oom1', '5', [], 'ENABLE_OOMD'],
  ['org.freedesktop.portable1', '5', [], 'ENABLE_PORTABLED'],
  ['org.freedesktop.resolve1', '5', [], 'ENABLE_RESOLVE'],

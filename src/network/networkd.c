@@ -7,13 +7,16 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "bus-log-control-api.h"
 #include "capability-util.h"
 #include "daemon-util.h"
 #include "firewall-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "networkd-conf.h"
+#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "user-util.h"
 
@@ -23,6 +26,13 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        r = service_parse_argv("systemd-networkd.service",
+                               "Manage and configure network devices, create virtual network devices",
+                               BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
