@@ -497,7 +497,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                 flags = (flags & any) & ~supported;
                 if (flags) {
                         const char* strv[5];
-                        unsigned n = 0;
+                        size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
                         if (compatible) {
@@ -1972,7 +1972,7 @@ static int journal_file_append_entry_internal(
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 uint64_t xor_hash,
-                const EntryItem items[], unsigned n_items,
+                const EntryItem *items, size_t n_items,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
         uint64_t np;
@@ -2113,7 +2113,7 @@ int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec *iovec, size_t n_iovec,
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
 
@@ -2148,7 +2148,7 @@ int journal_file_append_entry(
 
         items = newa(EntryItem, n_iovec);
 
-        for (unsigned i = 0; i < n_iovec; i++) {
+        for (size_t i = 0; i < n_iovec; i++) {
                 uint64_t p;
                 Object *o;
 
@@ -2170,8 +2170,10 @@ int journal_file_append_entry(
                 else
                         xor_hash ^= le64toh(o->data.hash);
 
-                items[i].object_offset = htole64(p);
-                items[i].hash = o->data.hash;
+                items[i] = (EntryItem) {
+                        .object_offset = htole64(p),
+                        .hash = o->data.hash,
+                };
         }
 
         /* Order by the position on disk, in order to improve seek
@@ -3867,8 +3869,10 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         if (!to->writable)
                 return -EPERM;
 
-        ts.monotonic = le64toh(o->entry.monotonic);
-        ts.realtime = le64toh(o->entry.realtime);
+        ts = (dual_timestamp) {
+                .monotonic = le64toh(o->entry.monotonic),
+                .realtime = le64toh(o->entry.realtime),
+        };
         boot_id = &o->entry.boot_id;
 
         n = journal_file_entry_n_items(o);
@@ -3931,8 +3935,10 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i].object_offset = htole64(h);
-                items[i].hash = u->data.hash;
+                items[i] = (EntryItem) {
+                        .object_offset = htole64(h),
+                        .hash = u->data.hash,
+                };
 
                 r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
                 if (r < 0)
