@@ -3,8 +3,10 @@
 
 #include "sd-bus.h"
 
+#include "bus-object.h"
+
 typedef struct Manager Manager;
 
-extern const sd_bus_vtable manager_vtable[];
+extern const BusObjectImplementation manager_object;
 
 int manager_send_changed_strv(Manager *m, char **properties);
