@@ -4,3 +4,4 @@
 #include "json.h"
 
 int parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata);
+int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata);
