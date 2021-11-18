@@ -98,6 +98,8 @@
 
         <listitem><para>The maximum (compressed or uncompressed) size in bytes of a core to be saved. Unit
         suffixes are allowed just as in <option>ProcessSizeMax=</option>.</para></listitem>
+
+        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para>
       </varlistentry>
 
       <varlistentry>
