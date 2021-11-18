@@ -266,7 +266,7 @@ static int map_all_fields(
 
         for (;;) {
                 bool mapped = false;
-                const MapField *m;
+                const MapField *mf;
                 const char *v;
 
                 p += strspn(p, WHITESPACE);
@@ -301,12 +301,12 @@ static int map_all_fields(
                 }
 
                 /* Try to map the kernel fields to our own names */
-                for (m = map_fields; m->audit_field; m++) {
-                        v = startswith(p, m->audit_field);
+                for (mf = map_fields; mf->audit_field; mf++) {
+                        v = startswith(p, mf->audit_field);
                         if (!v)
                                 continue;
 
-                        r = m->map(m->journal_field, &v, iovec, n);
+                        r = mf->map(mf->journal_field, &v, iovec, n);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to parse audit array: %m");
 
