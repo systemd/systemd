@@ -451,6 +451,114 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         return 0;
 }
 
+static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL, *elf_metadata = NULL;
+        _cleanup_(set_freep) Set *modules = NULL;
+        struct stack_context c = {
+                .package_metadata = &package_metadata,
+                .modules = &modules,
+        };
+        _unused_ _cleanup_(stack_context_destroyp) struct stack_context *c_cleanup = &c;
+        _cleanup_free_ char *buf = NULL; /* buf should be freed first, c.f closed second (via stack_context_destroy) */
+        const char *elf_architecture;
+        GElf_Ehdr elf_header;
+        size_t sz = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                return log_warning_errno(errno, "Failed to seek to beginning of the ELF file: %m");
+
+        if (ret) {
+                c.f = open_memstream_unlocked(&buf, &sz);
+                if (!c.f)
+                        return log_oom();
+        }
+
+        elf_version(EV_CURRENT);
+
+        c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+        if (!c.elf) {
+                log_warning("Could not parse ELF file, elf_begin() failed: %s", elf_errmsg(elf_errno()));
+                return -EINVAL;
+        }
+
+        if (!gelf_getehdr(c.elf, &elf_header)){
+                log_warning("Could not parse ELF file, gelf_getehdr() failed: %s", elf_errmsg(elf_errno()));
+                return -EINVAL;
+        }
+
+        /* Note that e_type is always DYN for both executables and libraries, so we can't tell them apart from the header. */
+        r = json_build(&elf_metadata,
+                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("elfType", JSON_BUILD_STRING(elf_header.e_type == ET_CORE ? "coredump" : "binary"))));
+        if (r < 0)
+                return log_warning_errno(r, "Failed to inspect ELF file: %m");
+
+        elf_architecture = dwelf_elf_e_machine_string(elf_header.e_machine);
+        if (elf_architecture) {
+                _cleanup_(json_variant_unrefp) JsonVariant *json_architecture = NULL;
+
+                r = json_build(&json_architecture,
+                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR("elfArchitecture", JSON_BUILD_STRING(elf_architecture))));
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to inspect ELF file: %m");
+
+                r = json_variant_merge(&elf_metadata, json_architecture);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to inspect ELF file: %m");
+
+                if (ret)
+                        fprintf(c.f, "ELF object binary architecture: %s\n", elf_architecture);
+        }
+
+        if (elf_header.e_type == ET_CORE) {
+                _cleanup_free_ char *out = NULL;
+
+                r = parse_core(fd, executable, ret ? &out : NULL, &package_metadata);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to inspect core file: %m");
+
+                if (out)
+                        fprintf(c.f, "%s", out);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
+
+                r = parse_buildid(NULL, c.elf, executable, &c, &id_json);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse build-id of ELF file: %m");
+
+                r = parse_package_metadata(executable, id_json, c.elf, &c);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse package metadata of ELF file: %m");
+
+                /* If we found a build-id and nothing else, return at least that. */
+                if (!package_metadata && id_json) {
+                        r = json_build(&package_metadata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(executable, JSON_BUILD_VARIANT(id_json))));
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to inspect ELF file: %m");
+                }
+        }
+
+        /* We always at least have the ELF type, so merge that (and possibly the arch). */
+        r = json_variant_merge(&elf_metadata, package_metadata);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to inspect ELF file: %m");
+
+        if (c.f) {
+                r = fflush_and_check(c.f);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to inspect ELF file: %m");
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(buf);
+        if (ret_package_metadata)
+                *ret_package_metadata = TAKE_PTR(elf_metadata);
+
+        return 0;
+}
+
 int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata) {
         _cleanup_close_pair_ int error_pipe[2] = { -1, -1 }, return_pipe[2] = { -1, -1 }, json_pipe[2] = { -1, -1 };
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
@@ -504,7 +612,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                 if (fork_disable_dump)
                         prctl(PR_SET_DUMPABLE, 0);
 
-                r = parse_core(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                r = parse_elf(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
                 if (r < 0)
                         goto child_fail;
 
