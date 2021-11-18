@@ -245,13 +245,54 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
         return 0;
 }
 
+/* Get the build-id out of an ELF object or a dwarf core module. */
+static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackContext *c, JsonVariant **ret_id_json) {
+        _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
+        const unsigned char *id;
+        GElf_Addr id_vaddr;
+        ssize_t id_len;
+        int r;
+
+        assert(mod || elf);
+        assert(c);
+
+        if (mod)
+                id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
+        else
+                id_len = dwelf_elf_gnu_build_id(elf, (const void **)&id);
+        if (id_len <= 0) {
+                /* If we don't find a build-id, note it in the journal message, and try
+                 * anyway to find the package metadata. It's unlikely to have the latter
+                 * without the former, but there's no hard rule. */
+                if (c->f)
+                        fprintf(c->f, "Module %s without build-id.\n", name);
+        } else {
+                /* We will later parse package metadata json and pass it to our caller. Prepare the
+                * build-id in json format too, so that it can be appended and parsed cleanly. It
+                * will then be added as metadata to the journal message with the stack trace. */
+                r = json_build(&id_json, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("buildId", JSON_BUILD_HEX(id, id_len))));
+                if (r < 0)
+                        return log_error_errno(r, "json_build on build-id failed: %m");
+
+                if (c->f) {
+                        JsonVariant *build_id = json_variant_by_key(id_json, "buildId");
+                        assert(build_id);
+                        fprintf(c->f, "Module %s with build-id %s\n", name, json_variant_string(build_id));
+                }
+        }
+
+        if (ret_id_json)
+                *ret_id_json = TAKE_PTR(id_json);
+
+        return 0;
+}
+
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
         _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
         StackContext *c = arg;
         size_t n_program_headers;
-        GElf_Addr id_vaddr, bias;
-        const unsigned char *id;
-        int id_len, r;
+        GElf_Addr bias;
+        int r;
         Elf *elf;
 
         assert(mod);
@@ -265,30 +306,9 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * We proceed in a best-effort fashion - not all ELF objects might contain both or either.
          * The build-id is easy, as libdwfl parses it during the dwfl_core_file_report() call and
          * stores it separately in an internal library struct. */
-        id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
-        if (id_len <= 0) {
-                /* If we don't find a build-id, note it in the journal message, and try
-                 * anyway to find the package metadata. It's unlikely to have the latter
-                 * without the former, but there's no hard rule. */
-                if (c->f)
-                        fprintf(c->f, "Found module %s without build-id.\n", name);
-        } else {
-                JsonVariant *build_id;
-
-                /* We will later parse package metadata json and pass it to our caller. Prepare the
-                * build-id in json format too, so that it can be appended and parsed cleanly. It
-                * will then be added as metadata to the journal message with the stack trace. */
-                r = json_build(&id_json, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("buildId", JSON_BUILD_HEX(id, id_len))));
-                if (r < 0) {
-                        log_error_errno(r, "json_build on build-id failed: %m");
-                        return DWARF_CB_ABORT;
-                }
-
-                build_id = json_variant_by_key(id_json, "buildId");
-                assert_se(build_id);
-                if (c->f)
-                        fprintf(c->f, "Found module %s with build-id: %s\n", name, json_variant_string(build_id));
-        }
+        r = parse_buildid(mod, NULL, name, c, &id_json);
+        if (r < 0)
+                return DWARF_CB_ABORT;
 
         /* The .note.package metadata is more difficult. From the module, we need to get a reference
          * to the ELF object first. We might be lucky and just get it from elfutils. */
