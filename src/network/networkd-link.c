@@ -2231,7 +2231,11 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
         assert(message);
 
         r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
-        if (r < 0 && r != -ENODATA)
+        if (r == -ENODATA)
+                /* The message does not have IFLA_PROP_LIST container attribute. It does not means the
+                 * interface has no alternative name. */
+                return 0;
+        if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read alternative names: %m");
 
         STRV_FOREACH(n, link->alternative_names)
