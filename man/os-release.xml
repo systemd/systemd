@@ -407,6 +407,18 @@
           <para>Examples: <literal>SYSEXT_LEVEL=2</literal>, <literal>SYSEXT_LEVEL=15.14</literal>.
           </para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>SYSEXT_SCOPE=</varname></term>
+          <listitem><para>Takes a space-separated list of one or more of the strings
+          <literal>system</literal>, <literal>initrd</literal> and <literal>portable</literal>. This field is
+          only supported in <filename>extension-release.d/</filename> files and indicates what environments
+          the system extension is applicable to: i.e. to regular systems, to initial RAM filesystems
+          ("initrd") or to portable service images. If unspecified, <literal>SYSEXT_SCOPE=system
+          portable</literal> is implied, i.e. any system extension without this field is applicable to
+          regular systems and to portable service environments, but not to initrd
+          environments.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
