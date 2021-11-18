@@ -15,14 +15,14 @@
 typedef struct MapField {
         const char *audit_field;
         const char *journal_field;
-        int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov);
+        int (*map)(const char *field, const char **p, struct iovec **iovec, size_t *n);
 } MapField;
 
 static int map_simple_field(
                 const char *field,
                 const char **p,
-                struct iovec **iov,
-                size_t *n_iov) {
+                struct iovec **iovec,
+                size_t *n) {
 
         _cleanup_free_ char *c = NULL;
         size_t l = 0;
@@ -30,8 +30,8 @@ static int map_simple_field(
 
         assert(field);
         assert(p);
-        assert(iov);
-        assert(n_iov);
+        assert(iovec);
+        assert(n);
 
         l = strlen(field);
         c = malloc(l + 1);
@@ -48,10 +48,10 @@ static int map_simple_field(
 
         c[l] = 0;
 
-        if (!GREEDY_REALLOC(*iov, *n_iov + 1))
+        if (!GREEDY_REALLOC(*iovec, *n + 1))
                 return -ENOMEM;
 
-        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
+        (*iovec)[(*n)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;
@@ -62,8 +62,8 @@ static int map_simple_field(
 static int map_string_field_internal(
                 const char *field,
                 const char **p,
-                struct iovec **iov,
-                size_t *n_iov,
+                struct iovec **iovec,
+                size_t *n,
                 bool filter_printable) {
 
         _cleanup_free_ char *c = NULL;
@@ -72,8 +72,8 @@ static int map_string_field_internal(
 
         assert(field);
         assert(p);
-        assert(iov);
-        assert(n_iov);
+        assert(iovec);
+        assert(n);
 
         /* The kernel formats string fields in one of two formats. */
 
@@ -128,10 +128,10 @@ static int map_string_field_internal(
         } else
                 return 0;
 
-        if (!GREEDY_REALLOC(*iov, *n_iov + 1))
+        if (!GREEDY_REALLOC(*iovec, *n + 1))
                 return -ENOMEM;
 
-        (*iov)[(*n_iov)++] = IOVEC_MAKE(c, l);
+        (*iovec)[(*n)++] = IOVEC_MAKE(c, l);
 
         *p = e;
         c = NULL;
@@ -139,19 +139,19 @@ static int map_string_field_internal(
         return 1;
 }
 
-static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov) {
-        return map_string_field_internal(field, p, iov, n_iov, false);
+static int map_string_field(const char *field, const char **p, struct iovec **iovec, size_t *n) {
+        return map_string_field_internal(field, p, iovec, n, false);
 }
 
-static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov) {
-        return map_string_field_internal(field, p, iov, n_iov, true);
+static int map_string_field_printable(const char *field, const char **p, struct iovec **iovec, size_t *n) {
+        return map_string_field_internal(field, p, iovec, n, true);
 }
 
 static int map_generic_field(
                 const char *prefix,
                 const char **p,
-                struct iovec **iov,
-                size_t *n_iov) {
+                struct iovec **iovec,
+                size_t *n) {
 
         const char *e, *f;
         char *c, *t;
@@ -196,7 +196,7 @@ static int map_generic_field(
 
         e++;
 
-        r = map_simple_field(c, &e, iov, n_iov);
+        r = map_simple_field(c, &e, iovec, n);
         if (r < 0)
                 return r;
 
@@ -255,14 +255,14 @@ static int map_all_fields(
                 const MapField map_fields[],
                 const char *prefix,
                 bool handle_msg,
-                struct iovec **iov,
-                size_t *n_iov) {
+                struct iovec **iovec,
+                size_t *n) {
 
         int r;
 
         assert(p);
-        assert(iov);
-        assert(n_iov);
+        assert(iovec);
+        assert(n);
 
         for (;;) {
                 bool mapped = false;
@@ -296,7 +296,7 @@ static int map_all_fields(
                                 if (!c)
                                         return -ENOMEM;
 
-                                return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", false, iov, n_iov);
+                                return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", false, iovec, n);
                         }
                 }
 
@@ -306,7 +306,7 @@ static int map_all_fields(
                         if (!v)
                                 continue;
 
-                        r = m->map(m->journal_field, &v, iov, n_iov);
+                        r = m->map(m->journal_field, &v, iovec, n);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to parse audit array: %m");
 
@@ -318,7 +318,7 @@ static int map_all_fields(
                 }
 
                 if (!mapped) {
-                        r = map_generic_field(prefix, &p, iov, n_iov);
+                        r = map_generic_field(prefix, &p, iovec, n);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to parse audit array: %m");
 
@@ -330,8 +330,8 @@ static int map_all_fields(
 }
 
 void process_audit_string(Server *s, int type, const char *data, size_t size) {
-        size_t n_iov = 0, z;
-        _cleanup_free_ struct iovec *iov = NULL;
+        size_t n = 0, z;
+        _cleanup_free_ struct iovec *iovec = NULL;
         uint64_t seconds, msec, id;
         const char *p, *type_name;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
@@ -371,53 +371,53 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
         if (isempty(p))
                 return;
 
-        iov = new(struct iovec, N_IOVEC_META_FIELDS + 8);
-        if (!iov) {
+        iovec = new(struct iovec, N_IOVEC_META_FIELDS + 8);
+        if (!iovec) {
                 log_oom();
                 return;
         }
 
-        iov[n_iov++] = IOVEC_MAKE_STRING("_TRANSPORT=audit");
+        iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=audit");
 
         sprintf(source_time_field, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64,
                 (usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC);
-        iov[n_iov++] = IOVEC_MAKE_STRING(source_time_field);
+        iovec[n++] = IOVEC_MAKE_STRING(source_time_field);
 
         sprintf(type_field, "_AUDIT_TYPE=%i", type);
-        iov[n_iov++] = IOVEC_MAKE_STRING(type_field);
+        iovec[n++] = IOVEC_MAKE_STRING(type_field);
 
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
-        iov[n_iov++] = IOVEC_MAKE_STRING(id_field);
+        iovec[n++] = IOVEC_MAKE_STRING(id_field);
 
         assert_cc(4 == LOG_FAC(LOG_AUTH));
-        iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_FACILITY=4");
-        iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
+        iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_FACILITY=4");
+        iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
 
         type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
-        iov[n_iov++] = IOVEC_MAKE_STRING(type_field_name);
+        iovec[n++] = IOVEC_MAKE_STRING(type_field_name);
 
         m = strjoina("MESSAGE=", type_name, " ", p);
-        iov[n_iov++] = IOVEC_MAKE_STRING(m);
+        iovec[n++] = IOVEC_MAKE_STRING(m);
 
-        z = n_iov;
+        z = n;
 
-        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, &iov, &n_iov);
+        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, &iovec, &n);
 
-        if (!GREEDY_REALLOC(iov, n_iov + N_IOVEC_META_FIELDS)) {
+        if (!GREEDY_REALLOC(iovec, n + N_IOVEC_META_FIELDS)) {
                 log_oom();
                 goto finish;
         }
 
-        server_dispatch_message(s, iov, n_iov, MALLOC_ELEMENTSOF(iov), NULL, NULL, LOG_NOTICE, 0);
+        server_dispatch_message(s, iovec, n, MALLOC_ELEMENTSOF(iovec), NULL, NULL, LOG_NOTICE, 0);
 
 finish:
         /* free() all entries that map_all_fields() added. All others
          * are allocated on the stack or are constant. */
 
-        for (; z < n_iov; z++)
-                free(iov[z].iov_base);
+        for (; z < n; z++)
+                free(iovec[z].iov_base);
 }
 
 void server_process_audit_message(
