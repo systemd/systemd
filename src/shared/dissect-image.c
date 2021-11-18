@@ -3525,7 +3525,8 @@ int verity_dissect_and_mount(
                 const MountOptions *options,
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
-                const char *required_host_os_release_sysext_level) {
+                const char *required_host_os_release_sysext_level,
+                const char *required_sysext_scope) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -3611,11 +3612,12 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
                 r = extension_release_validate(
-                        dissected_image->image_name,
-                        required_host_os_release_id,
-                        required_host_os_release_version_id,
-                        required_host_os_release_sysext_level,
-                        extension_release);
+                                dissected_image->image_name,
+                                required_host_os_release_id,
+                                required_host_os_release_version_id,
+                                required_host_os_release_sysext_level,
+                                required_sysext_scope,
+                                extension_release);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)
