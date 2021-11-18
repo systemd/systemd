@@ -440,6 +440,84 @@ finish:
         return r;
 }
 
+static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL, *id_json = NULL;
+        _cleanup_(set_freep) Set *modules = NULL;
+        struct stack_context c = {
+                .package_metadata = &package_metadata,
+                .modules = &modules,
+        };
+        char *buf = NULL;
+        size_t sz = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (ret) {
+                c.f = open_memstream_unlocked(&buf, &sz);
+                if (!c.f) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+        }
+
+        elf_version(EV_CURRENT);
+
+        c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+        if (!c.elf) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        r = parse_buildid(NULL, c.elf, executable, &c, &id_json);
+        if (r < 0)
+                goto finish;
+
+        r = parse_package_metadata(executable, id_json, c.elf, &c);
+        if (r < 0)
+                goto finish;
+
+        c.f = safe_fclose(c.f);
+
+        /* If we found a build-id and nothing else, return at least that. */
+        if (!package_metadata && id_json) {
+                r = json_build(&package_metadata,
+                               JSON_BUILD_OBJECT(JSON_BUILD_PAIR(executable, JSON_BUILD_VARIANT(id_json))));
+                if (r < 0)
+                        goto finish;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(buf);
+        if (ret_package_metadata)
+                *ret_package_metadata = TAKE_PTR(package_metadata);
+
+        r = 0;
+
+finish:
+        if (c.dwfl)
+                dwfl_end(c.dwfl);
+
+        if (c.elf)
+                elf_end(c.elf);
+
+        safe_fclose(c.f);
+
+        free(buf);
+
+        if (r == -EINVAL)
+                log_warning("Failed to inspect ELF: %s", dwfl_errmsg(dwfl_errno()));
+        else if (r < 0)
+                log_warning_errno(r, "Failed to inspect ELF: %m");
+
+        return r;
+}
+
 int parse_elf_object(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
         _cleanup_close_pair_ int error_pipe[2] = { -1, -1 }, return_pipe[2] = { -1, -1 }, json_pipe[2] = { -1, -1 };
         int r;
@@ -488,8 +566,16 @@ int parse_elf_object(int fd, const char *executable, char **ret, JsonVariant **r
                 (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
 
                 r = parse_core(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
-                if (r < 0)
-                        goto child_fail;
+                if (r < 0 || (!package_metadata && !buf)) { /* Maybe not a core? Try as exec/lib */
+                        int k;
+
+                        k = parse_elf(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                        if (k < 0) { /* Don't clobber the original error */
+                                if (r == 0)
+                                        r = k;
+                                goto child_fail;
+                        }
+                }
 
                 if (buf) {
                         _cleanup_fclose_ FILE *out = NULL;
