@@ -44,16 +44,6 @@
 #define GPT_USR_X86          SD_ID128_MAKE(75,25,0d,76,8c,c6,45,8e,bd,66,bd,47,cc,81,a8,12)
 #define GPT_USR_X86_64       SD_ID128_MAKE(84,84,68,0c,95,21,48,c6,9c,11,b0,72,06,56,f6,9e)
 
-#define GPT_ESP              SD_ID128_MAKE(c1,2a,73,28,f8,1f,11,d2,ba,4b,00,a0,c9,3e,c9,3b)
-#define GPT_XBOOTLDR         SD_ID128_MAKE(bc,13,c2,ff,59,e6,42,62,a3,52,b2,75,fd,6f,71,72)
-#define GPT_SWAP             SD_ID128_MAKE(06,57,fd,6d,a4,ab,43,c4,84,e5,09,33,c8,4b,4f,4f)
-#define GPT_HOME             SD_ID128_MAKE(93,3a,c7,e1,2e,b4,4f,13,b8,44,0e,14,e2,ae,f9,15)
-#define GPT_SRV              SD_ID128_MAKE(3b,8f,84,25,20,e0,4f,3b,90,7f,1a,25,a7,6f,98,e8)
-#define GPT_VAR              SD_ID128_MAKE(4d,21,b0,16,b5,34,45,c2,a9,fb,5c,16,e0,91,fd,2d)
-#define GPT_TMP              SD_ID128_MAKE(7e,c6,f5,57,3b,c5,4a,ca,b2,93,16,ef,5d,f6,39,d1)
-#define GPT_USER_HOME        SD_ID128_MAKE(77,3f,91,ef,66,d4,49,b5,bd,83,d6,83,bf,40,ad,16)
-#define GPT_LINUX_GENERIC    SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
-
 /* Verity partitions for the root partitions above (we only define them for the root and /usr partitions,
  * because only they are commonly read-only and hence suitable for verity). */
 #define GPT_ROOT_ALPHA_VERITY       SD_ID128_MAKE(fc,56,d9,e9,e6,e5,4c,06,be,32,e7,44,07,ce,09,a5)
@@ -130,6 +120,16 @@
 #define GPT_USR_TILEGX_VERITY_SIG       SD_ID128_MAKE(4e,de,75,e2,6c,cc,4c,c8,b9,c7,70,33,4b,08,75,10)
 #define GPT_USR_X86_64_VERITY_SIG       SD_ID128_MAKE(e7,bb,33,fb,06,cf,4e,81,82,73,e5,43,b4,13,e2,e2)
 #define GPT_USR_X86_VERITY_SIG          SD_ID128_MAKE(97,4a,71,c0,de,41,43,c3,be,5d,5c,5c,cd,1a,d2,c0)
+
+#define GPT_ESP              SD_ID128_MAKE(c1,2a,73,28,f8,1f,11,d2,ba,4b,00,a0,c9,3e,c9,3b)
+#define GPT_XBOOTLDR         SD_ID128_MAKE(bc,13,c2,ff,59,e6,42,62,a3,52,b2,75,fd,6f,71,72)
+#define GPT_SWAP             SD_ID128_MAKE(06,57,fd,6d,a4,ab,43,c4,84,e5,09,33,c8,4b,4f,4f)
+#define GPT_HOME             SD_ID128_MAKE(93,3a,c7,e1,2e,b4,4f,13,b8,44,0e,14,e2,ae,f9,15)
+#define GPT_SRV              SD_ID128_MAKE(3b,8f,84,25,20,e0,4f,3b,90,7f,1a,25,a7,6f,98,e8)
+#define GPT_VAR              SD_ID128_MAKE(4d,21,b0,16,b5,34,45,c2,a9,fb,5c,16,e0,91,fd,2d)
+#define GPT_TMP              SD_ID128_MAKE(7e,c6,f5,57,3b,c5,4a,ca,b2,93,16,ef,5d,f6,39,d1)
+#define GPT_USER_HOME        SD_ID128_MAKE(77,3f,91,ef,66,d4,49,b5,bd,83,d6,83,bf,40,ad,16)
+#define GPT_LINUX_GENERIC    SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
 
 /* Maintain same order as above */
 #if defined(__alpha__)
