@@ -46,6 +46,7 @@ TYPES = {
     'TMP':              'Temporary Data Partition',
     'SWAP':             'Swap',
     'HOME':             'Home Partition',
+    'USER_HOME':        'Per-user Home Partition',
     'LINUX_GENERIC':    'Generic Linux Data Partition',
     'XBOOTLDR':         'Extended Boot Loader Partition',
 }
@@ -126,6 +127,10 @@ DESCRIPTIONS = {
         '<tt>tmpfs</tt> and does not require a partition on disk. In some cases it might be '
         'desirable to make `/tmp/` persistent too, in which case it is recommended to make it '
         'a symlink or bind mount to `/var/tmp/`, thus not requiring its own partition type UUID.'),
+    'USER_HOME': (
+        'Any native, optionally in LUKS',
+        'A home partition of a user, managed by '
+        '[`systemd-homed`](https://www.freedesktop.org/software/systemd/man/systemd-homed.html).'),
     'LINUX_GENERIC': (
         'Any native, optionally in LUKS',
         'No automatic mounting takes place for other Linux data partitions. This partition type '
