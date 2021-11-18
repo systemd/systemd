@@ -215,10 +215,10 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                 fn = "credential.secret";
         }
 
-        (void) mkdir_p(p, 0755);
-        dfd = open(p, O_CLOEXEC|O_DIRECTORY|O_RDONLY);
+        mkdir_parents(p, 0755);
+        dfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
         if (dfd < 0)
-                return -errno;
+                return dfd;
 
         if (FLAGS_SET(flags, CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS)) {
                 r = fd_is_temporary_fs(dfd);

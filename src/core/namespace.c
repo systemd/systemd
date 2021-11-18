@@ -2499,6 +2499,7 @@ int temporary_filesystem_add(
 
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int fd = -1;
         int r;
 
         /* Don't do anything unless we know the dir is actually missing */
@@ -2517,18 +2518,20 @@ static int make_tmp_prefix(const char *prefix) {
         if (r < 0)
                 return r;
 
-        if (mkdir(t, 0777) < 0) /* umask will corrupt this access mode, but that doesn't matter, we need to
-                                 * call chmod() anyway for the suid bit, below. */
-                return -errno;
+        /* umask will corrupt this access mode, but that doesn't matter, we need to call chmod() anyway for
+         * the suid bit, below. */
+        fd = open_mkdir_at(AT_FDCWD, t, O_EXCL|O_CLOEXEC, 0777);
+        if (fd < 0)
+                return fd;
 
-        if (chmod(t, 01777) < 0) {
-                r = -errno;
+        r = RET_NERRNO(fchmod(fd, 01777));
+        if (r < 0) {
                 (void) rmdir(t);
                 return r;
         }
 
-        if (rename(t, prefix) < 0) {
-                r = -errno;
+        r = RET_NERRNO(rename(t, prefix));
+        if (r < 0) {
                 (void) rmdir(t);
                 return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
         }
