@@ -94,6 +94,17 @@ Features:
   magic into a string. Then use that to replace fstype_magic_to_name() in homed
   sources, and similar code.
 
+* man: rework os-release(5), and clearly separate our extension-release.d/ and
+  initrd-release parts, i.e. list explicitly which fields are about what.
+
+* sysext: before applying a sysext, do a superficial validation run so that
+  things are not rearranged to wildy. I.e. protect against accidental fuckups,
+  such as masking out /usr/lib/ or so. We should probably refuse if existing
+  inodes are replaced by other types of inodes or so.
+
+* sysext: ensure one can build a sysext that can safely apply to *any* system
+  (because it contains only static go binaries in /opt/ or so)
+
 * userdb: when synthesizing NSS records, pick "best" password from defined
   passwords, not just the first. i.e. if there are multiple defined, prefer
   unlocked over locked and prefer non-empty over empty.
