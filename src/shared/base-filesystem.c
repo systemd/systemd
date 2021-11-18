@@ -55,6 +55,8 @@ static const BaseFilesystem table[] = {
 #elif defined(__alpha__)
 #elif defined(__arc__) || defined(__tilegx__)
 #elif defined(__arm__)
+        /* No /lib64 on arm. The linker is /lib/ld-linux-armhf.so.3. */
+#  define KNOW_LIB64_DIRS 1
 #elif defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
                          "usr/lib64\0",                "ld-linux-x86-64.so.2" },
