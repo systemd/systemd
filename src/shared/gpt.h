@@ -12,7 +12,7 @@
 #define GPT_ROOT_ARM         SD_ID128_MAKE(69,da,d7,10,2c,e4,4e,3c,b1,6c,21,a1,d4,9a,be,d3)
 #define GPT_ROOT_ARM64       SD_ID128_MAKE(b9,21,b0,45,1d,f0,41,c3,af,44,4c,6f,28,0d,3f,ae)
 #define GPT_ROOT_IA64        SD_ID128_MAKE(99,3d,8d,3d,f8,0e,42,25,85,5a,9d,af,8e,d7,ea,97)
-#define GPT_ROOT_LOONGARCH64 SD_ID128_MAKE(77,05,58,00,79,2c,4f,94,b3,9a,99,c9,1b,76,2b,b6)
+#define GPT_ROOT_LOONGARCH64 SD_ID128_MAKE(77,05,58,00,79,2c,4f,94,b3,9a,98,c9,1b,76,2b,b6)
 #define GPT_ROOT_PPC         SD_ID128_MAKE(1d,e3,f1,ef,fa,98,47,b5,8d,cd,4a,86,0a,65,4d,78)
 #define GPT_ROOT_PPC64       SD_ID128_MAKE(91,2a,de,1d,a8,39,49,13,89,64,a1,0e,ee,08,fb,d2)
 #define GPT_ROOT_PPC64LE     SD_ID128_MAKE(c3,1c,45,e6,3f,39,41,2e,80,fb,48,09,c4,98,05,99)
