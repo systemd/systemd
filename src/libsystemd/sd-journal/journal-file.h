@@ -212,7 +212,7 @@ int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec *iovec, size_t n_iovec,
                 uint64_t *seqno,
                 Object **ret,
                 uint64_t *offset);
@@ -272,3 +272,5 @@ static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
 uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
 
 bool journal_field_valid(const char *p, size_t l, bool allow_protected);
+
+const char* journal_object_type_to_string(ObjectType type) _const_;
