@@ -93,7 +93,11 @@ static const BaseFilesystem table[] = {
 #    error "Unknown RISC-V ABI"
 #  endif
 #elif defined(__s390__)
+        /* s390-linux-gnu */
 #elif defined(__s390x__)
+        { "lib64",    0, "usr/lib/s390x-linux-gnu\0"
+                         "usr/lib64",                  "ld-lsb-s390x.so.3" },
+#    define KNOW_LIB64_DIRS 1
 #elif defined(__sparc__)
 #endif
         /* gcc doesn't allow pragma to be used within constructs, hence log about this separately below */
