@@ -10,7 +10,7 @@
 #define GPT_ROOT_ALPHA       SD_ID128_MAKE(65,23,f8,ae,3e,b1,4e,2a,a0,5a,18,b6,95,ae,65,6f)
 #define GPT_ROOT_ARC         SD_ID128_MAKE(d2,7f,46,ed,29,19,4c,b8,bd,25,95,31,f3,c1,65,34)
 #define GPT_ROOT_ARM         SD_ID128_MAKE(69,da,d7,10,2c,e4,4e,3c,b1,6c,21,a1,d4,9a,be,d3)
-#define GPT_ROOT_ARM_64      SD_ID128_MAKE(b9,21,b0,45,1d,f0,41,c3,af,44,4c,6f,28,0d,3f,ae)
+#define GPT_ROOT_ARM64       SD_ID128_MAKE(b9,21,b0,45,1d,f0,41,c3,af,44,4c,6f,28,0d,3f,ae)
 #define GPT_ROOT_IA64        SD_ID128_MAKE(99,3d,8d,3d,f8,0e,42,25,85,5a,9d,af,8e,d7,ea,97)
 #define GPT_ROOT_LOONGARCH64 SD_ID128_MAKE(77,05,58,00,79,2c,4f,94,b3,9a,99,c9,1b,76,2b,b6)
 #define GPT_ROOT_POWERPC     SD_ID128_MAKE(1d,e3,f1,ef,fa,98,47,b5,8d,cd,4a,86,0a,65,4d,78)
@@ -25,7 +25,7 @@
 #define GPT_ROOT_X86_64      SD_ID128_MAKE(4f,68,bc,e3,e8,cd,4d,b1,96,e7,fb,ca,f9,84,b7,09)
 #define GPT_USR_ARC          SD_ID128_MAKE(79,78,a6,83,63,16,49,22,bb,ee,38,bf,f5,a2,fe,cc)
 #define GPT_USR_ARM          SD_ID128_MAKE(7d,03,59,a3,02,b3,4f,0a,86,5c,65,44,03,e7,06,25)
-#define GPT_USR_ARM_64       SD_ID128_MAKE(b0,e0,10,50,ee,5f,43,90,94,9a,91,01,b1,71,04,e9)
+#define GPT_USR_ARM64        SD_ID128_MAKE(b0,e0,10,50,ee,5f,43,90,94,9a,91,01,b1,71,04,e9)
 #define GPT_USR_IA64         SD_ID128_MAKE(43,01,d2,a6,4e,3b,4b,2a,bb,94,9e,0b,2c,42,25,ea)
 #define GPT_USR_LOONGARCH64  SD_ID128_MAKE(e6,11,c7,02,57,5c,4c,be,9a,46,43,4f,a0,bf,7e,3f)
 #define GPT_USR_POWERPC      SD_ID128_MAKE(7d,14,fe,c5,cc,71,41,5d,9d,6c,06,bf,0b,3c,3e,af)
@@ -53,7 +53,7 @@
  * because only they are commonly read-only and hence suitable for verity). */
 #define GPT_ROOT_ALPHA_VERITY       SD_ID128_MAKE(fc,56,d9,e9,e6,e5,4c,06,be,32,e7,44,07,ce,09,a5)
 #define GPT_ROOT_ARC_VERITY         SD_ID128_MAKE(24,b2,d9,75,0f,97,45,21,af,a1,cd,53,1e,42,1b,8d)
-#define GPT_ROOT_ARM_64_VERITY      SD_ID128_MAKE(df,33,00,ce,d6,9f,4c,92,97,8c,9b,fb,0f,38,d8,20)
+#define GPT_ROOT_ARM64_VERITY       SD_ID128_MAKE(df,33,00,ce,d6,9f,4c,92,97,8c,9b,fb,0f,38,d8,20)
 #define GPT_ROOT_ARM_VERITY         SD_ID128_MAKE(73,86,cd,f2,20,3c,47,a9,a4,98,f2,ec,ce,45,a2,d6)
 #define GPT_ROOT_IA64_VERITY        SD_ID128_MAKE(86,ed,10,d5,b6,07,45,bb,89,57,d3,50,f2,3d,05,71)
 #define GPT_ROOT_LOONGARCH64_VERITY SD_ID128_MAKE(f3,39,3b,22,e9,af,46,13,a9,48,9d,3b,fb,d0,c5,35)
@@ -68,7 +68,7 @@
 #define GPT_ROOT_X86_64_VERITY      SD_ID128_MAKE(2c,73,57,ed,eb,d2,46,d9,ae,c1,23,d4,37,ec,2b,f5)
 #define GPT_ROOT_X86_VERITY         SD_ID128_MAKE(d1,3c,5d,3b,b5,d1,42,2a,b2,9f,94,54,fd,c8,9d,76)
 #define GPT_USR_ARC_VERITY          SD_ID128_MAKE(fc,a0,59,8c,d8,80,45,91,8c,16,4e,da,05,c7,34,7c)
-#define GPT_USR_ARM_64_VERITY       SD_ID128_MAKE(6e,11,a4,e7,fb,ca,4d,ed,b9,e9,e1,a5,12,bb,66,4e)
+#define GPT_USR_ARM64_VERITY        SD_ID128_MAKE(6e,11,a4,e7,fb,ca,4d,ed,b9,e9,e1,a5,12,bb,66,4e)
 #define GPT_USR_ARM_VERITY          SD_ID128_MAKE(c2,15,d7,51,7b,cd,46,49,be,90,66,27,49,0a,4c,05)
 #define GPT_USR_IA64_VERITY         SD_ID128_MAKE(6a,49,1e,03,3b,e7,45,45,8e,38,83,32,0e,0e,a8,80)
 #define GPT_USR_LOONGARCH64_VERITY  SD_ID128_MAKE(f4,6b,2c,26,59,ae,48,f0,91,06,c5,0e,d4,7f,67,3d)
@@ -86,7 +86,7 @@
 /* PKCS#7 Signatures for the Verity Root Hashes */
 #define GPT_ROOT_ALPHA_VERITY_SIG       SD_ID128_MAKE(d4,64,95,b7,a0,53,41,4f,80,f7,70,0c,99,92,1e,f8)
 #define GPT_ROOT_ARC_VERITY_SIG         SD_ID128_MAKE(14,3a,70,ba,cb,d3,4f,06,91,9f,6c,05,68,3a,78,bc)
-#define GPT_ROOT_ARM_64_VERITY_SIG      SD_ID128_MAKE(6d,b6,9d,e6,29,f4,47,58,a7,a5,96,21,90,f0,0c,e3)
+#define GPT_ROOT_ARM64_VERITY_SIG      SD_ID128_MAKE(6d,b6,9d,e6,29,f4,47,58,a7,a5,96,21,90,f0,0c,e3)
 #define GPT_ROOT_ARM_VERITY_SIG         SD_ID128_MAKE(42,b0,45,5f,eb,11,49,1d,98,d3,56,14,5b,a9,d0,37)
 #define GPT_ROOT_IA64_VERITY_SIG        SD_ID128_MAKE(e9,8b,36,ee,32,ba,48,82,9b,12,0c,e1,46,55,f4,6a)
 #define GPT_ROOT_LOONGARCH64_VERITY_SIG SD_ID128_MAKE(5a,fb,67,eb,ec,c8,4f,85,ae,8e,ac,1e,7c,50,e7,d0)
@@ -101,7 +101,7 @@
 #define GPT_ROOT_X86_64_VERITY_SIG      SD_ID128_MAKE(41,09,2b,05,9f,c8,45,23,99,4f,2d,ef,04,08,b1,76)
 #define GPT_ROOT_X86_VERITY_SIG         SD_ID128_MAKE(59,96,fc,05,10,9c,48,de,80,8b,23,fa,08,30,b6,76)
 #define GPT_USR_ARC_VERITY_SIG          SD_ID128_MAKE(94,f9,a9,a1,99,71,42,7a,a4,00,50,cb,29,7f,0f,35)
-#define GPT_USR_ARM_64_VERITY_SIG       SD_ID128_MAKE(c2,3c,e4,ff,44,bd,4b,00,b2,d4,b4,1b,34,19,e0,2a)
+#define GPT_USR_ARM64_VERITY_SIG        SD_ID128_MAKE(c2,3c,e4,ff,44,bd,4b,00,b2,d4,b4,1b,34,19,e0,2a)
 #define GPT_USR_ARM_VERITY_SIG          SD_ID128_MAKE(d7,ff,81,2f,37,d1,49,02,a8,10,d7,6b,a5,7b,97,5a)
 #define GPT_USR_IA64_VERITY_SIG         SD_ID128_MAKE(8d,e5,8b,c2,2a,43,46,0d,b1,4e,a7,6e,4a,17,b4,7f)
 #define GPT_USR_LOONGARCH64_VERITY_SIG  SD_ID128_MAKE(b0,24,f3,15,d3,30,44,4c,84,61,44,bb,de,52,4e,99)
@@ -134,17 +134,17 @@
 #  define GPT_USR_NATIVE_VERITY_SIG GPT_USR_ARC_VERITY_SIG
 
 #elif defined(__aarch64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#  define GPT_ROOT_NATIVE GPT_ROOT_ARM_64
+#  define GPT_ROOT_NATIVE GPT_ROOT_ARM64
 #  define GPT_ROOT_SECONDARY GPT_ROOT_ARM
-#  define GPT_ROOT_NATIVE_VERITY GPT_ROOT_ARM_64_VERITY
+#  define GPT_ROOT_NATIVE_VERITY GPT_ROOT_ARM64_VERITY
 #  define GPT_ROOT_SECONDARY_VERITY GPT_ROOT_ARM_VERITY
-#  define GPT_ROOT_NATIVE_VERITY_SIG GPT_ROOT_ARM_64_VERITY_SIG
+#  define GPT_ROOT_NATIVE_VERITY_SIG GPT_ROOT_ARM64_VERITY_SIG
 #  define GPT_ROOT_SECONDARY_VERITY_SIG GPT_ROOT_ARM_VERITY_SIG
-#  define GPT_USR_NATIVE GPT_USR_ARM_64
+#  define GPT_USR_NATIVE GPT_USR_ARM64
 #  define GPT_USR_SECONDARY GPT_USR_ARM
-#  define GPT_USR_NATIVE_VERITY GPT_USR_ARM_64_VERITY
+#  define GPT_USR_NATIVE_VERITY GPT_USR_ARM64_VERITY
 #  define GPT_USR_SECONDARY_VERITY GPT_USR_ARM_VERITY
-#  define GPT_USR_NATIVE_VERITY_SIG GPT_USR_ARM_64_VERITY_SIG
+#  define GPT_USR_NATIVE_VERITY_SIG GPT_USR_ARM64_VERITY_SIG
 #  define GPT_USR_SECONDARY_VERITY_SIG GPT_USR_ARM_VERITY_SIG
 #elif defined(__arm__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #  define GPT_ROOT_NATIVE GPT_ROOT_ARM
