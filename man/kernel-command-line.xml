@@ -372,6 +372,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.getty_auto=</varname></term>
+
+        <listitem>
+          <para>Configures whether the <filename>serial-getty@.service</filename> will run.
+          For details, see
+          <citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.gpt_auto=</varname></term>
         <term><varname>rd.systemd.gpt_auto=</varname></term>
 
@@ -541,6 +551,7 @@
         <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
