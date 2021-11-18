@@ -19,7 +19,8 @@ inspect() {
     homectl inspect "$USERNAME" | tee /tmp/a
     userdbctl user "$USERNAME" | tee /tmp/b
 
-    diff -I '/^\s*Disk (Size|Free|Floor|Ceiling):/' /tmp/{a,b}
+    # diff uses the grep BREs for pattern matching
+    diff -I '^\s*Disk \(Size\|Free\|Floor\|Ceiling\):' /tmp/{a,b}
     rm /tmp/{a,b}
 }
 
