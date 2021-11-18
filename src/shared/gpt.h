@@ -7,10 +7,6 @@
 
 #include "id128-util.h"
 
-/* We only support root disk discovery for x86, x86-64, Itanium, ARM and LoongArch for now,
- * since EFI for anything else doesn't really exist, and we only care for root partitions
- * on the same disk as the EFI ESP. */
-
 #define GPT_ROOT_X86         SD_ID128_MAKE(44,47,95,40,f2,97,41,b2,9a,f7,d1,31,d5,f0,45,8a)
 #define GPT_ROOT_X86_64      SD_ID128_MAKE(4f,68,bc,e3,e8,cd,4d,b1,96,e7,fb,ca,f9,84,b7,09)
 #define GPT_ROOT_ARM         SD_ID128_MAKE(69,da,d7,10,2c,e4,4e,3c,b1,6c,21,a1,d4,9a,be,d3)
