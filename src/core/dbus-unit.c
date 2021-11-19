@@ -422,31 +422,31 @@ int bus_unit_method_start_generic(
                                   reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0, error);
 }
 
-static int method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_START, false, error);
 }
 
-static int method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
@@ -941,49 +941,49 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_start,
+                                 bus_unit_method_start,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Stop",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_stop,
+                                 bus_unit_method_stop,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Reload",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload,
+                                 bus_unit_method_reload,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Restart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_restart,
+                                 bus_unit_method_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("TryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_try_restart,
+                                 bus_unit_method_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_restart,
+                                 bus_unit_method_reload_or_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrTryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_try_restart,
+                                 bus_unit_method_reload_or_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("EnqueueJob",
                                  "ss",
