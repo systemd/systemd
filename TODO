@@ -125,6 +125,14 @@ Features:
   work for ECDSA keys since their signatures contain a random component, but
   will work for RSA and Ed25519 keys.
 
+* rebalance:
+  - homectl: turn off rebalance on manual resize
+  - documentation
+  - tests
+  - on login, if we can't fallocate initially, but rebalance is on, then allow
+    login in discard mode, then immediately rebalance, then turn off discard
+  - bring default create size in sync with weights
+
 * add tiny service that decrypts encrypted user records passed via initrd
   credential logic and drops them into /run where nss-systemd can pick them up,
   similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
@@ -1276,8 +1284,6 @@ Features:
   - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
   - rollback when resize fails mid-operation
   - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
-  - resize on login?
-  - shrink fs on logout?
   - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
   - create on activate?
   - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
@@ -1299,16 +1305,10 @@ Features:
   - make slice for users configurable (requires logind rework)
   - logind: populate auto-login list bus property from PKCS#11 token
   - when determining state of a LUKS home directory, check DM suspended sysfs file
-  - introduce API for "making room", that grows/shrinks home directory
-    according to elastic parameters, discards blocks, and removes additional snapshots. Call it
-    either from UI when disk space gets low
   - when homed is in use, maybe start the user session manager in a mount namespace with MS_SLAVE,
     so that mounts propagate down but not up - eg, user A setting up a backup volume
     doesn't mean user B sees it
   - use credentials logic/TPM2 logic to store homed signing key
-  - during login resize fs automatically towards size goal. Specifically,
-    resize to diskSize if possible, but leave a certain amount (configured by a
-    new value diskLeaveFreeSize) of space free on the backing fs.
   - permit multiple user record signing keys to be used locally, and pick
     the right one for signing records automatically depending on a pre-existing
     signature
@@ -1329,6 +1329,8 @@ Features:
     fallback logic to get a regular user created on uninitialized systems.
   - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
     systemd-cryptsetup, so that it can unlock homed volumes
+  - maybe make all *.home files owned by `systemd-home` user or so, so that we
+    can easily set overall quota for all users
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
