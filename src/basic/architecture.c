@@ -118,20 +118,19 @@ int uname_architecture(void) {
                 { "arc",        ARCHITECTURE_ARC      },
                 { "arceb",      ARCHITECTURE_ARC_BE   },
 #else
-#error "Please register your architecture here!"
+#  error "Please register your architecture here!"
 #endif
         };
 
         static int cached = _ARCHITECTURE_INVALID;
         struct utsname u;
-        unsigned i;
 
         if (cached != _ARCHITECTURE_INVALID)
                 return cached;
 
         assert_se(uname(&u) >= 0);
 
-        for (i = 0; i < ELEMENTSOF(arch_map); i++)
+        for (size_t i = 0; i < ELEMENTSOF(arch_map); i++)
                 if (streq(arch_map[i].machine, u.machine))
                         return cached = arch_map[i].arch;
 
