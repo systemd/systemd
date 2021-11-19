@@ -369,6 +369,19 @@ static int strv_pair_to_json(char **l, JsonVariant **ret) {
         return json_variant_new_array_strv(ret, jl);
 }
 
+static void strv_pair_print(char **l, const char *prefix) {
+        char **p, **q;
+
+        assert(prefix);
+
+        STRV_FOREACH_PAIR(p, q, l) {
+                if (p == l)
+                        printf("%s %s=%s\n", prefix, *p, *q);
+                else
+                        printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
+        }
+}
+
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -412,38 +425,18 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 if (!sd_id128_is_null(m->machine_id))
                         printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
 
-                if (!strv_isempty(m->machine_info)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->machine_info)
-                                printf("%s %s=%s\n",
-                                       p == m->machine_info ? "Mach. Info:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->os_release)
-                                printf("%s %s=%s\n",
-                                       p == m->os_release ? "OS Release:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->extension_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->extension_release)
-                                printf("%s %s=%s\n",
-                                       p == m->extension_release ? "Extension Release:" : "                  ",
-                                       *p, *q);
-                }
+                strv_pair_print(m->machine_info,
+                               "Mach. Info:");
+                strv_pair_print(m->os_release,
+                               "OS Release:");
+                strv_pair_print(m->extension_release,
+                               " Ext. Rel.:");
 
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
-                    !strv_isempty(m->extension_release) ||
-                    !strv_isempty(m->os_release))
+                    !strv_isempty(m->os_release) ||
+                    !strv_isempty(m->extension_release))
                         putc('\n', stdout);
         } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
