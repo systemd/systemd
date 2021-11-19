@@ -501,6 +501,12 @@ memory cost for the PBKDF operation, when LUKS storage is used, in bytes.
 `luksPbkdfParallelThreads` → An unsigned 64bit integer, indicating the intended
 required parallel threads for the PBKDF operation, when LUKS storage is used.
 
+`autoResizeMode` → A string, one of `off`, `grow`, `shrink-and-grow`. Unless
+set to `off`, controls whether the home area shall be grown automatically to
+the size configured in `diskSize` automatically at login time. If set to
+`shrink-and-grown` the home area is also shrunk to the minimal size possible
+(as dictated by used disk space and file system constraints) on logout.
+
 `service` → A string declaring the service that defines or manages this user
 record. It is recommended to use reverse domain name notation for this. For
 example, if `systemd-homed` manages a user a string of `io.systemd.Home` is

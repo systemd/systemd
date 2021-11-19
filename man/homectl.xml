@@ -684,6 +684,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--auto-resize-mode=</option></term>
+
+        <listitem><para>Configures whether to automatically grow and/or shrink the backing file system on
+        login and logout. Takes one of the strings <literal>off</literal>, <literal>grow</literal>,
+        <literal>shrink-and-grow</literal>. Only applies to the LUKS2 backend currently, and if the btrfs
+        file system is used inside it (since only then online growing/shrinking of the file system is
+        supported). Defaults to <literal>shrink-and-grow</literal>, if LUKS2/btrfs is used, otherwise is
+        off. If set to <literal>off</literal> no automatic shrinking/growing during login or logout is
+        done. If set to <literal>grow</literal> the home area is grown to the size configured via
+        <option>--disk-size=</option> should it currently be smaller. If it already matches the configured
+        size or is larger no operation is executed. If set to <literal>shrink-and-grow</literal> the home
+        area is also resized to the minimal size used disk space and file system constraints permit, during
+        logout. This mode thus ensures that while a home area is activated it is sized to the configured
+        size, but while deactivated it is compacted taking up only the minimal space possible. Note that if
+        the system is powered off abnormally or if the user otherwise not logged out cleanly the shrinking
+        operation will not take place, and the user has to re-login/logout again before it is executed
+        again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--nosuid=</option><replaceable>BOOL</replaceable></term>
         <term><option>--nodev=</option><replaceable>BOOL</replaceable></term>
         <term><option>--noexec=</option><replaceable>BOOL</replaceable></term>
