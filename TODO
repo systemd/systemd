@@ -81,6 +81,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* cryptsetup/homed: implement TOTP authentication backed by TPM2 and its
+  internal clock.
+
+* resolved: listen on 127.0.0.54 in addition to 127.0.0.53 and operate in proxy
+  mode there unconditionally.
+
+* nspawn: optionally set up nftables/iptables routes that forward UDP/TCP
+  traffic on port 53 to resolved stub.
+
 * extend src/basic/filesystems.[ch] so that it can be used to translate any fs
   magic into a string. Then use that to replace fstype_magic_to_name() in homed
   sources, and similar code.
@@ -262,12 +271,6 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
-* allow passing creds into kernel when booting: in EFI stub, collect creds
-  files from ESP directory, generate CPIO archive on the fly from them, so that
-  they are dropped into /run/initramfs/creds/ and pass to kernel as additional
-  initrd. Then, use LoadCredentialEncrypted=foo:/run/initramfs/creds/foo to
-  load them.
-
 * make LoadCredential= automatically find credentials in /etc/creds,
   /run/creds, … and so on, if path component is unqualified
 
@@ -364,14 +367,6 @@ Features:
   component is found and then allows the caller to create the rest.
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
-
-* add /etc/integritytab, to support dm-integrity setups. In particular those
-  with HMAC as hash function, so that we can have a protected /home without
-  encryption (leaving encryption to the individual dirs/homed).
-
-* complement root=, rootflags=, rootfstype= with rootsubdir= which allows
-  mounting a subdir of the root fs as actual root. This can be used as
-  fstype-agnostic version of btrfs' rootflags=subvol=foobar.
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
@@ -557,9 +552,6 @@ Features:
 * optionally: turn on cgroup delegation for per-session scope units
 
 * introduce per-unit (i.e. per-slice, per-service) journal log size limits.
-
-* sd-boot: automatically load EFI modules from some drop-in dir, so that people
-  can add in file system drivers and such
 
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
@@ -1039,10 +1031,8 @@ Features:
   ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
   https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
 
-* BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
-  that the boot loader should be installed to the ESP. Define a way
-  how an installer can figure out whether a BLS compliant boot loader
-  is installed.
+* BootLoaderSpec: Define a way how an installer can figure out whether a BLS
+  compliant boot loader is installed.
 
 * think about requeuing jobs when daemon-reload is issued? usecase:
   the initrd issues a reload after fstab from the host is accessible
@@ -1056,9 +1046,6 @@ Features:
 * shutdown logging: store to EFI var, and store to USB stick?
 
 * merge unit_kill_common() and unit_kill_context()
-
-* hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
-  https://bugs.freedesktop.org/show_bug.cgi?id=54712
 
 * add a dependency on standard-conf.xml and other included files to man pages
 
