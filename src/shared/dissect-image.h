@@ -163,6 +163,7 @@ struct DissectedImage {
         char **machine_info;
         char **os_release;
         char **extension_release;
+        int has_init_system;
 };
 
 struct MountOptions {

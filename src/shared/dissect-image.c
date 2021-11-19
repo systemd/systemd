@@ -46,6 +46,7 @@
 #include "hostname-setup.h"
 #include "id128-util.h"
 #include "import-util.h"
+#include "io-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -748,9 +749,13 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new0(DissectedImage, 1);
+        m = new(DissectedImage, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+        };
 
         r = sd_device_get_sysname(d, &sysname);
         if (r < 0)
@@ -3012,6 +3017,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
                 META_EXTENSION_RELEASE,
+                META_HAS_INIT_SYSTEM,
                 _META_MAX,
         };
 
@@ -3021,7 +3027,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
                 [META_OS_RELEASE]        = ("/etc/os-release\0"
                                            "/usr/lib/os-release\0"),
-                [META_EXTENSION_RELEASE] = "extension-release\0", /* Used only for logging. */
+                [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
+                [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
@@ -3032,6 +3039,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
+        int has_init_system = -1;
         ssize_t n;
 
         BLOCK_SIGNALS(SIGCHLD);
@@ -3063,6 +3071,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
         if (r == 0) {
+                /* Child in a new mount namespace */
                 error_pipe[0] = safe_close(error_pipe[0]);
 
                 r = dissected_image_mount(
@@ -3092,7 +3101,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         fds[2*k] = safe_close(fds[2*k]);
 
-                        if (k == META_EXTENSION_RELEASE) {
+                        switch (k) {
+
+                        case META_EXTENSION_RELEASE:
                                 /* As per the os-release spec, if the image is an extension it will have a file
                                  * named after the image name in extension-release.d/ - we use the image name
                                  * and try to resolve it with the extension-release helpers, as sometimes
@@ -3105,12 +3116,42 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 r = open_extension_release(t, m->image_name, NULL, &fd);
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
-                        } else
+                                break;
+
+                        case META_HAS_INIT_SYSTEM: {
+                                bool found = false;
+                                const char *init;
+
+                                FOREACH_STRING(init,
+                                               "/usr/lib/systemd/systemd",  /* systemd on /usr merged system */
+                                               "/lib/systemd/systemd",      /* systemd on /usr non-merged systems */
+                                               "/sbin/init") {              /* traditional path the Linux kernel invokes */
+
+                                        r = chase_symlinks(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
+                                        if (r < 0) {
+                                                if (r != -ENOENT)
+                                                        log_debug_errno(r, "Failed to resolve %s, ignoring: %m", init);
+                                        } else {
+                                                found = true;
+                                                break;
+                                        }
+                                }
+
+                                r = loop_write(fds[2*k+1], &found, sizeof(found), false);
+                                if (r < 0)
+                                        goto inner_fail;
+
+                                continue;
+                        }
+
+                        default:
                                 NULSTR_FOREACH(p, paths[k]) {
                                         fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                                         if (fd >= 0)
                                                 break;
                                 }
+                        }
+
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
                                 fds[2*k+1] = safe_close(fds[2*k+1]);
@@ -3118,15 +3159,17 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
-                        if (r < 0) {
-                                (void) write(error_pipe[1], &r, sizeof(r));
-                                _exit(EXIT_FAILURE);
-                        }
+                        if (r < 0)
+                                goto inner_fail;
 
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
                 _exit(EXIT_SUCCESS);
+
+        inner_fail:
+                (void) write(error_pipe[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
         }
 
         error_pipe[1] = safe_close(error_pipe[1]);
@@ -3194,7 +3237,20 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 log_debug_errno(r, "Failed to read extension release file: %m");
 
                         break;
-                }
+
+                case META_HAS_INIT_SYSTEM: {
+                        bool b = false;
+                        size_t nr;
+
+                        errno = 0;
+                        nr = fread(&b, 1, sizeof(b), f);
+                        if (nr != sizeof(b))
+                                log_debug_errno(errno_or_else(EIO), "Failed to read has-init-system boolean: %m");
+                        else
+                                has_init_system = b;
+
+                        break;
+                }}
         }
 
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
@@ -3218,6 +3274,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
         strv_free_and_replace(m->extension_release, extension_release);
+        m->has_init_system = has_init_system;
 
 finish:
         for (unsigned k = 0; k < n_meta_initialized; k++)
