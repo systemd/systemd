@@ -206,10 +206,13 @@ void strv_print(char * const *l);
                 _found;                                         \
         })
 
-#define FOREACH_STRING(x, y, ...)                                       \
-        for (char **_l = STRV_MAKE(({ x = y; }), ##__VA_ARGS__);        \
+#define _FOREACH_STRING(uniq, x, y, ...)                                \
+        for (char **UNIQ_T(l, uniq) = STRV_MAKE(({ x = y; }), ##__VA_ARGS__); \
              x;                                                         \
-             x = *(++_l))
+             x = *(++UNIQ_T(l, uniq)))
+
+#define FOREACH_STRING(x, y, ...)                       \
+        _FOREACH_STRING(UNIQ, x, y, ##__VA_ARGS__)
 
 char **strv_reverse(char **l);
 char **strv_shell_escape(char **l, const char *bad);
