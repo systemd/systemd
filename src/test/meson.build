@@ -435,6 +435,8 @@ tests += [
 
         [['src/test/test-architecture.c']],
 
+        [['src/test/test-gpt.c']],
+
         [['src/test/test-log.c']],
 
         [['src/test/test-ipcrm.c'],
