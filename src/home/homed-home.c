@@ -1684,6 +1684,7 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
 }
 
 int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error) {
+
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
         HomeState state;
         int r;
