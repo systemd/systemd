@@ -32,7 +32,7 @@ extraction:
         - libssl-dev
         - python3-jinja2
     after_prepare:
-      - pip3 install meson==0.53.2
+      - pip3 install -r .github/workflows/requirements.txt --require-hashes
       - export PATH="/opt/work/.local/bin:$PATH"
   python:
     python_setup:
