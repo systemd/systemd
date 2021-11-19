@@ -63,6 +63,7 @@ typedef enum HomeSetupFlags {
         HOME_SETUP_RESIZE_MINIMIZE             = 1 << 3, /* Shrink to minimal size */
         HOME_SETUP_RESIZE_DONT_GROW            = 1 << 4, /* If the resize would grow, gracefully terminate operation */
         HOME_SETUP_RESIZE_DONT_SHRINK          = 1 << 5, /* If the resize would shrink, gracefully terminate operation */
+        HOME_SETUP_RESIZE_DONT_UNDO            = 1 << 6, /* Leave loopback/DM device context open after successful operation */
 } HomeSetupFlags;
 
 int home_setup_done(HomeSetup *setup);
