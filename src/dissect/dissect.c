@@ -11,11 +11,13 @@
 #include "chase-symlinks.h"
 #include "copy.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "loop-util.h"
@@ -369,6 +371,17 @@ static int strv_pair_to_json(char **l, JsonVariant **ret) {
         return json_variant_new_array_strv(ret, jl);
 }
 
+static void strv_pair_print(char **l, const char *prefix) {
+        char **p, **q;
+
+        STRV_FOREACH_PAIR(p, q, l) {
+                if (p == l)
+                        printf("%s %s=%s\n", prefix, *p, *q);
+                else
+                        printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
+        }
+}
+
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -406,45 +419,68 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                _cleanup_strv_free_ char **sysext_scopes = NULL;
+                bool has_portable_matches, b;
+
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
                 if (!sd_id128_is_null(m->machine_id))
                         printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
 
-                if (!strv_isempty(m->machine_info)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->machine_info)
-                                printf("%s %s=%s\n",
-                                       p == m->machine_info ? "Mach. Info:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->os_release)
-                                printf("%s %s=%s\n",
-                                       p == m->os_release ? "OS Release:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->extension_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->extension_release)
-                                printf("%s %s=%s\n",
-                                       p == m->extension_release ? "Extension Release:" : "                  ",
-                                       *p, *q);
-                }
+                strv_pair_print(m->machine_info,
+                               "Mach. Info:");
+                strv_pair_print(m->os_release,
+                               "OS Release:");
+                strv_pair_print(m->extension_release,
+                               " Ext. Rel.:");
 
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
-                    !strv_isempty(m->extension_release) ||
-                    !strv_isempty(m->os_release))
+                    !strv_isempty(m->os_release) ||
+                    !strv_isempty(m->extension_release))
                         putc('\n', stdout);
+
+                printf("    Use As: %s%s%s bootable system for UEFI\n",
+                       ansi_highlight_green_red(m->partitions[PARTITION_ESP].found),
+                       special_glyph_check_mark(m->partitions[PARTITION_ESP].found),
+                       ansi_normal());
+
+                if (m->has_init_system >= 0)
+                        printf("            %s%s%s bootable system for container\n",
+                               ansi_highlight_green_red(m->has_init_system),
+                               special_glyph_check_mark(m->has_init_system),
+                               ansi_normal());
+
+                has_portable_matches = strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES");
+                printf("            %s%s%s portable service\n",
+                       ansi_highlight_green_red(has_portable_matches),
+                       special_glyph_check_mark(has_portable_matches),
+                       ansi_normal());
+
+                if (!strv_isempty(m->extension_release)) {
+                        const char *e;
+
+                        e = strv_env_pairs_get(m->extension_release, "SYSEXT_SCOPES");
+                        if (e)
+                                sysext_scopes = strv_split(e, WHITESPACE);
+                        else
+                                sysext_scopes = strv_new("system", "portable");
+                        if (!sysext_scopes)
+                                return log_oom();
+                }
+
+                b = strv_contains(sysext_scopes, "system");
+                printf("            %s%s%s extension for system\n", ansi_highlight_green_red(b), special_glyph_check_mark(b), ansi_normal());
+
+                b = strv_contains(sysext_scopes, "initrd");
+                printf("            %s%s%s extension for initrd\n", ansi_highlight_green_red(b), special_glyph_check_mark(b), ansi_normal());
+
+                b = strv_contains(sysext_scopes, "portable");
+                printf("            %s%s%s extension for portable service\n", ansi_highlight_green_red(b), special_glyph_check_mark(b), ansi_normal());
+
+                putc('\n', stdout);
         } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
 
