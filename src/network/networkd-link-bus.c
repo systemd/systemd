@@ -709,7 +709,7 @@ int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_err
         return sd_bus_send(NULL, reply, NULL);
 }
 
-const sd_bus_vtable link_vtable[] = {
+static const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -914,3 +914,10 @@ int link_send_changed(Link *link, const char *property, ...) {
 
         return link_send_changed_strv(link, properties);
 }
+
+const BusObjectImplementation link_object = {
+        "/org/freedesktop/network1/link",
+        "org.freedesktop.network1.Link",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({link_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
+};

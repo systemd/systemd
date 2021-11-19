@@ -39,7 +39,7 @@ static int property_get_ether_addrs(
         return sd_bus_message_close_container(reply);
 }
 
-const sd_bus_vtable network_vtable[] = {
+static const sd_bus_vtable network_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -134,3 +134,10 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
 
         return 1;
 }
+
+const BusObjectImplementation network_object = {
+        "/org/freedesktop/network1/network",
+        "org.freedesktop.network1.Network",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({network_vtable, network_object_find}),
+        .node_enumerator = network_node_enumerator,
+};
