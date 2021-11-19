@@ -120,11 +120,11 @@ const char *gpt_partition_type_uuid_to_string_harder(
 
 int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret) {
         assert(s);
-        assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
                 if (streq(s, gpt_partition_type_table[i].name)) {
-                        *ret = gpt_partition_type_table[i].uuid;
+                        if (ret)
+                                *ret = gpt_partition_type_table[i].uuid;
                         return 0;
                 }
 
