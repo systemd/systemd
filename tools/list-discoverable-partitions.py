@@ -169,9 +169,15 @@ def generate(defines):
 
     print(HEADER, end='')
 
+    uuids = set()
+
     for type, arch, uuid in defines:
         tdesc = TYPES[type]
         adesc = '' if arch is None else f' ({ARCHITECTURES[arch]})'
+
+        # Let's make sure that we didn't select&paste the same value twice
+        assert uuid not in uuids
+        uuids.add(uuid)
 
         if type != prevtype:
             prevtype = type
