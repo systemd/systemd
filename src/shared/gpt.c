@@ -14,86 +14,56 @@
 #pragma message "Please define GPT partition types for your architecture."
 #endif
 
+#define _GPT_ARCH_SEXTET(arch, name)                                   \
+        { GPT_ROOT_##arch,              "root-" name               },  \
+        { GPT_ROOT_##arch##_VERITY,     "root-" name "-verity"     },  \
+        { GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig" },  \
+        { GPT_USR_##arch,               "usr-" name                },  \
+        { GPT_USR_##arch##_VERITY,      "usr-" name "-verity"      },  \
+        { GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig"  }
+
 const GptPartitionType gpt_partition_type_table[] = {
-        { GPT_ROOT_ARM,                    "root-arm"                    },
-        { GPT_ROOT_ARM_VERITY,             "root-arm-verity"             },
-        { GPT_ROOT_ARM_VERITY_SIG,         "root-arm-verity-sig"         },
-        { GPT_ROOT_ARM_64,                 "root-arm64"                  },
-        { GPT_ROOT_ARM_64_VERITY,          "root-arm64-verity"           },
-        { GPT_ROOT_ARM_64_VERITY_SIG,      "root-arm64-verity-sig"       },
-        { GPT_ROOT_IA64,                   "root-ia64"                   },
-        { GPT_ROOT_IA64_VERITY,            "root-ia64-verity"            },
-        { GPT_ROOT_IA64_VERITY_SIG,        "root-ia64-verity-sig"        },
-        { GPT_ROOT_LOONGARCH64,            "root-loongarch64"            },
-        { GPT_ROOT_LOONGARCH64_VERITY,     "root-loongarch64-verity"     },
-        { GPT_ROOT_LOONGARCH64_VERITY_SIG, "root-loongarch64-verity-sig" },
-        { GPT_ROOT_RISCV32,                "root-riscv32"                },
-        { GPT_ROOT_RISCV32_VERITY,         "root-riscv32-verity"         },
-        { GPT_ROOT_RISCV32_VERITY_SIG,     "root-riscv32-verity-sig"     },
-        { GPT_ROOT_RISCV64,                "root-riscv64"                },
-        { GPT_ROOT_RISCV64_VERITY,         "root-riscv64-verity"         },
-        { GPT_ROOT_RISCV64_VERITY_SIG,     "root-riscv64-verity-sig"     },
-        { GPT_ROOT_X86,                    "root-x86"                    },
-        { GPT_ROOT_X86_64,                 "root-x86-64"                 },
-        { GPT_ROOT_X86_64_VERITY,          "root-x86-64-verity"          },
-        { GPT_ROOT_X86_64_VERITY_SIG,      "root-x86-64-verity-sig"      },
-        { GPT_ROOT_X86_VERITY,             "root-x86-verity"             },
-        { GPT_ROOT_X86_VERITY_SIG,         "root-x86-verity-sig"         },
+        _GPT_ARCH_SEXTET(ARM,         "arm"),
+        _GPT_ARCH_SEXTET(ARM_64,      "arm64"),
+        _GPT_ARCH_SEXTET(IA64,        "ia64"),
+        _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
+        _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
+        _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
+        _GPT_ARCH_SEXTET(X86,         "x86"),
+        _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
 #ifdef GPT_ROOT_NATIVE
-        { GPT_ROOT_NATIVE,                 "root"                        },
-        { GPT_ROOT_NATIVE_VERITY,          "root-verity"                 },
-        { GPT_ROOT_NATIVE_VERITY_SIG,      "root-verity-sig"             },
+        { GPT_ROOT_NATIVE,            "root"                       },
+        { GPT_ROOT_NATIVE_VERITY,     "root-verity"                },
+        { GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig"            },
+        { GPT_USR_NATIVE,             "usr"                        },
+        { GPT_USR_NATIVE_VERITY,      "usr-verity"                 },
+        { GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig"             },
 #endif
 #ifdef GPT_ROOT_SECONDARY
-        { GPT_ROOT_SECONDARY,              "root-secondary"              },
-        { GPT_ROOT_SECONDARY_VERITY,       "root-secondary-verity"       },
-        { GPT_ROOT_SECONDARY_VERITY_SIG,   "root-secondary-verity-sig"   },
+        _GPT_ARCH_SEXTET(SECONDARY,   "secondary"),
 #endif
-        { GPT_USR_ARM,                     "usr-arm"                     },
-        { GPT_USR_ARM_VERITY,              "usr-arm-verity"              },
-        { GPT_USR_ARM_VERITY_SIG,          "usr-arm-verity-sig"          },
-        { GPT_USR_ARM_64,                  "usr-arm64"                   },
-        { GPT_USR_ARM_64_VERITY,           "usr-arm64-verity"            },
-        { GPT_USR_ARM_64_VERITY_SIG,       "usr-arm64-verity-sig"        },
-        { GPT_USR_IA64,                    "usr-ia64"                    },
-        { GPT_USR_IA64_VERITY,             "usr-ia64-verity"             },
-        { GPT_USR_IA64_VERITY_SIG,         "usr-ia64-verity-sig"         },
-        { GPT_USR_LOONGARCH64,             "usr-loongarch64"             },
-        { GPT_USR_LOONGARCH64_VERITY,      "usr-loongarch64-verity"      },
-        { GPT_USR_LOONGARCH64_VERITY_SIG,  "usr-loongarch64-verity-sig"  },
-        { GPT_USR_RISCV32,                 "usr-riscv32"                 },
-        { GPT_USR_RISCV32_VERITY,          "usr-riscv32-verity"          },
-        { GPT_USR_RISCV32_VERITY_SIG,      "usr-riscv32-verity-sig"      },
-        { GPT_USR_RISCV64,                 "usr-riscv64"                 },
-        { GPT_USR_RISCV64_VERITY,          "usr-riscv64-verity"          },
-        { GPT_USR_RISCV64_VERITY_SIG,      "usr-riscv64-verity-sig"      },
-        { GPT_USR_X86,                     "usr-x86"                     },
-        { GPT_USR_X86_64,                  "usr-x86-64"                  },
-        { GPT_USR_X86_64_VERITY,           "usr-x86-64-verity"           },
-        { GPT_USR_X86_64_VERITY_SIG,       "usr-x86-64-verity-sig"       },
-        { GPT_USR_X86_VERITY,              "usr-x86-verity"              },
-        { GPT_USR_X86_VERITY_SIG,          "usr-x86-verity-sig"          },
-#ifdef GPT_USR_NATIVE
-        { GPT_USR_NATIVE,                  "usr"                         },
-        { GPT_USR_NATIVE_VERITY,           "usr-verity"                  },
-        { GPT_USR_NATIVE_VERITY_SIG,       "usr-verity-sig"              },
-#endif
-#ifdef GPT_USR_SECONDARY
-        { GPT_USR_SECONDARY,               "usr-secondary"               },
-        { GPT_USR_SECONDARY_VERITY,        "usr-secondary-verity"        },
-        { GPT_USR_SECONDARY_VERITY_SIG,    "usr-secondary-verity-sig"    },
-#endif
-        { GPT_ESP,                         "esp"                         },
-        { GPT_XBOOTLDR,                    "xbootldr"                    },
-        { GPT_SWAP,                        "swap"                        },
-        { GPT_HOME,                        "home"                        },
-        { GPT_SRV,                         "srv"                         },
-        { GPT_VAR,                         "var"                         },
-        { GPT_TMP,                         "tmp"                         },
-        { GPT_USER_HOME,                   "user-home"                   },
-        { GPT_LINUX_GENERIC,               "linux-generic"               },
+
+        { GPT_ESP,                    "esp"                        },
+        { GPT_XBOOTLDR,               "xbootldr"                   },
+        { GPT_SWAP,                   "swap"                       },
+        { GPT_HOME,                   "home"                       },
+        { GPT_SRV,                    "srv"                        },
+        { GPT_VAR,                    "var"                        },
+        { GPT_TMP,                    "tmp"                        },
+        { GPT_USER_HOME,              "user-home"                  },
+        { GPT_LINUX_GENERIC,          "linux-generic"              },
         {}
 };
+
+#define _GPT_ALL_ARCHES(type,suffix)                    \
+        GPT_##type##_ARM##suffix,                       \
+        GPT_##type##_ARM_64##suffix,                    \
+        GPT_##type##_IA64##suffix,                      \
+        GPT_##type##_LOONGARCH64##suffix,               \
+        GPT_##type##_RISCV32##suffix,                   \
+        GPT_##type##_RISCV64##suffix,                   \
+        GPT_##type##_X86##suffix,                       \
+        GPT_##type##_X86_64##suffix
 
 const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
@@ -142,51 +112,19 @@ int gpt_partition_label_valid(const char *s) {
 }
 
 bool gpt_partition_type_is_root(sd_id128_t id) {
-        return sd_id128_in_set(id,
-                               GPT_ROOT_ARM,
-                               GPT_ROOT_ARM_64,
-                               GPT_ROOT_IA64,
-                               GPT_ROOT_LOONGARCH64,
-                               GPT_ROOT_RISCV32,
-                               GPT_ROOT_RISCV64,
-                               GPT_ROOT_X86,
-                               GPT_ROOT_X86_64);
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT,));
 }
 
 bool gpt_partition_type_is_root_verity(sd_id128_t id) {
-        return sd_id128_in_set(id,
-                               GPT_ROOT_ARM_VERITY,
-                               GPT_ROOT_ARM_64_VERITY,
-                               GPT_ROOT_IA64_VERITY,
-                               GPT_ROOT_LOONGARCH64_VERITY,
-                               GPT_ROOT_RISCV32_VERITY,
-                               GPT_ROOT_RISCV64_VERITY,
-                               GPT_ROOT_X86_VERITY,
-                               GPT_ROOT_X86_64_VERITY);
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT, _VERITY));
 }
 
 bool gpt_partition_type_is_usr(sd_id128_t id) {
-        return sd_id128_in_set(id,
-                               GPT_USR_ARM,
-                               GPT_USR_ARM_64,
-                               GPT_USR_IA64,
-                               GPT_USR_LOONGARCH64,
-                               GPT_USR_RISCV32,
-                               GPT_USR_RISCV64,
-                               GPT_USR_X86,
-                               GPT_USR_X86_64);
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR,));
 }
 
 bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
-        return sd_id128_in_set(id,
-                               GPT_USR_ARM_VERITY,
-                               GPT_USR_ARM_64_VERITY,
-                               GPT_USR_IA64_VERITY,
-                               GPT_USR_LOONGARCH64_VERITY,
-                               GPT_USR_RISCV32_VERITY,
-                               GPT_USR_RISCV64_VERITY,
-                               GPT_USR_X86_VERITY,
-                               GPT_USR_X86_64_VERITY);
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR, _VERITY));
 }
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
