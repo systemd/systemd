@@ -31,6 +31,13 @@ if [ -z "$FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
 else
     fuzzflag="oss-fuzz=true"
+
+    apt-get update
+    apt-get install -y gperf m4 gettext python3-pip \
+        libcap-dev libmount-dev libkmod-dev \
+        pkg-config wget
+    pip3 install meson ninja jinja2
+
     if [[ "$SANITIZER" == undefined ]]; then
         UBSAN_FLAGS="-fsanitize=pointer-overflow -fno-sanitize-recover=pointer-overflow"
         CFLAGS="$CFLAGS $UBSAN_FLAGS"
