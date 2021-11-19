@@ -101,11 +101,11 @@ add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
 apt-get -y build-dep systemd
 apt-get -y install "${PACKAGES[@]}"
-# Install the latest meson and ninja form pip, since the distro versions don't
-# support all the features we need (like --optimization=). Since the build-dep
+# Install more or less recent meson and ninja with pip, since the distro versions don't
+# always support all the features we need (like --optimization=). Since the build-dep
 # command above installs the distro versions, let's install the pip ones just
 # locally and add the local bin directory to the $PATH.
-pip3 install --user -U meson ninja
+pip3 install --user -r .github/workflows/requirements.txt --require-hashes
 export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
