@@ -419,6 +419,17 @@
           regular systems and to portable service environments, but not to initrd
           environments.</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>PORTABLE_PREFIXES=</varname></term>
+          <listitem><para>Takes a space-separated list of one or more valid prefix match strings for the
+          <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> logic. This field
+          serves two purposes: it's informational, identifying portable service images as such (and thus
+          allowing them to be distinguished from other OS images, such as bootable system images); whenever a
+          portable service image is attached the specified or implied portable service prefix is checked
+          against this list, to enforce restrictions how images may be attached to a
+          system.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
