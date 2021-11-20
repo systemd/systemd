@@ -35,8 +35,11 @@ else
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
         libcap-dev libmount-dev libkmod-dev \
-        pkg-config wget
-    pip3 install meson ninja jinja2
+        pkg-config wget python3-jinja2
+    pip3 install -r .github/workflows/requirements.txt --require-hashes
+
+    # https://github.com/google/oss-fuzz/issues/6868
+    export PYTHONPATH=/usr/lib/python3/dist-packages/
 
     if [[ "$SANITIZER" == undefined ]]; then
         UBSAN_FLAGS="-fsanitize=pointer-overflow -fno-sanitize-recover=pointer-overflow"
