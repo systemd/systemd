@@ -79,13 +79,13 @@ if [[ $args =~ [a-z] ]]; then
         pass_deny_list "$TEST" || continue
         start=$(date +%s)
 
-        echo -e "\n--x-- Running $TEST --x--"
+        echo -e "\n[$(date +%R:%S)] --x-- Running $TEST --x--"
         set +e
         # shellcheck disable=SC2086
         ( set -x ; make -C "$TEST" $args )
         RESULT=$?
         set -e
-        echo "--x-- Result of $TEST: $RESULT --x--"
+        echo "[$(date +%R:%S)] --x-- Result of $TEST: $RESULT --x--"
 
         results["$TEST"]="$RESULT"
         times["$TEST"]=$(( $(date +%s) - start ))
