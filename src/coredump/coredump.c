@@ -7,11 +7,6 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#if HAVE_ELFUTILS
-#include <dwarf.h>
-#include <elfutils/libdwfl.h>
-#endif
-
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-login.h"
@@ -27,6 +22,7 @@
 #include "copy.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
+#include "elf-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -43,7 +39,6 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
-#include "stacktrace.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -825,7 +820,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else if (coredump_fd >= 0)
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
+                (void) parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
 log:
