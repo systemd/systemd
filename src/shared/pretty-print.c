@@ -304,24 +304,39 @@ int conf_files_cat(const char *root, const char *name) {
                         return log_error_errno(r, "Failed to build directory list: %m");
         }
 
+        if (DEBUG_LOGGING) {
+                log_debug("Looking for configuration in:");
+                if (!is_collection)
+                        STRV_FOREACH(prefix, prefixes)
+                                log_debug("   %s%s%s", strempty(root), *prefix, name);
+
+                STRV_FOREACH(t, dirs)
+                        log_debug("   %s%s/*%s", strempty(root), *t, extension);
+        }
+
+        /* First locate the main config file, if any */
+        if (!is_collection) {
+                STRV_FOREACH(prefix, prefixes) {
+                        path = path_join(root, *prefix, name);
+                        if (!path)
+                                return log_oom();
+                        if (access(path, F_OK) == 0)
+                                break;
+                        path = mfree(path);
+                }
+
+                if (!path)
+                        printf("%s# Main configuration file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               name,
+                               ansi_normal());
+        }
+
+        /* Then locate the drop-ins, if any */
         r = conf_files_list_strv(&files, extension, root, 0, (const char* const*) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
-        if (!is_collection) {
-                path = path_join(root, "/etc", name);
-                if (!path)
-                        return log_oom();
-        }
-
-        if (DEBUG_LOGGING) {
-                log_debug("Looking for configuration in:");
-                if (path)
-                        log_debug("   %s", path);
-                STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*%s", *t, extension);
-        }
-
-        /* show */
-        return cat_files(path, files, CAT_FLAGS_MAIN_FILE_OPTIONAL);
+        /* Show */
+        return cat_files(path, files, 0);
 }
