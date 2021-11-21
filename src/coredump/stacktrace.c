@@ -4,15 +4,21 @@
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
+#include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
+#include "io-util.h"
 #include "macro.h"
+#include "process-util.h"
+#include "rlimit-util.h"
 #include "stacktrace.h"
 #include "string-util.h"
 #include "util.h"
@@ -365,30 +371,30 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
         c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
         if (!c.elf)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, elf_begin() failed: %s", elf_errmsg(elf_errno()));
 
         c.dwfl = dwfl_begin(&callbacks);
         if (!c.dwfl)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_begin() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         if (dwfl_report_end(c.dwfl, NULL, NULL) != 0)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_report_end() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getmodules() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         if (dwfl_core_file_attach(c.dwfl, c.elf) < 0)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_attach() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", dwfl_errmsg(dwfl_errno()));
 
         r = fflush_and_check(c.f);
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
 
         c.f = safe_fclose(c.f);
         *ret = TAKE_PTR(buf);
@@ -398,12 +404,122 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         return 0;
 }
 
-void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
+int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata) {
+        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 }, return_pipe[2] = { -1, -1 }, json_pipe[2] = { -1, -1 };
+        _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
-        r = parse_core(fd, executable, ret, ret_package_metadata);
-        if (r == -EINVAL)
-                log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
-        else if (r < 0)
-                log_warning_errno(r, "Failed to generate stack trace: %m");
+        r = RET_NERRNO(pipe2(error_pipe, O_CLOEXEC|O_NONBLOCK));
+        if (r < 0)
+                return r;
+
+        if (ret) {
+                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC));
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_package_metadata) {
+                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC));
+                if (r < 0)
+                        return r;
+        }
+
+        /* Parsing possibly malformed data is crash-happy, so fork. In case we crash,
+         * the core file will not be lost, and the messages will still be attached to
+         * the journal. Reading the elf object might be slow, but it still has an upper
+         * bound since the core files have an upper size limit. It's also not doing any
+         * system call or interacting with the system in any way, besides reading from
+         * the file descriptor and writing into these four pipes. */
+        r = safe_fork_full("(sd-parse-elf)",
+                           (int[]){ fd, error_pipe[1], return_pipe[1], json_pipe[1] },
+                           4,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
+                           NULL);
+        if (r < 0) {
+                if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
+                        int e, k;
+
+                        k = read(error_pipe[0], &e, sizeof(e));
+                        if (k < 0 && errno != EAGAIN) /* Pipe is non-blocking, EAGAIN means there's nothing */
+                                return -errno;
+                        if (k == sizeof(e))
+                                return e; /* propagate error sent to us from child */
+                        if (k != 0)
+                                return -EIO;
+                }
+
+                return r;
+        }
+        if (r == 0) {
+                /* We want to avoid loops, given this can be called from systemd-coredump */
+                if (fork_disable_dump)
+                        prctl(PR_SET_DUMPABLE, 0);
+
+                r = parse_core(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                if (r < 0)
+                        goto child_fail;
+
+                if (buf) {
+                        r = loop_write(return_pipe[1], buf, strlen(buf), false);
+                        if (r < 0)
+                                goto child_fail;
+
+                        return_pipe[1] = safe_close(return_pipe[1]);
+                }
+
+                if (package_metadata) {
+                        _cleanup_fclose_ FILE *json_out = NULL;
+
+                        json_out = take_fdopen(&json_pipe[1], "w");
+                        if (!json_out) {
+                                r = -errno;
+                                goto child_fail;
+                        }
+
+                        json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(error_pipe[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
+        }
+
+        error_pipe[1] = safe_close(error_pipe[1]);
+        return_pipe[1] = safe_close(return_pipe[1]);
+        json_pipe[1] = safe_close(json_pipe[1]);
+
+        if (ret) {
+                _cleanup_fclose_ FILE *in = NULL;
+
+                in = take_fdopen(&return_pipe[0], "r");
+                if (!in)
+                        return -errno;
+
+                r = read_full_stream(in, &buf, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_package_metadata) {
+                _cleanup_fclose_ FILE *json_in = NULL;
+
+                json_in = take_fdopen(&json_pipe[0], "r");
+                if (!json_in)
+                        return -errno;
+
+                r = json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
+                if (r < 0 && r != -EINVAL) /* EINVAL: json was empty, so we got nothing, but that's ok */
+                        return r;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(buf);
+        if (ret_package_metadata)
+                *ret_package_metadata = TAKE_PTR(package_metadata);
+
+        return 0;
 }
