@@ -4,16 +4,20 @@
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "stacktrace.h"
+#include "process-util.h"
+#include "rlimit-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -399,15 +403,124 @@ finish:
 
         free(buf);
 
-        return r;
-}
-
-void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
-        int r;
-
-        r = parse_core(fd, executable, ret, ret_package_metadata);
         if (r == -EINVAL)
                 log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
         else if (r < 0)
                 log_warning_errno(r, "Failed to generate stack trace: %m");
+
+        return r;
+}
+
+int parse_elf_object(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
+        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 }, return_pipe[2] = { -1, -1 }, json_pipe[2] = { -1, -1 };
+        int r;
+
+        r = RET_NERRNO(pipe2(error_pipe, O_CLOEXEC));
+        if (r < 0)
+                return r;
+
+        if (ret) {
+                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC));
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_package_metadata) {
+                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC));
+                if (r < 0)
+                        return r;
+        }
+
+        /* Parsing possibly malformed data is crash-happy, so fork and avoid looping. */
+        r = safe_fork_full("(sd-parse-elf)",
+                           (int[]){ fd, error_pipe[1], return_pipe[1], json_pipe[1] },
+                           4,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT,
+                           NULL);
+        if (r < 0) {
+                if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
+                        int e, k;
+
+                        k = RET_NERRNO(read(error_pipe[0], &e, sizeof(e)));
+                        if (k < 0)
+                                return k;
+                        if (k == sizeof(e))
+                                return e; /* propagate error sent to us from child */
+                        if (k != 0)
+                                return -EIO;
+                }
+
+                return r;
+        }
+        if (r == 0) {
+                _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
+                _cleanup_free_ char *buf = NULL;
+
+                (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
+
+                r = parse_core(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                if (r < 0)
+                        goto child_fail;
+
+                if (buf) {
+                        _cleanup_fclose_ FILE *out = NULL;
+
+                        out = fdopen(TAKE_FD(return_pipe[1]), "w");
+                        if (!out) {
+                                r = -errno;
+                                goto child_fail;
+                        }
+
+                        fputs(buf, out);
+                        fflush(out);
+                }
+
+                if (package_metadata) {
+                        _cleanup_fclose_ FILE *json_out = NULL;
+
+                        json_out = fdopen(TAKE_FD(json_pipe[1]), "w");
+                        if (!json_out) {
+                                r = -errno;
+                                goto child_fail;
+                        }
+
+                        json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(error_pipe[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
+        }
+
+        error_pipe[1] = safe_close(error_pipe[1]);
+        return_pipe[1] = safe_close(return_pipe[1]);
+        json_pipe[1] = safe_close(json_pipe[1]);
+
+        if (ret) {
+                _cleanup_fclose_ FILE *in = NULL;
+
+                in = fdopen(TAKE_FD(return_pipe[0]), "r");
+                if (!in)
+                        return -errno;
+
+                r = read_full_stream(in, ret, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_package_metadata) {
+                _cleanup_fclose_ FILE *json_in = NULL;
+
+                json_in = fdopen(TAKE_FD(json_pipe[0]), "r");
+                if (!json_in)
+                        return -errno;
+
+                r = json_parse_file(json_in, NULL, 0, ret_package_metadata, NULL, NULL);
+                if (r < 0 && r != -EINVAL)
+                        return r;
+        }
+
+        return 0;
 }
