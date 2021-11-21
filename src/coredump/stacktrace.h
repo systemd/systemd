@@ -3,4 +3,7 @@
 
 #include "json.h"
 
-void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata);
+/* Parse an ELF object in a forked process, so that errors while iterating over
+ * untrusted and potentially malicious data do not propagate to the main caller's process.
+ * If fork_disable_dump, the child process will not dump core if it crashes. */
+int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata);
