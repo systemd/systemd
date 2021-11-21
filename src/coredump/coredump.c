@@ -813,7 +813,6 @@ static int submit_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-#if HAVE_ELFUTILS
         /* Try to get a stack trace if we can */
         if (coredump_size > arg_process_size_max) {
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
@@ -825,7 +824,6 @@ static int submit_coredump(
                                         /* fork_disable_dump= */endswith(context->meta[META_EXE], "systemd-coredump"), /* avoid loops */
                                         &stacktrace,
                                         &json_metadata);
-#endif
 
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],
