@@ -41,6 +41,9 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool error_shall_fallback(const char *error_id) {
+        /* The Varlink errors where we shall signal "please fallback" back to the NSS stack, so that some
+         * fallback module can be loaded. (These are mostly all Varlink-internal errors, as apparently we
+         * then were unable to even do IPC with systemd-resolved.) */
         return STR_IN_SET(error_id,
                           VARLINK_ERROR_DISCONNECTED,
                           VARLINK_ERROR_TIMEOUT,
@@ -48,6 +51,16 @@ static bool error_shall_fallback(const char *error_id) {
                           VARLINK_ERROR_INTERFACE_NOT_FOUND,
                           VARLINK_ERROR_METHOD_NOT_FOUND,
                           VARLINK_ERROR_METHOD_NOT_IMPLEMENTED);
+}
+
+static bool error_shall_try_again(const char *error_id) {
+        /* The Varlink errors where we shall signal "can't answer now but might be able to later" back to the
+         * NSS stack. These are all errors that indicate lack of configuration or network problems. */
+        return STR_IN_SET(error_id,
+                          "io.systemd.Resolve.NoNameServers",
+                          "io.systemd.Resolve.QueryTimedOut",
+                          "io.systemd.Resolve.MaxAttemptsReached",
+                          "io.systemd.Resolve.NetworkDown");
 }
 
 static int connect_to_resolved(Varlink **ret) {
@@ -242,9 +255,11 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -341,6 +356,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 enum nss_status _nss_resolve_gethostbyname3_r(
@@ -390,9 +411,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -508,6 +531,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 typedef struct ResolveAddressReply {
@@ -594,9 +623,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_address_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -694,6 +725,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(resolve);
