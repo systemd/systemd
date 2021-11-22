@@ -348,6 +348,19 @@ struct ExecContext {
         Hashmap *load_credentials; /* output id → ExecLoadCredential */
 };
 
+struct load_cred_args {
+        Set *seen_creds;
+
+        const ExecContext *context;
+        const ExecParameters *params;
+        ExecLoadCredential *parent_lc;
+        const char *unit;
+        int dfd;
+        uid_t uid;
+        bool ownership_ok;
+        uint64_t *left;
+};
+
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         assert(c);
 
