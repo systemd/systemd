@@ -46,7 +46,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_error_add_map</function></funcdef>
-        <paramdef>const sd_bus_map *<parameter>map</parameter></paramdef>
+        <paramdef>const sd_bus_error_map *<parameter>map</parameter></paramdef>
       </funcprototype>
 
   </refsynopsisdiv>
