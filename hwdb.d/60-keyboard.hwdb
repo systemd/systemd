@@ -380,6 +380,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 # Dell Precision microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
+# Dell XPS microphone mute
+evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:*
  KEYBOARD_KEY_100150=f20                                # Mic mute toggle, should be micmute
 
 # Dell Latitude privacy microphone mute
