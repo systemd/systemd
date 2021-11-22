@@ -950,10 +950,8 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 _cleanup_free_ char *dipa = NULL;
 
                 r = in_addr_to_string(p->family, &p->destination, &dipa);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to format destination address: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to format destination address: %m");
 
                 log_debug("Got request to DNS proxy address 127.0.0.54, enabling bypass logic.");
                 bypass = true;
@@ -1076,7 +1074,7 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL, DNS_STREAM_STUB_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -1150,6 +1148,9 @@ static int manager_dns_stub_fd(
         union sockaddr_union sa;
         int r;
 
+        assert(m);
+        assert(listen_addr);
+
         if (type == SOCK_DGRAM)
                 event_source = address_is_proxy(family, listen_addr) ? &m->dns_proxy_stub_udp_event_source : &m->dns_stub_udp_event_source;
         else if (type == SOCK_STREAM)
@@ -1188,6 +1189,10 @@ static int manager_dns_stub_fd(
                 if (r < 0)
                         return r;
         } else if (type == SOCK_DGRAM) {
+                /* Turn off Path MTU Discovery for UDP, for security reasons. See socket_disable_pmtud() for
+                 * a longer discussion. (We only do this for sockets that are potentially externally
+                 * accessible, i.e. the proxy stub one. For the non-proxy one we instead set the TTL to 1,
+                 * see above, so that packets don't get routed at all.) */
                 r = socket_disable_pmtud(fd, family);
                 if (r < 0)
                         log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");

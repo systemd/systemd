@@ -15,6 +15,18 @@ typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"
 
+/* Various timeouts for establishing TCP connections. First the default time-out for that. */
+#define DNS_STREAM_DEFAULT_TIMEOUT_USEC (10 * USEC_PER_SEC)
+
+/* In the DNS stub, be more friendly for incoming connections, than we are to ourselves for outgoing ones */
+#define DNS_STREAM_STUB_TIMEOUT_USEC (30 * USEC_PER_SEC)
+
+/* In opportunistic TLS mode, lower timeouts */
+#define DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC (3 * USEC_PER_SEC)
+
+/* Once connections are established apply this timeout once nothing happens anymore */
+#define DNS_STREAM_ESTABLISHED_TIMEOUT_USEC (10 * USEC_PER_SEC)
+
 typedef enum DnsStreamType {
         DNS_STREAM_LOOKUP,        /* Outgoing connection to a classic DNS server */
         DNS_STREAM_LLMNR_SEND,    /* Outgoing LLMNR TCP lookup */
@@ -81,7 +93,7 @@ struct DnsStream {
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsStreamType type, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
+int dns_stream_new(Manager *m, DnsStream **s, DnsStreamType type, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address, usec_t timeout);
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 #endif
