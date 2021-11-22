@@ -2083,7 +2083,7 @@ dfatal() {
 
 
 # Generic substring function.  If $2 is in $1, return 0.
-strstr() { [ "${1#*$2*}" != "$1" ]; }
+strstr() { [ "${1#*"$2"*}" != "$1" ]; }
 
 # normalize_path <path>
 # Prints the normalized path, where it removes any duplicated
@@ -2498,12 +2498,12 @@ image_install() {
 install_kmod_with_fw() {
     local module="${1:?}"
     # no need to go further if the module is already installed
-    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*/lib/modules/$KERNEL_VER/}" ]] && return 0
+    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*"/lib/modules/$KERNEL_VER/"}" ]] && return 0
     [[ -e "$initdir/.kernelmodseen/${module##*/}" ]] && return 0
 
     [ -d "$initdir/.kernelmodseen" ] && : >"$initdir/.kernelmodseen/${module##*/}"
 
-    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*/lib/modules/$KERNEL_VER/}" || return $?
+    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*"/lib/modules/$KERNEL_VER/"}" || return $?
 
     local modname="${module##*/}"
     local fwdir found fw
