@@ -21,6 +21,7 @@
 #define ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX DNS_PACKET_UNICAST_SIZE_LARGE_MAX
 
 static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int type);
+static int manager_dns_stub_fd(Manager *m, int family, const union in_addr_union *listen_address, int type);
 
 static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
         assert(a);
@@ -483,6 +484,34 @@ static int dns_stub_finish_reply_packet(
         return 0;
 }
 
+static bool address_is_proxy(int family, const union in_addr_union *a) {
+        assert(a);
+
+        /* Returns true if the specified address is the DNS "proxy" stub, i.e. where we unconditionally enable bypass mode */
+
+        if (family != AF_INET)
+                return false;
+
+        return be32toh(a->in.s_addr) == INADDR_DNS_PROXY_STUB;
+}
+
+static int find_socket_fd(
+                Manager *m,
+                DnsStubListenerExtra *l,
+                int family,
+                const union in_addr_union *listen_address,
+                int type) {
+
+        assert(m);
+
+        /* Finds the right socket to use for sending. If we know the extra listener, otherwise go via the
+         * address to send from */
+        if (l)
+                return manager_dns_stub_fd_extra(m, l, type);
+
+        return manager_dns_stub_fd(m, family, listen_address, type);
+}
+
 static int dns_stub_send(
                 Manager *m,
                 DnsStubListenerExtra *l,
@@ -498,15 +527,22 @@ static int dns_stub_send(
 
         if (s)
                 r = dns_stream_write_packet(s, reply);
-        else
-                /* Note that it is essential here that we explicitly choose the source IP address for this packet. This
-                 * is because otherwise the kernel will choose it automatically based on the routing table and will
-                 * thus pick 127.0.0.1 rather than 127.0.0.53. */
+        else {
+                int fd;
+
+                fd = find_socket_fd(m, l, p->family, &p->sender, SOCK_DGRAM);
+                if (fd < 0)
+                        return fd;
+
+                /* Note that it is essential here that we explicitly choose the source IP address for this
+                 * packet. This is because otherwise the kernel will choose it automatically based on the
+                 * routing table and will thus pick 127.0.0.1 rather than 127.0.0.53. */
                 r = manager_send(m,
-                                 manager_dns_stub_fd_extra(m, l, SOCK_DGRAM),
-                                 l ? p->ifindex : LOOPBACK_IFINDEX, /* force loopback iface if this is the main listener stub */
+                                 fd,
+                                 l || address_is_proxy(p->family, &p->destination) ? p->ifindex : LOOPBACK_IFINDEX, /* force loopback iface if this is the main listener stub */
                                  p->family, &p->sender, p->sender_port, &p->destination,
                                  reply);
+        }
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
@@ -841,9 +877,11 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
 }
 
 static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStream *s, DnsPacket *p) {
+        uint64_t protocol_flags = SD_RESOLVED_PROTOCOLS_ALL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Hashmap **queries_by_packet;
         DnsQuery *existing;
+        bool bypass = false;
         int r;
 
         assert(m);
@@ -851,6 +889,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         assert(p->protocol == DNS_PROTOCOL_DNS);
 
         if (!l && /* l == NULL if this is the main stub */
+            !address_is_proxy(p->family, &p->destination) && /* don't restrict needlessly for 127.0.0.54 */
             (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
              in_addr_is_localhost(p->family, &p->destination) <= 0)) {
                 log_warning("Got packet on unexpected (i.e. non-localhost) IP range, ignoring.");
@@ -907,19 +946,34 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (DNS_PACKET_DO(p) && DNS_PACKET_CD(p)) {
-                log_debug("Got request with DNSSEC checking disabled, enabling bypass logic.");
+        if (address_is_proxy(p->family, &p->destination)) {
+                _cleanup_free_ char *dipa = NULL;
 
+                r = in_addr_to_string(p->family, &p->destination, &dipa);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to format destination address: %m");
+                        return;
+                }
+
+                log_debug("Got request to DNS proxy address 127.0.0.54, enabling bypass logic.");
+                bypass = true;
+                protocol_flags = SD_RESOLVED_DNS|SD_RESOLVED_NO_ZONE; /* Turn off mDNS/LLMNR for proxy stub. */
+        } else if ((DNS_PACKET_DO(p) && DNS_PACKET_CD(p))) {
+                log_debug("Got request with DNSSEC checking disabled, enabling bypass logic.");
+                bypass = true;
+        }
+
+        if (bypass)
                 r = dns_query_new(m, &q, NULL, NULL, p, 0,
-                                  SD_RESOLVED_PROTOCOLS_ALL|
+                                  protocol_flags|
                                   SD_RESOLVED_NO_CNAME|
                                   SD_RESOLVED_NO_SEARCH|
                                   SD_RESOLVED_NO_VALIDATE|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
                                   SD_RESOLVED_CLAMP_TTL);
-        } else
+        else
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
-                                  SD_RESOLVED_PROTOCOLS_ALL|
+                                  protocol_flags|
                                   SD_RESOLVED_NO_SEARCH|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
@@ -1085,26 +1139,32 @@ static int set_dns_stub_common_tcp_socket_options(int fd) {
         return 0;
 }
 
-static int manager_dns_stub_fd(Manager *m, int type) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-                .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
-                .in.sin_port = htobe16(53),
-        };
+static int manager_dns_stub_fd(
+                Manager *m,
+                int family,
+                const union in_addr_union *listen_addr,
+                int type) {
+
+        sd_event_source **event_source;
         _cleanup_close_ int fd = -1;
+        union sockaddr_union sa;
         int r;
 
-        assert(IN_SET(type, SOCK_DGRAM, SOCK_STREAM));
+        if (type == SOCK_DGRAM)
+                event_source = address_is_proxy(family, listen_addr) ? &m->dns_proxy_stub_udp_event_source : &m->dns_stub_udp_event_source;
+        else if (type == SOCK_STREAM)
+                event_source = address_is_proxy(family, listen_addr) ? &m->dns_proxy_stub_tcp_event_source : &m->dns_stub_tcp_event_source;
+        else
+                return -EPROTONOSUPPORT;
 
-        sd_event_source **event_source = type == SOCK_DGRAM ? &m->dns_stub_udp_event_source : &m->dns_stub_tcp_event_source;
         if (*event_source)
                 return sd_event_source_get_io_fd(*event_source);
 
-        fd = socket(AF_INET, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+        fd = socket(family, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        r = set_dns_stub_common_socket_options(fd, AF_INET);
+        r = set_dns_stub_common_socket_options(fd, family);
         if (r < 0)
                 return r;
 
@@ -1114,12 +1174,30 @@ static int manager_dns_stub_fd(Manager *m, int type) {
                         return r;
         }
 
-        /* Make sure no traffic from outside the local host can leak to onto this socket */
-        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
-        if (r < 0)
-                return r;
+        /* Set slightly different socket options for the non-proxy and the proxy binding. The former we want
+         * to be accessible only from the local host, for the latter it's OK if people use NAT redirects or
+         * so to redirect external traffic to it. */
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
+        if (!address_is_proxy(family, listen_addr)) {
+                /* Make sure no traffic from outside the local host can leak to onto this socket */
+                r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
+                if (r < 0)
+                        return r;
+
+                r = socket_set_ttl(fd, family, 1);
+                if (r < 0)
+                        return r;
+        } else if (type == SOCK_DGRAM) {
+                r = socket_disable_pmtud(fd, family);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");
+
+                r = socket_set_recvfragsize(fd, family, true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
+        }
+
+        r = sockaddr_set_in_addr(&sa, family, listen_addr, 53);
         if (r < 0)
                 return r;
 
@@ -1153,10 +1231,8 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         int r;
 
         assert(m);
+        assert(l);
         assert(IN_SET(type, SOCK_DGRAM, SOCK_STREAM));
-
-        if (!l)
-                return manager_dns_stub_fd(m, type);
 
         sd_event_source **event_source = type == SOCK_DGRAM ? &l->udp_event_source : &l->tcp_event_source;
         if (*event_source)
@@ -1251,38 +1327,63 @@ fail:
 }
 
 int manager_dns_stub_start(Manager *m) {
-        const char *t = "UDP";
-        int r = 0;
+        int r;
 
         assert(m);
 
         if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_NO)
                 log_debug("Not creating stub listener.");
-        else
+        else {
+                static const struct {
+                        uint32_t addr;
+                        int socket_type;
+                } stub_sockets[] = {
+                        { INADDR_DNS_STUB,       SOCK_DGRAM  },
+                        { INADDR_DNS_STUB,       SOCK_STREAM },
+                        { INADDR_DNS_PROXY_STUB, SOCK_DGRAM  },
+                        { INADDR_DNS_PROXY_STUB, SOCK_STREAM },
+                };
+
                 log_debug("Creating stub listener using %s.",
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ? "UDP" :
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
                           "UDP/TCP");
 
-        if (FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_UDP))
-                r = manager_dns_stub_fd(m, SOCK_DGRAM);
+                for (size_t i = 0; i < ELEMENTSOF(stub_sockets); i++) {
+                        union in_addr_union a = {
+                                .in.s_addr = htobe32(stub_sockets[i].addr),
+                        };
 
-        if (r >= 0 &&
-            FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_TCP)) {
-                t = "TCP";
-                r = manager_dns_stub_fd(m, SOCK_STREAM);
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP && stub_sockets[i].socket_type == SOCK_STREAM)
+                                continue;
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP && stub_sockets[i].socket_type == SOCK_DGRAM)
+                                continue;
+
+                        r = manager_dns_stub_fd(m, AF_INET, &a, stub_sockets[i].socket_type);
+                        if (r < 0) {
+                                _cleanup_free_ char *busy_socket = NULL;
+
+                                if (asprintf(&busy_socket,
+                                             "%s socket " IPV4_ADDRESS_FMT_STR ":53",
+                                             stub_sockets[i].socket_type == SOCK_DGRAM ? "UDP" : "TCP",
+                                             IPV4_ADDRESS_FMT_VAL(a.in)) < 0)
+                                        return log_oom();
+
+                                if (IN_SET(r, -EADDRINUSE, -EPERM)) {
+                                        log_warning_errno(r,
+                                                          r == -EADDRINUSE ? "Another process is already listening on %s.\n"
+                                                          "Turning off local DNS stub support." :
+                                                          "Failed to listen on %s: %m.\n"
+                                          "Turning off local DNS stub support.",
+                                                          busy_socket);
+                                        manager_dns_stub_stop(m);
+                                        break;
+                                }
+
+                                return log_error_errno(r, "Failed to listen on %s: %m", busy_socket);
+                        }
+                }
         }
-
-        if (IN_SET(r, -EADDRINUSE, -EPERM)) {
-                log_warning_errno(r,
-                                  r == -EADDRINUSE ? "Another process is already listening on %s socket 127.0.0.53:53.\n"
-                                                     "Turning off local DNS stub support." :
-                                                     "Failed to listen on %s socket 127.0.0.53:53: %m.\n"
-                                                     "Turning off local DNS stub support.",
-                                  t);
-                manager_dns_stub_stop(m);
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);
 
         if (!ordered_set_isempty(m->dns_extra_stub_listeners)) {
                 DnsStubListenerExtra *l;
@@ -1305,6 +1406,8 @@ void manager_dns_stub_stop(Manager *m) {
 
         m->dns_stub_udp_event_source = sd_event_source_disable_unref(m->dns_stub_udp_event_source);
         m->dns_stub_tcp_event_source = sd_event_source_disable_unref(m->dns_stub_tcp_event_source);
+        m->dns_proxy_stub_udp_event_source = sd_event_source_disable_unref(m->dns_proxy_stub_udp_event_source);
+        m->dns_proxy_stub_tcp_event_source = sd_event_source_disable_unref(m->dns_proxy_stub_tcp_event_source);
 }
 
 static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
