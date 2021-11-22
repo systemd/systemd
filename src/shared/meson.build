@@ -107,6 +107,8 @@ shared_sources = files('''
         dropin.h
         efi-loader.c
         efi-loader.h
+        elf-util.c
+        elf-util.h
         enable-mempool.c
         env-file-label.c
         env-file-label.h
@@ -388,12 +390,6 @@ if conf.get('ENABLE_NSCD') == 1
         shared_sources += files('nscd-flush.c')
 endif
 
-if conf.get('HAVE_ELFUTILS') == 1
-        shared_sources += files(
-                'elf-util.c',
-                'elf-util.h')
-endif
-
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
@@ -442,7 +438,6 @@ libshared_deps = [threads,
                   libcap,
                   libcrypt,
                   libdl,
-                  libdw,
                   libgcrypt,
                   libiptc,
                   libkmod,
