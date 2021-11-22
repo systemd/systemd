@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/***
-  Copyright © 2013 Jan Janssen
-***/
 
 #include "list.h"
 #include "util.h"
