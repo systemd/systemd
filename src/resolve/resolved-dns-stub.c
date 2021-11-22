@@ -1208,10 +1208,9 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
                         log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
         }
 
-        if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
-                r = -errno;
+        r = RET_NERRNO(bind(fd, &sa.sa, SOCKADDR_LEN(sa)));
+        if (r < 0)
                 goto fail;
-        }
 
         if (type == SOCK_STREAM &&
             listen(fd, SOMAXCONN) < 0) {
