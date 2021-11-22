@@ -94,7 +94,9 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
         DnsZoneItem *i;
 
         assert(z);
-        assert(rr);
+
+        if (!rr)
+                return;
 
         i = dns_zone_get(z, rr);
         if (i)
