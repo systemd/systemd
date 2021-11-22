@@ -1021,30 +1021,6 @@ static uint64_t journal_file_entry_seqnum(
         return ret;
 }
 
-static void journal_file_revert_entry_seqnum(
-                JournalFile *f,
-                uint64_t *seqnum,
-                uint64_t revert_seqnum) {
-
-        assert(f);
-        assert(f->header);
-
-        if (revert_seqnum == 0) /* sequence number 0? can't go back */
-                return;
-
-        /* Undoes the effect of journal_file_entry_seqnum() above: if we fail to append an entry to a file,
-         * let's revert the seqnum we were about to use, so that we can use it on the next entry. */
-
-        if (le64toh(f->header->tail_entry_seqnum) == revert_seqnum)
-                f->header->tail_entry_seqnum = htole64(revert_seqnum - 1);
-
-        if (le64toh(f->header->head_entry_seqnum) == revert_seqnum)
-                f->header->head_entry_seqnum = 0;
-
-        if (seqnum && *seqnum == revert_seqnum)
-                *seqnum = revert_seqnum - 1;
-}
-
 int journal_file_append_object(
                 JournalFile *f,
                 ObjectType type,
@@ -1660,14 +1636,13 @@ static int journal_file_append_data(
                 const void *data, uint64_t size,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t hash, p;
-        uint64_t osize;
-        Object *o;
+        uint64_t hash, p, fp, osize;
+        Object *o, *fo;
         int r, compression = 0;
         const void *eq;
 
         assert(f);
-        assert(data || size == 0);
+        assert(data && size > 0);
 
         hash = journal_file_hash_data(f, data, size);
 
@@ -1684,6 +1659,10 @@ static int journal_file_append_data(
 
                 return 0;
         }
+
+        eq = memchr(data, '=', size);
+        if (!eq)
+                return -EINVAL;
 
         osize = offsetof(Object, data.payload) + size;
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
@@ -1729,23 +1708,14 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        if (!data)
-                eq = NULL;
-        else
-                eq = memchr(data, '=', size);
-        if (eq && eq > data) {
-                Object *fo = NULL;
-                uint64_t fp;
+        /* Create field object ... */
+        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+        if (r < 0)
+                return r;
 
-                /* Create field object ... */
-                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
-                if (r < 0)
-                        return r;
-
-                /* ... and link it in. */
-                o->data.next_field_offset = fo->field.head_data_offset;
-                fo->field.head_data_offset = le64toh(p);
-        }
+        /* ... and link it in. */
+        o->data.next_field_offset = fo->field.head_data_offset;
+        fo->field.head_data_offset = le64toh(p);
 
         if (ret)
                 *ret = o;
@@ -2004,12 +1974,12 @@ static int journal_file_append_entry_internal(
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 #endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = o;
@@ -2017,10 +1987,6 @@ static int journal_file_append_entry_internal(
         if (ret_offset)
                 *ret_offset = np;
 
-        return 0;
-
-fail:
-        journal_file_revert_entry_seqnum(f, seqnum, le64toh(o->entry.seqnum));
         return r;
 }
 
@@ -2125,7 +2091,7 @@ int journal_file_append_entry(
 
         assert(f);
         assert(f->header);
-        assert(iovec || n_iovec == 0);
+        assert(iovec && n_iovec > 0);
 
         if (ts) {
                 if (!VALID_REALTIME(ts->realtime))
@@ -3917,6 +3883,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 } else
                         data = o->data.payload;
 
+                if (l == 0)
+                        return -EBADMSG;
+
                 r = journal_file_append_data(to, data, l, &u, &h);
                 if (r < 0)
                         return r;
@@ -3936,8 +3905,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
-                                               NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;
