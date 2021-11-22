@@ -364,8 +364,12 @@
         <term><varname>systemd.verity_root_data=</varname></term>
         <term><varname>systemd.verity_root_hash=</varname></term>
         <term><varname>systemd.verity.root_options=</varname></term>
+        <term><varname>usrhash=</varname></term>
+        <term><varname>systemd.verity_usr_data=</varname></term>
+        <term><varname>systemd.verity_usr_hash=</varname></term>
+        <term><varname>systemd.verity_usr_options=</varname></term>
         <listitem>
-          <para>Configures the integrity protection root hash for the root file system, and other related
+          <para>Configures the integrity protection root hash for the root and <filename>/usr</filename> file systems, and other related
           parameters. For details, see
           <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
