@@ -384,6 +384,8 @@ evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
 
 # Dell Latitude privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
+# Dell Precision privacy microphone mute
+evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
  KEYBOARD_KEY_120001=f20                                # Mic mute toggle, should be micmute
 
 ###########################################################
