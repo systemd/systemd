@@ -18,7 +18,7 @@ static void test_gpt_types_against_architectures(void) {
         /* Dumps a table indicating for which architectures we know we have matching GPT partition
          * types. Also validates whether we can properly categorize the entries. */
 
-        FOREACH_STRING(prefix, "root-", "usr-") {
+        FOREACH_STRING(prefix, "root-", "usr-")
                 for (int a = 0; a < _ARCHITECTURE_MAX; a++) {
                         const char *suffix;
 
@@ -48,7 +48,6 @@ static void test_gpt_types_against_architectures(void) {
                                         assert_se(gpt_partition_type_is_usr_verity(id));
                         }
                 }
-        }
 }
 
 int main(int argc, char *argv[]) {
