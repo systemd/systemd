@@ -1076,7 +1076,7 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL, DNS_STREAM_STUB_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
