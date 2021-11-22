@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_ELFUTILS
+
 #include <dwarf.h>
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
@@ -10,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "fileio.h"
@@ -26,6 +29,115 @@
 #define FRAMES_MAX 64
 #define THREADS_MAX 64
 #define ELF_PACKAGE_METADATA_ID 0xcafe1a7e
+
+static void *dw_dl = NULL;
+static void *elf_dl = NULL;
+
+/* libdw symbols */
+Dwarf_Attribute *(*sym_dwarf_attr_integrate)(Dwarf_Die *, unsigned int, Dwarf_Attribute *);
+const char *(*sym_dwarf_diename)(Dwarf_Die *);
+const char *(*sym_dwarf_formstring)(Dwarf_Attribute *);
+int (*sym_dwarf_getscopes)(Dwarf_Die *, Dwarf_Addr, Dwarf_Die **);
+int (*sym_dwarf_getscopes_die)(Dwarf_Die *, Dwarf_Die **);
+Elf *(*sym_dwelf_elf_begin)(int);
+ssize_t (*sym_dwelf_elf_gnu_build_id)(Elf *, const void **);
+int (*sym_dwarf_tag)(Dwarf_Die *);
+Dwfl_Module *(*sym_dwfl_addrmodule)(Dwfl *, Dwarf_Addr);
+Dwfl *(*sym_dwfl_begin)(const Dwfl_Callbacks *);
+int (*sym_dwfl_build_id_find_elf)(Dwfl_Module *, void **, const char *, Dwarf_Addr, char **, Elf **);
+int (*sym_dwfl_core_file_attach)(Dwfl *, Elf *);
+int (*sym_dwfl_core_file_report)(Dwfl *, Elf *, const char *);
+void (*sym_dwfl_end)(Dwfl *);
+const char *(*sym_dwfl_errmsg)(int);
+int (*sym_dwfl_errno)(void);
+bool (*sym_dwfl_frame_pc)(Dwfl_Frame *, Dwarf_Addr *, bool *);
+ptrdiff_t (*sym_dwfl_getmodules)(Dwfl *, int (*)(Dwfl_Module *, void **, const char *, Dwarf_Addr, void *), void *, ptrdiff_t);
+int (*sym_dwfl_getthreads)(Dwfl *, int (*)(Dwfl_Thread *, void *), void *);
+Dwarf_Die *(*sym_dwfl_module_addrdie)(Dwfl_Module *, Dwarf_Addr, Dwarf_Addr *);
+const char *(*sym_dwfl_module_addrname)(Dwfl_Module *, GElf_Addr);
+int (*sym_dwfl_module_build_id)(Dwfl_Module *, const unsigned char **, GElf_Addr *);
+Elf *(*sym_dwfl_module_getelf)(Dwfl_Module *, GElf_Addr *);
+const char *(*sym_dwfl_module_info)(Dwfl_Module *, void ***, Dwarf_Addr *, Dwarf_Addr *, Dwarf_Addr *, Dwarf_Addr *, const char **, const char **);
+int (*sym_dwfl_offline_section_address)(Dwfl_Module *, void **, const char *, Dwarf_Addr, const char *, GElf_Word, const GElf_Shdr *, Dwarf_Addr *);
+int (*sym_dwfl_report_end)(Dwfl *, int (*)(Dwfl_Module *, void *, const char *, Dwarf_Addr, void *), void *);
+int (*sym_dwfl_standard_find_debuginfo)(Dwfl_Module *, void **, const char *, Dwarf_Addr, const char *, const char *, GElf_Word, char **);
+int (*sym_dwfl_thread_getframes)(Dwfl_Thread *, int (*)(Dwfl_Frame *, void *), void *);
+pid_t (*sym_dwfl_thread_tid)(Dwfl_Thread *);
+
+/* libelf symbols */
+Elf *(*sym_elf_begin)(int, Elf_Cmd, Elf *);
+int (*sym_elf_end)(Elf *);
+Elf_Data *(*sym_elf_getdata_rawchunk)(Elf *, int64_t, size_t, Elf_Type);
+GElf_Ehdr *(*sym_gelf_getehdr)(Elf *, GElf_Ehdr *);
+int (*sym_elf_getphdrnum)(Elf *, size_t *);
+const char *(*sym_elf_errmsg)(int);
+int (*sym_elf_errno)(void);
+Elf *(*sym_elf_memory)(char *, size_t);
+unsigned int (*sym_elf_version)(unsigned int);
+GElf_Phdr *(*sym_gelf_getphdr)(Elf *, int, GElf_Phdr *);
+size_t (*sym_gelf_getnote)(Elf_Data *, size_t, GElf_Nhdr *, size_t *, size_t *);
+
+static int dlopen_dw(void) {
+        int r;
+
+        r = dlopen_many_sym_or_warn(
+                        &dw_dl, "libdw.so.1", LOG_DEBUG,
+                        DLSYM_ARG(dwarf_getscopes),
+                        DLSYM_ARG(dwarf_getscopes_die),
+                        DLSYM_ARG(dwarf_tag),
+                        DLSYM_ARG(dwarf_attr_integrate),
+                        DLSYM_ARG(dwarf_formstring),
+                        DLSYM_ARG(dwarf_diename),
+                        DLSYM_ARG(dwelf_elf_gnu_build_id),
+                        DLSYM_ARG(dwelf_elf_begin),
+                        DLSYM_ARG(dwfl_addrmodule),
+                        DLSYM_ARG(dwfl_frame_pc),
+                        DLSYM_ARG(dwfl_module_addrdie),
+                        DLSYM_ARG(dwfl_module_addrname),
+                        DLSYM_ARG(dwfl_module_info),
+                        DLSYM_ARG(dwfl_module_build_id),
+                        DLSYM_ARG(dwfl_module_getelf),
+                        DLSYM_ARG(dwfl_begin),
+                        DLSYM_ARG(dwfl_core_file_report),
+                        DLSYM_ARG(dwfl_report_end),
+                        DLSYM_ARG(dwfl_getmodules),
+                        DLSYM_ARG(dwfl_core_file_attach),
+                        DLSYM_ARG(dwfl_end),
+                        DLSYM_ARG(dwfl_errmsg),
+                        DLSYM_ARG(dwfl_errno),
+                        DLSYM_ARG(dwfl_build_id_find_elf),
+                        DLSYM_ARG(dwfl_standard_find_debuginfo),
+                        DLSYM_ARG(dwfl_thread_tid),
+                        DLSYM_ARG(dwfl_thread_getframes),
+                        DLSYM_ARG(dwfl_getthreads),
+                        DLSYM_ARG(dwfl_offline_section_address));
+        if (r <= 0)
+                return r;
+
+        return 1;
+}
+
+static int dlopen_elf(void) {
+        int r;
+
+        r = dlopen_many_sym_or_warn(
+                        &elf_dl, "libelf.so.1", LOG_DEBUG,
+                        DLSYM_ARG(elf_begin),
+                        DLSYM_ARG(elf_end),
+                        DLSYM_ARG(elf_getphdrnum),
+                        DLSYM_ARG(elf_getdata_rawchunk),
+                        DLSYM_ARG(elf_errmsg),
+                        DLSYM_ARG(elf_errno),
+                        DLSYM_ARG(elf_memory),
+                        DLSYM_ARG(elf_version),
+                        DLSYM_ARG(gelf_getehdr),
+                        DLSYM_ARG(gelf_getphdr),
+                        DLSYM_ARG(gelf_getnote));
+        if (r <= 0)
+                return r;
+
+        return 1;
+}
 
 typedef struct StackContext {
         FILE *f;
@@ -44,19 +156,19 @@ static StackContext* stack_context_destroy(StackContext *c) {
         c->f = safe_fclose(c->f);
 
         if (c->dwfl) {
-                dwfl_end(c->dwfl);
+                sym_dwfl_end(c->dwfl);
                 c->dwfl = NULL;
         }
 
         if (c->elf) {
-                elf_end(c->elf);
+                sym_elf_end(c->elf);
                 c->elf = NULL;
         }
 
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, elf_end, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         StackContext *c = userdata;
@@ -73,32 +185,32 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         if (c->n_frame >= FRAMES_MAX)
                 return DWARF_CB_ABORT;
 
-        if (!dwfl_frame_pc(frame, &pc, &is_activation))
+        if (!sym_dwfl_frame_pc(frame, &pc, &is_activation))
                 return DWARF_CB_ABORT;
 
         pc_adjusted = pc - (is_activation ? 0 : 1);
 
-        module = dwfl_addrmodule(c->dwfl, pc_adjusted);
+        module = sym_dwfl_addrmodule(c->dwfl, pc_adjusted);
         if (module) {
                 Dwarf_Die *s, *cudie;
                 int n;
                 Dwarf_Addr start;
 
-                cudie = dwfl_module_addrdie(module, pc_adjusted, &bias);
+                cudie = sym_dwfl_module_addrdie(module, pc_adjusted, &bias);
                 if (cudie) {
-                        n = dwarf_getscopes(cudie, pc_adjusted - bias, &scopes);
+                        n = sym_dwarf_getscopes(cudie, pc_adjusted - bias, &scopes);
                         if (n > 0)
                                 for (s = scopes; s && s < scopes + n; s++) {
-                                        if (IN_SET(dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
+                                        if (IN_SET(sym_dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
                                                 Dwarf_Attribute *a, space;
 
-                                                a = dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
+                                                a = sym_dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
                                                 if (!a)
-                                                        a = dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
+                                                        a = sym_dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
                                                 if (a)
-                                                        symbol = dwarf_formstring(a);
+                                                        symbol = sym_dwarf_formstring(a);
                                                 if (!symbol)
-                                                        symbol = dwarf_diename(s);
+                                                        symbol = sym_dwarf_diename(s);
 
                                                 if (symbol)
                                                         break;
@@ -107,9 +219,9 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 }
 
                 if (!symbol)
-                        symbol = dwfl_module_addrname(module, pc_adjusted);
+                        symbol = sym_dwfl_module_addrname(module, pc_adjusted);
 
-                fname = dwfl_module_info(module, NULL, &start, NULL, NULL, NULL, NULL, NULL);
+                fname = sym_dwfl_module_info(module, NULL, &start, NULL, NULL, NULL, NULL, NULL);
                 module_offset = pc - start;
         }
 
@@ -136,11 +248,11 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         c->n_frame = 0;
 
         if (c->f) {
-                tid = dwfl_thread_tid(thread);
+                tid = sym_dwfl_thread_tid(thread);
                 fprintf(c->f, "Stack trace of thread " PID_FMT ":\n", tid);
         }
 
-        if (dwfl_thread_getframes(thread, frame_callback, c) < 0)
+        if (sym_dwfl_thread_getframes(thread, frame_callback, c) < 0)
                 return DWARF_CB_ABORT;
 
         c->n_thread++;
@@ -160,7 +272,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
         if (set_contains(*c->modules, name))
                 return 0;
 
-        r = elf_getphdrnum(elf, &n_program_headers);
+        r = sym_elf_getphdrnum(elf, &n_program_headers);
         if (r < 0) /* Not the handle we are looking for - that's ok, skip it */
                 return 0;
 
@@ -173,22 +285,22 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                 Elf_Data *data;
 
                 /* Package metadata is in PT_NOTE headers. */
-                program_header = gelf_getphdr(elf, i, &mem);
+                program_header = sym_gelf_getphdr(elf, i, &mem);
                 if (!program_header || program_header->p_type != PT_NOTE)
                         continue;
 
                 /* Fortunately there is an iterator we can use to walk over the
                  * elements of a PT_NOTE program header. We are interested in the
                  * note with type. */
-                data = elf_getdata_rawchunk(elf,
-                                            program_header->p_offset,
-                                            program_header->p_filesz,
-                                            ELF_T_NHDR);
+                data = sym_elf_getdata_rawchunk(elf,
+                                                program_header->p_offset,
+                                                program_header->p_filesz,
+                                                ELF_T_NHDR);
                 if (!data)
                         continue;
 
                 while (note_offset < data->d_size &&
-                       (note_offset = gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0) {
+                       (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0) {
                         const char *note_name = (const char *)data->d_buf + name_offset;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
@@ -257,9 +369,9 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
         assert(c);
 
         if (mod)
-                id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
+                id_len = sym_dwfl_module_build_id(mod, &id, &id_vaddr);
         else
-                id_len = dwelf_elf_gnu_build_id(elf, (const void **)&id);
+                id_len = sym_dwelf_elf_gnu_build_id(elf, (const void **)&id);
         if (id_len <= 0) {
                 /* If we don't find a build-id, note it in the journal message, and try
                  * anyway to find the package metadata. It's unlikely to have the latter
@@ -304,7 +416,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         /* We are iterating on each "module", which is what dwfl calls ELF objects contained in the
          * core file, and extracting the build-id first and then the package metadata.
          * We proceed in a best-effort fashion - not all ELF objects might contain both or either.
-         * The build-id is easy, as libdwfl parses it during the dwfl_core_file_report() call and
+         * The build-id is easy, as libdwfl parses it during the sym_dwfl_core_file_report() call and
          * stores it separately in an internal library struct. */
         r = parse_buildid(mod, NULL, name, c, &id_json);
         if (r < 0)
@@ -312,7 +424,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
 
         /* The .note.package metadata is more difficult. From the module, we need to get a reference
          * to the ELF object first. We might be lucky and just get it from elfutils. */
-        elf = dwfl_module_getelf(mod, &bias);
+        elf = sym_dwfl_module_getelf(mod, &bias);
         if (elf) {
                 r = parse_package_metadata(name, id_json, elf, c);
                 if (r < 0)
@@ -329,10 +441,10 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * and if it's the right one we can interpret it as an Elf object, and parse
          * its notes manually. */
 
-        r = elf_getphdrnum(elf, &n_program_headers);
+        r = sym_elf_getphdrnum(elf, &n_program_headers);
         if (r < 0) {
                 log_warning("Could not parse number of program headers from core file: %s",
-                            elf_errmsg(-1)); /* -1 retrieves the most recent error */
+                            sym_elf_errmsg(-1)); /* -1 retrieves the most recent error */
                 return DWARF_CB_OK;
         }
 
@@ -341,19 +453,19 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 Elf_Data *data;
 
                 /* The core file stores the ELF files in the PT_LOAD segment. */
-                program_header = gelf_getphdr(elf, i, &mem);
+                program_header = sym_gelf_getphdr(elf, i, &mem);
                 if (!program_header || program_header->p_type != PT_LOAD)
                         continue;
 
                 /* Now get a usable Elf reference, and parse the notes from it. */
-                data = elf_getdata_rawchunk(elf,
-                                            program_header->p_offset,
-                                            program_header->p_filesz,
-                                            ELF_T_NHDR);
+                data = sym_elf_getdata_rawchunk(elf,
+                                                program_header->p_offset,
+                                                program_header->p_filesz,
+                                                ELF_T_NHDR);
                 if (!data)
                         continue;
 
-                _cleanup_(elf_endp) Elf *memelf = elf_memory(data->d_buf, data->d_size);
+                _cleanup_(sym_elf_endp) Elf *memelf = sym_elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, c);
@@ -368,10 +480,10 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
 
 static int parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
 
-        static const Dwfl_Callbacks callbacks = {
-                .find_elf = dwfl_build_id_find_elf,
-                .section_address = dwfl_offline_section_address,
-                .find_debuginfo = dwfl_standard_find_debuginfo,
+        const Dwfl_Callbacks callbacks = {
+                .find_elf = sym_dwfl_build_id_find_elf,
+                .section_address = sym_dwfl_offline_section_address,
+                .find_debuginfo = sym_dwfl_standard_find_debuginfo,
         };
 
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
@@ -395,30 +507,30 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                         return log_oom();
         }
 
-        elf_version(EV_CURRENT);
+        sym_elf_version(EV_CURRENT);
 
-        c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+        c.elf = sym_elf_begin(fd, ELF_C_READ_MMAP, NULL);
         if (!c.elf)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, elf_begin() failed: %s", elf_errmsg(elf_errno()));
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, elf_begin() failed: %s", sym_elf_errmsg(sym_elf_errno()));
 
-        c.dwfl = dwfl_begin(&callbacks);
+        c.dwfl = sym_dwfl_begin(&callbacks);
         if (!c.dwfl)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_begin() failed: %s", dwfl_errmsg(dwfl_errno()));
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_begin() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", dwfl_errmsg(dwfl_errno()));
+        if (sym_dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (dwfl_report_end(c.dwfl, NULL, NULL) != 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_report_end() failed: %s", dwfl_errmsg(dwfl_errno()));
+        if (sym_dwfl_report_end(c.dwfl, NULL, NULL) != 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_report_end() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getmodules() failed: %s", dwfl_errmsg(dwfl_errno()));
+        if (sym_dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getmodules() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (dwfl_core_file_attach(c.dwfl, c.elf) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_attach() failed: %s", dwfl_errmsg(dwfl_errno()));
+        if (sym_dwfl_core_file_attach(c.dwfl, c.elf) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_attach() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", dwfl_errmsg(dwfl_errno()));
+        if (sym_dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (ret) {
                 r = fflush_and_check(c.f);
@@ -439,6 +551,14 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
+
+        r = dlopen_dw();
+        if (r < 0)
+                return r;
+
+        r = dlopen_elf();
+        if (r < 0)
+                return r;
 
         r = RET_NERRNO(pipe2(error_pipe, O_CLOEXEC|O_NONBLOCK));
         if (r < 0)
@@ -553,3 +673,5 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
 
         return 0;
 }
+
+#endif
