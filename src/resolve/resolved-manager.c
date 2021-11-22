@@ -880,8 +880,16 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu",
-                  dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *sender_address = NULL, *destination_address = NULL;
+
+                (void) in_addr_to_string(p->family, &p->sender, &sender_address);
+                (void) in_addr_to_string(p->family, &p->destination, &destination_address);
+
+                log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu, sender=%s, destination=%s",
+                          dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize,
+                          strna(sender_address), strna(destination_address));
+        }
 
         *ret = TAKE_PTR(p);
         return 1;
