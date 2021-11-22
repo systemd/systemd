@@ -5,8 +5,11 @@
 #include "in-addr-util.h"
 #include "macro.h"
 
-/* 127.0.0.53 in native endian */
+/* 127.0.0.53 in native endian (The IP address we listen on with the full DNS stub, i.e. that does LLMNR/mDNS, and stuff) */
 #define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
+
+/* 127.0.0.54 in native endian (The IP address we listen on we only implement "proxy" mode) */
+#define INADDR_DNS_PROXY_STUB ((in_addr_t) 0x7f000036U)
 
 typedef enum DnsCacheMode DnsCacheMode;
 
