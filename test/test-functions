@@ -778,9 +778,23 @@ if [[ ! -e "$ASAN_RT_PATH" ]]; then
     exit 1
 fi
 
+# Suppress certain leaks reported by LSan (either in external tools or bogus
+# ones)
+# Docs: # https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
+#
+# - fsck is called by systemd-homed and is reporting a leak we're not interested
+#   in
+# - libLLVM is a "side effect" caused by the previous fsck leak
+cat >/systemd-lsan.supp <<INNER_EOF
+leak:/bin/fsck$
+leak:/sbin/fsck$
+leak:/lib/libLLVM
+INNER_EOF
+
+DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-}:suppressions=/systemd-lsan.supp
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS LSAN_OPTIONS=\$DEFAULT_LSAN_OPTIONS"
 
 # As right now bash is the PID 1, we can't expect PATH to have a sane value.
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
