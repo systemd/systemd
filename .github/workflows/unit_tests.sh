@@ -55,8 +55,10 @@ for phase in "${PHASES[@]}"; do
             MESON_ARGS=(--optimization=1)
 
             if [[ "$phase" = "RUN_CLANG_ASAN_UBSAN" ]]; then
-                export CC=clang
-                export CXX=clang++
+                # Explicitly use clang-11, since with the default clang-10
+                # we might trigger some UBSan false-positives. See https://github.com/systemd/systemd/pull/21183
+                export CC=clang-11
+                export CXX=clang++-11
                 # Build fuzzer regression tests only with clang (for now),
                 # see: https://github.com/systemd/systemd/pull/15886#issuecomment-632689604
                 # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
