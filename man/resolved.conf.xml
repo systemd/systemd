@@ -265,11 +265,13 @@
 
       <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
-        <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and <literal>tcp</literal>. If
-        <literal>udp</literal>, a DNS stub resolver will listen for UDP requests on address 127.0.0.53
-        port 53. If <literal>tcp</literal>, the stub will listen for TCP requests on the same address and port. If
-        <literal>yes</literal> (the default), the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
-        listener is disabled.</para>
+        <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and
+        <literal>tcp</literal>. If <literal>udp</literal>, a DNS stub resolver will listen for UDP requests
+        on addresses 127.0.0.53 and 127.0.0.54, port 53. If <literal>tcp</literal>, the stub will listen for
+        TCP requests on the same addresses and port. If <literal>yes</literal> (the default), the stub listens
+        for both UDP and TCP requests. If <literal>no</literal>, the stub listener is disabled.</para>
+
+        <xi:include href="systemd-resolved.service.xml" xpointer="proxy-stub" />
 
         <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
         in use.</para></listitem>
