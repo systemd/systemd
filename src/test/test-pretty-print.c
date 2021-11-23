@@ -31,11 +31,25 @@ static void test_cat_files(void) {
                 assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), 0) == 0);
 }
 
+static void test_red_green_cross_check_mark(void) {
+        bool b = false;
+
+        printf("yeah: <%s>\n", GREEN_CHECK_MARK());
+        printf("nay: <%s>\n", RED_CROSS_MARK());
+
+        printf("%s → %s → %s → %s\n",
+               COLOR_MARK_BOOL(b),
+               COLOR_MARK_BOOL(!b),
+               COLOR_MARK_BOOL(!!b),
+               COLOR_MARK_BOOL(!!!b));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_terminal_urlify();
         test_cat_files();
+        test_red_green_cross_check_mark();
 
         print_separator();
 
