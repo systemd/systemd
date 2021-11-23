@@ -1535,7 +1535,6 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         uint8_t window, length;
         const uint8_t *bitmap;
         uint8_t bit = 0;
-        unsigned i;
         bool found = false;
         int r;
 
@@ -1558,7 +1557,7 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         if (r < 0)
                 return r;
 
-        for (i = 0; i < length; i++) {
+        for (uint8_t i = 0; i < length; i++) {
                 uint8_t bitmask = 1 << 7;
 
                 if (!bitmap[i]) {
