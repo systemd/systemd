@@ -518,15 +518,12 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonica
 
         *(w++) = (uint8_t) l;
 
-        if (p->canonical_form && canonical_candidate) {
-                size_t i;
-
+        if (p->canonical_form && canonical_candidate)
                 /* Generate in canonical form, as defined by DNSSEC
                  * RFC 4034, Section 6.2, i.e. all lower-case. */
-
-                for (i = 0; i < l; i++)
+                for (size_t i = 0; i < l; i++)
                         w[i] = (uint8_t) ascii_tolower(d[i]);
-        } else
+        else
                 /* Otherwise, just copy the string unaltered. This is
                  * essential for DNS-SD, where the casing of labels
                  * matters and needs to be retained. */
@@ -1535,7 +1532,6 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         uint8_t window, length;
         const uint8_t *bitmap;
         uint8_t bit = 0;
-        unsigned i;
         bool found = false;
         int r;
 
@@ -1558,7 +1554,7 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         if (r < 0)
                 return r;
 
-        for (i = 0; i < length; i++) {
+        for (uint8_t i = 0; i < length; i++) {
                 uint8_t bitmask = 1 << 7;
 
                 if (!bitmap[i]) {
@@ -2190,7 +2186,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
 
 static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        unsigned n, i;
+        unsigned n;
         int r;
 
         n = DNS_PACKET_QDCOUNT(p);
@@ -2210,7 +2206,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (r < 0)
                         return r;
 
-                for (i = 0; i < n; i++) {
+                for (unsigned i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                         bool qu;
 
@@ -2241,7 +2237,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
 
 static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        unsigned n, i;
+        unsigned n;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
         bool bad_opt = false;
         int r;
@@ -2254,7 +2250,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         if (!answer)
                 return -ENOMEM;
 
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 bool cache_flush = false;
                 size_t start;
@@ -2505,7 +2501,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
         /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
-        unsigned i, n;
+        unsigned n;
         usec_t k;
         int r;
 
@@ -2516,14 +2512,14 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         n = DNS_PACKET_QDCOUNT(p);
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
                 r = dns_packet_read_key(p, NULL, NULL, NULL);
                 if (r < 0)
                         return r;
         }
 
         n = DNS_PACKET_RRCOUNT(p);
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
 
                 /* DNS servers suck, hence the RR count is in many servers off. If we reached the end
                  * prematurely, accept that, exit early */
