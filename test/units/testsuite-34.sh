@@ -58,7 +58,7 @@ function test_directory() {
         && { echo 'unexpected success'; exit 1; }
 
     # Exercise the unit parsing paths too
-    cat >/run/systemd/system/testservice-34.service <<EOF
+    cat >/run/systemd/system/testservice-34-"${directory}".service <<EOF
 [Service]
 Type=oneshot
 TemporaryFileSystem=${path}
@@ -68,8 +68,7 @@ ExecStart=test -f ${path}/x:yz2/test
 ExecStart=test -f ${path}/x:yz/test
 ExecStart=test -f ${path}/zzz/test
 EOF
-    systemctl daemon-reload
-    systemctl start --wait testservice-34.service
+    systemctl start --wait testservice-34-"${directory}".service
 
     test -d "${path}"/zzz
     test ! -L "${path}"/xxx
