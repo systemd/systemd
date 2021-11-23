@@ -6,7 +6,6 @@ import sys
 import uuid
 
 HEADER = f'''\
-<!-- generated with {sys.argv[0]} -->
 | Partition Type UUID | Name | Allowed File Systems | Explanation |
 |---------------------|------|----------------------|-------------|
 '''
