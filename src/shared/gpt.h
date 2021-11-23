@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "architecture.h"
 #include "id128-util.h"
 
 #define GPT_ROOT_ALPHA       SD_ID128_MAKE(65,23,f8,ae,3e,b1,4e,2a,a0,5a,18,b6,95,ae,65,6f)
@@ -288,9 +289,12 @@ const char *gpt_partition_type_uuid_to_string_harder(
                 char buffer[static ID128_UUID_STRING_MAX]);
 int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret);
 
+Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id);
+
 typedef struct GptPartitionType {
         sd_id128_t uuid;
         const char *name;
+        Architecture arch;
 } GptPartitionType;
 
 extern const GptPartitionType gpt_partition_type_table[];
