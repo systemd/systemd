@@ -249,7 +249,7 @@ int rm_rf_children(
 }
 
 int rm_rf(const char *path, RemoveFlags flags) {
-        int fd, r;
+        int fd, r, q = 0;
 
         assert(path);
 
@@ -281,49 +281,42 @@ int rm_rf(const char *path, RemoveFlags flags) {
         }
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-        if (fd < 0) {
+        if (fd >= 0) {
+                /* We have a dir */
+                r = rm_rf_children(fd, flags, NULL);
+
+                if (FLAGS_SET(flags, REMOVE_ROOT))
+                        q = RET_NERRNO(rmdir(path));
+        } else {
                 if (FLAGS_SET(flags, REMOVE_MISSING_OK) && errno == ENOENT)
                         return 0;
 
                 if (!IN_SET(errno, ENOTDIR, ELOOP))
                         return -errno;
 
-                if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES))
+                if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES) || !FLAGS_SET(flags, REMOVE_ROOT))
                         return 0;
 
-                if (FLAGS_SET(flags, REMOVE_ROOT)) {
+                if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
+                        struct statfs s;
 
-                        if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
-                                struct statfs s;
-
-                                if (statfs(path, &s) < 0)
-                                        return -errno;
-                                if (is_physical_fs(&s))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                               "Attempted to remove files from a disk file system under \"%s\", refusing.",
-                                                               path);
-                        }
-
-                        if (unlink(path) < 0) {
-                                if (FLAGS_SET(flags, REMOVE_MISSING_OK) && errno == ENOENT)
-                                        return 0;
-
+                        if (statfs(path, &s) < 0)
                                 return -errno;
-                        }
+                        if (is_physical_fs(&s))
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Attempted to remove files from a disk file system under \"%s\", refusing.",
+                                                       path);
                 }
 
-                return 0;
+                r = 0;
+                q = RET_NERRNO(unlink(path));
         }
 
-        r = rm_rf_children(fd, flags, NULL);
-
-        if (FLAGS_SET(flags, REMOVE_ROOT) &&
-            rmdir(path) < 0 &&
-            r >= 0 &&
-            (!FLAGS_SET(flags, REMOVE_MISSING_OK) || errno != ENOENT))
-                r = -errno;
-
-        return r;
+        if (r < 0)
+                return r;
+        if (q < 0 && (q != -ENOENT || !FLAGS_SET(flags, REMOVE_MISSING_OK)))
+                return q;
+        return 0;
 }
 
 int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
