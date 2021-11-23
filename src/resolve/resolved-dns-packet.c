@@ -2384,7 +2384,7 @@ int dns_packet_extract(DnsPacket *p) {
 
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        _unused_ _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         int r;
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
@@ -2500,7 +2500,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
 
         /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
 
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        _unused_ _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         unsigned n;
         usec_t k;
         int r;
