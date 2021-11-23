@@ -33,7 +33,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
-        _GPT_ARCH_SEXTET(PPC64LE,     "ppc64-le"),
+        _GPT_ARCH_SEXTET(PPC64_LE,     "ppc64-le"),
         _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
@@ -76,7 +76,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         GPT_##type##_MIPS64_LE##suffix,                 \
         GPT_##type##_PPC##suffix,                       \
         GPT_##type##_PPC64##suffix,                     \
-        GPT_##type##_PPC64LE##suffix,                   \
+        GPT_##type##_PPC64_LE##suffix,                  \
         GPT_##type##_RISCV32##suffix,                   \
         GPT_##type##_RISCV64##suffix,                   \
         GPT_##type##_S390##suffix,                      \
