@@ -10,6 +10,8 @@ systemd-mount -p RuntimeDirectory=hoge -p RuntimeDirectoryPreserve=yes -t tmpfs 
 touch /run/hoge/foo
 touch /tmp/aaa/bbb
 
+dbus-monitor --system &
+
 systemctl restart tmp-aaa.mount
 
 test -e /run/hoge/foo
