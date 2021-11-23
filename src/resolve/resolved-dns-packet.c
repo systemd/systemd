@@ -29,8 +29,11 @@ static void rewind_dns_packet(DnsPacketRewinder *rewinder) {
                 dns_packet_rewind(rewinder->packet, rewinder->saved_rindex);
 }
 
-#define INIT_REWINDER(rewinder, p) do { rewinder.packet = p; rewinder.saved_rindex = p->rindex; } while (0)
-#define CANCEL_REWINDER(rewinder) do { rewinder.packet = NULL; } while (0)
+#define REWINDER_INIT(p) {                              \
+                .packet = (p),                          \
+                .saved_rindex = (p)->rindex,            \
+        }
+#define CANCEL_REWINDER(rewinder) do { (rewinder).packet = NULL; } while (0)
 
 int dns_packet_new(
                 DnsPacket **ret,
@@ -1373,14 +1376,13 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
 }
 
 int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        assert(p);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         const void *d;
         char *t;
         uint8_t c;
         int r;
-
-        assert(p);
-        INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_uint8(p, &c, NULL);
         if (r < 0)
@@ -1412,12 +1414,11 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
 }
 
 int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, size_t *start) {
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        assert(p);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         uint8_t c;
         int r;
-
-        assert(p);
-        INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_uint8(p, &c, NULL);
         if (r < 0)
@@ -1442,17 +1443,14 @@ int dns_packet_read_name(
                 bool allow_compression,
                 size_t *ret_start) {
 
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
-        size_t after_rindex = 0, jump_barrier;
+        assert(p);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        size_t after_rindex = 0, jump_barrier = p->rindex;
         _cleanup_free_ char *name = NULL;
         bool first = true;
         size_t n = 0;
         int r;
-
-        assert(p);
-
-        INIT_REWINDER(rewinder, p);
-        jump_barrier = p->rindex;
 
         if (p->refuse_compression)
                 allow_compression = false;
@@ -1530,18 +1528,16 @@ int dns_packet_read_name(
 }
 
 static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *start) {
-        uint8_t window;
-        uint8_t length;
+        assert(p);
+        assert(types);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        uint8_t window, length;
         const uint8_t *bitmap;
         uint8_t bit = 0;
         unsigned i;
         bool found = false;
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         int r;
-
-        assert(p);
-        assert(types);
-        INIT_REWINDER(rewinder, p);
 
         r = bitmap_ensure_allocated(types);
         if (r < 0)
@@ -1600,10 +1596,8 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
 }
 
 static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t size, size_t *start) {
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         int r;
-
-        INIT_REWINDER(rewinder, p);
 
         while (p->rindex < rewinder.saved_rindex + size) {
                 r = dns_packet_read_type_window(p, types, NULL);
@@ -1631,14 +1625,13 @@ int dns_packet_read_key(
                 bool *ret_cache_flush_or_qu,
                 size_t *ret_start) {
 
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        assert(p);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         _cleanup_free_ char *name = NULL;
         bool cache_flush_or_qu = false;
         uint16_t class, type;
         int r;
-
-        assert(p);
-        INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_name(p, &name, true, NULL);
         if (r < 0)
@@ -1693,17 +1686,15 @@ int dns_packet_read_rr(
                 bool *ret_cache_flush,
                 size_t *ret_start) {
 
+        assert(p);
+
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         size_t offset;
         uint16_t rdlength;
         bool cache_flush;
         int r;
-
-        assert(p);
-
-        INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_key(p, &key, &cache_flush, NULL);
         if (r < 0)
@@ -2390,15 +2381,16 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
 }
 
 int dns_packet_extract(DnsPacket *p) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
-        int r;
+        assert(p);
 
         if (p->extracted)
                 return 0;
 
-        INIT_REWINDER(rewinder, p);
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        int r;
+
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         r = dns_packet_extract_question(p, &question);
@@ -2417,7 +2409,6 @@ int dns_packet_extract(DnsPacket *p) {
 
         p->question = TAKE_PTR(question);
         p->answer = TAKE_PTR(answer);
-
         p->extracted = true;
 
         /* no CANCEL, always rewind */
@@ -2466,13 +2457,11 @@ int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
 }
 
 static int patch_rr(DnsPacket *p, usec_t age) {
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         size_t ttl_index;
         uint32_t ttl;
         uint16_t type, rdlength;
         int r;
-
-        INIT_REWINDER(rewinder, p);
 
         /* Patches the RR at the current rindex, subtracts the specified time from the TTL */
 
@@ -2510,21 +2499,19 @@ static int patch_rr(DnsPacket *p, usec_t age) {
 }
 
 int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
-        unsigned i, n;
-        usec_t k;
-        int r;
-
         assert(p);
         assert(timestamp_is_set(timestamp));
 
         /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
 
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        unsigned i, n;
+        usec_t k;
+        int r;
+
         k = now(clock_boottime_or_monotonic());
         assert(k >= timestamp);
         k -= timestamp;
-
-        INIT_REWINDER(rewinder, p);
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
