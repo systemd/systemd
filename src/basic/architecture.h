@@ -10,7 +10,7 @@
  * processor features, models, generations or even ABIs. Hence we
  * focus on general family, and distinguish word width and endianness. */
 
-enum {
+typedef enum {
         ARCHITECTURE_ALPHA,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
@@ -20,6 +20,7 @@ enum {
         ARCHITECTURE_ARM_BE,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_IA64,
+        ARCHITECTURE_LOONGARCH64,
         ARCHITECTURE_M68K,
         ARCHITECTURE_MIPS,
         ARCHITECTURE_MIPS64,
@@ -45,7 +46,7 @@ enum {
         ARCHITECTURE_X86_64,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -EINVAL,
-};
+} Architecture;
 
 int uname_architecture(void);
 
@@ -67,7 +68,7 @@ int uname_architecture(void);
 #  else
 #    define LIB_ARCH_TUPLE "x86_64-linux-gnu"
 #  endif
-#  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
+#  define ARCHITECTURE_SECONDARY ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
 #  define LIB_ARCH_TUPLE "i386-linux-gnu"
@@ -75,11 +76,11 @@ int uname_architecture(void);
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC64
 #    define LIB_ARCH_TUPLE "ppc64-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_PPC
 #  else
 #    define native_architecture() ARCHITECTURE_PPC64_LE
 #    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC_LE
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_PPC_LE
 #  endif
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
@@ -105,7 +106,7 @@ int uname_architecture(void);
 #elif defined(__s390x__)
 #  define native_architecture() ARCHITECTURE_S390X
 #  define LIB_ARCH_TUPLE "s390x-linux-gnu"
-#  define SECONDARY_ARCHITECTURE ARCHITECTURE_S390
+#  define ARCHITECTURE_SECONDARY ARCHITECTURE_S390
 #elif defined(__s390__)
 #  define native_architecture() ARCHITECTURE_S390
 #  define LIB_ARCH_TUPLE "s390-linux-gnu"
@@ -149,7 +150,7 @@ int uname_architecture(void);
 #  else
 #    define native_architecture() ARCHITECTURE_ARM64
 #    define LIB_ARCH_TUPLE "aarch64-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_ARM
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_ARM
 #  endif
 #elif defined(__arm__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
