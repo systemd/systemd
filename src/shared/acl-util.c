@@ -346,7 +346,7 @@ static int find_acl_entry(acl_t acl, acl_entry_t entry, acl_entry_t *out) {
 }
 
 int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
-        _cleanup_(acl_freep) acl_t old;
+        _cleanup_(acl_freep) acl_t old = NULL;
         acl_entry_t i;
         int r;
 

@@ -1003,7 +1003,7 @@ static int test_client_solicit(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 

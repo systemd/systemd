@@ -10,7 +10,7 @@
 #include "xdg-autostart-service.h"
 
 static void test_translate_name(void) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert_se(t = xdg_autostart_service_translate_name("a-b.blub.desktop"));
         assert_se(streq(t, "app-a\\x2db.blub@autostart.service"));
