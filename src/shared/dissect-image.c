@@ -1069,7 +1069,7 @@ int dissect_image(
                                         continue;
 
                                 designator = PARTITION_ROOT_SECONDARY;
-                                architecture = SECONDARY_ARCHITECTURE;
+                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
@@ -1094,7 +1094,7 @@ int dissect_image(
 
                                 designator = PARTITION_ROOT_SECONDARY_VERITY;
                                 fstype = "DM_verity_hash";
-                                architecture = SECONDARY_ARCHITECTURE;
+                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = false;
 
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY_SIG)) {
@@ -1196,7 +1196,7 @@ int dissect_image(
                                         continue;
 
                                 designator = PARTITION_USR_SECONDARY;
-                                architecture = SECONDARY_ARCHITECTURE;
+                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
@@ -1220,7 +1220,7 @@ int dissect_image(
 
                                 designator = PARTITION_USR_SECONDARY_VERITY;
                                 fstype = "DM_verity_hash";
-                                architecture = SECONDARY_ARCHITECTURE;
+                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = false;
 
                         } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY_SIG)) {

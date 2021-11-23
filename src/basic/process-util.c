@@ -1045,8 +1045,8 @@ unsigned long personality_from_string(const char *p) {
 
         if (architecture == native_architecture())
                 return PER_LINUX;
-#ifdef SECONDARY_ARCHITECTURE
-        if (architecture == SECONDARY_ARCHITECTURE)
+#ifdef ARCHITECTURE_SECONDARY
+        if (architecture == ARCHITECTURE_SECONDARY)
                 return PER_LINUX32;
 #endif
 
@@ -1058,9 +1058,9 @@ const char* personality_to_string(unsigned long p) {
 
         if (p == PER_LINUX)
                 architecture = native_architecture();
-#ifdef SECONDARY_ARCHITECTURE
+#ifdef ARCHITECTURE_SECONDARY
         else if (p == PER_LINUX32)
-                architecture = SECONDARY_ARCHITECTURE;
+                architecture = ARCHITECTURE_SECONDARY;
 #endif
 
         if (architecture < 0)
