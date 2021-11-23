@@ -124,7 +124,7 @@ static int rm_rf_children_inner(
                 const struct stat *root_dev) {
 
         struct stat st;
-        int r;
+        int r, q = 0;
 
         assert(fd >= 0);
         assert(fname);
@@ -142,7 +142,6 @@ static int rm_rf_children_inner(
 
         if (is_dir) {
                 _cleanup_close_ int subdir_fd = -1;
-                int q;
 
                 /* if root_dev is set, remove subdirectories only if device is same */
                 if (root_dev && st.st_dev != root_dev->st_dev)
@@ -178,23 +177,15 @@ static int rm_rf_children_inner(
                  * again for each directory */
                 q = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
 
-                r = unlinkat_harder(fd, fname, AT_REMOVEDIR, flags);
-                if (r < 0)
-                        return r;
-                if (q < 0)
-                        return q;
+        } else if (flags & REMOVE_ONLY_DIRECTORIES)
+                return 0;
 
-                return 1;
-
-        } else if (!(flags & REMOVE_ONLY_DIRECTORIES)) {
-                r = unlinkat_harder(fd, fname, 0, flags);
-                if (r < 0)
-                        return r;
-
-                return 1;
-        }
-
-        return 0;
+        r = unlinkat_harder(fd, fname, is_dir ? AT_REMOVEDIR : 0, flags);
+        if (r < 0)
+                return r;
+        if (q < 0)
+                return q;
+        return 1;
 }
 
 int rm_rf_children(
