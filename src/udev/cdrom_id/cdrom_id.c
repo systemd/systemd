@@ -954,7 +954,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context c;
+        _cleanup_(context_clear) Context c = {};
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
