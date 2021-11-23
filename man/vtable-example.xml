@@ -10,26 +10,26 @@
  </interface>
  <interface name="org.freedesktop.DBus.Introspectable">
   <method name="Introspect">
-   <arg name="data" type="s" direction="out"/>
+   <arg name="xml_data" type="s" direction="out"/>
   </method>
  </interface>
  <interface name="org.freedesktop.DBus.Properties">
   <method name="Get">
-   <arg name="interface" direction="in" type="s"/>
-   <arg name="property" direction="in" type="s"/>
+   <arg name="interface_name" direction="in" type="s"/>
+   <arg name="property_name" direction="in" type="s"/>
    <arg name="value" direction="out" type="v"/>
   </method>
   <method name="GetAll">
-   <arg name="interface" direction="in" type="s"/>
-   <arg name="properties" direction="out" type="a{sv}"/>
+   <arg name="interface_name" direction="in" type="s"/>
+   <arg name="props" direction="out" type="a{sv}"/>
   </method>
   <method name="Set">
-   <arg name="interface" direction="in" type="s"/>
-   <arg name="property" direction="in" type="s"/>
+   <arg name="interface_name" direction="in" type="s"/>
+   <arg name="property_name" direction="in" type="s"/>
    <arg name="value" direction="in" type="v"/>
   </method>
   <signal name="PropertiesChanged">
-   <arg type="s" name="interface"/>
+   <arg type="s" name="interface_name"/>
    <arg type="a{sv}" name="changed_properties"/>
    <arg type="as" name="invalidated_properties"/>
   </signal>
