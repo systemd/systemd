@@ -12,6 +12,11 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
+systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
+systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
+systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ extension for portable service'
+systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ extension for portable service'
+
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
 cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
@@ -98,10 +103,19 @@ portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/mi
 
 # portablectl also works with directory paths rather than images
 
-mkdir /tmp/rootdir /tmp/app1 /tmp/overlay
+mkdir /tmp/rootdir /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
 mount /usr/share/app1.raw /tmp/app1
 mount /usr/share/minimal_0.raw /tmp/rootdir
-mount -t overlay overlay -o lowerdir=/tmp/app1:/tmp/rootdir /tmp/overlay
+
+# Fix up os-release to drop the valid PORTABLE_SERVICES field (because we are
+# bypassing the sysext logic in portabled here it will otherwise not see the
+# extensions additional valid prefix)
+grep -v "^PORTABLE_PREFIXES=" /tmp/rootdir/etc/os-release > /tmp/os-release-fix/etc/os-release
+
+mount -t overlay overlay -o lowerdir=/tmp/os-release-fix:/tmp/app1:/tmp/rootdir /tmp/overlay
+
+grep . /tmp/overlay/usr/lib/extension-release.d/*
+grep . /tmp/overlay/etc/os-release
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/overlay app1
 
