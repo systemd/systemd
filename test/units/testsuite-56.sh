@@ -24,13 +24,13 @@ chmod +x /tmp/test56-exit-cgroup.sh
 
 # service should be stopped cleanly
 systemd-run --wait --unit=one -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl stop one &"' \
+    -p ExecStartPost='bash -c "(sleep 1; systemctl stop one) &"' \
     /tmp/test56-exit-cgroup.sh
 
 # same thing with a truthy exec condition
 systemd-run --wait --unit=two -p Type=notify -p ExitType=cgroup \
     -p ExecCondition=true \
-    -p ExecStartPost='bash -c "systemctl stop two &"' \
+    -p ExecStartPost='bash -c "(sleep 1; systemctl stop two) &"' \
     /tmp/test56-exit-cgroup.sh
 
 # false exec condition: systemd-run should exit immediately with status code: 1
@@ -41,7 +41,7 @@ systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
 
 # service should exit uncleanly (main process exits with SIGKILL)
 systemd-run --wait --unit=four -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl kill --signal 9 four &"' \
+    -p ExecStartPost='bash -c "(sleep 1; systemctl kill --signal 9 four) &"' \
     /tmp/test56-exit-cgroup.sh \
     && { echo 'unexpected success'; exit 1; }
 
@@ -63,12 +63,12 @@ chmod +x /tmp/test56-exit-cgroup-parentless.sh
 
 # service should be stopped cleanly
 systemd-run --wait --unit=five -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl stop five &"' \
+    -p ExecStartPost='bash -c "(sleep 1; systemctl stop five) &"' \
     /tmp/test56-exit-cgroup-parentless.sh
 
 # service should still exit cleanly despite SIGKILL (the main process already exited cleanly)
 systemd-run --wait --unit=six -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl kill --signal 9 six &"' \
+    -p ExecStartPost='bash -c "(sleep 1; systemctl kill --signal 9 six) &"' \
     /tmp/test56-exit-cgroup-parentless.sh
 
 
