@@ -156,12 +156,20 @@ bool gpt_partition_type_is_root_verity(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT, _VERITY));
 }
 
+bool gpt_partition_type_is_root_verity_sig(sd_id128_t id) {
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT, _VERITY_SIG));
+}
+
 bool gpt_partition_type_is_usr(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR,));
 }
 
 bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR, _VERITY));
+}
+
+bool gpt_partition_type_is_usr_verity_sig(sd_id128_t id) {
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR, _VERITY_SIG));
 }
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
