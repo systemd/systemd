@@ -35,7 +35,7 @@ mount -t tmpfs tmpfs /home-pool -o size=290M
 # needlessly pressure for storage. We also set the cheapest KDF, since we don't
 # want to waste CI CPU cycles on it.
 NEWPASSWORD=xEhErW0ndafV4s homectl create test-user \
-           --disk-size=256M \
+           --disk-size=min \
            --luks-discard=yes \
            --image-path=/home-pool/test-user.home \
            --luks-pbkdf-type=pbkdf2 \
