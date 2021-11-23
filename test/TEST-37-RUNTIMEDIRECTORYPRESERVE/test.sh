@@ -5,6 +5,9 @@
 set -e
 
 TEST_DESCRIPTION="test RuntimeDirectoryPreserve=yes"
+QEMU_TIMEOUT=600
+NSPAWN_TIMEOUT=600
+KERNEL_APPEND="debug"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
