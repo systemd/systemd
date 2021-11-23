@@ -991,9 +991,8 @@ int dissect_image(
                                 designator = PARTITION_XBOOTLDR;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-                        }
-#ifdef GPT_ROOT_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                        } else if (gpt_partition_type_is_root(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
@@ -1004,12 +1003,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
                                         continue;
 
-                                designator = PARTITION_ROOT;
-                                architecture = native_architecture();
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_ROOT_OF_ARCH(architecture);
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+                        } else if (gpt_partition_type_is_root_verity(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1028,12 +1027,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
                                         continue;
 
-                                designator = PARTITION_ROOT_VERITY;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_OF(PARTITION_ROOT_OF_ARCH(architecture));
                                 fstype = "DM_verity_hash";
-                                architecture = native_architecture();
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY_SIG)) {
+                        } else if (gpt_partition_type_is_root_verity_sig(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1050,78 +1049,12 @@ int dissect_image(
                                 if (verity->root_hash)
                                         continue;
 
-                                designator = PARTITION_ROOT_VERITY_SIG;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_SIG_OF(PARTITION_ROOT_OF_ARCH(architecture));
                                 fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_ROOT_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                /* If a root ID is specified, ignore everything but the root id */
-                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY;
-                                architecture = ARCHITECTURE_SECONDARY;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity = true;
-
-                                /* Don't do verity if no verity config is passed in */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-
-                                /* If root hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY_VERITY;
-                                fstype = "DM_verity_hash";
-                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY_SIG)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity_sig = true;
-
-                                /* If root hash is specified explicitly, then ignore any embedded signature */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-                                if (verity->root_hash)
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY_VERITY_SIG;
-                                fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_USR_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_USR_NATIVE)) {
+                        } else if (gpt_partition_type_is_usr(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
@@ -1132,12 +1065,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id))
                                         continue;
 
-                                designator = PARTITION_USR;
-                                architecture = native_architecture();
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_USR_OF_ARCH(architecture);
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY)) {
+                        } else if (gpt_partition_type_is_usr_verity(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1155,12 +1088,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
                                         continue;
 
-                                designator = PARTITION_USR_VERITY;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_OF(PARTITION_USR_OF_ARCH(architecture));
                                 fstype = "DM_verity_hash";
-                                architecture = native_architecture();
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY_SIG)) {
+                        } else if (gpt_partition_type_is_usr_verity_sig(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1177,76 +1110,12 @@ int dissect_image(
                                 if (verity->root_hash)
                                         continue;
 
-                                designator = PARTITION_USR_VERITY_SIG;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_SIG_OF(PARTITION_USR_OF_ARCH(architecture));
                                 fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_USR_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_USR_SECONDARY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                /* If a usr ID is specified, ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY;
-                                architecture = ARCHITECTURE_SECONDARY;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-
-                        } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity = true;
-
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-
-                                /* If usr hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY_VERITY;
-                                fstype = "DM_verity_hash";
-                                architecture = ARCHITECTURE_SECONDARY;
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY_SIG)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity_sig = true;
-
-                                /* If usr hash is specified explicitly, then ignore any embedded signature */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-                                if (verity->root_hash)
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY_VERITY_SIG;
-                                fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-                        else if (sd_id128_equal(type_id, GPT_SWAP)) {
+                        } else if (sd_id128_equal(type_id, GPT_SWAP)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO);
 
@@ -1439,14 +1308,21 @@ int dissect_image(
         }
 
         if (m->partitions[PARTITION_ROOT].found) {
-                /* If we found the primary arch, then invalidate the secondary arch to avoid any ambiguities,
-                 * since we never want to mount the secondary arch in this case. */
+                /* If we found the primary arch, then invalidate the secondary and other arch to avoid any
+                 * ambiguities, since we never want to mount the secondary or other arch in this case. */
                 m->partitions[PARTITION_ROOT_SECONDARY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found = false;
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
+
+                m->partitions[PARTITION_ROOT_OTHER].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG].found = false;
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
 
         } else if (m->partitions[PARTITION_ROOT_VERITY].found ||
                    m->partitions[PARTITION_ROOT_VERITY_SIG].found)
@@ -1455,7 +1331,10 @@ int dissect_image(
         else if (m->partitions[PARTITION_ROOT_SECONDARY].found) {
 
                 /* No root partition found but there's one for the secondary architecture? Then upgrade
-                 * secondary arch to first */
+                 * secondary arch to first and invalidate the other arch. */
+
+                log_debug("No root partition found of the native architecture, falling back to a root "
+                          "partition of the secondary architecture.");
 
                 m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_SECONDARY];
                 zero(m->partitions[PARTITION_ROOT_SECONDARY]);
@@ -1471,25 +1350,63 @@ int dissect_image(
                 m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
+                m->partitions[PARTITION_ROOT_OTHER].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG].found = false;
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
+
         } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found ||
                    m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
+
+        else if (m->partitions[PARTITION_ROOT_OTHER].found) {
+
+                /* No root or secondary partition found but there's one for another architecture? Then
+                 * upgrade the other architecture to first. */
+
+                log_debug("No root partition found of the native architecture or the secondary architecture, "
+                          "falling back to a root partition of a non-native architecture (%s).",
+                          architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
+
+                m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_OTHER];
+                zero(m->partitions[PARTITION_ROOT_OTHER]);
+                m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_OTHER_VERITY];
+                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY]);
+                m->partitions[PARTITION_ROOT_VERITY_SIG] = m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG]);
+
+                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
+                zero(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+        }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
                 return -EADDRNOTAVAIL;
 
         if (m->partitions[PARTITION_USR].found) {
-                /* Invalidate secondary arch /usr/ if we found the primary arch */
+                /* Invalidate secondary and other arch /usr/ if we found the primary arch */
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
+
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
 
         } else if (m->partitions[PARTITION_USR_VERITY].found ||
                    m->partitions[PARTITION_USR_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
 
         else if (m->partitions[PARTITION_USR_SECONDARY].found) {
+
+                log_debug("No usr partition found of the native architecture, falling back to a usr "
+                          "partition of the secondary architecture.");
 
                 /* Upgrade secondary arch to primary */
                 m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_SECONDARY];
@@ -1499,9 +1416,28 @@ int dissect_image(
                 m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
+
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found ||
                    m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
+
+        else if (m->partitions[PARTITION_USR_OTHER].found) {
+
+                log_debug("No usr partition found of the native architecture or the secondary architecture, "
+                          "falling back to a usr partition of a non-native architecture (%s).",
+                          architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
+
+                /* Upgrade other arch to primary */
+                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
+                zero(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+        }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
@@ -3500,8 +3436,10 @@ int mount_image_privately_interactively(
 static const char *const partition_designator_table[] = {
         [PARTITION_ROOT] = "root",
         [PARTITION_ROOT_SECONDARY] = "root-secondary",
+        [PARTITION_ROOT_OTHER] = "root-other",
         [PARTITION_USR] = "usr",
         [PARTITION_USR_SECONDARY] = "usr-secondary",
+        [PARTITION_USR_OTHER] = "usr-other",
         [PARTITION_HOME] = "home",
         [PARTITION_SRV] = "srv",
         [PARTITION_ESP] = "esp",
@@ -3509,12 +3447,16 @@ static const char *const partition_designator_table[] = {
         [PARTITION_SWAP] = "swap",
         [PARTITION_ROOT_VERITY] = "root-verity",
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
+        [PARTITION_ROOT_OTHER_VERITY] = "root-other-verity",
         [PARTITION_USR_VERITY] = "usr-verity",
         [PARTITION_USR_SECONDARY_VERITY] = "usr-secondary-verity",
+        [PARTITION_USR_OTHER_VERITY] = "usr-other-verity",
         [PARTITION_ROOT_VERITY_SIG] = "root-verity-sig",
         [PARTITION_ROOT_SECONDARY_VERITY_SIG] = "root-secondary-verity-sig",
+        [PARTITION_ROOT_OTHER_VERITY_SIG] = "root-other-verity-sig",
         [PARTITION_USR_VERITY_SIG] = "usr-verity-sig",
         [PARTITION_USR_SECONDARY_VERITY_SIG] = "usr-secondary-verity-sig",
+        [PARTITION_USR_OTHER_VERITY_SIG] = "usr-other-verity-sig",
         [PARTITION_TMP] = "tmp",
         [PARTITION_VAR] = "var",
 };
