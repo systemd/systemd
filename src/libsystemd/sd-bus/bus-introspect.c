@@ -25,28 +25,28 @@
 #define BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                      \
         " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
         "  <method name=\"Introspect\">\n"                              \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
+        "   <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"    \
         "  </method>\n"                                                 \
         " </interface>\n"
 
 #define BUS_INTROSPECT_INTERFACE_PROPERTIES                          \
         " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
         "  <method name=\"Get\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"property_name\" direction=\"in\" type=\"s\"/>\n" \
         "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"GetAll\">\n"                                  \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"props\" direction=\"out\" type=\"a{sv}\"/>\n"   \
         "  </method>\n"                                                 \
         "  <method name=\"Set\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"property_name\" direction=\"in\" type=\"s\"/>\n" \
         "   <arg name=\"value\" direction=\"in\" type=\"v\"/>\n"        \
         "  </method>\n"                                                 \
         "  <signal name=\"PropertiesChanged\">\n"                       \
-        "   <arg type=\"s\" name=\"interface\"/>\n"                     \
+        "   <arg type=\"s\" name=\"interface_name\"/>\n"                \
         "   <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"        \
         "   <arg type=\"as\" name=\"invalidated_properties\"/>\n"       \
         "  </signal>\n"                                                 \
