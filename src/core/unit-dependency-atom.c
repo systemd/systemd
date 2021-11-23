@@ -82,14 +82,20 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_PROPAGATES_STOP_TO]     = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                                         UNIT_ATOM_PROPAGATE_STOP,
 
+        [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE |
+                                        UNIT_ATOM_BACK_REFERENCE_IMPLIED,
+
+        [UNIT_ON_SUCCESS]             = UNIT_ATOM_ON_SUCCESS |
+                                        UNIT_ATOM_BACK_REFERENCE_IMPLIED,
+
         /* These are simple dependency types: they consist of a single atom only */
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
-        [UNIT_ON_SUCCESS]             = UNIT_ATOM_ON_SUCCESS,
-        [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
+        [UNIT_ON_SUCCESS_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS,
+        [UNIT_ON_FAILURE_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS,
         [UNIT_JOINS_NAMESPACE_OF]     = UNIT_ATOM_JOINS_NAMESPACE_OF,
         [UNIT_REFERENCES]             = UNIT_ATOM_REFERENCES,
         [UNIT_REFERENCED_BY]          = UNIT_ATOM_REFERENCED_BY,
@@ -100,8 +106,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
          * things discoverable/debuggable as they are the inverse dependencies to some of the above. As they
          * have no effect of their own, they all map to no atoms at all, i.e. the value 0. */
         [UNIT_RELOAD_PROPAGATED_FROM] = 0,
-        [UNIT_ON_SUCCESS_OF]          = 0,
-        [UNIT_ON_FAILURE_OF]          = 0,
         [UNIT_STOP_PROPAGATED_FROM]   = 0,
 };
 
@@ -196,6 +200,16 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
         case UNIT_ATOM_PROPAGATE_STOP_FAILURE:
                 return UNIT_CONFLICTED_BY;
 
+        case UNIT_ATOM_ON_FAILURE |
+                UNIT_ATOM_BACK_REFERENCE_IMPLIED:
+        case UNIT_ATOM_ON_FAILURE:
+                return UNIT_ON_FAILURE;
+
+        case UNIT_ATOM_ON_SUCCESS |
+                UNIT_ATOM_BACK_REFERENCE_IMPLIED:
+        case UNIT_ATOM_ON_SUCCESS:
+                return UNIT_ON_SUCCESS;
+
         /* And now, the simple ones */
 
         case UNIT_ATOM_BEFORE:
@@ -203,12 +217,6 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
 
         case UNIT_ATOM_AFTER:
                 return UNIT_AFTER;
-
-        case UNIT_ATOM_ON_SUCCESS:
-                return UNIT_ON_SUCCESS;
-
-        case UNIT_ATOM_ON_FAILURE:
-                return UNIT_ON_FAILURE;
 
         case UNIT_ATOM_TRIGGERS:
                 return UNIT_TRIGGERS;
