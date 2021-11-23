@@ -387,4 +387,4 @@ TEST(flags) {
         assert_se(f == F2);
 }
 
-DEFINE_TEST_MAIN;
+DEFINE_TEST_MAIN(LOG_INFO);
