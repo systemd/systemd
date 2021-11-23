@@ -1240,11 +1240,9 @@ static void read_efi_var(const char *variable, char **ret) {
 }
 
 static void print_yes_no_line(bool first, bool good, const char *name) {
-        printf("%s%s%s%s %s\n",
+        printf("%s%s %s\n",
                first ? "     Features: " : "               ",
-               ansi_highlight_green_red(good),
-               special_glyph_check_mark(good),
-               ansi_normal(),
+               COLOR_MARK_BOOL(good),
                name);
 }
 
