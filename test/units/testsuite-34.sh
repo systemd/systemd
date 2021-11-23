@@ -92,6 +92,4 @@ test_directory "LogsDirectory" "/var/log"
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+exit 1
