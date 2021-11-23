@@ -35,7 +35,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         if (r < 0)
                 return r;
 
-        /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
+        /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
 
