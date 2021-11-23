@@ -504,10 +504,13 @@
       <varlistentry>
         <term><option>--disk-size=</option><replaceable>BYTES</replaceable></term>
         <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
-        suffixes for 1024 base values), or a percentage value and configures the disk space to assign to the
-        user. If a percentage value is specified (i.e. the argument suffixed with <literal>%</literal>) it is
-        taken relative to the available disk space of the backing file system. If the LUKS2 backend is used
-        this configures the size of the loopback file and file system contained therein. For the other
+        suffixes for 1024 base values), a percentage value, or the special strings <literal>min</literal> or
+        <literal>max</literal>, and configures the disk space to assign to the user. If a percentage value is
+        specified (i.e. the argument suffixed with <literal>%</literal>) it is taken relative to the
+        available disk space of the backing file system. If specified as <literal>min</literal> assigns the
+        minimal disk space permitted by the constraints of the backing file system and other limits, when
+        specified as <literal>max</literal> assigns the maximum disk space available. If the LUKS2 backend is
+        used this configures the size of the loopback file and file system contained therein. For the other
         storage backends configures disk quota using the filesystem's native quota logic, if available. If
         not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
         the others.</para></listitem>
