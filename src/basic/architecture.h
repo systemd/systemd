@@ -10,7 +10,7 @@
  * processor features, models, generations or even ABIs. Hence we
  * focus on general family, and distinguish word width and endianness. */
 
-enum {
+typedef enum {
         ARCHITECTURE_ALPHA,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
@@ -45,7 +45,7 @@ enum {
         ARCHITECTURE_X86_64,
         _ARCHITECTURE_MAX,
         _ARCHITECTURE_INVALID = -EINVAL,
-};
+} Architecture;
 
 int uname_architecture(void);
 
