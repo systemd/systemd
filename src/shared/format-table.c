@@ -1640,7 +1640,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT64_HEX: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, 16 + 1);
                 if (!p)
