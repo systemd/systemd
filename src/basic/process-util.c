@@ -1491,7 +1491,7 @@ int set_oom_score_adjust(int value) {
 }
 
 int get_oom_score_adjust(int *ret) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
         int r, a;
 
         r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, NULL);
