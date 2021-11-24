@@ -3081,8 +3081,6 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 UID_INVALID,
                                 DISSECT_IMAGE_READ_ONLY|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_VALIDATE_OS|
-                                DISSECT_IMAGE_VALIDATE_OS_EXT|
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
