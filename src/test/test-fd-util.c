@@ -16,7 +16,9 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
+#endif
 #include "serialize.h"
 #include "string-util.h"
 #include "tests.h"
@@ -348,7 +350,11 @@ static void test_close_all_fds(void) {
         }
         assert_se(r >= 0);
 
+#if HAVE_SECCOMP
         if (!is_seccomp_available()) {
+#else
+        if (true) {
+#endif
                 log_notice("Seccomp not available, skipping seccomp tests in %s", __func__);
                 return;
         }
