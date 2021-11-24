@@ -58,6 +58,7 @@ int home_setup_directory(UserRecord *h, HomeSetup *setup) {
 
 int home_activate_directory(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
@@ -74,11 +75,11 @@ int home_activate_directory(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo);
 
-        r = home_setup(h, 0, setup, cache, &header_home);
+        r = home_setup(h, flags, setup, cache, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, flags, setup, header_home, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 
@@ -279,7 +280,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_maybe_shift_uid(h, setup);
+        r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
                 return r;
 

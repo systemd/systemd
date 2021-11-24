@@ -1511,6 +1511,7 @@ static int home_auto_grow_luks(
 
 int home_activate_luks(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
@@ -1563,6 +1564,7 @@ int home_activate_luks(
 
         r = home_refresh(
                         h,
+                        flags,
                         setup,
                         luks_home_record,
                         cache,

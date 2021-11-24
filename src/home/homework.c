@@ -788,6 +788,7 @@ static int chown_recursive_directory(int root_fd, uid_t uid) {
 
 int home_maybe_shift_uid(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup) {
 
         _cleanup_close_ int mount_fd = -1;
@@ -796,6 +797,10 @@ int home_maybe_shift_uid(
         assert(h);
         assert(setup);
         assert(setup->root_fd >= 0);
+
+        /* If the home dir is already activated, then the UID shift is already applied. */
+        if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
+                return 0;
 
         if (fstat(setup->root_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat() home directory: %m");
@@ -820,6 +825,7 @@ int home_maybe_shift_uid(
 
 int home_refresh(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 UserRecord *header_home,
                 PasswordCache *cache,
@@ -840,7 +846,7 @@ int home_refresh(
         if (r < 0)
                 return r;
 
-        r = home_maybe_shift_uid(h, setup);
+        r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
                 return r;
 
@@ -868,6 +874,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -898,7 +905,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_activate_luks(h, &setup, &cache, &new_home);
+                r = home_activate_luks(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -907,14 +914,14 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
         case USER_FSCRYPT:
-                r = home_activate_directory(h, &setup, &cache, &new_home);
+                r = home_activate_directory(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
                 break;
 
         case USER_CIFS:
-                r = home_activate_cifs(h, &setup, &cache, &new_home);
+                r = home_activate_cifs(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
