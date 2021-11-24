@@ -5069,7 +5069,7 @@ void exec_context_init(ExecContext *c) {
         assert(c);
 
         c->umask = 0022;
-        c->ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 0);
+        c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
@@ -6021,7 +6021,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 
         p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
         if (p < 0)
-                return ioprio_prio_value(IOPRIO_CLASS_BE, 4);
+                return IOPRIO_DEFAULT_CLASS_AND_PRIO;
 
         return p;
 }
