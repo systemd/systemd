@@ -72,6 +72,8 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                 r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
                                    ret_path ? &q : NULL,
                                    ret_fd ? &fd : NULL);
+                log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
+
                 /* Cannot find the expected extension-release file? The image filename might have been
                  * mangled on deployment, so fallback to checking for any file in the extension-release.d
                  * directory, and return the first one with a user.extension-release xattr instead.
@@ -84,7 +86,7 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                         r = chase_symlinks_and_opendir("/usr/lib/extension-release.d/", root, CHASE_PREFIX_ROOT,
                                                        &extension_release_dir_path, &extension_release_dir);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Cannot open %s/usr/lib/extension-release.d/, ignoring: %m", root);
 
                         r = -ENOENT;
                         struct dirent *de;
@@ -98,8 +100,11 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                 if (!image_name)
                                         continue;
 
-                                if (!image_name_is_valid(image_name))
+                                if (!image_name_is_valid(image_name)) {
+                                        log_debug("%s/%s is not a valid extension-release file name, ignoring.",
+                                                  extension_release_dir_path, de->d_name);
                                         continue;
+                                }
 
                                 /* We already chased the directory, and checked that
                                  * this is a real file, so we shouldn't fail to open it. */
@@ -113,29 +118,37 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                                                de->d_name);
 
                                 /* Really ensure it is a regular file after we open it. */
-                                if (fd_verify_regular(extension_release_fd) < 0)
+                                if (fd_verify_regular(extension_release_fd) < 0) {
+                                        log_debug("%s/%s is not a regular file, ignoring.", extension_release_dir_path, de->d_name);
                                         continue;
+                                }
 
                                 /* No xattr or cannot parse it? Then skip this. */
                                 _cleanup_free_ char *extension_release_xattr = NULL;
                                 k = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
                                 if (k < 0 && !ERRNO_IS_NOT_SUPPORTED(k) && k != -ENODATA)
                                         log_debug_errno(k,
-                                                        "Failed to read 'user.extension-release.strict' extended attribute from extension-release file %s/%s: %m",
-                                                        extension_release_dir_path,
-                                                        de->d_name);
-                                if (k < 0)
+                                                        "%s/%s: Failed to read 'user.extension-release.strict' extended attribute from file: %m",
+                                                        extension_release_dir_path, de->d_name);
+                                if (k < 0) {
+                                        log_debug("%s/%s does not have user.extension-release.strict xattr, ignoring.", extension_release_dir_path, de->d_name);
                                         continue;
+                                }
 
                                 /* Explicitly set to request strict matching? Skip it. */
                                 k = parse_boolean(extension_release_xattr);
                                 if (k < 0)
                                         log_debug_errno(k,
-                                                        "Failed to parse 'user.extension-release.strict' extended attribute value from extension-release file %s/%s: %m",
-                                                        extension_release_dir_path,
-                                                        de->d_name);
-                                if (k < 0 || k > 0)
+                                                        "%s/%s: Failed to parse 'user.extension-release.strict' extended attribute from file: %m",
+                                                        extension_release_dir_path, de->d_name);
+                                else if (k > 0)
+                                        log_debug("%s/%s: 'user.extension-release.strict' attribute is true, ignoring file.",
+                                                  extension_release_dir_path, de->d_name);
+                                if (k != 0)
                                         continue;
+
+                                log_debug("%s/%s: 'user.extension-release.strict' attribute is false…",
+                                          extension_release_dir_path, de->d_name);
 
                                 /* We already found what we were looking for, but there's another candidate?
                                  * We treat this as an error, as we want to enforce that there are no ambiguities
