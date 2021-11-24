@@ -1216,7 +1216,9 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         return r;
 
-                r = dissected_image_acquire_metadata(m);
+                r = dissected_image_acquire_metadata(m,
+                                                     DISSECT_IMAGE_VALIDATE_OS |
+                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
                 if (r < 0)
                         return r;
 
