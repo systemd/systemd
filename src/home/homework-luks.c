@@ -3202,6 +3202,10 @@ int home_resize_luks(
                         return r;
         }
 
+        r = home_maybe_shift_uid(h, flags, setup);
+        if (r < 0)
+                return r;
+
         log_info("offset = %" PRIu64 ", size = %" PRIu64 ", image = %" PRIu64, setup->partition_offset, setup->partition_size, old_image_size);
 
         if ((UINT64_MAX - setup->partition_offset) < setup->partition_size ||

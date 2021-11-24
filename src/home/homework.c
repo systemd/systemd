@@ -1609,6 +1609,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
+        r = home_maybe_shift_uid(h, flags, &setup);
+        if (r < 0)
+                return r;
+
         r = home_store_header_identity_luks(new_home, &setup, header_home);
         if (r < 0)
                 return r;
@@ -1698,6 +1702,10 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 return r;
 
         r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
+        if (r < 0)
+                return r;
+
+        r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
                 return r;
 
