@@ -38,9 +38,20 @@ systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
-oomctl | grep "/testsuite-55-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
+# Try to avoid racing the oomctl output check by checking in a loop with a timeout
+oomctl_output=$(oomctl)
+timeout="$(date -ud "1 minutes" +%s)"
+while [[ $(date -u +%s) -le $timeout ]]; do
+    if grep "/testsuite-55-workload.slice" <<< "$oomctl_output"; then
+        break
+    fi
+    oomctl_output=$(oomctl)
+    sleep 1
+done
+
+grep "/testsuite-55-workload.slice" <<< "$oomctl_output"
+grep "20.00%" <<< "$oomctl_output"
+grep "Default Memory Pressure Duration: 2s" <<< "$oomctl_output"
 
 systemctl status testsuite-55-testchill.service
 
@@ -64,9 +75,20 @@ systemctl start --machine "testuser@.host" --user testsuite-55-testchill.service
 systemctl start --machine "testuser@.host" --user testsuite-55-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
-oomctl | grep -E "/user.slice.*/testsuite-55-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
+# Try to avoid racing the oomctl output check by checking in a loop with a timeout
+oomctl_output=$(oomctl)
+timeout="$(date -ud "1 minutes" +%s)"
+while [[ $(date -u +%s) -le $timeout ]]; do
+    if grep -E "/user.slice.*/testsuite-55-workload.slice" <<< "$oomctl_output"; then
+        break
+    fi
+    oomctl_output=$(oomctl)
+    sleep 1
+done
+
+grep -E "/user.slice.*/testsuite-55-workload.slice" <<< "$oomctl_output"
+grep "20.00%" <<< "$oomctl_output"
+grep "Default Memory Pressure Duration: 2s" <<< "$oomctl_output"
 
 systemctl --machine "testuser@.host" --user status testsuite-55-testchill.service
 
