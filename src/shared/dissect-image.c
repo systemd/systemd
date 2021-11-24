@@ -3085,11 +3085,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 DISSECT_IMAGE_VALIDATE_OS_EXT|
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
-                        /* Let parent know the error */
-                        (void) write(error_pipe[1], &r, sizeof(r));
-
                         log_debug_errno(r, "Failed to mount dissected image: %m");
-                        _exit(EXIT_FAILURE);
+                        goto inner_fail;
                 }
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
@@ -3168,6 +3165,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 _exit(EXIT_SUCCESS);
 
         inner_fail:
+                /* Let parent know the error */
                 (void) write(error_pipe[1], &r, sizeof(r));
                 _exit(EXIT_FAILURE);
         }
