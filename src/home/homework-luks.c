@@ -428,7 +428,7 @@ static int luks_setup(
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         r = sym_crypt_activate_by_volume_key(
                         cd,
