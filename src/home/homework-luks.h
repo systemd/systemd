@@ -7,7 +7,7 @@
 
 int home_setup_luks(UserRecord *h, HomeSetupFlags flags, const char *force_image_path, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_luks_home);
 
-int home_activate_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
+int home_activate_luks(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_home);
 int home_deactivate_luks(UserRecord *h, HomeSetup *setup);
 int home_trim_luks(UserRecord *h, HomeSetup *setup);
 

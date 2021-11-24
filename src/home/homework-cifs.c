@@ -145,6 +145,7 @@ int home_setup_cifs(
 
 int home_activate_cifs(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
@@ -165,7 +166,7 @@ int home_activate_cifs(
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, flags, setup, header_home, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 

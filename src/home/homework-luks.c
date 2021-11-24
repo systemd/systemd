@@ -428,7 +428,7 @@ static int luks_setup(
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         r = sym_crypt_activate_by_volume_key(
                         cd,
@@ -1511,6 +1511,7 @@ static int home_auto_grow_luks(
 
 int home_activate_luks(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
@@ -1563,6 +1564,7 @@ int home_activate_luks(
 
         r = home_refresh(
                         h,
+                        flags,
                         setup,
                         luks_home_record,
                         cache,
@@ -3199,6 +3201,10 @@ int home_resize_luks(
                 if (r < 0)
                         return r;
         }
+
+        r = home_maybe_shift_uid(h, flags, setup);
+        if (r < 0)
+                return r;
 
         log_info("offset = %" PRIu64 ", size = %" PRIu64 ", image = %" PRIu64, setup->partition_offset, setup->partition_size, old_image_size);
 
