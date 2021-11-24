@@ -5,9 +5,7 @@
 #include "macro.h"
 #include "tests.h"
 
-static void test_coredump_filter_to_from_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(coredump_filter_to_from_string) {
         for (CoredumpFilter i = 0; i < _COREDUMP_FILTER_MAX; i++) {
                 const char *n;
 
@@ -21,9 +19,7 @@ static void test_coredump_filter_to_from_string(void) {
         }
 }
 
-static void test_coredump_filter_mask_from_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(coredump_filter_mask_from_string) {
         uint64_t f;
         assert_se(coredump_filter_mask_from_string("default", &f) == 0);
         assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
@@ -68,11 +64,4 @@ static void test_coredump_filter_mask_from_string(void) {
                                 1 << COREDUMP_FILTER_SHARED_DAX)));
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_coredump_filter_to_from_string();
-        test_coredump_filter_mask_from_string();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

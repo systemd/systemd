@@ -7,9 +7,7 @@
 #include "tests.h"
 #include "unit-file.h"
 
-static void test_unit_validate_alias_symlink_and_warn(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_validate_alias_symlink_and_warn) {
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.service", "/other/b.service") == 0);
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.service", "/other/b.socket") == -EXDEV);
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.service", "/other/b.foobar") == -EXDEV);
@@ -26,14 +24,16 @@ static void test_unit_validate_alias_symlink_and_warn(void) {
         assert_se(unit_validate_alias_symlink_and_warn("/path/a.slice", "/other/b.slice") == -EINVAL);
 }
 
-static void test_unit_file_build_name_map(char **ids) {
+TEST(unit_file_build_name_map) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
         const char *k, *dst;
-        char **v;
+        char **v, **ids;
         usec_t mtime = 0;
         int r;
+
+        ids = strv_skip(saved_argv, 1);
 
         assert_se(lookup_paths_init(&lp, UNIT_FILE_SYSTEM, 0, NULL) >= 0);
 
@@ -86,9 +86,7 @@ static void test_unit_file_build_name_map(char **ids) {
         }
 }
 
-static void test_runlevel_to_target(void) {
-        log_info("/* %s */", __func__);
-
+TEST(runlevel_to_target) {
         in_initrd_force(false);
         assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
         assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
@@ -104,13 +102,4 @@ static void test_runlevel_to_target(void) {
         assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
 }
 
-int main(int argc, char **argv) {
-        log_show_color(true);
-        test_setup_logging(LOG_DEBUG);
-
-        test_unit_validate_alias_symlink_and_warn();
-        test_unit_file_build_name_map(strv_skip(argv, 1));
-        test_runlevel_to_target();
-
-        return 0;
-}
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, log_show_color(true), /* no outro */);
