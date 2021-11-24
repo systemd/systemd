@@ -425,16 +425,15 @@ static void print_status_info(
                 printf(" since %s; %s\n",
                        FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(timestamp));
-                if (STRPTR_IN_SET(i->active_state, "active") &&
+                if (streq_ptr(i->active_state, "active") &&
                         i->runtime_max_sec < USEC_INFINITY) {
                         until_timestamp = timestamp + i->runtime_max_sec;
                         printf("      Until: %s; %s\n",
                                 FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
                                 FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
-                        }
-        } else {
+                }
+        } else
                 printf("\n");
-        }
 
         STRV_FOREACH(t, i->triggered_by) {
                 UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
