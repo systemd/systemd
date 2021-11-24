@@ -1701,29 +1701,6 @@ static int apply_restrict_namespaces(const Unit *u, const ExecContext *c) {
         return seccomp_restrict_namespaces(c->restrict_namespaces);
 }
 
-#if HAVE_LIBBPF
-static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
-        if (lsm_bpf_supported())
-                return false;
-
-        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
-        return true;
-}
-
-static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
-        assert(u);
-        assert(c);
-
-        if (!exec_context_restrict_filesystems_set(c))
-                return 0;
-
-        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
-                return 0;
-
-        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
-}
-#endif
-
 static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         unsigned long personality;
         int r;
@@ -1750,6 +1727,29 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         return seccomp_lock_personality(personality);
 }
 
+#endif
+
+#if HAVE_LIBBPF
+static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
+        if (lsm_bpf_supported())
+                return false;
+
+        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
+        return true;
+}
+
+static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+
+        if (!exec_context_restrict_filesystems_set(c))
+                return 0;
+
+        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
+                return 0;
+
+        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
+}
 #endif
 
 static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_exit_status) {
