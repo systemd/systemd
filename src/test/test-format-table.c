@@ -6,13 +6,12 @@
 #include "format-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "time-util.h"
 
-static void test_issue_9549(void) {
+TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("name", "type", "ro", "usage", "created", "modified"));
         assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
@@ -34,11 +33,9 @@ static void test_issue_9549(void) {
                         ));
 }
 
-static void test_multiline(void) {
+TEST(multiline) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -148,11 +145,9 @@ static void test_multiline(void) {
         formatted = mfree(formatted);
 }
 
-static void test_strv(void) {
+TEST(strv) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -262,11 +257,9 @@ static void test_strv(void) {
         formatted = mfree(formatted);
 }
 
-static void test_strv_wrapped(void) {
+TEST(strv_wrapped) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -366,11 +359,9 @@ static void test_strv_wrapped(void) {
         formatted = mfree(formatted);
 }
 
-static void test_json(void) {
+TEST(json) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(t = table_new("foo bar", "quux", "piep miau"));
         assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
@@ -401,12 +392,9 @@ static void test_json(void) {
         assert_se(json_variant_equal(v, w));
 }
 
-int main(int argc, char *argv[]) {
+TEST(table) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
-        assert_se(setenv("COLUMNS", "40", 1) >= 0);
 
         assert_se(t = table_new("one", "two", "three"));
 
@@ -539,12 +527,12 @@ int main(int argc, char *argv[]) {
                                 " yes fäää          yes fäää         fäää\n"
                                 " yes xxx           yes xxx          xxx\n"
                                 "5min              5min              \n"));
-
-        test_issue_9549();
-        test_multiline();
-        test_strv();
-        test_strv_wrapped();
-        test_json();
-
-        return 0;
 }
+
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_INFO,
+        ({
+                assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
+                assert_se(setenv("COLUMNS", "40", 1) >= 0);
+        }),
+        /* no outro */);
