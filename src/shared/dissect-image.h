@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "architecture.h"
 #include "list.h"
 #include "loop-util.h"
 #include "macro.h"
@@ -35,8 +36,10 @@ struct DissectedPartition {
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
         PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
+        PARTITION_ROOT_OTHER,
         PARTITION_USR,
         PARTITION_USR_SECONDARY,
+        PARTITION_USR_OTHER,
         PARTITION_HOME,
         PARTITION_SRV,
         PARTITION_ESP,
@@ -44,12 +47,16 @@ typedef enum PartitionDesignator {
         PARTITION_SWAP,
         PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY,
         PARTITION_USR_VERITY,
         PARTITION_USR_SECONDARY_VERITY,
+        PARTITION_USR_OTHER_VERITY,
         PARTITION_ROOT_VERITY_SIG, /* PKCS#7 signature for root hash for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY_SIG, /* ditto for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY_SIG,
         PARTITION_USR_VERITY_SIG,
         PARTITION_USR_SECONDARY_VERITY_SIG,
+        PARTITION_USR_OTHER_VERITY_SIG,
         PARTITION_TMP,
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
@@ -65,16 +72,22 @@ static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
         return IN_SET(d,
                       PARTITION_ROOT,
                       PARTITION_ROOT_SECONDARY,
+                      PARTITION_ROOT_OTHER,
                       PARTITION_USR,
                       PARTITION_USR_SECONDARY,
+                      PARTITION_USR_OTHER,
                       PARTITION_ROOT_VERITY,
                       PARTITION_ROOT_SECONDARY_VERITY,
+                      PARTITION_ROOT_OTHER_VERITY,
                       PARTITION_USR_VERITY,
                       PARTITION_USR_SECONDARY_VERITY,
+                      PARTITION_USR_OTHER_VERITY,
                       PARTITION_ROOT_VERITY_SIG,
                       PARTITION_ROOT_SECONDARY_VERITY_SIG,
+                      PARTITION_ROOT_OTHER_VERITY_SIG,
                       PARTITION_USR_VERITY_SIG,
-                      PARTITION_USR_SECONDARY_VERITY_SIG);
+                      PARTITION_USR_SECONDARY_VERITY_SIG,
+                      PARTITION_USR_OTHER_VERITY_SIG);
 }
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
@@ -86,11 +99,17 @@ static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
         case PARTITION_ROOT_SECONDARY:
                 return PARTITION_ROOT_SECONDARY_VERITY;
 
+        case PARTITION_ROOT_OTHER:
+                return PARTITION_ROOT_OTHER_VERITY;
+
         case PARTITION_USR:
                 return PARTITION_USR_VERITY;
 
         case PARTITION_USR_SECONDARY:
                 return PARTITION_USR_SECONDARY_VERITY;
+
+        case PARTITION_USR_OTHER:
+                return PARTITION_USR_OTHER_VERITY;
 
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
@@ -106,14 +125,52 @@ static inline PartitionDesignator PARTITION_VERITY_SIG_OF(PartitionDesignator p)
         case PARTITION_ROOT_SECONDARY:
                 return PARTITION_ROOT_SECONDARY_VERITY_SIG;
 
+        case PARTITION_ROOT_OTHER:
+                return PARTITION_ROOT_OTHER_VERITY_SIG;
+
         case PARTITION_USR:
                 return PARTITION_USR_VERITY_SIG;
 
         case PARTITION_USR_SECONDARY:
                 return PARTITION_USR_SECONDARY_VERITY_SIG;
 
+        case PARTITION_USR_OTHER:
+                return PARTITION_USR_OTHER_VERITY_SIG;
+
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
+        }
+}
+
+static inline PartitionDesignator PARTITION_ROOT_OF_ARCH(Architecture arch) {
+        switch (arch) {
+
+        case native_architecture():
+                return PARTITION_ROOT;
+
+#ifdef ARCHITECTURE_SECONDARY
+        case ARCHITECTURE_SECONDARY:
+                return PARTITION_ROOT_SECONDARY;
+#endif
+
+        default:
+                return PARTITION_ROOT_OTHER;
+        }
+}
+
+static inline PartitionDesignator PARTITION_USR_OF_ARCH(Architecture arch) {
+        switch (arch) {
+
+        case native_architecture():
+                return PARTITION_USR;
+
+#ifdef ARCHITECTURE_SECONDARY
+        case ARCHITECTURE_SECONDARY:
+                return PARTITION_USR_SECONDARY;
+#endif
+
+        default:
+                return PARTITION_USR_OTHER;
         }
 }
 
