@@ -63,6 +63,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "ioprio-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
