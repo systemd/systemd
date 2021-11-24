@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "env-util.h"
 #include "random-util.h"
 #include "serialize.h"
 #include "string-util.h"
@@ -570,6 +571,8 @@ static void test_usec_shift_clock(void) {
 static void test_in_utc_timezone(void) {
         log_info("/* %s */", __func__);
 
+        const char *tz = getenv("TZ");
+
         assert_se(setenv("TZ", ":UTC", 1) >= 0);
         assert_se(in_utc_timezone());
         assert_se(streq(tzname[0], "UTC"));
@@ -582,7 +585,8 @@ static void test_in_utc_timezone(void) {
         assert_se(streq(tzname[0], "CET"));
         assert_se(streq(tzname[1], "CEST"));
 
-        assert_se(unsetenv("TZ") == 0);
+        assert_se(set_unset_env("TZ", tz, true) == 0);
+        tzset();
 }
 
 static void test_map_clock_usec(void) {
