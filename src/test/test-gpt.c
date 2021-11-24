@@ -47,6 +47,8 @@ static void test_gpt_types_against_architectures(void) {
                                         assert_se(gpt_partition_type_is_usr(id));
                                 if (streq(prefix, "usr-") && streq(suffix, "-verity"))
                                         assert_se(gpt_partition_type_is_usr_verity(id));
+
+                                assert_se(gpt_partition_type_uuid_to_arch(id) == a);
                         }
                 }
 }
