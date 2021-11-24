@@ -21,7 +21,7 @@ ARCHITECTURES = {
     'MIPS64_LE':   '64-bit MIPS LittleEndian (mips64el)',
     'PPC':         '32-bit PowerPC',
     'PPC64':       '64-bit PowerPC BigEndian',
-    'PPC64LE':     '64-bit PowerPC LittleEndian',
+    'PPC64_LE':    '64-bit PowerPC LittleEndian',
     'RISCV32':     'RISC-V 32-bit',
     'RISCV64':     'RISC-V 64-bit',
     'S390':        's390',
@@ -146,7 +146,7 @@ def extract(file):
         if not m:
             continue
 
-        if m2 := re.match(r'^(ROOT|USR)_([A-Z0-9]+|X86_64|MIPS_LE|MIPS64_LE)(|_VERITY|_VERITY_SIG)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
+        if m2 := re.match(r'^(ROOT|USR)_([A-Z0-9]+|X86_64|PPC64_LE|MIPS_LE|MIPS64_LE)(|_VERITY|_VERITY_SIG)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
             type, arch, suffix, u = m2.groups()
             u = uuid.UUID(u.replace(',', ''))
             assert arch in ARCHITECTURES
