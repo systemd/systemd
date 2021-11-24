@@ -463,10 +463,6 @@ static int socket_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = set_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
-        if (r < 0)
-                return r;
-
         r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
@@ -485,12 +481,13 @@ static int socket_load(Unit *u) {
 static SocketPeer *socket_peer_new(void) {
         SocketPeer *p;
 
-        p = new0(SocketPeer, 1);
+        p = new(SocketPeer, 1);
         if (!p)
                 return NULL;
 
-        p->n_ref = 1;
-
+        *p = (SocketPeer) {
+                .n_ref = 1,
+        };
         return p;
 }
 
@@ -507,20 +504,25 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
-        SocketPeer sa = {}, *i;
-        socklen_t salen = sizeof(sa.peer);
+        SocketPeer sa = {
+                .peer_salen = sizeof(union sockaddr_union),
+        }, *i;
         int r;
 
         assert(fd >= 0);
         assert(s);
 
-        if (getpeername(fd, &sa.peer.sa, &salen) < 0)
+        if (getpeername(fd, &sa.peer.sa, &sa.peer_salen) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                 *p = NULL;
                 return 0;
         }
+
+        r = set_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
+        if (r < 0)
+                return r;
 
         i = set_get(s->peers_by_address, &sa);
         if (i) {
@@ -533,7 +535,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
                 return log_oom();
 
         remote->peer = sa.peer;
-        remote->peer_salen = salen;
+        remote->peer_salen = sa.peer_salen;
 
         r = set_put(s->peers_by_address, remote);
         if (r < 0)
@@ -542,7 +544,6 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         remote->socket = s;
 
         *p = TAKE_PTR(remote);
-
         return 1;
 }
 
