@@ -33,9 +33,7 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
         }
 }
 
-static void test_socket_address_parse(void) {
-        log_info("/* %s */", __func__);
-
+TEST(socket_address_parse) {
         test_socket_address_parse_one("junk", -EINVAL, 0, NULL);
         test_socket_address_parse_one("192.168.1.1", -EINVAL, 0, NULL);
         test_socket_address_parse_one(".168.1.1", -EINVAL, 0, NULL);
@@ -100,10 +98,8 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("vsock:2", -EINVAL, 0, NULL);
 }
 
-static void test_socket_address_parse_netlink(void) {
+TEST(socket_address_parse_netlink) {
         SocketAddress a;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse_netlink(&a, "junk") < 0);
         assert_se(socket_address_parse_netlink(&a, "") < 0);
@@ -142,10 +138,8 @@ static void test_socket_address_parse_netlink(void) {
         assert_se(socket_address_parse_netlink(&a, "\xff") < 0);
 }
 
-static void test_socket_address_equal(void) {
+TEST(socket_address_equal) {
         SocketAddress a, b;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se(socket_address_parse(&b, "192.168.1.1:888") >= 0);
@@ -192,10 +186,8 @@ static void test_socket_address_equal(void) {
         assert_se(!socket_address_equal(&a, &b));
 }
 
-static void test_socket_address_get_path(void) {
+TEST(socket_address_get_path) {
         SocketAddress a;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se(!socket_address_get_path(&a));
@@ -213,10 +205,8 @@ static void test_socket_address_get_path(void) {
         assert_se(!socket_address_get_path(&a));
 }
 
-static void test_socket_address_is(void) {
+TEST(socket_address_is) {
         SocketAddress a;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se( socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
@@ -228,10 +218,8 @@ static void test_socket_address_is(void) {
         assert_se( socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
 }
 
-static void test_socket_address_is_netlink(void) {
+TEST(socket_address_is_netlink) {
         SocketAddress a;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
         assert_se( socket_address_is_netlink(&a, "route 10"));
@@ -255,9 +243,7 @@ static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex
         assert_se(ifindex2 == ifindex || ifindex2 == 0);
 }
 
-static void test_in_addr_ifindex_to_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_ifindex_to_string) {
         test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
         test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
         test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
@@ -269,11 +255,10 @@ static void test_in_addr_ifindex_to_string(void) {
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::16", LOOPBACK_IFINDEX, "fe80::16%1");
 }
 
-static void test_in_addr_ifindex_from_string_auto(void) {
+TEST(in_addr_ifindex_from_string_auto) {
         int family, ifindex;
         union in_addr_union ua;
 
-        log_info("/* %s */", __func__);
         /* Most in_addr_ifindex_from_string_auto() invocations have already been tested above, but let's test some more */
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
@@ -300,9 +285,7 @@ static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const 
         assert_se(streq_ptr(server_name, expected));
 }
 
-static void test_in_addr_ifindex_name_from_string_auto(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_ifindex_name_from_string_auto) {
         test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1", NULL);
         test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1#test.com", "test.com");
         test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19", NULL);
@@ -366,9 +349,7 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
         }
 }
 
-static void test_in_addr_port_ifindex_name_from_string_auto(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_port_ifindex_name_from_string_auto) {
         test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1", AF_INET, 0, 0, NULL, NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1#test.com", AF_INET, 0, 0, "test.com", NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53", AF_INET, 53, 0, NULL, NULL);
@@ -388,20 +369,4 @@ static void test_in_addr_port_ifindex_name_from_string_auto(void) {
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_socket_address_parse();
-        test_socket_address_parse_netlink();
-        test_socket_address_equal();
-        test_socket_address_get_path();
-        test_socket_address_is();
-        test_socket_address_is_netlink();
-
-        test_in_addr_ifindex_to_string();
-        test_in_addr_ifindex_from_string_auto();
-        test_in_addr_ifindex_name_from_string_auto();
-        test_in_addr_port_ifindex_name_from_string_auto();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

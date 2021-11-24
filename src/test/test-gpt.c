@@ -10,11 +10,9 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_gpt_types_against_architectures(void) {
+TEST(gpt_types_against_architectures) {
         const char *prefix;
         int r;
-
-        log_info("/* %s */", __func__);
 
         /* Dumps a table indicating for which architectures we know we have matching GPT partition
          * types. Also validates whether we can properly categorize the entries. */
@@ -53,11 +51,4 @@ static void test_gpt_types_against_architectures(void) {
                 }
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_INFO);
-
-        test_gpt_types_against_architectures();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

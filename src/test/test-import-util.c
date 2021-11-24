@@ -13,7 +13,7 @@ static void test_import_url_last_component_one(const char *input, const char *ou
         assert_se(streq_ptr(output, s));
 }
 
-static void test_import_url_last_component(void) {
+TEST(import_url_last_component) {
         test_import_url_last_component_one("https://foobar/waldo/quux", "quux", 0);
         test_import_url_last_component_one("https://foobar/waldo/quux/", "quux", 0);
         test_import_url_last_component_one("https://foobar/waldo/", "waldo", 0);
@@ -40,7 +40,7 @@ static void test_import_url_change_suffix_one(const char *input, size_t n, const
         assert_se(streq_ptr(output, s));
 }
 
-static void test_import_url_change_suffix(void) {
+TEST(import_url_change_suffix) {
         test_import_url_change_suffix_one("https://foobar/waldo/quux", 1, "wuff", "https://foobar/waldo/wuff", 0);
         test_import_url_change_suffix_one("https://foobar/waldo/quux/", 1, "wuff", "https://foobar/waldo/wuff", 0);
         test_import_url_change_suffix_one("https://foobar/waldo/quux///?mief", 1, "wuff", "https://foobar/waldo/wuff", 0);
@@ -61,12 +61,4 @@ static void test_import_url_change_suffix(void) {
         test_import_url_change_suffix_one("x:y/z/", 2, "wuff", "x:y/wuff", 0);
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_INFO);
-
-        test_import_url_last_component();
-        test_import_url_change_suffix();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

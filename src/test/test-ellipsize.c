@@ -7,6 +7,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tests.h"
 #include "util.h"
 #include "utf8.h"
 
@@ -62,7 +63,7 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
         }
 }
 
-static void test_ellipsize_mem(void) {
+TEST(ellipsize_mem) {
         const char *s;
         ssize_t l, k;
 
@@ -108,7 +109,7 @@ static void test_ellipsize_one(const char *p) {
         puts(t);
 }
 
-static void test_ellipsize(void) {
+TEST(ellipsize) {
         test_ellipsize_one(DIGITS LETTERS DIGITS LETTERS);
         test_ellipsize_one("한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어");
         test_ellipsize_one("-日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国");
@@ -119,9 +120,4 @@ static void test_ellipsize(void) {
         test_ellipsize_one("shórt");
 }
 
-int main(int argc, char *argv[]) {
-        test_ellipsize_mem();
-        test_ellipsize();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

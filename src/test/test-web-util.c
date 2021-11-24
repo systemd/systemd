@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "macro.h"
+#include "tests.h"
 #include "web-util.h"
 
-static void test_is_valid_documentation_url(void) {
+TEST(is_valid_documentation_url) {
         assert_se(documentation_url_is_valid("http://www.freedesktop.org/wiki/Software/systemd"));
         assert_se(documentation_url_is_valid("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));  /* dead */
         assert_se(documentation_url_is_valid("https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst"));
@@ -17,8 +18,4 @@ static void test_is_valid_documentation_url(void) {
         assert_se(!documentation_url_is_valid(""));
 }
 
-int main(int argc, char *argv[]) {
-        test_is_valid_documentation_url();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

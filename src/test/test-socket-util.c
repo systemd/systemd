@@ -23,9 +23,7 @@
 
 assert_cc(SUN_PATH_LEN == 108);
 
-static void test_ifname_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(ifname_valid) {
         assert_se( ifname_valid("foo"));
         assert_se( ifname_valid("eth0"));
 
@@ -69,9 +67,7 @@ static void test_socket_print_unix_one(const char *in, size_t len_in, const char
         assert_se(streq(out, expected));
 }
 
-static void test_socket_print_unix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(socket_print_unix) {
         /* Some additional tests for abstract addresses which we don't parse */
 
         test_socket_print_unix_one("\0\0\0\0", 4, "@\\000\\000\\000");
@@ -86,7 +82,7 @@ static void test_socket_print_unix(void) {
         test_socket_print_unix_one("\0\a\b\n\255", 6, "@\\a\\b\\n\\255\\000");
 }
 
-static void test_sockaddr_equal(void) {
+TEST(sockaddr_equal) {
         union sockaddr_union a = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = 0,
@@ -113,8 +109,6 @@ static void test_sockaddr_equal(void) {
                 .vm.svm_cid = VMADDR_CID_ANY,
         };
 
-        log_info("/* %s */", __func__);
-
         assert_se(sockaddr_equal(&a, &a));
         assert_se(sockaddr_equal(&a, &b));
         assert_se(sockaddr_equal(&d, &d));
@@ -124,9 +118,7 @@ static void test_sockaddr_equal(void) {
         assert_se(!sockaddr_equal(&a, &e));
 }
 
-static void test_sockaddr_un_len(void) {
-        log_info("/* %s */", __func__);
-
+TEST(sockaddr_un_len) {
         static const struct sockaddr_un fs = {
                 .sun_family = AF_UNIX,
                 .sun_path = "/foo/bar/waldo",
@@ -141,11 +133,9 @@ static void test_sockaddr_un_len(void) {
         assert_se(SOCKADDR_UN_LEN(abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
 }
 
-static void test_in_addr_is_multicast(void) {
+TEST(in_addr_is_multicast) {
         union in_addr_union a, b;
         int f;
-
-        log_info("/* %s */", __func__);
 
         assert_se(in_addr_from_string_auto("192.168.3.11", &f, &a) >= 0);
         assert_se(in_addr_is_multicast(f, &a) == 0);
@@ -160,10 +150,8 @@ static void test_in_addr_is_multicast(void) {
         assert_se(in_addr_is_multicast(f, &b) == 0);
 }
 
-static void test_getpeercred_getpeergroups(void) {
+TEST(getpeercred_getpeergroups) {
         int r;
-
-        log_info("/* %s */", __func__);
 
         r = safe_fork("(getpeercred)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
@@ -228,12 +216,10 @@ static void test_getpeercred_getpeergroups(void) {
         }
 }
 
-static void test_passfd_read(void) {
+TEST(passfd_read) {
         static const char file_contents[] = "test contents for passfd";
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -276,13 +262,11 @@ static void test_passfd_read(void) {
         assert_se(streq(buf, file_contents));
 }
 
-static void test_passfd_contents_read(void) {
+TEST(passfd_contents_read) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -330,12 +314,10 @@ static void test_passfd_contents_read(void) {
         assert_se(streq(buf, file_contents));
 }
 
-static void test_receive_nopassfd(void) {
+TEST(receive_nopassfd) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         static const char wire_contents[] = "no fd passed here";
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -369,11 +351,9 @@ static void test_receive_nopassfd(void) {
         assert_se(fd == -1);
 }
 
-static void test_send_nodata_nofd(void) {
+TEST(send_nodata_nofd) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -404,11 +384,9 @@ static void test_send_nodata_nofd(void) {
         assert_se(fd == -999);
 }
 
-static void test_send_emptydata(void) {
+TEST(send_emptydata) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -443,7 +421,7 @@ static void test_send_emptydata(void) {
         assert_se(fd == -999);
 }
 
-static void test_flush_accept(void) {
+TEST(flush_accept) {
         _cleanup_close_ int listen_stream = -1, listen_dgram = -1, listen_seqpacket = 1, connect_stream = -1, connect_dgram = -1, connect_seqpacket = -1;
         static const union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         union sockaddr_union lsa;
@@ -504,27 +482,9 @@ static void test_flush_accept(void) {
         assert_se(flush_accept(listen_seqpacket) >= 0);
 }
 
-static void test_ipv6_enabled(void) {
+TEST(ipv6_enabled) {
         log_info("IPv6 supported: %s", yes_no(socket_ipv6_is_supported()));
         log_info("IPv6 enabled: %s", yes_no(socket_ipv6_is_enabled()));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_ifname_valid();
-        test_socket_print_unix();
-        test_sockaddr_equal();
-        test_sockaddr_un_len();
-        test_in_addr_is_multicast();
-        test_getpeercred_getpeergroups();
-        test_passfd_read();
-        test_passfd_contents_read();
-        test_receive_nopassfd();
-        test_send_nodata_nofd();
-        test_send_emptydata();
-        test_flush_accept();
-        test_ipv6_enabled();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

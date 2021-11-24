@@ -19,13 +19,11 @@
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
 
-static void test_id128(void) {
+TEST(id128) {
         sd_id128_t id, id2;
         char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_id128_randomize(&id) == 0);
         printf("random: %s\n", sd_id128_to_string(id, t));
@@ -154,11 +152,9 @@ static void test_id128(void) {
         assert_se(!sd_id128_equal(id, id2));
 }
 
-static void test_sd_id128_get_invocation(void) {
+TEST(sd_id128_get_invocation) {
         sd_id128_t id;
         int r;
-
-        log_info("/* %s */", __func__);
 
         /* Query the invocation ID */
         r = sd_id128_get_invocation(&id);
@@ -168,7 +164,7 @@ static void test_sd_id128_get_invocation(void) {
                 log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 }
 
-static void benchmark_sd_id128_get_machine_app_specific(void) {
+TEST(benchmark_sd_id128_get_machine_app_specific) {
         unsigned iterations = slow_tests_enabled() ? 1000000 : 1000;
         usec_t t, q;
 
@@ -189,12 +185,4 @@ static void benchmark_sd_id128_get_machine_app_specific(void) {
         log_info("%lf µs each\n", (double) q / iterations);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_id128();
-        test_sd_id128_get_invocation();
-        benchmark_sd_id128_get_machine_app_specific();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

@@ -32,9 +32,7 @@ static void test_dns_label_unescape_one(const char *what, const char *expect, si
                 assert_se(streq(buffer, expect));
 }
 
-static void test_dns_label_unescape(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_label_unescape) {
         test_dns_label_unescape_one("hallo", "hallo", 6, 5, 5);
         test_dns_label_unescape_one("hallo", "hallo", 4, -ENOBUFS, -ENOBUFS);
         test_dns_label_unescape_one("", "", 10, 0, 0);
@@ -74,7 +72,7 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
         assert_se(!memcmp(buffer, expect, r));
 }
 
-static void test_dns_name_to_wire_format(void) {
+TEST(dns_name_to_wire_format) {
         static const char out0[] = { 0 };
         static const char out1[] = { 3, 'f', 'o', 'o', 0 };
         static const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
@@ -105,8 +103,6 @@ static void test_dns_name_to_wire_format(void) {
                                      9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
                                      9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
                                      3, 'a', '1', '2', 0 };
-
-        log_info("/* %s */", __func__);
 
         test_dns_name_to_wire_format_one("", out0, sizeof(out0), sizeof(out0));
 
@@ -143,9 +139,7 @@ static void test_dns_label_unescape_suffix_one(const char *what, const char *exp
                 assert_se(streq(buffer, expect2));
 }
 
-static void test_dns_label_unescape_suffix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_label_unescape_suffix) {
         test_dns_label_unescape_suffix_one("hallo", "hallo", "", 6, 5, 0);
         test_dns_label_unescape_suffix_one("hallo", "hallo", "", 4, -ENOBUFS, -ENOBUFS);
         test_dns_label_unescape_suffix_one("", "", "", 10, 0, 0);
@@ -182,9 +176,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         assert_se(streq_ptr(expect, t));
 }
 
-static void test_dns_label_escape(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_label_escape) {
         test_dns_label_escape_one("", 0, NULL, -EINVAL);
         test_dns_label_escape_one("hallo", 5, "hallo", 5);
         test_dns_label_escape_one("hallo", 6, "hallo\\000", 9);
@@ -204,7 +196,7 @@ static void test_dns_name_normalize_one(const char *what, const char *expect, in
         assert_se(streq_ptr(expect, t));
 }
 
-static void test_dns_name_normalize(void) {
+TEST(dns_name_normalize) {
         test_dns_name_normalize_one("", ".", 0);
         test_dns_name_normalize_one("f", "f", 0);
         test_dns_name_normalize_one("f.waldi", "f.waldi", 0);
@@ -226,7 +218,7 @@ static void test_dns_name_equal_one(const char *a, const char *b, int ret) {
         assert_se(r == ret);
 }
 
-static void test_dns_name_equal(void) {
+TEST(dns_name_equal) {
         test_dns_name_equal_one("", "", true);
         test_dns_name_equal_one("x", "x", true);
         test_dns_name_equal_one("x", "x.", true);
@@ -254,7 +246,7 @@ static void test_dns_name_between_one(const char *a, const char *b, const char *
                 assert_se(r == ret);
 }
 
-static void test_dns_name_between(void) {
+TEST(dns_name_between) {
         /* see https://tools.ietf.org/html/rfc4034#section-6.1
            Note that we use "\033.z.example" in stead of "\001.z.example" as we
            consider the latter invalid */
@@ -279,7 +271,7 @@ static void test_dns_name_endswith_one(const char *a, const char *b, int ret) {
         assert_se(dns_name_endswith(a, b) == ret);
 }
 
-static void test_dns_name_endswith(void) {
+TEST(dns_name_endswith) {
         test_dns_name_endswith_one("", "", true);
         test_dns_name_endswith_one("", "xxx", false);
         test_dns_name_endswith_one("xxx", "", true);
@@ -301,7 +293,7 @@ static void test_dns_name_startswith_one(const char *a, const char *b, int ret) 
         assert_se(dns_name_startswith(a, b) == ret);
 }
 
-static void test_dns_name_startswith(void) {
+TEST(dns_name_startswith) {
         test_dns_name_startswith_one("", "", true);
         test_dns_name_startswith_one("", "xxx", false);
         test_dns_name_startswith_one("xxx", "", true);
@@ -316,7 +308,7 @@ static void test_dns_name_startswith(void) {
         test_dns_name_startswith_one("x.y", "X", true);
 }
 
-static void test_dns_name_is_root(void) {
+TEST(dns_name_is_root) {
         assert_se(dns_name_is_root(""));
         assert_se(dns_name_is_root("."));
         assert_se(!dns_name_is_root("xxx"));
@@ -324,7 +316,7 @@ static void test_dns_name_is_root(void) {
         assert_se(!dns_name_is_root(".."));
 }
 
-static void test_dns_name_is_single_label(void) {
+TEST(dns_name_is_single_label) {
         assert_se(!dns_name_is_single_label(""));
         assert_se(!dns_name_is_single_label("."));
         assert_se(!dns_name_is_single_label(".."));
@@ -346,7 +338,7 @@ static void test_dns_name_reverse_one(const char *address, const char *name) {
         assert_se(in_addr_equal(familya, &a, &b));
 }
 
-static void test_dns_name_reverse(void) {
+TEST(dns_name_reverse) {
         test_dns_name_reverse_one("47.11.8.15", "15.8.11.47.in-addr.arpa");
         test_dns_name_reverse_one("fe80::47", "7.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa");
         test_dns_name_reverse_one("127.0.0.1", "1.0.0.127.in-addr.arpa");
@@ -360,7 +352,7 @@ static void test_dns_name_concat_one(const char *a, const char *b, int r, const 
         assert_se(streq_ptr(p, result));
 }
 
-static void test_dns_name_concat(void) {
+TEST(dns_name_concat) {
         test_dns_name_concat_one("", "", 0, ".");
         test_dns_name_concat_one(".", "", 0, ".");
         test_dns_name_concat_one("", ".", 0, ".");
@@ -382,9 +374,7 @@ static void test_dns_name_is_valid_one(const char *s, int ret, int ret_ldh) {
         assert_se(dns_name_is_valid_ldh(s) == ret_ldh);
 }
 
-static void test_dns_name_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_is_valid) {
         test_dns_name_is_valid_one("foo",               1, 1);
         test_dns_name_is_valid_one("foo.",              1, 1);
         test_dns_name_is_valid_one("foo..",             0, 0);
@@ -434,9 +424,7 @@ static void test_dns_name_is_valid(void) {
         test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a12", 1, 1);
 }
 
-static void test_dns_service_name_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_service_name_is_valid) {
         assert_se(dns_service_name_is_valid("Lennart's Compüter"));
         assert_se(dns_service_name_is_valid("piff.paff"));
 
@@ -447,9 +435,7 @@ static void test_dns_service_name_is_valid(void) {
         assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
 }
 
-static void test_dns_srv_type_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_srv_type_is_valid) {
         assert_se(dns_srv_type_is_valid("_http._tcp"));
         assert_se(dns_srv_type_is_valid("_foo-bar._tcp"));
         assert_se(dns_srv_type_is_valid("_w._udp"));
@@ -471,9 +457,7 @@ static void test_dns_srv_type_is_valid(void) {
         assert_se(!dns_srv_type_is_valid("_piep._foo._udp"));
 }
 
-static void test_dnssd_srv_type_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dnssd_srv_type_is_valid) {
         assert_se(dnssd_srv_type_is_valid("_http._tcp"));
         assert_se(dnssd_srv_type_is_valid("_foo-bar._tcp"));
         assert_se(dnssd_srv_type_is_valid("_w._udp"));
@@ -513,9 +497,7 @@ static void test_dns_service_join_one(const char *a, const char *b, const char *
         assert_se(dns_name_equal(c, z) > 0);
 }
 
-static void test_dns_service_join(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_service_join) {
         test_dns_service_join_one("", "", "", -EINVAL, NULL);
         test_dns_service_join_one("", "_http._tcp", "", -EINVAL, NULL);
         test_dns_service_join_one("", "_http._tcp", "foo", -EINVAL, NULL);
@@ -550,9 +532,7 @@ static void test_dns_service_split_one(const char *joined, const char *a, const 
                 assert_se(!x && dns_name_equal(z, joined) > 0);
 }
 
-static void test_dns_service_split(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_service_split) {
         test_dns_service_split_one("", NULL, NULL, ".", 0);
         test_dns_service_split_one("foo", NULL, NULL, "foo", 0);
         test_dns_service_split_one("foo.bar", NULL, NULL, "foo.bar", 0);
@@ -571,9 +551,7 @@ static void test_dns_name_change_suffix_one(const char *name, const char *old_su
         assert_se(streq_ptr(s, result));
 }
 
-static void test_dns_name_change_suffix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_change_suffix) {
         test_dns_name_change_suffix_one("foo.bar", "bar", "waldo", 1, "foo.waldo");
         test_dns_name_change_suffix_one("foo.bar.waldi.quux", "foo.bar.waldi.quux", "piff.paff", 1, "piff.paff");
         test_dns_name_change_suffix_one("foo.bar.waldi.quux", "bar.waldi.quux", "piff.paff", 1, "foo.piff.paff");
@@ -594,9 +572,7 @@ static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const 
         assert_se(streq_ptr(p, result));
 }
 
-static void test_dns_name_suffix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_suffix) {
         test_dns_name_suffix_one("foo.bar", 2, "foo.bar", 0);
         test_dns_name_suffix_one("foo.bar", 1, "bar", 1);
         test_dns_name_suffix_one("foo.bar", 0, "", 2);
@@ -619,9 +595,7 @@ static void test_dns_name_count_labels_one(const char *name, int n) {
         assert_se(dns_name_count_labels(name) == n);
 }
 
-static void test_dns_name_count_labels(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_count_labels) {
         test_dns_name_count_labels_one("foo.bar.quux.", 3);
         test_dns_name_count_labels_one("foo.bar.quux", 3);
         test_dns_name_count_labels_one("foo.bar.", 2);
@@ -639,9 +613,7 @@ static void test_dns_name_equal_skip_one(const char *a, unsigned n_labels, const
         assert_se(dns_name_equal_skip(a, n_labels, b) == ret);
 }
 
-static void test_dns_name_equal_skip(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_equal_skip) {
         test_dns_name_equal_skip_one("foo", 0, "bar", 0);
         test_dns_name_equal_skip_one("foo", 0, "foo", 1);
         test_dns_name_equal_skip_one("foo", 1, "foo", 0);
@@ -668,9 +640,7 @@ static void test_dns_name_equal_skip(void) {
         test_dns_name_equal_skip_one("", 2, "foo", 0);
 }
 
-static void test_dns_name_compare_func(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_compare_func) {
         assert_se(dns_name_compare_func("", "") == 0);
         assert_se(dns_name_compare_func("", ".") == 0);
         assert_se(dns_name_compare_func(".", "") == 0);
@@ -692,9 +662,7 @@ static void test_dns_name_common_suffix_one(const char *a, const char *b, const 
         assert_se(streq(c, result));
 }
 
-static void test_dns_name_common_suffix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_common_suffix) {
         test_dns_name_common_suffix_one("", "", "");
         test_dns_name_common_suffix_one("foo", "", "");
         test_dns_name_common_suffix_one("", "foo", "");
@@ -723,13 +691,8 @@ static void test_dns_name_apply_idna_one(const char *s, int expected, const char
                 assert_se(dns_name_equal(buf, result) == 1);
 }
 
-static void test_dns_name_apply_idna(void) {
-#if HAVE_LIBIDN2 || HAVE_LIBIDN
-        const int ret = 1;
-#else
-        const int ret = 0;
-#endif
-        log_info("/* %s */", __func__);
+TEST(dns_name_apply_idna) {
+        const int ret = HAVE_LIBIDN2 | HAVE_LIBIDN;
 
         /* IDNA2008 forbids names with hyphens in third and fourth positions
          * (https://tools.ietf.org/html/rfc5891#section-4.2.3.1).
@@ -739,11 +702,7 @@ static void test_dns_name_apply_idna(void) {
          * labels. If registrars follow IDNA2008 we'll just be performing a
          * useless lookup.
          */
-#if HAVE_LIBIDN
-        const int ret2 = 1;
-#else
-        const int ret2 = 0;
-#endif
+        const int ret2 = HAVE_LIBIDN;
 
         test_dns_name_apply_idna_one("", ret, "");
         test_dns_name_apply_idna_one("foo", ret, "foo");
@@ -766,9 +725,7 @@ static void test_dns_name_apply_idna(void) {
                                      ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
 }
 
-static void test_dns_name_is_valid_or_address(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_is_valid_or_address) {
         assert_se(dns_name_is_valid_or_address(NULL) == 0);
         assert_se(dns_name_is_valid_or_address("") == 0);
         assert_se(dns_name_is_valid_or_address("foobar") > 0);
@@ -780,9 +737,7 @@ static void test_dns_name_is_valid_or_address(void) {
         assert_se(dns_name_is_valid_or_address("::1") > 0);
 }
 
-static void test_dns_name_dot_suffixed(void) {
-        log_info("/* %s */", __func__);
-
+TEST(dns_name_dot_suffixed) {
         assert_se(dns_name_dot_suffixed("") == 0);
         assert_se(dns_name_dot_suffixed(".") > 0);
         assert_se(dns_name_dot_suffixed("foo") == 0);
@@ -794,37 +749,4 @@ static void test_dns_name_dot_suffixed(void) {
         assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\.\\.") == 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_dns_label_unescape();
-        test_dns_label_unescape_suffix();
-        test_dns_label_escape();
-        test_dns_name_normalize();
-        test_dns_name_equal();
-        test_dns_name_endswith();
-        test_dns_name_startswith();
-        test_dns_name_between();
-        test_dns_name_is_root();
-        test_dns_name_is_single_label();
-        test_dns_name_reverse();
-        test_dns_name_concat();
-        test_dns_name_is_valid();
-        test_dns_name_to_wire_format();
-        test_dns_service_name_is_valid();
-        test_dns_srv_type_is_valid();
-        test_dnssd_srv_type_is_valid();
-        test_dns_service_join();
-        test_dns_service_split();
-        test_dns_name_change_suffix();
-        test_dns_name_suffix();
-        test_dns_name_count_labels();
-        test_dns_name_equal_skip();
-        test_dns_name_compare_func();
-        test_dns_name_common_suffix();
-        test_dns_name_apply_idna();
-        test_dns_name_is_valid_or_address();
-        test_dns_name_dot_suffixed();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

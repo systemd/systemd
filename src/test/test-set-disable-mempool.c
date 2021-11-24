@@ -41,13 +41,11 @@ static void test_one(const char *val) {
         assert_se(!s);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
+TEST(disable_mempool) {
         test_one("0");
         /* The value $SYSTEMD_MEMPOOL= is cached. So the following
          * test should also succeed. */
         test_one("1");
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

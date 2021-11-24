@@ -3,6 +3,7 @@
 #include "recovery-key.h"
 #include "alloc-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_normalize_recovery_key(const char *t, const char *expected) {
         _cleanup_free_ char *z = NULL;
@@ -16,8 +17,7 @@ static void test_normalize_recovery_key(const char *t, const char *expected) {
                   (r == -EINVAL && z == NULL));
 }
 
-int main(int argc, char *arv[]) {
-
+TEST(normalize_recovery_key_all) {
         test_normalize_recovery_key("iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj",
                                     "iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj");
 
@@ -46,6 +46,6 @@ int main(int argc, char *arv[]) {
         test_normalize_recovery_key("iefgcelhebiduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
 
         test_normalize_recovery_key("", NULL);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

@@ -6,6 +6,7 @@
 #include "ip-protocol-list.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_int(int i) {
         char str[DECIMAL_STR_MAX(int)];
@@ -35,30 +36,34 @@ static void test_str_fail(const char *s) {
         assert_se(parse_ip_protocol(s) == -EINVAL);
 }
 
-static void test_parse_ip_protocol(const char *s, int expected) {
+static void test_parse_ip_protocol_one(const char *s, int expected) {
         assert_se(parse_ip_protocol(s) == expected);
 }
 
-int main(int argc, const char *argv[]) {
+TEST(integer) {
         test_int(IPPROTO_TCP);
         test_int(IPPROTO_DCCP);
         test_int_fail(-1);
         test_int_fail(1024 * 1024);
+}
 
+TEST(string) {
         test_str("sctp");
         test_str("udp");
         test_str_fail("hoge");
         test_str_fail("-1");
         test_str_fail("1000000000");
-
-        test_parse_ip_protocol("sctp", IPPROTO_SCTP);
-        test_parse_ip_protocol("ScTp", IPPROTO_SCTP);
-        test_parse_ip_protocol("ip", IPPROTO_IP);
-        test_parse_ip_protocol("", IPPROTO_IP);
-        test_parse_ip_protocol("1", 1);
-        test_parse_ip_protocol("0", 0);
-        test_parse_ip_protocol("-10", -EINVAL);
-        test_parse_ip_protocol("100000000", -EINVAL);
-
-        return 0;
 }
+
+TEST(parse_ip_protocol) {
+        test_parse_ip_protocol_one("sctp", IPPROTO_SCTP);
+        test_parse_ip_protocol_one("ScTp", IPPROTO_SCTP);
+        test_parse_ip_protocol_one("ip", IPPROTO_IP);
+        test_parse_ip_protocol_one("", IPPROTO_IP);
+        test_parse_ip_protocol_one("1", 1);
+        test_parse_ip_protocol_one("0", 0);
+        test_parse_ip_protocol_one("-10", -EINVAL);
+        test_parse_ip_protocol_one("100000000", -EINVAL);
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);

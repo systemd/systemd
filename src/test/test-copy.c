@@ -23,14 +23,12 @@
 #include "util.h"
 #include "xattr-util.h"
 
-static void test_copy_file(void) {
+TEST(copy_file) {
         _cleanup_free_ char *buf = NULL;
         char fn[] = "/tmp/test-copy_file.XXXXXX";
         char fn_copy[] = "/tmp/test-copy_file.XXXXXX";
         size_t sz = 0;
         int fd;
-
-        log_info("%s", __func__);
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -52,14 +50,12 @@ static void test_copy_file(void) {
         unlink(fn_copy);
 }
 
-static void test_copy_file_fd(void) {
+TEST(copy_file_fd) {
         char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_close_ int in_fd = -1, out_fd = -1;
         const char *text = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {};
-
-        log_info("%s", __func__);
 
         in_fd = mkostemp_safe(in_fn);
         assert_se(in_fd >= 0);
@@ -78,7 +74,7 @@ static void test_copy_file_fd(void) {
         unlink(out_fn);
 }
 
-static void test_copy_tree(void) {
+TEST(copy_tree) {
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
@@ -91,8 +87,6 @@ static void test_copy_tree(void) {
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */
-
-        log_info("%s", __func__);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -194,7 +188,7 @@ static void test_copy_tree(void) {
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
-static void test_copy_bytes(void) {
+TEST(copy_bytes) {
         _cleanup_close_pair_ int pipefd[2] = {-1, -1};
         _cleanup_close_ int infd = -1;
         int r, r2;
@@ -230,7 +224,7 @@ static void test_copy_bytes(void) {
         assert_se(r == -EBADF);
 }
 
-static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint64_t max_bytes) {
+static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, uint64_t max_bytes) {
         char fn2[] = "/tmp/test-copy-file-XXXXXX";
         char fn3[] = "/tmp/test-copy-file-XXXXXX";
         _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
@@ -286,7 +280,16 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
         unlink(fn3);
 }
 
-static void test_copy_atomic(void) {
+TEST(copy_bytes_regular_file) {
+        test_copy_bytes_regular_file_one(saved_argv[0], false, UINT64_MAX);
+        test_copy_bytes_regular_file_one(saved_argv[0], true, UINT64_MAX);
+        test_copy_bytes_regular_file_one(saved_argv[0], false, 1000); /* smaller than copy buffer size */
+        test_copy_bytes_regular_file_one(saved_argv[0], true, 1000);
+        test_copy_bytes_regular_file_one(saved_argv[0], false, 32000); /* larger than copy buffer size */
+        test_copy_bytes_regular_file_one(saved_argv[0], true, 32000);
+}
+
+TEST(copy_atomic) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         const char *q;
         int r;
@@ -304,7 +307,7 @@ static void test_copy_atomic(void) {
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REPLACE) >= 0);
 }
 
-static void test_copy_proc(void) {
+TEST(copy_proc) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *f = NULL, *a = NULL, *b = NULL;
 
@@ -320,21 +323,4 @@ static void test_copy_proc(void) {
         assert_se(!isempty(a));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_copy_file();
-        test_copy_file_fd();
-        test_copy_tree();
-        test_copy_bytes();
-        test_copy_bytes_regular_file(argv[0], false, UINT64_MAX);
-        test_copy_bytes_regular_file(argv[0], true, UINT64_MAX);
-        test_copy_bytes_regular_file(argv[0], false, 1000); /* smaller than copy buffer size */
-        test_copy_bytes_regular_file(argv[0], true, 1000);
-        test_copy_bytes_regular_file(argv[0], false, 32000); /* larger than copy buffer size */
-        test_copy_bytes_regular_file(argv[0], true, 32000);
-        test_copy_atomic();
-        test_copy_proc();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

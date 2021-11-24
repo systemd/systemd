@@ -2,6 +2,7 @@
 
 #include "memory-util.h"
 #include "sparse-endian.h"
+#include "tests.h"
 #include "unaligned.h"
 
 static uint8_t data[] = {
@@ -9,7 +10,7 @@ static uint8_t data[] = {
         0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 };
 
-static void test_be(void) {
+TEST(be) {
         uint8_t scratch[16];
 
         assert_se(unaligned_read_be16(&data[0]) == 0x0001);
@@ -75,7 +76,7 @@ static void test_be(void) {
         assert_se(memcmp(&scratch[7], &data[7], sizeof(uint64_t)) == 0);
 }
 
-static void test_le(void) {
+TEST(le) {
         uint8_t scratch[16];
 
         assert_se(unaligned_read_le16(&data[0]) == 0x0100);
@@ -142,7 +143,7 @@ static void test_le(void) {
         assert_se(memcmp(&scratch[7], &data[7], sizeof(uint64_t)) == 0);
 }
 
-static void test_ne(void) {
+TEST(ne) {
         uint16_t x = 4711;
         uint32_t y = 123456;
         uint64_t z = 9876543210;
@@ -164,9 +165,4 @@ static void test_ne(void) {
         assert_se(z == 3);
 }
 
-int main(int argc, const char *argv[]) {
-        test_be();
-        test_le();
-        test_ne();
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

@@ -3,14 +3,13 @@
 #include "alloc-util.h"
 #include "cpu-set-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "macro.h"
 
-static void test_parse_cpu_set(void) {
+TEST(parse_cpu_set) {
         CPUSet c = {};
         _cleanup_free_ char *str = NULL;
         int cpu;
-
-        log_info("/* %s */", __func__);
 
         /* Single value */
         assert_se(parse_cpu_set_full("0", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
@@ -210,11 +209,9 @@ static void test_parse_cpu_set(void) {
         cpu_set_reset(&c);
 }
 
-static void test_parse_cpu_set_extend(void) {
+TEST(parse_cpu_set_extend) {
         CPUSet c = {};
         _cleanup_free_ char *s1 = NULL, *s2 = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(parse_cpu_set_extend("1 3", &c, true, NULL, "fake", 1, "CPUAffinity") == 1);
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 2);
@@ -232,11 +229,9 @@ static void test_parse_cpu_set_extend(void) {
         log_info("cpu_set_to_string: (null)");
 }
 
-static void test_cpu_set_to_from_dbus(void) {
+TEST(cpu_set_to_from_dbus) {
         _cleanup_(cpu_set_reset) CPUSet c = {}, c2 = {};
         _cleanup_free_ char *s = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(parse_cpu_set_extend("1 3 8 100-200", &c, true, NULL, "fake", 1, "CPUAffinity") == 1);
         assert_se(s = cpu_set_to_string(&c));
@@ -264,7 +259,7 @@ static void test_cpu_set_to_from_dbus(void) {
         assert_se(memcmp(c.set, c2.set, c.allocated) == 0);
 }
 
-static void test_cpus_in_affinity_mask(void) {
+TEST(cpus_in_affinity_mask) {
         int r;
 
         r = cpus_in_affinity_mask();
@@ -272,7 +267,7 @@ static void test_cpus_in_affinity_mask(void) {
         log_info("cpus_in_affinity_mask: %d", r);
 }
 
-int main(int argc, char *argv[]) {
+TEST(print_cpu_alloc_size) {
         log_info("CPU_ALLOC_SIZE(1) = %zu", CPU_ALLOC_SIZE(1));
         log_info("CPU_ALLOC_SIZE(9) = %zu", CPU_ALLOC_SIZE(9));
         log_info("CPU_ALLOC_SIZE(64) = %zu", CPU_ALLOC_SIZE(64));
@@ -280,11 +275,6 @@ int main(int argc, char *argv[]) {
         log_info("CPU_ALLOC_SIZE(1024) = %zu", CPU_ALLOC_SIZE(1024));
         log_info("CPU_ALLOC_SIZE(1025) = %zu", CPU_ALLOC_SIZE(1025));
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
-
-        test_parse_cpu_set();
-        test_parse_cpu_set_extend();
-        test_cpus_in_affinity_mask();
-        test_cpu_set_to_from_dbus();
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

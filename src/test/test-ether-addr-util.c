@@ -4,10 +4,8 @@
 #include "string-util.h"
 #include "tests.h"
 
-static void test_ether_addr_helpers(void) {
+TEST(ether_addr_helpers) {
         struct ether_addr a;
-
-        log_info("/* %s */", __func__);
 
         a = ETHER_ADDR_NULL;
         assert_se(ether_addr_is_null(&a));
@@ -36,9 +34,7 @@ static void test_ether_addr_helpers(void) {
 
 #define INFINIBAD_ADDR_1 ((const struct hw_addr_data){ .length = 20, .infiniband = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20} })
 
-static void test_HW_ADDR_TO_STRING(void) {
-        log_info("/* %s */", __func__);
-
+TEST(HW_ADDR_TO_STRING) {
         const char *s = HW_ADDR_TO_STR(&(const struct hw_addr_data){6});
         log_info("null: %s", s);
 
@@ -80,9 +76,7 @@ static void test_parse_hw_addr_full_one(const char *in, size_t expected_len, con
         }
 }
 
-static void test_parse_hw_addr(void) {
-        log_info("/* %s */", __func__);
-
+TEST(parse_hw_addr) {
         /* IPv4 */
         test_parse_hw_addr_full_one("10.0.0.1", 0, "0a:00:00:01");
         test_parse_hw_addr_full_one("10.0.0.1", 4, "0a:00:00:01");
@@ -165,11 +159,4 @@ static void test_parse_hw_addr(void) {
         test_parse_hw_addr_full_one("aa bb", SIZE_MAX, NULL);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_ether_addr_helpers();
-        test_HW_ADDR_TO_STRING();
-        test_parse_hw_addr();
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

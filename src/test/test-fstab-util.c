@@ -7,6 +7,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 /*
 int fstab_filter_options(
@@ -62,7 +63,7 @@ static void do_fstab_filter_options(const char *opts,
         assert_se(streq_ptr(name, name_expected));
 }
 
-static void test_fstab_filter_options(void) {
+TEST(fstab_filter_options) {
         do_fstab_filter_options("opt=0", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "");
         do_fstab_filter_options("opt=0", "x-opt\0opt\0", 1, 1, "opt", "0", "0", "");
         do_fstab_filter_options("opt", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "");
@@ -127,7 +128,7 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\");
 }
 
-static void test_fstab_find_pri(void) {
+TEST(fstab_find_pri) {
         int pri = -1;
 
         assert_se(fstab_find_pri("pri", &pri) == 0);
@@ -146,7 +147,7 @@ static void test_fstab_find_pri(void) {
         assert_se(pri == 13);
 }
 
-static void test_fstab_yes_no_option(void) {
+TEST(fstab_yes_no_option) {
         assert_se(fstab_test_yes_no_option("nofail,fail,nofail", "nofail\0fail\0") == true);
         assert_se(fstab_test_yes_no_option("nofail,nofail,fail", "nofail\0fail\0") == false);
         assert_se(fstab_test_yes_no_option("abc,cde,afail", "nofail\0fail\0") == false);
@@ -154,7 +155,7 @@ static void test_fstab_yes_no_option(void) {
         assert_se(fstab_test_yes_no_option("nofail,nofail=0,fail=0", "nofail\0fail\0") == false);
 }
 
-static void test_fstab_node_to_udev_node(void) {
+TEST(fstab_node_to_udev_node) {
         char *n;
 
         n = fstab_node_to_udev_node("LABEL=applé/jack");
@@ -188,11 +189,4 @@ static void test_fstab_node_to_udev_node(void) {
         free(n);
 }
 
-int main(void) {
-        test_fstab_filter_options();
-        test_fstab_find_pri();
-        test_fstab_yes_no_option();
-        test_fstab_node_to_udev_node();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

@@ -14,14 +14,12 @@ static void destroy_callback(void *userdata) {
         (*n_called) ++;
 }
 
-static void test_destroy_callback(void) {
+TEST(destroy_callback) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_bus_slot *slot = NULL;
         sd_bus_destroy_t t;
 
         int r, n_called = 0;
-
-        log_info("/* %s */", __func__);
 
         r = bus_open_system_watch_bind_with_description(&bus, "test-bus");
         if (r < 0) {
@@ -46,10 +44,4 @@ static void test_destroy_callback(void) {
         assert_se(n_called == 1);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_destroy_callback();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

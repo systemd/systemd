@@ -46,7 +46,7 @@ static bool have_seccomp_privs(void) {
         return geteuid() == 0 && have_effective_cap(CAP_SYS_ADMIN) > 0; /* If we are root but CAP_SYS_ADMIN we can't do caps (unless we also do NNP) */
 }
 
-static void test_parse_syscall_and_errno(void) {
+TEST(parse_syscall_and_errno) {
         _cleanup_free_ char *n = NULL;
         int e;
 
@@ -104,11 +104,9 @@ static void test_parse_syscall_and_errno(void) {
         assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
 }
 
-static void test_seccomp_arch_to_string(void) {
+TEST(seccomp_arch_to_string) {
         uint32_t a, b;
         const char *name;
-
-        log_info("/* %s */", __func__);
 
         a = seccomp_arch_native();
         assert_se(a > 0);
@@ -118,10 +116,8 @@ static void test_seccomp_arch_to_string(void) {
         assert_se(a == b);
 }
 
-static void test_architecture_table(void) {
+TEST(architecture_table) {
         const char *n, *n2;
-
-        log_info("/* %s */", __func__);
 
         NULSTR_FOREACH(n,
                        "native\0"
@@ -153,9 +149,7 @@ static void test_architecture_table(void) {
         }
 }
 
-static void test_syscall_filter_set_find(void) {
-        log_info("/* %s */", __func__);
-
+TEST(syscall_filter_set_find) {
         assert_se(!syscall_filter_set_find(NULL));
         assert_se(!syscall_filter_set_find(""));
         assert_se(!syscall_filter_set_find("quux"));
@@ -166,9 +160,7 @@ static void test_syscall_filter_set_find(void) {
         assert_se(syscall_filter_set_find("@raw-io") == syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO);
 }
 
-static void test_filter_sets(void) {
-        log_info("/* %s */", __func__);
-
+TEST(filter_sets) {
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -230,9 +222,7 @@ static void test_filter_sets(void) {
         }
 }
 
-static void test_filter_sets_ordered(void) {
-        log_info("/* %s */", __func__);
-
+TEST(filter_sets_ordered) {
         /* Ensure "@default" always remains at the beginning of the list */
         assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
         assert_se(streq(syscall_filter_sets[0].name, "@default"));
@@ -265,7 +255,7 @@ static void test_filter_sets_ordered(void) {
         }
 }
 
-static void test_restrict_namespace(void) {
+TEST(restrict_namespace) {
         char *s = NULL;
         unsigned long ul;
         pid_t pid;
@@ -274,8 +264,6 @@ static void test_restrict_namespace(void) {
                 log_notice("Testing without namespaces, skipping %s", __func__);
                 return;
         }
-
-        log_info("/* %s */", __func__);
 
         assert_se(namespace_flags_to_string(0, &s) == 0 && isempty(s));
         s = mfree(s);
@@ -368,11 +356,9 @@ static void test_restrict_namespace(void) {
         assert_se(wait_for_terminate_and_check("nsseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_protect_sysctl(void) {
+TEST(protect_sysctl) {
         pid_t pid;
         _cleanup_free_ char *seccomp = NULL;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -422,10 +408,8 @@ static void test_protect_sysctl(void) {
         assert_se(wait_for_terminate_and_check("sysctlseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_protect_syslog(void) {
+TEST(protect_syslog) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -464,10 +448,8 @@ static void test_protect_syslog(void) {
         assert_se(wait_for_terminate_and_check("syslogseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_restrict_address_families(void) {
+TEST(restrict_address_families) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -553,10 +535,8 @@ static void test_restrict_address_families(void) {
         assert_se(wait_for_terminate_and_check("socketseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_restrict_realtime(void) {
+TEST(restrict_realtime) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -600,10 +580,8 @@ static void test_restrict_realtime(void) {
         assert_se(wait_for_terminate_and_check("realtimeseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_memory_deny_write_execute_mmap(void) {
+TEST(memory_deny_write_execute_mmap) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -660,12 +638,10 @@ static void test_memory_deny_write_execute_mmap(void) {
         assert_se(wait_for_terminate_and_check("memoryseccomp-mmap", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_memory_deny_write_execute_shmat(void) {
+TEST(memory_deny_write_execute_shmat) {
         int shmid;
         pid_t pid;
         uint32_t arch;
-
-        log_info("/* %s */", __func__);
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 log_debug("arch %s: SCMP_SYS(mmap) = %d", seccomp_arch_to_string(arch), SCMP_SYS(mmap));
@@ -735,10 +711,8 @@ static void test_memory_deny_write_execute_shmat(void) {
         assert_se(wait_for_terminate_and_check("memoryseccomp-shmat", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_restrict_archs(void) {
+TEST(restrict_archs) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -775,10 +749,8 @@ static void test_restrict_archs(void) {
         assert_se(wait_for_terminate_and_check("archseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_load_syscall_filter_set_raw(void) {
+TEST(load_syscall_filter_set_raw) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -890,10 +862,8 @@ static void test_load_syscall_filter_set_raw(void) {
         assert_se(wait_for_terminate_and_check("syscallrawseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_native_syscalls_filtered(void) {
+TEST(native_syscalls_filtered) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -950,11 +920,9 @@ static void test_native_syscalls_filtered(void) {
         assert_se(wait_for_terminate_and_check("nativeseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_lock_personality(void) {
+TEST(lock_personality) {
         unsigned long current;
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -1015,10 +983,8 @@ static int real_open(const char *path, int flags, mode_t mode) {
 #endif
 }
 
-static void test_restrict_suid_sgid(void) {
+TEST(restrict_suid_sgid) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -1213,27 +1179,4 @@ static void test_restrict_suid_sgid(void) {
         assert_se(wait_for_terminate_and_check("suidsgidseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_parse_syscall_and_errno();
-        test_seccomp_arch_to_string();
-        test_architecture_table();
-        test_syscall_filter_set_find();
-        test_filter_sets();
-        test_filter_sets_ordered();
-        test_restrict_namespace();
-        test_protect_sysctl();
-        test_protect_syslog();
-        test_restrict_address_families();
-        test_restrict_realtime();
-        test_memory_deny_write_execute_mmap();
-        test_memory_deny_write_execute_shmat();
-        test_restrict_archs();
-        test_load_syscall_filter_set_raw();
-        test_native_syscalls_filtered();
-        test_lock_personality();
-        test_restrict_suid_sgid();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

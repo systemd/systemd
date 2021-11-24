@@ -3,6 +3,7 @@
 #include "format-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 
 /* Do some basic checks on STRLEN() and DECIMAL_STR_MAX() */
 assert_cc(STRLEN("xxx") == 3);
@@ -25,7 +26,7 @@ static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec
         assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, trailing_B ? FORMAT_BYTES_TRAILING_B : 0), si_without_p));
 }
 
-static void test_format_bytes(void) {
+TEST(format_bytes) {
         test_format_bytes_one(900, true, "900B", "900B", "900B", "900B");
         test_format_bytes_one(900, false, "900", "900", "900", "900");
         test_format_bytes_one(1023, true, "1023B", "1023B", "1.0K", "1K");
@@ -43,8 +44,4 @@ static void test_format_bytes(void) {
         test_format_bytes_one(UINT64_MAX, false, NULL, NULL, NULL, NULL);
 }
 
-int main(void) {
-        test_format_bytes();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

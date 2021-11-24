@@ -14,7 +14,7 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_tokenizer(const char *data, ...) {
+static void test_tokenizer_one(const char *data, ...) {
         unsigned line = 0, column = 0;
         void *state = NULL;
         va_list ap;
@@ -78,7 +78,7 @@ static void test_tokenizer(const char *data, ...) {
 
 typedef void (*Test)(JsonVariant *);
 
-static void test_variant(const char *data, Test test) {
+static void test_variant_one(const char *data, Test test) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
@@ -262,9 +262,7 @@ static void test_zeroes(JsonVariant *v) {
         }
 }
 
-static void test_build(void) {
-        log_info("/* %s */", __func__);
-
+TEST(build) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
         _cleanup_free_ char *s = NULL, *t = NULL;
 
@@ -348,7 +346,7 @@ static void test_build(void) {
         assert_se(json_variant_equal(a, b));
 }
 
-static void test_source(void) {
+TEST(source) {
         static const char data[] =
                 "\n"
                 "\n"
@@ -364,8 +362,6 @@ static void test_source(void) {
                 "[ true, \n"
                 "false, 7.5, {} ]\n"
                 "}\n";
-
-        log_info("/* %s */", __func__);
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -387,9 +383,7 @@ static void test_source(void) {
         printf("--- pretty end ---\n");
 }
 
-static void test_depth(void) {
-        log_info("/* %s */", __func__);
-
+TEST(depth) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         int r;
 
@@ -427,9 +421,7 @@ static void test_depth(void) {
         fputs("\n", stdout);
 }
 
-static void test_normalize(void) {
-        log_info("/* %s */", __func__);
-
+TEST(normalize) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
 
@@ -473,9 +465,7 @@ static void test_normalize(void) {
         t = mfree(t);
 }
 
-static void test_bisect(void) {
-        log_info("/* %s */", __func__);
-
+TEST(bisect) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         /* Tests the bisection logic in json_variant_by_key() */
@@ -540,11 +530,9 @@ static void test_float_match(JsonVariant *v) {
                   json_variant_integer(json_variant_by_index(v, 8)) == -10);
 }
 
-static void test_float(void) {
+TEST(float) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *text = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(json_build(&v, JSON_BUILD_ARRAY(
                                              JSON_BUILD_REAL(DBL_MIN),
@@ -576,10 +564,8 @@ static void test_equal_text(JsonVariant *v, const char *text) {
         assert_se(json_variant_equal(v, w) || (!v && json_variant_is_null(w)));
 }
 
-static void test_set_field(void) {
+TEST(set_field) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-
-        log_info("/* %s */", __func__);
 
         test_equal_text(v, "null");
         assert_se(json_variant_set_field(&v, "foo", NULL) >= 0);
@@ -592,60 +578,51 @@ static void test_set_field(void) {
         test_equal_text(v, "{\"foo\" : \"quux2\", \"bar\" : null}");
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
+TEST(tokenizer) {
+        test_tokenizer_one("x", -EINVAL);
+        test_tokenizer_one("", JSON_TOKEN_END);
+        test_tokenizer_one(" ", JSON_TOKEN_END);
+        test_tokenizer_one("0", JSON_TOKEN_UNSIGNED, (uint64_t) 0, JSON_TOKEN_END);
+        test_tokenizer_one("-0", JSON_TOKEN_INTEGER, (int64_t) 0, JSON_TOKEN_END);
+        test_tokenizer_one("1234", JSON_TOKEN_UNSIGNED, (uint64_t) 1234, JSON_TOKEN_END);
+        test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
+        test_tokenizer_one("18446744073709551615", JSON_TOKEN_UNSIGNED, (uint64_t) UINT64_MAX, JSON_TOKEN_END);
+        test_tokenizer_one("-9223372036854775808", JSON_TOKEN_INTEGER, (int64_t) INT64_MIN, JSON_TOKEN_END);
+        test_tokenizer_one("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
+        test_tokenizer_one("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
+        test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
+        test_tokenizer_one("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
+        test_tokenizer_one("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
+        test_tokenizer_one("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
+        test_tokenizer_one("-7e-3", JSON_TOKEN_REAL, (double) -7e-3, JSON_TOKEN_END);
+        test_tokenizer_one("true", JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_END);
+        test_tokenizer_one("false", JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_END);
+        test_tokenizer_one("null", JSON_TOKEN_NULL, JSON_TOKEN_END);
+        test_tokenizer_one("{}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("\t {\n} \n", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("[]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("\t [] \n\n", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("\"\"", JSON_TOKEN_STRING, "", JSON_TOKEN_END);
+        test_tokenizer_one("\"foo\"", JSON_TOKEN_STRING, "foo", JSON_TOKEN_END);
+        test_tokenizer_one("\"foo\\nfoo\"", JSON_TOKEN_STRING, "foo\nfoo", JSON_TOKEN_END);
+        test_tokenizer_one("{\"foo\" : \"bar\"}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_STRING, "bar", JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("{\"foo\" : [true, false]}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_COMMA, JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one("\"\xef\xbf\xbd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
+        test_tokenizer_one("\"\\ufffd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
+        test_tokenizer_one("\"\\uf\"", -EINVAL);
+        test_tokenizer_one("\"\\ud800a\"", -EINVAL);
+        test_tokenizer_one("\"\\udc00\\udc00\"", -EINVAL);
+        test_tokenizer_one("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
 
-        test_tokenizer("x", -EINVAL);
-        test_tokenizer("", JSON_TOKEN_END);
-        test_tokenizer(" ", JSON_TOKEN_END);
-        test_tokenizer("0", JSON_TOKEN_UNSIGNED, (uint64_t) 0, JSON_TOKEN_END);
-        test_tokenizer("-0", JSON_TOKEN_INTEGER, (int64_t) 0, JSON_TOKEN_END);
-        test_tokenizer("1234", JSON_TOKEN_UNSIGNED, (uint64_t) 1234, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
-        test_tokenizer("18446744073709551615", JSON_TOKEN_UNSIGNED, (uint64_t) UINT64_MAX, JSON_TOKEN_END);
-        test_tokenizer("-9223372036854775808", JSON_TOKEN_INTEGER, (int64_t) INT64_MIN, JSON_TOKEN_END);
-        test_tokenizer("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
-        test_tokenizer("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
-        test_tokenizer("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
-        test_tokenizer("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
-        test_tokenizer("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
-        test_tokenizer("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
-        test_tokenizer("-7e-3", JSON_TOKEN_REAL, (double) -7e-3, JSON_TOKEN_END);
-        test_tokenizer("true", JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_END);
-        test_tokenizer("false", JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_END);
-        test_tokenizer("null", JSON_TOKEN_NULL, JSON_TOKEN_END);
-        test_tokenizer("{}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("\t {\n} \n", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("[]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("\t [] \n\n", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("\"\"", JSON_TOKEN_STRING, "", JSON_TOKEN_END);
-        test_tokenizer("\"foo\"", JSON_TOKEN_STRING, "foo", JSON_TOKEN_END);
-        test_tokenizer("\"foo\\nfoo\"", JSON_TOKEN_STRING, "foo\nfoo", JSON_TOKEN_END);
-        test_tokenizer("{\"foo\" : \"bar\"}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_STRING, "bar", JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("{\"foo\" : [true, false]}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_COMMA, JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("\"\xef\xbf\xbd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
-        test_tokenizer("\"\\ufffd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
-        test_tokenizer("\"\\uf\"", -EINVAL);
-        test_tokenizer("\"\\ud800a\"", -EINVAL);
-        test_tokenizer("\"\\udc00\\udc00\"", -EINVAL);
-        test_tokenizer("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
-
-        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uint64_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uint64_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (int64_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
-
-        test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
-        test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
-        test_variant("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
-
-        test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
-
-        test_build();
-        test_source();
-        test_depth();
-
-        test_normalize();
-        test_bisect();
-        test_float();
-        test_set_field();
-
-        return 0;
+        test_tokenizer_one("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uint64_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uint64_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (int64_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
 }
+
+TEST(variant) {
+        test_variant_one("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
+        test_variant_one("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
+        test_variant_one("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
+
+        test_variant_one("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

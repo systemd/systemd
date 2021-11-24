@@ -9,7 +9,7 @@
 #include "random-util.h"
 #include "tests.h"
 
-static void test_alloca(void) {
+TEST(alloca) {
         static const uint8_t zero[997] = { };
         char *t;
 
@@ -22,7 +22,7 @@ static void test_alloca(void) {
         assert_se(!memcmp(t, zero, 997));
 }
 
-static void test_GREEDY_REALLOC(void) {
+TEST(GREEDY_REALLOC) {
         _cleanup_free_ int *a = NULL, *b = NULL;
         size_t i, j;
 
@@ -55,7 +55,7 @@ static void test_GREEDY_REALLOC(void) {
                 assert_se(b[j] == (int) j);
 }
 
-static void test_memdup_multiply_and_greedy_realloc(void) {
+TEST(memdup_multiply_and_greedy_realloc) {
         static const int org[] = { 1, 2, 3 };
         _cleanup_free_ int *dup;
         size_t i;
@@ -90,7 +90,7 @@ static void test_memdup_multiply_and_greedy_realloc(void) {
                 assert_se(p[i] == 0);
 }
 
-static void test_bool_assign(void) {
+TEST(bool_assign) {
         bool b, c, *cp = &c, d, e, f, g, h;
 
         b = 123;
@@ -125,7 +125,7 @@ static void cleanup3(void *a) {
         assert_se(++cleanup_counter == *(int*) a);
 }
 
-static void test_cleanup_order(void) {
+TEST(cleanup_order) {
         _cleanup_(cleanup1) int x1 = 4, x2 = 3;
         _cleanup_(cleanup3) int z = 2;
         _cleanup_(cleanup2) int y = 1;
@@ -135,7 +135,7 @@ static void test_cleanup_order(void) {
         log_debug("z: %p", &z);
 }
 
-static void test_auto_erase_memory(void) {
+TEST(auto_erase_memory) {
         _cleanup_(erase_and_freep) uint8_t *p1, *p2;
 
         /* print address of p2, else e.g. clang-11 will optimize it out */
@@ -165,7 +165,7 @@ static void test_auto_erase_memory(void) {
                 assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n); \
         } while(false)
 
-static void test_malloc_size_safe(void) {
+TEST(malloc_size_safe) {
         _cleanup_free_ uint32_t *f = NULL;
         size_t n = 4711;
 
@@ -191,16 +191,4 @@ static void test_malloc_size_safe(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_alloca();
-        test_GREEDY_REALLOC();
-        test_memdup_multiply_and_greedy_realloc();
-        test_bool_assign();
-        test_cleanup_order();
-        test_auto_erase_memory();
-        test_malloc_size_safe();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

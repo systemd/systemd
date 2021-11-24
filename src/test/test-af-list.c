@@ -4,6 +4,7 @@
 
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 _unused_
@@ -13,11 +14,8 @@ static const struct af_name* lookup_af(register const char *str, register GPERF_
 #include "af-list.h"
 #include "af-to-name.h"
 
-int main(int argc, const char *argv[]) {
-
-        unsigned i;
-
-        for (i = 0; i < ELEMENTSOF(af_names); i++) {
+TEST(af_list) {
+        for (unsigned i = 0; i < ELEMENTSOF(af_names); i++) {
                 if (af_names[i]) {
                         assert_se(streq(af_to_name(i), af_names[i]));
                         assert_se(af_from_name(af_names[i]) == (int) i);
@@ -28,6 +26,6 @@ int main(int argc, const char *argv[]) {
         assert_se(af_to_name(-1) == NULL);
         assert_se(af_from_name("huddlduddl") == -EINVAL);
         assert_se(af_from_name("") == -EINVAL);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);
