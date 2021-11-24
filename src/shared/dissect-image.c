@@ -3081,15 +3081,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 UID_INVALID,
                                 DISSECT_IMAGE_READ_ONLY|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_VALIDATE_OS|
-                                DISSECT_IMAGE_VALIDATE_OS_EXT|
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
-                        /* Let parent know the error */
-                        (void) write(error_pipe[1], &r, sizeof(r));
-
                         log_debug_errno(r, "Failed to mount dissected image: %m");
-                        _exit(EXIT_FAILURE);
+                        goto inner_fail;
                 }
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
@@ -3168,6 +3163,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 _exit(EXIT_SUCCESS);
 
         inner_fail:
+                /* Let parent know the error */
                 (void) write(error_pipe[1], &r, sizeof(r));
                 _exit(EXIT_FAILURE);
         }
@@ -3193,7 +3189,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 case META_HOSTNAME:
                         r = read_etc_hostname_stream(f, &hostname);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/hostname: %m");
+                                log_debug_errno(r, "Failed to read /etc/hostname of image: %m");
 
                         break;
 
@@ -3202,17 +3198,17 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         r = read_line(f, LONG_LINE_MAX, &line);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-id: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-id of image: %m");
                         else if (r == 33) {
                                 r = sd_id128_from_string(line, &machine_id);
                                 if (r < 0)
                                         log_debug_errno(r, "Image contains invalid /etc/machine-id: %s", line);
                         } else if (r == 0)
-                                log_debug("/etc/machine-id file is empty.");
+                                log_debug("/etc/machine-id file of image is empty.");
                         else if (streq(line, "uninitialized"))
-                                log_debug("/etc/machine-id file is uninitialized (likely aborted first boot).");
+                                log_debug("/etc/machine-id file of image is uninitialized (likely aborted first boot).");
                         else
-                                log_debug("/etc/machine-id has unexpected length %i.", r);
+                                log_debug("/etc/machine-id file of image has unexpected length %i.", r);
 
                         break;
                 }
@@ -3220,21 +3216,21 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 case META_MACHINE_INFO:
                         r = load_env_file_pairs(f, "machine-info", &machine_info);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-info: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-info of image: %m");
 
                         break;
 
                 case META_OS_RELEASE:
                         r = load_env_file_pairs(f, "os-release", &os_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read OS release file: %m");
+                                log_debug_errno(r, "Failed to read OS release file of image: %m");
 
                         break;
 
                 case META_EXTENSION_RELEASE:
                         r = load_env_file_pairs(f, "extension-release", &extension_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read extension release file: %m");
+                                log_debug_errno(r, "Failed to read extension release file of image: %m");
 
                         break;
 
@@ -3312,28 +3308,31 @@ int dissect_image_and_warn(
                 return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
 
         case -ENOPKG:
-                return log_error_errno(r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
+                return log_error_errno(r, "%s: Couldn't identify a suitable partition table or file system.", name);
+
+        case -ENOMEDIUM:
+                return log_error_errno(r, "%s: The image does not pass validation.", name);
 
         case -EADDRNOTAVAIL:
-                return log_error_errno(r, "No root partition for specified root hash found in '%s'.", name);
+                return log_error_errno(r, "%s: No root partition for specified root hash found.", name);
 
         case -ENOTUNIQ:
-                return log_error_errno(r, "Multiple suitable root partitions found in image '%s'.", name);
+                return log_error_errno(r, "%s: Multiple suitable root partitions found in image.", name);
 
         case -ENXIO:
-                return log_error_errno(r, "No suitable root partition found in image '%s'.", name);
+                return log_error_errno(r, "%s: No suitable root partition found in image.", name);
 
         case -EPROTONOSUPPORT:
                 return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
+
+        case -ENOTBLK:
+                return log_error_errno(r, "%s: Image is not a block device.", name);
 
         case -EBADR:
                 return log_error_errno(r,
                                        "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
                                        "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
                                        name, strna(verity ? verity->data_path : NULL));
-
-        case -ENOTBLK:
-                return log_error_errno(r, "Specified image '%s' is not a block device.", name);
 
         default:
                 if (r < 0)
