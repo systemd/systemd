@@ -726,32 +726,38 @@ static void test_pid_to_ptr(void) {
         assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
 }
 
-static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
+static void test_ioprio_class_from_to_string_one(const char *val, int expected, int normalized) {
         assert_se(ioprio_class_from_string(val) == expected);
         if (expected >= 0) {
                 _cleanup_free_ char *s = NULL;
                 unsigned ret;
+                int combined;
 
                 assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
-                /* We sometimes get a class number and sometimes a number back */
+                /* We sometimes get a class number and sometimes a name back */
                 assert_se(streq(s, val) ||
                           safe_atou(val, &ret) == 0);
+
+                /* Make sure normalization works, i.e. NONE → BE gets normalized */
+                combined = ioprio_normalize(ioprio_prio_value(expected, 0));
+                assert_se(ioprio_prio_class(combined) == normalized);
+                assert_se(expected != IOPRIO_CLASS_NONE || ioprio_prio_data(combined) == 4);
         }
 }
 
 static void test_ioprio_class_from_to_string(void) {
         log_info("/* %s */", __func__);
 
-        test_ioprio_class_from_to_string_one("none", IOPRIO_CLASS_NONE);
-        test_ioprio_class_from_to_string_one("realtime", IOPRIO_CLASS_RT);
-        test_ioprio_class_from_to_string_one("best-effort", IOPRIO_CLASS_BE);
-        test_ioprio_class_from_to_string_one("idle", IOPRIO_CLASS_IDLE);
-        test_ioprio_class_from_to_string_one("0", 0);
-        test_ioprio_class_from_to_string_one("1", 1);
-        test_ioprio_class_from_to_string_one("7", 7);
-        test_ioprio_class_from_to_string_one("8", 8);
-        test_ioprio_class_from_to_string_one("9", -EINVAL);
-        test_ioprio_class_from_to_string_one("-1", -EINVAL);
+        test_ioprio_class_from_to_string_one("none", IOPRIO_CLASS_NONE, IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("realtime", IOPRIO_CLASS_RT, IOPRIO_CLASS_RT);
+        test_ioprio_class_from_to_string_one("best-effort", IOPRIO_CLASS_BE, IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("idle", IOPRIO_CLASS_IDLE, IOPRIO_CLASS_IDLE);
+        test_ioprio_class_from_to_string_one("0", IOPRIO_CLASS_NONE, IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("1", 1, 1);
+        test_ioprio_class_from_to_string_one("7", 7, 7);
+        test_ioprio_class_from_to_string_one("8", 8, 8);
+        test_ioprio_class_from_to_string_one("9", -EINVAL, -EINVAL);
+        test_ioprio_class_from_to_string_one("-1", -EINVAL, -EINVAL);
 }
 
 static void test_setpriority_closest(void) {
