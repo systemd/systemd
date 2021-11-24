@@ -22,7 +22,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_close_many(void) {
+TEST(close_many) {
         int fds[3];
         char name0[] = "/tmp/test-close-many.XXXXXX";
         char name1[] = "/tmp/test-close-many.XXXXXX";
@@ -45,7 +45,7 @@ static void test_close_many(void) {
         unlink(name2);
 }
 
-static void test_close_nointr(void) {
+TEST(close_nointr) {
         char name[] = "/tmp/test-test-close_nointr.XXXXXX";
         int fd;
 
@@ -57,7 +57,7 @@ static void test_close_nointr(void) {
         unlink(name);
 }
 
-static void test_same_fd(void) {
+TEST(same_fd) {
         _cleanup_close_pair_ int p[2] = { -1, -1 };
         _cleanup_close_ int a = -1, b = -1, c = -1;
 
@@ -91,7 +91,7 @@ static void test_same_fd(void) {
         assert_se(same_fd(b, a) == 0);
 }
 
-static void test_open_serialization_fd(void) {
+TEST(open_serialization_fd) {
         _cleanup_close_ int fd = -1;
 
         fd = open_serialization_fd("test");
@@ -100,7 +100,7 @@ static void test_open_serialization_fd(void) {
         assert_se(write(fd, "test\n", 5) == 5);
 }
 
-static void test_fd_move_above_stdio(void) {
+TEST(fd_move_above_stdio) {
         int original_stdin, new_fd;
 
         original_stdin = fcntl(0, F_DUPFD, 3);
@@ -118,7 +118,7 @@ static void test_fd_move_above_stdio(void) {
         assert_se(close_nointr(new_fd) != EBADF);
 }
 
-static void test_rearrange_stdio(void) {
+TEST(rearrange_stdio) {
         pid_t pid;
         int r;
 
@@ -184,7 +184,7 @@ static void test_rearrange_stdio(void) {
         }
 }
 
-static void test_read_nr_open(void) {
+TEST(read_nr_open) {
         log_info("nr-open: %i", read_nr_open());
 }
 
@@ -318,7 +318,7 @@ static int seccomp_prohibit_close_range(void) {
 #endif
 }
 
-static void test_close_all_fds(void) {
+TEST(close_all_fds) {
         int r;
 
         /* Runs the test four times. Once as is. Once with close_range() syscall blocked via seccomp, once
@@ -384,7 +384,7 @@ static void test_close_all_fds(void) {
         assert_se(r >= 0);
 }
 
-static void test_format_proc_fd_path(void) {
+TEST(format_proc_fd_path) {
         assert_se(streq_ptr(FORMAT_PROC_FD_PATH(0), "/proc/self/fd/0"));
         assert_se(streq_ptr(FORMAT_PROC_FD_PATH(1), "/proc/self/fd/1"));
         assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2), "/proc/self/fd/2"));
@@ -392,7 +392,7 @@ static void test_format_proc_fd_path(void) {
         assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647"));
 }
 
-static void test_fd_reopen(void) {
+TEST(fd_reopen) {
         _cleanup_close_ int fd1 = -1, fd2 = -1;
         struct stat st1, st2;
         int fl;
@@ -487,11 +487,9 @@ static void test_fd_reopen(void) {
         fd1 = -1;
 }
 
-static void test_take_fd(void) {
+TEST(take_fd) {
         _cleanup_close_ int fd1 = -1, fd2 = -1;
         int array[2] = { -1, -1 }, i = 0;
-
-        log_info("/* %s */", __func__);
 
         assert_se(fd1 == -1);
         assert_se(fd2 == -1);
@@ -528,21 +526,4 @@ static void test_take_fd(void) {
         assert_se(array[1] == -1);
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_close_many();
-        test_close_nointr();
-        test_same_fd();
-        test_open_serialization_fd();
-        test_fd_move_above_stdio();
-        test_rearrange_stdio();
-        test_read_nr_open();
-        test_close_all_fds();
-        test_format_proc_fd_path();
-        test_fd_reopen();
-        test_take_fd();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

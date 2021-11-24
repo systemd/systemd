@@ -20,11 +20,9 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_mount_option_mangle(void) {
+TEST(mount_option_mangle) {
         char *opts = NULL;
         unsigned long f;
-
-        log_info("/* %s */", __func__);
 
         assert_se(mount_option_mangle(NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID));
@@ -91,9 +89,7 @@ static void test_mount_flags_to_string_one(unsigned long flags, const char *expe
         assert_se(streq(x, expected));
 }
 
-static void test_mount_flags_to_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(mount_flags_to_string) {
         test_mount_flags_to_string_one(0, "0");
         test_mount_flags_to_string_one(MS_RDONLY, "MS_RDONLY");
         test_mount_flags_to_string_one(MS_NOSUID, "MS_NOSUID");
@@ -129,12 +125,10 @@ static void test_mount_flags_to_string(void) {
                                        "MS_I_VERSION|MS_STRICTATIME|MS_LAZYTIME|fc000200");
 }
 
-static void test_bind_remount_recursive(void) {
+TEST(bind_remount_recursive) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_free_ char *subdir = NULL;
         const char *p;
-
-        log_info("/* %s */", __func__);
 
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 (void) log_tests_skipped("not running privileged");
@@ -186,10 +180,8 @@ static void test_bind_remount_recursive(void) {
         }
 }
 
-static void test_bind_remount_one(void) {
+TEST(bind_remount_one) {
         pid_t pid;
-
-        log_info("/* %s */", __func__);
 
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 (void) log_tests_skipped("not running privileged");
@@ -220,12 +212,10 @@ static void test_bind_remount_one(void) {
         assert_se(wait_for_terminate_and_check("test-remount-one", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-static void test_make_mount_point_inode(void) {
+TEST(make_mount_point_inode) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         const char *src_file, *src_dir, *dst_file, *dst_dir;
         struct stat st;
-
-        log_info("/* %s */", __func__);
 
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);
 
@@ -266,14 +256,4 @@ static void test_make_mount_point_inode(void) {
         assert_se(!(S_IXOTH & st.st_mode));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_mount_option_mangle();
-        test_mount_flags_to_string();
-        test_bind_remount_recursive();
-        test_bind_remount_one();
-        test_make_mount_point_inode();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
