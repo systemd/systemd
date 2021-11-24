@@ -1708,7 +1708,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UID: {
-                _cleanup_free_ char *p = NULL;
+                char *p;
 
                 if (!uid_is_valid(d->uid))
                         return "n/a";
@@ -1716,14 +1716,14 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 p = new(char, DECIMAL_STR_WIDTH(d->uid) + 1);
                 if (!p)
                         return NULL;
-
                 sprintf(p, UID_FMT, d->uid);
-                d->formatted = TAKE_PTR(p);
+
+                d->formatted = p;
                 break;
         }
 
         case TABLE_GID: {
-                _cleanup_free_ char *p = NULL;
+                char *p;
 
                 if (!gid_is_valid(d->gid))
                         return "n/a";
@@ -1731,14 +1731,14 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 p = new(char, DECIMAL_STR_WIDTH(d->gid) + 1);
                 if (!p)
                         return NULL;
-
                 sprintf(p, GID_FMT, d->gid);
-                d->formatted = TAKE_PTR(p);
+
+                d->formatted = p;
                 break;
         }
 
         case TABLE_PID: {
-                _cleanup_free_ char *p = NULL;
+                char *p;
 
                 if (!pid_is_valid(d->pid))
                         return "n/a";
@@ -1746,15 +1746,15 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 p = new(char, DECIMAL_STR_WIDTH(d->pid) + 1);
                 if (!p)
                         return NULL;
-
                 sprintf(p, PID_FMT, d->pid);
-                d->formatted = TAKE_PTR(p);
+
+                d->formatted = p;
                 break;
         }
 
         case TABLE_SIGNAL: {
-                _cleanup_free_ char *p = NULL;
                 const char *suffix;
+                char *p;
 
                 suffix = signal_to_string(d->int_val);
                 if (!suffix)
@@ -1764,12 +1764,12 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 if (!p)
                         return NULL;
 
-                d->formatted = TAKE_PTR(p);
+                d->formatted = p;
                 break;
         }
 
         case TABLE_MODE: {
-                _cleanup_free_ char *p = NULL;
+                char *p;
 
                 if (d->mode == MODE_INVALID)
                         return "n/a";
@@ -1779,7 +1779,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 sprintf(p, "%04o", d->mode & 07777);
-                d->formatted = TAKE_PTR(p);
+                d->formatted = p;
                 break;
         }
 
