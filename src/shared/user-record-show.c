@@ -137,10 +137,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         break;
                 }
                 if (strv_contains(hr->hashed_password, "")) {
-                        printf(" Password OK: %sno%s (empty set)\n",
-                               user_record_disposition(hr) == USER_REGULAR ? ansi_highlight_yellow() :
-                                                                             ansi_highlight(),
-                               ansi_normal());
+                        printf(" Password OK: %sno%s (empty set)\n", ansi_highlight_red(), ansi_normal());
                         break;
                 }
                 bool has_valid_passwords = false;
