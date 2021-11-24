@@ -15,12 +15,12 @@
 #endif
 
 #define _GPT_ARCH_SEXTET(arch, name)                                   \
-        { GPT_ROOT_##arch,              "root-" name               },  \
-        { GPT_ROOT_##arch##_VERITY,     "root-" name "-verity"     },  \
-        { GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig" },  \
-        { GPT_USR_##arch,               "usr-" name                },  \
-        { GPT_USR_##arch##_VERITY,      "usr-" name "-verity"      },  \
-        { GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig"  }
+        { GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch },  \
+        { GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch },  \
+        { GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig", ARCHITECTURE_##arch },  \
+        { GPT_USR_##arch,               "usr-" name,                ARCHITECTURE_##arch },  \
+        { GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch },  \
+        { GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch }
 
 const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
@@ -28,12 +28,21 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ARM,         "arm"),
         _GPT_ARCH_SEXTET(ARM64,       "arm64"),
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
-        _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
+
+        /* TODO: Replace with `_GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64")` once
+         * https://github.com/systemd/systemd/pull/21288 is merged. */
+        { GPT_ROOT_LOONGARCH64,            "root",            _ARCHITECTURE_INVALID },
+        { GPT_ROOT_LOONGARCH64_VERITY,     "root-verity",     _ARCHITECTURE_INVALID },
+        { GPT_ROOT_LOONGARCH64_VERITY_SIG, "root-verity-sig", _ARCHITECTURE_INVALID },
+        { GPT_USR_LOONGARCH64,             "usr",             _ARCHITECTURE_INVALID },
+        { GPT_USR_LOONGARCH64_VERITY,      "usr-verity",      _ARCHITECTURE_INVALID },
+        { GPT_USR_LOONGARCH64_VERITY_SIG,  "usr-verity-sig",  _ARCHITECTURE_INVALID },
+
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
-        _GPT_ARCH_SEXTET(PPC64LE,     "ppc64-le"),
+        _GPT_ARCH_SEXTET(PPC64_LE,     "ppc64-le"),
         _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
@@ -42,26 +51,26 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(X86,         "x86"),
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
 #ifdef GPT_ROOT_NATIVE
-        { GPT_ROOT_NATIVE,            "root"                       },
-        { GPT_ROOT_NATIVE_VERITY,     "root-verity"                },
-        { GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig"            },
-        { GPT_USR_NATIVE,             "usr"                        },
-        { GPT_USR_NATIVE_VERITY,      "usr-verity"                 },
-        { GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig"             },
+        { GPT_ROOT_NATIVE,            "root",            native_architecture() },
+        { GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture() },
+        { GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture() },
+        { GPT_USR_NATIVE,             "usr",             native_architecture() },
+        { GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture() },
+        { GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture() },
 #endif
 #ifdef GPT_ROOT_SECONDARY
         _GPT_ARCH_SEXTET(SECONDARY,   "secondary"),
 #endif
 
-        { GPT_ESP,                    "esp"                        },
-        { GPT_XBOOTLDR,               "xbootldr"                   },
-        { GPT_SWAP,                   "swap"                       },
-        { GPT_HOME,                   "home"                       },
-        { GPT_SRV,                    "srv"                        },
-        { GPT_VAR,                    "var"                        },
-        { GPT_TMP,                    "tmp"                        },
-        { GPT_USER_HOME,              "user-home"                  },
-        { GPT_LINUX_GENERIC,          "linux-generic"              },
+        { GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID },
+        { GPT_XBOOTLDR,               "xbootldr",      _ARCHITECTURE_INVALID },
+        { GPT_SWAP,                   "swap",          _ARCHITECTURE_INVALID },
+        { GPT_HOME,                   "home",          _ARCHITECTURE_INVALID },
+        { GPT_SRV,                    "srv",           _ARCHITECTURE_INVALID },
+        { GPT_VAR,                    "var",           _ARCHITECTURE_INVALID },
+        { GPT_TMP,                    "tmp",           _ARCHITECTURE_INVALID },
+        { GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID },
+        { GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID },
         {}
 };
 
@@ -76,7 +85,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         GPT_##type##_MIPS64_LE##suffix,                 \
         GPT_##type##_PPC##suffix,                       \
         GPT_##type##_PPC64##suffix,                     \
-        GPT_##type##_PPC64LE##suffix,                   \
+        GPT_##type##_PPC64_LE##suffix,                  \
         GPT_##type##_RISCV32##suffix,                   \
         GPT_##type##_RISCV64##suffix,                   \
         GPT_##type##_S390##suffix,                      \
@@ -121,6 +130,14 @@ int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret) {
         return sd_id128_from_string(s, ret);
 }
 
+Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {
+        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
+                if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
+                        return gpt_partition_type_table[i].arch;
+
+        return _ARCHITECTURE_INVALID;
+}
+
 int gpt_partition_label_valid(const char *s) {
         _cleanup_free_ char16_t *recoded = NULL;
 
@@ -139,12 +156,20 @@ bool gpt_partition_type_is_root_verity(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT, _VERITY));
 }
 
+bool gpt_partition_type_is_root_verity_sig(sd_id128_t id) {
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(ROOT, _VERITY_SIG));
+}
+
 bool gpt_partition_type_is_usr(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR,));
 }
 
 bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
         return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR, _VERITY));
+}
+
+bool gpt_partition_type_is_usr_verity_sig(sd_id128_t id) {
+        return sd_id128_in_set(id, _GPT_ALL_ARCHES(USR, _VERITY_SIG));
 }
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
