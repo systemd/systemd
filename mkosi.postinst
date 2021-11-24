@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if command -vq bootctl; then
+    bootctl install
+fi
