@@ -3190,7 +3190,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 case META_HOSTNAME:
                         r = read_etc_hostname_stream(f, &hostname);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/hostname: %m");
+                                log_debug_errno(r, "Failed to read /etc/hostname of image: %m");
 
                         break;
 
@@ -3199,17 +3199,17 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         r = read_line(f, LONG_LINE_MAX, &line);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-id: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-id of image: %m");
                         else if (r == 33) {
                                 r = sd_id128_from_string(line, &machine_id);
                                 if (r < 0)
                                         log_debug_errno(r, "Image contains invalid /etc/machine-id: %s", line);
                         } else if (r == 0)
-                                log_debug("/etc/machine-id file is empty.");
+                                log_debug("/etc/machine-id file of image is empty.");
                         else if (streq(line, "uninitialized"))
-                                log_debug("/etc/machine-id file is uninitialized (likely aborted first boot).");
+                                log_debug("/etc/machine-id file of image is uninitialized (likely aborted first boot).");
                         else
-                                log_debug("/etc/machine-id has unexpected length %i.", r);
+                                log_debug("/etc/machine-id file of image has unexpected length %i.", r);
 
                         break;
                 }
@@ -3217,21 +3217,21 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 case META_MACHINE_INFO:
                         r = load_env_file_pairs(f, "machine-info", &machine_info);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-info: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-info of image: %m");
 
                         break;
 
                 case META_OS_RELEASE:
                         r = load_env_file_pairs(f, "os-release", &os_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read OS release file: %m");
+                                log_debug_errno(r, "Failed to read OS release file of image: %m");
 
                         break;
 
                 case META_EXTENSION_RELEASE:
                         r = load_env_file_pairs(f, "extension-release", &extension_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read extension release file: %m");
+                                log_debug_errno(r, "Failed to read extension release file of image: %m");
 
                         break;
 
