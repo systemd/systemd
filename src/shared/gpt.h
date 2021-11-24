@@ -295,6 +295,13 @@ typedef struct GptPartitionType {
         sd_id128_t uuid;
         const char *name;
         Architecture arch;
+
+        bool is_root:1;
+        bool is_root_verity:1;
+        bool is_root_verity_sig:1;
+        bool is_usr:1;
+        bool is_usr_verity:1;
+        bool is_usr_verity_sig:1;
 } GptPartitionType;
 
 extern const GptPartitionType gpt_partition_type_table[];
@@ -303,8 +310,10 @@ int gpt_partition_label_valid(const char *s);
 
 bool gpt_partition_type_is_root(sd_id128_t id);
 bool gpt_partition_type_is_root_verity(sd_id128_t id);
+bool gpt_partition_type_is_root_verity_sig(sd_id128_t id);
 bool gpt_partition_type_is_usr(sd_id128_t id);
 bool gpt_partition_type_is_usr_verity(sd_id128_t id);
+bool gpt_partition_type_is_usr_verity_sig(sd_id128_t id);
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id);
 bool gpt_partition_type_knows_growfs(sd_id128_t id);
