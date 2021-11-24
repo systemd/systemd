@@ -3,6 +3,7 @@
 Description=Test for IOSchedulingClass=none
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "none"'
+# Old kernels might report "none" here, new kernels "best-effort".
+ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "none" -o "$${c%%:*}" = "best-effort"'
 Type=oneshot
 IOSchedulingClass=none
