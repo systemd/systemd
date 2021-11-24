@@ -2848,7 +2848,6 @@ if conf.get('ENABLE_PSTORE') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libacl,
-                                libdw,
                                 libxz,
                                 liblz4,
                                 libzstd],
