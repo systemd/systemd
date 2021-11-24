@@ -19,6 +19,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "ioprio-util.h"
 #include "ip-protocol-list.h"
 #include "libmount-util.h"
 #include "locale-util.h"

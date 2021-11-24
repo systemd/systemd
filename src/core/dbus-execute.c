@@ -24,6 +24,7 @@
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "ioprio-util.h"
 #include "journal-file.h"
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
