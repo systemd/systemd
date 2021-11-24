@@ -292,7 +292,7 @@ static void test_close_all_fds_inner(void) {
 }
 
 static int seccomp_prohibit_close_range(void) {
-#if defined(HAVE_SECCOMP) && defined(__SNR_close_range)
+#if HAVE_SECCOMP && defined(__SNR_close_range)
         _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
         int r;
 

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_SECCOMP
+
 #include <seccomp.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -152,3 +154,11 @@ static inline const char *seccomp_errno_or_action_to_string(int num) {
 int parse_syscall_and_errno(const char *in, char **name, int *error);
 
 int seccomp_suppress_sync(void);
+
+#else
+
+static inline bool is_seccomp_available(void) {
+        return false;
+}
+
+#endif
