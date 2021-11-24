@@ -131,18 +131,19 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf(" Password OK: %sno%s (%m)\n", ansi_highlight_yellow(), ansi_normal());
                         break;
                 }
+
                 if (strv_isempty(hr->hashed_password)) {
                         printf(" Password OK: %sno%s (none set)\n", ansi_highlight(), ansi_normal());
                         break;
                 }
                 if (strv_contains(hr->hashed_password, "")) {
-                        printf(" Password OK: %sno%s (none set)\n",
+                        printf(" Password OK: %sno%s (empty set)\n",
                                user_record_disposition(hr) == USER_REGULAR ? ansi_highlight_yellow() :
                                                                              ansi_highlight(),
                                ansi_normal());
                         break;
                 }
-                bool has_valid_passwords;
+                bool has_valid_passwords = false;
                 char **p;
                 STRV_FOREACH(p, hr->hashed_password)
                         if (!hashed_password_is_locked_or_invalid(*p)) {
