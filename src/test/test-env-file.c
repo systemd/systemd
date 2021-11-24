@@ -42,7 +42,7 @@
         "a=\n"                                 \
         "b="
 
-static void test_load_env_file_1(void) {
+TEST(load_env_file_1) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
@@ -64,7 +64,7 @@ static void test_load_env_file_1(void) {
         assert_se(data[6] == NULL);
 }
 
-static void test_load_env_file_2(void) {
+TEST(load_env_file_2) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
@@ -81,7 +81,7 @@ static void test_load_env_file_2(void) {
         assert_se(data[1] == NULL);
 }
 
-static void test_load_env_file_3(void) {
+TEST(load_env_file_3) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
@@ -97,7 +97,7 @@ static void test_load_env_file_3(void) {
         assert_se(data == NULL);
 }
 
-static void test_load_env_file_4(void) {
+TEST(load_env_file_4) {
         _cleanup_strv_free_ char **data = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
@@ -115,7 +115,7 @@ static void test_load_env_file_4(void) {
         assert_se(data[3] == NULL);
 }
 
-static void test_load_env_file_5(void) {
+TEST(load_env_file_5) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
@@ -133,7 +133,7 @@ static void test_load_env_file_5(void) {
         assert_se(data[2] == NULL);
 }
 
-static void test_write_and_load_env_file(void) {
+TEST(write_and_load_env_file) {
         const char *v;
 
         /* Make sure that our writer, parser and the shell agree on what our env var files mean */
@@ -173,16 +173,4 @@ static void test_write_and_load_env_file(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_load_env_file_1();
-        test_load_env_file_2();
-        test_load_env_file_3();
-        test_load_env_file_4();
-        test_load_env_file_5();
-
-        test_write_and_load_env_file();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);
