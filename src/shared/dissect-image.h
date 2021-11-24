@@ -208,7 +208,7 @@ int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphr
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 
-int dissected_image_acquire_metadata(DissectedImage *m);
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);

@@ -433,7 +433,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
 
-        r = dissected_image_acquire_metadata(m);
+        r = dissected_image_acquire_metadata(m, 0);
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
         if (r == -EUCLEAN)
