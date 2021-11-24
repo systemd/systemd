@@ -12,7 +12,7 @@
 
 char long_string[LONG_LINE_MAX+1];
 
-static void test_serialize_item(void) {
+TEST(serialize_item) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
@@ -37,7 +37,7 @@ static void test_serialize_item(void) {
         assert_se(streq(line3, ""));
 }
 
-static void test_serialize_item_escaped(void) {
+TEST(serialize_item_escaped) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
@@ -62,7 +62,7 @@ static void test_serialize_item_escaped(void) {
         assert_se(streq(line3, ""));
 }
 
-static void test_serialize_usec(void) {
+TEST(serialize_usec) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
@@ -89,7 +89,7 @@ static void test_serialize_usec(void) {
         assert_se(x == USEC_INFINITY-1);
 }
 
-static void test_serialize_strv(void) {
+TEST(serialize_strv) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
@@ -133,10 +133,8 @@ static void test_serialize_strv(void) {
         assert_se(strv_equal(strv, strv2));
 }
 
-static void test_deserialize_environment(void) {
+TEST(deserialize_environment) {
         _cleanup_strv_free_ char **env;
-
-        log_info("/* %s */", __func__);
 
         assert_se(env = strv_new("A=1"));
 
@@ -149,7 +147,7 @@ static void test_deserialize_environment(void) {
         assert_se(deserialize_environment("bar\\_baz", &env) < 0);
 }
 
-static void test_serialize_environment(void) {
+TEST(serialize_environment) {
         _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-env-util.XXXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
@@ -191,18 +189,10 @@ static void test_serialize_environment(void) {
         assert_se(strv_equal(env, env2));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        memset(long_string, 'x', sizeof(long_string)-1);
-        char_array_0(long_string);
-
-        test_serialize_item();
-        test_serialize_item_escaped();
-        test_serialize_usec();
-        test_serialize_strv();
-        test_deserialize_environment();
-        test_serialize_environment();
-
-        return EXIT_SUCCESS;
-}
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_INFO,
+        ({
+                memset(long_string, 'x', sizeof(long_string)-1);
+                char_array_0(long_string);
+        }),
+        /* no outro */);

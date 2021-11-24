@@ -4,9 +4,10 @@
 
 #include "macro.h"
 #include "ratelimit.h"
+#include "tests.h"
 #include "time-util.h"
 
-static void test_ratelimit_below(void) {
+TEST(ratelimit_below) {
         int i;
         RateLimit ratelimit = { 1 * USEC_PER_SEC, 10 };
 
@@ -22,8 +23,4 @@ static void test_ratelimit_below(void) {
                 assert_se(ratelimit_below(&ratelimit));
 }
 
-int main(int argc, char *argv[]) {
-        test_ratelimit_below();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

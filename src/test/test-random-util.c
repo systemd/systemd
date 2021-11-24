@@ -9,10 +9,10 @@
 #include "terminal-util.h"
 #include "tests.h"
 
-static void test_genuine_random_bytes(RandomFlags flags) {
+static void test_genuine_random_bytes_one(RandomFlags flags) {
         uint8_t buf[16] = {};
 
-        log_info("/* %s */", __func__);
+        log_info("/* %s(%d) */", __func__, flags);
 
         for (size_t i = 1; i < sizeof buf; i++) {
                 assert_se(genuine_random_bytes(buf, i, flags) == 0);
@@ -23,10 +23,16 @@ static void test_genuine_random_bytes(RandomFlags flags) {
         }
 }
 
-static void test_pseudo_random_bytes(void) {
-        uint8_t buf[16] = {};
+TEST(genuine_random_bytes) {
+        test_genuine_random_bytes_one(RANDOM_EXTEND_WITH_PSEUDO);
+        test_genuine_random_bytes_one(0);
+        test_genuine_random_bytes_one(RANDOM_BLOCK);
+        test_genuine_random_bytes_one(RANDOM_ALLOW_RDRAND);
+        test_genuine_random_bytes_one(RANDOM_ALLOW_INSECURE);
+}
 
-        log_info("/* %s */", __func__);
+TEST(pseudo_random_bytes) {
+        uint8_t buf[16] = {};
 
         for (size_t i = 1; i < sizeof buf; i++) {
                 pseudo_random_bytes(buf, i);
@@ -37,10 +43,8 @@ static void test_pseudo_random_bytes(void) {
         }
 }
 
-static void test_rdrand(void) {
+TEST(rdrand) {
         int r;
-
-        log_info("/* %s */", __func__);
 
         for (unsigned i = 0; i < 10; i++) {
                 unsigned long x = 0;
@@ -93,23 +97,9 @@ static void test_random_u64_range_one(unsigned mod) {
         }
 }
 
-static void test_random_u64_range(void) {
+TEST(random_u64_range) {
         for (unsigned mod = 1; mod < 29; mod++)
                 test_random_u64_range_one(mod);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_genuine_random_bytes(RANDOM_EXTEND_WITH_PSEUDO);
-        test_genuine_random_bytes(0);
-        test_genuine_random_bytes(RANDOM_BLOCK);
-        test_genuine_random_bytes(RANDOM_ALLOW_RDRAND);
-        test_genuine_random_bytes(RANDOM_ALLOW_INSECURE);
-
-        test_pseudo_random_bytes();
-        test_rdrand();
-        test_random_u64_range();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

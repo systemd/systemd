@@ -4,8 +4,9 @@
 #include "gcrypt-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 
-static void test_string_hashsum(void) {
+TEST(string_hashsum) {
         _cleanup_free_ char *out1 = NULL, *out2 = NULL, *out3 = NULL, *out4 = NULL;
 
         assert_se(string_hashsum("asdf", 4, GCRY_MD_SHA224, &out1) == 0);
@@ -25,8 +26,4 @@ static void test_string_hashsum(void) {
         assert_se(streq(out4, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
 }
 
-int main(int argc, char **argv) {
-        test_string_hashsum();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

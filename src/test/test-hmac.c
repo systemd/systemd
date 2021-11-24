@@ -9,11 +9,9 @@ static void hmac_sha256_by_string(const char *key, const char *value, uint8_t re
         hmac_sha256(key, strlen(key), value, strlen(value), res);
 }
 
-static void test_hmac(void) {
+TEST(hmac) {
     uint8_t result[SHA256_DIGEST_SIZE];
     char *hex_result = NULL;
-
-    log_info("/* %s */", __func__);
 
     /* Results compared with output of 'echo -n "<input>" | openssl dgst -sha256 -hmac "<key>"' */
 
@@ -67,10 +65,4 @@ static void test_hmac(void) {
     hex_result = mfree(hex_result);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_hmac();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

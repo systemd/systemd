@@ -3,10 +3,8 @@
 #include "emergency-action.h"
 #include "tests.h"
 
-static void test_parse_emergency_action(void) {
+TEST(parse_emergency_action) {
         EmergencyAction x;
-
-        log_info("/* %s */", __func__);
 
         assert_se(parse_emergency_action("none", false, &x) == 0);
         assert_se(x == EMERGENCY_ACTION_NONE);
@@ -42,10 +40,4 @@ static void test_parse_emergency_action(void) {
         assert_se(x == EMERGENCY_ACTION_EXIT_FORCE);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_parse_emergency_action();
-
-        return EXIT_SUCCESS;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

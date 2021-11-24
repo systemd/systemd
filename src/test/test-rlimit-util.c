@@ -8,9 +8,10 @@
 #include "missing_resource.h"
 #include "rlimit-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 
-static void test_rlimit_parse_format(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
+static void test_rlimit_parse_format_one(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;
         struct rlimit rl = {
                 .rlim_cur = 4711,
@@ -34,37 +35,48 @@ static void test_rlimit_parse_format(int resource, const char *string, rlim_t so
         assert_se(memcmp(&rl, &rl2, sizeof(struct rlimit)) == 0);
 }
 
-int main(int argc, char *argv[]) {
-        struct rlimit old, new, high;
-        struct rlimit err = {
-                .rlim_cur = 10,
-                .rlim_max = 5,
-        };
-        int i;
+TEST(rlimit_parse_format) {
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "4:5", 4, 5, 0, "4:5");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "6", 6, 6, 0, "6");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, 0, "8:infinity");
+        test_rlimit_parse_format_one(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);
+        test_rlimit_parse_format_one(RLIMIT_NICE, "20", 20, 20, 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "40", 40, 40, 0, "40");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "41", 41, 41, -ERANGE, "41");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "0", 0, 0, 0, "0");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-7", 27, 27, 0, "27");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-20", 40, 40, 0, "40");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-21", 41, 41, -ERANGE, "41");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-0", 20, 20, 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+7", 13, 13, 0, "13");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+19", 1, 1, 0, "1");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+20", 0, 0, -ERANGE, "0");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, 0, "20");
+}
 
-        log_parse_environment();
-        log_open();
-
-        assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
-
-        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
-        new.rlim_cur = MIN(5U, old.rlim_max);
-        new.rlim_max = old.rlim_max;
-        assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
-
+TEST(rlimit_from_string) {
         assert_se(rlimit_from_string("NOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string("LimitNOFILE") == -EINVAL);
         assert_se(rlimit_from_string("RLIMIT_NOFILE") == -EINVAL);
         assert_se(rlimit_from_string("xxxNOFILE") == -EINVAL);
         assert_se(rlimit_from_string("DefaultLimitNOFILE") == -EINVAL);
+}
 
+TEST(rlimit_from_string_harder) {
         assert_se(rlimit_from_string_harder("NOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string_harder("LimitNOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string_harder("RLIMIT_NOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string_harder("xxxNOFILE") == -EINVAL);
         assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -EINVAL);
+}
 
-        for (i = 0; i < _RLIMIT_MAX; i++) {
+TEST(rlimit_to_string_all) {
+        for (int i = 0; i < _RLIMIT_MAX; i++) {
                 _cleanup_free_ char *prefixed = NULL;
                 const char *p;
 
@@ -85,6 +97,21 @@ int main(int argc, char *argv[]) {
                 assert_se(rlimit_from_string(prefixed) < 0);
                 assert_se(rlimit_from_string_harder(prefixed) == i);
         }
+}
+
+TEST(setrlimit) {
+        struct rlimit old, new, high;
+        struct rlimit err = {
+                .rlim_cur = 10,
+                .rlim_max = 5,
+        };
+
+        assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
+
+        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
+        new.rlim_cur = MIN(5U, old.rlim_max);
+        new.rlim_max = old.rlim_max;
+        assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
         assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
         assert_se(rlimit_to_string(-1) == NULL);
@@ -107,28 +134,6 @@ int main(int argc, char *argv[]) {
         assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
         assert_se(old.rlim_cur == new.rlim_cur);
         assert_se(old.rlim_max == new.rlim_max);
-
-        test_rlimit_parse_format(RLIMIT_NOFILE, "4:5", 4, 5, 0, "4:5");
-        test_rlimit_parse_format(RLIMIT_NOFILE, "6", 6, 6, 0, "6");
-        test_rlimit_parse_format(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
-        test_rlimit_parse_format(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
-        test_rlimit_parse_format(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, 0, "8:infinity");
-        test_rlimit_parse_format(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
-        test_rlimit_parse_format(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
-        test_rlimit_parse_format(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
-        test_rlimit_parse_format(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);
-        test_rlimit_parse_format(RLIMIT_NICE, "20", 20, 20, 0, "20");
-        test_rlimit_parse_format(RLIMIT_NICE, "40", 40, 40, 0, "40");
-        test_rlimit_parse_format(RLIMIT_NICE, "41", 41, 41, -ERANGE, "41");
-        test_rlimit_parse_format(RLIMIT_NICE, "0", 0, 0, 0, "0");
-        test_rlimit_parse_format(RLIMIT_NICE, "-7", 27, 27, 0, "27");
-        test_rlimit_parse_format(RLIMIT_NICE, "-20", 40, 40, 0, "40");
-        test_rlimit_parse_format(RLIMIT_NICE, "-21", 41, 41, -ERANGE, "41");
-        test_rlimit_parse_format(RLIMIT_NICE, "-0", 20, 20, 0, "20");
-        test_rlimit_parse_format(RLIMIT_NICE, "+7", 13, 13, 0, "13");
-        test_rlimit_parse_format(RLIMIT_NICE, "+19", 1, 1, 0, "1");
-        test_rlimit_parse_format(RLIMIT_NICE, "+20", 0, 0, -ERANGE, "0");
-        test_rlimit_parse_format(RLIMIT_NICE, "+0", 20, 20, 0, "20");
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

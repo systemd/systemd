@@ -18,14 +18,12 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-static void test_print_paths(void) {
+TEST(print_paths) {
         log_info("DEFAULT_PATH=%s", DEFAULT_PATH);
         log_info("DEFAULT_USER_PATH=%s", DEFAULT_USER_PATH);
 }
 
-static void test_path(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path) {
         assert_se(path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
 
@@ -65,11 +63,9 @@ static void test_path_simplify_one(const char *in, const char *out) {
         assert_se(streq(p, out));
 }
 
-static void test_path_simplify(void) {
+TEST(path_simplify) {
         _cleanup_free_ char *hoge = NULL, *hoge_out = NULL;
         char foo[NAME_MAX * 2];
-
-        log_info("/* %s */", __func__);
 
         test_path_simplify_one("", "");
         test_path_simplify_one("aaa/bbb////ccc", "aaa/bbb/ccc");
@@ -127,9 +123,7 @@ static void test_path_compare_one(const char *a, const char *b, int expected) {
         assert_se(path_equal(b, a) == (expected == 0));
 }
 
-static void test_path_compare(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_compare) {
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("//goo", "/goo", 0);
@@ -157,10 +151,8 @@ static void test_path_compare(void) {
         test_path_compare_one("/foo/a/b", "/foo/aaa", -1);
 }
 
-static void test_path_equal_root(void) {
+TEST(path_equal_root) {
         /* Nail down the details of how path_equal("/", ...) works. */
-
-        log_info("/* %s */", __func__);
 
         assert_se(path_equal("/", "/"));
         assert_se(path_equal("/", "//"));
@@ -201,13 +193,11 @@ static void test_path_equal_root(void) {
         assert_se(!path_equal_or_files_same("/", "/.../", AT_SYMLINK_NOFOLLOW));
 }
 
-static void test_find_executable_full(void) {
+TEST(find_executable_full) {
         char *p;
         char* test_file_name;
         _cleanup_close_ int fd = -1;
         char fn[] = "/tmp/test-XXXXXX";
-
-        log_info("/* %s */", __func__);
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
@@ -253,17 +243,15 @@ static void test_find_executable_full(void) {
         assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == -ENOENT);
 }
 
-static void test_find_executable(const char *self) {
+TEST(find_executable) {
         char *p;
-
-        log_info("/* %s */", __func__);
 
         assert_se(find_executable("/bin/sh", &p) == 0);
         puts(p);
         assert_se(path_equal(p, "/bin/sh"));
         free(p);
 
-        assert_se(find_executable(self, &p) == 0);
+        assert_se(find_executable(saved_argv[0], &p) == 0);
         puts(p);
         assert_se(endswith(p, "/test-path-util"));
         assert_se(path_is_absolute(p));
@@ -315,9 +303,7 @@ static void test_find_executable_exec_one(const char *path) {
         assert_se(wait_for_terminate_and_check(t, pid, WAIT_LOG) == 0);
 }
 
-static void test_find_executable_exec(void) {
-        log_info("/* %s */", __func__);
-
+TEST(find_executable_exec) {
         test_find_executable_exec_one("touch");
         test_find_executable_exec_one("/bin/touch");
 
@@ -326,7 +312,7 @@ static void test_find_executable_exec(void) {
         test_find_executable_exec_one(script);
 }
 
-static void test_prefixes(void) {
+TEST(prefixes) {
         static const char* const values[] = {
                 "/a/b/c/d",
                 "/a/b/c",
@@ -338,8 +324,6 @@ static void test_prefixes(void) {
         unsigned i;
         char s[PATH_MAX];
         bool b;
-
-        log_info("/* %s */", __func__);
 
         i = 0;
         PATH_FOREACH_PREFIX_MORE(s, "/a/b/c/d") {
@@ -387,9 +371,7 @@ static void test_prefixes(void) {
         }
 }
 
-static void test_path_join(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_join) {
 #define test_join(expected, ...) {        \
                 _cleanup_free_ char *z = NULL;   \
                 z = path_join(__VA_ARGS__); \
@@ -433,10 +415,8 @@ static void test_path_join(void) {
         test_join("//foo////bar////baz//", "//foo/", "///bar/", "///baz//");
 }
 
-static void test_path_extend(void) {
+TEST(path_extend) {
         _cleanup_free_ char *p = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(path_extend(&p, "foo", "bar", "baz") == p);
         assert_se(streq(p, "foo/bar/baz"));
@@ -460,9 +440,7 @@ static void test_path_extend(void) {
         assert_se(streq(p, "/foo"));
 }
 
-static void test_fsck_exists(void) {
-        log_info("/* %s */", __func__);
-
+TEST(fsck_exists) {
         /* Ensure we use a sane default for PATH. */
         assert_se(unsetenv("PATH") == 0);
 
@@ -484,9 +462,7 @@ static void test_path_make_relative_one(const char *from, const char *to, const 
         assert_se(streq_ptr(z, expected));
 }
 
-static void test_make_relative(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_make_relative) {
         test_path_make_relative_one("some/relative/path", "/some/path", NULL);
         test_path_make_relative_one("/some/path", "some/relative/path", NULL);
         test_path_make_relative_one("/some/dotdot/../path", "/some/path", NULL);
@@ -501,7 +477,7 @@ static void test_make_relative(void) {
         test_path_make_relative_one("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
 }
 
-static void test_strv_resolve(void) {
+TEST(path_strv_resolve) {
         char tmp_dir[] = "/tmp/test-path-util-XXXXXX";
         _cleanup_strv_free_ char **search_dirs = NULL;
         _cleanup_strv_free_ char **absolute_dirs = NULL;
@@ -543,9 +519,7 @@ static void test_path_startswith_one(const char *path, const char *prefix, const
         }
 }
 
-static void test_path_startswith(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_startswith) {
         test_path_startswith_one("/foo/bar/barfoo/", "/foo", "/foo/", "bar/barfoo/");
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/", "/foo/", "bar/barfoo/");
         test_path_startswith_one("/foo/bar/barfoo/", "/", "/", "foo/bar/barfoo/");
@@ -579,9 +553,7 @@ static void test_prefix_root_one(const char *r, const char *p, const char *expec
         assert_se(path_equal_ptr(t, expected));
 }
 
-static void test_prefix_root(void) {
-        log_info("/* %s */", __func__);
-
+TEST(prefix_root) {
         test_prefix_root_one("/", "/foo", "/foo");
         test_prefix_root_one(NULL, "/foo", "/foo");
         test_prefix_root_one("", "/foo", "/foo");
@@ -600,10 +572,8 @@ static void test_prefix_root(void) {
         test_prefix_root_one("/foo///", "//bar", "/foo/bar");
 }
 
-static void test_file_in_same_dir(void) {
+TEST(file_in_same_dir) {
         char *t;
-
-        log_info("/* %s */", __func__);
 
         t = file_in_same_dir("/", "a");
         assert_se(streq(t, "/a"));
@@ -659,11 +629,9 @@ static void test_path_find_first_component_one(
         }
 }
 
-static void test_path_find_first_component(void) {
+TEST(path_find_first_component) {
         _cleanup_free_ char *hoge = NULL;
         char foo[NAME_MAX * 2];
-
-        log_info("/* %s */", __func__);
 
         test_path_find_first_component_one(NULL, false, NULL, 0);
         test_path_find_first_component_one("", false, NULL, 0);
@@ -740,11 +708,9 @@ static void test_path_find_last_component_one(
         }
 }
 
-static void test_path_find_last_component(void) {
+TEST(path_find_last_component) {
         _cleanup_free_ char *hoge = NULL;
         char foo[NAME_MAX * 2];
-
-        log_info("/* %s */", __func__);
 
         test_path_find_last_component_one(NULL, false, NULL, 0);
         test_path_find_last_component_one("", false, NULL, 0);
@@ -789,7 +755,7 @@ static void test_path_find_last_component(void) {
         test_path_find_last_component_one(hoge, true, STRV_MAKE("c", "b", "a"), -EINVAL);
 }
 
-static void test_last_path_component(void) {
+TEST(last_path_component) {
         assert_se(last_path_component(NULL) == NULL);
         assert_se(streq(last_path_component("a/b/c"), "c"));
         assert_se(streq(last_path_component("a/b/c/"), "c/"));
@@ -822,9 +788,7 @@ static void test_path_extract_filename_one(const char *input, const char *output
         assert_se(r == ret);
 }
 
-static void test_path_extract_filename(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_extract_filename) {
         test_path_extract_filename_one(NULL, NULL, -EINVAL);
         test_path_extract_filename_one("a/b/c", "c", 0);
         test_path_extract_filename_one("a/b/c/", "c", O_DIRECTORY);
@@ -882,9 +846,7 @@ static void test_path_extract_directory_one(const char *input, const char *outpu
         }
 }
 
-static void test_path_extract_directory(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_extract_directory) {
         test_path_extract_directory_one(NULL, NULL, -EINVAL);
         test_path_extract_directory_one("a/b/c", "a/b", 0);
         test_path_extract_directory_one("a/b/c/", "a/b", 0);
@@ -915,10 +877,8 @@ static void test_path_extract_directory(void) {
         test_path_extract_directory_one("../", NULL, -EINVAL);
 }
 
-static void test_filename_is_valid(void) {
+TEST(filename_is_valid) {
         char foo[NAME_MAX+2];
-
-        log_info("/* %s */", __func__);
 
         assert_se(!filename_is_valid(""));
         assert_se(!filename_is_valid("/bar/foo"));
@@ -950,11 +910,9 @@ static void test_path_is_valid_and_safe_one(const char *p, bool ret) {
         assert_se(path_is_safe(p) == ret);
 }
 
-static void test_path_is_valid_and_safe(void) {
+TEST(path_is_valid_and_safe) {
         char foo[PATH_MAX+2];
         const char *c;
-
-        log_info("/* %s */", __func__);
 
         test_path_is_valid_and_safe_one("", false);
         test_path_is_valid_and_safe_one("/bar/foo", true);
@@ -982,9 +940,7 @@ static void test_path_is_valid_and_safe(void) {
         test_path_is_valid_and_safe_one("o.o", true);
 }
 
-static void test_hidden_or_backup_file(void) {
-        log_info("/* %s */", __func__);
-
+TEST(hidden_or_backup_file) {
         assert_se(hidden_or_backup_file(".hidden"));
         assert_se(hidden_or_backup_file("..hidden"));
         assert_se(!hidden_or_backup_file("hidden."));
@@ -1005,7 +961,7 @@ static void test_hidden_or_backup_file(void) {
         assert_se(!hidden_or_backup_file("test.dpkg-old.foo"));
 }
 
-static void test_systemd_installation_has_version(const char *path) {
+TEST(systemd_installation_has_version) {
         int r;
         const unsigned versions[] = {0, 231, PROJECT_VERSION, 999};
         unsigned i;
@@ -1013,16 +969,14 @@ static void test_systemd_installation_has_version(const char *path) {
         log_info("/* %s */", __func__);
 
         for (i = 0; i < ELEMENTSOF(versions); i++) {
-                r = systemd_installation_has_version(path, versions[i]);
+                r = systemd_installation_has_version(saved_argv[1], versions[i]);
                 assert_se(r >= 0);
                 log_info("%s has systemd >= %u: %s",
-                         path ?: "Current installation", versions[i], yes_no(r));
+                         saved_argv[1] ?: "Current installation", versions[i], yes_no(r));
         }
 }
 
-static void test_skip_dev_prefix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(skip_dev_prefix) {
         assert_se(streq(skip_dev_prefix("/"), "/"));
         assert_se(streq(skip_dev_prefix("/dev"), ""));
         assert_se(streq(skip_dev_prefix("/dev/"), ""));
@@ -1036,9 +990,7 @@ static void test_skip_dev_prefix(void) {
         assert_se(streq(skip_dev_prefix("foo"), "foo"));
 }
 
-static void test_empty_or_root(void) {
-        log_info("/* %s */", __func__);
-
+TEST(empty_or_root) {
         assert_se(empty_or_root(NULL));
         assert_se(empty_or_root(""));
         assert_se(empty_or_root("/"));
@@ -1051,9 +1003,7 @@ static void test_empty_or_root(void) {
         assert_se(!empty_or_root("//yy//"));
 }
 
-static void test_path_startswith_set(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_startswith_set) {
         assert_se(streq_ptr(PATH_STARTSWITH_SET("/foo/bar", "/foo/quux", "/foo/bar", "/zzz"), ""));
         assert_se(streq_ptr(PATH_STARTSWITH_SET("/foo/bar", "/foo/quux", "/foo/", "/zzz"), "bar"));
         assert_se(streq_ptr(PATH_STARTSWITH_SET("/foo/bar", "/foo/quux", "/foo", "/zzz"), "bar"));
@@ -1073,9 +1023,7 @@ static void test_path_startswith_set(void) {
         assert_se(streq_ptr(PATH_STARTSWITH_SET("/foo2/bar", "/foo/quux", "", "/zzz"), NULL));
 }
 
-static void test_path_startswith_strv(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_startswith_strv) {
         assert_se(streq_ptr(path_startswith_strv("/foo/bar", STRV_MAKE("/foo/quux", "/foo/bar", "/zzz")), ""));
         assert_se(streq_ptr(path_startswith_strv("/foo/bar", STRV_MAKE("/foo/quux", "/foo/", "/zzz")), "bar"));
         assert_se(streq_ptr(path_startswith_strv("/foo/bar", STRV_MAKE("/foo/quux", "/foo", "/zzz")), "bar"));
@@ -1095,9 +1043,7 @@ static void test_path_startswith_strv(void) {
         assert_se(streq_ptr(path_startswith_strv("/foo2/bar", STRV_MAKE("/foo/quux", "", "/zzz")), NULL));
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
+TEST(print_MAX) {
         log_info("PATH_MAX=%zu\n"
                  "FILENAME_MAX=%zu\n"
                  "NAME_MAX=%zu",
@@ -1106,38 +1052,6 @@ int main(int argc, char **argv) {
                  (size_t) NAME_MAX);
 
         assert_cc(FILENAME_MAX == PATH_MAX);
-
-        test_print_paths();
-        test_path();
-        test_path_simplify();
-        test_path_compare();
-        test_path_equal_root();
-        test_find_executable_full();
-        test_find_executable(argv[0]);
-        test_find_executable_exec();
-        test_prefixes();
-        test_path_join();
-        test_path_extend();
-        test_fsck_exists();
-        test_make_relative();
-        test_strv_resolve();
-        test_path_startswith();
-        test_prefix_root();
-        test_file_in_same_dir();
-        test_path_find_first_component();
-        test_path_find_last_component();
-        test_last_path_component();
-        test_path_extract_filename();
-        test_path_extract_directory();
-        test_filename_is_valid();
-        test_path_is_valid_and_safe();
-        test_hidden_or_backup_file();
-        test_skip_dev_prefix();
-        test_empty_or_root();
-        test_path_startswith_set();
-        test_path_startswith_strv();
-
-        test_systemd_installation_has_version(argv[1]); /* NULL is OK */
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

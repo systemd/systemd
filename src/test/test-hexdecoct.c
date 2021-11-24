@@ -7,26 +7,27 @@
 #include "macro.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "tests.h"
 
-static void test_hexchar(void) {
+TEST(hexchar) {
         assert_se(hexchar(0xa) == 'a');
         assert_se(hexchar(0x0) == '0');
 }
 
-static void test_unhexchar(void) {
+TEST(unhexchar) {
         assert_se(unhexchar('a') == 0xA);
         assert_se(unhexchar('A') == 0xA);
         assert_se(unhexchar('0') == 0x0);
 }
 
-static void test_base32hexchar(void) {
+TEST(base32hexchar) {
         assert_se(base32hexchar(0) == '0');
         assert_se(base32hexchar(9) == '9');
         assert_se(base32hexchar(10) == 'A');
         assert_se(base32hexchar(31) == 'V');
 }
 
-static void test_unbase32hexchar(void) {
+TEST(unbase32hexchar) {
         assert_se(unbase32hexchar('0') == 0);
         assert_se(unbase32hexchar('9') == 9);
         assert_se(unbase32hexchar('A') == 10);
@@ -34,13 +35,13 @@ static void test_unbase32hexchar(void) {
         assert_se(unbase32hexchar('=') == -EINVAL);
 }
 
-static void test_base64char(void) {
+TEST(base64char) {
         assert_se(base64char(0) == 'A');
         assert_se(base64char(26) == 'a');
         assert_se(base64char(63) == '/');
 }
 
-static void test_unbase64char(void) {
+TEST(unbase64char) {
         assert_se(unbase64char('A') == 0);
         assert_se(unbase64char('Z') == 25);
         assert_se(unbase64char('a') == 26);
@@ -52,22 +53,22 @@ static void test_unbase64char(void) {
         assert_se(unbase64char('=') == -EINVAL);
 }
 
-static void test_octchar(void) {
+TEST(octchar) {
         assert_se(octchar(00) == '0');
         assert_se(octchar(07) == '7');
 }
 
-static void test_unoctchar(void) {
+TEST(unoctchar) {
         assert_se(unoctchar('0') == 00);
         assert_se(unoctchar('7') == 07);
 }
 
-static void test_decchar(void) {
+TEST(decchar) {
         assert_se(decchar(0) == '0');
         assert_se(decchar(9) == '9');
 }
 
-static void test_undecchar(void) {
+TEST(undecchar) {
         assert_se(undecchar('0') == 0);
         assert_se(undecchar('9') == 9);
 }
@@ -90,7 +91,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
         }
 }
 
-static void test_unhexmem(void) {
+TEST(unhexmem) {
         const char *hex = "efa2149213";
         const char *hex_space = "  e f   a\n 2\r  14\n\r\t9\t2 \n1\r3 \r\r\t";
         const char *hex_invalid = "efa214921o";
@@ -109,7 +110,7 @@ static void test_unhexmem(void) {
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
-static void test_base32hexmem(void) {
+TEST(base32hexmem) {
         char *b32;
 
         b32 = base32hexmem("", STRLEN(""), true);
@@ -196,7 +197,7 @@ static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, c
         }
 }
 
-static void test_unbase32hexmem(void) {
+TEST(unbase32hexmem) {
         test_unbase32hexmem_one("", true, 0, "");
 
         test_unbase32hexmem_one("CO======", true, 0, "f");
@@ -244,7 +245,7 @@ static void test_unbase32hexmem(void) {
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
-static void test_base64mem(void) {
+TEST(base64mem) {
         char *b64;
 
         assert_se(base64mem("", STRLEN(""), &b64) == 0);
@@ -276,7 +277,7 @@ static void test_base64mem(void) {
         free(b64);
 }
 
-static void test_base64mem_linebreak(void) {
+TEST(base64mem_linebreak) {
         uint8_t data[4096];
 
         for (size_t i = 0; i < 20; i++) {
@@ -320,7 +321,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         }
 }
 
-static void test_unbase64mem(void) {
+TEST(unbase64mem) {
 
         test_unbase64mem_one("", "", 0);
         test_unbase64mem_one("Zg==", "f", 0);
@@ -346,7 +347,7 @@ static void test_unbase64mem(void) {
         test_unbase64mem_one(" Z m 8 = q u u x ", NULL, -ENAMETOOLONG);
 }
 
-static void test_hexdump(void) {
+TEST(hexdump) {
         uint8_t data[146];
         unsigned i;
 
@@ -365,24 +366,4 @@ static void test_hexdump(void) {
         hexdump(stdout, data, sizeof(data));
 }
 
-int main(int argc, char *argv[]) {
-        test_hexchar();
-        test_unhexchar();
-        test_base32hexchar();
-        test_unbase32hexchar();
-        test_base64char();
-        test_unbase64char();
-        test_octchar();
-        test_unoctchar();
-        test_decchar();
-        test_undecchar();
-        test_unhexmem();
-        test_base32hexmem();
-        test_unbase32hexmem();
-        test_base64mem();
-        test_base64mem_linebreak();
-        test_unbase64mem();
-        test_hexdump();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);
