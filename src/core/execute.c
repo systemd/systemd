@@ -6023,7 +6023,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
         if (p < 0)
                 return IOPRIO_DEFAULT_CLASS_AND_PRIO;
 
-        return p;
+        return ioprio_normalize(p);
 }
 
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
