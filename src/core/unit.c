@@ -2129,7 +2129,7 @@ bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit) {
                         continue;
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
-                        if (*ret_culprit)
+                        if (ret_culprit)
                                 *ret_culprit = other;
 
                         return true;
