@@ -190,6 +190,8 @@ void service_close_socket_fd(Service *s) {
                 socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
                 unit_ref_unset(&s->accept_socket);
         }
+
+        s->socket_peer = socket_peer_unref(s->socket_peer);
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -388,7 +390,6 @@ static void service_done(Unit *u) {
         s->usb_function_strings = mfree(s->usb_function_strings);
 
         service_close_socket_fd(s);
-        s->peer = socket_peer_unref(s->peer);
 
         unit_ref_unset(&s->accept_socket);
 
@@ -1237,8 +1238,8 @@ static int service_coldplug(Unit *u) {
 
                         /* Make a best-effort attempt at bumping the connection count */
                         if (socket_acquire_peer(socket, s->socket_fd, &peer) > 0) {
-                                socket_peer_unref(s->peer);
-                                s->peer = peer;
+                                socket_peer_unref(s->socket_peer);
+                                s->socket_peer = peer;
                         }
                 }
         }
@@ -4285,8 +4286,14 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         }
 }
 
-int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context_net) {
-        _cleanup_free_ char *peer = NULL;
+int service_set_socket_fd(
+                Service *s,
+                int fd,
+                Socket *sock,
+                SocketPeer *peer,
+                bool selinux_context_net) {
+
+        _cleanup_free_ char *peer_text = NULL;
         int r;
 
         assert(s);
@@ -4301,22 +4308,23 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (s->socket_fd >= 0)
                 return -EBUSY;
 
+        assert(!s->socket_peer);
+
         if (s->state != SERVICE_DEAD)
                 return -EAGAIN;
 
-        if (getpeername_pretty(fd, true, &peer) >= 0) {
+        if (getpeername_pretty(fd, true, &peer_text) >= 0) {
 
                 if (UNIT(s)->description) {
                         _cleanup_free_ char *a = NULL;
 
-                        a = strjoin(UNIT(s)->description, " (", peer, ")");
+                        a = strjoin(UNIT(s)->description, " (", peer_text, ")");
                         if (!a)
                                 return -ENOMEM;
 
                         r = unit_set_description(UNIT(s), a);
                 }  else
-                        r = unit_set_description(UNIT(s), peer);
-
+                        r = unit_set_description(UNIT(s), peer_text);
                 if (r < 0)
                         return r;
         }
@@ -4326,6 +4334,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
                 return r;
 
         s->socket_fd = fd;
+        s->socket_peer = socket_peer_ref(peer);
         s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(s), UNIT(sock));
