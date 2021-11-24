@@ -585,7 +585,7 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         }
 
         if (fchown(fileno(identity_file), uid, uid) < 0) {
-                log_error_errno(r, "Failed to change ownership of identity file: %m");
+                r = log_error_errno(errno, "Failed to change ownership of identity file: %m");
                 goto fail;
         }
 
