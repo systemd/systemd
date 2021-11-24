@@ -2409,7 +2409,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 s->n_accepted++;
 
-                r = service_set_socket_fd(SERVICE(service), cfd, s, s->selinux_context_from_net);
+                r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
                 if (ERRNO_IS_DISCONNECT(r))
                         return;
                 if (r < 0)
@@ -2417,8 +2417,6 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
-
-                SERVICE(service)->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
