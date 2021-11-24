@@ -367,12 +367,12 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         assert(fd >= 0);
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
-                return -errno;
+                return log_warning_errno(errno, "Failed to seek to beginning of the core file: %m");
 
         if (ret) {
                 c.f = open_memstream_unlocked(&buf, &sz);
                 if (!c.f)
-                        return -ENOMEM;
+                        return log_oom();
         }
 
         elf_version(EV_CURRENT);
