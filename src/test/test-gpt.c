@@ -4,6 +4,7 @@
 #include "glyph-util.h"
 #include "gpt.h"
 #include "log.h"
+#include "pretty-print.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -32,11 +33,11 @@ static void test_gpt_types_against_architectures(void) {
 
                                 r = gpt_partition_type_uuid_from_string(joined, &id);
                                 if (r < 0) {
-                                        printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(SPECIAL_GLYPH_CROSS_MARK), ansi_normal(), joined);
+                                        printf("%s %s\n", RED_CROSS_MARK(), joined);
                                         continue;
                                 }
 
-                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(SPECIAL_GLYPH_CHECK_MARK), ansi_normal(), joined);
+                                printf("%s %s\n", GREEN_CHECK_MARK(), joined);
 
                                 if (streq(prefix, "root-") && streq(suffix, ""))
                                         assert_se(gpt_partition_type_is_root(id));
