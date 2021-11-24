@@ -1140,10 +1140,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IOSchedulingClass=</varname></term>
 
-        <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
-        of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
-        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
+        <listitem><para>Sets the I/O scheduling class for executed processes. Takes one of the strings
+        <option>realtime</option>, <option>best-effort</option> or <option>idle</option>. The kernel's
+        default scheduling class is <option>best-effort</option> at a priority of 4. If the empty string is
+        assigned to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
+        <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1156,7 +1157,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         bandwidth is made available to the unit's processes, larger values mean less bandwidth. The available
         priorities depend on the selected I/O scheduling class (see above). If the empty string is assigned
         to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
-        <varname>IOSchedulingPriority=</varname> have no effect.  See
+        <varname>IOSchedulingPriority=</varname> have no effect. For the kernel's default scheduling class
+        (<option>best-effort</option>) this defaults to 4. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
