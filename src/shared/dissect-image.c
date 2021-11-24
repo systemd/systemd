@@ -3009,7 +3009,7 @@ int dissected_image_load_verity_sig_partition(
         return 1;
 }
 
-int dissected_image_acquire_metadata(DissectedImage *m) {
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags) {
 
         enum {
                 META_HOSTNAME,
@@ -3026,7 +3026,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
                 [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                           "/usr/lib/os-release\0"),
+                                            "/usr/lib/os-release\0"),
                 [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
@@ -3079,10 +3079,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 t,
                                 UID_INVALID,
                                 UID_INVALID,
-                                DISSECT_IMAGE_READ_ONLY|
-                                DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_VALIDATE_OS|
-                                DISSECT_IMAGE_VALIDATE_OS_EXT|
+                                extra_flags |
+                                DISSECT_IMAGE_READ_ONLY |
+                                DISSECT_IMAGE_MOUNT_ROOT_ONLY |
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
