@@ -34,7 +34,7 @@ static void test_cat_files(void) {
 static void test_red_green_cross_check_mark(void) {
         bool b = false;
 
-        printf("yeah: <%s>\n", GREEN_CHECK_MARK());
+        printf("yea: <%s>\n", GREEN_CHECK_MARK());
         printf("nay: <%s>\n", RED_CROSS_MARK());
 
         printf("%s → %s → %s → %s\n",
