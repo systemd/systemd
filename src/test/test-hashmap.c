@@ -2,6 +2,7 @@
 
 #include "hashmap.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 unsigned custom_counter = 0;
@@ -13,14 +14,9 @@ static void custom_destruct(void* p) {
 DEFINE_HASH_OPS_FULL(boring_hash_ops, char, string_hash_func, string_compare_func, free, char, free);
 DEFINE_HASH_OPS_FULL(custom_hash_ops, char, string_hash_func, string_compare_func, custom_destruct, char, custom_destruct);
 
-void test_hashmap_funcs(void);
-void test_ordered_hashmap_funcs(void);
-
-static void test_ordered_hashmap_next(void) {
+TEST(ordered_hashmap_next) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
         int i;
-
-        log_info("/* %s */", __func__);
 
         assert_se(m = ordered_hashmap_new(NULL));
         for (i = -2; i <= 2; i++)
@@ -32,7 +28,7 @@ static void test_ordered_hashmap_next(void) {
         assert_se(!ordered_hashmap_next(m, INT_TO_PTR(3)));
 }
 
-static void test_uint64_compare_func(void) {
+TEST(uint64_compare_func) {
         const uint64_t a = 0x100, b = 0x101;
 
         assert_se(uint64_compare_func(&a, &a) == 0);
@@ -40,13 +36,13 @@ static void test_uint64_compare_func(void) {
         assert_se(uint64_compare_func(&b, &a) == 1);
 }
 
-static void test_trivial_compare_func(void) {
+TEST(trivial_compare_func) {
         assert_se(trivial_compare_func(INT_TO_PTR('a'), INT_TO_PTR('a')) == 0);
         assert_se(trivial_compare_func(INT_TO_PTR('a'), INT_TO_PTR('b')) == -1);
         assert_se(trivial_compare_func(INT_TO_PTR('b'), INT_TO_PTR('a')) == 1);
 }
 
-static void test_string_compare_func(void) {
+TEST(string_compare_func) {
         assert_se(string_compare_func("fred", "wilma") != 0);
         assert_se(string_compare_func("fred", "fred") == 0);
 }
@@ -71,11 +67,9 @@ static void compare_cache(Hashmap *map, IteratedCache *cache) {
         assert_se(idx == num);
 }
 
-static void test_iterated_cache(void) {
+TEST(iterated_cache) {
         Hashmap *m;
         IteratedCache *c;
-
-        log_info("/* %s */", __func__);
 
         assert_se(m = hashmap_new(NULL));
         assert_se(c = hashmap_iterated_cache_new(m));
@@ -109,14 +103,12 @@ static void test_iterated_cache(void) {
         assert_se(iterated_cache_free(c) == NULL);
 }
 
-static void test_hashmap_put_strdup(void) {
+TEST(hashmap_put_strdup) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char *s;
 
         /* We don't have ordered_hashmap_put_strdup() yet. If it is added,
          * these tests should be moved to test-hashmap-plain.c. */
-
-        log_info("/* %s */", __func__);
 
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 1);
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
@@ -137,11 +129,9 @@ static void test_hashmap_put_strdup(void) {
         assert_se(streq(s, "bar"));
 }
 
-static void test_hashmap_put_strdup_null(void) {
+TEST(hashmap_put_strdup_null) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char *s;
-
-        log_info("/* %s */", __func__);
 
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 1);
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
@@ -161,26 +151,14 @@ static void test_hashmap_put_strdup_null(void) {
         assert_se(s == NULL);
 }
 
-int main(int argc, const char *argv[]) {
-        /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated
-         * from test-hashmap-plain.c. Hashmap tests should be added to test-hashmap-plain.c, and here only if
-         * they don't apply to ordered hashmaps. */
+/* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated
+ * from test-hashmap-plain.c. Hashmap tests should be added to test-hashmap-plain.c, and here only if
+ * they don't apply to ordered hashmaps. */
 
-        log_parse_environment();
-        log_open();
+/* This variable allows us to assert that the tests from different compilation units were actually run. */
+int n_extern_tests_run = 0;
 
-        test_hashmap_funcs();
-        test_ordered_hashmap_funcs();
-
-        log_info("/************ non-shared tests ************/");
-
-        test_ordered_hashmap_next();
-        test_uint64_compare_func();
-        test_trivial_compare_func();
-        test_string_compare_func();
-        test_iterated_cache();
-        test_hashmap_put_strdup();
-        test_hashmap_put_strdup_null();
-
-        return 0;
-}
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_INFO,
+        assert_se(n_extern_tests_run == 0),
+        assert_se(n_extern_tests_run == 2)); /* Ensure hashmap and ordered_hashmap were tested. */
