@@ -1535,7 +1535,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
 
 static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
         const char *username;
         int r;
@@ -1558,6 +1558,15 @@ static int update_home(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = acquire_updated_home_record(bus, username, &hr);
+        if (r < 0)
+                return r;
+
+        /* Add in all secrets we can acquire cheaply */
+        r = acquire_passed_secrets(username, &secret);
+        if (r < 0)
+                return r;
+
+        r = user_record_merge_secret(hr, secret);
         if (r < 0)
                 return r;
 
@@ -1706,9 +1715,9 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        old_secret = user_record_new();
-        if (!old_secret)
-                return log_oom();
+        r = acquire_passed_secrets(username, &old_secret);
+        if (r < 0)
+                return r;
 
         new_secret = user_record_new();
         if (!new_secret)
