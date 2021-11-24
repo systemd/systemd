@@ -20,3 +20,8 @@ int ioprio_parse_priority(const char *s, int *ret);
 /* IOPRIO_CLASS_NONE with any prio value is another way to say IOPRIO_CLASS_BE with level 4. Encode that in a
  * proper macro. */
 #define IOPRIO_DEFAULT_CLASS_AND_PRIO ioprio_prio_value(IOPRIO_CLASS_BE, 4)
+
+static inline int ioprio_normalize(int v) {
+        /* Converts IOPRIO_CLASS_NONE to what it actually means */
+        return ioprio_prio_class(v) == IOPRIO_CLASS_NONE ? IOPRIO_DEFAULT_CLASS_AND_PRIO : v;
+}

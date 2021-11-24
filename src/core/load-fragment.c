@@ -1427,7 +1427,7 @@ int config_parse_exec_io_class(const char *unit,
                 return 0;
         }
 
-        c->ioprio = ioprio_prio_value(x, ioprio_prio_data(c->ioprio));
+        c->ioprio = ioprio_normalize(ioprio_prio_value(x, ioprio_prio_data(c->ioprio)));
         c->ioprio_set = true;
 
         return 0;
@@ -1464,7 +1464,7 @@ int config_parse_exec_io_priority(const char *unit,
                 return 0;
         }
 
-        c->ioprio = ioprio_prio_value(ioprio_prio_class(c->ioprio), i);
+        c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), i));
         c->ioprio_set = true;
 
         return 0;
