@@ -462,7 +462,16 @@ static int network_build_json(Network *network, JsonVariant **ret) {
         }
 
         return json_build(ret, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_STRING("NetworkFile", network->filename)));
+                                JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
+                                JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
+                                JSON_BUILD_PAIR_STRING("MinimumOperationalStateRequiredForOnline",
+                                                       link_operstate_to_string(network->required_operstate_for_online.min)),
+                                JSON_BUILD_PAIR_STRING("MaximumOperationalStateRequiredForOnline",
+                                                       link_operstate_to_string(network->required_operstate_for_online.max)),
+                                JSON_BUILD_PAIR_STRING("FamilyRequiredForOnline",
+                                                       link_required_address_family_to_string(network->required_family_for_online)),
+                                JSON_BUILD_PAIR_STRING("ActivationPolicy",
+                                                       activation_policy_to_string(network->activation_policy))));
 }
 
 static int device_build_json(sd_device *device, JsonVariant **ret) {
