@@ -11,12 +11,13 @@ void password_cache_free(PasswordCache *cache) {
 
         cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
         cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
+        cache->keyring_passswords = strv_free_erase(cache->keyring_passswords);
 }
 
 void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
         _cleanup_(erase_and_freep) void *p = NULL;
         _cleanup_free_ char *name = NULL;
-        char **strv = NULL;
+        char **strv;
         key_serial_t serial;
         size_t sz;
         int r;
