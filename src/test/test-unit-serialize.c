@@ -23,11 +23,9 @@ static void test_deserialize_exec_command_one(Manager *m, const char *key, const
          * always rejected with "Current command vanished from the unit file", and we don't leak anything. */
 }
 
-static void test_deserialize_exec_command(void) {
+TEST(deserialize_exec_command) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
-
-        log_info("/* %s */", __func__);
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r)) {
@@ -50,19 +48,15 @@ static void test_deserialize_exec_command(void) {
         test_deserialize_exec_command_one(m, "control-command", "ExecWhat 11 /a/b c d e", -EINVAL);
 }
 
-int main(int argc, char *argv[]) {
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_DEBUG,
+
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        int r;
+        ({
+                if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+                        return log_tests_skipped("cgroupfs not available");
 
-        test_setup_logging(LOG_DEBUG);
+                assert_se(runtime_dir = setup_fake_runtime_dir());
+        }),
 
-        r = enter_cgroup_subroot(NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
-
-        assert_se(runtime_dir = setup_fake_runtime_dir());
-
-        test_deserialize_exec_command();
-
-        return EXIT_SUCCESS;
-}
+        /* no outro */);
