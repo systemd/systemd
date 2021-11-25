@@ -27,11 +27,11 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
                                        JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(uid)),
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(GID_NOBODY)),
                                        JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", JSON_BUILD_STRING(real_name)),
-                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING("/")),
+                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
                                        JSON_BUILD_PAIR("shell", JSON_BUILD_STRING(NOLOGIN)),
                                        JSON_BUILD_PAIR("locked", JSON_BUILD_BOOLEAN(true)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Machine")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("container"))))));
+                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -198,8 +198,8 @@ static int build_group_json(const char *group_name, gid_t gid, const char *descr
                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(group_name)),
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
                                        JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", JSON_BUILD_STRING(description)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Machine")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("container"))))));
+                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
     }
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
