@@ -7,7 +7,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-static int property_get_ether_addrs(
+static int property_get_hw_addrs(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -16,7 +16,7 @@ static int property_get_ether_addrs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const struct ether_addr *p;
+        const struct hw_addr_data *p;
         Set *s;
         int r;
 
@@ -31,7 +31,7 @@ static int property_get_ether_addrs(
                 return r;
 
         SET_FOREACH(p, s) {
-                r = sd_bus_message_append(reply, "s", ETHER_ADDR_TO_STR(p));
+                r = sd_bus_message_append(reply, "s", HW_ADDR_TO_STR(p));
                 if (r < 0)
                         return r;
         }
@@ -44,7 +44,7 @@ static const sd_bus_vtable network_vtable[] = {
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match.mac), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchMAC", "as", property_get_hw_addrs, offsetof(Network, match.hw_addr), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "as", NULL, offsetof(Network, match.path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match.driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match.iftype), SD_BUS_VTABLE_PROPERTY_CONST),

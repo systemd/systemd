@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+
 #include "alloc-util.h"
 #include "bond.h"
 #include "bond-util.h"
@@ -449,5 +452,6 @@ const NetDevVTable bond_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "Bond\0",
         .fill_message_create = netdev_bond_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
