@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libfdisk.h>
 #include <linux/loop.h>
 #include <poll.h>
 #include <sys/file.h>
@@ -24,6 +23,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fdisk-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
@@ -1832,11 +1832,6 @@ static int luks_format(
 
         return 0;
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_parttype*, fdisk_unref_parttype, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_table*, fdisk_unref_table, NULL);
 
 static int make_partition_table(
                 int fd,
