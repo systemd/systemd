@@ -569,6 +569,29 @@ static void test_float(void) {
         test_float_match(w);
 }
 
+static void test_equal_text(JsonVariant *v, const char *text) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+        assert_se(json_parse(text, 0, &w, NULL, NULL) >= 0);
+        assert_se(json_variant_equal(v, w) || (!v && json_variant_is_null(w)));
+}
+
+static void test_set_field(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        log_info("/* %s */", __func__);
+
+        test_equal_text(v, "null");
+        assert_se(json_variant_set_field(&v, "foo", NULL) >= 0);
+        test_equal_text(v, "{\"foo\" : null}");
+        assert_se(json_variant_set_field(&v, "bar", JSON_VARIANT_STRING_CONST("quux")) >= 0);
+        test_equal_text(v, "{\"foo\" : null, \"bar\" : \"quux\"}");
+        assert_se(json_variant_set_field(&v, "foo", JSON_VARIANT_STRING_CONST("quux2")) >= 0);
+        test_equal_text(v, "{\"foo\" : \"quux2\", \"bar\" : \"quux\"}");
+        assert_se(json_variant_set_field(&v, "bar", NULL) >= 0);
+        test_equal_text(v, "{\"foo\" : \"quux2\", \"bar\" : null}");
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -622,6 +645,7 @@ int main(int argc, char *argv[]) {
         test_normalize();
         test_bisect();
         test_float();
+        test_set_field();
 
         return 0;
 }
