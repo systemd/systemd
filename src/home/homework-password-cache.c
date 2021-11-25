@@ -11,6 +11,7 @@ void password_cache_free(PasswordCache *cache) {
 
         cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
         cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
+        cache->keyring_passswords = strv_free_erase(cache->keyring_passswords);
 }
 
 void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
