@@ -92,7 +92,6 @@ typedef struct JournalFile {
         uint64_t current_xor_hash;
 
         JournalMetrics metrics;
-        MMapCache *mmap;
 
         sd_event_source *post_change_timer;
         usec_t post_change_timer_period;
