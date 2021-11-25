@@ -560,13 +560,13 @@ MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot) {
         if (!f)
                 return NULL;
 
-        f->cache = m;
-        f->fd = fd;
-        f->prot = prot;
-
         r = hashmap_put(m->fds, FD_TO_PTR(fd), f);
         if (r < 0)
                 return mfree(f);
+
+        f->cache = mmap_cache_ref(m);
+        f->fd = fd;
+        f->prot = prot;
 
         return f;
 }
@@ -584,8 +584,10 @@ void mmap_cache_fd_free(MMapFileDescriptor *f) {
         while (f->windows)
                 window_free(f->windows);
 
-        if (f->cache)
+        if (f->cache) {
                 assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
+                f->cache = mmap_cache_unref(f->cache);
+        }
 
         free(f);
 }
