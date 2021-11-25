@@ -128,7 +128,7 @@
 
       <varlistentry>
         <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
-        <term><option>-J</option></term>
+        <term><option>-j</option></term>
 
         <listitem><para>Controls whether to output the user record in JSON format, if the
         <command>inspect</command> command (see below) is used. Takes one of <literal>pretty</literal>,
@@ -136,7 +136,7 @@
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
         default) the user information is not shown in JSON format but in a friendly human readable formatting
-        instead. The <option>-J</option> option picks <literal>pretty</literal> when run interactively and
+        instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para></listitem>
       </varlistentry>
 
