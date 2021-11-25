@@ -247,5 +247,14 @@ int main(int argc, const char *argv[]) {
 
         assert_se(head == NULL);
 
+        LIST_PREPEND(item, head, items + 0);
+        LIST_PREPEND(item, head, items + 1);
+        LIST_PREPEND(item, head, items + 2);
+
+        assert_se(LIST_POP(item, head) == items + 2);
+        assert_se(LIST_POP(item, head) == items + 1);
+        assert_se(LIST_POP(item, head) == items + 0);
+        assert_se(LIST_POP(item, head) == NULL);
+
         return 0;
 }
