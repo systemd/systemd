@@ -96,6 +96,7 @@ node /org/freedesktop/home1 {
       ReleaseHome(in  s user_name);
       LockAllHomes();
       DeactivateAllHomes();
+      Rebalance();
     properties:
       readonly a(sso) AutoLogin = [...];
   };
@@ -158,6 +159,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="DeactivateAllHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Rebalance()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AutoLogin"/>
 
@@ -346,6 +349,10 @@ node /org/freedesktop/home1 {
 
       <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
       active. This is usually invoked automatically shortly before system shutdown.</para>
+
+      <para><function>Rebalance()</function> synchronously rebalances free disk space between home
+      areas. This only executes an operation if at least one home area using the LUKS2 backend is active and
+      has rebalancing enabled, and is otherwise a NOP.</para>
     </refsect2>
 
     <refsect2>
