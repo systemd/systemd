@@ -58,20 +58,17 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
 
         assert(v);
 
-        if (!v->ifname_peer) {
-                log_netdev_warning(netdev, "Veth NetDev without peer name configured in %s. Ignoring",
-                                   filename);
-                return -EINVAL;
-        }
+        if (!v->ifname_peer)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Veth NetDev without peer name configured in %s. Ignoring",
+                                                filename);
 
         if (!v->mac_peer) {
                 r = netdev_get_mac(v->ifname_peer, &v->mac_peer);
-                if (r < 0) {
-                        log_netdev_warning(netdev,
-                                           "Failed to generate predictable MAC address for %s. Ignoring",
-                                           v->ifname_peer);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_netdev_warning_errno(netdev, r,
+                                                        "Failed to generate predictable MAC address for %s: %m",
+                                                        v->ifname_peer);
         }
 
         return 0;
