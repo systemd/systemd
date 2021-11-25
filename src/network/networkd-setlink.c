@@ -6,6 +6,7 @@
 #include <linux/if_bridge.h>
 
 #include "missing_network.h"
+#include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-can.h"
@@ -183,7 +184,7 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
                 return 0;
         }
 
-        /* set_link_mac_handler() also decrement set_link_messages, so once increment the value. */
+        /* set_link_mac_handler() also decrements set_link_messages, so increment the value once. */
         link->set_link_messages++;
         return link_set_mac_handler(rtnl, m, link);
 }
@@ -463,7 +464,7 @@ static int link_configure(
                         return log_link_debug_errno(link, r, "Could not append IFLA_GROUP attribute: %m");
                 break;
         case SET_LINK_MAC:
-                r = sd_netlink_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
+                r = netlink_message_append_hw_addr(req, IFLA_ADDRESS, &link->requested_hw_addr);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_ADDRESS attribute: %m");
                 break;
@@ -542,7 +543,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 break;
         case SET_LINK_MAC:
                 if (req->netlink_handler == link_set_mac_handler) {
-                        /* This is the second trial to set MTU. On the first attempt
+                        /* This is the second trial to set hardware address. On the first attempt
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
                          * The first trial failed as the interface was up. */
                         r = link_down(link);
@@ -777,20 +778,21 @@ int link_request_to_set_group(Link *link) {
 }
 
 int link_request_to_set_mac(Link *link, bool allow_retry) {
+        int r;
+
         assert(link);
         assert(link->network);
 
-        if (!link->network->mac)
+        if (link->network->hw_addr.length == 0)
                 return 0;
 
-        if (link->hw_addr.length != sizeof(struct ether_addr)) {
-                /* Note that for now we only support changing hardware addresses on Ethernet. */
-                log_link_debug(link, "Size of the hardware address (%zu) does not match the size of MAC address (%zu), ignoring.",
-                               link->hw_addr.length, sizeof(struct ether_addr));
-                return 0;
-        }
+        link->requested_hw_addr = link->network->hw_addr;
+        r = net_verify_hardware_address(link->ifname, /* warn_invalid = */ true,
+                                        link->iftype, &link->hw_addr, &link->requested_hw_addr);
+        if (r < 0)
+                return r;
 
-        if (ether_addr_equal(&link->hw_addr.ether, link->network->mac))
+        if (hw_addr_equal(&link->hw_addr, &link->requested_hw_addr))
                 return 0;
 
         return link_request_set_link(link, SET_LINK_MAC,
