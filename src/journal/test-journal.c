@@ -98,8 +98,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journald_file_rotate(&f, true, UINT64_MAX, true, NULL);
-        journald_file_rotate(&f, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, NULL, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, NULL, true, UINT64_MAX, true, NULL);
 
         (void) journald_file_close(f);
 
