@@ -1840,8 +1840,17 @@ static bool mount_is_mounted(Mount *m) {
 
 static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
+        Job *j;
 
         assert(m);
+
+        /* Let's enqueue all start jobs that were previously skipped because of active ratelimit. */
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (j->unit->type != UNIT_MOUNT)
+                        continue;
+
+                job_add_to_run_queue(j);
+        }
 
         /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so
          * let's make sure we dispatch them in the next iteration. */
