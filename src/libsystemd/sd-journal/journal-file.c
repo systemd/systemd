@@ -1021,30 +1021,6 @@ static uint64_t journal_file_entry_seqnum(
         return ret;
 }
 
-static void journal_file_revert_entry_seqnum(
-                JournalFile *f,
-                uint64_t *seqnum,
-                uint64_t revert_seqnum) {
-
-        assert(f);
-        assert(f->header);
-
-        if (revert_seqnum == 0) /* sequence number 0? can't go back */
-                return;
-
-        /* Undoes the effect of journal_file_entry_seqnum() above: if we fail to append an entry to a file,
-         * let's revert the seqnum we were about to use, so that we can use it on the next entry. */
-
-        if (le64toh(f->header->tail_entry_seqnum) == revert_seqnum)
-                f->header->tail_entry_seqnum = htole64(revert_seqnum - 1);
-
-        if (le64toh(f->header->head_entry_seqnum) == revert_seqnum)
-                f->header->head_entry_seqnum = 0;
-
-        if (seqnum && *seqnum == revert_seqnum)
-                *seqnum = revert_seqnum - 1;
-}
-
 int journal_file_append_object(
                 JournalFile *f,
                 ObjectType type,
@@ -2000,12 +1976,12 @@ static int journal_file_append_entry_internal(
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 #endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = o;
@@ -2013,10 +1989,6 @@ static int journal_file_append_entry_internal(
         if (ret_offset)
                 *ret_offset = np;
 
-        return 0;
-
-fail:
-        journal_file_revert_entry_seqnum(f, seqnum, le64toh(o->entry.seqnum));
         return r;
 }
 
@@ -2106,6 +2078,21 @@ static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
         return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
 
+static size_t remove_duplicate_entry_items(EntryItem items[], size_t n) {
+
+        /* This function relies on the items array being sorted. */
+        size_t j = 1;
+
+        if (n <= 1)
+                return n;
+
+        for (size_t i = 1; i < n; i++)
+                if (items[i].object_offset != items[j - 1].object_offset)
+                        items[j++] = items[i];
+
+        return j;
+}
+
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -2176,6 +2163,7 @@ int journal_file_append_entry(
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
         typesafe_qsort(items, n_iovec, entry_item_cmp);
+        n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
         r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, ret_offset);
 
