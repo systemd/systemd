@@ -885,6 +885,7 @@ int journal_file_verify(
         unsigned i;
         bool found_last = false;
         const char *tmp_dir = NULL;
+        MMapCache *m;
 
 #if HAVE_GCRYPT
         uint64_t last_tag = 0;
@@ -929,19 +930,20 @@ int journal_file_verify(
                 goto fail;
         }
 
-        cache_data_fd = mmap_cache_add_fd(f->mmap, data_fd, PROT_READ|PROT_WRITE);
+        m = mmap_cache_fd_cache(f->cache_fd);
+        cache_data_fd = mmap_cache_add_fd(m, data_fd, PROT_READ|PROT_WRITE);
         if (!cache_data_fd) {
                 r = log_oom();
                 goto fail;
         }
 
-        cache_entry_fd = mmap_cache_add_fd(f->mmap, entry_fd, PROT_READ|PROT_WRITE);
+        cache_entry_fd = mmap_cache_add_fd(m, entry_fd, PROT_READ|PROT_WRITE);
         if (!cache_entry_fd) {
                 r = log_oom();
                 goto fail;
         }
 
-        cache_entry_array_fd = mmap_cache_add_fd(f->mmap, entry_array_fd, PROT_READ|PROT_WRITE);
+        cache_entry_array_fd = mmap_cache_add_fd(m, entry_array_fd, PROT_READ|PROT_WRITE);
         if (!cache_entry_array_fd) {
                 r = log_oom();
                 goto fail;
