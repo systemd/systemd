@@ -26,7 +26,7 @@ static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         log_info("Got mask: %s\n", g_store);
 }
 
-static int test_cgroup_mask(void) {
+TEST_RET(cgroup_mask, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep, *nomem_parent, *nomem_leaf;
@@ -138,7 +138,7 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
         assert_se(streq_ptr(b, t));
 }
 
-static void test_cg_mask_to_string(void) {
+TEST(cg_mask_to_string) {
         test_cg_mask_to_string_one(0, NULL);
         test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices bpf-foreign bpf-socket-bind bpf-restrict-network-interfaces");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
@@ -156,13 +156,4 @@ static void test_cg_mask_to_string(void) {
         test_cg_mask_to_string_one(CGROUP_MASK_IO|CGROUP_MASK_BLKIO, "io blkio");
 }
 
-int main(int argc, char* argv[]) {
-        int rc = EXIT_SUCCESS;
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_cg_mask_to_string();
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
-
-        return rc;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
