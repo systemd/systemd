@@ -640,3 +640,9 @@ void mmap_cache_fd_free(MMapFileDescriptor *f) {
 
         free(f);
 }
+
+MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
+        assert(f);
+
+        return f->cache;
+}
