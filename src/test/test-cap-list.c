@@ -8,10 +8,11 @@
 #include "capability-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 /* verify the capability parser */
-static void test_cap_list(void) {
+TEST(cap_list) {
         assert_se(!capability_to_name(-1));
         assert_se(!capability_to_name(capability_list_length()));
 
@@ -70,7 +71,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         assert_se(c1 == c_masked);
 }
 
-static void test_capability_set_from_string(void) {
+TEST(capability_set_from_string) {
         uint64_t c;
 
         assert_se(capability_set_from_string(NULL, &c) == 0);
@@ -89,7 +90,7 @@ static void test_capability_set_from_string(void) {
         assert_se(c == (UINT64_C(1) << 4) - 1);
 }
 
-static void test_capability_set_to_string(uint64_t invalid_cap_set) {
+static void test_capability_set_to_string_invalid(uint64_t invalid_cap_set) {
         uint64_t c;
 
         test_capability_set_one(invalid_cap_set, "");
@@ -114,15 +115,13 @@ static void test_capability_set_to_string(uint64_t invalid_cap_set) {
                                     "cap_audit_control cap_mac_override cap_syslog"));
 }
 
-int main(int argc, char *argv[]) {
-        test_cap_list();
-        test_capability_set_from_string();
-        test_capability_set_to_string(0);
+TEST(capability_set_to_string) {
+        test_capability_set_to_string_invalid(0);
 
         /* once the kernel supports 63 caps, there are no 'invalid' numbers
          * for us to test with */
         if (cap_last_cap() < 63)
-                test_capability_set_to_string(all_capabilities() + 1);
-
-        return 0;
+                test_capability_set_to_string_invalid(all_capabilities() + 1);
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

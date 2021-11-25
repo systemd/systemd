@@ -38,7 +38,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_end(ap);
 }
 
-static void test_conf_files_list(bool use_root) {
+static void test_conf_files_list_one(bool use_root) {
         char tmp_dir[] = "/tmp/test-conf-files-XXXXXX";
         _cleanup_strv_free_ char **found_files = NULL, **found_files2 = NULL;
         const char *root_dir, *search, *expect_a, *expect_b, *expect_c, *mask;
@@ -89,7 +89,12 @@ static void test_conf_files_list(bool use_root) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
-static void test_conf_files_insert(const char *root) {
+TEST(conf_files_list) {
+        test_conf_files_list_one(false);
+        test_conf_files_list_one(true);
+}
+
+static void test_conf_files_insert_one(const char *root) {
         _cleanup_strv_free_ char **s = NULL;
 
         log_info("/* %s root=%s */", __func__, strempty(root));
@@ -143,14 +148,10 @@ static void test_conf_files_insert(const char *root) {
         assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, whatever, zzz3)));
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_conf_files_list(false);
-        test_conf_files_list(true);
-        test_conf_files_insert(NULL);
-        test_conf_files_insert("/root");
-        test_conf_files_insert("/root/");
-
-        return 0;
+TEST(conf_files_insert) {
+        test_conf_files_insert_one(NULL);
+        test_conf_files_insert_one("/root");
+        test_conf_files_insert_one("/root/");
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

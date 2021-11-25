@@ -7,37 +7,27 @@
 #include "errno.h"
 #include "tests.h"
 
-static int test_failed_enumerate(void) {
+TEST(failed_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
-        int r;
 
-        log_info("/* %s */", __func__);
-
-        r = sd_hwdb_new(&hwdb);
-        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
-                return r;
-        assert_se(r == 0);
+        assert_se(sd_hwdb_new(&hwdb) == 0);
 
         assert_se(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist") == 0);
 
         assert_se(sd_hwdb_enumerate(hwdb, &key, &value) == 0);
         assert_se(sd_hwdb_enumerate(hwdb, &key, NULL) == -EINVAL);
         assert_se(sd_hwdb_enumerate(hwdb, NULL, &value) == -EINVAL);
-
-        return 0;
 }
 
 #define DELL_MODALIAS \
         "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY"
 
-static void test_basic_enumerate(void) {
+TEST(basic_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         size_t len1 = 0, len2 = 0;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_hwdb_new(&hwdb) == 0);
 
@@ -62,16 +52,12 @@ static void test_basic_enumerate(void) {
         assert_se(len1 == len2);
 }
 
-int main(int argc, char *argv[]) {
-        int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        r = test_failed_enumerate();
-        if (r < 0)
-                return log_tests_skipped_errno(r, "cannot open hwdb");
-
-        test_basic_enumerate();
-
-        return 0;
-}
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_DEBUG,
+        ({
+                _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+                int r = sd_hwdb_new(&hwdb);
+                if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+                        return log_tests_skipped_errno(r, "cannot open hwdb");
+        }),
+        /* no outro */);

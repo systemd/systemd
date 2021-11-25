@@ -24,9 +24,7 @@ static const char* const cases[] = {
         NULL,
 };
 
-static void test_sysctl_normalize(void) {
-        log_info("/* %s */", __func__);
-
+TEST(sysctl_normalize) {
         const char **s, **expected;
         STRV_FOREACH_PAIR(s, expected, (const char**) cases) {
                 _cleanup_free_ char *t;
@@ -39,7 +37,7 @@ static void test_sysctl_normalize(void) {
         }
 }
 
-static void test_sysctl_read(void) {
+TEST(sysctl_read) {
         _cleanup_free_ char *s = NULL, *h = NULL;
         sd_id128_t a, b;
         int r;
@@ -72,11 +70,4 @@ static void test_sysctl_read(void) {
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_sysctl_normalize();
-        test_sysctl_read();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

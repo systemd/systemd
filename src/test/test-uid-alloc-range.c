@@ -11,7 +11,7 @@
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
 
-static void test_read_login_defs(const char *path) {
+static void test_read_login_defs_one(const char *path) {
         log_info("/* %s(\"%s\") */", __func__, path ?: "<custom>");
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-user-record.XXXXXX";
@@ -52,9 +52,13 @@ static void test_read_login_defs(const char *path) {
         }
 }
 
-static void test_acquire_ugid_allocation_range(void) {
-        log_info("/* %s */", __func__);
+TEST(read_login_defs) {
+        test_read_login_defs_one("/dev/null");
+        test_read_login_defs_one("/etc/login.defs");
+        test_read_login_defs_one(NULL);
+}
 
+TEST(acquire_ugid_allocation_range) {
         const UGIDAllocationRange *defs;
         assert_se(defs = acquire_ugid_allocation_range());
 
@@ -64,9 +68,7 @@ static void test_acquire_ugid_allocation_range(void) {
         log_info("system_gid_max="GID_FMT, defs->system_gid_max);
 }
 
-static void test_uid_is_system(void) {
-        log_info("/* %s */", __func__);
-
+TEST(uid_is_system) {
         uid_t uid = 0;
         log_info("uid_is_system("UID_FMT") = %s", uid, yes_no(uid_is_system(uid)));
 
@@ -77,9 +79,7 @@ static void test_uid_is_system(void) {
         log_info("uid_is_system("UID_FMT") = %s", uid, yes_no(uid_is_system(uid)));
 }
 
-static void test_gid_is_system(void) {
-        log_info("/* %s */", __func__);
-
+TEST(gid_is_system) {
         gid_t gid = 0;
         log_info("gid_is_system("GID_FMT") = %s", gid, yes_no(gid_is_system(gid)));
 
@@ -90,15 +90,4 @@ static void test_gid_is_system(void) {
         log_info("gid_is_system("GID_FMT") = %s", gid, yes_no(gid_is_system(gid)));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_read_login_defs("/dev/null");
-        test_read_login_defs("/etc/login.defs");
-        test_read_login_defs(NULL);
-        test_acquire_ugid_allocation_range();
-        test_uid_is_system();
-        test_gid_is_system();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
