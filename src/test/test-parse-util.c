@@ -94,7 +94,7 @@ TEST(parse_mode) {
         assert_se(parse_mode(" 1", &m) >= 0 && m == 1);
 }
 
-TEST(parse_size) {
+TEST(parse_size_iec) {
         uint64_t bytes;
 
         assert_se(parse_size("", 1024, &bytes) == -EINVAL);
@@ -162,6 +162,76 @@ TEST(parse_size) {
         assert_se(parse_size("-1024P", 1024, &bytes) == -ERANGE);
 
         assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
+}
+
+TEST(parse_size_si) {
+        uint64_t bytes;
+
+        assert_se(parse_size("", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("111", 1000, &bytes) == 0);
+        assert_se(bytes == 111);
+
+        assert_se(parse_size("111.4", 1000, &bytes) == 0);
+        assert_se(bytes == 111);
+
+        assert_se(parse_size(" 112 B", 1000, &bytes) == 0);
+        assert_se(bytes == 112);
+
+        assert_se(parse_size(" 112.6 B", 1000, &bytes) == 0);
+        assert_se(bytes == 112);
+
+        assert_se(parse_size("3.5 K", 1000, &bytes) == 0);
+        assert_se(bytes == 3*1000 + 500);
+
+        assert_se(parse_size("3. K", 1000, &bytes) == 0);
+        assert_se(bytes == 3*1000);
+
+        assert_se(parse_size("3.0 K", 1000, &bytes) == 0);
+        assert_se(bytes == 3*1000);
+
+        assert_se(parse_size("3. 0 K", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size(" 4 M 11.5K", 1000, &bytes) == 0);
+        assert_se(bytes == 4*1000*1000 + 11 * 1000 + 500);
+
+        assert_se(parse_size("3B3.5G", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("3.5G3B", 1000, &bytes) == 0);
+        assert_se(bytes == 3ULL*1000*1000*1000 + 500*1000*1000 + 3);
+
+        assert_se(parse_size("3.5G 4B", 1000, &bytes) == 0);
+        assert_se(bytes == 3ULL*1000*1000*1000 + 500*1000*1000 + 4);
+
+        assert_se(parse_size("3B3G4T", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("4T3G3B", 1000, &bytes) == 0);
+        assert_se(bytes == (4ULL*1000 + 3)*1000*1000*1000 + 3);
+
+        assert_se(parse_size(" 4 T 3 G 3 B", 1000, &bytes) == 0);
+        assert_se(bytes == (4ULL*1000 + 3)*1000*1000*1000 + 3);
+
+        assert_se(parse_size("12P", 1000, &bytes) == 0);
+        assert_se(bytes == 12ULL * 1000*1000*1000*1000*1000);
+
+        assert_se(parse_size("12P12P", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("3E 2P", 1000, &bytes) == 0);
+        assert_se(bytes == (3 * 1000 + 2ULL) * 1000*1000*1000*1000*1000);
+
+        assert_se(parse_size("12X", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("12.5X", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("12.5e3", 1000, &bytes) == -EINVAL);
+
+        assert_se(parse_size("1000E", 1000, &bytes) == -ERANGE);
+        assert_se(parse_size("-1", 1000, &bytes) == -ERANGE);
+        assert_se(parse_size("-1000E", 1000, &bytes) == -ERANGE);
+
+        assert_se(parse_size("-1000P", 1000, &bytes) == -ERANGE);
+
+        assert_se(parse_size("-10B 20K", 1000, &bytes) == -ERANGE);
 }
 
 TEST(parse_range) {
