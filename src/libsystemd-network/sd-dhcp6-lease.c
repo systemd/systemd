@@ -239,12 +239,13 @@ int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t opt
 
 int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!lease->dns)
                 return -ENOENT;
 
-        *ret = lease->dns;
+        if (ret)
+                *ret = lease->dns;
+
         return lease->dns_count;
 }
 
@@ -337,16 +338,17 @@ int dhcp6_lease_add_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t op
 
 int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (lease->ntp) {
-                *ret = lease->ntp;
+                if (ret)
+                        *ret = lease->ntp;
                 return lease->ntp_count;
         }
 
         if (lease->sntp && !lease->ntp_fqdn) {
                 /* Fallback to the deprecated SNTP option. */
-                *ret = lease->sntp;
+                if (ret)
+                        *ret = lease->sntp;
                 return lease->sntp_count;
         }
 
@@ -355,12 +357,12 @@ int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 
 int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!lease->ntp_fqdn)
                 return -ENOENT;
 
-        *ret = lease->ntp_fqdn;
+        if (ret)
+                *ret = lease->ntp_fqdn;
         return strv_length(lease->ntp_fqdn);
 }
 
