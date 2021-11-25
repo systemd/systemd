@@ -68,7 +68,7 @@ inspect test-user
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
 inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
+homectl deactivate test-user
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Offline test"
@@ -77,7 +77,7 @@ inspect test-user
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
 inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
+homectl deactivate test-user
 inspect test-user
 
 # Do some resize tests, but only if we run on real kernels, as quota inside of containers will fail
@@ -109,7 +109,7 @@ if ! systemd-detect-virt -cq ; then
     PASSWORD=xEhErW0ndafV4s homectl resize test-user 256M
     inspect test-user
 
-    PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
+    homectl deactivate test-user
     inspect test-user
 fi
 
