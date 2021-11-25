@@ -390,7 +390,7 @@ static void test_json(void) {
         assert_se(json_build(&w,
                              JSON_BUILD_ARRAY(
                                              JSON_BUILD_OBJECT(
-                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_STRING("v1")),
+                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
                                                              JSON_BUILD_PAIR("quux", JSON_BUILD_UNSIGNED(4711)),
                                                              JSON_BUILD_PAIR("zzz", JSON_BUILD_BOOLEAN(true))),
                                              JSON_BUILD_OBJECT(

@@ -74,11 +74,11 @@ int enroll_fido2(
 
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING("systemd-fido2")),
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("fido2-credential", JSON_BUILD_BASE64(cid, cid_size)),
                                        JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
-                                       JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_STRING("io.systemd.cryptsetup")),
+                                       JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
                                        JSON_BUILD_PAIR("fido2-clientPin-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
                                        JSON_BUILD_PAIR("fido2-up-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
                                        JSON_BUILD_PAIR("fido2-uv-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))));

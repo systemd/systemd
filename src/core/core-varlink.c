@@ -31,12 +31,12 @@ static int build_user_json(const char *user_name, uid_t uid, JsonVariant **ret) 
                                        JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(user_name)),
                                        JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(uid)),
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(uid)),
-                                       JSON_BUILD_PAIR("realName", JSON_BUILD_STRING("Dynamic User")),
-                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING("/")),
-                                       JSON_BUILD_PAIR("shell", JSON_BUILD_STRING(NOLOGIN)),
+                                       JSON_BUILD_PAIR("realName", JSON_BUILD_CONST_STRING("Dynamic User")),
+                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                       JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
                                        JSON_BUILD_PAIR("locked", JSON_BUILD_BOOLEAN(true)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.DynamicUser")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("dynamic"))))));
+                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -339,10 +339,10 @@ static int build_group_json(const char *group_name, gid_t gid, JsonVariant **ret
         return json_build(ret, JSON_BUILD_OBJECT(
                                    JSON_BUILD_PAIR("record", JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(group_name)),
-                                       JSON_BUILD_PAIR("description", JSON_BUILD_STRING("Dynamic Group")),
+                                       JSON_BUILD_PAIR("description", JSON_BUILD_CONST_STRING("Dynamic Group")),
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.DynamicUser")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("dynamic"))))));
+                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
     }
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {

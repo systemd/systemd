@@ -126,7 +126,7 @@ static void flood_test(const char *address) {
         assert_se(varlink_set_description(c, "overload-client") >= 0);
         assert_se(varlink_attach_event(c, e, k) >= 0);
         assert_se(varlink_bind_reply(c, overload_reply) >= 0);
-        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_STRING("bar")))) >= 0);
+        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >= 0);
 
         /* Unblock it */
         log_debug("Unblocking server...");

@@ -83,7 +83,7 @@ int user_record_synthesize(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(user_name)),
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(realm)),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("regular")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
                                                                        JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("imagePath", JSON_BUILD_STRING(image_path)),
@@ -150,7 +150,7 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                                        JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
                                        JSON_BUILD_PAIR("status", JSON_BUILD_OBJECT(
                                                                        JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
-                                                                                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Home"))))))));
+                                                                                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home"))))))));
         if (r < 0)
                 return r;
 

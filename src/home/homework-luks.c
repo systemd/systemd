@@ -984,7 +984,7 @@ static int format_luks_token_text(
 
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING("systemd-homed")),
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_EMPTY_ARRAY),
                                        JSON_BUILD_PAIR("record", JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
                                        JSON_BUILD_PAIR("iv", JSON_BUILD_BASE64(iv, iv_size))));

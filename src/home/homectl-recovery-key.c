@@ -19,7 +19,7 @@ static int add_privileged(JsonVariant **v, const char *hashed) {
         assert(hashed);
 
         r = json_build(&e, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING("modhex64")),
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("modhex64")),
                                        JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_STRING(hashed))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build recover key JSON object: %m");
