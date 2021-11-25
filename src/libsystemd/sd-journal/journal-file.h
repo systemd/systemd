@@ -246,7 +246,7 @@ void journal_file_print_header(JournalFile *f);
 
 int journal_file_archive(JournalFile *f);
 JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
-int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
+int journal_file_rotate(JournalFile **f, MMapCache *mmap_cache, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
 
 int journal_file_dispose(int dir_fd, const char *fname);
 

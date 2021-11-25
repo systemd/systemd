@@ -3694,6 +3694,7 @@ JournalFile* journal_initiate_close(
 
 int journal_file_rotate(
                 JournalFile **f,
+                MMapCache *mmap_cache,
                 bool compress,
                 uint64_t compress_threshold_bytes,
                 bool seal,
@@ -3718,7 +3719,7 @@ int journal_file_rotate(
                         compress_threshold_bytes,
                         seal,
                         NULL,            /* metrics */
-                        (*f)->mmap,
+                        mmap_cache,
                         deferred_closes,
                         *f,              /* template */
                         &new_file);
