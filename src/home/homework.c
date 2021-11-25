@@ -1639,7 +1639,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         return 0;
 }
 
-static int home_resize(UserRecord *h, UserRecord **ret) {
+static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1651,14 +1651,25 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        if (automatic)
+                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
+                password_cache_load_keyring(h, &cache);
+        else {
+                /* In manual mode let's ensure the user is fully authenticated */
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+        }
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
+
+        /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
+         * ask the user for reauthentication */
+        if (automatic)
+                flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
         switch (user_record_storage(h)) {
 
@@ -1931,8 +1942,10 @@ static int run(int argc, char *argv[]) {
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
                 r = home_update(home, &new_home);
-        else if (streq(argv[1], "resize"))
-                r = home_resize(home, &new_home);
+        else if (streq(argv[1], "resize")) /* Resize on user request */
+                r = home_resize(home, false, &new_home);
+        else if (streq(argv[1], "resize-auto")) /* Automatic resize */
+                r = home_resize(home, true, &new_home);
         else if (streq(argv[1], "passwd"))
                 r = home_passwd(home, &new_home);
         else if (streq(argv[1], "inspect"))
