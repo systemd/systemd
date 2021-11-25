@@ -105,12 +105,13 @@ int sd_dhcp_lease_get_servers(
         assert_return(lease, -EINVAL);
         assert_return(what >= 0, -EINVAL);
         assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
-        assert_return(addr, -EINVAL);
 
         if (lease->servers[what].size <= 0)
                 return -ENODATA;
 
-        *addr = lease->servers[what].addr;
+        if (addr)
+                *addr = lease->servers[what].addr;
+
         return (int) lease->servers[what].size;
 }
 
