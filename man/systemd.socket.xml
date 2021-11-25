@@ -392,36 +392,32 @@
 
       <varlistentry>
         <term><varname>Accept=</varname></term>
-        <listitem><para>Takes a boolean argument. If yes, a service
-        instance is spawned for each incoming connection and only the
-        connection socket is passed to it. If no, all listening
-        sockets themselves are passed to the started service unit, and
-        only one service unit is spawned for all connections (also see
-        above). This value is ignored for datagram sockets and FIFOs
-        where a single service unit unconditionally handles all
-        incoming traffic. Defaults to <option>no</option>. For
-        performance reasons, it is recommended to write new daemons
-        only in a way that is suitable for
-        <option>Accept=no</option>. A daemon listening on an
-        <constant>AF_UNIX</constant> socket may, but does not need to,
-        call
-        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on the received socket before exiting. However, it must not
-        unlink the socket from a file system. It should not invoke
-        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on sockets it got with <varname>Accept=no</varname>, but it
-        may do so for sockets it got with
-        <varname>Accept=yes</varname> set. Setting
-        <varname>Accept=yes</varname> is mostly useful to allow
-        daemons designed for usage with
-        <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        to work unmodified with systemd socket
-        activation.</para>
+        <listitem><para>Takes a boolean argument. If yes, a service instance is spawned for each incoming
+        connection and only the connection socket is passed to it. If no, all listening sockets themselves
+        are passed to the started service unit, and only one service unit is spawned for all connections
+        (also see above). This value is ignored for datagram sockets and FIFOs where a single service unit
+        unconditionally handles all incoming traffic. Defaults to <option>no</option>. For performance
+        reasons, it is recommended to write new daemons only in a way that is suitable for
+        <option>Accept=no</option>. A daemon listening on an <constant>AF_UNIX</constant> socket may, but
+        does not need to, call
+        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry> on the
+        received socket before exiting. However, it must not unlink the socket from a file system. It should
+        not invoke
+        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on
+        sockets it got with <varname>Accept=no</varname>, but it may do so for sockets it got with
+        <varname>Accept=yes</varname> set. Setting <varname>Accept=yes</varname> is mostly useful to allow
+        daemons designed for usage with <citerefentry
+        project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> to work
+        unmodified with systemd socket activation.</para>
 
         <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
         contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
         is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
-        protocol.</para></listitem>
+        protocol.</para>
+
+        <para>It is recommended to set <varname>CollectMode=inactive-or-failed</varname> for service
+        instances activated via <varname>Accept=yes</varname>, to ensure that failed connection services are
+        cleaned up and released from memory, and do not accumulate.</para></listitem>
       </varlistentry>
 
       <varlistentry>
