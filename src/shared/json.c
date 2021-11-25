@@ -515,7 +515,6 @@ static void json_variant_set(JsonVariant *a, JsonVariant *b) {
 
 static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
         assert(v);
-        assert(from);
 
         if (!json_variant_is_regular(from))
                 return;
