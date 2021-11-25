@@ -465,7 +465,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journald_file_rotate(f, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
+        r = journald_file_rotate(f, s->mmap, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_error_errno(r, "Failed to rotate %s: %m", (*f)->file->path);

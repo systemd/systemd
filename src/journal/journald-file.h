@@ -40,4 +40,4 @@ int journald_file_open_reliably(
                 JournaldFile **ret);
 
 JournaldFile* journald_file_initiate_close(JournaldFile *f, Set *deferred_closes);
-int journald_file_rotate(JournaldFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
+int journald_file_rotate(JournaldFile **f, MMapCache *mmap_cache, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
