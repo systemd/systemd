@@ -947,6 +947,10 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
+
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
         if (suffix)
                 busname = strjoina("org.freedesktop.home1.", suffix);

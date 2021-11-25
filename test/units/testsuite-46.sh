@@ -26,6 +26,7 @@ inspect() {
 
 systemd-analyze log-level debug
 systemd-analyze log-target console
+systemctl service-log-level systemd-homed debug
 
 # Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
 mkdir -p /home-pool
