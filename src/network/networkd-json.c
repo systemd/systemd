@@ -499,6 +499,166 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model)));
 }
 
+static int dns_build_json_one(Link *link, const struct in_addr_full *a, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        assert(link);
+        assert(a);
+        assert(ret);
+
+        if (a->ifindex != 0 && a->ifindex != link->ifindex) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("Family", a->family),
+                                JSON_BUILD_PAIR_IN_ADDR("Address", &a->address, a->family),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", a->port),
+                                JSON_BUILD_PAIR_CONDITION(a->ifindex != 0, "InterfaceIndex", JSON_BUILD_INTEGER(a->ifindex)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", a->server_name),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, a->family)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 1;
+}
+
+static int dns_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (link->n_dns != UINT_MAX) {
+                for (unsigned i = 0; i < link->n_dns; i++) {
+                        if (!GREEDY_REALLOC(elements, n + 1)) {
+                                r = -ENOMEM;
+                                goto finalize;
+                        }
+
+                        r = dns_build_json_one(link, link->dns[i], NETWORK_CONFIG_SOURCE_RUNTIME, NULL, elements + n);
+                        if (r < 0)
+                                goto finalize;
+                        if (r > 0)
+                                n++;
+                }
+        } else {
+                for (unsigned i = 0; i < link->network->n_dns; i++) {
+                        if (!GREEDY_REALLOC(elements, n + 1)) {
+                                r = -ENOMEM;
+                                goto finalize;
+                        }
+
+                        r = dns_build_json_one(link, link->network->dns[i], NETWORK_CONFIG_SOURCE_STATIC, NULL, elements + n);
+                        if (r < 0)
+                                goto finalize;
+                        if (r > 0)
+                                n++;
+                }
+
+                if (link->dhcp_lease && link->network->dhcp_use_dns) {
+                        const struct in_addr *dns;
+                        union in_addr_union s;
+                        int n_dns;
+
+                        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
+                        if (r < 0)
+                                goto finalize;
+
+                        n_dns = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
+                        for (int i = 0; i < n_dns; i++) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = dns_build_json_one(link,
+                                                       &(struct in_addr_full) { .family = AF_INET, .address.in = dns[i], },
+                                                       NETWORK_CONFIG_SOURCE_DHCP4,
+                                                       &s,
+                                                       elements + n);
+                                if (r < 0)
+                                        goto finalize;
+                                if (r > 0)
+                                        n++;
+                        }
+                }
+
+                if (link->dhcp6_lease && link->network->dhcp6_use_dns) {
+                        const struct in6_addr *dns;
+                        union in_addr_union s;
+                        int n_dns;
+
+                        r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
+                        if (r < 0)
+                                goto finalize;
+
+                        n_dns = sd_dhcp6_lease_get_dns(link->dhcp6_lease, &dns);
+                        for (int i = 0; i < n_dns; i++) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = dns_build_json_one(link,
+                                                       &(struct in_addr_full) { .family = AF_INET6, .address.in6 = dns[i], },
+                                                       NETWORK_CONFIG_SOURCE_DHCP6,
+                                                       &s,
+                                                       elements + n);
+                                if (r < 0)
+                                        goto finalize;
+                                if (r > 0)
+                                        n++;
+                        }
+                }
+
+                if (link->network->ipv6_accept_ra_use_dns) {
+                        NDiscRDNSS *a;
+
+                        SET_FOREACH(a, link->ndisc_rdnss) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = dns_build_json_one(link,
+                                                       &(struct in_addr_full) { .family = AF_INET6, .address.in6 = a->address, },
+                                                       NETWORK_CONFIG_SOURCE_NDISC,
+                                                       &(union in_addr_union) { .in6 = a->router },
+                                                       elements + n);
+                                if (r < 0)
+                                        goto finalize;
+                                if (r > 0)
+                                        n++;
+                        }
+                }
+        }
+
+        if (n == 0) {
+                *ret = NULL;
+                r = 0;
+                goto finalize;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("DNS", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -565,6 +725,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = device_build_json(link->sd_device, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = dns_build_json(link, &w);
         if (r < 0)
                 return r;
 
