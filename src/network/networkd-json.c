@@ -544,11 +544,11 @@ int link_build_json(Link *link, JsonVariant **ret) {
                                 JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
                                 JSON_BUILD_PAIR_STRING("OnlineState", link_online_state_to_string(link->online_state))));
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build link json: %m");
 
         r = network_build_json(link->network, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build network json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -558,7 +558,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         r = device_build_json(link->sd_device, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build device json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -568,7 +568,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         r = addresses_build_json(link->addresses, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build address json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -578,7 +578,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         r = neighbors_build_json(link->neighbors, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build neighbor json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -588,7 +588,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         r = nexthops_build_json(link->nexthops, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build nexthop json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -598,7 +598,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         r = routes_build_json(link->routes, &w);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to build route json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -663,7 +663,7 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
 
         r = nexthops_build_json(manager->nexthops, &w);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to build nexthop json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -673,7 +673,7 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
 
         r = routes_build_json(manager->routes, &w);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to build route json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
@@ -683,7 +683,7 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
 
         r = routing_policy_rules_build_json(manager->rules, &w);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to build routing policy rule json: %m");
 
         r = json_variant_merge(&v, w);
         if (r < 0)
