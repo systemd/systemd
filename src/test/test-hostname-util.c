@@ -9,9 +9,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_hostname_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(hostname_is_valid) {
         assert_se(hostname_is_valid("foobar", 0));
         assert_se(hostname_is_valid("foobar.com", 0));
         assert_se(!hostname_is_valid("foobar.com.", 0));
@@ -48,10 +46,8 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", VALID_HOSTNAME_TRAILING_DOT));
 }
 
-static void test_hostname_cleanup(void) {
+TEST(hostname_cleanup) {
         char *s;
-
-        log_info("/* %s */", __func__);
 
         s = strdupa_safe("foobar");
         assert_se(streq(hostname_cleanup(s), "foobar"));
@@ -95,10 +91,8 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
-static void test_hostname_malloc(void) {
+TEST(hostname_malloc) {
         _cleanup_free_ char *h = NULL, *l = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(h = gethostname_malloc());
         log_info("hostname_malloc: \"%s\"", h);
@@ -107,9 +101,7 @@ static void test_hostname_malloc(void) {
         log_info("hostname_short_malloc: \"%s\"", l);
 }
 
-static void test_default_hostname(void) {
-        log_info("/* %s */", __func__);
-
+TEST(default_hostname) {
         if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
                 exit(EXIT_FAILURE);
@@ -121,13 +113,4 @@ static void test_default_hostname(void) {
         assert_se(hostname_is_valid(n, 0));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_hostname_is_valid();
-        test_hostname_cleanup();
-        test_hostname_malloc();
-        test_default_hostname();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

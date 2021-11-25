@@ -5,25 +5,21 @@
 #include "macro.h"
 #include "tests.h"
 
-static void test_cescape(void) {
+TEST(cescape) {
         _cleanup_free_ char *t;
-
-        log_info("/* %s */", __func__);
 
         assert_se(t = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
         assert_se(streq(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
 }
 
-static void test_xescape(void) {
+TEST(xescape) {
         _cleanup_free_ char *t;
-
-        log_info("/* %s */", __func__);
 
         assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
         assert_se(streq(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb"));
 }
 
-static void test_xescape_full(bool eight_bits) {
+static void test_xescape_full_one(bool eight_bits) {
         const char* escaped = !eight_bits ?
                 "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb" :
                 "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
@@ -63,10 +59,13 @@ static void test_xescape_full(bool eight_bits) {
         }
 }
 
-static void test_cunescape(void) {
-        _cleanup_free_ char *unescaped;
+TEST(test_xescape_full) {
+        test_xescape_full_one(false);
+        test_xescape_full_one(true);
+}
 
-        log_info("/* %s */", __func__);
+TEST(cunescape) {
+        _cleanup_free_ char *unescaped;
 
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
@@ -140,9 +139,7 @@ static void test_shell_escape_one(const char *s, const char *bad, const char *ex
         assert_se(streq_ptr(r, expected));
 }
 
-static void test_shell_escape(void) {
-        log_info("/* %s */", __func__);
-
+TEST(shell_escape) {
         test_shell_escape_one("", "", "");
         test_shell_escape_one("\\", "", "\\\\");
         test_shell_escape_one("foobar", "", "foobar");
@@ -159,9 +156,7 @@ static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, co
         assert_se(streq(ret, expected));
 }
 
-static void test_shell_maybe_quote(void) {
-        log_info("/* %s */", __func__);
-
+TEST(shell_maybe_quote) {
         test_shell_maybe_quote_one("", 0, "");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_EMPTY, "\"\"");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_POSIX, "");
@@ -211,9 +206,7 @@ static void test_quote_command_line_one(char **argv, const char *expected) {
         assert_se(streq(s, expected));
 }
 
-static void test_quote_command_line(void) {
-        log_info("/* %s */", __func__);
-
+TEST(quote_command_line) {
         test_quote_command_line_one(STRV_MAKE("true", "true"),
                                     "true true");
         test_quote_command_line_one(STRV_MAKE("true", "with a space"),
@@ -226,17 +219,4 @@ static void test_quote_command_line(void) {
                                     "true \"\\$dollar\"");
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_cescape();
-        test_xescape();
-        test_xescape_full(false);
-        test_xescape_full(true);
-        test_cunescape();
-        test_shell_escape();
-        test_shell_maybe_quote();
-        test_quote_command_line();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -22,7 +22,7 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         assert_se(expect < 0 || ((r > 0) == (expect > 0)));
 }
 
-static void test_path_is_encrypted(void) {
+TEST(path_is_encrypted) {
         int booted = sd_booted(); /* If this is run in build environments such as koji, /dev might be a
                                    * reguar fs. Don't assume too much if not running under systemd. */
 
@@ -36,8 +36,4 @@ static void test_path_is_encrypted(void) {
         test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_path_is_encrypted();
-}
+DEFINE_TEST_MAIN(LOG_INFO);

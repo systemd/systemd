@@ -17,7 +17,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
+static void test_mount_propagation_flags_one(const char *name, int ret, unsigned long expected) {
         long unsigned flags;
 
         log_info("/* %s(%s) */", __func__, name);
@@ -37,7 +37,17 @@ static void test_mount_propagation_flags(const char *name, int ret, unsigned lon
         }
 }
 
-static void test_mnt_id(void) {
+TEST(mount_propagation_flags) {
+        test_mount_propagation_flags_one("shared", 0, MS_SHARED);
+        test_mount_propagation_flags_one("slave", 0, MS_SLAVE);
+        test_mount_propagation_flags_one("private", 0, MS_PRIVATE);
+        test_mount_propagation_flags_one(NULL, 0, 0);
+        test_mount_propagation_flags_one("", 0, 0);
+        test_mount_propagation_flags_one("xxxx", -EINVAL, 0);
+        test_mount_propagation_flags_one(" ", -EINVAL, 0);
+}
+
+TEST(mnt_id) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_hashmap_free_free_ Hashmap *h = NULL;
         char *p;
@@ -96,14 +106,12 @@ static void test_mnt_id(void) {
         }
 }
 
-static void test_path_is_mount_point(void) {
+TEST(path_is_mount_point) {
         int fd;
         char tmp_dir[] = "/tmp/test-path-is-mount-point-XXXXXX";
         _cleanup_free_ char *file1 = NULL, *file2 = NULL, *link1 = NULL, *link2 = NULL;
         _cleanup_free_ char *dir1 = NULL, *dir1file = NULL, *dirlink1 = NULL, *dirlink1file = NULL;
         _cleanup_free_ char *dir2 = NULL, *dir2file = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(path_is_mount_point("/", NULL, AT_SYMLINK_FOLLOW) > 0);
         assert_se(path_is_mount_point("/", NULL, 0) > 0);
@@ -257,10 +265,8 @@ static void test_path_is_mount_point(void) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
-static void test_fd_is_mount_point(void) {
+TEST(fd_is_mount_point) {
         _cleanup_close_ int fd = -1;
-
-        log_info("/* %s */", __func__);
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
@@ -288,30 +294,17 @@ static void test_fd_is_mount_point(void) {
         assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_DEBUG,
+        ({
+                /* let's move into our own mount namespace with all propagation from the host turned off, so
+                 * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
+                if (unshare(CLONE_NEWNS) < 0) {
+                        if (!ERRNO_IS_PRIVILEGE(errno))
+                                return log_error_errno(errno, "Failed to detach mount namespace: %m");
 
-        /* let's move into our own mount namespace with all propagation from the host turned off, so that
-         * /proc/self/mountinfo is static and constant for the whole time our test runs. */
-        if (unshare(CLONE_NEWNS) < 0) {
-                if (!ERRNO_IS_PRIVILEGE(errno))
-                        return log_error_errno(errno, "Failed to detach mount namespace: %m");
-
-                log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
-        } else
-                assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
-
-        test_mount_propagation_flags("shared", 0, MS_SHARED);
-        test_mount_propagation_flags("slave", 0, MS_SLAVE);
-        test_mount_propagation_flags("private", 0, MS_PRIVATE);
-        test_mount_propagation_flags(NULL, 0, 0);
-        test_mount_propagation_flags("", 0, 0);
-        test_mount_propagation_flags("xxxx", -EINVAL, 0);
-        test_mount_propagation_flags(" ", -EINVAL, 0);
-
-        test_mnt_id();
-        test_path_is_mount_point();
-        test_fd_is_mount_point();
-
-        return 0;
-}
+                        log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
+                } else
+                        assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
+        }),
+        /* no outro */);

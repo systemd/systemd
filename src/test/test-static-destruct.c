@@ -21,14 +21,14 @@ STATIC_DESTRUCTOR_REGISTER(baz, test_destroy);
 STATIC_DESTRUCTOR_REGISTER(baz, test_destroy);
 STATIC_DESTRUCTOR_REGISTER(memory, freep);
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
+TEST(static_destruct) {
         assert_se(memory = strdup("hallo"));
 
         assert_se(foo == 0 && bar == 0 && baz == 0);
         static_destruct();
         assert_se(foo == 1 && bar == 2 && baz == 3);
 
-        return EXIT_SUCCESS;
+        assert_se(memory == NULL);
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

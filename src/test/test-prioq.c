@@ -7,6 +7,7 @@
 #include "set.h"
 #include "siphash24.h"
 #include "sort-util.h"
+#include "tests.h"
 
 #define SET_SIZE 1024*4
 
@@ -14,7 +15,7 @@ static int unsigned_compare(const unsigned *a, const unsigned *b) {
         return CMP(*a, *b);
 }
 
-static void test_unsigned(void) {
+TEST(unsigned) {
         _cleanup_(prioq_freep) Prioq *q = NULL;
         unsigned buffer[SET_SIZE], i, u, n;
 
@@ -58,7 +59,7 @@ static void test_hash(const struct test *x, struct siphash *state) {
 
 DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);
 
-static void test_struct(void) {
+TEST(struct) {
         _cleanup_(prioq_freep) Prioq *q = NULL;
         _cleanup_set_free_ Set *s = NULL;
         unsigned previous = 0, i;
@@ -119,10 +120,4 @@ static void test_struct(void) {
         assert_se(set_isempty(s));
 }
 
-int main(int argc, char* argv[]) {
-
-        test_unsigned();
-        test_struct();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);
