@@ -3629,6 +3629,7 @@ fail:
 
 int journal_file_archive(JournalFile *f) {
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(f);
 
@@ -3657,6 +3658,13 @@ int journal_file_archive(JournalFile *f) {
 
         /* Sync the rename to disk */
         (void) fsync_directory_of_file(f->fd);
+
+        /* Yank this MMapFileDescriptor from its MMapCache so we can
+         * potentially use it from the offflining thread.
+         */
+        r = mmap_cache_fd_isolate(f->cache_fd);
+        if (r < 0)
+                return r;
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
