@@ -22,7 +22,7 @@ void in_initrd_force(bool value);
 
 int on_ac_power(void);
 
-static inline unsigned u64log2(uint64_t n) {
+static inline unsigned log2u64(uint64_t n) {
 #if __SIZEOF_LONG_LONG__ == 8
         return (n > 1) ? (unsigned) __builtin_clzll(n) ^ 63U : 0;
 #else
