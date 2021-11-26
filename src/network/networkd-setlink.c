@@ -543,9 +543,9 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 break;
         case SET_LINK_MAC:
                 if (req->netlink_handler == link_set_mac_handler) {
-                        /* This is the second trial to set hardware address. On the first attempt
+                        /* This is the second attempt to set hardware address. On the first attempt
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
-                         * The first trial failed as the interface was up. */
+                         * The first attempt failed as the interface was up. */
                         r = link_down(link);
                         if (r < 0) {
                                 link_enter_failed(link);
