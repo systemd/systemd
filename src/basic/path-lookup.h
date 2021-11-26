@@ -72,3 +72,6 @@ char **env_generator_binary_paths(bool is_system);
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
 #define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
+
+#define PORTABLE_PROFILE_DIRS CONF_PATHS_NULSTR("systemd/portable/profile")
+int find_portable_profile(const char *name, const char *unit, char **ret_path);
