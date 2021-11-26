@@ -124,6 +124,10 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 
                         f->header->state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
                         (void) fsync(f->fd);
+
+                        /* TODO: if f->archive is true, f->cache_fd should be isolated, we could
+                         * call @DaanDeMeyer's MMapCache-based hole-punching and truncate code.
+                         */
                         break;
 
                 case OFFLINE_OFFLINING:
@@ -376,7 +380,7 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         journal_file_set_offline(f, true);
 
-        if (f->mmap && f->cache_fd)
+        if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
         if (f->fd >= 0 && f->defrag_on_close) {
@@ -394,8 +398,6 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (f->close_fd)
                 safe_close(f->fd);
         free(f->path);
-
-        mmap_cache_unref(f->mmap);
 
         ordered_hashmap_free_free(f->chain_cache);
 
@@ -3382,6 +3384,7 @@ int journal_file_open(
                 JournalFile **ret) {
 
         bool newly_created = false;
+        MMapCache *m = mmap_cache;
         JournalFile *f;
         void *h;
         int r;
@@ -3450,11 +3453,9 @@ int journal_file_open(
                 }
         }
 
-        if (mmap_cache)
-                f->mmap = mmap_cache_ref(mmap_cache);
-        else {
-                f->mmap = mmap_cache_new();
-                if (!f->mmap) {
+        if (!m) {
+                m = mmap_cache_new();
+                if (!m) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -3501,11 +3502,16 @@ int journal_file_open(
                         goto fail;
         }
 
-        f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd, prot_from_flags(flags));
+        /* On success this incs refcnt on *m, which mmap_cache_fd_free() will dec. */
+        f->cache_fd = mmap_cache_add_fd(m, f->fd, prot_from_flags(flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;
         }
+
+        /* If we created *m just for this file, unref *m so only f->cache_fd's ref remains */
+        if (!mmap_cache)
+                (void) mmap_cache_unref(m);
 
         r = journal_file_fstat(f);
         if (r < 0)
@@ -3643,6 +3649,7 @@ fail:
 
 int journal_file_archive(JournalFile *f) {
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(f);
 
@@ -3671,6 +3678,13 @@ int journal_file_archive(JournalFile *f) {
 
         /* Sync the rename to disk */
         (void) fsync_directory_of_file(f->fd);
+
+        /* Yank this MMapFileDescriptor from its MMapCache so we can
+         * potentially use it from the offflining thread.
+         */
+        r = mmap_cache_fd_isolate(f->cache_fd);
+        if (r < 0)
+                return r;
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
@@ -3710,6 +3724,7 @@ JournalFile* journal_initiate_close(
 
 int journal_file_rotate(
                 JournalFile **f,
+                MMapCache *mmap_cache,
                 bool compress,
                 uint64_t compress_threshold_bytes,
                 bool seal,
@@ -3734,7 +3749,7 @@ int journal_file_rotate(
                         compress_threshold_bytes,
                         seal,
                         NULL,            /* metrics */
-                        (*f)->mmap,
+                        mmap_cache,
                         deferred_closes,
                         *f,              /* template */
                         &new_file);
