@@ -543,7 +543,7 @@ static int log_do_header(
                 size_t size,
                 int level,
                 int error,
-                const char *file, int line, const char *func,
+                const char *file, int line, const char *func, const build_id_ref *build_id,
                 const char *object_field, const char *object,
                 const char *extra_field, const char *extra) {
         int r;
@@ -557,6 +557,7 @@ static int log_do_header(
                      "%s%.256s%s"        /* CODE_FILE */
                      "%s%.*i%s"          /* CODE_LINE */
                      "%s%.256s%s"        /* CODE_FUNC */
+                     "%s%s%s"            /* BUILD_ID */
                      "%s%.*i%s"          /* ERRNO */
                      "%s%.256s%s"        /* object */
                      "%s%.256s%s"        /* extra */
@@ -573,6 +574,9 @@ static int log_do_header(
                      isempty(func) ? "" : "CODE_FUNC=",
                      isempty(func) ? "" : func,
                      isempty(func) ? "" : "\n",
+                     build_id ? "BUILD_ID=" : "",
+                     build_id ? read_build_id_string(build_id) : "",
+                     build_id ? "\n" : "",
                      error ? "ERRNO=" : "",
                      error ? 1 : 0, error,
                      error ? "\n" : "",
@@ -594,6 +598,7 @@ static int write_to_journal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
@@ -605,7 +610,7 @@ static int write_to_journal(
         if (journal_fd < 0)
                 return 0;
 
-        log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
+        log_do_header(header, sizeof(header), level, error, file, line, func, build_id, object_field, object, extra_field, extra);
 
         struct iovec iovec[4] = {
                 IOVEC_MAKE_STRING(header),
@@ -630,6 +635,7 @@ int log_dispatch_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
@@ -664,7 +670,7 @@ int log_dispatch_internal(
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_JOURNAL)) {
 
-                        k = write_to_journal(level, error, file, line, func, object_field, object, extra_field, extra, buffer);
+                        k = write_to_journal(level, error, file, line, func, build_id, object_field, object, extra_field, extra, buffer);
                         if (k < 0 && k != -EAGAIN)
                                 log_close_journal();
                 }
@@ -711,6 +717,7 @@ int log_dump_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 char *buffer) {
 
         PROTECT_ERRNO;
@@ -720,7 +727,7 @@ int log_dump_internal(
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, build_id, NULL, NULL, NULL, NULL, buffer);
 }
 
 int log_internalv(
@@ -729,6 +736,7 @@ int log_internalv(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format,
                 va_list ap) {
 
@@ -743,7 +751,7 @@ int log_internalv(
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, build_id, NULL, NULL, NULL, NULL, buffer);
 }
 
 int log_internal(
@@ -752,13 +760,14 @@ int log_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format, ...) {
 
         va_list ap;
         int r;
 
         va_start(ap, format);
-        r = log_internalv(level, error, file, line, func, format, ap);
+        r = log_internalv(level, error, file, line, func, build_id, format, ap);
         va_end(ap);
 
         return r;
@@ -770,6 +779,7 @@ int log_object_internalv(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
@@ -798,8 +808,9 @@ int log_object_internalv(
 
         (void) vsnprintf(b, LINE_MAX, format, ap);
 
-        return log_dispatch_internal(level, error, file, line, func,
-                                     object_field, object, extra_field, extra, buffer);
+        return log_dispatch_internal(
+                        level, error, file, line, func, build_id,
+                        object_field, object, extra_field, extra, buffer);
 }
 
 int log_object_internal(
@@ -808,6 +819,7 @@ int log_object_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
@@ -818,7 +830,7 @@ int log_object_internal(
         int r;
 
         va_start(ap, format);
-        r = log_object_internalv(level, error, file, line, func, object_field, object, extra_field, extra, format, ap);
+        r = log_object_internalv(level, error, file, line, func, build_id, object_field, object, extra_field, extra, format, ap);
         va_end(ap);
 
         return r;
@@ -830,6 +842,7 @@ static void log_assert(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format) {
 
         static char buffer[LINE_MAX];
@@ -843,15 +856,16 @@ static void log_assert(
 
         log_abort_msg = buffer;
 
-        log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        log_dispatch_internal(level, 0, file, line, func, build_id, NULL, NULL, NULL, NULL, buffer);
 }
 
 _noreturn_ void log_assert_failed(
                 const char *text,
                 const char *file,
                 int line,
-                const char *func) {
-        log_assert(LOG_CRIT, text, file, line, func,
+                const char *func,
+                const build_id_ref *build_id) {
+        log_assert(LOG_CRIT, text, file, line, func, build_id,
                    "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
         abort();
 }
@@ -859,8 +873,9 @@ _noreturn_ void log_assert_failed(
 _noreturn_ void log_assert_failed_unreachable(
                 const char *file,
                 int line,
-                const char *func) {
-        log_assert(LOG_CRIT, "Code should not be reached", file, line, func,
+                const char *func,
+                const build_id_ref *build_id) {
+        log_assert(LOG_CRIT, "Code should not be reached", file, line, func, build_id,
                    "%s at %s:%u, function %s(). Aborting. 💥");
         abort();
 }
@@ -869,14 +884,22 @@ void log_assert_failed_return(
                 const char *text,
                 const char *file,
                 int line,
-                const char *func) {
+                const char *func,
+                const build_id_ref *build_id) {
         PROTECT_ERRNO;
-        log_assert(LOG_DEBUG, text, file, line, func,
+        log_assert(LOG_DEBUG, text, file, line, func, build_id,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
 }
 
-int log_oom_internal(int level, const char *file, int line, const char *func) {
-        return log_internal(level, ENOMEM, file, line, func, "Out of memory.");
+int log_oom_internal(
+                int level,
+                const char *file,
+                int line,
+                const char *func,
+                const build_id_ref *build_id) {
+
+        return log_internal(level, ENOMEM, file, line, func, build_id,
+                            "Out of memory.");
 }
 
 int log_format_iovec(
@@ -926,6 +949,7 @@ int log_struct_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format, ...) {
 
         char buf[LINE_MAX];
@@ -957,7 +981,7 @@ int log_struct_internal(
 
                         /* If the journal is available do structured logging.
                          * Do not report the errno if it is synthetic. */
-                        log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
+                        log_do_header(header, sizeof(header), level, error, file, line, func, build_id, NULL, NULL, NULL, NULL);
                         iovec[n++] = IOVEC_MAKE_STRING(header);
 
                         va_start(ap, format);
@@ -1016,7 +1040,7 @@ int log_struct_internal(
                 return -ERRNO_VALUE(error);
         }
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
+        return log_dispatch_internal(level, error, file, line, func, build_id, NULL, NULL, NULL, NULL, buf + 8);
 }
 
 int log_struct_iovec_internal(
@@ -1025,6 +1049,7 @@ int log_struct_iovec_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const struct iovec input_iovec[],
                 size_t n_input_iovec) {
 
@@ -1043,7 +1068,7 @@ int log_struct_iovec_internal(
             journal_fd >= 0) {
 
                 char header[LINE_MAX];
-                log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
+                log_do_header(header, sizeof(header), level, error, file, line, func, build_id, NULL, NULL, NULL, NULL);
 
                 struct iovec iovec[1 + n_input_iovec*2];
                 iovec[0] = IOVEC_MAKE_STRING(header);
@@ -1068,7 +1093,7 @@ int log_struct_iovec_internal(
                         m = strndupa_safe((char*) input_iovec[i].iov_base + STRLEN("MESSAGE="),
                                           input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
-                        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+                        return log_dispatch_internal(level, error, file, line, func, build_id, NULL, NULL, NULL, NULL, m);
                 }
 
         /* Couldn't find MESSAGE=. */
@@ -1353,6 +1378,7 @@ int log_syntax_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format, ...) {
 
         if (log_syntax_callback)
@@ -1381,7 +1407,7 @@ int log_syntax_internal(
                         return log_struct_internal(
                                         level,
                                         error,
-                                        file, line, func,
+                                        file, line, func, build_id,
                                         "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                         "CONFIG_FILE=%s", config_file,
                                         "CONFIG_LINE=%u", config_line,
@@ -1392,7 +1418,7 @@ int log_syntax_internal(
                         return log_struct_internal(
                                         level,
                                         error,
-                                        file, line, func,
+                                        file, line, func, build_id,
                                         "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                         "CONFIG_FILE=%s", config_file,
                                         LOG_MESSAGE("%s: %s", config_file, buffer),
@@ -1402,7 +1428,7 @@ int log_syntax_internal(
                 return log_struct_internal(
                                 level,
                                 error,
-                                file, line, func,
+                                file, line, func, build_id,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                 LOG_MESSAGE("%s: %s", unit, buffer),
                                 unit_fmt, unit,
@@ -1411,7 +1437,7 @@ int log_syntax_internal(
                 return log_struct_internal(
                                 level,
                                 error,
-                                file, line, func,
+                                file, line, func, build_id,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);
@@ -1425,6 +1451,7 @@ int log_syntax_invalid_utf8_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *rvalue) {
 
         _cleanup_free_ char *p = NULL;
@@ -1432,9 +1459,10 @@ int log_syntax_invalid_utf8_internal(
         if (rvalue)
                 p = utf8_escape_invalid(rvalue);
 
-        return log_syntax_internal(unit, level, config_file, config_line,
-                                   SYNTHETIC_ERRNO(EINVAL), file, line, func,
-                                   "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
+        return log_syntax_internal(
+                        unit, level, config_file, config_line,
+                        SYNTHETIC_ERRNO(EINVAL), file, line, func, build_id,
+                        "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
 }
 
 void log_set_upgrade_syslog_to_journal(bool b) {

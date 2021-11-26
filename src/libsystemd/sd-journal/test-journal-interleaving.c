@@ -20,8 +20,8 @@
 
 static bool arg_keep = false;
 
-_noreturn_ static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
-        log_internal(LOG_CRIT, error, file, line, func,
+_noreturn_ static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func, const build_id_ref *build_id) {
+        log_internal(LOG_CRIT, error, file, line, func, build_id,
                      "'%s' failed at %s:%u (%s): %m", text, file, line, func);
         abort();
 }
@@ -30,7 +30,7 @@ _noreturn_ static void log_assert_errno(const char *text, int error, const char 
         do {                                                            \
                 int _r_ = (expr);                                       \
                 if (_unlikely_(_r_ < 0))                                \
-                        log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
+                        log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__, _elf_note_build_id); \
         } while (false)
 
 static JournalFile *test_open(const char *name) {
