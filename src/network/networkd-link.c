@@ -2660,13 +2660,13 @@ int link_call_getlink(Link *link, link_netlink_message_handler_t callback) {
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
-        [LINK_STATE_PENDING] = "pending",
+        [LINK_STATE_PENDING]     = "pending",
         [LINK_STATE_INITIALIZED] = "initialized",
         [LINK_STATE_CONFIGURING] = "configuring",
-        [LINK_STATE_CONFIGURED] = "configured",
-        [LINK_STATE_UNMANAGED] = "unmanaged",
-        [LINK_STATE_FAILED] = "failed",
-        [LINK_STATE_LINGER] = "linger",
+        [LINK_STATE_CONFIGURED]  = "configured",
+        [LINK_STATE_UNMANAGED]   = "unmanaged",
+        [LINK_STATE_FAILED]      = "failed",
+        [LINK_STATE_LINGER]      = "linger",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
