@@ -133,6 +133,53 @@ static void window_free(Window *w) {
         free(w);
 }
 
+/* This is a subset of window_unlink(); it only isolates the window from the
+ * MMapCache to its MMapFileDescriptor, in service of mmap_cache_fd_isolate().
+ */
+static void window_orphan(Window *w)
+{
+        assert(w);
+        assert(w->cache);
+
+        if (w->in_unused) {
+                if (w->cache->last_unused == w)
+                        w->cache->last_unused = w->unused_prev;
+
+                LIST_REMOVE(unused, w->cache->unused, w);
+
+                w->in_unused = 0;
+        }
+
+        while (w->contexts) {
+                w->contexts->window = NULL;
+                LIST_REMOVE(by_window, w->contexts, w->contexts);
+        }
+
+        w->cache->n_windows--;
+        w->cache = NULL;
+}
+
+/* This does the opposite of window_orphan(), to bring an existing window into
+ * a new MMapCache.  XXX: note this isolate->inject implementation discards the
+ * context cache currently, it could be refactored to preserve that knowledge as
+ * an optimization for warming the destination MMapCache.
+ */
+static void window_adopt(Window *w, MMapCache *m)
+{
+        assert(w);
+        assert(!w->cache);
+        assert(m);
+
+        LIST_PREPEND(unused, m->unused, w);
+        if (!m->last_unused)
+                m->last_unused = w;
+
+        w->in_unused = true;
+
+        w->cache->n_windows++;
+        w->cache = m;
+}
+
 _pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
         assert(w);
         assert(size > 0);
@@ -596,4 +643,43 @@ MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
         assert(f);
 
         return f->cache;
+}
+
+/* This isolates the supplied MMapFileDescriptor to a newly created MMapCache
+ * instance, removing it from its current cache and adding it to the new one.
+ *
+ * The purpose of this is to enable use of MMapFileDescriptor from other threads.
+ * Impetus for this being the offline thread when archiving, so it can safely
+ * access objects via an MMapCache to reclaim unused space, without
+ * interfering with the main journal thread's MMapCache operation.
+ */
+int mmap_cache_fd_isolate(MMapFileDescriptor *f) {
+        MMapCache *m;
+        Window *w;
+        int r;
+
+        assert(f);
+        assert(f->cache);
+
+        m = mmap_cache_new();
+        if (!m)
+                return -ENOMEM;
+
+        r = hashmap_ensure_allocated(&m->fds, NULL);
+        if (r < 0) {
+                free(m);
+                return r;
+        }
+
+        LIST_FOREACH(by_fd, w, f->windows) {
+                window_orphan(w);
+                window_adopt(w, m);
+        }
+
+        assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
+        /* TODO: better handle errors here */
+        assert_se(hashmap_put(m->fds, FD_TO_PTR(f->fd), f) >= 0);
+        f->cache = m;
+
+        return 0;
 }
