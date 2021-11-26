@@ -345,6 +345,7 @@ possible_common_cc_flags = [
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
         '-Werror=overflow',
+        '-Werror=override-init',
         '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
