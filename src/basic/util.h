@@ -22,11 +22,16 @@ void in_initrd_force(bool value);
 
 int on_ac_power(void);
 
-static inline unsigned log2u64(uint64_t n) {
+/* Note: double evaluation of x */
+#define LOG2ULL(x) (x > 1 ? (unsigned) __builtin_clzll(x) ^ 63U : 0)
+
+static inline unsigned log2u64(uint64_t x) {
+        assert(x > 0);
+
 #if __SIZEOF_LONG_LONG__ == 8
-        return (n > 1) ? (unsigned) __builtin_clzll(n) ^ 63U : 0;
+        return LOG2ULL(x);
 #else
-#error "Wut?"
+#  error "Wut?"
 #endif
 }
 
@@ -34,20 +39,21 @@ static inline unsigned u32ctz(uint32_t n) {
 #if __SIZEOF_INT__ == 4
         return n != 0 ? __builtin_ctz(n) : 32;
 #else
-#error "Wut?"
+#  error "Wut?"
 #endif
 }
 
+/* Note: double evaluation of x */
+#define LOG2U(x) (x > 1 ? __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1 : 0)
+
 static inline unsigned log2i(int x) {
         assert(x > 0);
-
-        return __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1;
+        return LOG2U(x);
 }
 
 static inline unsigned log2u(unsigned x) {
         assert(x > 0);
-
-        return sizeof(unsigned) * 8 - __builtin_clz(x) - 1;
+        return LOG2U(x);
 }
 
 static inline unsigned log2u_round_up(unsigned x) {
