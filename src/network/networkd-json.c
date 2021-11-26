@@ -2,6 +2,7 @@
 
 #include <linux/nexthop.h>
 
+#include "dns-domain.h"
 #include "ip-protocol-list.h"
 #include "netif-util.h"
 #include "networkd-address.h"
@@ -659,6 +660,159 @@ finalize:
         return r;
 }
 
+static int server_build_json_one_addr(int family, const union in_addr_union *a, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(a);
+        assert(ret);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("Family", family),
+                                JSON_BUILD_PAIR_IN_ADDR("Address", a, family),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+}
+
+static int server_build_json_one_fqdn(int family, const char *fqdn, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(fqdn);
+        assert(ret);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING("Server", fqdn),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+}
+
+static int server_build_json_one_string(const char *str, NetworkConfigSource s, JsonVariant **ret) {
+        union in_addr_union a;
+        int family;
+
+        assert(str);
+        assert(ret);
+
+        if (in_addr_from_string_auto(str, &family, &a) >= 0)
+                return server_build_json_one_addr(family, &a, s, NULL, ret);
+
+        return server_build_json_one_fqdn(AF_UNSPEC, str, s, NULL, ret);
+}
+
+static int ntp_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements;
+        size_t n = 0;
+        char **p;
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        STRV_FOREACH(p, link->ntp ?: link->network->ntp) {
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = server_build_json_one_string(*p, NETWORK_CONFIG_SOURCE_RUNTIME, elements + n);
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        if (!link->ntp) {
+                if (link->dhcp_lease && link->network->dhcp_use_ntp) {
+                        const struct in_addr *ntp;
+                        union in_addr_union s;
+                        int n_ntp;
+
+                        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
+                        if (r < 0)
+                                goto finalize;
+
+                        n_ntp = sd_dhcp_lease_get_ntp(link->dhcp_lease, &ntp);
+                        for (int i = 0; i < n_ntp; i++) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = server_build_json_one_addr(AF_INET,
+                                                               &(union in_addr_union) { .in = ntp[i], },
+                                                               NETWORK_CONFIG_SOURCE_DHCP4,
+                                                               &s,
+                                                               elements + n);
+                                if (r < 0)
+                                        goto finalize;
+
+                                n++;
+                        }
+                }
+
+                if (link->dhcp6_lease && link->network->dhcp6_use_ntp) {
+                        const struct in6_addr *ntp_addr;
+                        union in_addr_union s;
+                        char **ntp_fqdn;
+                        int n_ntp;
+
+                        r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
+                        if (r < 0)
+                                goto finalize;
+
+                        n_ntp = sd_dhcp6_lease_get_ntp_addrs(link->dhcp6_lease, &ntp_addr);
+                        for (int i = 0; i < n_ntp; i++) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = server_build_json_one_addr(AF_INET6,
+                                                               &(union in_addr_union) { .in6 = ntp_addr[i], },
+                                                               NETWORK_CONFIG_SOURCE_DHCP6,
+                                                               &s,
+                                                               elements + n);
+                                if (r < 0)
+                                        goto finalize;
+
+                                n++;
+                        }
+
+                        n_ntp = sd_dhcp6_lease_get_ntp_fqdn(link->dhcp6_lease, &ntp_fqdn);
+                        for (int i = 0; i < n_ntp; i++) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = server_build_json_one_fqdn(AF_INET6,
+                                                               ntp_fqdn[i],
+                                                               NETWORK_CONFIG_SOURCE_DHCP6,
+                                                               &s,
+                                                               elements + n);
+                                if (r < 0)
+                                        goto finalize;
+
+                                n++;
+                        }
+                }
+        }
+
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("NTP", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -735,6 +889,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = dns_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = ntp_build_json(link, &w);
         if (r < 0)
                 return r;
 
