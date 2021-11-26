@@ -417,7 +417,7 @@ option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('sbat-distro', type : 'string',
+option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
        description : 'SBAT distribution generation')

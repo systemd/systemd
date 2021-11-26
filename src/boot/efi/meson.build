@@ -162,7 +162,9 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 'EFI_' + c[1].strip().underscorify().to_upper()))
 endforeach
 
-if get_option('sbat-distro') != ''
+if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
+        warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
+elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
         efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
         efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
@@ -174,7 +176,7 @@ if get_option('sbat-distro') != ''
                            ['sbat-distro-summary', 'NAME'],
                            ['sbat-distro-url', 'BUG_REPORT_URL']]
                 value = get_option(sbatvar[0])
-                if (value == '' and not meson.is_cross_build()) or value == 'auto'
+                if (value == '' or value == 'auto') and not meson.is_cross_build()
                         cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
                         value = run_command(sh, '-c', cmd).stdout().strip()
                         message('@0@ (from @1@): @2@'.format(sbatvar[0], sbatvar[1], value))
