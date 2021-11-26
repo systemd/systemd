@@ -24,6 +24,7 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_CAN]                     = "CAN interface configurations",
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
+        [SET_LINK_IPOIB]                   = "IPoIB configurations",
         [SET_LINK_MAC]                     = "MAC address",
         [SET_LINK_MASTER]                  = "master interface",
         [SET_LINK_MTU]                     = "MTU",
@@ -153,6 +154,10 @@ static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, /* ignore = */ false, NULL);
 }
 
+static int link_set_ipoib_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_IPOIB, /* ignore = */ true, NULL);
+}
+
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, /* ignore = */ true, get_link_default_handler);
 }
@@ -236,7 +241,7 @@ static int link_configure(
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->master_ifindex);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
-        } else if (op == SET_LINK_CAN) {
+        } else if (IN_SET(op, SET_LINK_CAN, SET_LINK_IPOIB)) {
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->ifindex);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
@@ -468,6 +473,11 @@ static int link_configure(
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_ADDRESS attribute: %m");
                 break;
+        case SET_LINK_IPOIB:
+                r = ipoib_set_netlink_message(link, req);
+                if (r < 0)
+                        return r;
+                break;
         case SET_LINK_MASTER:
                 r = sd_netlink_message_append_u32(req, IFLA_MASTER, PTR_TO_UINT32(userdata));
                 if (r < 0)
@@ -543,9 +553,9 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 break;
         case SET_LINK_MAC:
                 if (req->netlink_handler == link_set_mac_handler) {
-                        /* This is the second trial to set hardware address. On the first attempt
+                        /* This is the second attempt to set hardware address. On the first attempt
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
-                         * The first trial failed as the interface was up. */
+                         * The first attempt failed as the interface was up. */
                         r = link_down(link);
                         if (r < 0) {
                                 link_enter_failed(link);
@@ -589,6 +599,15 @@ static bool link_is_ready_to_call_set_link(Request *req) {
 
                 req->userdata = UINT32_TO_PTR(m);
                 break;
+        }
+        case SET_LINK_MTU: {
+                Request req_ipoib = {
+                        .link = link,
+                        .type = REQUEST_TYPE_SET_LINK,
+                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_IPOIB),
+                };
+
+                return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
         }
         default:
                 break;
@@ -798,6 +817,20 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
         return link_request_set_link(link, SET_LINK_MAC,
                                      allow_retry ? link_set_mac_allow_retry_handler : link_set_mac_handler,
                                      NULL);
+}
+
+int link_request_to_set_ipoib(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->iftype != ARPHRD_INFINIBAND)
+                return 0;
+
+        if (link->network->ipoib_mode < 0 &&
+            link->network->ipoib_umcast < 0)
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_IPOIB, link_set_ipoib_handler, NULL);
 }
 
 int link_request_to_set_master(Link *link) {

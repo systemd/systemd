@@ -148,14 +148,14 @@ int net_verify_hardware_address(
 
                 if (ether_addr_is_multicast(&new_hw_addr->ether)) {
                         if (warn_invalid)
-                                log_link_warning(&link, "Specified MAC address has multicast bit set, clearing the bit.");
+                                log_link_warning(&link, "Specified MAC address has the multicast bit set, clearing the bit.");
 
                         new_hw_addr->bytes[0] &= 0xfe;
                 }
 
                 if (!ether_addr_is_local(&new_hw_addr->ether)) {
                         if (warn_invalid)
-                                log_link_warning(&link, "Specified MAC address has not local assignment bit set, setting the bit.");
+                                log_link_warning(&link, "Specified MAC address does not have the local assignment bit set, setting the bit.");
 
                         new_hw_addr->bytes[0] |= 0x02;
                 }
