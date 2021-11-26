@@ -1907,6 +1907,11 @@ int unit_start(Unit *u) {
         /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
         if (UNIT_VTABLE(u)->can_start) {
                 r = UNIT_VTABLE(u)->can_start(u);
+                if (r == -EAGAIN) {
+                        /* We can't start now, but let's add ourselves back to run queue so we can try later. */
+                        job_add_to_run_queue(u->job);
+                }
+
                 if (r < 0)
                         return r;
         }
