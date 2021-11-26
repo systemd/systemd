@@ -336,7 +336,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         /* Now upgrade the permitted caps we still kept to effective caps */
         if (keep_capabilities != 0) {
-                cap_value_t bits[u64log2(keep_capabilities) + 1];
+                cap_value_t bits[log2u64(keep_capabilities) + 1];
                 _cleanup_cap_free_ cap_t d = NULL;
                 unsigned i, j = 0;
 

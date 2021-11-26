@@ -17,14 +17,14 @@
 #include "tests.h"
 #include "util.h"
 
-TEST(u64log2) {
-        assert_se(u64log2(0) == 0);
-        assert_se(u64log2(8) == 3);
-        assert_se(u64log2(9) == 3);
-        assert_se(u64log2(15) == 3);
-        assert_se(u64log2(16) == 4);
-        assert_se(u64log2(1024*1024) == 20);
-        assert_se(u64log2(1024*1024+5) == 20);
+TEST(log2u64) {
+        assert_se(log2u64(0) == 0);
+        assert_se(log2u64(8) == 3);
+        assert_se(log2u64(9) == 3);
+        assert_se(log2u64(15) == 3);
+        assert_se(log2u64(16) == 4);
+        assert_se(log2u64(1024*1024) == 20);
+        assert_se(log2u64(1024*1024+5) == 20);
 }
 
 TEST(protect_errno) {
