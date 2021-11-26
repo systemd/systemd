@@ -145,14 +145,17 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[SECURITY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy --json=off --json=pretty --json=short'
-        else
+            comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy --json=off --json=pretty --json=short --root --image'
+        elif ! __contains_word "--offline" ${COMP_WORDS[*]}; then
             if __contains_word "--user" ${COMP_WORDS[*]}; then
                 mode=--user
             else
                 mode=--system
             fi
             comps=$( __get_services $mode )
+        else
+            comps="$CONFIGS $( compgen -A file -- "$cur" )"
+            compopt -o filenames
         fi
 
     elif __contains_word "$verb" ${VERBS[CONDITION]}; then
