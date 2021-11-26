@@ -17,16 +17,16 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_u64log2(void) {
+static void test_log2u64(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(u64log2(0) == 0);
-        assert_se(u64log2(8) == 3);
-        assert_se(u64log2(9) == 3);
-        assert_se(u64log2(15) == 3);
-        assert_se(u64log2(16) == 4);
-        assert_se(u64log2(1024*1024) == 20);
-        assert_se(u64log2(1024*1024+5) == 20);
+        assert_se(log2u64(0) == 0);
+        assert_se(log2u64(8) == 3);
+        assert_se(log2u64(9) == 3);
+        assert_se(log2u64(15) == 3);
+        assert_se(log2u64(16) == 4);
+        assert_se(log2u64(1024*1024) == 20);
+        assert_se(log2u64(1024*1024+5) == 20);
 }
 
 static void test_protect_errno(void) {
@@ -215,7 +215,7 @@ static void test_system_tasks_max_scale(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
-        test_u64log2();
+        test_log2u64();
         test_protect_errno();
         test_unprotect_errno();
         test_log2i();
