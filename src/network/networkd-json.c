@@ -1002,6 +1002,58 @@ finalize:
         return r;
 }
 
+static int nta_build_json(const char *nta, NetworkConfigSource s, JsonVariant **ret) {
+        assert(nta);
+        assert(ret);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING("DNSSECNegativeTrustAnchor", nta),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s))));
+}
+
+static int ntas_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        const char *nta;
+        size_t n = 0;
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        SET_FOREACH(nta, link->dnssec_negative_trust_anchors ?: link->network->dnssec_negative_trust_anchors) {
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = nta_build_json(nta,
+                                   link->dnssec_negative_trust_anchors ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC,
+                                   elements + n);
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("DNSSECNegativeTrustAnchors",
+                                                              JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1118,6 +1170,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = domains_build_json(link, /* is_route = */ true, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = ntas_build_json(link, &w);
         if (r < 0)
                 return r;
 
