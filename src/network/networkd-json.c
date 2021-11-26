@@ -1054,6 +1054,103 @@ finalize:
         return r;
 }
 
+static int dns_misc_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        ResolveSupport resolve_support;
+        NetworkConfigSource source;
+        DnsOverTlsMode mode;
+        size_t n = 0;
+        int t, r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        resolve_support = link->llmnr >= 0 ? link->llmnr : link->network->llmnr;
+        if (resolve_support >= 0) {
+                source = link->llmnr >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("LLMNR", resolve_support_to_string(resolve_support)),
+                                        JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        resolve_support = link->mdns >= 0 ? link->mdns : link->network->mdns;
+        if (resolve_support >= 0) {
+                source = link->mdns >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("MDNS", resolve_support_to_string(resolve_support)),
+                                        JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        t = link->dns_default_route >= 0 ? link->dns_default_route : link->network->dns_default_route;
+        if (t >= 0) {
+                source = link->dns_default_route >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_BOOLEAN("DNSDefaultRoute", t),
+                                        JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        mode = link->dns_over_tls_mode >= 0 ? link->dns_over_tls_mode : link->network->dns_over_tls_mode;
+        if (mode >= 0) {
+                source = link->dns_over_tls_mode >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("DNSOverTLS", dns_over_tls_mode_to_string(mode)),
+                                        JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("DNSSettings",
+                                                              JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1180,6 +1277,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = ntas_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = dns_misc_build_json(link, &w);
         if (r < 0)
                 return r;
 
