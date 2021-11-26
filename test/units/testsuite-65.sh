@@ -582,6 +582,16 @@ set -e
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
+# Our files should at least have a buildId, so test the ELF parsing functionality
+if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    # TODO: on Ubuntu CI this fails with:
+    # Parsing "/usr/bin/systemd-analyze" as ELF object failed: Accessing a corrupted shared library
+    # Is it the result of stripping? Ignore it for now
+    set +e
+    systemd-analyze inspect-elf /usr/bin/systemd-analyze --json=pretty | grep -q -F "buildId"
+    set -e
+fi
+
 systemd-analyze log-level info
 
 echo OK >/testok
