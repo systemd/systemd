@@ -162,7 +162,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         /* Modulates the burst rate a bit with the amount of available
          * disk space */
 
-        k = u64log2(available);
+        k = log2u64(available);
 
         /* 1MB */
         if (k <= 20)

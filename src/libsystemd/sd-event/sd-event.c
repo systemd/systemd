@@ -4218,7 +4218,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
 
                 this_run = now(CLOCK_MONOTONIC);
 
-                l = u64log2(this_run - e->last_run_usec);
+                l = log2u64(this_run - e->last_run_usec);
                 assert(l < ELEMENTSOF(e->delays));
                 e->delays[l]++;
 
