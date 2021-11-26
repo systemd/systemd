@@ -862,6 +862,146 @@ finalize:
         return r;
 }
 
+static int domain_build_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(domain);
+        assert(ret);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING("Domain", domain),
+                                JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+}
+
+static int domains_build_json(Link *link, bool is_route, JsonVariant **ret) {
+        OrderedSet *link_domains, *network_domains;
+        JsonVariant **elements = NULL;
+        DHCPUseDomains use_domains;
+        union in_addr_union s;
+        char **p, **domains;
+        const char *domain;
+        size_t n = 0;
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        link_domains = is_route ? link->route_domains : link->search_domains;
+        network_domains = is_route ? link->network->route_domains : link->network->search_domains;
+        use_domains = is_route ? DHCP_USE_DOMAINS_ROUTE : DHCP_USE_DOMAINS_YES;
+
+        ORDERED_SET_FOREACH(domain, link_domains ?: network_domains) {
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = domain_build_json(AF_UNSPEC, domain,
+                                      link_domains ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC,
+                                      NULL, elements + n);
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        if (!link_domains) {
+                if (link->dhcp_lease &&
+                    link->network->dhcp_use_domains == use_domains) {
+                        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
+                        if (r < 0)
+                                goto finalize;
+
+                        if (sd_dhcp_lease_get_domainname(link->dhcp_lease, &domain) >= 0) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = domain_build_json(AF_INET, domain, NETWORK_CONFIG_SOURCE_DHCP4, &s, elements + n);
+                                if (r < 0)
+                                        goto finalize;
+
+                                n++;
+                        }
+
+                        if (sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains) >= 0) {
+                                STRV_FOREACH(p, domains) {
+                                        if (!GREEDY_REALLOC(elements, n + 1)) {
+                                                r = -ENOMEM;
+                                                goto finalize;
+                                        }
+
+                                        r = domain_build_json(AF_INET, *p, NETWORK_CONFIG_SOURCE_DHCP4, &s, elements + n);
+                                        if (r < 0)
+                                                goto finalize;
+
+                                        n++;
+                                }
+                        }
+                }
+
+                if (link->dhcp6_lease &&
+                    link->network->dhcp6_use_domains == use_domains) {
+                        r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
+                        if (r < 0)
+                                goto finalize;
+
+                        if (sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains) >= 0) {
+                                STRV_FOREACH(p, domains) {
+                                        if (!GREEDY_REALLOC(elements, n + 1)) {
+                                                r = -ENOMEM;
+                                                goto finalize;
+                                        }
+
+                                        r = domain_build_json(AF_INET6, *p, NETWORK_CONFIG_SOURCE_DHCP6, &s, elements + n);
+                                        if (r < 0)
+                                                goto finalize;
+
+                                        n++;
+                                }
+                        }
+                }
+
+                if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+                        NDiscDNSSL *a;
+
+                        SET_FOREACH(a, link->ndisc_dnssl) {
+                                if (!GREEDY_REALLOC(elements, n + 1)) {
+                                        r = -ENOMEM;
+                                        goto finalize;
+                                }
+
+                                r = domain_build_json(AF_INET6, NDISC_DNSSL_DOMAIN(a), NETWORK_CONFIG_SOURCE_NDISC,
+                                                      &(union in_addr_union) { .in6 = a->router },
+                                                      elements + n);
+                                if (r < 0)
+                                        goto finalize;
+
+                                n++;
+                        }
+                }
+        }
+
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(is_route ? "RouteDomains" : "SearchDomains",
+                                                              JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -958,6 +1098,26 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = sip_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = domains_build_json(link, /* is_route = */ false, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = domains_build_json(link, /* is_route = */ true, &w);
         if (r < 0)
                 return r;
 
