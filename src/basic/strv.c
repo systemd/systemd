@@ -16,7 +16,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-char *strv_find(char * const *l, const char *name) {
+char* strv_find(char * const *l, const char *name) {
         char * const *i;
 
         assert(name);
@@ -28,7 +28,7 @@ char *strv_find(char * const *l, const char *name) {
         return NULL;
 }
 
-char *strv_find_case(char * const *l, const char *name) {
+char* strv_find_case(char * const *l, const char *name) {
         char * const *i;
 
         assert(name);
@@ -40,7 +40,7 @@ char *strv_find_case(char * const *l, const char *name) {
         return NULL;
 }
 
-char *strv_find_prefix(char * const *l, const char *name) {
+char* strv_find_prefix(char * const *l, const char *name) {
         char * const *i;
 
         assert(name);
@@ -52,7 +52,7 @@ char *strv_find_prefix(char * const *l, const char *name) {
         return NULL;
 }
 
-char *strv_find_startswith(char * const *l, const char *name) {
+char* strv_find_startswith(char * const *l, const char *name) {
         char * const *i, *e;
 
         assert(name);
@@ -69,19 +69,17 @@ char *strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
-char **strv_free(char **l) {
-        char **k;
-
+char** strv_free(char **l) {
         if (!l)
                 return NULL;
 
-        for (k = l; *k; k++)
+        for (char **k = l; *k; k++)
                 free(*k);
 
         return mfree(l);
 }
 
-char **strv_free_erase(char **l) {
+char** strv_free_erase(char **l) {
         char **i;
 
         STRV_FOREACH(i, l)
@@ -90,7 +88,7 @@ char **strv_free_erase(char **l) {
         return mfree(l);
 }
 
-char **strv_copy(char * const *l) {
+char** strv_copy(char * const *l) {
         char **r, **k;
 
         k = r = new(char*, strv_length(l) + 1);
@@ -122,7 +120,7 @@ size_t strv_length(char * const *l) {
         return n;
 }
 
-char **strv_new_ap(const char *x, va_list ap) {
+char** strv_new_ap(const char *x, va_list ap) {
         _cleanup_strv_free_ char **a = NULL;
         size_t n = 0, i = 0;
         va_list aq;
@@ -161,7 +159,7 @@ char **strv_new_ap(const char *x, va_list ap) {
         return TAKE_PTR(a);
 }
 
-char **strv_new_internal(const char *x, ...) {
+char** strv_new_internal(const char *x, ...) {
         char **r;
         va_list ap;
 
@@ -174,7 +172,7 @@ char **strv_new_internal(const char *x, ...) {
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         char * const *s, **t;
-        size_t p, q, i = 0, j;
+        size_t p, q, i = 0;
 
         assert(a);
 
@@ -195,7 +193,6 @@ int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         *a = t;
 
         STRV_FOREACH(s, b) {
-
                 if (filter_duplicates && strv_contains(t, *s))
                         continue;
 
@@ -212,7 +209,7 @@ int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         return (int) i;
 
 rollback:
-        for (j = 0; j < i; j++)
+        for (size_t j = 0; j < i; j++)
                 free(t[p + j]);
 
         t[p] = NULL;
@@ -285,7 +282,6 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
                         return -ENOMEM;
 
                 l[n++] = TAKE_PTR(word);
-
                 l[n] = NULL;
         }
 
@@ -370,7 +366,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
         return (int) n;
 }
 
-char *strv_join_full(char * const *l, const char *separator, const char *prefix, bool unescape_separators) {
+char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool unescape_separators) {
         char * const *s;
         char *r, *e;
         size_t n, k, m;
@@ -477,7 +473,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
 
 int strv_insert(char ***l, size_t position, char *value) {
         char **c;
-        size_t n, m, i;
+        size_t n, m;
 
         if (!value)
                 return 0;
@@ -494,18 +490,14 @@ int strv_insert(char ***l, size_t position, char *value) {
         if (!c)
                 return -ENOMEM;
 
-        for (i = 0; i < position; i++)
+        for (size_t i = 0; i < position; i++)
                 c[i] = (*l)[i];
         c[position] = value;
-        for (i = position; i < n; i++)
+        for (size_t i = position; i < n; i++)
                 c[i+1] = (*l)[i];
-
         c[n+1] = NULL;
 
-        free(*l);
-        *l = c;
-
-        return 0;
+        return free_and_replace(*l, c);
 }
 
 int strv_consume(char ***l, char *value) {
@@ -602,7 +594,7 @@ int strv_extend_front(char ***l, const char *value) {
         return 0;
 }
 
-char **strv_uniq(char **l) {
+char** strv_uniq(char **l) {
         char **i;
 
         /* Drops duplicate entries. The first identical string will be
@@ -624,7 +616,7 @@ bool strv_is_uniq(char * const *l) {
         return true;
 }
 
-char **strv_remove(char **l, const char *s) {
+char** strv_remove(char **l, const char *s) {
         char **f, **t;
 
         if (!l)
@@ -645,7 +637,7 @@ char **strv_remove(char **l, const char *s) {
         return l;
 }
 
-char **strv_parse_nulstr(const char *s, size_t l) {
+char** strv_parse_nulstr(const char *s, size_t l) {
         /* l is the length of the input data, which will be split at NULs into
          * elements of the resulting strv. Hence, the number of items in the resulting strv
          * will be equal to one plus the number of NUL bytes in the l bytes starting at s,
@@ -657,7 +649,6 @@ char **strv_parse_nulstr(const char *s, size_t l) {
          * empty strings in s.
          */
 
-        const char *p;
         size_t c = 0, i = 0;
         char **v;
 
@@ -666,7 +657,7 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         if (l <= 0)
                 return new0(char*, 1);
 
-        for (p = s; p < s + l; p++)
+        for (const char *p = s; p < s + l; p++)
                 if (*p == 0)
                         c++;
 
@@ -677,8 +668,7 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         if (!v)
                 return NULL;
 
-        p = s;
-        while (p < s + l) {
+        for (const char *p = s; p < s + l; ) {
                 const char *e;
 
                 e = memchr(p, 0, s + l - p);
@@ -702,7 +692,7 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         return v;
 }
 
-char **strv_split_nulstr(const char *s) {
+char** strv_split_nulstr(const char *s) {
         const char *i;
         char **r = NULL;
 
@@ -777,7 +767,7 @@ static int str_compare(char * const *a, char * const *b) {
         return strcmp(*a, *b);
 }
 
-char **strv_sort(char **l) {
+char** strv_sort(char **l) {
         typesafe_qsort(l, strv_length(l), str_compare);
         return l;
 }
@@ -826,20 +816,20 @@ int strv_extendf(char ***l, const char *format, ...) {
         return strv_consume(l, x);
 }
 
-char **strv_reverse(char **l) {
-        size_t n, i;
+char** strv_reverse(char **l) {
+        size_t n;
 
         n = strv_length(l);
         if (n <= 1)
                 return l;
 
-        for (i = 0; i < n / 2; i++)
+        for (size_t i = 0; i < n / 2; i++)
                 SWAP_TWO(l[i], l[n-1-i]);
 
         return l;
 }
 
-char **strv_shell_escape(char **l, const char *bad) {
+char** strv_shell_escape(char **l, const char *bad) {
         char **s;
 
         /* Escapes every character in every string in l that is in bad,
@@ -870,19 +860,17 @@ bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *
         return false;
 }
 
-char ***strv_free_free(char ***l) {
-        char ***i;
-
+char*** strv_free_free(char ***l) {
         if (!l)
                 return NULL;
 
-        for (i = l; *i; i++)
+        for (char ***i = l; *i; i++)
                 strv_free(*i);
 
         return mfree(l);
 }
 
-char **strv_skip(char **l, size_t n) {
+char** strv_skip(char **l, size_t n) {
 
         while (n > 0) {
                 if (strv_isempty(l))
@@ -895,7 +883,7 @@ char **strv_skip(char **l, size_t n) {
 }
 
 int strv_extend_n(char ***l, const char *value, size_t n) {
-        size_t i, j, k;
+        size_t i, k;
         char **nl;
 
         assert(l);
@@ -922,15 +910,15 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
                 if (!nl[i])
                         goto rollback;
         }
-
         nl[i] = NULL;
+
         return 0;
 
 rollback:
-        for (j = k; j < i; j++)
+        for (size_t j = k; j < i; j++)
                 free(nl[j]);
-
         nl[k] = NULL;
+
         return -ENOMEM;
 }
 
