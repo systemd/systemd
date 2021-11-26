@@ -81,6 +81,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* add linker script that implicitly adds symbol for build ID and new coredump
+  json package metadata, and use that when logging
+
 * systemd-dissect: show GPT disk UUID in output
 
 * Enable RestricFileSystems= for all our long-running services (similar:
