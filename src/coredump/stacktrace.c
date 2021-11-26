@@ -127,11 +127,11 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
         /* When iterating over PT_LOAD we will visit modules more than once */
         if (set_contains(*c->modules, name))
-                return DWARF_CB_OK;
+                return 0;
 
         r = elf_getphdrnum(elf, &n_program_headers);
         if (r < 0) /* Not the handle we are looking for - that's ok, skip it */
-                return DWARF_CB_OK;
+                return 0;
 
         /* Iterate over all program headers in that ELF object. These will have been copied by
          * the kernel verbatim when the core file is generated. */
@@ -170,10 +170,8 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
 
                                 r = json_parse(payload, 0, &v, NULL, NULL);
-                                if (r < 0) {
-                                        log_error_errno(r, "json_parse on %s failed: %m", payload);
-                                        return DWARF_CB_ABORT;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "json_parse on %s failed: %m", payload);
 
                                 /* First pretty-print to the buffer, so that the metadata goes as
                                  * plaintext in the journal. */
@@ -186,40 +184,32 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                                  * so that it appears all nicely together in the logs/metadata. */
                                 if (id_json) {
                                         r = json_variant_merge(&v, id_json);
-                                        if (r < 0) {
-                                                log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
-                                                return DWARF_CB_ABORT;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
                                 }
 
                                 /* Then we build a new object using the module name as the key, and merge it
                                  * with the previous parses, so that in the end it all fits together in a single
                                  * JSON blob. */
                                 r = json_build(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(name, JSON_BUILD_VARIANT(v))));
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to build JSON object: %m");
-                                        return DWARF_CB_ABORT;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build JSON object: %m");
                                 r = json_variant_merge(c->package_metadata, w);
-                                if (r < 0) {
-                                        log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
-                                        return DWARF_CB_ABORT;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
 
                                 /* Finally stash the name, so we avoid double visits. */
                                 r = set_put_strdup(c->modules, name);
-                                if (r < 0) {
-                                        log_error_errno(r, "set_put_strdup failed: %m");
-                                        return DWARF_CB_ABORT;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "set_put_strdup failed: %m");
 
-                                return DWARF_CB_OK;
+                                return 1;
                         }
                 }
         }
 
         /* Didn't find package metadata for this module - that's ok, just go to the next. */
-        return DWARF_CB_OK;
+        return 0;
 }
 
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
@@ -268,17 +258,23 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         /* The .note.package metadata is more difficult. From the module, we need to get a reference
          * to the ELF object first. We might be lucky and just get it from elfutils. */
         elf = dwfl_module_getelf(mod, &bias);
-        if (elf)
-                return parse_package_metadata(name, id_json, elf, c);
+        if (elf) {
+                r = parse_package_metadata(name, id_json, elf, c);
+                if (r < 0)
+                        return DWARF_CB_ABORT;
+                if (r > 0)
+                        return DWARF_CB_OK;
+        } else
+                elf = c->elf;
 
-        /* We did not get the ELF object. That is likely because we didn't get direct
-         * access to the executable, and the version of elfutils does not yet support
-         * parsing it out of the core file directly.
+        /* We did not get the ELF object, or it's just a reference to the core. That is likely
+         * because we didn't get direct access to the executable, and the version of elfutils does
+         * not yet support parsing it out of the core file directly.
          * So fallback to manual extraction - get the PT_LOAD section from the core,
          * and if it's the right one we can interpret it as an Elf object, and parse
          * its notes manually. */
 
-        r = elf_getphdrnum(c->elf, &n_program_headers);
+        r = elf_getphdrnum(elf, &n_program_headers);
         if (r < 0) {
                 log_warning("Could not parse number of program headers from core file: %s",
                             elf_errmsg(-1)); /* -1 retrieves the most recent error */
@@ -290,12 +286,12 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 Elf_Data *data;
 
                 /* The core file stores the ELF files in the PT_LOAD segment. */
-                program_header = gelf_getphdr(c->elf, i, &mem);
+                program_header = gelf_getphdr(elf, i, &mem);
                 if (!program_header || program_header->p_type != PT_LOAD)
                         continue;
 
                 /* Now get a usable Elf reference, and parse the notes from it. */
-                data = elf_getdata_rawchunk(c->elf,
+                data = elf_getdata_rawchunk(elf,
                                             program_header->p_offset,
                                             program_header->p_filesz,
                                             ELF_T_NHDR);
@@ -306,8 +302,10 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, c);
-                if (r != DWARF_CB_OK)
-                        return r;
+                if (r < 0)
+                        return DWARF_CB_ABORT;
+                if (r > 0)
+                        break;
         }
 
         return DWARF_CB_OK;
