@@ -228,9 +228,6 @@ static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, i
                strv_fnmatch_full(patterns, s, flags, NULL);
 }
 
-char*** strv_free_free(char ***l);
-DEFINE_TRIVIAL_CLEANUP_FUNC(char***, strv_free_free);
-
 char** strv_skip(char **l, size_t n);
 
 int strv_extend_n(char ***l, const char *value, size_t n);
