@@ -1000,8 +1000,8 @@ bool unit_has_failed_condition_or_assert(Unit *u);
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
                 (log_get_max_level() < LOG_PRI(_l) || (_u && !unit_log_level_test(_u, _l))) ? -ERRNO_VALUE(error) : \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                             log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id,  ##__VA_ARGS__); \
         })
 
 #define log_unit_full_errno(unit, level, error, ...) \

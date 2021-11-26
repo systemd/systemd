@@ -7,6 +7,7 @@
 #include <string.h>
 #include <syslog.h>
 
+#include "elf-build-id.h"
 #include "macro.h"
 
 /* Some structures we reference but don't want to pull in headers for */
@@ -90,6 +91,7 @@ int log_dispatch_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra,
@@ -102,7 +104,8 @@ int log_internal(
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_(6,7);
+                const build_id_ref *build_id,
+                const char *format, ...) _printf_(7,8);
 
 int log_internalv(
                 int level,
@@ -110,8 +113,9 @@ int log_internalv(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *format,
-                va_list ap) _printf_(6,0);
+                va_list ap) _printf_(7,0);
 
 int log_object_internalv(
                 int level,
@@ -119,12 +123,13 @@ int log_object_internalv(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
                 const char *extra,
                 const char *format,
-                va_list ap) _printf_(10,0);
+                va_list ap) _printf_(11,0);
 
 int log_object_internal(
                 int level,
@@ -132,11 +137,12 @@ int log_object_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *object_field,
                 const char *object,
                 const char *extra_field,
                 const char *extra,
-                const char *format, ...) _printf_(10,11);
+                const char *format, ...) _printf_(11,12);
 
 int log_struct_internal(
                 int level,
@@ -144,13 +150,15 @@ int log_struct_internal(
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_(6,0) _sentinel_;
+                const build_id_ref *build_id,
+                const char *format, ...) _printf_(7,0) _sentinel_;
 
 int log_oom_internal(
                 int level,
                 const char *file,
                 int line,
-                const char *func);
+                const char *func,
+                const build_id_ref *build_id);
 
 int log_format_iovec(
                 struct iovec *iovec,
@@ -167,6 +175,7 @@ int log_struct_iovec_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const struct iovec *input_iovec,
                 size_t n_input_iovec);
 
@@ -177,6 +186,7 @@ int log_dump_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 char *buffer);
 
 /* Logging for various assertions */
@@ -184,28 +194,31 @@ _noreturn_ void log_assert_failed(
                 const char *text,
                 const char *file,
                 int line,
-                const char *func);
+                const char *func,
+                const build_id_ref *build_id);
 
 _noreturn_ void log_assert_failed_unreachable(
                 const char *file,
                 int line,
-                const char *func);
+                const char *func,
+                const build_id_ref *build_id);
 
 void log_assert_failed_return(
                 const char *text,
                 const char *file,
                 int line,
-                const char *func);
+                const char *func,
+                const build_id_ref *build_id);
 
 #define log_dispatch(level, error, buffer)                              \
-        log_dispatch_internal(level, error, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, buffer)
+        log_dispatch_internal(level, error, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, NULL, buffer)
 
 /* Logging with level */
 #define log_full_errno_zerook(level, error, ...)                        \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
                 _e = (log_get_max_level() >= LOG_PRI(_level))           \
-                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _e < 0 ? _e : -ESTRPIPE;                                \
         })
@@ -279,19 +292,19 @@ int log_emergency_level(void);
 
 /* Structured logging */
 #define log_struct_errno(level, error, ...)                             \
-        log_struct_internal(level, error, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__, NULL)
+        log_struct_internal(level, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, __VA_ARGS__, NULL)
 #define log_struct(level, ...) log_struct_errno(level, 0, __VA_ARGS__)
 
 #define log_struct_iovec_errno(level, error, iovec, n_iovec)            \
-        log_struct_iovec_internal(level, error, PROJECT_FILE, __LINE__, __func__, iovec, n_iovec)
+        log_struct_iovec_internal(level, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, iovec, n_iovec)
 #define log_struct_iovec(level, iovec, n_iovec) log_struct_iovec_errno(level, 0, iovec, n_iovec)
 
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer)                                         \
-        log_dump_internal(level, 0, PROJECT_FILE, __LINE__, __func__, buffer)
+        log_dump_internal(level, 0, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, buffer)
 
-#define log_oom() log_oom_internal(LOG_ERR, PROJECT_FILE, __LINE__, __func__)
-#define log_oom_debug() log_oom_internal(LOG_DEBUG, PROJECT_FILE, __LINE__, __func__)
+#define log_oom() log_oom_internal(LOG_ERR, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id)
+#define log_oom_debug() log_oom_internal(LOG_DEBUG, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id)
 
 bool log_on_console(void) _pure_;
 
@@ -325,7 +338,8 @@ int log_syntax_internal(
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_(9, 10);
+                const build_id_ref *build_id,
+                const char *format, ...) _printf_(10, 11);
 
 int log_syntax_invalid_utf8_internal(
                 const char *unit,
@@ -335,13 +349,14 @@ int log_syntax_invalid_utf8_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const build_id_ref *build_id,
                 const char *rvalue);
 
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? log_syntax_internal(unit, _level, config_file, config_line, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        ? log_syntax_internal(unit, _level, config_file, config_line, _e, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
 
@@ -349,7 +364,7 @@ int log_syntax_invalid_utf8_internal(
         ({                                                              \
                 int _level = (level);                                   \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, rvalue) \
+                        ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, rvalue) \
                         : -EINVAL;                                      \
         })
 

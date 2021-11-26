@@ -1689,8 +1689,18 @@ fail:
         return log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 }
 
-_printf_(7, 8)
-static int log_unit_internal(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+_printf_(8, 9)
+static int log_unit_internal(
+                void *userdata,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const build_id_ref *build_id,
+                const char *format,
+                ...) {
+
         Unit *u = userdata;
         va_list ap;
         int r;
@@ -1700,14 +1710,17 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
 
         va_start(ap, format);
         if (u)
-                r = log_object_internalv(level, error, file, line, func,
-                                         u->manager->unit_log_field,
-                                         u->id,
-                                         u->manager->invocation_log_field,
-                                         u->invocation_id_string,
-                                         format, ap);
+                r = log_object_internalv(
+                                level, error, file, line, func, build_id,
+                                u->manager->unit_log_field,
+                                u->id,
+                                u->manager->invocation_log_field,
+                                u->invocation_id_string,
+                                format, ap);
         else
-                r = log_internalv(level, error,  file, line, func, format, ap);
+                r = log_internalv(
+                                level, error, file, line, func, build_id,
+                                format, ap);
         va_end(ap);
 
         return r;

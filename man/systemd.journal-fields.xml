@@ -82,6 +82,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BUILD_ID=</varname></term>
+        <listitem>
+          <para>The ELF GNU build ID of the ELF module that generated the log message, if known and
+          applicable.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ERRNO=</varname></term>
         <listitem>
           <para>The low-level Unix error number causing this entry, if

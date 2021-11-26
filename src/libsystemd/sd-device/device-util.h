@@ -53,7 +53,7 @@
                                                                         \
                 if (_d && _unlikely_(log_get_max_level() >= LOG_PRI(_level))) \
                         (void) sd_device_get_sysname(_d, &_sysname);    \
-                log_object_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, \
+                log_object_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, \
                                     _sysname ? "DEVICE=" : NULL, _sysname, \
                                     NULL, NULL, __VA_ARGS__);           \
         })

@@ -66,6 +66,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_RECYCLING]               = "~",
                         [SPECIAL_GLYPH_DOWNLOAD]                = "\\",
                         [SPECIAL_GLYPH_SPARKLES]                = "*",
+                        [SPECIAL_GLYPH_LIGHT_BULB]              = "!",
                 },
 
                 /* UTF-8 */
@@ -115,9 +116,10 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TOUCH]                   = "\360\237\221\206",         /* 👆 (actually called: BACKHAND INDEX POINTING UP) */
 
                         /* These three emojis are single character cell glyphs in Unicode and also in ASCII. */
-                        [SPECIAL_GLYPH_RECYCLING]               = "\u267B\uFE0F ",            /* ♻️  (actually called: UNIVERSAL RECYCLNG SYMBOL) */
-                        [SPECIAL_GLYPH_DOWNLOAD]                = "\u2935\uFE0F ",            /* ⤵️  (actually called: RIGHT ARROW CURVING DOWN) */
+                        [SPECIAL_GLYPH_RECYCLING]               = "\u267B\uFE0F",             /* ♻️  (actually called: UNIVERSAL RECYCLNG SYMBOL) */
+                        [SPECIAL_GLYPH_DOWNLOAD]                = "\u2935\uFE0F",             /* ⤵️  (actually called: RIGHT ARROW CURVING DOWN) */
                         [SPECIAL_GLYPH_SPARKLES]                = "\u2728",                   /* ✨ */
+                        [SPECIAL_GLYPH_LIGHT_BULB]              = "\U0001F4A1",               /* 💡 */
                 },
         };
 
