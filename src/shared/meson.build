@@ -107,6 +107,8 @@ shared_sources = files('''
         dropin.h
         efi-loader.c
         efi-loader.h
+        elf-util.c
+        elf-util.h
         enable-mempool.c
         env-file-label.c
         env-file-label.h
