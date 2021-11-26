@@ -819,6 +819,15 @@ $ systemd-analyze verify /tmp/source:alias.service
       </varlistentry>
 
       <varlistentry>
+        <term><option>--profile=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command> <option>--offline=</option>, takes into
+        consideration the specified portable profile when assessing the unit(s) settings.
+        The profile can be passed by name, in which case the well-known system locations will
+        be searched, or it can be the full path to a specific drop-in file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--threshold=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>With <command>security</command>, allow the user to set a custom value
