@@ -40,8 +40,6 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-static const char profile_dirs[] = CONF_PATHS_NULSTR("systemd/portable/profile");
-
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was
  * dropped there by the portable service logic and b) for which image it was dropped there. */
 #define PORTABLE_DROPIN_MARKER_BEGIN "# Drop-in created for image '"
@@ -981,33 +979,6 @@ static int install_chroot_dropin(
         return 0;
 }
 
-static int find_profile(const char *name, const char *unit, char **ret) {
-        const char *p, *dot;
-
-        assert(name);
-        assert(ret);
-
-        assert_se(dot = strrchr(unit, '.'));
-
-        NULSTR_FOREACH(p, profile_dirs) {
-                _cleanup_free_ char *joined = NULL;
-
-                joined = strjoin(p, "/", name, "/", dot + 1, ".conf");
-                if (!joined)
-                        return -ENOMEM;
-
-                if (laccess(joined, F_OK) >= 0) {
-                        *ret = TAKE_PTR(joined);
-                        return 0;
-                }
-
-                if (errno != ENOENT)
-                        return -errno;
-        }
-
-        return -ENOENT;
-}
-
 static int install_profile_dropin(
                 const char *image_path,
                 const PortableMetadata *m,
@@ -1028,7 +999,7 @@ static int install_profile_dropin(
         if (!profile)
                 return 0;
 
-        r = find_profile(profile, m->name, &from);
+        r = find_portable_profile(profile, m->name, &from);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
@@ -1790,7 +1761,7 @@ int portable_get_state(
 int portable_get_profiles(char ***ret) {
         assert(ret);
 
-        return conf_files_list_nulstr(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, profile_dirs);
+        return conf_files_list_nulstr(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, PORTABLE_PROFILE_DIRS);
 }
 
 static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {
