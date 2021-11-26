@@ -205,7 +205,7 @@ efi_config_h = configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
 
-compile_args = cc.get_supported_arguments(
+efi_cflags = cc.get_supported_arguments(
         basic_disabled_warnings +
         possible_common_cc_flags + [
                 '-fno-stack-protector',
@@ -230,7 +230,7 @@ compile_args = cc.get_supported_arguments(
         '-include', version_h,
 ]
 
-compile_args += cc.get_supported_arguments({
+efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
         'x86_64': ['-mno-red-zone', '-mno-sse', '-mno-mmx'],
         'arm':    ['-mgeneral-regs-only', '-mfpu=none'],
@@ -240,23 +240,23 @@ compile_args += cc.get_supported_arguments({
 # relevant compiler flags from meson/CFLAGS as povided by the user or distro.
 
 if get_option('werror')
-        compile_args += ['-Werror']
+        efi_cflags += ['-Werror']
 endif
 if get_option('debug')
-        compile_args += ['-ggdb', '-DEFI_DEBUG']
+        efi_cflags += ['-ggdb', '-DEFI_DEBUG']
 endif
 if get_option('optimization') != '0'
-        compile_args += ['-O' + get_option('optimization')]
+        efi_cflags += ['-O' + get_option('optimization')]
 endif
 if get_option('b_ndebug') == 'true' or (
    get_option('b_ndebug') == 'if-release' and get_option('buildtype') in ['plain', 'release'])
-        compile_args += ['-DNDEBUG']
+        efi_cflags += ['-DNDEBUG']
 endif
 
 foreach arg : get_option('c_args')
         if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG']
                 message('Using "@0@" from c_args for EFI compiler'.format(arg))
-                compile_args += arg
+                efi_cflags += arg
         endif
 endforeach
 
@@ -286,7 +286,7 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         o_file = custom_target(file.split('/')[-1] + '.o',
                                input : file,
                                output : file.split('/')[-1] + '.o',
-                               command : [efi_cc, '-c', '@INPUT@', '-o', '@OUTPUT@', compile_args],
+                               command : [efi_cc, '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
                                depend_files : efi_headers + fundamental_headers)
         if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
                 systemd_boot_objects += o_file
