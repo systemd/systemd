@@ -3500,6 +3500,7 @@ fail:
 
 int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(f);
 
@@ -3535,6 +3536,13 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
                 free(f->path);
 
         f->path = TAKE_PTR(p);
+
+        /* Yank this MMapFileDescriptor from its MMapCache so we can
+         * potentially use it from the offflining thread.
+         */
+        r = mmap_cache_fd_isolate(f->cache_fd);
+        if (r < 0)
+                return r;
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
