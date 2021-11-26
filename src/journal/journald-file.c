@@ -167,6 +167,8 @@ static void journald_file_set_offline_internal(JournaldFile *f) {
                          * copy all data to a new file without the NOCOW flag set. */
 
                         if (f->file->archive) {
+                                /* XXX: with isolated mmap-cache, this should theoretically be safe to use the MMapCache now */
+
                                 r = chattr_fd(f->file->fd, 0, FS_NOCOW_FL, NULL);
                                 if (r >= 0)
                                         continue;
