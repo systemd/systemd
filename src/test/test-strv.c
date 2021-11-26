@@ -917,17 +917,6 @@ TEST(strv_make_nulstr) {
         test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
 }
 
-TEST(strv_free_free) {
-        char ***t;
-
-        assert_se(t = new(char**, 3));
-        assert_se(t[0] = strv_new("a", "b"));
-        assert_se(t[1] = strv_new("c", "d", "e"));
-        t[2] = NULL;
-
-        t = strv_free_free(t);
-}
-
 TEST(foreach_string) {
         const char * const t[] = {
                 "foo",
