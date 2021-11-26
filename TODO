@@ -81,18 +81,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-dissect: show GPT disk UUID in output
+
+* Enable RestricFileSystems= for all our long-running services (similar:
+  RestrictNetworkInterfaces=)
+
+* Add systemd-analyze security checks for RestrictFileSystems= and
+  RestrictNetworkInterfaces=
+
 * cryptsetup/homed: implement TOTP authentication backed by TPM2 and its
   internal clock.
 
-* resolved: listen on 127.0.0.54 in addition to 127.0.0.53 and operate in proxy
-  mode there unconditionally.
-
 * nspawn: optionally set up nftables/iptables routes that forward UDP/TCP
-  traffic on port 53 to resolved stub.
-
-* extend src/basic/filesystems.[ch] so that it can be used to translate any fs
-  magic into a string. Then use that to replace fstype_magic_to_name() in homed
-  sources, and similar code.
+  traffic on port 53 to resolved stub 127.0.0.54
 
 * man: rework os-release(5), and clearly separate our extension-release.d/ and
   initrd-release parts, i.e. list explicitly which fields are about what.
@@ -329,9 +330,6 @@ Features:
 * cryptsetup: optionally, when run during boot-up and password is never
   entered, and we are on battery power (or so), power off machine again
 
-* cryptsetup: when FIDO2/PKCS#11/TPM2 token/chip didn't show up after some
-  time, abort the attempt, fallback to asking for pw
-
 * cryptsetup: when waiting for FIDO2/PKCS#11 token, tell plymouth that, and
   allow plymouth to abort the waiting and enter pw instead
 
@@ -388,8 +386,6 @@ Features:
 
 * pid1: support new clone3() fork-into-cgroup feature
 
-* pid1: support new cgroup.kill to terminate all processes in a cgroup
-
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
@@ -430,9 +426,6 @@ Features:
 * Maybe add a separate GPT partition type to the discoverable partition spec
   for "hibernate" partitions, that are exactly like swap partitions but only
   activated right before hibernation and thus never used for regular swapping.
-
-* by default, in systemd --user service bump the OOMAdjust to 100, as privs
-  allow so that systemd survives
 
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
@@ -1458,9 +1451,6 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-
-* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
-  are used.
 
 * nspawn: add support for sysext extensions, too. i.e. a new --extension=
   switch that takes one or more arguments, and applies the extensions already
