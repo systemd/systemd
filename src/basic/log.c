@@ -369,10 +369,8 @@ void log_set_facility(int facility) {
 
 static int write_to_console(
                 int level,
-                int error,
                 const char *file,
                 int line,
-                const char *func,
                 const char *buffer) {
 
         char location[256],
@@ -446,10 +444,6 @@ static int write_to_console(
 
 static int write_to_syslog(
                 int level,
-                int error,
-                const char *file,
-                int line,
-                const char *func,
                 const char *buffer) {
 
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
@@ -507,10 +501,6 @@ static int write_to_syslog(
 
 static int write_to_kmsg(
                 int level,
-                int error,
-                const char *file,
-                int line,
-                const char *func,
                 const char *buffer) {
 
         /* Set a ratelimit on the amount of messages logged to /dev/kmsg. This is mostly supposed to be a
@@ -682,7 +672,7 @@ int log_dispatch_internal(
                 if (IN_SET(log_target, LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_SYSLOG)) {
 
-                        k = write_to_syslog(level, error, file, line, func, buffer);
+                        k = write_to_syslog(level, buffer);
                         if (k < 0 && k != -EAGAIN)
                                 log_close_syslog();
                 }
@@ -696,7 +686,7 @@ int log_dispatch_internal(
                         if (k < 0)
                                 log_open_kmsg();
 
-                        k = write_to_kmsg(level, error, file, line, func, buffer);
+                        k = write_to_kmsg(level, buffer);
                         if (k < 0) {
                                 log_close_kmsg();
                                 (void) log_open_console();
@@ -704,7 +694,7 @@ int log_dispatch_internal(
                 }
 
                 if (k <= 0)
-                        (void) write_to_console(level, error, file, line, func, buffer);
+                        (void) write_to_console(level, file, line, buffer);
 
                 buffer = e;
         } while (buffer);
