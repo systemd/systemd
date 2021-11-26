@@ -124,6 +124,10 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 
                         f->header->state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
                         (void) fsync(f->fd);
+
+                        /* TODO: if f->archive is true, f->cache_fd should be isolated, we could
+                         * call @DaanDeMeyer's MMapCache-based hole-punching and truncate code.
+                         */
                         break;
 
                 case OFFLINE_OFFLINING:
