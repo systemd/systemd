@@ -39,6 +39,7 @@ typedef enum SpecialGlyph {
         SPECIAL_GLYPH_RECYCLING,
         SPECIAL_GLYPH_DOWNLOAD,
         SPECIAL_GLYPH_SPARKLES,
+        SPECIAL_GLYPH_LIGHT_BULB,
         _SPECIAL_GLYPH_MAX,
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
