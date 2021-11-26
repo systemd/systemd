@@ -1,5 +1,609 @@
 systemd System and Service Manager
 
+CHANGES WITH 250 in spe:
+
+        * Support for encrypted and authenticated credentials has been
+          added. This extends the credentials logic introduced with v247 to
+          support non-interactive symmetric encryption and authentication,
+          based on a key that is stored on the /var/ file system or in the TPM2
+          chip (if available), or the combination of both (by default if a TPM2
+          chip exists the combination is used, otherwise the /var/ key
+          only). The credentials are automatically decrypted at the moment a
+          service is started, and are made accessible to the service itself in
+          unencrypted form. A new tool `systemd-creds` has been added to
+          encrypt credentials for this purpose, and two new service file
+          settings LoadCredentialEncrypted= and SetCredentialEncrypted= have
+          been added to configure encrypted credentials prepared that way. This
+          feature is useful for ensuring sensitive material such as SSL
+          certificates, passwords and similar are stored securely when at rest
+          and only decrypted when needed, and in a way that can be reproduced
+          only on the local OS installation and hardware.
+
+        * systemd-gpt-auto-generator can now automatically set up discoverable
+          LUKS2 encrypted swap partitions.
+
+        * The GPT Discoverable Partitions Specification has been updated
+          substantially to support Root and /usr/ partitions for the majority
+          of architectures systemd supports. This include platforms that do not
+          natively support UEFI. Even though GPT is specified under UEFI
+          umbrella its useful on other systems too. Specifically,
+          systemd-nspawn, systemd-sysext, systemd-gpt-auto-generator and
+          Portable Services make heavy use of the concept, none of which are
+          specific to UEFI.
+
+        * The GPT Discoverable Partitions Specifications has learnt a new set
+          of partitions that may carry PKCS#7 signatures for Verity partitions,
+          encoded in a simple JSON format. This implements a simple mechanism
+          for building disk images that are fully authenticated and can be
+          tested against a set of cryptographic certificates. This is now
+          implemented for the various systemd tools that can operate with disk
+          images, such as systemd-nspawn, systemd-sysext, systemd-dissect,
+          Portable services/RootImage=, systemd-tmpfiles, systemd-sysusers, and
+          so on. The PKCS#7 signatures are passed to the kernel (where they are
+          checked against certificates from the kernel keyring), or can be
+          verified against certificates provided in userspace (via a simple
+          drop-in file mechanism).
+
+        * systemd-dissect's inspection logic will now report for which uses a
+          disk image is intended. Specifically, it will display whether an
+          image is suitable for booting on UEFI or in a container (using
+          systemd-nspawn's --image= switch), whether it can be used as portable
+          service, or attached as system extension.
+
+        * The system-extension.d/ drop-in files now support a new field
+          SYSEXT_SCOPE= that may encode which purpose a system extension image
+          is for: one of "initrd", "system" or "portable". This is useful to
+          make images more self-descriptive, and to ensure system extensions
+          cannot be attached in the wrong contexts.
+
+        * The os-release file learnt a new PORTABLE_PREFIXES= field which may
+          be used in portable service images to indicate which unit prefixes
+          are supported.
+
+        * The GPT image dissection logic in systemd-nspawn/systemd-dissect/…
+          now is able to decode images for non-native architectures as well.
+
+        * systemd-logind gained a new settings HandlePowerKeyLongPress=,
+          HandleRebootKeyLongPress=, HandleSuspendKeyLongPress= and
+          HandleHibernateKeyLongPress= which may be used to configure actions
+          when the relevant keys are pressed for more than 5s. This is useful
+          on devices that only have hardware for a subset of these keys. By
+          default, if the reboot key is pressed long the poweroff operation is
+          now triggered, and when the suspend key is pressed long the hibernate
+          operation is triggered. Long pressing the other two keys currently
+          does not trigger any operation by default.
+
+        * When showing unit status updates on the console during boot and
+          shutdown, and a service is slow to start so that the KITT animation
+          is shown, the most recent sd_notify() STATUS= text is now shown as
+          well. Services may use this to make the boot/shutdown output easier
+          to understand, and to indicate what precisely a service that is slow
+          to start or stop is waiting for. Specifically, the per-user service
+          manager instance now reports what it is doing and which service it is
+          waiting for this way to the system service manager.
+
+        * The service manager will now re-execute on reception of the
+          SIGRTMIN+25 signal. It previously already did that on SIGTERM — but
+          only when running as PID 1. There was no signal to request this when
+          running as per-user service manager, i.e. as any other PID than
+          1. SIGRTMIN+25 will work in any case, i.e. both as system and user
+          service manager.
+
+        * The hardware watchdog logic in PID 1 gained support for operating
+          with the default timeout configured in the hardware, instead of
+          insisting on re-configuring it. Set RuntimeWatchdogSec=default to
+          request this behavior.
+
+        * A new kernel command line option systemd.watchdog_sec= is now
+          understood which may be used to override the hardware watchdog
+          time-out for the boot.
+
+        * A new setting DefaultOOMScoreAdjust= is now supported in
+          /etc/systemd/system.conf + /etc/systemd/user.conf that may be used to
+          set the default process OOM score adjustment value for processes
+          forked off the service manager. For per-user service managers this
+          now defaults to 100, but for per-system service managers is left as
+          is. This means that by default now services forked off the user
+          service manager are more likely to be killed by the OOM killer than
+          system services or the managers themselves.
+
+        * A new per-service setting RestrictFileSystems= as been added that
+          restricts the file systems a service has access to by their
+          type. This is based on the new BPF LSM of the Linux kernel. This is
+          an effective way to make certain API file systems unavailable to
+          services (and thus minimizing attack surface). A new command
+          "systemd-analyze filesystems" has been added that lists all known
+          file system types (and how they are grouped together under useful
+          group handles).
+
+        * Services now support a new setting RestrictNetworkInterfaces= for
+          restricting access to specific network interfaces.
+
+        * New service unit files gained new settings StartupAllowedCPUs= and
+          StartupAllowedMemoryNodes=. These are similar to their counterparts
+          without the "Startup" prefix and apply during the boot process
+          only. This is useful to improve boot-time behavior of the system and
+          assign resources differently during boot than during regular
+          runtime. This is similar to the preexisting StartupCPUWeight=
+          vs. CPUWeight.
+
+        * Related to this: the various StartupXYZ= settings
+          (i.e. StartupCPUWeight=, StartupAllowedCPUs=, …) are now also applied
+          during shutdown. The settings not prefixed with "Startup" hence apply
+          during regular runtime, and those that are prefixed like that apply
+          during boot and shutdown.
+
+        * The per-user service manager learnt support for communicating with
+          systemd-oomd to acquire OOM kill information.
+
+        * A new service setting ExecSearchPath= has been added that allows
+          changing the search path for executables for services. It affects how
+          the binaries specified in ExecStart= and similar are searched and
+          also affects the $PATH environment variable passed to invoked
+          processes.
+
+        * A new setting RuntimeRandomizedExtraSec= has been added for service
+          and scope units that allows extending the runtime time-out as
+          configured by RuntimeMaxSec= with a randomized amount.
+
+        * The syntax of the service unit settings RuntimeDirectory=,
+          StateDirectory=, CacheDirectory=, LogsDirectory= has been extended:
+          if the specified string is now suffixed with a colon, followed by
+          another filename, the latter will be created as symbolic link to the
+          specified directory. This allows creating these service directories
+          together with alias symlinks to make them available under multiple
+          names.
+
+        * Service unit files gained two new settings TTYRows=/TTYColumns= for
+          configuring rows/columns of the TTY device passed to
+          stdin/stdout/stderr of the service. This is useful to propagate TTY
+          dimensions from another environment.
+
+        * A new service unit file setting ExitType= has been added, that allows
+          configuring when precisely to assume a service has exited. By default
+          systemd watches the main process of a service only to determine its
+          lifetime. By setting ExitType=cgroup it can be told to wait for the
+          last process in a cgroup instead.
+
+        * Automount unit files gained a new setting ExtraOptions= that can be
+          used to configure additional mount options to pass to the kernel when
+          mounting the autofs instance.
+
+        * "Urlification" (i.e. generation of ESC sequences that generate
+          clickable hyperlinks in modern terminals) may now be turned off
+          altogether during build-time.
+
+        * The tpm2/fido2/pkcs11 support in systemd-cryptsetup is now also built
+          as plug-in for upstream cryptsetup. This means plain cryptsetup may
+          now be used to unlock volumes set up this way.
+
+        * The TPM2 logic in cryptsetup will now automatically detect systems
+          where the TPM2 chip supports SHA256 PCR banks but the firmware only
+          updates the SHA1 banks. In such a case PCR policies will be
+          automatically bound to the latter, not the former. This makes the PCR
+          policies reliable, but of course do not provide the same level of
+          trust as SHA256 banks.
+
+        * The TPM2 logic in systemd-cryptsetup/systemd-cryptsetup now supports
+          RSA primary keys in addition to ECC, improving compatibility with
+          TPM2 chips that do not support ECC. RSA keys are much slower to use
+          than ECC, and hence are only used if ECC is not available.
+
+        * /etc/crypttab gained support for a new token-timeout= setting for
+          encrypted volumes that allow configuration of a maximum time to wait
+          for PKCS#11/FIDO2 tokens to be plugged in. If the time elapses the
+          logic will query the user for a regular passphrase/recovery key
+          instead.
+
+        * Support for activating dm-integrity volumes at boot via a new file
+          /etc/integritytab and a tool systemd-integritysetup has been
+          added. This behaves similar to the existing /etc/crypttab and
+          /etc/veritytab, but deals with dm-integrity instead of
+          dm-crypt/dm-verity.
+
+        * The systemd-veritysetup-generator now understands a new usrhash=
+          kernel command line option for specifying the Verity root hash for
+          the partition backing the /usr/ file system. A matching set of
+          systemd.verity_usr_* kernel command line options has been added as
+          well. These all work similar to the corresponding options for the
+          root partition.
+
+        * The sd-device API gained a new API call sd_device_get_diskseq() to
+          return the DISKSEQ property of a device structure. The "disk
+          sequence" concept is a new feature recently introduced to the Linux
+          kernel that allows detecting reuse cycles of block devices, i.e. can
+          be used to recognize when loopback block devices are reused for a
+          different purpose or CD-ROM drives get their media changed.
+
+        * A new unit systemd-boot-update.service has been added. If enabled
+          (the default) and the sd-boot loader is detected to be installed, it
+          is automatically updated to the newest version if it's out of
+          date. This is useful to ensure the boot loader remains up-to-date,
+          and updates automatically propagate from the OS tree in /usr/.
+
+        * A new generic target unit factory-reset.target has been added. It is
+          hooked into systemd-logind similar in fashion to
+          reboot/poweroff/suspend/hibernate, and is supposed to be used to
+          initiate a factory reset operation. What precisely this operation
+          entails is up for the implementer to decide, the primary goal of the
+          new unit is provide a framework where to plug in the implementation
+          and how to trigger it.
+
+        * A new meson build-time option 'clock-valid-range-usec-max' has been
+          added which takes a time in µs and defaults to 15 years. If the RTC
+          time is noticed to be more than the specified time ahead of the
+          built-in epoch of systemd (which by default is the release timestamp
+          of systemd) it is assumed that the RTC is not working correctly, and
+          the RTC is reset to the epoch. (It already is reset to the epoch when
+          noticed to be before it.) This should increase the chance that time
+          doesn't accidentally jump too far ahead due to faulty hardware or
+          batteries.
+
+        * .network files gained a new UplinkInterface in the [IPv6SendRA]
+          section, for automatically propagating DNS settings from other
+          interfaces.
+
+        * The static lease DHCP server logic in systemd-networkd may now serve
+          IP addresses outside of the configured IP pool range for the server.
+
+        * A new setting SaveIntervalSec= has been added to systemd-timesyncd,
+          which may be used to automatically save the current system time to
+          disk in regular intervals. This is useful to maintain a roughly
+          monotonic clock even without RTC hardware and with some robustness
+          against abnormal system shutdown.
+
+        * CAN support in systemd-networkd gained four new settings Loopback=,
+          OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
+          control modes. It gained a number of further settings for tweaking
+          CAN timing quanta.
+
+        * DHCPv4 client support in systemd-networkd learnt a new Label= option
+          for configuring the address label to apply to configure IPv4
+          addresses.
+
+        * The various systemd-networkd "ethtool" buffer settings now understand
+          the special value "max" to configure the buffers to the maximum the
+          hardware supports.
+
+        * systemd-networkd's .link files may now configure a large variety of
+          NIC coalescing settings, plus more hardware offload settings.
+
+        * systemd-analyze verify gained support for a pair of new --image= +
+          --root= switches for verifying units below a specific root
+          directory/image instead of on the host.
+
+        * systemd-analyze verify gained support for verifying unit files under
+          an explicitly specified unit name, independently of what the filename
+          actually is.
+
+        * The [IPv6AcceptRA] section of .network files gained support for a new
+          UseMTU= setting that may be used to control whether to apply the
+          announced MTU settings to the local interface.
+
+        * systemd-networkd now ships with another default .network file:
+          80-container-vb.network. It matches host-side network bridge device
+          created by systemd-nspawn's --network-bridge or --network-zone
+          switch.
+
+        * .link files gained a new WakeOnLanPassword= setting in the [Link]
+          section that allows to specify a WoL "SecureOn" password on hardware
+          that supports this.
+
+        * DHCPv6 Prefix Delegation gained new settings UplinkInterface= and
+          UseDelegatedPrefix= for configuring how to propagate delegated
+          prefixes between uplink and downlink interfaces.
+
+        * The [IPv6AcceptRA] section of .network files now understands two new
+          settings UseGateway=/UseRoutePrefix= for explicitly configuring
+          whether to use the relevant fields from the IPv6 Router Advertisement
+          records.
+
+        * The [CAKE] section of .network files gained a new setting
+          AutoRateIngress= for controlling automatic capacity estimation for
+          CAKE.
+
+        * IPv6 tokens configured in .network files may now optionally take a
+          secret key (i.e. Token=prefixstable:…)
+
+        * A new SuppressInterfaceGroup= setting has been added to the
+          [RoutingPolicyRule] section of .network files.
+
+        * The IgnoreCarrierLoss= setting in the [Network] section of .network
+          files now accepts a duration to be specified, controlling how time to
+          wait before no longer ignoring carrier losses.
+
+        * systemd-analyze verify gained a new switch --recursive-errors= which
+          controls whether to only fail on errors found in the specified units
+          or recursively any dependent units.
+
+        * systemd-analyze security now supports a new --offline mode for
+          analyzing unit files stored on disk instead of loaded units. It may
+          be combined with --root=/--image to analyze unit files container in a
+          root directory or disk image. It also learnt a new --threshold=
+          parameter for specifying an exposure level threshold: if the exposure
+          level exceeds the specified value the call will fail. It also gained
+          a new --security-policy= switch for configuring security policies to
+          enforce on the units. A policy is a JSON file that lists which tests
+          shall be weighted how much to determine the overall exposure
+          level. It also gained a new --json= switch for generating JSON
+          output. Altogether these new features are useful for fully automatic
+          analysis and enforcement of security policies on unit files.
+
+        * systemd-analyze learnt a new --quiet switch for reducing
+          non-essential output. It's honored by the "dot", "syscall-filter",
+          "filesystems" commands.
+
+        * systemd-nspawn's --setenv= switch now supports an additional syntax:
+          if only a variable name is specified (i.e. without being suffixed by
+          a '=' character and a value) the current value of the environment
+          variable is propagated to the container. e.g. --setenv=FOO will
+          lookup the current value of $FOO in the environment, and pass it down
+          to the container. Similar behavior has been added to homectl's,
+          machinectl's and systemd-run's --setenv= switch.
+
+        * systemd-nspawn gained a new switch --suppress-sync= which may be used
+          to optionally suppress the effect of the sync()/fsync()/fdatasync()
+          system calls for the container payload. This is useful for build
+          system environments where safety against abnormal system shutdown is
+          not essential as all build artifacts can be regenerated any time, but
+          the performance win is beneficial.
+
+        * systemd-nspawn will now raise RLIMIT_NOFILE's hard limit to the same
+          value that PID 1 raises it for most forked off processes.
+
+        * systemd-nspawn's --bind=/--bind-ro= switches now optionally take
+          uidmap/nouidmap options as last parameter. If "uidmap" is used the
+          bind mounts are created with UID mapping taking place that ensures
+          the host's file ownerships are mapped 1:1 to container file
+          ownerships, even if user namespacing is used. This way
+          files/directories bound into containers will no longer show up as
+          owned by the nobody user as they typically do if no special care is
+          taken to shift them manually.
+
+        * When discovering Windows installations sd-boot will now attempt to
+          extract the Windows version found.
+
+        * The color scheme to use in sd-boot may now be configured at
+          build-time.
+
+        * systemd-boot will now paint the input cursor on its own instead of
+          relying on the firmware to do so, increasing compatibility with broken
+          firmware that doesn't make the cursor reasonably visible.
+
+        * sd-boot gained the ability to change screen resolution during
+          boot-time, by hitting the "r" key. This will cycle through available
+          resolutions and save them.
+
+        * sd-boot gained support for automatically loading all EFI drivers
+          placed in the /EFI/systemd/drivers/ subdirectory of the EFI System
+          Partition (ESP). These drivers are loaded before the menu entries are
+          searched and loaded. This is useful for easily loading additional
+          file system drivers for the XBOOTLDR partition or similar.
+
+        * sd-boot learnt a new hotkey "f". When pressed the system will enter
+          firmware setup. This is useful in environments where it is difficult
+          to hit the right keys early enough to enter the firmware, and works
+          on any firmware regardless which key it natively uses.
+
+        * sd-boot gained support for automatically booting into the menu item
+          selected on the last boot (using the "@saved" identifier for menu
+          items).
+
+        * sd-boot now embeds a .osrel PE section like we expect from Boot
+          Loader Specification Type #2 Unified Kernels. This means sd-boot
+          itself may be used in place of a Type #2 Unified Kernel. This is
+          useful for debugging purposes as it allows chain-loading one a
+          (development) sd-boot instance from another.
+
+        * sd-boot now supports a new "devicetree" field in Boot Loader
+          Specification Type #1 entries: if configured the specified device
+          tree file is installed before the kernel is invoked. This is useful
+          for installing/applying new devicetree files without updating the
+          kernel image.
+
+        * Similar, sd-stub now can read devicetree data from a PE section
+          ".dtb" and apply it before invoking the kernel.
+
+        * sd-stub (the EFI stub that can be glued in front of a Linux kernel)
+          gained the ability to pick up credentials and sysext files placed
+          next to the kernel image file during initialization, wrap them in a
+          cpio archive and pass them as additional initrd to the invoked Linux
+          kernel, placing them in the /.extra/ directory of the initrd
+          environment. This is useful to implement trusted initrd environments
+          which are fully authenticated but still can be extended (via sysexts)
+          and parameterized (via encrypted/authenticated credentials, see
+          above).
+
+        * sd-stub now comes with a full man page, that explains its feature set
+          and how to combine a kernel image, an initrd and the stub to build a
+          complete EFI unified kernel image, implementing Boot Loader
+          Specification Type #2.
+
+        * sd-stub may now provide the initrd to the execute kernel via the
+          LINUX_EFI_INITRD_MEDIA_GUID EFI protocol, adding compatibility for
+          non-x86 architectures.
+
+        * bootctl learnt the new set-timeout and set-timeout-oneshot that may
+          be used to set the boot menu time-out of the boot loader (for all or
+          just the subsequent boot).
+
+        * systemd-importd now honors new environment variables
+          $SYSTEMD_IMPORT_BTRFS_SUBVOL, $SYSTEMD_IMPORT_BTRFS_QUOTA,
+          $SYSTEMD_IMPORT_SYNC, which may be used disable btrfs subvolume
+          generation, btrfs quota setup and disk synchronization.
+
+        * systemd-sysext now optionally doesn't insist on extension-release.d/
+          files to be placed in the image under the image's right name. If the
+          file system xattr user.extension-release.strict is set on the
+          extension release file it is accepted regardless of its name. This
+          relaxes security restrictions a bit, as system extension may be
+          attached under a wrong name this way.
+
+        * udevadm's test-builtin command learnt a new --action= switch for
+          testing the built-in with the specified action (in place of the
+          default of 'add'.
+
+        * udevadm info gained new switches --property=/--value for showing only
+          specific udev properties/values instead of all.
+
+        * A new hwdb database has been added that contains matches for various
+          types of signal analyzers (protocol analyzers, logic analyzers,
+          oscilloscopes, multimeters, bench power supplies, etc.) that should
+          be accessible to regular users.
+
+        * A new hwdb database entry has been added that carries information
+          about what type of camera discovered cameras are (regular or
+          infrared), and in which direction they point (front or back).
+
+        * A new build-time meson option "extra-net-naming-schemes=" has been
+          added for defining additional naming schemes schemes definitions for
+          udev's network interface naming logic. This is useful for enterprise
+          distributions and similar which want to pin the schemes of certain
+          distribution releases under a specific name and previously had to
+          patched our sources to introduce new named schemes.
+
+        * The predictable naming logic for network interfaces has been extended
+          to generate stable names from Xen netfront device information.
+
+        * hostnamed's chassis property can now be sourced from chassis-type
+          field encoded in devicetree (in addition to the preexisting DMI
+          support).
+
+        * systemd-cgls now optionally display cgroup IDs and extended
+          attributes for each cgroup. (Controllable via the new --xattr= +
+          --cgroup-id= switches.)
+
+        * coredumpctl gained a new --all switch for operating on all
+          Journal files instead of just the local ones.
+
+        * systemd-homed will now try to unmount an activate home area in
+          regular intervals once the user logged out fully. Previously this was
+          attempted exactly once but if the home directory was busy for some
+          reason it was not tried again.
+
+        * systemd-homed's LUKS2 home area backend will now issue a BSD file
+          system lock on the image file while the home area is active
+          (i.e. mounted). If a home area is found to be locked logins are
+          politely refused. This should improve behavior when using home areas
+          images that are accessible via the network from multiple clients, and
+          reduce the chance of accidental file system corruption in that case.
+
+        * Optionally, systemd-homed will now drop the kernel buffer cache once
+          a user fully logged out, configurable via the new --drop-caches=
+          homectl switch.
+
+        * systemd-homed now makes use of UID mapped mounts for the home
+          areas. If the kernel and used file system support it, files are now
+          internally owned by the "nobody" user (i.e. the user typically used
+          for indicating "this ownership is not mapped"), and dynamically
+          mapped to the UID used locally on the system via the UID mapping
+          mount logic of recent kernels. This makes migrating home areas
+          between different systems cheap as recursively chown()ing file system
+          trees is no longer necessary.
+
+        * systemd-homed's CIFS backend now optionally supports CIFS service
+          names with a directory suffix, in order to place home directories in
+          a subdirectory of a CIFS share, instead of the top-level directory.
+
+        * systemd-homed's CIFS backend gained support for specifying additional
+          mount options in the JSON user record (cifsExtraMountOptions field,
+          and --cifs-extra-mount-options= homectl switch). This is for example
+          useful for configuring mount options such as "noserverino" that some
+          SMB3 services require (for example: use that to run a homed home
+          directory from a FritzBox SMB3 share this way).
+
+        * systemd-homed will now default to btrfs' zstd compression for home
+          areas. This is inspired by Fedora's recent decision to enable this by
+          default.
+
+        * Additional mount options to use when mounting the file system of
+          LUKS2 volumes in systemd-homed has been added. Via the
+          $SYSTEMD_HOME_MOUNT_OPTIONS_BTRFS, $SYSTEMD_HOME_MOUNT_OPTIONS_EXT4,
+          $SYSTEMD_HOME_MOUNT_OPTIONS_XFS environment variables to
+          systemd-homed or via the luksExtraMountOptions user record JSON
+          property. (Exposed via homectl --luks-extra-mount-options)
+
+        * homectl's resize command now takes the special size specifications
+          "min" and "max" to shrink/grow the home area to the minimum/maximum
+          size possible, taking disk usage/space constraints and file system
+          limitations into account. Resizing is now generally graceful: the
+          logic will try to get as close to the specified size as possible, but
+          not consider it a failure if the request couldn't be fulfilled
+          precisely.
+
+        * systemd-homed gained the ability to automatically shrink home areas
+          on logout to their minimal size and grow them again on next
+          login. This ensures that while inactive a home area only takes up the
+          minimal space necessary, but once activated provides sufficient space
+          for the user's needs. This behavior is only supported if btrfs is
+          used as file system inside the home area (because only for btrfs
+          online growing/shrinking is implemented in the kernel). This
+          behavior is now enabled by default, but may be controlled via the
+          new --auto-resize-mode= setting of homectl.
+
+        * systemd-homed gained support for automatically re-balancing free disk
+          space among active home areas, in case the LUKS2 backends are used,
+          and no explicit disk size was requested. This way disk space is
+          automatically managed and home areas resized in regular intervals and
+          manual resizing when disk space becomes scarce should not be
+          necessary anymore. This behavior is only supported if btrfs is used
+          within the home areas (as only then online shrinking and growing is
+          supported), and may be configured via the new rebalanceWeight JSON
+          user record field (as exposed via the new --rebalance-weight= homectl
+          setting). Re-balancing is mostly automatic, but can also be requested
+          explicitly via "homectl rebalance", which is synchronous, and thus
+          may be used to wait until a rebalance run is complete.
+
+        * userdbctl gained a --json= switch for configured the JSON formatting
+          to use when outputting user or group records.
+
+        * userdbctl gained a new --multiplexer= switch for explicitly
+          configuring whether to use the systemd-userdbd server side user
+          record resolution logic.
+
+        * userdbctl's ssh-authorized-keys command learnt a new --chain switch,
+          for chaining up another command to execute after completing the
+          look-up. Since the OpenSSH's AuthorizedKeysCommand only allows
+          configuration of a single command to invoke this maybe used to invoke
+          multiple: first userdbctl's own implementation, and then any other
+          also configured in the command line.
+
+        * The sd-event API gained a new function sd_event_add_inotify_fd() that
+          is similar to sd_event_add_inotify() but accepts a file descriptor
+          instead of a path in the file system for referencing the inode to
+          watch.
+
+        * The sd-event API gained a new function
+          sd_event_source_set_ratelimit_expire_callback() that may be used to
+          define a callback function that is called whenever an event source
+          leaves the rate limiting phase.
+
+        * New documentation has been added explaining which steps are necessary
+          to port systemd to a new architecture:
+
+          https://systemd.io/PORTING_TO_NEW_ARCHITECTURES
+
+        * The x-systemd.makefs option in /etc/fstab now explicitly supports
+          f2fs file systems.
+
+        * The systemd-getty-generator now honors a new kernel command line
+          argument systemd.getty_auto= and a new environment variable
+          $SYSTEMD_GETTY_AUTO that allows turning it off at boot. This is for
+          example useful for turning off gettys inside of containers or similar
+          environments.
+
+        * systemd-resolved now listens on a second DNS stub address: 127.0.0.54
+          (in addition to 127.0.0.53, as before). If DNS requests are sent to
+          this address they are propagated in "bypass" mode only, i.e. are
+          almost not processed locally, but mostly forwarded as-is to the
+          current upstream DNS servers. This provides a stable DNS server
+          address that proxies all requests dynamically to the right upstream
+          DNS servers even if these dynamically change. This stub does not do
+          mDNS/LLMNR resolution. However, it will translate look-ups to
+          DNS-over-TLS if necessary. This new stub is particularly useful in
+          container/VM environments, or for tethering setups: use DNAT to
+          redirect traffic to any IP address to this stub.
+
 CHANGES WITH 249:
 
         * When operating on disk images via the --image= switch of various
@@ -3872,7 +4476,7 @@ CHANGES WITH 240:
 
           Consult the kernel documentation for details on this sysctl:
           https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
-          
+
         * The v239 change to turn on "net.ipv4.tcp_ecn" by default has been
           reverted.
 
