@@ -284,6 +284,12 @@ tests += [
          [],
          network_includes],
 
+        [['src/network/test-networkd-util.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_includes],
+
         [['src/network/test-network.c'],
          [libnetworkd_core,
           libsystemd_network],
