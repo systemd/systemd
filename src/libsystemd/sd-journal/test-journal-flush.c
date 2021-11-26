@@ -51,8 +51,11 @@ int main(int argc, char *argv[]) {
 
                 r = journal_file_copy_entry(f, new_journal, o, f->current_offset);
                 if (r < 0)
-                        log_error_errno(r, "journal_file_copy_entry failed: %m");
-                assert_se(r >= 0);
+                        log_warning_errno(r, "journal_file_copy_entry failed: %m");
+                assert_se(r >= 0 ||
+                          IN_SET(r, -EBADMSG,         /* corrupted file */
+                                    -EPROTONOSUPPORT, /* unsupported compression */
+                                    -EIO));           /* file rotated */
 
                 if (++n >= 10000)
                         break;
