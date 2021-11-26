@@ -813,6 +813,55 @@ finalize:
         return r;
 }
 
+static int sip_build_json(Link *link, JsonVariant **ret) {
+        const struct in_addr *sip;
+        JsonVariant **elements;
+        union in_addr_union s;
+        size_t n = 0;
+        int n_sip, r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network || !link->network->dhcp_use_sip || !link->dhcp_lease) {
+                *ret = NULL;
+                return 0;
+        }
+
+        n_sip = sd_dhcp_lease_get_sip(link->dhcp_lease, &sip);
+        if (n_sip <= 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
+        if (r < 0)
+                return r;
+
+        elements = new(JsonVariant*, n_sip);
+        if (!elements)
+                return -ENOMEM;
+
+        for (int i = 0; i < n_sip; i++) {
+                r = server_build_json_one_addr(AF_INET,
+                                               &(union in_addr_union) { .in = sip[i], },
+                                               NETWORK_CONFIG_SOURCE_DHCP4,
+                                               &s,
+                                               elements + n);
+                if (r < 0)
+                        goto finalize;
+                if (r > 0)
+                        n++;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("SIP", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -899,6 +948,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = ntp_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = sip_build_json(link, &w);
         if (r < 0)
                 return r;
 
