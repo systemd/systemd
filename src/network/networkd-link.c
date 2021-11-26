@@ -2673,37 +2673,34 @@ DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;
-        static const struct {
-                uint32_t flag;
-                const char *name;
-        } map[] = {
-                { IFF_UP,          "up"             }, /* interface is up. */
-                { IFF_BROADCAST,   "broadcast"      }, /* broadcast address valid.*/
-                { IFF_DEBUG,       "debug"          }, /* turn on debugging. */
-                { IFF_LOOPBACK,    "loopback"       }, /* interface is a loopback net. */
-                { IFF_POINTOPOINT, "point-to-point" }, /* interface has p-p link. */
-                { IFF_NOTRAILERS,  "no-trailers"    }, /* avoid use of trailers. */
-                { IFF_RUNNING,     "running"        }, /* interface RFC2863 OPER_UP. */
-                { IFF_NOARP,       "no-arp"         }, /* no ARP protocol. */
-                { IFF_PROMISC,     "promiscuous"    }, /* receive all packets. */
-                { IFF_ALLMULTI,    "all-multicast"  }, /* receive all multicast packets. */
-                { IFF_MASTER,      "master"         }, /* master of a load balancer. */
-                { IFF_SLAVE,       "slave"          }, /* slave of a load balancer. */
-                { IFF_MULTICAST,   "multicast"      }, /* supports multicast.*/
-                { IFF_PORTSEL,     "portsel"        }, /* can set media type. */
-                { IFF_AUTOMEDIA,   "auto-media"     }, /* auto media select active. */
-                { IFF_DYNAMIC,     "dynamic"        }, /* dialup device with changing addresses. */
-                { IFF_LOWER_UP,    "lower-up"       }, /* driver signals L1 up. */
-                { IFF_DORMANT,     "dormant"        }, /* driver signals dormant. */
-                { IFF_ECHO,        "echo"           }, /* echo sent packets. */
+        static const char* map[] = {
+                [LOG2U(IFF_UP)]          = "up",             /* interface is up. */
+                [LOG2U(IFF_BROADCAST)]   = "broadcast",      /* broadcast address valid.*/
+                [LOG2U(IFF_DEBUG)]       = "debug",          /* turn on debugging. */
+                [LOG2U(IFF_LOOPBACK)]    = "loopback",       /* interface is a loopback net. */
+                [LOG2U(IFF_POINTOPOINT)] = "point-to-point", /* interface has p-p link. */
+                [LOG2U(IFF_NOTRAILERS)]  = "no-trailers",    /* avoid use of trailers. */
+                [LOG2U(IFF_RUNNING)]     = "running",        /* interface RFC2863 OPER_UP. */
+                [LOG2U(IFF_NOARP)]       = "no-arp",         /* no ARP protocol. */
+                [LOG2U(IFF_PROMISC)]     = "promiscuous",    /* receive all packets. */
+                [LOG2U(IFF_ALLMULTI)]    = "all-multicast",  /* receive all multicast packets. */
+                [LOG2U(IFF_MASTER)]      = "master",         /* master of a load balancer. */
+                [LOG2U(IFF_SLAVE)]       = "slave",          /* slave of a load balancer. */
+                [LOG2U(IFF_MULTICAST)]   = "multicast",      /* supports multicast.*/
+                [LOG2U(IFF_PORTSEL)]     = "portsel",        /* can set media type. */
+                [LOG2U(IFF_AUTOMEDIA)]   = "auto-media",     /* auto media select active. */
+                [LOG2U(IFF_DYNAMIC)]     = "dynamic",        /* dialup device with changing addresses. */
+                [LOG2U(IFF_LOWER_UP)]    = "lower-up",       /* driver signals L1 up. */
+                [LOG2U(IFF_DORMANT)]     = "dormant",        /* driver signals dormant. */
+                [LOG2U(IFF_ECHO)]        = "echo",           /* echo sent packets. */
         };
 
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (flags & map[i].flag &&
-                    !strextend_with_separator(&str, ",", map[i].name))
-                        return -ENOMEM;
+                if (FLAGS_SET(flags, 1 << i) && map[i])
+                        if (!strextend_with_separator(&str, ",", map[i]))
+                                return -ENOMEM;
 
         *ret = TAKE_PTR(str);
         return 0;
