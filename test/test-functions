@@ -588,6 +588,10 @@ install_verity_minimal() {
             # missing $LD_PRELOAD libraries.
             inst_libs "$ASAN_RT_PATH"
             inst_library "$ASAN_RT_PATH"
+            # Create a dummy LSan suppression file otherwise gcc's ASan
+            # complains as it doesn't exist in the minimal image
+            # (i.e. when running TEST-29 or TEST-50 under sanitizers)
+            touch "$initdir/systemd-lsan.supp"
         fi
         cp "$os_release" "$initdir/usr/lib/os-release"
         ln -s ../usr/lib/os-release "$initdir/etc/os-release"
