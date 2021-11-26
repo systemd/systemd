@@ -1907,6 +1907,9 @@ int unit_start(Unit *u) {
         /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
         if (UNIT_VTABLE(u)->can_start) {
                 r = UNIT_VTABLE(u)->can_start(u);
+                if (r == -EAGAIN)
+                        u->job->was_skipped = true;
+
                 if (r < 0)
                         return r;
         }
