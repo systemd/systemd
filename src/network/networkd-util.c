@@ -24,25 +24,25 @@ static const char * const network_config_source_table[_NETWORK_CONFIG_SOURCE_MAX
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(network_config_source, NetworkConfigSource);
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret) {
-        static const struct {
-                NetworkConfigState state;
-                const char *str;
-        } map[] = {
-                { .state = NETWORK_CONFIG_STATE_PROBING,     .str = "probing",     },
-                { .state = NETWORK_CONFIG_STATE_REQUESTING,  .str = "requesting",  },
-                { .state = NETWORK_CONFIG_STATE_CONFIGURING, .str = "configuring", },
-                { .state = NETWORK_CONFIG_STATE_CONFIGURED,  .str = "configured",  },
-                { .state = NETWORK_CONFIG_STATE_MARKED,      .str = "marked",      },
-                { .state = NETWORK_CONFIG_STATE_REMOVING,    .str = "removing",    },
+        static const char* states[] = {
+                [LOG2U(NETWORK_CONFIG_STATE_PROBING)]     = "probing",
+                [LOG2U(NETWORK_CONFIG_STATE_REQUESTING)]  = "requesting",
+                [LOG2U(NETWORK_CONFIG_STATE_CONFIGURING)] = "configuring",
+                [LOG2U(NETWORK_CONFIG_STATE_CONFIGURED)]  = "configured",
+                [LOG2U(NETWORK_CONFIG_STATE_MARKED)]      = "marked",
+                [LOG2U(NETWORK_CONFIG_STATE_REMOVING)]    = "removing",
         };
         _cleanup_free_ char *buf = NULL;
 
         assert(ret);
 
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (FLAGS_SET(s, map[i].state) &&
-                    !strextend_with_separator(&buf, ",", map[i].str))
-                        return -ENOMEM;
+        for (size_t i = 0; i < ELEMENTSOF(states); i++)
+                if (FLAGS_SET(s, 1 << i)) {
+                        assert(states[i]);
+
+                        if (!strextend_with_separator(&buf, ",", states[i]))
+                                return -ENOMEM;
+                }
 
         *ret = TAKE_PTR(buf);
         return 0;
