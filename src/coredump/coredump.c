@@ -7,11 +7,6 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#if HAVE_ELFUTILS
-#include <dwarf.h>
-#include <elfutils/libdwfl.h>
-#endif
-
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-login.h"
@@ -27,6 +22,7 @@
 #include "copy.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
+#include "elf-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -43,7 +39,6 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
-#include "stacktrace.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -818,15 +813,13 @@ static int submit_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-#if HAVE_ELFUTILS
         /* Try to get a stack trace if we can */
         if (coredump_size > arg_process_size_max) {
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else if (coredump_fd >= 0)
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
-#endif
+                (void) parse_elf_object(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],
