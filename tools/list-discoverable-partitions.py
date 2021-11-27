@@ -58,21 +58,21 @@ DESCRIPTIONS = {
         'If the partition is encrypted with LUKS or has dm-verity integrity data (see below), the '
         'device mapper file will be named `/dev/mapper/root`.'),
     'USR': (
+        'Any native, optionally in LUKS',
+        'Similar semantics to root partition, but just the `/usr/` partition.'),
+    'ROOT_VERITY': (
         'A dm-verity superblock followed by hash data',
         'Contains dm-verity integrity hash data for the matching root partition. If this feature is '
         'used the partition UUID of the root partition should be the first 128 bits of the root hash '
         'of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the '
         'final 128 bits of it, so that the root partition and its Verity partition can be discovered '
         'easily, simply by specifying the root hash.'),
-    'ROOT_VERITY': (
-        'A serialized JSON object, see below',
-        'Contains a root hash and a PKCS#7 signature for it, permitting signed dm-verity GPT images.'),
     'USR_VERITY': (
-        'Any native, optionally in LUKS',
-        'Similar semantics to root partition, but just the `/usr/` partition.'),
-    'ROOT_VERITY_SIG': (
         'A dm-verity superblock followed by hash data',
         'Similar semantics to root Verity partition, but just for the `/usr/` partition.'),
+    'ROOT_VERITY_SIG': (
+        'A serialized JSON object, see below',
+        'Contains a root hash and a PKCS#7 signature for it, permitting signed dm-verity GPT images.'),
     'USR_VERITY_SIG': (
         'A serialized JSON object, see below',
         'Similar semantics to root Verity signature partition, but just for the `/usr/` partition.'),
