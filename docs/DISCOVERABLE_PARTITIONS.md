@@ -60,7 +60,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Partition (TILE-Gx)_ | `c50cdd70-3862-4cc3-90e1-809a8c93ee2c` | ditto | ditto |
 | _Root Partition (x86)_ | `44479540-f297-41b2-9af7-d131d5f0458a` | ditto | ditto |
 | _Root Partition (amd64/x86_64)_ | `4f68bce3-e8cd-4db1-96e7-fbcaf984b709` | ditto | ditto |
-| _`/usr/` Partition (Alpha)_ | `e18cf08c-33ec-4c0d-8246-c6c6fb3da024` | A dm-verity superblock followed by hash data | Contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128 bits of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128 bits of it, so that the root partition and its Verity partition can be discovered easily, simply by specifying the root hash. |
+| _`/usr/` Partition (Alpha)_ | `e18cf08c-33ec-4c0d-8246-c6c6fb3da024` | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
 | _`/usr/` Partition (ARC)_ | `7978a683-6316-4922-bbee-38bff5a2fecc` | ditto | ditto |
 | _`/usr/` Partition (32-bit ARM)_ | `7d0359a3-02b3-4f0a-865c-654403e70625` | ditto | ditto |
 | _`/usr/` Partition (64-bit ARM/AArch64)_ | `b0e01050-ee5f-4390-949a-9101b17104e9` | ditto | ditto |
@@ -78,7 +78,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Partition (TILE-Gx)_ | `55497029-c7c1-44cc-aa39-815ed1558630` | ditto | ditto |
 | _`/usr/` Partition (x86)_ | `75250d76-8cc6-458e-bd66-bd47cc81a812` | ditto | ditto |
 | _`/usr/` Partition (amd64/x86_64)_ | `8484680c-9521-48c6-9c11-b0720656f69e` | ditto | ditto |
-| _Root Verity Partition (Alpha)_ | `fc56d9e9-e6e5-4c06-be32-e74407ce09a5` | A serialized JSON object, see below | Contains a root hash and a PKCS#7 signature for it, permitting signed dm-verity GPT images. |
+| _Root Verity Partition (Alpha)_ | `fc56d9e9-e6e5-4c06-be32-e74407ce09a5` | A dm-verity superblock followed by hash data | Contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128 bits of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128 bits of it, so that the root partition and its Verity partition can be discovered easily, simply by specifying the root hash. |
 | _Root Verity Partition (ARC)_ | `24b2d975-0f97-4521-afa1-cd531e421b8d` | ditto | ditto |
 | _Root Verity Partition (32-bit ARM)_ | `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | ditto | ditto |
 | _Root Verity Partition (64-bit ARM/AArch64)_ | `df3300ce-d69f-4c92-978c-9bfb0f38d820` | ditto | ditto |
@@ -96,7 +96,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Verity Partition (TILE-Gx)_ | `966061ec-28e4-4b2e-b4a5-1f0a825a1d84` | ditto | ditto |
 | _Root Verity Partition (amd64/x86_64)_ | `2c7357ed-ebd2-46d9-aec1-23d437ec2bf5` | ditto | ditto |
 | _Root Verity Partition (x86)_ | `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | ditto | ditto |
-| _`/usr/` Verity Partition (Alpha)_ | `8cce0d25-c0d0-4a44-bd87-46331bf1df67` | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
+| _`/usr/` Verity Partition (Alpha)_ | `8cce0d25-c0d0-4a44-bd87-46331bf1df67` | A dm-verity superblock followed by hash data | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
 | _`/usr/` Verity Partition (ARC)_ | `fca0598c-d880-4591-8c16-4eda05c7347c` | ditto | ditto |
 | _`/usr/` Verity Partition (32-bit ARM)_ | `c215d751-7bcd-4649-be90-6627490a4c05` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit ARM/AArch64)_ | `6e11a4e7-fbca-4ded-b9e9-e1a512bb664e` | ditto | ditto |
@@ -114,7 +114,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Verity Partition (TILE-Gx)_ | `2fb4bf56-07fa-42da-8132-6b139f2026ae` | ditto | ditto |
 | _`/usr/` Verity Partition (amd64/x86_64)_ | `77ff5f63-e7b6-4633-acf4-1565b864c0e6` | ditto | ditto |
 | _`/usr/` Verity Partition (x86)_ | `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | ditto | ditto |
-| _Root Verity Signature Partition (Alpha)_ | `d46495b7-a053-414f-80f7-700c99921ef8` | A dm-verity superblock followed by hash data | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
+| _Root Verity Signature Partition (Alpha)_ | `d46495b7-a053-414f-80f7-700c99921ef8` | A serialized JSON object, see below | Contains a root hash and a PKCS#7 signature for it, permitting signed dm-verity GPT images. |
 | _Root Verity Signature Partition (ARC)_ | `143a70ba-cbd3-4f06-919f-6c05683a78bc` | ditto | ditto |
 | _Root Verity Signature Partition (32-bit ARM)_ | `42b0455f-eb11-491d-98d3-56145ba9d037` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit ARM/AArch64)_ | `6db69de6-29f4-4758-a7a5-962190f00ce3` | ditto | ditto |
