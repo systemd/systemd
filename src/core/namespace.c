@@ -101,7 +101,7 @@ static const MountEntry apivfs_table[] = {
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
-static const MountEntry protect_kernel_tunables_table[] = {
+static const MountEntry protect_kernel_tunables_proc_table[] = {
         { "/proc/acpi",          READONLY,           true  },
         { "/proc/apm",           READONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
         { "/proc/asound",        READONLY,           true  },
@@ -116,6 +116,9 @@ static const MountEntry protect_kernel_tunables_table[] = {
         { "/proc/sys",           READONLY,           true  },
         { "/proc/sysrq-trigger", READONLY,           true  },
         { "/proc/timer_stats",   READONLY,           true  },
+};
+
+static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                READONLY,           false },
         { "/sys/fs/bpf",         READONLY,           true  },
         { "/sys/fs/cgroup",      READWRITE_IMPLICIT, false }, /* READONLY is set by ProtectControlGroups= option */
@@ -133,8 +136,11 @@ static const MountEntry protect_kernel_modules_table[] = {
 };
 
 /* ProtectKernelLogs= option */
-static const MountEntry protect_kernel_logs_table[] = {
+static const MountEntry protect_kernel_logs_proc_table[] = {
         { "/proc/kmsg",          INACCESSIBLE, true },
+};
+
+static const MountEntry protect_kernel_logs_dev_table[] = {
         { "/dev/kmsg",           INACCESSIBLE, true },
 };
 
@@ -1554,9 +1560,11 @@ static size_t namespace_calculate_mounts(
                 (n_extension_images > 0 ? n_hierarchies + n_extension_images : 0) + /* Mount each image plus an overlay per hierarchy */
                 n_temporary_filesystems +
                 ns_info->private_dev +
-                (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
+                (ns_info->protect_kernel_tunables ?
+                 ELEMENTSOF(protect_kernel_tunables_proc_table) + ELEMENTSOF(protect_kernel_tunables_sys_table) : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
-                (ns_info->protect_kernel_logs ? ELEMENTSOF(protect_kernel_logs_table) : 0) +
+                (ns_info->protect_kernel_logs ?
+                 ELEMENTSOF(protect_kernel_logs_proc_table) + ELEMENTSOF(protect_kernel_logs_dev_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
@@ -2079,10 +2087,21 @@ int setup_namespace(
                                 .flags = DEV_MOUNT_OPTIONS,
                         };
 
+                /* In case /proc is successfully mounted with pid tree subset only (ProcSubset=pid), the
+                   protective mounts to non-pid /proc paths would fail. But the pid only option may have
+                   failed gracefully, so let's try the mounts but it's not fatal if they don't succeed. */
+                bool ignore_protect_proc = ns_info->ignore_protect_paths || ns_info->proc_subset == PROC_SUBSET_PID;
                 if (ns_info->protect_kernel_tunables) {
                         r = append_static_mounts(&m,
-                                                 protect_kernel_tunables_table,
-                                                 ELEMENTSOF(protect_kernel_tunables_table),
+                                                 protect_kernel_tunables_proc_table,
+                                                 ELEMENTSOF(protect_kernel_tunables_proc_table),
+                                                 ignore_protect_proc);
+                        if (r < 0)
+                                goto finish;
+
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_tunables_sys_table,
+                                                 ELEMENTSOF(protect_kernel_tunables_sys_table),
                                                  ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
@@ -2099,8 +2118,15 @@ int setup_namespace(
 
                 if (ns_info->protect_kernel_logs) {
                         r = append_static_mounts(&m,
-                                                 protect_kernel_logs_table,
-                                                 ELEMENTSOF(protect_kernel_logs_table),
+                                                 protect_kernel_logs_proc_table,
+                                                 ELEMENTSOF(protect_kernel_logs_proc_table),
+                                                 ignore_protect_proc);
+                        if (r < 0)
+                                goto finish;
+
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_logs_dev_table,
+                                                 ELEMENTSOF(protect_kernel_logs_dev_table),
                                                  ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
