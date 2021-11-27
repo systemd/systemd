@@ -981,15 +981,19 @@ void link_foreignize_routes(Link *link) {
 
 static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = userdata;
+        Link *link;
         int r;
 
         assert(route);
-        assert(route->link);
+        assert(route->manager || (route->link && route->link->manager));
+
+        link = route->link; /* This may be NULL. */
 
         r = route_remove(route);
         if (r < 0) {
-                log_link_warning_errno(route->link, r, "Could not remove route: %m");
-                link_enter_failed(route->link);
+                log_link_warning_errno(link, r, "Could not remove route: %m");
+                if (link)
+                        link_enter_failed(link);
         }
 
         return 1;
