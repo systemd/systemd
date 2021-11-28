@@ -254,9 +254,12 @@
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-          devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
-          supported. Please specify it in the [Link] section of the corresponding
+          <para>Specifies the MAC address to use for the device, or takes the special value
+          <literal>none</literal>. When <literal>none</literal>, <command>systemd-networkd</command>
+          does not request the MAC address for the device, and the kernel will assign a random MAC
+          address. For <literal>tun</literal>, <literal>tap</literal>, or <literal>l2tp</literal>
+          devices, the <varname>MACAddress=</varname> setting in the [NetDev] section is not
+          supported and will be ignored. Please specify it in the [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           file. If this option is not set, <literal>bridge</literal> and <literal>vlan</literal> devices
           inherit the MAC address of the first slave device or the physical interface, respectively. For other
@@ -264,6 +267,10 @@
           name and the
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+          <para>Note, even if <literal>none</literal> is specified, <command>systemd-udevd</command>
+          will assign the persistent MAC address for the device, as <filename>99-default.link</filename>
+          has <varname>MACAddressPolicy=persistent</varname>. So, it is also necessary to create a
+          custom .link file for the device, if the MAC address assignment is not desired.</para>
         </listitem>
       </varlistentry>
     </variablelist>
