@@ -128,41 +128,6 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 
-int config_parse_netdev_kind(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        NetDevKind k, *kind = data;
-
-        assert(rvalue);
-        assert(data);
-
-        k = netdev_kind_from_string(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (*kind != _NETDEV_KIND_INVALID && *kind != k) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified netdev kind is different from the previous value '%s', ignoring assignment: %s",
-                           netdev_kind_to_string(*kind), rvalue);
-                return 0;
-        }
-
-        *kind = k;
-
-        return 0;
-}
-
 bool netdev_is_managed(NetDev *netdev) {
         if (!netdev || !netdev->manager || !netdev->ifname)
                 return false;
@@ -883,6 +848,42 @@ int netdev_load(Manager *manager, bool reload) {
                 if (r < 0)
                         log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
         }
+
+        return 0;
+}
+
+int config_parse_netdev_kind(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        NetDevKind k, *kind = data;
+
+        assert(filename);
+        assert(rvalue);
+        assert(data);
+
+        k = netdev_kind_from_string(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (*kind != _NETDEV_KIND_INVALID && *kind != k) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified netdev kind is different from the previous value '%s', ignoring assignment: %s",
+                           netdev_kind_to_string(*kind), rvalue);
+                return 0;
+        }
+
+        *kind = k;
 
         return 0;
 }
