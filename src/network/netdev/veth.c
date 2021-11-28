@@ -31,7 +31,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Failed to add netlink interface name: %m");
         }
 
-        if (v->hw_addr_peer.length > 0) {
+        if (v->hw_addr_peer.length > 0 && !hw_addr_equal(&v->hw_addr_peer, &HW_ADDR_NULL)) {
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &v->hw_addr_peer);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
