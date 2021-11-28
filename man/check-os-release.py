@@ -13,7 +13,7 @@ def read_os_release():
         filename = '/usr/lib/os-release'
         f = open(filename)
 
-    for line_number, line in enumerate(f):
+    for line_number, line in enumerate(f, start=1):
         line = line.rstrip()
         if not line or line.startswith('#'):
             continue
@@ -23,7 +23,7 @@ def read_os_release():
                 val = ast.literal_eval(val)
             yield name, val
         else:
-            print(f'{filename}:{line_number + 1}: bad line {line!r}',
+            print(f'{filename}:{line_number}: bad line {line!r}',
                   file=sys.stderr)
 
 os_release = dict(read_os_release())
