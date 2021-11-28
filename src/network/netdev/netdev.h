@@ -10,6 +10,9 @@
 #include "networkd-link.h"
 #include "time-util.h"
 
+/* Special hardware address value to suppress generating persistent hardware address for the netdev. */
+#define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })
+
 #define NETDEV_COMMON_SECTIONS "Match\0NetDev\0"
 /* This is the list of known sections. We need to ignore them in the initial parsing phase. */
 #define NETDEV_OTHER_SECTIONS                     \
@@ -215,6 +218,7 @@ static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
 }
 
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
+CONFIG_PARSER_PROTOTYPE(config_parse_netdev_hw_addr);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

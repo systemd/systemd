@@ -400,6 +400,9 @@ int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_dat
         assert(name);
         assert(hw_addr);
 
+        if (hw_addr_equal(hw_addr, &HW_ADDR_NONE))
+                return 0;
+
         if (hw_addr->length == 0) {
                 uint64_t result;
 
@@ -467,7 +470,7 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
 
-        if (netdev->hw_addr.length > 0) {
+        if (netdev->hw_addr.length > 0 && !hw_addr_equal(&netdev->hw_addr, &HW_ADDR_NULL)) {
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &netdev->hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
@@ -886,4 +889,29 @@ int config_parse_netdev_kind(
         *kind = k;
 
         return 0;
+}
+
+int config_parse_netdev_hw_addr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct hw_addr_data *hw_addr = data;
+
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "none")) {
+                *hw_addr = HW_ADDR_NONE;
+                return 0;
+        }
+
+        return config_parse_hw_addr(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
