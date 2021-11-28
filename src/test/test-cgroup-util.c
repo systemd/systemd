@@ -28,7 +28,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
         assert_se(streq_ptr(unit, result));
 }
 
-static void test_path_decode_unit(void) {
+TEST(path_decode_unit) {
         check_p_d_u("getty@tty2.service", 0, "getty@tty2.service");
         check_p_d_u("getty@tty2.service/", 0, "getty@tty2.service");
         check_p_d_u("getty@tty2.service/xxx", 0, "getty@tty2.service");
@@ -50,7 +50,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         assert_se(streq_ptr(unit, result));
 }
 
-static void test_path_get_unit(void) {
+TEST(path_get_unit) {
         check_p_g_u("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service");
         check_p_g_u("/system.slice/getty@tty5.service", 0, "getty@tty5.service");
         check_p_g_u("/system.slice/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
@@ -74,7 +74,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         assert_se(streq_ptr(unit, result));
 }
 
-static void test_path_get_user_unit(void) {
+TEST(path_get_user_unit) {
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "foobar.service");
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", 0, "foobar.service");
         check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
@@ -97,7 +97,7 @@ static void check_p_g_s(const char *path, int code, const char *result) {
         assert_se(streq_ptr(s, result));
 }
 
-static void test_path_get_session(void) {
+TEST(path_get_session) {
         check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "2");
         check_p_g_s("/session-3.scope", 0, "3");
         check_p_g_s("/session-.scope", -ENXIO, NULL);
@@ -111,7 +111,7 @@ static void check_p_g_o_u(const char *path, int code, uid_t result) {
         assert_se(uid == result);
 }
 
-static void test_path_get_owner_uid(void) {
+TEST(path_get_owner_uid) {
         check_p_g_o_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, 1000);
         check_p_g_o_u("/user.slice/user-1006.slice", 0, 1006);
         check_p_g_o_u("", -ENXIO, 0);
@@ -124,7 +124,7 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
         assert_se(streq_ptr(s, result));
 }
 
-static void test_path_get_slice(void) {
+TEST(path_get_slice) {
         check_p_g_slice("/user.slice", 0, "user.slice");
         check_p_g_slice("/foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("/user.slice/user-waldo.slice", 0, "user-waldo.slice");
@@ -141,7 +141,7 @@ static void check_p_g_u_slice(const char *path, int code, const char *result) {
         assert_se(streq_ptr(s, result));
 }
 
-static void test_path_get_user_slice(void) {
+TEST(path_get_user_slice) {
         check_p_g_u_slice("/user.slice", -ENXIO, NULL);
         check_p_g_u_slice("/foobar", -ENXIO, NULL);
         check_p_g_u_slice("/user.slice/user-waldo.slice", -ENXIO, NULL);
@@ -158,14 +158,14 @@ static void test_path_get_user_slice(void) {
         check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
 }
 
-static void test_get_paths(void) {
+TEST(get_paths, .sd_booted = true) {
         _cleanup_free_ char *a = NULL;
 
         assert_se(cg_get_root_path(&a) >= 0);
         log_info("Root = %s", a);
 }
 
-static void test_proc(void) {
+TEST(proc) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r;
@@ -220,7 +220,7 @@ static void test_escape_one(const char *s, const char *r) {
         assert_se(streq(cg_unescape(b), s));
 }
 
-static void test_escape(void) {
+TEST(escape, .sd_booted = true) {
         test_escape_one("foobar", "foobar");
         test_escape_one(".foobar", "_.foobar");
         test_escape_one("foobar.service", "foobar.service");
@@ -234,7 +234,7 @@ static void test_escape(void) {
         test_escape_one(".", "_.");
 }
 
-static void test_controller_is_valid(void) {
+TEST(controller_is_valid) {
         assert_se(cg_controller_is_valid("foobar"));
         assert_se(cg_controller_is_valid("foo_bar"));
         assert_se(cg_controller_is_valid("name=foo"));
@@ -260,7 +260,7 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         assert_se(streq_ptr(ret, path));
 }
 
-static void test_slice_to_path(void) {
+TEST(slice_to_path) {
         test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
         test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
         test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
@@ -292,16 +292,14 @@ static void test_shift_path_one(const char *raw, const char *root, const char *s
         assert_se(streq(s, shifted));
 }
 
-static void test_shift_path(void) {
-
+TEST(shift_path) {
         test_shift_path_one("/foobar/waldo", "/", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "/foobar", "/waldo");
         test_shift_path_one("/foobar/waldo", "/hogehoge", "/foobar/waldo");
 }
 
-static void test_mask_supported(void) {
-
+TEST(mask_supported, .sd_booted = true) {
         CGroupMask m;
         CGroupController c;
 
@@ -311,7 +309,7 @@ static void test_mask_supported(void) {
                 printf("'%s' is supported: %s\n", cgroup_controller_to_string(c), yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
-static void test_is_cgroup_fs(void) {
+TEST(is_cgroup_fs, .sd_booted = true) {
         struct statfs sfs;
         assert_se(statfs("/sys/fs/cgroup", &sfs) == 0);
         if (is_temporary_fs(&sfs))
@@ -319,7 +317,7 @@ static void test_is_cgroup_fs(void) {
         assert_se(is_cgroup_fs(&sfs));
 }
 
-static void test_fd_is_cgroup_fs(void) {
+TEST(fd_is_cgroup_fs, .sd_booted = true) {
         int fd;
 
         fd = open("/sys/fs/cgroup", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
@@ -333,7 +331,7 @@ static void test_fd_is_cgroup_fs(void) {
         fd = safe_close(fd);
 }
 
-static void test_cg_tests(void) {
+TEST(cg_tests) {
         int all, hybrid, systemd, r;
 
         r = cg_unified();
@@ -364,7 +362,7 @@ static void test_cg_tests(void) {
                 assert_se(!systemd);
 }
 
-static void test_cg_get_keyed_attribute(void) {
+TEST(cg_get_keyed_attribute) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
         int i, r;
@@ -429,27 +427,4 @@ static void test_cg_get_keyed_attribute(void) {
         }
 }
 
-int main(void) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_path_decode_unit();
-        test_path_get_unit();
-        test_path_get_user_unit();
-        test_path_get_session();
-        test_path_get_owner_uid();
-        test_path_get_slice();
-        test_path_get_user_slice();
-        TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
-        test_proc();
-        TEST_REQ_RUNNING_SYSTEMD(test_escape());
-        test_controller_is_valid();
-        test_slice_to_path();
-        test_shift_path();
-        TEST_REQ_RUNNING_SYSTEMD(test_mask_supported());
-        TEST_REQ_RUNNING_SYSTEMD(test_is_cgroup_fs());
-        TEST_REQ_RUNNING_SYSTEMD(test_fd_is_cgroup_fs());
-        test_cg_tests();
-        test_cg_get_keyed_attribute();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
