@@ -4211,7 +4211,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         }
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
+        if (ERRNO_IS_INTERRUPT(n))
                 return 0;
         if (n == -EXFULL) {
                 log_warning("Got message with truncated control data (too many fds sent?), ignoring.");

@@ -1122,7 +1122,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         assert(m);
 
         n = read_datagram(fd, &sender, &datagram, &passed_fd);
-        if (IN_SET(n, -EAGAIN, -EINTR))
+        if (ERRNO_IS_INTERRUPT(n))
                 return 0;
         if (n < 0)
                 return log_error_errno(n, "Failed to read notify datagram: %m");

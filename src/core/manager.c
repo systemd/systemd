@@ -2445,7 +2445,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
+        if (ERRNO_IS_INTERRUPT(n))
                 return 0; /* Spurious wakeup, try again */
         if (n == -EXFULL) {
                 log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
@@ -2722,7 +2722,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         return 0;
                 }
 
-                if (IN_SET(errno, EINTR, EAGAIN))
+                if (ERRNO_IS_INTERRUPT(errno))
                         return 0;
 
                 /* We return an error here, which will kill this handler,
@@ -4263,7 +4263,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
         l = recv(fd, &buffer, sizeof(buffer), MSG_DONTWAIT);
         if (l < 0) {
-                if (IN_SET(errno, EINTR, EAGAIN))
+                if (ERRNO_IS_INTERRUPT(errno))
                         return 0;
 
                 return log_error_errno(errno, "Failed to read from user lookup fd: %m");
