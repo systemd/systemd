@@ -25,12 +25,14 @@
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "resolve-private.h"
 #include "string-util.h"
 #include "strv.h"
 #include "wireguard.h"
 
-static void resolve_endpoints(NetDev *netdev);
+static void wireguard_resolve_endpoints(NetDev *netdev);
+static int peer_resolve_endpoint(WireguardPeer *peer);
 
 static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         WireguardIPmask *mask;
@@ -40,9 +42,6 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
 
         if (peer->wireguard) {
                 LIST_REMOVE(peers, peer->wireguard->peers, peer);
-
-                set_remove(peer->wireguard->peers_with_unresolved_endpoint, peer);
-                set_remove(peer->wireguard->peers_with_failed_endpoint, peer);
 
                 if (peer->section)
                         hashmap_remove(peer->wireguard->peers_by_section, peer->section);
@@ -59,6 +58,9 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         free(peer->endpoint_port);
         free(peer->preshared_key_file);
         explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
+
+        sd_event_source_disable_unref(peer->resolve_retry_event_source);
+        sd_resolve_query_unref(peer->resolve_query);
 
         return mfree(peer);
 }
@@ -288,7 +290,8 @@ static int wireguard_set_interface(NetDev *netdev) {
         return 0;
 }
 
-static void wireguard_peer_destroy_callback(WireguardPeer *peer) {
+static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
+        WireguardPeer *peer = userdata;
         NetDev *netdev;
 
         assert(peer);
@@ -296,134 +299,132 @@ static void wireguard_peer_destroy_callback(WireguardPeer *peer) {
 
         netdev = NETDEV(peer->wireguard);
 
-        if (section_is_invalid(peer->section))
-                wireguard_peer_free(peer);
-
-        netdev_unref(netdev);
-}
-
-static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        NetDev *netdev = userdata;
-        Wireguard *w;
-
-        assert(netdev);
-        w = WIREGUARD(netdev);
-        assert(w);
-
         if (!netdev_is_managed(netdev))
                 return 0;
 
-        assert(set_isempty(w->peers_with_unresolved_endpoint));
+        peer->resolve_query = sd_resolve_query_unref(peer->resolve_query);
 
-        SWAP_TWO(w->peers_with_unresolved_endpoint, w->peers_with_failed_endpoint);
-
-        resolve_endpoints(netdev);
-
+        (void) peer_resolve_endpoint(peer);
         return 0;
 }
 
-/*
- * Given the number of retries this function will return will an exponential
- * increasing time in milliseconds to wait starting at 200ms and capped at 25 seconds.
- */
-static int exponential_backoff_milliseconds(unsigned n_retries) {
-        return (2 << MIN(n_retries, 7U)) * 100 * USEC_PER_MSEC;
+static usec_t peer_next_resolve_usec(WireguardPeer *peer) {
+        usec_t usec;
+
+        /* Given the number of retries this function will return an exponential increasing amount of
+         * milliseconds to wait starting at 200ms and capped at 25 seconds. */
+
+        assert(peer);
+
+        usec = (2 << MIN(peer->n_retries, 7U)) * 100 * USEC_PER_MSEC;
+
+        return random_u64_range(usec / 10) + usec * 9 / 10;
 }
 
-static int wireguard_resolve_handler(sd_resolve_query *q,
-                                     int ret,
-                                     const struct addrinfo *ai,
-                                     WireguardPeer *peer) {
+static int wireguard_peer_resolve_handler(
+              sd_resolve_query *q,
+              int ret,
+              const struct addrinfo *ai,
+              void *userdata) {
+
+        WireguardPeer *peer = userdata;
         NetDev *netdev;
-        Wireguard *w;
         int r;
 
         assert(peer);
         assert(peer->wireguard);
 
-        w = peer->wireguard;
-        netdev = NETDEV(w);
+        netdev = NETDEV(peer->wireguard);
 
         if (!netdev_is_managed(netdev))
                 return 0;
 
         if (ret != 0) {
-                log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", peer->endpoint_host, peer->endpoint_port, gai_strerror(ret));
-
-                r = set_ensure_put(&w->peers_with_failed_endpoint, NULL, peer);
-                if (r < 0) {
-                        log_netdev_error(netdev, "Failed to save a peer, dropping the peer: %m");
-                        peer->section->invalid = true;
-                        goto resolve_next;
-                }
+                log_netdev_warning(netdev, "Failed to resolve host '%s:%s', ignoring: %s",
+                                   peer->endpoint_host, peer->endpoint_port, gai_strerror(ret));
+                peer->n_retries++;
 
         } else if ((ai->ai_family == AF_INET && ai->ai_addrlen == sizeof(struct sockaddr_in)) ||
-                   (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6)))
+                   (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6))) {
+
                 memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
-        else
-                log_netdev_error(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint %s:%s, ignoring the address.",
-                                 peer->endpoint_host, peer->endpoint_port);
+                (void) wireguard_set_interface(netdev);
+                peer->n_retries = 0;
 
-resolve_next:
-        if (!set_isempty(w->peers_with_unresolved_endpoint)) {
-                resolve_endpoints(netdev);
-                return 0;
+        } else {
+                log_netdev_warning(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint %s:%s, ignoring the endpoint.",
+                                   peer->endpoint_host, peer->endpoint_port);
+                peer->n_retries++;
         }
 
-        (void) wireguard_set_interface(netdev);
-
-        if (!set_isempty(w->peers_with_failed_endpoint)) {
-                usec_t usec;
-
-                w->n_retries++;
-                usec = usec_add(now(CLOCK_MONOTONIC), exponential_backoff_milliseconds(w->n_retries));
-                r = event_reset_time(netdev->manager->event, &w->resolve_retry_event_source,
-                                     CLOCK_MONOTONIC, usec, 0, on_resolve_retry, netdev,
-                                     0, "wireguard-resolve-retry", true);
-                if (r < 0) {
-                        log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler: %m");
-                        return 0;
-                }
+        if (peer->n_retries > 0) {
+                r = event_reset_time_relative(netdev->manager->event,
+                                              &peer->resolve_retry_event_source,
+                                              clock_boottime_or_monotonic(),
+                                              peer_next_resolve_usec(peer), 0,
+                                              on_resolve_retry, peer, 0, "wireguard-resolve-retry", true);
+                if (r < 0)
+                        log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler for endpoint %s:%s, ignoring: %m",
+                                                 peer->endpoint_host, peer->endpoint_port);
         }
 
+        wireguard_resolve_endpoints(netdev);
         return 0;
 }
 
-static void resolve_endpoints(NetDev *netdev) {
+static int peer_resolve_endpoint(WireguardPeer *peer) {
         static const struct addrinfo hints = {
                 .ai_family = AF_UNSPEC,
                 .ai_socktype = SOCK_DGRAM,
                 .ai_protocol = IPPROTO_UDP
         };
+        NetDev *netdev;
+        int r;
+
+        assert(peer);
+        assert(peer->wireguard);
+
+        netdev = NETDEV(peer->wireguard);
+
+        if (!peer->endpoint_host || !peer->endpoint_port)
+                /* Not necessary to resolve the endpoint. */
+                return 0;
+
+        if (event_source_is_enabled(peer->resolve_retry_event_source) > 0)
+                /* Timer event source is enabled. The endpoint will be resolved later. */
+                return 0;
+
+        if (peer->resolve_query)
+                /* Being resolved, or already resolved. */
+                return 0;
+
+        r = sd_resolve_getaddrinfo(netdev->manager->resolve,
+                                   &peer->resolve_query,
+                                   peer->endpoint_host,
+                                   peer->endpoint_port,
+                                   &hints,
+                                   wireguard_peer_resolve_handler,
+                                   peer);
+        if (r < 0)
+                return log_netdev_full_errno(netdev, r == -ENOBUFS ? LOG_DEBUG : LOG_WARNING, r,
+                                             "Failed to create endpoint resolver for %s:%s, ignoring: %m",
+                                             peer->endpoint_host, peer->endpoint_port);
+
+        return 0;
+}
+
+static void wireguard_resolve_endpoints(NetDev *netdev) {
         WireguardPeer *peer;
         Wireguard *w;
-        int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        SET_FOREACH(peer, w->peers_with_unresolved_endpoint) {
-                r = resolve_getaddrinfo(netdev->manager->resolve,
-                                        NULL,
-                                        peer->endpoint_host,
-                                        peer->endpoint_port,
-                                        &hints,
-                                        wireguard_resolve_handler,
-                                        wireguard_peer_destroy_callback,
-                                        peer);
-                if (r == -ENOBUFS)
+        LIST_FOREACH(peers, peer, w->peers)
+                if (peer_resolve_endpoint(peer) == -ENOBUFS)
+                        /* Too many requests. Let's resolve remaining endpoints later. */
                         break;
-                if (r < 0) {
-                        log_netdev_error_errno(netdev, r, "Failed to create resolver: %m");
-                        continue;
-                }
-
-                /* Avoid freeing netdev. It will be unrefed by the destroy callback. */
-                netdev_ref(netdev);
-
-                (void) set_remove(w->peers_with_unresolved_endpoint, peer);
-        }
 }
 
 static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -431,7 +432,7 @@ static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_m
         assert(WIREGUARD(netdev));
 
         (void) wireguard_set_interface(netdev);
-        resolve_endpoints(netdev);
+        wireguard_resolve_endpoints(netdev);
         return 0;
 }
 
@@ -761,7 +762,6 @@ int config_parse_wireguard_endpoint(
 
                 peer->endpoint_host = mfree(peer->endpoint_host);
                 peer->endpoint_port = mfree(peer->endpoint_port);
-                set_remove(w->peers_with_unresolved_endpoint, peer);
 
                 TAKE_PTR(peer);
                 return 0;
@@ -800,10 +800,6 @@ int config_parse_wireguard_endpoint(
         free_and_replace(peer->endpoint_host, host);
 
         r = free_and_strdup(&peer->endpoint_port, p);
-        if (r < 0)
-                return log_oom();
-
-        r = set_ensure_put(&w->peers_with_unresolved_endpoint, NULL, peer);
         if (r < 0)
                 return log_oom();
 
@@ -1054,14 +1050,10 @@ static void wireguard_done(NetDev *netdev) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        sd_event_source_unref(w->resolve_retry_event_source);
-
         explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
 
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
-        set_free(w->peers_with_unresolved_endpoint);
-        set_free(w->peers_with_failed_endpoint);
 
         set_free(w->routes);
 }
