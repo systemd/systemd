@@ -344,17 +344,27 @@ static int wireguard_peer_resolve_handler(
                                    peer->endpoint_host, peer->endpoint_port, gai_strerror(ret));
                 peer->n_retries++;
 
-        } else if ((ai->ai_family == AF_INET && ai->ai_addrlen == sizeof(struct sockaddr_in)) ||
-                   (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6))) {
-
-                memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
-                (void) wireguard_set_interface(netdev);
-                peer->n_retries = 0;
-
         } else {
-                log_netdev_warning(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint %s:%s, ignoring the endpoint.",
-                                   peer->endpoint_host, peer->endpoint_port);
-                peer->n_retries++;
+                bool found = false;
+                for (; ai; ai = ai->ai_next) {
+                        if (!IN_SET(ai->ai_family, AF_INET, AF_INET6))
+                                continue;
+
+                        if (ai->ai_addrlen != (ai->ai_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)))
+                                continue;
+
+                        memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
+                        (void) wireguard_set_interface(netdev);
+                        peer->n_retries = 0;
+                        found = true;
+                        break;
+                }
+
+                if (!found) {
+                        log_netdev_warning(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint %s:%s, ignoring the endpoint.",
+                                           peer->endpoint_host, peer->endpoint_port);
+                        peer->n_retries++;
+                }
         }
 
         if (peer->n_retries > 0) {
