@@ -1563,6 +1563,17 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ResolveIntervalSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. If a hostname is specified in the <varname>Endpoint=</varname>
+          setting in a [WireGuardPeer] section, the resolution of the mapping of the hostname to an IP
+          address will be repeated after the specified interval. Defaults to
+          <literal>infinity</literal>, and the hostname will be resolved only once at configuration
+          time. This setting will be ignored when the same setting is specified in the [WireGuardPeer]
+          section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>RouteTable=</varname></term>
         <listitem>
           <para>The table identifier for the routes to the addresses specified in the
@@ -1653,6 +1664,16 @@
           a port number. This endpoint will be updated automatically once to
           the most recent source IP address and port of correctly
           authenticated packets from the peer at configuration time.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ResolveIntervalSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. If a hostname is specified in the <varname>Endpoint=</varname>
+          setting, the resolution of the mapping of the hostname to an IP address will be repeated
+          after the specified interval. If <literal>infinity</literal> is specified, the hostname will
+          be resolved only once at configuration time. Defaults to unset, and the value specified in
+          the same setting in the [WireGuard] section will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
