@@ -290,7 +290,7 @@ int ask_password_plymouth(
 
                 k = read(fd, buffer + p, sizeof(buffer) - p);
                 if (k < 0) {
-                        if (IN_SET(errno, EINTR, EAGAIN))
+                        if (ERRNO_IS_INTERRUPT(errno))
                                 continue;
 
                         r = -errno;
@@ -521,7 +521,7 @@ int ask_password_tty(
 
                 n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
                 if (n < 0) {
-                        if (IN_SET(errno, EINTR, EAGAIN))
+                        if (ERRNO_IS_INTERRUPT(errno))
                                 continue;
 
                         r = -errno;
@@ -881,7 +881,7 @@ int ask_password_agent(
                 };
 
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
-                if (IN_SET(n, -EAGAIN, -EINTR))
+                if (ERRNO_IS_INTERRUPT(n))
                         continue;
                 if (n == -EXFULL) {
                         log_debug("Got message with truncated control data, ignoring.");

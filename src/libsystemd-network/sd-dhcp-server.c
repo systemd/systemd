@@ -1206,7 +1206,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         iov = IOVEC_MAKE(message, datagram_size);
 
         len = recvmsg_safe(fd, &msg, 0);
-        if (IN_SET(len, -EAGAIN, -EINTR))
+        if (ERRNO_IS_INTERRUPT(len))
                 return 0;
         if (len < 0)
                 return len;
