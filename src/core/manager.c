@@ -2445,18 +2445,19 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0; /* Spurious wakeup, try again */
-        if (n == -EXFULL) {
-                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
-                return 0;
-        }
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0; /* Spurious wakeup, try again */
+                if (n == -EXFULL) {
+                        log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                        return 0;
+                }
                 /* If this is any other, real error, then let's stop processing this socket. This of course
                  * means we won't take notification messages anymore, but that's still better than busy
                  * looping around this: being woken up over and over again but being unable to actually read
                  * the message off the socket. */
                 return log_error_errno(n, "Failed to receive notification message: %m");
+        }
 
         CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
@@ -2716,18 +2717,17 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         n = read(m->signal_fd, &sfsi, sizeof(sfsi));
-        if (n != sizeof(sfsi)) {
-                if (n >= 0) {
-                        log_warning("Truncated read from signal fd (%zu bytes), ignoring!", n);
-                        return 0;
-                }
-
-                if (IN_SET(errno, EINTR, EAGAIN))
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 /* We return an error here, which will kill this handler,
                  * to avoid a busy loop on read error. */
                 return log_error_errno(errno, "Reading from signal fd failed: %m");
+        }
+        if (n != sizeof(sfsi)) {
+                log_warning("Truncated read from signal fd (%zu bytes), ignoring!", n);
+                return 0;
         }
 
         log_received_signal(sfsi.ssi_signo == SIGCHLD ||
@@ -4263,7 +4263,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
         l = recv(fd, &buffer, sizeof(buffer), MSG_DONTWAIT);
         if (l < 0) {
-                if (IN_SET(errno, EINTR, EAGAIN))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 return log_error_errno(errno, "Failed to read from user lookup fd: %m");

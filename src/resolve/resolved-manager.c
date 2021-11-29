@@ -792,10 +792,13 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
         l = recvmsg_safe(fd, &mh, 0);
-        if (IN_SET(l, -EAGAIN, -EINTR))
-                return 0;
-        if (l <= 0)
+        if (l < 0) {
+                if (ERRNO_IS_TRANSIENT(l))
+                        return 0;
                 return l;
+        }
+        if (l == 0)
+                return 0;
 
         assert(!(mh.msg_flags & MSG_TRUNC));
 
