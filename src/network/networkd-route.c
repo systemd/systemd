@@ -19,6 +19,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "vrf.h"
+#include "wireguard.h"
 
 int route_new(Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
@@ -865,6 +866,28 @@ static bool route_by_kernel(const Route *route) {
         return false;
 }
 
+static void link_unmark_wireguard_routes(Link *link) {
+        Route *route, *existing;
+        NetDev *netdev;
+        Wireguard *w;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return;
+
+        SET_FOREACH(route, w->routes)
+                if (route_get(NULL, link, route, &existing) >= 0)
+                        route_unmark(existing);
+}
+
 int link_drop_foreign_routes(Link *link) {
         Route *route;
         int k, r;
@@ -913,6 +936,8 @@ int link_drop_foreign_routes(Link *link) {
                         if (route_get(NULL, link, converted->routes[i], &existing) >= 0)
                                 route_unmark(existing);
         }
+
+        link_unmark_wireguard_routes(link);
 
         r = 0;
         SET_FOREACH(route, link->routes) {
@@ -1342,6 +1367,36 @@ static int link_request_static_route(Link *link, Route *route) {
                                   &link->static_route_messages, static_route_handler, NULL);
 }
 
+static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
+        NetDev *netdev;
+        Wireguard *w;
+        Route *route;
+        int r;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return 0;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return 0;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return 0;
+
+        SET_FOREACH(route, w->routes) {
+                if (only_ipv4 && route->family != AF_INET)
+                        continue;
+
+                r = link_request_static_route(link, route);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
@@ -1362,6 +1417,10 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
                 if (r < 0)
                         return r;
         }
+
+        r = link_request_wireguard_routes(link, only_ipv4);
+        if (r < 0)
+                return r;
 
         if (link->static_route_messages == 0) {
                 link->static_routes_configured = true;
