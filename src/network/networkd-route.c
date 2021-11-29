@@ -1723,12 +1723,16 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_table(message, &table);
+        r = sd_netlink_message_read_u32(message, RTA_TABLE, &tmp->table);
+        if (r == -ENODATA) {
+                r = sd_rtnl_message_route_get_table(message, &table);
+                if (r >= 0)
+                        tmp->table = table;
+        }
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
-        tmp->table = table;
 
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
