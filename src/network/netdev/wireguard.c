@@ -7,6 +7,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/if_arp.h>
+#include <linux/ipv6_route.h>
 
 #include "sd-resolve.h"
 
@@ -18,6 +19,8 @@
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-route-util.h"
+#include "networkd-route.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -827,6 +830,186 @@ int config_parse_wireguard_keepalive(
         return 0;
 }
 
+int config_parse_wireguard_route_table(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        NetDev *netdev = userdata;
+        uint32_t *table = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+        assert(userdata);
+
+        if (isempty(rvalue)) {
+                *table = RT_TABLE_MAIN;
+                return 0;
+        }
+
+        if (streq(rvalue, "off")) {
+                *table = 0;
+                return 0;
+        }
+
+        r = manager_get_route_table_from_string(netdev->manager, rvalue, table);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_wireguard_peer_route_table(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        NetDev *netdev = userdata;
+        Wireguard *w;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(netdev);
+        assert(netdev->manager);
+
+        w = WIREGUARD(netdev);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                peer->route_table_set = false; /* Use the table specified in [WireGuard] section. */
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        if (streq(rvalue, "off")) {
+                peer->route_table = 0; /* Disabled. */
+                peer->route_table_set = true;
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        r = manager_get_route_table_from_string(netdev->manager, rvalue, &peer->route_table);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        peer->route_table_set = true;
+        TAKE_PTR(peer);
+        return 0;
+}
+
+int config_parse_wireguard_route_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *priority = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *priority = 0;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_wireguard_peer_route_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        Wireguard *w;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        w = WIREGUARD(userdata);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                peer->route_priority_set = false; /* Use the priority specified in [WireGuard] section. */
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &peer->route_priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        peer->route_priority_set = true;
+        TAKE_PTR(peer);
+        return 0;
+}
+
 static void wireguard_init(NetDev *netdev) {
         Wireguard *w;
 
@@ -835,6 +1018,7 @@ static void wireguard_init(NetDev *netdev) {
         assert(w);
 
         w->flags = WGDEVICE_F_REPLACE_PEERS;
+        w->route_table = RT_TABLE_MAIN;
 }
 
 static void wireguard_done(NetDev *netdev) {
@@ -852,6 +1036,8 @@ static void wireguard_done(NetDev *netdev) {
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
         set_free(w->peers_with_unresolved_endpoint);
         set_free(w->peers_with_failed_endpoint);
+
+        set_free(w->routes);
 }
 
 static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_KEY_LEN]) {
@@ -924,9 +1110,40 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                                               "%s: Missing PrivateKey= or PrivateKeyFile=, "
                                               "Ignoring network device.", filename);
 
-        LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
-                if (wireguard_peer_verify(peer) < 0)
+        LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers) {
+                WireguardIPmask *ipmask;
+
+                if (wireguard_peer_verify(peer) < 0) {
                         wireguard_peer_free(peer);
+                        continue;
+                }
+
+                if ((peer->route_table_set ? peer->route_table : w->route_table) == 0)
+                        continue;
+
+                LIST_FOREACH(ipmasks, ipmask, peer->ipmasks) {
+                        _cleanup_(route_freep) Route *route = NULL;
+
+                        r = route_new(&route);
+                        if (r < 0)
+                                return log_oom();
+
+                        route->family = ipmask->family;
+                        route->dst = ipmask->ip;
+                        route->dst_prefixlen = ipmask->cidr;
+                        route->scope = RT_SCOPE_UNIVERSE;
+                        route->protocol = RTPROT_STATIC;
+                        route->table = peer->route_table_set ? peer->route_table : w->route_table;
+                        route->priority = peer->route_priority_set ? peer->route_priority : w->route_priority;
+                        if (route->priority == 0 && route->family == AF_INET6)
+                                route->priority = IP6_RT_PRIO_USER;
+                        route->source = NETWORK_CONFIG_SOURCE_STATIC;
+
+                        r = set_ensure_consume(&w->routes, &route_hash_ops, TAKE_PTR(route));
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
 
         return 0;
 }

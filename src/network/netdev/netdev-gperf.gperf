@@ -229,12 +229,16 @@ WireGuard.FwMark,                         config_parse_unsigned,                
 WireGuard.ListenPort,                     config_parse_wireguard_listen_port,        0,                             offsetof(Wireguard, port)
 WireGuard.PrivateKey,                     config_parse_wireguard_private_key,        0,                             0
 WireGuard.PrivateKeyFile,                 config_parse_wireguard_private_key_file,   0,                             0
+WireGuard.RouteTable,                     config_parse_wireguard_route_table,        0,                             offsetof(Wireguard, route_table)
+WireGuard.RouteMetric,                    config_parse_wireguard_route_priority,     0,                             offsetof(Wireguard, route_priority)
 WireGuardPeer.AllowedIPs,                 config_parse_wireguard_allowed_ips,        0,                             0
 WireGuardPeer.Endpoint,                   config_parse_wireguard_endpoint,           0,                             0
 WireGuardPeer.PublicKey,                  config_parse_wireguard_peer_key,           0,                             0
 WireGuardPeer.PresharedKey,               config_parse_wireguard_peer_key,           0,                             0
 WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_file, 0,                             0
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
+WireGuardPeer.RouteTable,                 config_parse_wireguard_peer_route_table,   0,                             0
+WireGuardPeer.RouteMetric,                config_parse_wireguard_peer_route_priority,0,                             0
 Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
 Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)
 BatmanAdvanced.Aggregation,               config_parse_bool,                         0,                             offsetof(BatmanAdvanced, aggregation)
