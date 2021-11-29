@@ -21,7 +21,7 @@
 #define THREADS_MAX 64
 #define ELF_PACKAGE_METADATA_ID 0xcafe1a7e
 
-struct stack_context {
+typedef struct StackContext {
         FILE *f;
         Dwfl *dwfl;
         Elf *elf;
@@ -29,10 +29,31 @@ struct stack_context {
         unsigned n_frame;
         JsonVariant **package_metadata;
         Set **modules;
-};
+} StackContext;
+
+static StackContext* stack_context_destroy(StackContext *c) {
+        if (!c)
+                return NULL;
+
+        c->f = safe_fclose(c->f);
+
+        if (c->dwfl) {
+                dwfl_end(c->dwfl);
+                c->dwfl = NULL;
+        }
+
+        if (c->elf) {
+                elf_end(c->elf);
+                c->elf = NULL;
+        }
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
-        struct stack_context *c = userdata;
+        StackContext *c = userdata;
         Dwarf_Addr pc, pc_adjusted, bias = 0;
         _cleanup_free_ Dwarf_Die *scopes = NULL;
         const char *fname = NULL, *symbol = NULL;
@@ -93,7 +114,7 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
 }
 
 static int thread_callback(Dwfl_Thread *thread, void *userdata) {
-        struct stack_context *c = userdata;
+        StackContext *c = userdata;
         pid_t tid;
 
         assert(thread);
@@ -118,7 +139,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         return DWARF_CB_OK;
 }
 
-static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, struct stack_context *c) {
+static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, StackContext *c) {
         size_t n_program_headers;
         int r;
 
@@ -215,7 +236,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
         _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
-        struct stack_context *c = arg;
+        StackContext *c = arg;
         size_t n_program_headers;
         GElf_Addr id_vaddr, bias;
         const unsigned char *id;
@@ -299,7 +320,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!data)
                         continue;
 
-                Elf *memelf = elf_memory(data->d_buf, data->d_size);
+                _cleanup_(elf_endp) Elf *memelf = elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, c);
@@ -322,11 +343,11 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
         _cleanup_(set_freep) Set *modules = NULL;
-        struct stack_context c = {
+        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
+        _cleanup_(stack_context_destroy) StackContext c = {
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
-        _cleanup_free_ char *buf = NULL;
         size_t sz = 0;
         int r;
 
@@ -343,63 +364,38 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         elf_version(EV_CURRENT);
 
         c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-        if (!c.elf) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (!c.elf)
+                return -EINVAL;
 
         c.dwfl = dwfl_begin(&callbacks);
-        if (!c.dwfl) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (!c.dwfl)
+                return -EINVAL;
 
-        if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
+                return -EINVAL;
 
-        if (dwfl_report_end(c.dwfl, NULL, NULL) != 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_report_end(c.dwfl, NULL, NULL) != 0)
+                return -EINVAL;
 
-        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
+                return -EINVAL;
 
-        if (dwfl_core_file_attach(c.dwfl, c.elf) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_core_file_attach(c.dwfl, c.elf) < 0)
+                return -EINVAL;
 
-        if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
+                return -EINVAL;
 
         r = fflush_and_check(c.f);
         if (r < 0)
-                goto finish;
-        c.f = safe_fclose(c.f);
+                return r;
 
+        c.f = safe_fclose(c.f);
         *ret = TAKE_PTR(buf);
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
 
-        r = 0;
-
-finish:
-        if (c.dwfl)
-                dwfl_end(c.dwfl);
-
-        if (c.elf)
-                elf_end(c.elf);
-
-        safe_fclose(c.f);
-
-        return r;
+        return 0;
 }
 
 void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
