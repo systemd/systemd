@@ -66,8 +66,7 @@ static void hash_once(
         struct sha256_ctx hash;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
 
         sha256_init_ctx(&hash);
         sha256_process_bytes(old_seed, size, &hash);
@@ -92,8 +91,7 @@ static EFI_STATUS hash_many(
         _cleanup_freepool_ void *output = NULL;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
         assert(ret);
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
@@ -127,8 +125,7 @@ static EFI_STATUS mangle_random_seed(
         UINTN n;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
         assert(ret_new_seed);
         assert(ret_for_kernel);
 
