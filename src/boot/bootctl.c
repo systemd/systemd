@@ -631,7 +631,9 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         char *p, *q;
         int r;
 
-        p = strjoina(BOOTLIBDIR "/", name);
+        p = strjoina(BOOTLIBDIR "/", name, ".signed");
+        if (access(p, F_OK) < 0)
+                p = strjoina(BOOTLIBDIR "/", name);
         q = strjoina(esp_path, "/EFI/systemd/", name);
         r = copy_file_with_version_check(p, q, force);
 
