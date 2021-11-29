@@ -673,7 +673,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not set route table: %m");
 
                 /* Table attribute to allow more than 256. */
-                r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
+                r = sd_netlink_message_append_u32(req, RTA_TABLE, route->table);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
