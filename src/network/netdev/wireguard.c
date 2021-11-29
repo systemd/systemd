@@ -352,7 +352,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
 
                 r = set_ensure_put(&w->peers_with_failed_endpoint, NULL, peer);
                 if (r < 0) {
-                        log_netdev_error(netdev, "Failed to save a peer, dropping the peer: %m");
+                        log_netdev_error_errno(netdev, r, "Failed to save a peer, dropping the peer: %m");
                         peer->section->invalid = true;
                         goto resolve_next;
                 }
