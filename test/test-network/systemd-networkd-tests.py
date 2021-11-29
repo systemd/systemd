@@ -3432,6 +3432,9 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # make link state file updated
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
         with open(path) as f:
             data = f.read()
             self.assertRegex(data, r'IPV4_ADDRESS_STATE=routable')
@@ -3458,6 +3461,9 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         check_output(*resolvectl_cmd, 'dnssec', 'dummy98', 'yes', env=env)
         check_output(*timedatectl_cmd, 'ntp-servers', 'dummy98', '2.fedora.pool.ntp.org', '3.fedora.pool.ntp.org', env=env)
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
         with open(path) as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
@@ -3470,6 +3476,9 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
         with open(path) as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
@@ -3481,6 +3490,9 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'DNSSEC=yes')
 
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
         with open(path) as f:
             data = f.read()
@@ -4293,6 +4305,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertNotRegex(output, r'8.8.8.8 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'9.9.9.9 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
     def test_dhcp_client_ipv4_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only.network')
         start_networkd()
@@ -4830,6 +4845,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.1')
         self.assertRegex(output, '2600::1')
 
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
     def test_dhcp_client_use_dns_no(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-no.network')
 
@@ -5159,6 +5177,9 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         output = check_output(*resolvectl_cmd, 'domain', 'veth-peer', env=env)
         print(output)
         self.assertIn('example.com', output)
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_ipv6_route_prefix_deny_list(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client-deny-list.network', 'ipv6ra-prefix.network',
