@@ -232,6 +232,7 @@ WireGuard.PrivateKey,                     config_parse_wireguard_private_key,   
 WireGuard.PrivateKeyFile,                 config_parse_wireguard_private_key_file,   0,                             0
 WireGuard.RouteTable,                     config_parse_wireguard_route_table,        0,                             offsetof(Wireguard, route_table)
 WireGuard.RouteMetric,                    config_parse_wireguard_route_priority,     0,                             offsetof(Wireguard, route_priority)
+WireGuard.ResolveIntervalSec,             config_parse_wireguard_resolve_interval,   0,                             offsetof(Wireguard, resolve_interval_usec)
 WireGuardPeer.AllowedIPs,                 config_parse_wireguard_allowed_ips,        0,                             0
 WireGuardPeer.Endpoint,                   config_parse_wireguard_endpoint,           0,                             0
 WireGuardPeer.PublicKey,                  config_parse_wireguard_peer_key,           0,                             0
@@ -240,6 +241,7 @@ WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_f
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
 WireGuardPeer.RouteTable,                 config_parse_wireguard_peer_route_table,   0,                             0
 WireGuardPeer.RouteMetric,                config_parse_wireguard_peer_route_priority,0,                             0
+WireGuardPeer.ResolveIntervalSec,         config_parse_wireguard_peer_resolve_interval, 0,                          0
 Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
 Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)
 BatmanAdvanced.Aggregation,               config_parse_bool,                         0,                             offsetof(BatmanAdvanced, aggregation)
