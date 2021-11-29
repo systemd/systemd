@@ -67,6 +67,9 @@ PresharedKeyFile=
 PersistentKeepalive=
 PublicKey=
 AllowedIPs=
+AddRoutesToAllowedIPs=
+RouteTable=
+RouteMetric=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
