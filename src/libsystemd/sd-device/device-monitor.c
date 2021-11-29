@@ -445,7 +445,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
 
         buflen = recvmsg(m->sock, &smsg, 0);
         if (buflen < 0) {
-                if (errno != EINTR)
+                if (ERRNO_IS_TRANSIENT(errno))
                         log_debug_errno(errno, "sd-device-monitor: Failed to receive message: %m");
                 return -errno;
         }
