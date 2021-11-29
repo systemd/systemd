@@ -11,6 +11,8 @@ ListenPort=4500
 # The key below should be overridden by PrivateKeyFile=
 PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
 PrivateKeyFile=/run/systemd/network/25-wireguard-private-key.txt
+RouteTable=1234
+RouteMetric=123
 
 # peer 1
 [WireGuardPeer]
