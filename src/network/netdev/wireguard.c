@@ -696,7 +696,7 @@ int config_parse_wireguard_allowed_ips(
 
                 *ipmask = (WireguardIPmask) {
                         .family = family,
-                        .ip.in6 = addr.in6,
+                        .ip = addr,
                         .cidr = prefixlen,
                 };
 
