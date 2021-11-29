@@ -990,6 +990,65 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         return 0;
 }
 
+int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
+        int r;
+        Object o;
+        uint64_t s;
+
+        assert(f);
+        assert(ret);
+
+        /* Objects may only be located at multiple of 64 bit */
+        if (!VALID64(offset))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read object at non-64bit boundary: %" PRIu64,
+                                       offset);
+
+        /* Object may not be located in the file header */
+        if (offset < le64toh(f->header->header_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read object located in file header: %" PRIu64,
+                                       offset);
+
+        /* This will likely read too much data but it avoids having to call pread() twice. */
+        r = pread(f->fd, &o, sizeof(Object), offset);
+        if (r < 0)
+                return r;
+
+        s = le64toh(o.object.size);
+
+        if (s == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read uninitialized object: %" PRIu64,
+                                       offset);
+        if (s < sizeof(ObjectHeader))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read overly short object: %" PRIu64,
+                                       offset);
+
+        if (o.object.type <= OBJECT_UNUSED)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read object with invalid type: %" PRIu64,
+                                       offset);
+
+        if (s < minimum_header_size(&o))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read truncated object: %" PRIu64,
+                                       offset);
+
+        if (type > OBJECT_UNUSED && o.object.type != type)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to read object of unexpected type: %" PRIu64,
+                                       offset);
+
+        r = journal_file_check_object(f, offset, &o);
+        if (r < 0)
+                return r;
+
+        *ret = o;
+        return 0;
+}
+
 static uint64_t journal_file_entry_seqnum(
                 JournalFile *f,
                 uint64_t *seqnum) {
