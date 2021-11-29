@@ -326,7 +326,7 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
-        char *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         size_t sz = 0;
         int r;
 
@@ -379,6 +379,9 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                 goto finish;
         }
 
+        r = fflush_and_check(c.f);
+        if (r < 0)
+                goto finish;
         c.f = safe_fclose(c.f);
 
         *ret = TAKE_PTR(buf);
@@ -395,8 +398,6 @@ finish:
                 elf_end(c.elf);
 
         safe_fclose(c.f);
-
-        free(buf);
 
         return r;
 }
