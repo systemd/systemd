@@ -31,6 +31,30 @@ struct stack_context {
         Set **modules;
 };
 
+static struct stack_context *stack_context_destroy(struct stack_context *c) {
+        if (!c)
+                return NULL;
+
+        if (c->f)
+                c->f = safe_fclose(c->f);
+
+        if (c->dwfl) {
+                dwfl_end(c->dwfl);
+                c->dwfl = NULL;
+        }
+
+        if (c->elf) {
+                elf_end(c->elf);
+                c->elf = NULL;
+        }
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct stack_context *, stack_context_destroy);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, elf_end, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Dwfl *, dwfl_end, NULL);
+
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         struct stack_context *c = userdata;
         Dwarf_Addr pc, pc_adjusted, bias = 0;
@@ -298,7 +322,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!data)
                         continue;
 
-                Elf *memelf = elf_memory(data->d_buf, data->d_size);
+                _cleanup_(elf_endp) Elf *memelf = elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, c);
@@ -325,7 +349,8 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
-        _cleanup_free_ char *buf = NULL;
+        _unused_ _cleanup_(stack_context_destroyp) struct stack_context *c_cleanup = &c;
+        _cleanup_free_ char *buf = NULL; /* buf should be freed first, c.f closed second (via stack_context_destroy) */
         size_t sz = 0;
         int r;
 
@@ -342,63 +367,37 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         elf_version(EV_CURRENT);
 
         c.elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-        if (!c.elf) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (!c.elf)
+                return -EINVAL;
 
         c.dwfl = dwfl_begin(&callbacks);
-        if (!c.dwfl) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (!c.dwfl)
+                return -EINVAL;
 
-        if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
+                return -EINVAL;
 
-        if (dwfl_report_end(c.dwfl, NULL, NULL) != 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_report_end(c.dwfl, NULL, NULL) != 0)
+                return -EINVAL;
 
-        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
+                return -EINVAL;
 
-        if (dwfl_core_file_attach(c.dwfl, c.elf) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_core_file_attach(c.dwfl, c.elf) < 0)
+                return -EINVAL;
 
-        if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (dwfl_getthreads(c.dwfl, thread_callback, &c) < 0)
+                return -EINVAL;
 
         r = fflush_and_check(c.f);
         if (r < 0)
-                goto finish;
-        c.f = safe_fclose(c.f);
+                return r;
 
         *ret = TAKE_PTR(buf);
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
 
-        r = 0;
-
-finish:
-        if (c.dwfl)
-                dwfl_end(c.dwfl);
-
-        if (c.elf)
-                elf_end(c.elf);
-
-        safe_fclose(c.f);
-
-        return r;
+        return 0;
 }
 
 void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
