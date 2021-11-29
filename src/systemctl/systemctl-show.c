@@ -306,7 +306,7 @@ static void print_status_info(
         const char *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
-        usec_t timestamp, until_timestamp;
+        usec_t timestamp;
         const char *path;
         char **t, **t2;
         int r;
@@ -425,12 +425,13 @@ static void print_status_info(
                 printf(" since %s; %s\n",
                        FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(timestamp));
-                if (streq_ptr(i->active_state, "active") &&
-                        i->runtime_max_sec < USEC_INFINITY) {
-                        until_timestamp = timestamp + i->runtime_max_sec;
+                if (streq_ptr(i->active_state, "active") && i->runtime_max_sec < USEC_INFINITY) {
+                        usec_t until_timestamp;
+
+                        until_timestamp = usec_add(timestamp, i->runtime_max_sec);
                         printf("      Until: %s; %s\n",
-                                FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
-                                FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
+                               FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
+                               FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
                 }
         } else
                 printf("\n");
@@ -1859,7 +1860,7 @@ static int show_one(
                 { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
                 { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
-                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)},
+                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
