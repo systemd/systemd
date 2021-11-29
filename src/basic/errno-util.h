@@ -70,6 +70,13 @@ static inline int errno_or_else(int fallback) {
         return -abs(fallback);
 }
 
+/* For send()/recv() or read()/write(). */
+static inline bool ERRNO_IS_TRANSIENT(int r) {
+        return IN_SET(abs(r),
+                      EAGAIN,
+                      EINTR);
+}
+
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
  *
  * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
@@ -100,10 +107,8 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
  * the accept(2) man page. */
 static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
         return ERRNO_IS_DISCONNECT(r) ||
-                IN_SET(abs(r),
-                       EAGAIN,
-                       EINTR,
-                       EOPNOTSUPP);
+                ERRNO_IS_TRANSIENT(r) ||
+                abs(r) == EOPNOTSUPP;
 }
 
 /* Resource exhaustion, could be our fault or general system trouble */
