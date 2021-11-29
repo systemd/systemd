@@ -37,6 +37,7 @@ typedef struct WireguardPeer {
         char *endpoint_port;
 
         unsigned n_retries;
+        usec_t re_resolve_endpoint_usec;
         sd_event_source *resolve_retry_event_source;
         sd_resolve_query *resolve_query;
 
@@ -82,3 +83,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_reresolve_endpoint);
