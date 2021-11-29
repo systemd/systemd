@@ -453,7 +453,7 @@ int acquire_terminal(
 
                         l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
-                                if (IN_SET(errno, EINTR, EAGAIN))
+                                if (ERRNO_IS_TRANSIENT(errno))
                                         continue;
 
                                 return -errno;

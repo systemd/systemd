@@ -1206,10 +1206,12 @@ static int server_receive_message(sd_event_source *s, int fd,
         iov = IOVEC_MAKE(message, datagram_size);
 
         len = recvmsg_safe(fd, &msg, 0);
-        if (IN_SET(len, -EAGAIN, -EINTR))
-                return 0;
-        if (len < 0)
+        if (len < 0) {
+                if (ERRNO_IS_TRANSIENT(len))
+                        return 0;
                 return len;
+        }
+
         if ((size_t) len < sizeof(DHCPMessage))
                 return 0;
 

@@ -1349,7 +1349,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 1;
 
                 return log_error_errno(errno, "Failed to read inotify fd: %m");

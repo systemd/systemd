@@ -588,7 +588,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         l = recvmsg(s->fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (l < 0) {
-                if (IN_SET(errno, EINTR, EAGAIN))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 log_warning_errno(errno, "Failed to read from stream: %m");
