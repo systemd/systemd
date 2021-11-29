@@ -418,7 +418,7 @@ static void* thread_worker(void *p) {
 
                 length = recv(resolve->fds[REQUEST_RECV_FD], &buf, sizeof buf, 0);
                 if (length < 0) {
-                        if (errno == EINTR)
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         break;
@@ -847,7 +847,7 @@ _public_ int sd_resolve_process(sd_resolve *resolve) {
 
         l = recv(resolve->fds[RESPONSE_RECV_FD], &buf, sizeof buf, 0);
         if (l < 0) {
-                if (errno == EAGAIN)
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 return -errno;
