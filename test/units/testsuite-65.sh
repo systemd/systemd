@@ -582,6 +582,11 @@ set -e
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
+# The corefile is checked in, so the metadata extraction is reliably reproducible
+if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    systemd-analyze inspect-elf --json=short /usr/share/core.crash | grep -q -F '{"elfType":"coredump","elfArchitecture":"AMD x86-64","/tmp/crash":{"type":"deb","name":"hello","version":"1.0","architecture":"amd64","os":"debian","osVersion":"11","buildId":"b33541096a09c29a0ba4ec5c69364a2711b7c269"}'
+fi
+
 systemd-analyze log-level info
 
 echo OK >/testok
