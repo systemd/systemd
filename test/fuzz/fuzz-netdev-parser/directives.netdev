@@ -19,6 +19,7 @@ FwMark=
 FirewallMark=
 RouteTable=
 RouteMetric=
+ResolveIntervalSec=
 [MACVTAP]
 Mode=
 SourceMACAddress=
@@ -71,6 +72,7 @@ PublicKey=
 AllowedIPs=
 RouteTable=
 RouteMetric=
+ResolveIntervalSec=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
