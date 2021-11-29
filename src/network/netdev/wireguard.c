@@ -1095,7 +1095,7 @@ static void wireguard_done(NetDev *netdev) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        sd_event_source_unref(w->resolve_retry_event_source);
+        sd_event_source_disable_unref(w->resolve_retry_event_source);
 
         explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
