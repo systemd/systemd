@@ -314,7 +314,6 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
-libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
 systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(efi_arch[0])
 stub_elf_name = 'linux@0@.elf.stub'.format(efi_arch[0])
 stub_efi_name = 'linux@0@.efi.stub'.format(efi_arch[0])
@@ -326,7 +325,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', libgcc_file_name],
+                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
