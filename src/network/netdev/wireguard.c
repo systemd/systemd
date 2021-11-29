@@ -31,6 +31,8 @@
 #include "strv.h"
 #include "wireguard.h"
 
+#define MIN_RE_RESOLVE_ENDPOINT_USEC  (1 * USEC_PER_SEC)
+
 static void wireguard_resolve_endpoints(NetDev *netdev);
 static int peer_resolve_endpoint(WireguardPeer *peer);
 
@@ -95,6 +97,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
                 .flags = WGPEER_F_REPLACE_ALLOWEDIPS,
                 .wireguard = w,
                 .section = TAKE_PTR(n),
+                .re_resolve_endpoint_usec = USEC_INFINITY,
         };
 
         LIST_PREPEND(peers, w->peers, peer);
@@ -316,7 +319,13 @@ static usec_t peer_next_resolve_usec(WireguardPeer *peer) {
 
         assert(peer);
 
-        usec = (2 << MIN(peer->n_retries, 7U)) * 100 * USEC_PER_MSEC;
+        if (peer->n_retries == 0)
+                usec = peer->re_resolve_endpoint_usec;
+        else
+                usec = (2 << MIN(peer->n_retries, 7U)) * 100 * USEC_PER_MSEC;
+
+        if (usec == USEC_INFINITY)
+                return USEC_INFINITY;
 
         return random_u64_range(usec / 10) + usec * 9 / 10;
 }
@@ -329,6 +338,7 @@ static int wireguard_peer_resolve_handler(
 
         WireguardPeer *peer = userdata;
         NetDev *netdev;
+        usec_t usec;
         int r;
 
         assert(peer);
@@ -367,11 +377,11 @@ static int wireguard_peer_resolve_handler(
                 }
         }
 
-        if (peer->n_retries > 0) {
+        usec = peer_next_resolve_usec(peer);
+        if (usec != USEC_INFINITY) {
                 r = event_reset_time_relative(netdev->manager->event,
                                               &peer->resolve_retry_event_source,
-                                              clock_boottime_or_monotonic(),
-                                              peer_next_resolve_usec(peer), 0,
+                                              clock_boottime_or_monotonic(), usec, 0,
                                               on_resolve_retry, peer, 0, "wireguard-resolve-retry", true);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler for endpoint %s:%s, ignoring: %m",
@@ -1034,6 +1044,57 @@ int config_parse_wireguard_peer_route_priority(
         }
 
         peer->route_priority_set = true;
+        TAKE_PTR(peer);
+        return 0;
+}
+
+int config_parse_wireguard_reresolve_endpoint(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        Wireguard *w;
+        int r;
+
+        assert(filename);
+        assert(rvalue);
+        assert(userdata);
+
+        w = WIREGUARD(userdata);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                peer->re_resolve_endpoint_usec = USEC_INFINITY;
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &peer->re_resolve_endpoint_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (peer->re_resolve_endpoint_usec < MIN_RE_RESOLVE_ENDPOINT_USEC) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s=%s is too short, setting %s", lvalue, rvalue,
+                           FORMAT_TIMESPAN(MIN_RE_RESOLVE_ENDPOINT_USEC, USEC_PER_SEC));
+                peer->re_resolve_endpoint_usec = MIN_RE_RESOLVE_ENDPOINT_USEC;
+        }
+
         TAKE_PTR(peer);
         return 0;
 }
