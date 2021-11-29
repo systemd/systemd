@@ -17,6 +17,8 @@ PrivateKey=
 PrivateKeyFile=
 FwMark=
 FirewallMark=
+RouteTable=
+RouteMetric=
 [MACVTAP]
 Mode=
 SourceMACAddress=
@@ -67,6 +69,8 @@ PresharedKeyFile=
 PersistentKeepalive=
 PublicKey=
 AllowedIPs=
+RouteTable=
+RouteMetric=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
