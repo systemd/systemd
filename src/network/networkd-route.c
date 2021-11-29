@@ -19,6 +19,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "vrf.h"
+#include "wireguard.h"
 
 int route_new(Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
@@ -242,7 +243,7 @@ int route_compare_func(const Route *a, const Route *b) {
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_hash_ops,
                 Route,
                 route_hash_func,
@@ -673,7 +674,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not set route table: %m");
 
                 /* Table attribute to allow more than 256. */
-                r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
+                r = sd_netlink_message_append_u32(req, RTA_TABLE, route->table);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
@@ -865,6 +866,29 @@ static bool route_by_kernel(const Route *route) {
         return false;
 }
 
+static void link_unmark_wireguard_routes(Link *link) {
+        Route *route, *existing;
+        NetDev *netdev;
+        Wireguard *w;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return;
+
+        SET_FOREACH(route, w->routes) {
+                if (route_get(NULL, link, route, &existing) >= 0)
+                        route_unmark(existing);
+        }
+}
+
 int link_drop_foreign_routes(Link *link) {
         Route *route;
         int k, r;
@@ -913,6 +937,8 @@ int link_drop_foreign_routes(Link *link) {
                         if (route_get(NULL, link, converted->routes[i], &existing) >= 0)
                                 route_unmark(existing);
         }
+
+        link_unmark_wireguard_routes(link);
 
         r = 0;
         SET_FOREACH(route, link->routes) {
@@ -1342,6 +1368,36 @@ static int link_request_static_route(Link *link, Route *route) {
                                   &link->static_route_messages, static_route_handler, NULL);
 }
 
+static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
+        NetDev *netdev;
+        Wireguard *w;
+        Route *route;
+        int r;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return 0;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return 0;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return 0;
+
+        SET_FOREACH(route, w->routes) {
+                if (only_ipv4 && route->family != AF_INET)
+                        continue;
+
+                r = link_request_static_route(link, route);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
@@ -1362,6 +1418,10 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
                 if (r < 0)
                         return r;
         }
+
+        r = link_request_wireguard_routes(link, only_ipv4);
+        if (r < 0)
+                return r;
 
         if (link->static_route_messages == 0) {
                 link->static_routes_configured = true;
@@ -1723,12 +1783,16 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_table(message, &table);
+        r = sd_netlink_message_read_u32(message, RTA_TABLE, &tmp->table);
+        if (r == -ENODATA) {
+                r = sd_rtnl_message_route_get_table(message, &table);
+                if (r >= 0)
+                        tmp->table = table;
+        }
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
-        tmp->table = table;
 
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
