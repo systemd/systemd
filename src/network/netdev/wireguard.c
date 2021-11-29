@@ -12,6 +12,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -723,65 +724,90 @@ int config_parse_wireguard_endpoint(
                 void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
-        const char *begin, *end;
+        _cleanup_free_ char *host = NULL;
+        union in_addr_union addr;
+        const char *p;
+        uint16_t port;
         Wireguard *w;
-        size_t len;
-        int r;
+        int family, r;
 
-        assert(data);
+        assert(filename);
         assert(rvalue);
+        assert(userdata);
 
-        w = WIREGUARD(data);
+        w = WIREGUARD(userdata);
         assert(w);
-
-        if (rvalue[0] == '[') {
-                begin = &rvalue[1];
-                end = strchr(rvalue, ']');
-                if (!end) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Unable to find matching brace of endpoint, ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
-                len = end - begin;
-                ++end;
-                if (*end != ':' || !*(end + 1)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Unable to find port of endpoint, ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
-                ++end;
-        } else {
-                begin = rvalue;
-                end = strrchr(rvalue, ':');
-                if (!end || !*(end + 1)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Unable to find port of endpoint, ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
-                len = end - begin;
-                ++end;
-        }
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strndup(&peer->endpoint_host, begin, len);
-        if (r < 0)
+        r = in_addr_port_ifindex_name_from_string_auto(rvalue, &family, &addr, &port, NULL, NULL);
+        if (r >= 0) {
+                if (family == AF_INET)
+                        peer->endpoint.in = (struct sockaddr_in) {
+                                .sin_family = AF_INET,
+                                .sin_addr = addr.in,
+                                .sin_port = htobe16(port),
+                        };
+                else if (family == AF_INET6)
+                        peer->endpoint.in6 = (struct sockaddr_in6) {
+                                .sin6_family = AF_INET6,
+                                .sin6_addr = addr.in6,
+                                .sin6_port = htobe16(port),
+                        };
+                else
+                        assert_not_reached();
+
+                peer->endpoint_host = mfree(peer->endpoint_host);
+                peer->endpoint_port = mfree(peer->endpoint_port);
+                set_remove(w->peers_with_unresolved_endpoint, peer);
+
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        p = strrchr(rvalue, ':');
+        if (!p) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Unable to find port of endpoint, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        host = strndup(rvalue, p - rvalue);
+        if (!host)
                 return log_oom();
 
-        r = free_and_strdup(&peer->endpoint_port, end);
+        if (!dns_name_is_valid(host)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid domain name of endpoint, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        p++;
+        r = parse_ip_port(p, &port);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid port of endpoint, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        peer->endpoint = (union sockaddr_union) {};
+
+        free_and_replace(peer->endpoint_host, host);
+
+        r = free_and_strdup(&peer->endpoint_port, p);
         if (r < 0)
                 return log_oom();
 
         r = set_ensure_put(&w->peers_with_unresolved_endpoint, NULL, peer);
         if (r < 0)
                 return log_oom();
-        TAKE_PTR(peer); /* The peer may already have been in the hash map, that is fine too. */
 
+        TAKE_PTR(peer); /* The peer may already have been in the hash map, that is fine too. */
         return 0;
 }
 
