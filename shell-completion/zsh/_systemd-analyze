@@ -87,6 +87,7 @@ _arguments \
     '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
     '--security-policy=[Allow user to use customized requirements to compare unit file(s) against]: PATH' \
     '--json=[Generate a JSON output of the security analysis table]:MODE:(pretty short off)' \
+    '--profile=[Include the specified profile in the security review of the unit(s)]: PATH' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:BOOL:(yes no)' \
     '--generators=[Do (not) run unit generators]:BOOL:(yes no)' \

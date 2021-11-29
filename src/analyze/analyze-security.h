@@ -24,6 +24,7 @@ int analyze_security(sd_bus *bus,
                      bool offline,
                      unsigned threshold,
                      const char *root,
+                     const char *profile,
                      JsonFormatFlags json_format_flags,
                      PagerFlags pager_flags,
                      AnalyzeSecurityFlags flags);
