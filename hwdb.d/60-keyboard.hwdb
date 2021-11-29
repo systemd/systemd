@@ -511,8 +511,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
  KEYBOARD_KEY_d7=wlan
  KEYBOARD_KEY_92=brightnessdown                         # Fn+F7 (Fn+F9 on 6730b)
  KEYBOARD_KEY_97=brightnessup                           # Fn+F8 (Fn+F10 on 6730b)
- KEYBOARD_KEY_ee=switchvideomode                        # Fn+F4
  KEYBOARD_KEY_9d=102nd                                  # Greater than/Less than
+ KEYBOARD_KEY_ee=switchvideomode                        # Fn+F4
 
 # Tablet
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
