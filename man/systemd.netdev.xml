@@ -1663,6 +1663,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReResolveEndpointSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. If a hostname is specified to <varname>Endpoint=</varname>, the
+          hostname will be resolved in every specified timespan. Defaults to unset, and the hostname
+          will be resolved only once at configuration time.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>PersistentKeepalive=</varname></term>
         <listitem>
           <para>Sets a seconds interval, between 1 and 65535 inclusive, of how often

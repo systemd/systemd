@@ -71,6 +71,7 @@ PublicKey=
 AllowedIPs=
 RouteTable=
 RouteMetric=
+ReResolveEndpointSec=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
