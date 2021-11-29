@@ -1653,6 +1653,34 @@
           Most users will not need this.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>AddRoutesToAllowedIPs=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, configures routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. This setting is ignored when
+          <varname>AddRoutesToAllowedIPs=</varname> is false. Takes one of predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, and names
+          defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. This setting is ignored when
+          <varname>AddRoutesToAllowedIPs=</varname> is false. Takes an unsigned integer in the range
+          0…4294967295. Defaults to 0 for IPv4 addresses, and 1024 for IPv6 addresses.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
