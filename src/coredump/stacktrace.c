@@ -306,6 +306,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, c);
+                elf_end(memelf);
                 if (r != DWARF_CB_OK)
                         return r;
         }
