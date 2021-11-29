@@ -242,7 +242,7 @@ int route_compare_func(const Route *a, const Route *b) {
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_hash_ops,
                 Route,
                 route_hash_func,
