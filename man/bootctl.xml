@@ -287,6 +287,14 @@
   </refsect1>
 
   <refsect1>
+    <title>Signed .efi files</title>
+    <para><command>bootctl</command> <option>install</option> and <option>update</option> will look for a
+    <command>systemd-boot</command> file ending with the <literal>.efi.signed</literal> suffix first, and copy
+    that instead of the normal <literal>.efi</literal> file. This allows distributions or end-users to provide
+    signed images for UEFI SecureBoot.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>

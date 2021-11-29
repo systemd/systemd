@@ -628,14 +628,19 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
         const char *e;
-        char *p, *q;
+        char *p, *q, *dest_name, *s;
         int r;
 
+        dest_name = strdupa_safe(name);
+        s = endswith_no_case(dest_name, ".signed");
+        if (s)
+                *s = 0;
+
         p = strjoina(BOOTLIBDIR "/", name);
-        q = strjoina(esp_path, "/EFI/systemd/", name);
+        q = strjoina(esp_path, "/EFI/systemd/", dest_name);
         r = copy_file_with_version_check(p, q, force);
 
-        e = startswith(name, "systemd-boot");
+        e = startswith(dest_name, "systemd-boot");
         if (e) {
                 int k;
                 char *v;
@@ -664,8 +669,17 @@ static int install_binaries(const char *esp_path, bool force) {
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \""BOOTLIBDIR"\": %m")) {
                 int k;
 
-                if (!endswith_no_case(de->d_name, ".efi"))
+                if (!endswith_no_case(de->d_name, ".efi") && !endswith_no_case(de->d_name, ".efi.signed"))
                         continue;
+
+                /* skip the .efi file, if there's a .signed version of it */
+                if (endswith_no_case(de->d_name, ".efi")) {
+                        _cleanup_free_ const char *s = strjoin(BOOTLIBDIR, "/", de->d_name, ".signed");
+                        if (!s)
+                                return log_oom();
+                        if (access(s, F_OK) >= 0)
+                                continue;
+                }
 
                 k = copy_one_file(esp_path, de->d_name, force);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
