@@ -26,33 +26,30 @@
 
 int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         _cleanup_free_ char *str = NULL;
-        static const struct {
-                uint32_t flag;
-                const char *name;
-        } map[] = {
-                { IFA_F_SECONDARY,      "secondary"                }, /* This is also called "temporary" for ipv6. */
-                { IFA_F_NODAD,          "nodad"                    },
-                { IFA_F_OPTIMISTIC,     "optimistic"               },
-                { IFA_F_DADFAILED,      "dadfailed"                },
-                { IFA_F_HOMEADDRESS,    "home-address"             },
-                { IFA_F_DEPRECATED,     "deprecated"               },
-                { IFA_F_TENTATIVE,      "tentative"                },
-                { IFA_F_PERMANENT,      "permanent"                },
-                { IFA_F_MANAGETEMPADDR, "manage-temporary-address" },
-                { IFA_F_NOPREFIXROUTE,  "no-prefixroute"           },
-                { IFA_F_MCAUTOJOIN,     "auto-join"                },
-                { IFA_F_STABLE_PRIVACY, "stable-privacy"           },
+        static const char* map[] = {
+                [LOG2U(IFA_F_SECONDARY)]      = "secondary", /* This is also called "temporary" for ipv6. */
+                [LOG2U(IFA_F_NODAD)]          = "nodad",
+                [LOG2U(IFA_F_OPTIMISTIC)]     = "optimistic",
+                [LOG2U(IFA_F_DADFAILED)]      = "dadfailed",
+                [LOG2U(IFA_F_HOMEADDRESS)]    = "home-address",
+                [LOG2U(IFA_F_DEPRECATED)]     = "deprecated",
+                [LOG2U(IFA_F_TENTATIVE)]      = "tentative",
+                [LOG2U(IFA_F_PERMANENT)]      = "permanent",
+                [LOG2U(IFA_F_MANAGETEMPADDR)] = "manage-temporary-address",
+                [LOG2U(IFA_F_NOPREFIXROUTE)]  = "no-prefixroute",
+                [LOG2U(IFA_F_MCAUTOJOIN)]     = "auto-join",
+                [LOG2U(IFA_F_STABLE_PRIVACY)] = "stable-privacy",
         };
 
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (flags & map[i].flag &&
-                    !strextend_with_separator(
-                                &str, ",",
-                                map[i].flag == IFA_F_SECONDARY && family == AF_INET6 ? "temporary" : map[i].name))
-                        return -ENOMEM;
+                if (FLAGS_SET(flags, 1 << i) && map[i])
+                        if (!strextend_with_separator(
+                                            &str, ",",
+                                            family == AF_INET6 && (1 << i) == IFA_F_SECONDARY ? "temporary" : map[i]))
+                                return -ENOMEM;
 
         *ret = TAKE_PTR(str);
         return 0;
