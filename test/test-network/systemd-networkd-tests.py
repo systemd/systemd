@@ -1383,6 +1383,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet6 fd8d:4d6d:3ccb:500::1/64 scope global', output)
 
+        output = check_output('ip -4 route show dev wg99 table 1234')
+        print(output)
+        self.assertIn('192.168.26.0/24 proto static metric 123', output)
+
+        output = check_output('ip -6 route show dev wg99 table 1234')
+        print(output)
+        self.assertIn('fd31:bf08:57cb::/48 proto static metric 123 pref medium', output)
+
         if shutil.which('wg'):
             call('wg')
 
