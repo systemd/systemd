@@ -73,6 +73,7 @@ AllowedIPs=
 RoutesToAllowedIPs=
 RouteTable=
 RouteMetric=
+ReResolveEndpointSec=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
