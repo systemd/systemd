@@ -330,10 +330,12 @@ static int exponential_backoff_milliseconds(unsigned n_retries) {
         return (2 << MIN(n_retries, 7U)) * 100 * USEC_PER_MSEC;
 }
 
-static int wireguard_resolve_handler(sd_resolve_query *q,
-                                     int ret,
-                                     const struct addrinfo *ai,
-                                     WireguardPeer *peer) {
+static int wireguard_resolve_handler(
+              sd_resolve_query *q,
+              int ret,
+              const struct addrinfo *ai,
+              WireguardPeer *peer) {
+
         NetDev *netdev;
         Wireguard *w;
         int r;
