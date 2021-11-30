@@ -4,8 +4,6 @@
 #include "measure.h"
 #include "util.h"
 
-#define EXTRA_DIR_SUFFIX L".extra.d"
-
 static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
         static const char hex[] = "0123456789abcdef";
 
@@ -317,9 +315,9 @@ static EFI_STATUS pack_cpio_trailer(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS pack_cpio_dir_handle(
-                EFI_FILE_HANDLE extra_dir,
-                EFI_LOADED_IMAGE *loaded_image,
+EFI_STATUS pack_cpio(
+                EFI_FILE_HANDLE root,
+                const CHAR16 *source_dir_path,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -336,10 +334,21 @@ static EFI_STATUS pack_cpio_dir_handle(
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
 
-        assert(loaded_image);
+        assert(root);
+        assert(source_dir_path);
         assert(target_dir_prefix);
         assert(ret_buffer);
         assert(ret_buffer_size);
+
+        err = open_directory(root, source_dir_path, &extra_dir);
+        if (err == EFI_NOT_FOUND) {
+                /* No extra subdir, that's totally OK */
+                *ret_buffer = NULL;
+                *ret_buffer_size = 0;
+                return EFI_SUCCESS;
+        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
         for (;;) {
                 _cleanup_freepool_ CHAR16 *d = NULL;
@@ -438,89 +447,4 @@ static EFI_STATUS pack_cpio_dir_handle(
         *ret_buffer_size = buffer_size;
 
         return EFI_SUCCESS;
-}
-
-EFI_STATUS pack_cpio_relative(
-                EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *match_suffix,
-                const CHAR8 *target_dir_prefix,
-                UINT32 dir_mode,
-                UINT32 access_mode,
-                UINTN tpm_pcr,
-                const CHAR16 *tpm_description,
-                void **ret_buffer,
-                UINTN *ret_buffer_size) {
-
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
-        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *j = NULL;
-        EFI_STATUS err;
-
-        assert(loaded_image);
-        assert(target_dir_prefix);
-        assert(ret_buffer);
-        assert(ret_buffer_size);
-
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
-
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
-
-        j = PoolPrint(L"%s" EXTRA_DIR_SUFFIX, loaded_image_path);
-        if (!j)
-                return log_oom();
-
-        err = open_directory(root, j, &extra_dir);
-        if (err == EFI_NOT_FOUND) {
-                /* No extra subdir, that's totally OK */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
-
-        return pack_cpio_dir_handle(extra_dir, loaded_image, match_suffix, target_dir_prefix, dir_mode,
-                                    access_mode, tpm_pcr, tpm_description, ret_buffer, ret_buffer_size);
-}
-
-EFI_STATUS pack_cpio_absolute(
-                EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *source_dir_path,
-                const CHAR16 *match_suffix,
-                const CHAR8 *target_dir_prefix,
-                UINT32 dir_mode,
-                UINT32 access_mode,
-                UINTN tpm_pcr,
-                const CHAR16 *tpm_description,
-                void **ret_buffer,
-                UINTN *ret_buffer_size) {
-
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
-        EFI_STATUS err;
-
-        assert(loaded_image);
-        assert(source_dir_path);
-        assert(target_dir_prefix);
-        assert(ret_buffer);
-        assert(ret_buffer_size);
-
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
-
-        err = open_directory(root, source_dir_path, &extra_dir);
-        if (err == EFI_NOT_FOUND) {
-                /* No extra subdir, that's totally OK */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to open global extra directory: %r", err);
-
-        return pack_cpio_dir_handle(extra_dir, loaded_image, match_suffix, target_dir_prefix, dir_mode,
-                                    access_mode, tpm_pcr, tpm_description, ret_buffer, ret_buffer_size);
 }

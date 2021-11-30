@@ -176,9 +176,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         };
 
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
-        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
-        _cleanup_freepool_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE *loaded_image;
@@ -186,6 +183,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
         _cleanup_freepool_ CHAR8 *cmdline_owned = NULL;
+        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
+        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
+        _cleanup_freepool_ void *sysext_initrd = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_root;
+        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *initrd_dropin_dir = NULL;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -235,36 +237,48 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image);
 
-        (void) pack_cpio_relative(loaded_image,
-                                  L".cred",
-                                  (const CHAR8*) ".extra/credentials",
-                                  /* dir_mode= */ 0500,
-                                  /* access_mode= */ 0400,
-                                  /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                                  L"Credentials initrd",
-                                  &credential_initrd,
-                                  &credential_initrd_size);
+        loaded_image_root = LibOpenRoot(loaded_image->DeviceHandle);
+        if (!loaded_image_root)
+                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
+        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+        if (!loaded_image_path)
+                return log_oom();
+        initrd_dropin_dir = PoolPrint(L"%s.extra.d", loaded_image_path);
+        if (!initrd_dropin_dir)
+                return log_oom();
 
-        (void) pack_cpio_absolute(loaded_image,
-                                  L"\\loader\\credentials",
-                                  L".cred",
-                                  (const CHAR8*) ".extra/credentials",
-                                  /* dir_mode= */ 0500,
-                                  /* access_mode= */ 0400,
-                                  /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                                  L"Global credentials initrd",
-                                  &global_credential_initrd,
-                                  &global_credential_initrd_size);
+        (void) pack_cpio(loaded_image_root,
+                         initrd_dropin_dir,
+                         L".cred",
+                         (const CHAR8*) ".extra/credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Credentials initrd",
+                         &credential_initrd,
+                         &credential_initrd_size);
 
-        (void) pack_cpio_relative(loaded_image,
-                                  L".raw",
-                                  (const CHAR8*) ".extra/sysext",
-                                  /* dir_mode= */ 0555,
-                                  /* access_mode= */ 0444,
-                                  /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
-                                  L"System extension initrd",
-                                  &sysext_initrd,
-                                  &sysext_initrd_size);
+        (void) pack_cpio(loaded_image_root,
+                         L"\\loader\\credentials",
+                         L".cred",
+                         (const CHAR8*) ".extra/credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Global credentials initrd",
+                         &global_credential_initrd,
+                         &global_credential_initrd_size);
+
+        (void) pack_cpio(loaded_image_root,
+                         initrd_dropin_dir,
+                         L".raw",
+                         (const CHAR8*) ".extra/sysext",
+                         /* dir_mode= */ 0555,
+                         /* access_mode= */ 0444,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
+                         L"System extension initrd",
+                         &sysext_initrd,
+                         &sysext_initrd_size);
 
         linux_size = szs[SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
