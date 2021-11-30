@@ -66,6 +66,9 @@ int uname_architecture(void) {
 #elif defined(__ia64__)
                 { "ia64",       ARCHITECTURE_IA64     },
 
+#elif defined(__loongarch64)
+                { "loongarch64", ARCHITECTURE_LOONGARCH64 },
+
 #elif defined(__hppa__) || defined(__hppa64__)
                 { "parisc64",   ARCHITECTURE_PARISC64 },
                 { "parisc",     ARCHITECTURE_PARISC   },
@@ -148,6 +151,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_X86_64]    = "x86-64",
         [ARCHITECTURE_X86]       = "x86",
         [ARCHITECTURE_IA64]      = "ia64",
+        [ARCHITECTURE_LOONGARCH64] = "loongarch64",
         [ARCHITECTURE_M68K]      = "m68k",
         [ARCHITECTURE_MIPS64_LE] = "mips64-le",
         [ARCHITECTURE_MIPS64]    = "mips64",
