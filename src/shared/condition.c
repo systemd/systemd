@@ -898,7 +898,7 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_READ_WRITE);
 
-        return path_is_read_only_fs(c->parameter) <= 0;
+        return path_is_read_only_fs(c->parameter) > 0;
 }
 
 static int condition_test_cpufeature(Condition *c, char **env) {
@@ -931,7 +931,7 @@ static int condition_test_directory_not_empty(Condition *c, char **env) {
         assert(c->type == CONDITION_DIRECTORY_NOT_EMPTY);
 
         r = dir_is_empty(c->parameter);
-        return r <= 0 && r != -ENOENT;
+        return r <= 0 && !IN_SET(r, -ENOENT, -ENOTDIR);
 }
 
 static int condition_test_file_not_empty(Condition *c, char **env) {
