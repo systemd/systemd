@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <pthread.h>
+#include <unistd.h>
+
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -10,9 +13,203 @@
 #include "set.h"
 #include "sync-util.h"
 
+/* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
+ * As a result we use atomic operations on f->offline_state for inter-thread communications with
+ * journal_file_set_offline() and journal_file_set_online(). */
+static void journald_file_set_offline_internal(JournaldFile *f) {
+        assert(f);
+        assert(f->file->fd >= 0);
+        assert(f->file->header);
+
+        for (;;) {
+                switch (f->file->offline_state) {
+                case OFFLINE_CANCEL:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_CANCEL, OFFLINE_DONE))
+                                continue;
+                        return;
+
+                case OFFLINE_AGAIN_FROM_SYNCING:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_SYNCING))
+                                continue;
+                        break;
+
+                case OFFLINE_AGAIN_FROM_OFFLINING:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_SYNCING))
+                                continue;
+                        break;
+
+                case OFFLINE_SYNCING:
+                        (void) fsync(f->file->fd);
+
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
+                                continue;
+
+                        f->file->header->state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
+                        (void) fsync(f->file->fd);
+                        break;
+
+                case OFFLINE_OFFLINING:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_OFFLINING, OFFLINE_DONE))
+                                continue;
+                        _fallthrough_;
+                case OFFLINE_DONE:
+                        return;
+
+                case OFFLINE_JOINED:
+                        log_debug("OFFLINE_JOINED unexpected offline state for journal_file_set_offline_internal()");
+                        return;
+                }
+        }
+}
+
+static void * journald_file_set_offline_thread(void *arg) {
+        JournaldFile *f = arg;
+
+        (void) pthread_setname_np(pthread_self(), "journal-offline");
+
+        journald_file_set_offline_internal(f);
+
+        return NULL;
+}
+
+/* Trigger a restart if the offline thread is mid-flight in a restartable state. */
+static bool journald_file_set_offline_try_restart(JournaldFile *f) {
+        for (;;) {
+                switch (f->file->offline_state) {
+                case OFFLINE_AGAIN_FROM_SYNCING:
+                case OFFLINE_AGAIN_FROM_OFFLINING:
+                        return true;
+
+                case OFFLINE_CANCEL:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_CANCEL, OFFLINE_AGAIN_FROM_SYNCING))
+                                continue;
+                        return true;
+
+                case OFFLINE_SYNCING:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_SYNCING, OFFLINE_AGAIN_FROM_SYNCING))
+                                continue;
+                        return true;
+
+                case OFFLINE_OFFLINING:
+                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_OFFLINING, OFFLINE_AGAIN_FROM_OFFLINING))
+                                continue;
+                        return true;
+
+                default:
+                        return false;
+                }
+        }
+}
+
+/* Sets a journal offline.
+ *
+ * If wait is false then an offline is dispatched in a separate thread for a
+ * subsequent journal_file_set_offline() or journal_file_set_online() of the
+ * same journal to synchronize with.
+ *
+ * If wait is true, then either an existing offline thread will be restarted
+ * and joined, or if none exists the offline is simply performed in this
+ * context without involving another thread.
+ */
+int journald_file_set_offline(JournaldFile *f, bool wait) {
+        int target_state;
+        bool restarted;
+        int r;
+
+        assert(f);
+
+        if (!f->file->writable)
+                return -EPERM;
+
+        if (f->file->fd < 0 || !f->file->header)
+                return -EINVAL;
+
+        target_state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
+
+        /* An offlining journal is implicitly online and may modify f->header->state,
+         * we must also join any potentially lingering offline thread when already in
+         * the desired offline state.
+         */
+        if (!journald_file_is_offlining(f) && f->file->header->state == target_state)
+                return journal_file_set_offline_thread_join(f->file);
+
+        /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
+        restarted = journald_file_set_offline_try_restart(f);
+        if ((restarted && wait) || !restarted) {
+                r = journal_file_set_offline_thread_join(f->file);
+                if (r < 0)
+                        return r;
+        }
+
+        if (restarted)
+                return 0;
+
+        /* Initiate a new offline. */
+        f->file->offline_state = OFFLINE_SYNCING;
+
+        if (wait) /* Without using a thread if waiting. */
+                journald_file_set_offline_internal(f);
+        else {
+                sigset_t ss, saved_ss;
+                int k;
+
+                assert_se(sigfillset(&ss) >= 0);
+                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
+                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
+                assert_se(sigdelset(&ss, SIGBUS) >= 0);
+
+                r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+                if (r > 0)
+                        return -r;
+
+                r = pthread_create(&f->file->offline_thread, NULL, journald_file_set_offline_thread, f);
+
+                k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
+                if (r > 0) {
+                        f->file->offline_state = OFFLINE_JOINED;
+                        return -r;
+                }
+                if (k > 0)
+                        return -k;
+        }
+
+        return 0;
+}
+
+bool journald_file_is_offlining(JournaldFile *f) {
+        assert(f);
+
+        __sync_synchronize();
+
+        if (IN_SET(f->file->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
+                return false;
+
+        return true;
+}
+
 JournaldFile* journald_file_close(JournaldFile *f) {
         if (!f)
                 return NULL;
+
+#if HAVE_GCRYPT
+        /* Write the final tag */
+        if (f->file->seal && f->file->writable) {
+                int r;
+
+                r = journal_file_append_tag(f->file);
+                if (r < 0)
+                        log_error_errno(r, "Failed to append tag when closing journal: %m");
+        }
+#endif
+
+        if (f->file->post_change_timer) {
+                if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
+                        journal_file_post_change(f->file);
+
+                sd_event_source_disable_unref(f->file->post_change_timer);
+        }
+
+        journald_file_set_offline(f, true);
 
         journal_file_close(f->file);
 
@@ -53,18 +250,16 @@ int journald_file_open(
 
 
 JournaldFile* journald_file_initiate_close(JournaldFile *f, Set *deferred_closes) {
-
         int r;
 
         assert(f);
 
         if (deferred_closes) {
-
                 r = set_put(deferred_closes, f);
                 if (r < 0)
                         log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
                 else {
-                        (void) journal_file_set_offline(f->file, false);
+                        (void) journald_file_set_offline(f, false);
                         return NULL;
                 }
         }
