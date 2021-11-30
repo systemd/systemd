@@ -326,7 +326,7 @@ static int server_read_dev_kmsg(Server *s) {
                         return 0;
                 }
 
-                if (IN_SET(errno, EAGAIN, EINTR, EPIPE))
+                if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
                         return 0;
 
                 return log_error_errno(errno, "Failed to read from /dev/kmsg: %m");
