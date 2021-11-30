@@ -54,6 +54,7 @@
             'timestamp:Parse a systemd syntax timestamp'
             'timespan:Parse a systemd syntax timespan'
             'security:Analyze security settings of a service'
+            'inspect-elf:Parse and print ELF package metadata'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 
