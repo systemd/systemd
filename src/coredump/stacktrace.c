@@ -60,22 +60,23 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 cudie = dwfl_module_addrdie(module, pc_adjusted, &bias);
                 if (cudie) {
                         n = dwarf_getscopes(cudie, pc_adjusted - bias, &scopes);
-                        for (s = scopes; s < scopes + n; s++) {
-                                if (IN_SET(dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
-                                        Dwarf_Attribute *a, space;
+                        if (n > 0)
+                                for (s = scopes; s && s < scopes + n; s++) {
+                                        if (IN_SET(dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
+                                                Dwarf_Attribute *a, space;
 
-                                        a = dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
-                                        if (!a)
-                                                a = dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
-                                        if (a)
-                                                symbol = dwarf_formstring(a);
-                                        if (!symbol)
-                                                symbol = dwarf_diename(s);
+                                                a = dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
+                                                if (!a)
+                                                        a = dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
+                                                if (a)
+                                                        symbol = dwarf_formstring(a);
+                                                if (!symbol)
+                                                        symbol = dwarf_diename(s);
 
-                                        if (symbol)
-                                                break;
+                                                if (symbol)
+                                                        break;
+                                        }
                                 }
-                        }
                 }
 
                 if (!symbol)
