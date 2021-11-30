@@ -1,6 +1,27 @@
 ---
 # vi: ts=2 sw=2 et:
 
+# Explicitly enable certain checks which are hidden by default
+queries:
+  - include: cpp/bad-strncpy-size
+  - include: cpp/declaration-hides-variable
+  - include: cpp/inconsistent-null-check
+  - include: cpp/mistyped-function-arguments
+  - include: cpp/nested-loops-with-same-variable
+  - include: cpp/sizeof-side-effect
+  - include: cpp/suspicious-pointer-scaling
+  - include: cpp/suspicious-pointer-scaling-void
+  - include: cpp/suspicious-sizeof
+  - include: cpp/unsafe-strcat
+  - include: cpp/unsafe-strncat
+  - include: cpp/unsigned-difference-expression-compared-zero
+  - include: cpp/unused-local-variable
+  - include:
+      tags:
+        - "security"
+        - "correctness"
+      severity: "error"
+
 extraction:
   cpp:
     prepare:
