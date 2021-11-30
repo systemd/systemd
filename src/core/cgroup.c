@@ -1847,7 +1847,7 @@ CGroupMask unit_get_target_mask(Unit *u) {
 
         own_mask = unit_get_own_mask(u);
 
-        if (own_mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
+        if ((own_mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported) && !FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 emit_bpf_firewall_warning(u);
 
         mask = own_mask | unit_get_members_mask(u) | unit_get_siblings_mask(u);
