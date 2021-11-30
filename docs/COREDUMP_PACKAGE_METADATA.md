@@ -34,9 +34,9 @@ multiple implementers might use it when building packages, or core file analyzer
 so on.
 
 The metadata will be embedded in a single, new, 4-bytes-aligned, allocated, 0-padded,
-read-only ELF header section, in a key-value JSON format. Implementers working on parsing
-core files should not assume a specific list of keys, but parse anything that is included
-in the section. Implementers working on build tools should strive to use the same key
+read-only ELF header section, in a name-value JSON object format. Implementers working on parsing
+core files should not assume a specific list of names, but parse anything that is included
+in the section. Implementers working on build tools should strive to use the same
 names, for consistency. The most common will be listed here. When corresponding to the
 content of os-release, the values should match, again for consistency.
 
@@ -49,7 +49,7 @@ the original executable, debuginfo and sources, to further facilitate debugging.
 SECTION: `.note.package`
 node-id: `0xcafe1a7e`
 Owner: `FDO` (FreeDesktop.org)
-Value: a JSON string with the structure described below
+Value: a single JSON object encoded as a zero-terminated UTF-8 string
 ```
 
 * JSON payload
@@ -66,6 +66,11 @@ Value: a JSON string with the structure described below
      "debugInfoUrl": "https://debuginfod.fedoraproject.org/"
 }
 ```
+
+The format is a single JSON object, encoded as a zero-terminated `UTF-8` string.
+Each name in the object shall be unique as per recommendations of
+[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#section-4). Strings shall
+not contain any control character, nor use `\uXXX` escaping.
 
 When it comes to JSON numbers, this specification assumes that JSON parsers
 processing this information are capable of reproducing the full signed 53bit
