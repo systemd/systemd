@@ -1569,6 +1569,29 @@
           <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
+          predefined names <literal>default</literal>, <literal>main</literal>, and
+          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. When <literal>off</literal> the routes to the
+          addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
+          Defaults to <literal>main</literal>. This setting will be ignored when the same setting is
+          specified in the [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to 0
+          for IPv4 addresses, and 1024 for IPv6 addresses. This setting will be ignored when the same
+          setting is specified in the [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1651,6 +1674,27 @@
           interval of 25 seconds. If set to 0 or "off", this option is
           disabled. By default or when unspecified, this option is off.
           Most users will not need this.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
+          predefined names <literal>default</literal>, <literal>main</literal>, and
+          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. Defaults to unset, and the value specified in the
+          same setting in the [WireGuard] section will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to
+          unset, and the value specified in the same setting in the [WireGuard] section will be used.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>
