@@ -1394,6 +1394,20 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         address->scope = tmp->scope;
                         address_set_lifetime(address, &cinfo);
                         address_enter_configured(address);
+
+                        if (address->family == AF_INET6 &&
+                            address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                            FLAGS_SET(address->flags, IFA_F_SECONDARY | IFA_F_DEPRECATED)) {
+
+                                /* The temporary address became deprecated, i.e. preferred lifetime == 0. */
+                                log_address_debug(address, "Received deprecated", link);
+                                r = address_remove(address);
+                                if (r < 0)
+                                        link_enter_failed(link);
+
+                                return 0;
+                        }
+
                         log_address_debug(address, "Received updated", link);
                 } else {
                         address_set_lifetime(tmp, &cinfo);
