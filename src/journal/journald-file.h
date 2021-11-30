@@ -21,6 +21,8 @@ int journald_file_open(
                 JournaldFile *template,
                 JournaldFile **ret);
 
+int journald_file_set_offline(JournaldFile *f, bool wait);
+bool journald_file_is_offlining(JournaldFile *f);
 JournaldFile* journald_file_close(JournaldFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournaldFile*, journald_file_close);
 
