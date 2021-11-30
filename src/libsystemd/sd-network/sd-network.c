@@ -462,7 +462,7 @@ _public_ int sd_network_monitor_flush(sd_network_monitor *m) {
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 return -errno;
