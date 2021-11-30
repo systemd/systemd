@@ -697,7 +697,7 @@ static int server_build_json_one_string(const char *str, NetworkConfigSource s, 
 }
 
 static int ntp_build_json(Link *link, JsonVariant **ret) {
-        JsonVariant **elements;
+        JsonVariant **elements = NULL;
         size_t n = 0;
         char **p;
         int r;
