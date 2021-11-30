@@ -52,7 +52,6 @@ static int patch_dirfd_mode(
 }
 
 int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags remove_flags) {
-
         mode_t old_mode;
         int r;
 
@@ -116,12 +115,13 @@ int fstatat_harder(int dfd,
         return 0;
 }
 
-static int rm_rf_children_inner(
+static int rm_rf_inner_child(
                 int fd,
                 const char *fname,
                 int is_dir,
                 RemoveFlags flags,
-                const struct stat *root_dev) {
+                const struct stat *root_dev,
+                bool allow_recursion) {
 
         struct stat st;
         int r, q = 0;
@@ -141,9 +141,7 @@ static int rm_rf_children_inner(
         }
 
         if (is_dir) {
-                _cleanup_close_ int subdir_fd = -1;
-
-                /* if root_dev is set, remove subdirectories only if device is same */
+                /* If root_dev is set, remove subdirectories only if device is same */
                 if (root_dev && st.st_dev != root_dev->st_dev)
                         return 0;
 
@@ -155,7 +153,6 @@ static int rm_rf_children_inner(
                         return 0;
 
                 if ((flags & REMOVE_SUBVOLUME) && btrfs_might_be_subvol(&st)) {
-
                         /* This could be a subvolume, try to remove it */
 
                         r = btrfs_subvol_remove_fd(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
@@ -169,13 +166,16 @@ static int rm_rf_children_inner(
                                 return 1;
                 }
 
-                subdir_fd = openat(fd, fname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                if (!allow_recursion)
+                        return -EISDIR;
+
+                int subdir_fd = openat(fd, fname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
                 if (subdir_fd < 0)
                         return -errno;
 
                 /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file system type
                  * again for each directory */
-                q = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
+                q = rm_rf_children(subdir_fd, flags | REMOVE_PHYSICAL, root_dev);
 
         } else if (flags & REMOVE_ONLY_DIRECTORIES)
                 return 0;
@@ -188,62 +188,127 @@ static int rm_rf_children_inner(
         return 1;
 }
 
+typedef struct TodoEntry {
+        DIR *dir;         /* A directory that we were operating on. */
+        char *dirname;    /* The filename of that directory itself. */
+} TodoEntry;
+
+static void free_todo_entries(TodoEntry **todos) {
+        for (TodoEntry *x = *todos; x && x->dir; x++) {
+                closedir(x->dir);
+                free(x->dirname);
+        }
+
+        freep(todos);
+}
+
 int rm_rf_children(
                 int fd,
                 RemoveFlags flags,
                 const struct stat *root_dev) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(free_todo_entries) TodoEntry *todos = NULL;
+        size_t n_todo = 0;
+        _cleanup_free_ char *dirname = NULL; /* Set when we are recursing and want to delete ourselves */
         int ret = 0, r;
 
-        assert(fd >= 0);
+        /* Return the first error we run into, but nevertheless try to go on.
+         * The passed fd is closed in all cases, including on failure. */
 
-        /* This returns the first error we run into, but nevertheless tries to go on. This closes the passed
-         * fd, in all cases, including on failure. */
+        for (;;) {  /* This loop corresponds to the directory nesting level. */
+                _cleanup_closedir_ DIR *d = NULL;
 
-        d = fdopendir(fd);
-        if (!d) {
-                safe_close(fd);
-                return -errno;
-        }
+                if (n_todo > 0) {
+                        /* We know that we are in recursion here, because n_todo is set.
+                         * We need to remove the inner directory we were operating on. */
+                        assert(dirname);
+                        r = unlinkat_harder(dirfd(todos[n_todo-1].dir), dirname, AT_REMOVEDIR, flags);
+                        if (r < 0 && r != -ENOENT && ret == 0)
+                                ret = r;
+                        dirname = mfree(dirname);
 
-        if (!(flags & REMOVE_PHYSICAL)) {
-                struct statfs sfs;
+                        /* And now let's back out one level up */
+                        n_todo --;
+                        d = TAKE_PTR(todos[n_todo].dir);
+                        dirname = TAKE_PTR(todos[n_todo].dirname);
 
-                if (fstatfs(dirfd(d), &sfs) < 0)
-                        return -errno;
+                        assert(d);
+                        fd = dirfd(d); /* Retrieve the file descriptor from the DIR object */
+                        assert(fd >= 0);
+                } else {
+        next_fd:
+                        assert(fd >= 0);
+                        d = fdopendir(fd);
+                        if (!d) {
+                                safe_close(fd);
+                                return -errno;
+                        }
+                        fd = dirfd(d); /* We donated the fd to fdopendir(). Let's make sure we sure we have
+                                        * the right descriptor even if it were to internally invalidate the
+                                        * one we passed. */
 
-                if (is_physical_fs(&sfs)) {
-                        /* We refuse to clean physical file systems with this call, unless explicitly
-                         * requested. This is extra paranoia just to be sure we never ever remove non-state
-                         * data. */
+                        if (!(flags & REMOVE_PHYSICAL)) {
+                                struct statfs sfs;
 
-                        _cleanup_free_ char *path = NULL;
+                                if (fstatfs(fd, &sfs) < 0)
+                                        return -errno;
 
-                        (void) fd_get_path(fd, &path);
-                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                               "Attempted to remove disk file system under \"%s\", and we can't allow that.",
-                                               strna(path));
+                                if (is_physical_fs(&sfs)) {
+                                        /* We refuse to clean physical file systems with this call, unless
+                                         * explicitly requested. This is extra paranoia just to be sure we
+                                         * never ever remove non-state data. */
+
+                                        _cleanup_free_ char *path = NULL;
+
+                                        (void) fd_get_path(fd, &path);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                               "Attempted to remove disk file system under \"%s\", and we can't allow that.",
+                                                               strna(path));
+                                }
+                        }
                 }
+
+                FOREACH_DIRENT_ALL(de, d, return -errno) {
+                        int is_dir;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        is_dir = de->d_type == DT_UNKNOWN ? -1 : de->d_type == DT_DIR;
+
+                        r = rm_rf_inner_child(fd, de->d_name, is_dir, flags, root_dev, false);
+                        if (r == -EISDIR) {
+                                /* Push the current working state onto the todo list */
+
+                                 if (!GREEDY_REALLOC0(todos, n_todo + 2))
+                                         return log_oom();
+
+                                 _cleanup_free_ char *newdirname = strdup(de->d_name);
+                                 if (!newdirname)
+                                         return log_oom();
+
+                                 int newfd = openat(fd, de->d_name,
+                                                    O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                                 if (newfd >= 0) {
+                                         todos[n_todo++] = (TodoEntry) { TAKE_PTR(d), TAKE_PTR(dirname) };
+                                         fd = newfd;
+                                         dirname = TAKE_PTR(newdirname);
+
+                                         goto next_fd;
+
+                                 } else if (errno != -ENOENT && ret == 0)
+                                         ret = -errno;
+
+                        } else if (r < 0 && r != -ENOENT && ret == 0)
+                                ret = r;
+                }
+
+                if (FLAGS_SET(flags, REMOVE_SYNCFS) && syncfs(fd) < 0 && ret >= 0)
+                        ret = -errno;
+
+                if (n_todo == 0)
+                        break;
         }
-
-        FOREACH_DIRENT_ALL(de, d, return -errno) {
-                int is_dir;
-
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
-
-                is_dir =
-                        de->d_type == DT_UNKNOWN ? -1 :
-                        de->d_type == DT_DIR;
-
-                r = rm_rf_children_inner(dirfd(d), de->d_name, is_dir, flags, root_dev);
-                if (r < 0 && r != -ENOENT && ret == 0)
-                        ret = r;
-        }
-
-        if (FLAGS_SET(flags, REMOVE_SYNCFS) && syncfs(dirfd(d)) < 0 && ret >= 0)
-                ret = -errno;
 
         return ret;
 }
@@ -335,5 +400,5 @@ int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
         if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
                 return -EINVAL;
 
-        return rm_rf_children_inner(fd, name, -1, flags, NULL);
+        return rm_rf_inner_child(fd, name, -1, flags, NULL, true);
 }
