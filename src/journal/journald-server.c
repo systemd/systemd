@@ -482,7 +482,7 @@ static void server_process_deferred_closes(Server *s) {
 
         /* Perform any deferred closes which aren't still offlining. */
         SET_FOREACH(f, s->deferred_closes) {
-                if (journal_file_is_offlining(f->file))
+                if (journald_file_is_offlining(f))
                         continue;
 
                 (void) set_remove(s->deferred_closes, f);
@@ -647,13 +647,13 @@ void server_sync(Server *s) {
         int r;
 
         if (s->system_journal) {
-                r = journal_file_set_offline(s->system_journal->file, false);
+                r = journald_file_set_offline(s->system_journal, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
-                r = journal_file_set_offline(f->file, false);
+                r = journald_file_set_offline(f, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync user journal, ignoring: %m");
         }
