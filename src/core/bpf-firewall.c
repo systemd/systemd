@@ -914,7 +914,10 @@ int bpf_firewall_supported(void) {
 void emit_bpf_firewall_warning(Unit *u) {
         static bool warned = false;
 
-        if (!warned) {
+        assert(u);
+        assert(u->manager);
+
+        if (!warned && !MANAGER_IS_TEST_RUN(u->manager)) {
                 bool quiet = bpf_firewall_unsupported_reason == -EPERM && detect_container() > 0;
 
                 log_unit_full_errno(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
