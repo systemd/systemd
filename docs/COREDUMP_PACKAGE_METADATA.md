@@ -36,9 +36,9 @@ so on.
 The metadata will be embedded in a single, new, 4-bytes-aligned, allocated, 0-padded,
 read-only ELF header section, in a name-value JSON object format. Implementers working on parsing
 core files should not assume a specific list of names, but parse anything that is included
-in the section. Implementers working on build tools should strive to use the same
-names, for consistency. The most common will be listed here. When corresponding to the
-content of os-release, the values should match, again for consistency.
+in the section, and should look for the note using the `note type`. Implementers working on
+build tools should strive to use the same names, for consistency. The most common will be
+listed here. When corresponding to the content of os-release, the values should match, again for consistency.
 
 If available, the metadata should also include the debuginfod server URL that can provide
 the original executable, debuginfo and sources, to further facilitate debugging.
@@ -47,7 +47,7 @@ the original executable, debuginfo and sources, to further facilitate debugging.
 
 ```
 SECTION: `.note.package`
-node-id: `0xcafe1a7e`
+note type: `0xcafe1a7e`
 Owner: `FDO` (FreeDesktop.org)
 Value: a single JSON object encoded as a zero-terminated UTF-8 string
 ```
