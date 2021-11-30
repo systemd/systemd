@@ -87,7 +87,7 @@
 
     <para><function>sd_event_source_set_ratelimit_expire_callback</function> may be used to set a callback
     function that is invoked every time the event source leaves rate limited state. Note that function is
-    called in the same event loop iteration in which state transition occured.</para>
+    called in the same event loop iteration in which state transition occurred.</para>
 
     <para>Rate limiting is currently implemented for I/O, timer, signal, defer and inotify event
     sources.</para>

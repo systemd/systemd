@@ -314,7 +314,7 @@ static int seccomp_prohibit_close_range(void) {
 
         return 0;
 #else
-        return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Seccomp support or close_range() syscall definition not availeble.");
+        return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Seccomp support or close_range() syscall definition not available.");
 #endif
 }
 

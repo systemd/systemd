@@ -2848,7 +2848,7 @@ static int get_smallest_fs_size(int fd, uint64_t *ret) {
         if (fstatfs(fd, &sfs) < 0)
                 return log_error_errno(errno, "Failed to statfs() home file system: %m");
 
-        /* Let's determine the minimal file syste size of the used fstype */
+        /* Let's determine the minimal file system size of the used fstype */
         minsz = minimal_size_by_fs_magic(sfs.f_type);
         if (minsz == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know minimum file system size of file system type '%s' of home directory.", fs_type_to_string(sfs.f_type));
@@ -3779,7 +3779,7 @@ int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
         /* So here's the thing: we enable "deferred deactivation" on our dm-crypt volumes. This means they
          * are automatically torn down once not used anymore (i.e. once unmounted). Which is great. It also
          * means that when we deactivate a home directory and try to tear down the volume that backs it, it
-         * possibly is aleady torn down or in the process of being torn down, since we race against the
+         * possibly is already torn down or in the process of being torn down, since we race against the
          * automatic tearing down. Which is fine, we handle errors from that. However, we lose the ability to
          * naturally wait for the tear down operation to complete: if we are not the ones who tear down the
          * device we are also not the ones who naturally block on that operation. Hence let's add some code

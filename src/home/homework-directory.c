@@ -178,7 +178,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */
 
         /* Let's decouple namespaces now, so that we can possibly mount a UID map mount into
-         * /run/systemd/user-home-mount/ that noone will see but us. */
+         * /run/systemd/user-home-mount/ that no one will see but us. */
         r = home_unshare_and_mkdir();
         if (r < 0)
                 return r;

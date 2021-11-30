@@ -65,7 +65,7 @@ do
     # Cause the generator to re-run
     systemctl daemon-reload || exit 1
 
-    # Check for existance of unit files...
+    # Check for existence of unit files...
     if [[ ! -e "/run/systemd/generator/systemd-integritysetup@${DM_NAME}.service" ]]; then
         echo "Service file does not exist!"
         exit 1
@@ -89,7 +89,7 @@ do
     systemctl stop systemd-integritysetup@"${DM_NAME}".service || exit 1
 
     if [ -e "${FULL_DM_DEV_NAME}" ]; then
-        echo "Expecting ${FULL_DM_DEV_NAME} to not exist after stoping unit!"
+        echo "Expecting ${FULL_DM_DEV_NAME} to not exist after stopping unit!"
         exit 1
     fi
 

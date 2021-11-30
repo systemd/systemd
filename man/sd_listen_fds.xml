@@ -55,7 +55,7 @@
     to the processes themselves to close them after use or whether to leave them open until the process exits
     (in which case the kernel closes them automatically). Note that the file descriptors received by daemons
     are duplicates of the file descriptors the service manager originally allocated and bound and of which it
-    continously keeps a copy (except if <varname>Accept=yes</varname> is used). This means any socket option
+    continuously keeps a copy (except if <varname>Accept=yes</varname> is used). This means any socket option
     changes and other changes made to the sockets will visible to the service manager too. Most importanly
     this means it's generally not a good idea to invoke <citerefentry
     project='man-pages'><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on

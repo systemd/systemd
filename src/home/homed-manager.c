@@ -1800,7 +1800,7 @@ static int home_cmp(Home *const*a, Home *const*b) {
         assert(*b);
 
         /* Order user records by their weight (and by their name, to make things stable). We put the records
-         * with the heighest weight last, since we distribute space from the beginning and round down, hence
+         * with the highest weight last, since we distribute space from the beginning and round down, hence
          * later entries tend to get slightly more than earlier entries. */
 
         r = CMP(user_record_rebalance_weight((*a)->record), user_record_rebalance_weight((*b)->record));
@@ -2012,7 +2012,7 @@ static int manager_rebalance_now(Manager *m) {
         log_debug("Rebalancing now...");
 
         /* We maintain a simple state engine here to keep track of what we are doing. We'll first shrink all
-         * homes that shall be shrinked and then grow all homes that shall be grown, so that they can take up
+         * homes that shall be shrunk and then grow all homes that shall be grown, so that they can take up
          * the space now freed. */
 
         for (;;) {
