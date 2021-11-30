@@ -1479,10 +1479,10 @@ static int client_receive_message(
         len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
         if (len < 0) {
                 /* see comment above for why we shouldn't error out on ENETDOWN. */
-                if (IN_SET(errno, EAGAIN, EINTR, ENETDOWN))
+                if (IN_SET(len, -EAGAIN, -EINTR, -ENETDOWN))
                         return 0;
 
-                return log_dhcp6_client_errno(client, errno, "Could not receive message from UDP socket: %m");
+                return log_dhcp6_client_errno(client, len, "Could not receive message from UDP socket: %m");
 
         }
         if ((size_t) len < sizeof(DHCP6Message)) {
