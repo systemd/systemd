@@ -31,6 +31,9 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+    # FIXME: temporarily disable the deprecated-declarations check to suppress
+    #        OpenSSL 3.0 warnings in Rawhide
+    - 'sed -i "1 i %global optflags %{optflags} -Wno-deprecated-declarations" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
