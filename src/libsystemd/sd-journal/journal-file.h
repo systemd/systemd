@@ -141,8 +141,7 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline(JournalFile *f, bool wait);
-bool journal_file_is_offlining(JournalFile *f);
+int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
@@ -189,6 +188,8 @@ static inline bool VALID_EPOCH(uint64_t u) {
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
+
+int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
 uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
