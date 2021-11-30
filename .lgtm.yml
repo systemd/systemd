@@ -1,6 +1,19 @@
 ---
 # vi: ts=2 sw=2 et:
 
+# Explicitly enable certain checks which are hidden by default
+queries:
+  - include: cpp/declaration-hides-variable
+  - include: cpp/inconsistent-null-check
+  - include: cpp/mistyped-function-arguments
+  - include: cpp/sizeof-side-effect
+  - include: cpp/unused-local-variable
+  - include:
+      tags:
+        - "security"
+        - "correctness"
+      severity: "error"
+
 extraction:
   cpp:
     prepare:
