@@ -77,7 +77,7 @@ minix,           {MINIX_SUPER_MAGIC, MINIX_SUPER_MAGIC2, MINIX2_SUPER_MAGIC, MIN
 mqueue,          {MQUEUE_MAGIC}
 # msdos is an older legacy version of vfat, shares the magic
 msdos,           {MSDOS_SUPER_MAGIC}
-# ncp/ncpfs have been removed from the kernel, but ncpfs was the offical name
+# ncp/ncpfs have been removed from the kernel, but ncpfs was the official name
 ncp,             {NCP_SUPER_MAGIC}
 ncpfs,           {NCP_SUPER_MAGIC}
 # nfs is the old version of nfs4, and they share the same magic

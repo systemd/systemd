@@ -417,7 +417,7 @@ and `homectl`:
 
 * `$SYSTEMD_HOME_DEBUG_SUFFIX` – takes a short string that is suffixed to
   `systemd-homed`'s D-Bus and Varlink service names/sockets. This is also
-  understood by `homectl`. This too is useful for running an additiona copy of
+  understood by `homectl`. This too is useful for running an additional copy of
   `systemd-homed` that doesn't interfere with the host's main one.
 
 * `$SYSTEMD_HOMEWORK_PATH` – configures the path to the `systemd-homework`

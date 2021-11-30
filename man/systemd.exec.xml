@@ -1337,7 +1337,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
         The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
         options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
-        using the same first parameter, but a diferent second parameter.</para></listitem>
+        using the same first parameter, but a different second parameter.</para></listitem>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
