@@ -24,7 +24,7 @@ typedef struct BaseFilesystem {
         const char *dir;      /* directory or symlink to create */
         mode_t mode;
         const char *target;   /* if non-NULL create as symlink to this target */
-        const char *exists;   /* conditionalize this entry on existance of this file */
+        const char *exists;   /* conditionalize this entry on existence of this file */
         bool ignore_failure;
 } BaseFilesystem;
 

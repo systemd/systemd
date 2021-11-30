@@ -879,7 +879,8 @@ on removable media the delay is selected very low to minimize the chance the
 home directory remains in unclean state if the storage device is removed from
 the system by the user).
 
-`accessMode` → The access mode currently in effect for the home directory iself.
+`accessMode` → The access mode currently in effect for the home directory
+itself.
 
 `fileSystemType` → The file system type backing the home directory: a short
 string, such as "btrfs", "ext4", "xfs".

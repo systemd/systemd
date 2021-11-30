@@ -1480,7 +1480,7 @@ static int determine_current_padding(
         offset = round_up_size(offset, 4096);
         next = round_down_size(next, 4096);
 
-        *ret = LESS_BY(next, offset); /* Saturated substraction, rounding might have fucked things up */
+        *ret = LESS_BY(next, offset); /* Saturated subtraction, rounding might have fucked things up */
         return 0;
 }
 
