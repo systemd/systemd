@@ -4,6 +4,7 @@
 set -eux
 
 systemd-analyze log-level debug
+export SYSTEMD_LOG_LEVEL=debug
 
 mkdir -p /tmp/img/usr/lib/systemd/system/
 mkdir -p /tmp/img/opt/
