@@ -4,6 +4,7 @@
 set -eux
 
 systemd-analyze log-level debug
+export SYSTEMD_LOG_LEVEL=debug
 
 mkdir -p /tmp/img/usr/lib/systemd/system/
 mkdir -p /tmp/img/opt/
@@ -594,6 +595,10 @@ systemd-analyze security --threshold=50 --offline=true \
 set -e
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
+
+if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"binary"'
+fi
 
 systemd-analyze log-level info
 
