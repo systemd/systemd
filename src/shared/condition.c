@@ -898,7 +898,7 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_READ_WRITE);
 
-        return path_is_read_only_fs(c->parameter) <= 0;
+        return path_is_read_only_fs(c->parameter) > 0;
 }
 
 static int condition_test_cpufeature(Condition *c, char **env) {
