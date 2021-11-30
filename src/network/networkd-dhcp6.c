@@ -1346,7 +1346,7 @@ int dhcp6_start_on_ra(Link *link, bool information_request) {
         assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
         if (link_get_dhcp6_client_start_mode(link) != DHCP6_CLIENT_START_MODE_NO)
-                /* When WithoutRA= is specified, then the DHCPv6 client should be already runnging in
+                /* When WithoutRA= is specified, then the DHCPv6 client should be already running in
                  * the requested mode. Hence, ignore the requests by RA. */
                 return 0;
 
