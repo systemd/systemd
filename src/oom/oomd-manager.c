@@ -108,10 +108,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                 if (streq(message.property, "ManagedOOMMemoryPressure") && message.limit > 0) {
                         int permyriad = UINT32_SCALE_TO_PERMYRIAD(message.limit);
 
-                        r = store_loadavg_fixed_point(
-                                        (unsigned long) permyriad / 100,
-                                        (unsigned long) permyriad % 100,
-                                        &limit);
+                        r = store_loadavg_fixed_point(permyriad / 100LU, permyriad % 100LU, &limit);
                         if (r < 0)
                                 continue;
                 }
