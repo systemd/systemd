@@ -153,15 +153,16 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
                 return -EUNATCH;
 
         r = lookup_key(keyname, &serial);
-        if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM) /* when retrieving the distinction between "kernel or
-                                                       * container manager don't support or allow this" and
-                                                       * "no matching key known" doesn't matter. Note that we
-                                                       * propagate EACCESS here (even if EPERM not) since
-                                                       * that is used if the keyring is available but we lack
-                                                       * access to the key. */
-                return -ENOKEY;
-        if (r < 0)
+        if (r < 0) {
+                /* when retrieving the distinction between "kernel or container manager don't support
+                 * or allow this" and "no matching key known" doesn't matter. Note that we propagate
+                 * EACCESS here (even if EPERM not) since that is used if the keyring is available but
+                 * we lack access to the key. */
+                if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM)
+                        return -ENOKEY;
+
                 return r;
+        }
 
         return retrieve_key(serial, ret);
 }
