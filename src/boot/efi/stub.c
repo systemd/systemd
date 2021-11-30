@@ -186,7 +186,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
         _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
         _cleanup_freepool_ void *sysext_initrd = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_root;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_root = NULL;
         _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *initrd_dropin_dir = NULL;
         EFI_STATUS err;
 
