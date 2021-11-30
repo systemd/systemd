@@ -880,9 +880,6 @@ Table=1234</programlisting></para>
         </varlistentry>
         <varlistentry>
           <term><varname>KeepMaster=</varname></term>
-          <term><varname>Bond=</varname></term>
-          <term><varname>Bridge=</varname></term>
-          <term><varname>VRF=</varname></term>
           <listitem>
             <para>Takes a boolean value. When enabled, the current master interface index will not be
             changed, and <varname>BatmanAdvanced=</varname>, <varname>Bond=</varname>,
