@@ -141,8 +141,7 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline(JournalFile *f, bool wait);
-bool journal_file_is_offlining(JournalFile *f);
+int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
