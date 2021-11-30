@@ -192,6 +192,8 @@ typedef struct UnitStatusInfo {
         usec_t active_exit_timestamp;
         usec_t inactive_enter_timestamp;
 
+        uint64_t runtime_max_sec;
+
         bool need_daemon_reload;
         bool transient;
 
@@ -419,11 +421,19 @@ static void print_status_info(
                     STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
                                                                             i->active_exit_timestamp;
 
-        if (timestamp > 0 && timestamp < USEC_INFINITY)
+        if (timestamp > 0 && timestamp < USEC_INFINITY) {
                 printf(" since %s; %s\n",
                        FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(timestamp));
-        else
+                if (streq_ptr(i->active_state, "active") && i->runtime_max_sec < USEC_INFINITY) {
+                        usec_t until_timestamp;
+
+                        until_timestamp = usec_add(timestamp, i->runtime_max_sec);
+                        printf("      Until: %s; %s\n",
+                               FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
+                               FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
+                }
+        } else
                 printf("\n");
 
         STRV_FOREACH(t, i->triggered_by) {
@@ -1850,6 +1860,7 @@ static int show_one(
                 { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
                 { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
+                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
