@@ -8,7 +8,7 @@
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "io-util.h"
-#include "journal-file.h"
+#include "journald-file.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "parse-util.h"
@@ -33,17 +33,17 @@ _noreturn_ static void log_assert_errno(const char *text, int error, const char 
                         log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
-static JournalFile *test_open(const char *name) {
-        JournalFile *f;
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f));
+static JournaldFile *test_open(const char *name) {
+        JournaldFile *f;
+        assert_ret(journald_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f));
         return f;
 }
 
-static void test_close(JournalFile *f) {
-        (void) journal_file_close (f);
+static void test_close(JournaldFile *f) {
+        (void) journald_file_close(f);
 }
 
-static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
+static void append_number(JournaldFile *f, int n, uint64_t *seqnum) {
         char *p;
         dual_timestamp ts;
         static dual_timestamp previous_ts = {};
@@ -61,7 +61,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
 
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
         iovec[0] = IOVEC_MAKE_STRING(p);
-        assert_ret(journal_file_append_entry(f, &ts, NULL, iovec, 1, seqnum, NULL, NULL));
+        assert_ret(journal_file_append_entry(f->file, &ts, NULL, iovec, 1, seqnum, NULL, NULL));
         free(p);
 }
 
@@ -108,7 +108,7 @@ static void test_check_numbers_up (sd_journal *j, int count) {
 }
 
 static void setup_sequential(void) {
-        JournalFile *one, *two;
+        JournaldFile *one, *two;
         one = test_open("one.journal");
         two = test_open("two.journal");
         append_number(one, 1, NULL);
@@ -120,7 +120,7 @@ static void setup_sequential(void) {
 }
 
 static void setup_interleaved(void) {
-        JournalFile *one, *two;
+        JournaldFile *one, *two;
         one = test_open("one.journal");
         two = test_open("two.journal");
         append_number(one, 1, NULL);
@@ -199,14 +199,14 @@ static void test_skip(void (*setup)(void)) {
 static void test_sequence_numbers(void) {
 
         char t[] = "/var/tmp/journal-seq-XXXXXX";
-        JournalFile *one, *two;
+        JournaldFile *one, *two;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
-                                    true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &one) == 0);
+        assert_se(journald_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
+                                     true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &one) == 0);
 
         append_number(one, 1, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -215,21 +215,21 @@ static void test_sequence_numbers(void) {
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 2);
 
-        assert_se(one->header->state == STATE_ONLINE);
-        assert_se(!sd_id128_equal(one->header->file_id, one->header->machine_id));
-        assert_se(!sd_id128_equal(one->header->file_id, one->header->boot_id));
-        assert_se(sd_id128_equal(one->header->file_id, one->header->seqnum_id));
+        assert_se(one->file->header->state == STATE_ONLINE);
+        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->machine_id));
+        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->boot_id));
+        assert_se(sd_id128_equal(one->file->header->file_id, one->file->header->seqnum_id));
 
-        memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
+        memcpy(&seqnum_id, &one->file->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
-                                    true, UINT64_MAX, false, NULL, NULL, NULL, one, &two) == 0);
+        assert_se(journald_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
+                                     true, UINT64_MAX, false, NULL, NULL, NULL, one, &two) == 0);
 
-        assert_se(two->header->state == STATE_ONLINE);
-        assert_se(!sd_id128_equal(two->header->file_id, one->header->file_id));
-        assert_se(sd_id128_equal(one->header->machine_id, one->header->machine_id));
-        assert_se(sd_id128_equal(one->header->boot_id, one->header->boot_id));
-        assert_se(sd_id128_equal(one->header->seqnum_id, one->header->seqnum_id));
+        assert_se(two->file->header->state == STATE_ONLINE);
+        assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
+        assert_se(sd_id128_equal(one->file->header->machine_id, one->file->header->machine_id));
+        assert_se(sd_id128_equal(one->file->header->boot_id, one->file->header->boot_id));
+        assert_se(sd_id128_equal(one->file->header->seqnum_id, one->file->header->seqnum_id));
 
         append_number(two, 3, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -253,10 +253,10 @@ static void test_sequence_numbers(void) {
         /* restart server */
         seqnum = 0;
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0,
-                                    true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &two) == 0);
+        assert_se(journald_file_open(-1, "two.journal", O_RDWR, 0,
+                                     true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &two) == 0);
 
-        assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
+        assert_se(sd_id128_equal(two->file->header->seqnum_id, seqnum_id));
 
         append_number(two, 7, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -281,7 +281,7 @@ static void test_sequence_numbers(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-        /* journal_file_open requires a valid machine id */
+        /* journald_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 

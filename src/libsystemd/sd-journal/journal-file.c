@@ -3562,7 +3562,6 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -3747,8 +3746,6 @@ int journal_file_open(
         f->header = h;
 
         if (!newly_created) {
-                set_clear_with_destructor(deferred_closes, journal_file_close);
-
                 r = journal_file_verify_header(f);
                 if (r < 0)
                         goto fail;
@@ -3871,65 +3868,6 @@ int journal_file_archive(JournalFile *f) {
         return 0;
 }
 
-JournalFile* journal_initiate_close(
-                JournalFile *f,
-                Set *deferred_closes) {
-
-        int r;
-
-        assert(f);
-
-        if (deferred_closes) {
-
-                r = set_put(deferred_closes, f);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
-                else {
-                        (void) journal_file_set_offline(f, false);
-                        return NULL;
-                }
-        }
-
-        return journal_file_close(f);
-}
-
-int journal_file_rotate(
-                JournalFile **f,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                Set *deferred_closes) {
-
-        JournalFile *new_file = NULL;
-        int r;
-
-        assert(f);
-        assert(*f);
-
-        r = journal_file_archive(*f);
-        if (r < 0)
-                return r;
-
-        r = journal_file_open(
-                        -1,
-                        (*f)->path,
-                        (*f)->flags,
-                        (*f)->mode,
-                        compress,
-                        compress_threshold_bytes,
-                        seal,
-                        NULL,            /* metrics */
-                        (*f)->mmap,
-                        deferred_closes,
-                        *f,              /* template */
-                        &new_file);
-
-        journal_initiate_close(*f, deferred_closes);
-        *f = new_file;
-
-        return r;
-}
-
 int journal_file_dispose(int dir_fd, const char *fname) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
@@ -3963,55 +3901,6 @@ int journal_file_dispose(int dir_fd, const char *fname) {
         }
 
         return 0;
-}
-
-int journal_file_open_reliably(
-                const char *fname,
-                int flags,
-                mode_t mode,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                JournalMetrics *metrics,
-                MMapCache *mmap_cache,
-                Set *deferred_closes,
-                JournalFile *template,
-                JournalFile **ret) {
-
-        int r;
-
-        r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
-                              deferred_closes, template, ret);
-        if (!IN_SET(r,
-                    -EBADMSG,           /* Corrupted */
-                    -ENODATA,           /* Truncated */
-                    -EHOSTDOWN,         /* Other machine */
-                    -EPROTONOSUPPORT,   /* Incompatible feature */
-                    -EBUSY,             /* Unclean shutdown */
-                    -ESHUTDOWN,         /* Already archived */
-                    -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM,             /* File has been deleted */
-                    -ETXTBSY))          /* File is from the future */
-                return r;
-
-        if ((flags & O_ACCMODE) == O_RDONLY)
-                return r;
-
-        if (!(flags & O_CREAT))
-                return r;
-
-        if (!endswith(fname, ".journal"))
-                return r;
-
-        /* The file is corrupted. Rotate it away and try it again (but only once) */
-        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
-
-        r = journal_file_dispose(AT_FDCWD, fname);
-        if (r < 0)
-                return r;
-
-        return journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
-                                 deferred_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
