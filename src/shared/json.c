@@ -3985,7 +3985,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct in_addr *);
 
-                        if (in4_addr_is_set(a) && current->n_suppress == 0) {
+                        if (a && in4_addr_is_set(a) && current->n_suppress == 0) {
                                 r = json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4013,7 +4013,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct in6_addr *);
 
-                        if (in6_addr_is_set(a) && current->n_suppress == 0) {
+                        if (a && in6_addr_is_set(a) && current->n_suppress == 0) {
                                 r = json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4043,7 +4043,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         a = va_arg(ap, const union in_addr_union *);
                         f = va_arg(ap, int);
 
-                        if (in_addr_is_set(f, a) && current->n_suppress == 0) {
+                        if (a && in_addr_is_set(f, a) && current->n_suppress == 0) {
                                 r = json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4071,7 +4071,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct ether_addr *);
 
-                        if (!ether_addr_is_null(a) && current->n_suppress == 0) {
+                        if (a && !ether_addr_is_null(a) && current->n_suppress == 0) {
                                 r = json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4099,7 +4099,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct hw_addr_data *);
 
-                        if (!hw_addr_is_null(a) && current->n_suppress == 0) {
+                        if (a && !hw_addr_is_null(a) && current->n_suppress == 0) {
                                 r = json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
