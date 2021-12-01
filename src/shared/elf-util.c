@@ -604,8 +604,11 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
         }
         if (r == 0) {
                 /* We want to avoid loops, given this can be called from systemd-coredump */
-                if (fork_disable_dump)
-                        prctl(PR_SET_DUMPABLE, 0);
+                if (fork_disable_dump) {
+                        r = RET_NERRNO(prctl(PR_SET_DUMPABLE, 0));
+                        if (r < 0)
+                                goto child_fail;
+                }
 
                 r = parse_core(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
                 if (r < 0)
