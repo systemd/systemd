@@ -45,6 +45,7 @@
 #include "psi-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -992,14 +993,14 @@ static int condition_test_psi(Condition *c, char **env) {
         if (r == 1) {
                 pressure_path = path_join("/proc/pressure", pressure_type);
                 if (!pressure_path)
-                        return log_oom();
+                        return log_oom_debug();
 
                 value = first;
         } else {
                 const char *controller = strjoina(pressure_type, ".pressure");
-                _cleanup_free_ char *slice_path = NULL;
+                _cleanup_free_ char *slice_path = NULL, *root_scope = NULL;
                 CGroupMask mask, required_mask;
-                char *slice;
+                char *slice, *e;
 
                 required_mask = c->type == CONDITION_MEMORY_PRESSURE ? CGROUP_MASK_MEMORY :
                                 c->type == CONDITION_CPU_PRESSURE ? CGROUP_MASK_CPU :
@@ -1029,6 +1030,26 @@ static int condition_test_psi(Condition *c, char **env) {
                 r = cg_slice_to_path(slice, &slice_path);
                 if (r < 0)
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
+
+                /* We might be running under the user manager, so get the root path and prefix it accordingly. */
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get root cgroup path: %m");
+
+                /* Drop init.scope, we want the parent. We could get an empty or / path, but that's fine,
+                 * just skip it in that case. */
+                e = endswith(root_scope, "/" SPECIAL_INIT_SCOPE);
+                if (e)
+                        *e = 0;
+                if (!empty_or_root(root_scope)) {
+                        _cleanup_free_ char *slice_joined = NULL;
+
+                        slice_joined = path_join(root_scope, slice_path);
+                        if (!slice_joined)
+                                return log_oom_debug();
+
+                        free_and_replace(slice_path, slice_joined);
+                }
 
                 r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
                 if (r < 0)
