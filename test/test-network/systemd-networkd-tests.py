@@ -5002,6 +5002,7 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
         'dummy98',
         'dummy99',
         'test1',
+        'veth97',
         'veth98',
         'veth99',
     ]
@@ -5011,11 +5012,14 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
         '12-dummy.netdev',
         '13-dummy.netdev',
         '25-veth.netdev',
-        '25-veth-downstream.netdev',
+        '25-veth-downstream-veth97.netdev',
+        '25-veth-downstream-veth98.netdev',
         'dhcp6pd-downstream-dummy97.network',
         'dhcp6pd-downstream-dummy98.network',
         'dhcp6pd-downstream-dummy99.network',
         'dhcp6pd-downstream-test1.network',
+        'dhcp6pd-downstream-veth97.network',
+        'dhcp6pd-downstream-veth97-peer.network',
         'dhcp6pd-downstream-veth98.network',
         'dhcp6pd-downstream-veth98-peer.network',
         'dhcp6pd-server.network',
@@ -5035,7 +5039,8 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
 
     def test_dhcp6pd(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp6pd-server.network', 'dhcp6pd-upstream.network',
-                                        '25-veth-downstream.netdev', 'dhcp6pd-downstream-veth98.network', 'dhcp6pd-downstream-veth98-peer.network',
+                                        '25-veth-downstream-veth97.netdev', 'dhcp6pd-downstream-veth97.network', 'dhcp6pd-downstream-veth97-peer.network',
+                                        '25-veth-downstream-veth98.netdev', 'dhcp6pd-downstream-veth98.network', 'dhcp6pd-downstream-veth98-peer.network',
                                         '11-dummy.netdev', 'dhcp6pd-downstream-test1.network',
                                         'dhcp6pd-downstream-dummy97.network',
                                         '12-dummy.netdev', 'dhcp6pd-downstream-dummy98.network',
@@ -5045,7 +5050,7 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
         self.wait_online(['veth-peer:carrier'])
         start_isc_dhcpd('veth-peer', 'isc-dhcpd-dhcp6pd.conf')
         self.wait_online(['veth-peer:routable', 'veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth98:routable', 'veth98-peer:routable'])
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
@@ -5080,6 +5085,26 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]03:1a:2b:3c:4d/64 (metric 256 |)scope global dynamic mngtmpaddr')
         # address in IA_PD (temporary)
         self.wait_address('dummy98', 'inet6 3ffe:501:ffff:[2-9a-f]03:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
+
+        print('### ip -6 address show dev veth97 scope global')
+        output = check_output('ip -6 address show dev veth97 scope global')
+        print(output)
+        # address in IA_PD (Token=static)
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]08:1a:2b:3c:4d/64 (metric 256 |)scope global dynamic mngtmpaddr')
+        # address in IA_PD (Token=eui64)
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]08:1034:56ff:fe78:9ace/64 (metric 256 |)scope global dynamic mngtmpaddr')
+        # address in IA_PD (temporary)
+        self.wait_address('veth97', 'inet6 3ffe:501:ffff:[2-9a-f]08:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
+
+        print('### ip -6 address show dev veth97-peer scope global')
+        output = check_output('ip -6 address show dev veth97-peer scope global')
+        print(output)
+        # NDisc address (Token=static)
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]08:1a:2b:3c:4e/64 (metric 256 |)scope global dynamic mngtmpaddr')
+        # NDisc address (Token=eui64)
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]08:1034:56ff:fe78:9acf/64 (metric 256 |)scope global dynamic mngtmpaddr')
+        # NDisc address (temporary)
+        self.wait_address('veth97-peer', 'inet6 3ffe:501:ffff:[2-9a-f]08:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
 
         print('### ip -6 address show dev veth98 scope global')
         output = check_output('ip -6 address show dev veth98 scope global')
