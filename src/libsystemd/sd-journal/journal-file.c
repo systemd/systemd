@@ -3475,6 +3475,8 @@ int journal_file_archive(JournalFile *f) {
         /* Sync the rename to disk */
         (void) fsync_directory_of_file(f->fd);
 
+        free_and_replace(f->path, p);
+
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
          * which would result in the rotated journal never getting fsync() called before closing.  Now we simply queue
