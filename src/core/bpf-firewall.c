@@ -872,7 +872,10 @@ int bpf_firewall_supported(void) {
 
                 /* YAY! */
         } else {
-                log_debug("Wut? Kernel accepted our invalid BPF_PROG_DETACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(SYNTHETIC_ERRNO(EBADE),
+                                        "Wut? Kernel accepted our invalid BPF_PROG_DETACH call? "
+                                        "Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -900,7 +903,10 @@ int bpf_firewall_supported(void) {
 
                 return supported = BPF_FIREWALL_SUPPORTED;
         } else {
-                log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                bpf_firewall_unsupported_reason =
+                        log_debug_errno(SYNTHETIC_ERRNO(EBADE),
+                                        "Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? "
+                                        "Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 }
