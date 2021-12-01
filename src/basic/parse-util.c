@@ -644,7 +644,7 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         uint16_t l;
         int r;
 
-        r = safe_atou16(s, &l);
+        r = safe_atou16_full(s, SAFE_ATO_REFUSE_LEADING_WHITESPACE, &l);
         if (r < 0)
                 return r;
 
