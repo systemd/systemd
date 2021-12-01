@@ -256,8 +256,8 @@
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
           administrative state. Specifically, this controls how <command>systemd-networkd</command>
           changes the network device's <literal>IFF_UP</literal> flag, which is sometimes
-          controlled by system administrators by running e.g., <command>ip set dev eth0 up</command>
-          or <command>ip set dev eth0 down</command>, and can also be changed with
+          controlled by system administrators by running e.g., <command>ip link set dev eth0 up</command>
+          or <command>ip link set dev eth0 down</command>, and can also be changed with
           <command>networkctl up eth0</command> or <command>networkctl down eth0</command>.</para>
 
           <para>Takes one of <literal>up</literal>, <literal>always-up</literal>,
