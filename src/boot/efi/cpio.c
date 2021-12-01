@@ -4,8 +4,6 @@
 #include "measure.h"
 #include "util.h"
 
-#define EXTRA_DIR_SUFFIX L".extra.d"
-
 static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
         static const char hex[] = "0123456789abcdef";
 
@@ -318,7 +316,8 @@ static EFI_STATUS pack_cpio_trailer(
 }
 
 EFI_STATUS pack_cpio(
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_FILE_HANDLE root,
+                const CHAR16 *source_dir_path,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -328,33 +327,21 @@ EFI_STATUS pack_cpio(
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *j = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
 
-        assert(loaded_image);
+        assert(root);
+        assert(source_dir_path);
         assert(target_dir_prefix);
         assert(ret_buffer);
         assert(ret_buffer_size);
 
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
-
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
-
-        j = PoolPrint(L"%s" EXTRA_DIR_SUFFIX, loaded_image_path);
-        if (!j)
-                return log_oom();
-
-        err = open_directory(root, j, &extra_dir);
+        err = open_directory(root, source_dir_path, &extra_dir);
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;
