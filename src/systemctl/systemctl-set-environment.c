@@ -8,6 +8,58 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
+static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n_elements = 0;
+        char *text, *sep;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &text)) > 0) {
+                if (!GREEDY_REALLOC(elements, n_elements + 2)) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                sep = strchr(text, '=');
+                if (!sep) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                            "Invalid environment block");
+                        goto finish;
+                }
+
+                *sep = '\0';
+
+                r = json_variant_new_string(elements + n_elements, text);
+                if (r < 0)
+                        goto finish;
+
+                n_elements++;
+
+                r = json_variant_new_string(elements + n_elements, sep + 1);
+                if (r < 0)
+                        goto finish;
+
+                n_elements++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = json_variant_new_object(ret, elements, n_elements);
+
+finish:
+        json_variant_unref_many(elements, n_elements);
+        free(elements);
+
+        return r;
+}
+
 static int print_variable(const char *s) {
         const char *sep;
         _cleanup_free_ char *esc = NULL;
@@ -42,14 +94,25 @@ int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get environment: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                JsonFormatFlags flags = output_mode_to_json_format_flags(arg_output);
 
-        while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
-                r = print_variable(text);
+                r = json_transform_message(reply, &v);
                 if (r < 0)
                         return r;
+
+                json_variant_dump(v, flags, stdout, NULL);
+        } else {
+                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
+                        r = print_variable(text);
+                        if (r < 0)
+                                return r;
+                }
         }
         if (r < 0)
                 return bus_log_parse_error(r);
