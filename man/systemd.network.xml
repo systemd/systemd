@@ -2106,11 +2106,12 @@ Table=1234</programlisting></para>
           <listitem>
             <para>Allows DHCPv6 client to start without router advertisements's managed or other
             address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
-            or <literal>information-request</literal>. When this is not specified and
-            <varname>UplinkInterface=:self</varname> is specified, then <literal>solicit</literal> is
-            implied. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be
-            started when an RA is received. See also <varname>DHCPv6Client=</varname> setting in the
-            [IPv6AcceptRA] section.</para>
+            or <literal>information-request</literal>. If this is not specified,
+            <literal>solicit</literal> is used when <varname>DHCPv6PrefixDelegation=</varname> is
+            enabled and <varname>UplinkInterface=:self</varname> is specified in the
+            [DHCPv6PrefixDelegation] section. Otherwise, defaults to <literal>no</literal>, and the
+            DHCPv6 client will be started when an RA is received. See also
+            <varname>DHCPv6Client=</varname> setting in the [IPv6AcceptRA] section.</para>
           </listitem>
         </varlistentry>
       </variablelist>

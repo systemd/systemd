@@ -70,6 +70,9 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
         if (link->network->dhcp6_client_start_mode >= 0)
                 return link->network->dhcp6_client_start_mode;
 
+        if (!link_dhcp6_pd_is_enabled(link))
+                return DHCP6_CLIENT_START_MODE_NO;
+
         if (dhcp6_pd_resolve_uplink(link, &uplink) < 0)
                 return DHCP6_CLIENT_START_MODE_NO;
 
