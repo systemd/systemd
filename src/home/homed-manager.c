@@ -1122,10 +1122,11 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         assert(m);
 
         n = read_datagram(fd, &sender, &datagram, &passed_fd);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
                 return log_error_errno(n, "Failed to read notify datagram: %m");
+        }
 
         if (sender.pid <= 0) {
                 log_warning("Received notify datagram without valid sender PID, ignoring.");

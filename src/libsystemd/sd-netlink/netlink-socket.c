@@ -235,12 +235,13 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         assert(iov);
 
         n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (n == -ENOBUFS)
-                return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n < 0)
+        if (n < 0) {
+                if (n == -ENOBUFS)
+                        return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
                 return (int) n;
+        }
 
         if (sender.nl.nl_pid != 0) {
                 /* not from the kernel, ignore */
