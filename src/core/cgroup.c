@@ -3228,26 +3228,36 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
 
         /* BPF-based firewall */
         r = bpf_firewall_supported();
+        if (r < 0)
+                return r;
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_FIREWALL;
 
         /* BPF-based device access control */
         r = bpf_devices_supported();
+        if (r < 0)
+                return r;
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
 
         /* BPF pinned prog */
         r = bpf_foreign_supported();
+        if (r < 0)
+                return r;
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
         r = bpf_socket_bind_supported();
+        if (r < 0)
+                return r;
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         /* BPF-based cgroup_skb/{egress|ingress} hooks */
         r = restrict_network_interfaces_supported();
+        if (r < 0)
+                return r;
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
 
