@@ -68,7 +68,6 @@ typedef struct JournalFile {
         bool compress_lz4:1;
         bool compress_zstd:1;
         bool seal:1;
-        bool defrag_on_close:1;
         bool close_fd:1;
         bool archive:1;
         bool keyed_hash:1;
@@ -138,28 +137,13 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline(JournalFile *f, bool wait);
-bool journal_file_is_offlining(JournalFile *f);
+int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
-
-int journal_file_open_reliably(
-                const char *fname,
-                int flags,
-                mode_t mode,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                JournalMetrics *metrics,
-                MMapCache *mmap_cache,
-                Set *deferred_closes,
-                JournalFile *template,
-                JournalFile **ret);
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
 #define VALID64(x) (((x) & 7ULL) == 0ULL)
@@ -245,8 +229,6 @@ void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
 int journal_file_archive(JournalFile *f);
-JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
-int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
 
 int journal_file_dispose(int dir_fd, const char *fname);
 

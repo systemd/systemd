@@ -7,6 +7,8 @@ sources = files('''
         journald-console.h
         journald-context.c
         journald-context.h
+        journald-file.c
+        journald-file.h
         journald-kmsg.c
         journald-kmsg.h
         journald-native.c
@@ -92,6 +94,26 @@ tests += [
          [libxz,
           liblz4,
           libselinux]],
+
+        [['src/journal/test-journal.c'],
+         [libjournal_core,
+          libshared]],
+
+        [['src/journal/test-journal-stream.c'],
+         [libjournal_core,
+          libshared]],
+
+         [['src/journal/test-journal-flush.c'],
+          [libjournal_core,
+           libshared]],
+
+        [['src/journal/test-journal-verify.c'],
+         [libjournal_core,
+          libshared]],
+
+        [['src/journal/test-journal-interleaving.c'],
+         [libjournal_core,
+          libshared]],
 ]
 
 fuzzers += [
