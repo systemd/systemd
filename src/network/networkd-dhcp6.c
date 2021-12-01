@@ -531,13 +531,20 @@ static int dhcp6_pd_get_preferred_prefix(
         }
 
         for (uint64_t n = 0; ; n++) {
+                /* If we do not have an allocation preference just iterate
+                 * through the address space and return the first free prefix. */
+
                 r = dhcp6_pd_calculate_prefix(pd_prefix, pd_prefix_len, n, &prefix);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
                                                       "Couldn't find a suitable prefix. Ran out of address space.");
 
-                /* If we do not have an allocation preference just iterate
-                 * through the address space and return the first free prefix. */
+                /* Do not use explicitly requested subnet IDs. Note that the corresponding link may not
+                 * appear yet. So, we need to check the ID is not used in any .network files. */
+                if (set_contains(link->manager->dhcp6_pd_subnet_ids, &n))
+                        continue;
+
+                /* Check that the prefix is not assigned to another link. */
                 if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix, &assigned_link) < 0 ||
                     assigned_link == link) {
                         *ret = prefix;
@@ -602,8 +609,7 @@ static int dhcp6_pd_distribute_prefix(
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
                 usec_t lifetime_preferred_usec,
-                usec_t lifetime_valid_usec,
-                bool assign_preferred_subnet_id) {
+                usec_t lifetime_valid_usec) {
 
         Link *link;
         int r;
@@ -624,9 +630,6 @@ static int dhcp6_pd_distribute_prefix(
                         continue;
 
                 if (link == dhcp6_link && !link->network->dhcp6_pd_assign)
-                        continue;
-
-                if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
 
                 r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
@@ -978,17 +981,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                                                &pd_prefix,
                                                pd_prefix_len,
                                                lifetime_preferred_usec,
-                                               lifetime_valid_usec,
-                                               true);
-                if (r < 0)
-                        return r;
-
-                r = dhcp6_pd_distribute_prefix(dhcp6_link,
-                                               &pd_prefix,
-                                               pd_prefix_len,
-                                               lifetime_preferred_usec,
-                                               lifetime_valid_usec,
-                                               false);
+                                               lifetime_valid_usec);
                 if (r < 0)
                         return r;
         }

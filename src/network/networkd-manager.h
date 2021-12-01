@@ -52,6 +52,7 @@ struct Manager {
         Hashmap *netdevs;
         OrderedHashmap *networks;
         OrderedSet *address_pools;
+        Set *dhcp6_pd_subnet_ids;
 
         usec_t network_dirs_ts_usec;
 
