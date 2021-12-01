@@ -74,3 +74,4 @@ Packages=
         less
         netcat
         e2fsprogs
+        compsize
