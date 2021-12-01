@@ -37,7 +37,10 @@ manager, please consider supporting the following interfaces.
    in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
-   mount some suitable TTY to `/dev/console`. Also, make sure to create device
+   mount some suitable TTY to `/dev/console`. If this is a pty, make sure to not
+   close the controling pty master during systemd's lifetime. PID1 will close ttys,
+   to avoid being killed by SAK. It only opens ttys for the time it
+   actually needs to print something. Also, make sure to create device
    nodes for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`,
    `/dev/urandom`, `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to
    create `/dev/fd` or `/dev/stdout`, as systemd will do that on its own. Make
