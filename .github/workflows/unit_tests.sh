@@ -29,6 +29,8 @@ function info() {
 
 set -ex
 
+MESON_ARGS=(-Dcryptolib=${CRYPTOLIB:-auto})
+
 for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
