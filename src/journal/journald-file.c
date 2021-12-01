@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
+
 #include "chattr-util.h"
+#include "copy.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
@@ -8,12 +11,15 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "sync-util.h"
 
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */
 static void journald_file_set_offline_internal(JournaldFile *f) {
+        int r;
+
         assert(f);
         assert(f->file->fd >= 0);
         assert(f->file->header);
@@ -43,6 +49,25 @@ static void journald_file_set_offline_internal(JournaldFile *f) {
 
                         f->file->header->state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
                         (void) fsync(f->file->fd);
+
+                        /* If we're on BTRFS, let's rewrite the journal file with COW enabled when archiving.
+                         * We're finished writing the file so COW won't impact write performance anymore and
+                         * COW provides many benefits such as checksumming and compression. */
+
+                        if (f->file->archive) {
+                                r = fd_is_fs_type(f->file->fd, BTRFS_SUPER_MAGIC);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if journal is on btrfs: %m");
+                                if (r <= 0)
+                                        continue;
+
+                                r = copy_file_atomic(f->file->path, f->file->path, f->file->mode, 0, FS_NOCOW_FL, COPY_REPLACE | COPY_FSYNC);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to rewrite %s: %m", f->file->path);
+                                        continue;
+                                }
+                        }
+
                         break;
 
                 case OFFLINE_OFFLINING:
