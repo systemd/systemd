@@ -1,6 +1,13 @@
 ---
 # vi: ts=2 sw=2 et:
 
+queries:
+  - include:
+      tags:
+        - "security"
+        - "correctness"
+      severity: "error"
+
 extraction:
   cpp:
     prepare:
