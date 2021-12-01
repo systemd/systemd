@@ -232,7 +232,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_archive(JournalFile *f);
+int journal_file_archive(JournalFile *f, char **ret_previous_path);
 
 int journal_file_dispose(int dir_fd, const char *fname);
 
