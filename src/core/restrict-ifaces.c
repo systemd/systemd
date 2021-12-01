@@ -66,41 +66,35 @@ static int prepare_restrict_ifaces_bpf(Unit* u, bool is_allow_list,
 
 int restrict_network_interfaces_supported(void) {
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
-        int r;
         static int supported = -1;
+        int r;
 
         if (supported >= 0)
                 return supported;
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0) {
-                log_warning_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-                supported = 0;
-                return supported;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
         if (r == 0) {
-                log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "Not running with unified cgroup hierarchy, BPF is not supported");
-                supported = 0;
-                return supported;
+                log_debug("Not running with unified cgroup hierarchy, BPF is not supported");
+                return supported = 0;
         }
 
         if (dlopen_bpf() < 0)
                 return false;
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*ifindex=*/0)) {
-                log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "BPF program type cgroup_skb is not supported");
-                supported = 0;
-                return supported;
+                log_debug("BPF program type cgroup_skb is not supported");
+                return supported = 0;
         }
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load BPF object: %m");
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load BPF object: %m");
+                return supported = 0;
+        }
 
-        supported = bpf_can_link_program(obj->progs.sd_restrictif_i);
-        return supported;
+        return supported = bpf_can_link_program(obj->progs.sd_restrictif_i);
 }
 
 static int restrict_network_interfaces_install_impl(Unit *u) {
