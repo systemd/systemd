@@ -2711,9 +2711,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
         values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
         search domains is enabled but no servers are specified, the servers configured in the uplink
-        interface will be emitted. When <literal>:auto</literal>, the link which has a default gateway
-        with the highest priority will be automatically selected. When <literal>:none</literal>, no
-        uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+        interface will be emitted. When <literal>:auto</literal>, the value specified to the same
+        setting in the [DHCPv6PrefixDelegation] section will be used if
+        <varname>DHCPv6PrefixDelegation=</varname> is enabled, otherwise the link which has a default
+        gateway with the highest priority will be automatically selected. When <literal>:none</literal>,
+        no uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -1452,7 +1452,7 @@ static bool dhcp6_pd_uplink_is_ready(Link *link) {
         return dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
 }
 
-static int dhcp6_pd_find_uplink(Link *link, Link **ret) {
+int dhcp6_pd_find_uplink(Link *link, Link **ret) {
         Link *l;
 
         assert(link);

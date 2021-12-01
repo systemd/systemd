@@ -410,6 +410,8 @@ set_domains:
 }
 
 static int radv_find_uplink(Link *link, Link **ret) {
+        int r;
+
         assert(link);
 
         if (link->network->router_uplink_name)
@@ -419,8 +421,12 @@ static int radv_find_uplink(Link *link, Link **ret) {
                 return link_get_by_index(link->manager, link->network->router_uplink_index, ret);
 
         if (link->network->router_uplink_index == UPLINK_INDEX_AUTO) {
-                /* It is not necessary to propagate error in automatic selection. */
-                if (manager_find_uplink(link->manager, AF_INET6, link, ret) < 0)
+                if (link_dhcp6_pd_is_enabled(link))
+                        r = dhcp6_pd_find_uplink(link, ret); /* When DHCPv6PD is enabled, use its uplink. */
+                else
+                        r = manager_find_uplink(link->manager, AF_INET6, link, ret);
+                if (r < 0)
+                        /* It is not necessary to propagate error in automatic selection. */
                         *ret = NULL;
                 return 0;
         }
