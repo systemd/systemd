@@ -382,19 +382,20 @@ int journald_file_rotate(
                 bool seal,
                 Set *deferred_closes) {
 
+        _cleanup_free_ char *path = NULL;
         JournaldFile *new_file = NULL;
         int r;
 
         assert(f);
         assert(*f);
 
-        r = journal_file_archive((*f)->file);
+        r = journal_file_archive((*f)->file, &path);
         if (r < 0)
                 return r;
 
         r = journald_file_open(
                         -1,
-                        (*f)->file->path,
+                        path,
                         (*f)->file->flags,
                         (*f)->file->mode,
                         compress,

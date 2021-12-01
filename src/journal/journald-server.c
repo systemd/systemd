@@ -602,7 +602,7 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 TAKE_FD(fd); /* Donated to journald_file_open() */
 
-                r = journal_file_archive(f->file);
+                r = journal_file_archive(f->file, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
 
