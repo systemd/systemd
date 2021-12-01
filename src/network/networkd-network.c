@@ -643,12 +643,38 @@ int network_reload(Manager *manager) {
         ordered_hashmap_free_with_destructor(manager->networks, network_unref);
         manager->networks = new_networks;
 
-        return 0;
+        return manager_build_dhcp6_pd_subnet_ids(manager);
 
 failure:
         ordered_hashmap_free_with_destructor(new_networks, network_unref);
 
         return r;
+}
+
+int manager_build_dhcp6_pd_subnet_ids(Manager *manager) {
+        Network *n;
+        int r;
+
+        assert(manager);
+
+        set_clear(manager->dhcp6_pd_subnet_ids);
+
+        ORDERED_HASHMAP_FOREACH(n, manager->networks) {
+                if (n->unmanaged)
+                        continue;
+
+                if (!n->dhcp6_pd)
+                        continue;
+
+                if (n->dhcp6_pd_subnet_id < 0)
+                        continue;
+
+                r = set_ensure_put(&manager->dhcp6_pd_subnet_ids, &uint64_hash_ops, &n->dhcp6_pd_subnet_id);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static Network *network_free(Network *network) {

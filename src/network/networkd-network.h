@@ -365,6 +365,8 @@ int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
 
+int manager_build_dhcp6_pd_subnet_ids(Manager *manager);
+
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 void network_apply_anonymize_if_set(Network *network);
 
