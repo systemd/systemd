@@ -42,25 +42,28 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         return link->network->dhcp6_pd;
 }
 
-static int dhcp6_pd_resolve_uplink(Link *link, Link **ret) {
+static bool dhcp6_pd_is_uplink(Link *link, Link *target, bool accept_auto) {
+        assert(link);
+        assert(target);
+
+        if (!link_dhcp6_pd_is_enabled(link))
+                return false;
+
         if (link->network->dhcp6_pd_uplink_name)
-                return link_get_by_name(link->manager, link->network->dhcp6_pd_uplink_name, ret);
+                return streq_ptr(target->ifname, link->network->dhcp6_pd_uplink_name) ||
+                        strv_contains(target->alternative_names, link->network->dhcp6_pd_uplink_name);
 
         if (link->network->dhcp6_pd_uplink_index > 0)
-                return link_get_by_index(link->manager, link->network->dhcp6_pd_uplink_index, ret);
+                return target->ifindex == link->network->dhcp6_pd_uplink_index;
 
-        if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF) {
-                *ret = link;
-                return 0;
-        }
+        if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF)
+                return link == target;
 
         assert(link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_AUTO);
-        return -ENOENT;
+        return accept_auto;
 }
 
 static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
-        Link *uplink;
-
         assert(link);
 
         if (!link->network)
@@ -70,14 +73,12 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
         if (link->network->dhcp6_client_start_mode >= 0)
                 return link->network->dhcp6_client_start_mode;
 
-        if (!link_dhcp6_pd_is_enabled(link))
-                return DHCP6_CLIENT_START_MODE_NO;
+        /* When this interface itself is an uplink interface, then start dhcp6 client in managed mode. */
+        if (dhcp6_pd_is_uplink(link, link, /* accept_auto = */ false))
+                return DHCP6_CLIENT_START_MODE_SOLICIT;
 
-        if (dhcp6_pd_resolve_uplink(link, &uplink) < 0)
-                return DHCP6_CLIENT_START_MODE_NO;
-
-        /* When this interface itself is an uplink interface, then start dhcp6 client in managed mode */
-        return uplink == link ? DHCP6_CLIENT_START_MODE_SOLICIT : DHCP6_CLIENT_START_MODE_NO;
+        /* Otherwise, start dhcp6 client when RA is received. */
+        return DHCP6_CLIENT_START_MODE_NO;
 }
 
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
@@ -613,12 +614,10 @@ static int dhcp6_pd_distribute_prefix(
         assert(pd_prefix_len <= 64);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                Link *uplink;
-
                 if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
-                if (!link_dhcp6_pd_is_enabled(link))
+                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
                         continue;
 
                 if (link->network->dhcp6_pd_announce && !link->radv)
@@ -629,15 +628,6 @@ static int dhcp6_pd_distribute_prefix(
 
                 if (assign_preferred_subnet_id != link_has_preferred_subnet_id(link))
                         continue;
-
-                r = dhcp6_pd_resolve_uplink(link, &uplink);
-                if (r != -ENOENT) {
-                        if (r < 0) /* The uplink interface does not exist yet. */
-                                continue;
-
-                        if (uplink != dhcp6_link)
-                                continue;
-                }
 
                 r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0) {
@@ -1456,27 +1446,37 @@ static bool dhcp6_pd_uplink_is_ready(Link *link) {
 }
 
 int dhcp6_pd_find_uplink(Link *link, Link **ret) {
-        Link *l;
+        Link *uplink = NULL;
+        int r = 0;
 
         assert(link);
         assert(link->manager);
-        assert(link->network);
+        assert(link_dhcp6_pd_is_enabled(link));
         assert(ret);
 
-        if (dhcp6_pd_resolve_uplink(link, &l) >= 0) {
-                if (!dhcp6_pd_uplink_is_ready(l))
+        if (link->network->dhcp6_pd_uplink_name)
+                r = link_get_by_name(link->manager, link->network->dhcp6_pd_uplink_name, &uplink);
+        else if (link->network->dhcp6_pd_uplink_index > 0)
+                r = link_get_by_index(link->manager, link->network->dhcp6_pd_uplink_index, &uplink);
+        else if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF)
+                uplink = link;
+        if (r < 0)
+                return r;
+
+        if (uplink) {
+                if (!dhcp6_pd_uplink_is_ready(uplink))
                         return -EBUSY;
 
-                *ret = l;
+                *ret = uplink;
                 return 0;
         }
 
-        HASHMAP_FOREACH(l, link->manager->links_by_index) {
-                if (!dhcp6_pd_uplink_is_ready(l))
+        HASHMAP_FOREACH(uplink, link->manager->links_by_index) {
+                if (!dhcp6_pd_uplink_is_ready(uplink))
                         continue;
 
                 /* Assume that there exists at most one link which acquired delegated prefixes. */
-                *ret = l;
+                *ret = uplink;
                 return 0;
         }
 
