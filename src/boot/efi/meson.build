@@ -28,7 +28,7 @@ if efi_arch.length() == 0
         if get_option('gnu-efi') == 'true'
                 error('gnu-efi support requested, but headers not found or efi arch is unknown')
         endif
-        warning('gnu-efi headers not found or efi arch is unkown, disabling gnu-efi support')
+        warning('gnu-efi headers not found or efi arch is unknown, disabling gnu-efi support')
         subdir_done()
 endif
 
