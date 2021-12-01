@@ -18,6 +18,7 @@ typedef struct Request Request;
 
 bool link_dhcp6_with_address_enabled(Link *link);
 bool link_dhcp6_pd_is_enabled(Link *link);
+int dhcp6_pd_find_uplink(Link *link, Link **ret);
 int dhcp6_pd_remove(Link *link, bool only_marked);
 int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
