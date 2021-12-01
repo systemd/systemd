@@ -11,7 +11,6 @@
 Description=Flush Journal to Persistent Storage
 Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 DefaultDependencies=no
-Requires=systemd-journald.service
 After=systemd-journald.service systemd-remount-fs.service
 Before=systemd-tmpfiles-setup.service
 RequiresMountsFor=/var/log/journal
