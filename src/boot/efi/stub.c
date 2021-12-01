@@ -187,7 +187,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
         _cleanup_freepool_ void *sysext_initrd = NULL;
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_root = NULL;
-        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *initrd_dropin_dir = NULL;
+        _cleanup_freepool_ CHAR16 *initrd_dropin_dir = NULL;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -240,10 +240,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         loaded_image_root = LibOpenRoot(loaded_image->DeviceHandle);
         if (!loaded_image_root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
-        initrd_dropin_dir = PoolPrint(L"%s.extra.d", loaded_image_path);
+        initrd_dropin_dir = PoolPrint(L"%D.extra.d", loaded_image->FilePath);
         if (!initrd_dropin_dir)
                 return log_oom();
 
