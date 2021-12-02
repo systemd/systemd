@@ -7,6 +7,9 @@ typedef struct Wireguard Wireguard;
 #include <netinet/in.h>
 #include <linux/wireguard.h>
 
+#include "sd-event.h"
+#include "sd-resolve.h"
+
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "socket-util.h"
@@ -33,6 +36,10 @@ typedef struct WireguardPeer {
         char *endpoint_host;
         char *endpoint_port;
 
+        unsigned n_retries;
+        sd_event_source *resolve_retry_event_source;
+        sd_resolve_query *resolve_query;
+
         uint32_t route_table;
         uint32_t route_priority;
         bool route_table_set;
@@ -53,13 +60,7 @@ struct Wireguard {
         uint32_t fwmark;
 
         Hashmap *peers_by_section;
-        Set *peers_with_unresolved_endpoint;
-        Set *peers_with_failed_endpoint;
-
         LIST_HEAD(WireguardPeer, peers);
-
-        unsigned n_retries;
-        sd_event_source *resolve_retry_event_source;
 
         Set *routes;
         uint32_t route_table;
