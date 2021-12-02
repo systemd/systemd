@@ -4770,7 +4770,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
 }
 
 int unit_fail_if_noncanonical(Unit *u, const char* where) {
-        _cleanup_free_ char *canonical_where = NULL;
+        _cleanup_free_ char *canonical_where;
         int r;
 
         assert(u);
