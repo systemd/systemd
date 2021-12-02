@@ -106,6 +106,7 @@ EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UIN
 EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
 UINTN strnlena(const CHAR8 *p, UINTN maxlen);
+INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen);
 CHAR8 *strndup8(const CHAR8 *p, UINTN sz);
 
 BOOLEAN is_ascii(const CHAR16 *f);
