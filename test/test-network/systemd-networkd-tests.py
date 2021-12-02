@@ -506,6 +506,10 @@ def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200'
     dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile={dnsmasq_lease_file} --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
+def start_dnsmasq_dns(additional_options=''):
+    dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer -R --bind-interfaces --port=9953 ' + additional_options
+    check_output(dnsmasq_command)
+
 def stop_by_pid_file(pid_file):
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
@@ -1049,6 +1053,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'macvtap.network',
         'netdev-link-local-addressing-yes.network',
         'sit.network',
+        'veth-dnsmasq-client.network',
+        'veth-dnsmasq-server.network',
         'vti6.network',
         'vti.network',
         'vxlan-ipv6.network',
@@ -1062,12 +1068,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '55556']
 
     def setUp(self):
+        stop_dnsmasq()
+        remove_dnsmasq_log_file()
         remove_fou_ports(self.fou_ports)
         remove_links(self.links_remove_earlier)
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
+        stop_dnsmasq()
+        remove_dnsmasq_log_file()
         remove_fou_ports(self.fou_ports)
         remove_links(self.links_remove_earlier)
         remove_links(self.links)
@@ -1367,8 +1377,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-wireguard.netdev', '25-wireguard.network',
                                         '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
                                         '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
-                                        '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
+                                        '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network',
+                                        '25-veth.netdev', 'veth-dnsmasq-client.network', 'veth-dnsmasq-server.network')
         start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        start_dnsmasq_dns('--address=/wireguard.example.com/192.168.27.3')
         self.wait_online(['wg99:routable', 'wg98:routable', 'wg97:carrier'])
 
         output = check_output('ip -4 address show dev wg99')
@@ -1441,6 +1454,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('fd8d:4d6d:3ccb:f349:c4f0:10c1::/96 proto static metric 123 pref medium', output)
 
         if shutil.which('wg'):
+            for i in range(20):
+                if i > 0:
+                    time.sleep(1)
+                output = check_output('wg show wg99 endpoints')
+                if 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820' in output:
+                    break
+
             call('wg')
 
             output = check_output('wg show wg99 listen-port')
@@ -1477,6 +1497,19 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertEqual(output, '51821')
             output = check_output('wg show wg97 fwmark')
             self.assertEqual(output, '0x4d3')
+
+            stop_dnsmasq()
+            start_dnsmasq_dns('--address=/wireguard.example.com/192.168.27.4')
+            check_output(*resolvectl_cmd, 'flush-caches', env=env)
+
+            for i in range(20):
+                if i > 0:
+                    time.sleep(3)
+                output = check_output('wg show wg99 endpoints')
+                if 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.4:51820' in output:
+                    break
+
+            self.assertIn('RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.4:51820', output)
 
     def test_geneve(self):
         copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
