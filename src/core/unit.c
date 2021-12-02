@@ -2228,6 +2228,7 @@ void unit_start_on_failure(
                         logged = true;
                 }
 
+                other->triggered_by = u;
                 r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(

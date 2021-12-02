@@ -94,8 +94,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
-        [UNIT_ON_SUCCESS_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS,
-        [UNIT_ON_FAILURE_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS,
         [UNIT_JOINS_NAMESPACE_OF]     = UNIT_ATOM_JOINS_NAMESPACE_OF,
         [UNIT_REFERENCES]             = UNIT_ATOM_REFERENCES,
         [UNIT_REFERENCED_BY]          = UNIT_ATOM_REFERENCED_BY,
@@ -105,6 +103,8 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         /* These are dependency types without effect on our state engine. We maintain them only to make
          * things discoverable/debuggable as they are the inverse dependencies to some of the above. As they
          * have no effect of their own, they all map to no atoms at all, i.e. the value 0. */
+        [UNIT_ON_SUCCESS_OF]          = 0,
+        [UNIT_ON_FAILURE_OF]          = 0,
         [UNIT_RELOAD_PROPAGATED_FROM] = 0,
         [UNIT_STOP_PROPAGATED_FROM]   = 0,
 };

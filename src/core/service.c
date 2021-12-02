@@ -1440,32 +1440,6 @@ static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
         return s->notify_access != NOTIFY_NONE;
 }
 
-static Service *service_get_triggering_service(Service *s) {
-        assert(s);
-
-        /* Return the service which triggered service 's', this means dependency
-         * types which include the UNIT_ATOM_PROPAGATE_EXIT_STATUS atom.
-         *
-         * N.B. if there are multiple services which could trigger 's' via OnFailure=
-         * or OnSuccess= then we return NULL. This is since we don't know from which
-         * one to propagate the exit status.
-         */
-
-        Unit *candidate = NULL, *other;
-
-        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_PROPAGATE_EXIT_STATUS) {
-                assert(other->type == UNIT_SERVICE);
-
-                if (candidate) {
-                        log_unit_debug(UNIT(s), "multiple trigger source candidates for exit status propagation");
-                        return NULL;
-                } else
-                        candidate = other;
-        }
-
-        return SERVICE(candidate);
-}
-
 static int service_spawn(
                 Service *s,
                 ExecCommand *c,
@@ -1592,8 +1566,8 @@ static int service_spawn(
                 static const char *monitor_prefix = "MONITOR_";
                 Service *env_source;
 
-                if (flags & EXEC_SETENV_MONITOR_RESULT)
-                        env_source = service_get_triggering_service(s);
+                if (flags & EXEC_SETENV_MONITOR_RESULT) {
+                        env_source = SERVICE(UNIT(s)->triggered_by);
                 else
                         env_source = s;
 
