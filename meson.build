@@ -992,8 +992,17 @@ conf.set10('HAVE_LIBBPF', libbpf.found())
 if want_bpf_framework == 'false'
         conf.set10('BPF_FRAMEWORK', 0)
 else
-        clang = find_program('clang', required : bpf_framework_required)
-        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
+        # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
+        # (like clang-10/llvm-strip-10)
+        clang_bin = cc.get_id() == 'clang' ? cc.cmd_array()[0] : 'clang'
+        clang = find_program(clang_bin, required : bpf_framework_required)
+        if clang.found()
+                llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
+                                             check : true).stdout().strip()
+        else
+                llvm_strip_bin = 'llvm-strip'
+        endif
+        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
 
         # Debian installs this in /usr/sbin/ which is not in $PATH.
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
