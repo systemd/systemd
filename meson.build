@@ -3923,7 +3923,7 @@ foreach tuple : [
         # components
         ['backlight'],
         ['binfmt'],
-        ['bpf-framework'],
+        ['bpf-framework',         conf.get('BPF_FRAMEWORK') == 1],
         ['coredump'],
         ['environment.d'],
         ['efi'],
@@ -3984,7 +3984,7 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['debug siphash'],
-        ['valgrind'],
+        ['valgrind',              conf.get('VALGRIND') == 1],
         ['trace logging',         conf.get('LOG_TRACE') == 1],
         ['install tests',         install_tests],
         ['link-udev-shared',      get_option('link-udev-shared')],
