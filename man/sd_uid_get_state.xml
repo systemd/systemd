@@ -101,7 +101,7 @@
     <parameter>require_active</parameter> parameter controls whether
     the returned list shall consist of only those sessions where the
     user is currently active (&gt; 0), where the user is currently
-    online but possibly inactive (= 0), or logged in at all but
+    online but possibly inactive (= 0), or logged in but
     possibly closing the session (&lt; 0). The call returns a
     <constant>NULL</constant> terminated string array of session
     identifiers in <parameter>sessions</parameter> which needs to be
