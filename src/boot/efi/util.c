@@ -649,6 +649,27 @@ UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
         return c;
 }
 
+INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
+        if (!a || !b)
+                return CMP(a, b);
+
+        while (maxlen > 0) {
+                CHAR8 ca = *a, cb = *b;
+                if (ca >= 'A' && ca <= 'Z')
+                        ca += 'a' - 'A';
+                if (cb >= 'A' && cb <= 'Z')
+                        cb += 'a' - 'A';
+                if (!ca || ca != cb)
+                        return ca - cb;
+
+                a++;
+                b++;
+                maxlen--;
+        }
+
+        return 0;
+}
+
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
         CHAR8 *n;
 
