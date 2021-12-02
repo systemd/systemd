@@ -1448,9 +1448,25 @@ else
 endif
 conf.set10('HAVE_DBUS', have)
 
+# We support one or the other. If gcrypt is available, we assume it's there to
+# be used, and use it in preference.
+opt = get_option('cryptolib')
+if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
+        error('openssl requested as the default cryptolib, but not available')
+endif
+conf.set10('PREFER_OPENSSL',
+           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
+conf.set10('HAVE_OPENSSL_OR_GCRYPT',
+           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
+lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
+
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
-        if dns_over_tls == 'openssl'
+        if dns_over_tls == 'gnutls' and conf.get('PREFER_OPENSSL') == 1
+                error('Sorry, -Ddns-over-tls=gnutls is not supported when openssl is used as the cryptolib')
+        endif
+
+        if dns_over_tls == 'openssl' or conf.get('PREFER_OPENSSL') == 1
                 have_gnutls = false
         else
                 have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0'))
@@ -1510,18 +1526,6 @@ else
         have = false
 endif
 conf.set10('ENABLE_REPART', have)
-
-# We support one or the other. If gcrypt is available, we assume it's there to
-# be used, and use it in preference.
-opt = get_option('cryptolib')
-if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
-        error('openssl requested as the default cryptolib, but not available')
-endif
-conf.set10('PREFER_OPENSSL',
-           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
-conf.set10('HAVE_OPENSSL_OR_GCRYPT',
-           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
-lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
 
 default_dnssec = get_option('default-dnssec')
 if skip_deps
