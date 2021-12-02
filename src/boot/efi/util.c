@@ -505,20 +505,6 @@ EFI_STATUS log_oom(void) {
         return EFI_OUT_OF_RESOURCES;
 }
 
-void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
-        assert(haystack || haystack_len == 0);
-        assert(needle || needle_len == 0);
-
-        if (needle_len == 0)
-                return (void*)haystack;
-
-        for (const CHAR8 *h = haystack, *n = needle; haystack_len >= needle_len; h++, haystack_len--)
-                if (*h == *n && CompareMem(h + 1, n + 1, needle_len - 1) == 0)
-                        return (void*)h;
-
-        return NULL;
-}
-
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
         assert(str);
         ST->ConOut->SetCursorPosition(ST->ConOut, x, y);
