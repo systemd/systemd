@@ -100,6 +100,7 @@ if efi_lds == ''
 endif
 
 efi_headers = files('''
+        bcd.h
         console.h
         cpio.h
         devicetree.h
@@ -129,6 +130,7 @@ common_sources = '''
 '''.split()
 
 systemd_boot_sources = '''
+        bcd.c
         boot.c
         console.c
         drivers.c
