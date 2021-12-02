@@ -84,4 +84,7 @@ ENV{ID_MAKER_TOOL}=="?*", TAG+="uaccess"
 # Protocol analyzers
 ENV{ID_SIGNAL_ANALYZER}=="?*", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"
 
+# rfkill / radio killswitches
+KERNEL=="rfkill", SUBSYSTEM=="misc", TAG+="uaccess"
+
 LABEL="uaccess_end"
