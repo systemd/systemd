@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "chattr-util.h"
+#include "copy.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
@@ -11,6 +12,7 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "sync-util.h"
 
 static int journald_file_truncate(JournalFile *f) {
@@ -120,6 +122,8 @@ static int journald_file_punch_holes(JournalFile *f) {
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */
 static void journald_file_set_offline_internal(JournaldFile *f) {
+        int r;
+
         assert(f);
         assert(f->file->fd >= 0);
         assert(f->file->header);
@@ -154,6 +158,28 @@ static void journald_file_set_offline_internal(JournaldFile *f) {
 
                         f->file->header->state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
                         (void) fsync(f->file->fd);
+
+                        /* If we've archived the journal file, first try to re-enable COW on the file. If the
+                         * FS_NOCOW_FL flag was never set or we succesfully removed it, continue. If we fail
+                         * to remove the flag on the archived file, rewrite the file without the NOCOW flag.
+                         * We need this fallback because on some filesystems (BTRFS), the NOCOW flag cannot
+                         * be removed after data has been written to a file. The only way to remove it is to
+                         * copy all data to a new file without the NOCOW flag set. */
+
+                        if (f->file->archive) {
+                                r = chattr_fd(f->file->fd, 0, FS_NOCOW_FL, NULL);
+                                if (r >= 0)
+                                        continue;
+
+                                log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->file->path);
+
+                                r = copy_file_atomic(f->file->path, f->file->path, f->file->mode, 0, FS_NOCOW_FL, COPY_REPLACE | COPY_FSYNC);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to rewrite %s: %m", f->file->path);
+                                        continue;
+                                }
+                        }
+
                         break;
 
                 case OFFLINE_OFFLINING:

@@ -220,18 +220,6 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (f->mmap && f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
-        if (f->fd >= 0 && f->defrag_on_close) {
-
-                /* Be friendly to btrfs: turn COW back on again now,
-                 * and defragment the file. We won't write to the file
-                 * ever again, hence remove all fragmentation, and
-                 * reenable all the good bits COW usually provides
-                 * (such as data checksumming). */
-
-                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
-                (void) btrfs_defrag_fd(f->fd);
-        }
-
         if (f->close_fd)
                 safe_close(f->fd);
         free(f->path);
@@ -3566,16 +3554,11 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
          * occurs. */
         f->archive = true;
 
-        /* Currently, btrfs is not very good with out write patterns and fragments heavily. Let's defrag our journal
-         * files when we archive them */
-        f->defrag_on_close = true;
-
         return 0;
 }
 
 int journal_file_dispose(int dir_fd, const char *fname) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -1;
 
         assert(fname);
 
@@ -3595,15 +3578,6 @@ int journal_file_dispose(int dir_fd, const char *fname) {
 
         if (renameat(dir_fd, fname, dir_fd, p) < 0)
                 return -errno;
-
-        /* btrfs doesn't cope well with our write pattern and fragments heavily. Let's defrag all files we rotate */
-        fd = openat(dir_fd, p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                log_debug_errno(errno, "Failed to open file for defragmentation/FS_NOCOW_FL, ignoring: %m");
-        else {
-                (void) chattr_fd(fd, 0, FS_NOCOW_FL, NULL);
-                (void) btrfs_defrag_fd(fd);
-        }
 
         return 0;
 }
