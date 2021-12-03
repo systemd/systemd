@@ -317,7 +317,7 @@ static EFI_STATUS pack_cpio_trailer(
 
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *global_dropin_dir,
+                const CHAR16 *dropin_dir,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -345,15 +345,14 @@ EFI_STATUS pack_cpio(
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
 
-        if (!global_dropin_dir) {
+        if (!dropin_dir) {
                 rel_dropin_dir = PoolPrint(L"%D.extra.d", loaded_image->FilePath);
                 if (!rel_dropin_dir)
                         return log_oom();
-                err = open_directory(root, rel_dropin_dir, &extra_dir);
-        } else {
-                err = open_directory(root, global_dropin_dir, &extra_dir);
+                dropin_dir = rel_dropin_dir;
         }
 
+        err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;
