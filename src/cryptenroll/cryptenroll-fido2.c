@@ -64,7 +64,7 @@ int enroll_fido2(
                         base64_encoded,
                         strlen(base64_encoded));
         if (keyslot < 0)
-                return log_error_errno(keyslot, "Failed to add new PKCS#11 key to %s: %m", node);
+                return log_error_errno(keyslot, "Failed to add new FIDO2 key to %s: %m", node);
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return log_oom();
@@ -77,7 +77,7 @@ int enroll_fido2(
                                        JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
                                        JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_STRING("io.systemd.cryptsetup"))));
         if (r < 0)
-                return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
+                return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m");
 
         r = cryptsetup_add_token_json(cd, v);
         if (r < 0)
