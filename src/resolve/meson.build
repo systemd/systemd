@@ -177,7 +177,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm]],
 
@@ -185,7 +184,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm]],
 
@@ -195,7 +193,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm]],
 
@@ -203,7 +200,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm]],
 
@@ -211,7 +207,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm],
          [], 'HAVE_OPENSSL_OR_GCRYPT'],
@@ -220,7 +215,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm],
          [], '', 'manual'],
@@ -231,7 +225,6 @@ fuzzers += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgcrypt,
           libgpg_error,
           libm]],
 ]
