@@ -11,9 +11,9 @@
 #include "errno-util.h"
 #include "macro.h"
 
-/* 4MB for contents of regular files, 64k inodes for directories, symbolic links and device specials, using
+/* 4MB for contents of regular files, 128k inodes for directories, symbolic links and device specials, using
  * large storage array systems as a baseline */
-#define TMPFS_LIMITS_DEV             ",size=4m,nr_inodes=64k"
+#define TMPFS_LIMITS_DEV             ",size=4m,nr_inodes=128k"
 
 /* Very little, if any use expected */
 #define TMPFS_LIMITS_EMPTY_OR_ALMOST ",size=4m,nr_inodes=1k"
