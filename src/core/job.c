@@ -889,8 +889,8 @@ int job_run_and_invalidate(Job *j) {
                         job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
                 else if (r == -EALREADY) /* already being executed */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, true);
-                else if (r == -ECOMM)    /* condition failed, but all is good */
-                        r = job_finish_and_invalidate(j, JOB_DONE, true, false);
+                else if (r == -ECOMM)    /* condition failed, but all is good. Return 'skip' if caller requested it. */
+                        r = job_finish_and_invalidate(j, j->return_skip_on_cond_failure ? JOB_SKIPPED : JOB_DONE, true, false);
                 else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
                 else if (r == -ENOEXEC)
