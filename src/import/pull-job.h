@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <gcrypt.h>
 #include <sys/stat.h>
 
 #include "curl-util.h"
 #include "import-compress.h"
 #include "macro.h"
+#include "openssl-util.h"
 #include "pull-common.h"
 
 typedef struct PullJob PullJob;
@@ -74,7 +74,7 @@ struct PullJob {
         usec_t last_status_usec;
 
         bool calc_checksum;
-        gcry_md_hd_t checksum_context;
+        hash_context_t checksum_ctx;
 
         char *checksum;
         bool sync;

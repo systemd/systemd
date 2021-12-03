@@ -12,9 +12,6 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include <openssl/hmac.h>
-#include <openssl/sha.h>
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -38,6 +35,7 @@
 #include "glyph-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
+#include "hmac.h"
 #include "id128-util.h"
 #include "json.h"
 #include "list.h"
@@ -1519,7 +1517,7 @@ static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id
 
 static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         union {
-                unsigned char md[SHA256_DIGEST_LENGTH];
+                uint8_t md[SHA256_DIGEST_SIZE];
                 sd_id128_t id;
         } result;
 
@@ -1531,11 +1529,7 @@ static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
          * machine ID). We use the machine ID as key (and not as cleartext!) of the HMAC operation since it's
          * the machine ID we don't want to leak. */
 
-        if (!HMAC(EVP_sha256(),
-                  &base, sizeof(base),
-                  (const unsigned char*) token, strlen(token),
-                  result.md, NULL))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "HMAC-SHA256 calculation failed.");
+        hmac_sha256(base.bytes, sizeof(base.bytes), token, strlen(token), result.md);
 
         /* Take the first half, mark it as v4 UUID */
         assert_cc(sizeof(result.md) == sizeof(result.id) * 2);
@@ -3067,7 +3061,7 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
                 uint64_t counter;
         } _packed_  plaintext = {};
         union {
-                unsigned char md[SHA256_DIGEST_LENGTH];
+                uint8_t md[SHA256_DIGEST_SIZE];
                 sd_id128_t id;
         } result;
 
@@ -3111,11 +3105,10 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
         plaintext.type_uuid = p->type_uuid;
         plaintext.counter = htole64(k);
 
-        if (!HMAC(EVP_sha256(),
-                  &context->seed, sizeof(context->seed),
-                  (const unsigned char*) &plaintext, k == 0 ? sizeof(sd_id128_t) : sizeof(plaintext),
-                  result.md, NULL))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "SHA256 calculation failed.");
+        hmac_sha256(context->seed.bytes, sizeof(context->seed.bytes),
+                    &plaintext,
+                    k == 0 ? sizeof(sd_id128_t) : sizeof(plaintext),
+                    result.md);
 
         /* Take the first half, mark it as v4 UUID */
         assert_cc(sizeof(result.md) == sizeof(result.id) * 2);
