@@ -1959,7 +1959,7 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
                                 const statfs_f_type_t *magic;
                                 bool is_primary = false;
 
-                                assert(fs_type_from_string(*filesystem, &magic) >= 0);
+                                assert_se(fs_type_from_string(*filesystem, &magic) >= 0);
 
                                 for (size_t i = 0; magic[i] != 0; i++) {
                                         const char *primary;
