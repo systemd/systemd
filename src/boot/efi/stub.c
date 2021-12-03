@@ -289,20 +289,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         return err;
 
                 /* Given these might be large let's free them explicitly, quickly. */
-                if (credential_initrd) {
-                        FreePool(credential_initrd);
-                        credential_initrd = NULL;
-                }
-
-                if (global_credential_initrd) {
-                        FreePool(global_credential_initrd);
-                        global_credential_initrd = NULL;
-                }
-
-                if (sysext_initrd) {
-                        FreePool(sysext_initrd);
-                        sysext_initrd = NULL;
-                }
+                credential_initrd = mfree(credential_initrd);
+                global_credential_initrd = mfree(global_credential_initrd);
+                sysext_initrd = mfree(sysext_initrd);
         }
 
         if (dt_size > 0) {
