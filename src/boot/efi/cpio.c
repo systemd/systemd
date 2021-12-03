@@ -345,7 +345,7 @@ EFI_STATUS pack_cpio(
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
 
-        if (!global_extra_dir) {
+        if (!global_dropin_dir) {
                 rel_dropin_dir = PoolPrint(L"%D.extra.d", loaded_image->FilePath);
                 if (!rel_dropin_dir)
                         return log_oom();
