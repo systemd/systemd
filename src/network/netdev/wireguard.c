@@ -365,8 +365,10 @@ static int wireguard_peer_resolve_handler(
                         if (ai->ai_addrlen != (ai->ai_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)))
                                 continue;
 
-                        memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
-                        (void) wireguard_set_interface(netdev);
+                        if (memcmp(&peer->endpoint, ai->ai_addr, ai->ai_addrlen) != 0) {
+                                memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
+                                (void) wireguard_set_interface(netdev);
+                        }
                         peer->n_retries = 0;
                         found = true;
                         break;
