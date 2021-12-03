@@ -316,8 +316,8 @@ static EFI_STATUS pack_cpio_trailer(
 }
 
 EFI_STATUS pack_cpio(
-                EFI_FILE_HANDLE root,
-                const CHAR16 *source_dir_path,
+                EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *global_dropin_dir,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -327,21 +327,33 @@ EFI_STATUS pack_cpio(
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE extra_dir = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
+        _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
 
-        assert(root);
-        assert(source_dir_path);
+        assert(loaded_image);
         assert(target_dir_prefix);
         assert(ret_buffer);
         assert(ret_buffer_size);
 
-        err = open_directory(root, source_dir_path, &extra_dir);
+        root = LibOpenRoot(loaded_image->DeviceHandle);
+        if (!root)
+                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
+
+        if (!global_extra_dir) {
+                rel_dropin_dir = PoolPrint(L"%D.extra.d", loaded_image->FilePath);
+                if (!rel_dropin_dir)
+                        return log_oom();
+                err = open_directory(root, rel_dropin_dir, &extra_dir);
+        } else {
+                err = open_directory(root, global_dropin_dir, &extra_dir);
+        }
+
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;

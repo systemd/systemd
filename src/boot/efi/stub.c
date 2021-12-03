@@ -176,6 +176,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         };
 
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
+        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
+        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
+        _cleanup_freepool_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE *loaded_image;
@@ -183,11 +186,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
         _cleanup_freepool_ CHAR8 *cmdline_owned = NULL;
-        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
-        _cleanup_freepool_ void *sysext_initrd = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_root = NULL;
-        _cleanup_freepool_ CHAR16 *initrd_dropin_dir = NULL;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -237,15 +235,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image);
 
-        loaded_image_root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!loaded_image_root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
-        initrd_dropin_dir = PoolPrint(L"%D.extra.d", loaded_image->FilePath);
-        if (!initrd_dropin_dir)
-                return log_oom();
-
-        (void) pack_cpio(loaded_image_root,
-                         initrd_dropin_dir,
+        (void) pack_cpio(loaded_image,
+                         NULL,
                          L".cred",
                          (const CHAR8*) ".extra/credentials",
                          /* dir_mode= */ 0500,
@@ -255,7 +246,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &credential_initrd,
                          &credential_initrd_size);
 
-        (void) pack_cpio(loaded_image_root,
+        (void) pack_cpio(loaded_image,
                          L"\\loader\\credentials",
                          L".cred",
                          (const CHAR8*) ".extra/credentials",
@@ -266,8 +257,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &global_credential_initrd,
                          &global_credential_initrd_size);
 
-        (void) pack_cpio(loaded_image_root,
-                         initrd_dropin_dir,
+        (void) pack_cpio(loaded_image,
+                         NULL,
                          L".raw",
                          (const CHAR8*) ".extra/sysext",
                          /* dir_mode= */ 0555,
