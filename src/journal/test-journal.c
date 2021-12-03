@@ -6,7 +6,7 @@
 #include "chattr-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
-#include "journal-file.h"
+#include "journald-file.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
@@ -25,7 +25,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 
 static void test_non_empty(void) {
         dual_timestamp ts;
-        JournalFile *f;
+        JournaldFile *f;
         struct iovec iovec;
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
@@ -37,71 +37,71 @@ static void test_non_empty(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
-        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec = IOVEC_MAKE_STRING(test2);
-        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
-        assert_se(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
-        journal_file_append_tag(f);
+        journal_file_append_tag(f->file);
 #endif
-        journal_file_dump(f);
+        journal_file_dump(f->file);
 
-        assert_se(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
         assert_se(sd_id128_equal(o->entry.boot_id, fake_boot_id));
 
-        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 0);
+        assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 0);
 
-        assert_se(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_find_data_object(f, test, strlen(test), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_find_data_object(f->file, test, strlen(test), NULL, &p) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
 
-        assert_se(journal_file_find_data_object(f, test2, strlen(test2), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), NULL, &p) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_find_data_object(f, "quux", 4, NULL, &p) == 0);
+        assert_se(journal_file_find_data_object(f->file, "quux", 4, NULL, &p) == 0);
 
-        assert_se(journal_file_move_to_entry_by_seqnum(f, 1, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_move_to_entry_by_seqnum(f->file, 1, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_move_to_entry_by_seqnum(f, 3, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_move_to_entry_by_seqnum(f->file, 3, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
 
-        assert_se(journal_file_move_to_entry_by_seqnum(f, 2, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_move_to_entry_by_seqnum(f->file, 2, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL) == 0);
+        assert_se(journal_file_move_to_entry_by_seqnum(f->file, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journal_file_rotate(&f, true, UINT64_MAX, true, NULL);
-        journal_file_rotate(&f, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, true, UINT64_MAX, true, NULL);
 
-        (void) journal_file_close(f);
+        (void) journald_file_close(f);
 
         log_info("Done...");
 
@@ -117,28 +117,25 @@ static void test_non_empty(void) {
 }
 
 static void test_empty(void) {
-        JournalFile *f1, *f2, *f3, *f4;
+        JournaldFile *f1, *f2, *f3, *f4;
         char t[] = "/var/tmp/journal-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journald_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f2) == 0);
+        assert_se(journald_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f3) == 0);
+        assert_se(journald_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f4) == 0);
 
-        assert_se(journal_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f2) == 0);
-
-        assert_se(journal_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f3) == 0);
-
-        assert_se(journal_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f4) == 0);
-
-        journal_file_print_header(f1);
+        journal_file_print_header(f1->file);
         puts("");
-        journal_file_print_header(f2);
+        journal_file_print_header(f2->file);
         puts("");
-        journal_file_print_header(f3);
+        journal_file_print_header(f3->file);
         puts("");
-        journal_file_print_header(f4);
+        journal_file_print_header(f4->file);
         puts("");
 
         log_info("Done...");
@@ -151,16 +148,16 @@ static void test_empty(void) {
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
-        (void) journal_file_close(f1);
-        (void) journal_file_close(f2);
-        (void) journal_file_close(f3);
-        (void) journal_file_close(f4);
+        (void) journald_file_close(f1);
+        (void) journald_file_close(f2);
+        (void) journald_file_close(f3);
+        (void) journald_file_close(f4);
 }
 
 #if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         dual_timestamp ts;
-        JournalFile *f;
+        JournaldFile *f;
         struct iovec iovec;
         Object *o;
         uint64_t p;
@@ -175,34 +172,34 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
         iovec = IOVEC_MAKE(data, data_size);
-        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
-        journal_file_append_tag(f);
+        journal_file_append_tag(f->file);
 #endif
-        journal_file_dump(f);
+        journal_file_dump(f->file);
 
         /* We have to partially reimplement some of the dump logic, because the normal next_entry does the
          * decompression for us. */
-        p = le64toh(f->header->header_size);
+        p = le64toh(f->file->header->header_size);
         for (;;) {
-                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
+                r = journal_file_move_to_object(f->file, OBJECT_UNUSED, p, &o);
                 assert_se(r == 0);
                 if (o->object.type == OBJECT_DATA)
                         break;
 
-                assert_se(p < le64toh(f->header->tail_object_offset));
+                assert_se(p < le64toh(f->file->header->tail_object_offset));
                 p = p + ALIGN64(le64toh(o->object.size));
         }
 
         is_compressed = (o->object.flags & OBJECT_COMPRESSION_MASK) != 0;
 
-        (void) journal_file_close(f);
+        (void) journald_file_close(f);
 
         log_info("Done...");
 
@@ -245,7 +242,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        /* journal_file_open requires a valid machine id */
+        /* journald_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
