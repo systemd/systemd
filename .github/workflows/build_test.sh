@@ -27,6 +27,7 @@ PACKAGES=(
     itstool
     kbd
     libblkid-dev
+    libbpf-dev
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -48,8 +49,8 @@ PACKAGES=(
     net-tools
     perl
     python3-evdev
-    python3-lxml
     python3-jinja2
+    python3-lxml
     python3-pip
     python3-pyparsing
     python3-setuptools
