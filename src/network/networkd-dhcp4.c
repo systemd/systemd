@@ -71,7 +71,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (k < 0)
                         r = k;
 
-                route_cancel_request(route);
+                route_cancel_request(route, link);
         }
 
         SET_FOREACH(address, link->addresses) {
