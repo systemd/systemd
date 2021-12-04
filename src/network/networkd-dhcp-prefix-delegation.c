@@ -595,9 +595,6 @@ static int dhcp6_pd_distribute_prefix(
                 if (link->network->dhcp6_pd_announce && !link->radv)
                         continue;
 
-                if (link == dhcp6_link && !link->network->dhcp6_pd_assign)
-                        continue;
-
                 r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0) {
                         if (link == dhcp6_link)
