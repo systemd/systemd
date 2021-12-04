@@ -645,7 +645,13 @@ static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *addr, uint8_t prefixlen, usec_t lifetime_usec) {
+static int dhcp6_request_unreachable_route(
+                Link *link,
+                const struct in6_addr *addr,
+                uint8_t prefixlen,
+                usec_t lifetime_usec,
+                const union in_addr_union *server_address) {
+
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;
         int r;
@@ -653,12 +659,14 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         assert(link);
         assert(addr);
         assert(prefixlen < 64);
+        assert(server_address);
 
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
 
         route->source = NETWORK_CONFIG_SOURCE_DHCP6;
+        route->provider = *server_address;
         route->family = AF_INET6;
         route->dst.in6 = *addr;
         route->dst_prefixlen = prefixlen;
@@ -769,12 +777,17 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
 }
 
 int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
+        union in_addr_union server_address;
         usec_t timestamp_usec;
         Link *link;
         int r;
 
         assert(dhcp6_link);
         assert(dhcp6_link->dhcp6_lease);
+
+        r = sd_dhcp6_lease_get_server_address(dhcp6_link->dhcp6_lease, &server_address.in6);
+        if (r < 0)
+                return log_link_warning_errno(dhcp6_link, r, "Failed to get server address of DHCPv6 lease: %m");
 
         r = sd_dhcp6_lease_get_timestamp(dhcp6_link->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
@@ -805,7 +818,7 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 if (r == 0)
                         continue;
 
-                r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, lifetime_valid_usec);
+                r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, lifetime_valid_usec, &server_address);
                 if (r < 0)
                         return r;
         }
