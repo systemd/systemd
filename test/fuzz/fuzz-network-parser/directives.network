@@ -150,6 +150,13 @@ IAID=
 DUIDType=
 DUIDRawData=
 [DHCPv6PrefixDelegation]
+SubnetId=
+Announce=
+Assign=
+ManageTemporaryAddress=
+Token=
+RouteMetric=
+[DHCPPrefixDelegation]
 UplinkInterface=
 SubnetId=
 Announce=
@@ -240,6 +247,7 @@ VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
 DHCPv6PrefixDelegation=
+DHCPPrefixDelegation=
 BatmanAdvanced=
 IPoIB=
 [IPv6Prefix]

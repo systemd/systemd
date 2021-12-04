@@ -854,18 +854,18 @@ Table=1234</programlisting></para>
           <listitem><para>Whether to enable or disable Router Advertisement sending on a link. Takes a
           boolean value. When enabled, prefixes configured in [IPv6Prefix] sections and routes
           configured in [IPv6RoutePrefix] sections are distributed as defined in the [IPv6SendRA]
-          section. If <varname>DHCPv6PrefixDelegation=</varname> is enabled, then the delegated
-          prefixes are also distributed. See <varname>DHCPv6PrefixDelegation=</varname> setting and the
-          [IPv6SendRA], [IPv6Prefix], [IPv6RoutePrefix], and [DHCPv6PrefixDelegation] sections for more
+          section. If <varname>DHCPPrefixDelegation=</varname> is enabled, then the delegated prefixes
+          are also distributed. See <varname>DCHPPrefixDelegation=</varname> setting and the
+          [IPv6SendRA], [IPv6Prefix], [IPv6RoutePrefix], and [DHCPPrefixDelegation] sections for more
           configuration options.</para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>DHCPv6PrefixDelegation=</varname></term>
+          <term><varname>DHCPPrefixDelegation=</varname></term>
           <listitem><para>Takes a boolean value. When enabled, requests prefixes using a DHCPv6 client
           configured on another link. By default, an address within each delegated prefix will be
           assigned, and the prefixes will be announced through IPv6 Router Advertisement when
           <varname>IPv6SendRA=</varname> is enabled. Such default settings can be configured in
-          [DHCPv6PrefixDelegation] section. Defaults to disabled.</para></listitem>
+          [DHCPPrefixDelegation] section. Defaults to disabled.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
@@ -2076,9 +2076,9 @@ Table=1234</programlisting></para>
           <listitem>
             <para>When true (the default), the client will request the DHCPv6 server to delegate
             prefixes. If the server provides prefixes to be delegated, then subnets of the prefixes are
-            assigned to the interfaces which enables <varname>DHCPv6PrefixDelegation=</varname>.
-            See also <varname>DHCPv6PrefixDelegation=</varname> in [Network] section,
-            [DHCPv6PrefixDelegation] section, and
+            assigned to the interfaces which enables <varname>DHCPPrefixDelegation=</varname>.
+            See also <varname>DHCPPrefixDelegation=</varname> in [Network] section,
+            [DHCPPrefixDelegation] section, and
             <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
             </para>
           </listitem>
@@ -2102,9 +2102,9 @@ Table=1234</programlisting></para>
             <para>Allows DHCPv6 client to start without router advertisements's managed or other
             address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
             or <literal>information-request</literal>. If this is not specified,
-            <literal>solicit</literal> is used when <varname>DHCPv6PrefixDelegation=</varname> is
+            <literal>solicit</literal> is used when <varname>DHCPPrefixDelegation=</varname> is
             enabled and <varname>UplinkInterface=:self</varname> is specified in the
-            [DHCPv6PrefixDelegation] section. Otherwise, defaults to <literal>no</literal>, and the
+            [DHCPPrefixDelegation] section. Otherwise, defaults to <literal>no</literal>, and the
             DHCPv6 client will be started when an RA is received. See also
             <varname>DHCPv6Client=</varname> setting in the [IPv6AcceptRA] section.</para>
           </listitem>
@@ -2113,9 +2113,9 @@ Table=1234</programlisting></para>
   </refsect1>
 
   <refsect1>
-    <title>[DHCPv6PrefixDelegation] Section Options</title>
-    <para>The [DHCPv6PrefixDelegation] section configures delegated prefixes assigned by DHCPv6 server.
-    The settings in this section are used only when <varname>DHCPv6PrefixDelegation=</varname> setting
+    <title>[DHCPPrefixDelegation] Section Options</title>
+    <para>The [DHCPPrefixDelegation] section configures delegated prefixes assigned by DHCPv6 server.
+    The settings in this section are used only when <varname>DHCPPrefixDelegation=</varname> setting
     is enabled.</para>
 
     <variablelist class='network-directives'>
@@ -2436,7 +2436,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
           is received, even if neither managed nor other information flag is set in the RA. This will
           be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
-          <varname>UplinkInterface=:self</varname> in the [DHCPv6PrefixDelegation] section is
+          <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
           specified. Defaults to true.</para>
         </listitem>
       </varlistentry>
@@ -2710,8 +2710,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
         search domains is enabled but no servers are specified, the servers configured in the uplink
         interface will be emitted. When <literal>:auto</literal>, the value specified to the same
-        setting in the [DHCPv6PrefixDelegation] section will be used if
-        <varname>DHCPv6PrefixDelegation=</varname> is enabled, otherwise the link which has a default
+        setting in the [DHCPPrefixDelegation] section will be used if
+        <varname>DHCPPrefixDelegation=</varname> is enabled, otherwise the link which has a default
         gateway with the highest priority will be automatically selected. When <literal>:none</literal>,
         no uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
@@ -4375,7 +4375,7 @@ Name=enp2s0
 
 [Network]
 IPv6SendRA=yes
-DHCPv6PrefixDelegation=yes</programlisting>
+DHCPPrefixDelegation=yes</programlisting>
 
       <para>This will enable DHCPv6-PD on the interface enp1s0 as an upstream interface where the
       DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.
