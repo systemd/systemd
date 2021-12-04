@@ -248,6 +248,7 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         _cleanup_free_ char *s = NULL;
         Device *d = DEVICE(u);
 
+        assert(d);
         assert(u);
         assert(f);
         assert(fds);
@@ -264,6 +265,7 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         Device *d = DEVICE(u);
         int r;
 
+        assert(d);
         assert(u);
         assert(key);
         assert(value);
