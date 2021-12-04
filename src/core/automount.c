@@ -69,6 +69,7 @@ static int automount_send_ready(Automount *a, Set *tokens, int status);
 static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
+        assert(a);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
