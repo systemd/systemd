@@ -820,9 +820,6 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
                 if (r < 0)
                         break;
 
-                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
-                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
-
                 if (pd_prefix_len > 64)
                         continue;
 
@@ -830,6 +827,9 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
                 r = in6_addr_mask(&pd_prefix, pd_prefix_len);
                 if (r < 0)
                         return r;
+
+                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
                 r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0)
