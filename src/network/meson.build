@@ -73,6 +73,8 @@ sources = files('''
         networkd-conf.h
         networkd-dhcp-common.c
         networkd-dhcp-common.h
+        networkd-dhcp-prefix-delegation.c
+        networkd-dhcp-prefix-delegation.h
         networkd-dhcp-server-bus.c
         networkd-dhcp-server-bus.h
         networkd-dhcp-server-static-lease.c
