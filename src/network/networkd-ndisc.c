@@ -90,7 +90,7 @@ static int ndisc_remove(Link *link, struct in6_addr *router) {
                 if (k < 0)
                         r = k;
 
-                route_cancel_request(route);
+                route_cancel_request(route, link);
         }
 
         SET_FOREACH(address, link->addresses) {
