@@ -179,6 +179,7 @@ static bool mount_needs_quota(const MountParameters *p) {
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -681,6 +682,7 @@ static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r, q = 0;
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -1256,6 +1258,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         Mount *m = MOUNT(u);
         int r;
 
+        assert(m);
         assert(u);
         assert(key);
         assert(value);
@@ -1793,6 +1796,9 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = MOUNT(u);
         usec_t t;
         int r;
+
+        assert(m);
+        assert(u);
 
         if (!m->timer_event_source)
                 return 0;

@@ -1452,6 +1452,8 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                   "_services._dns-sd._udp.local");
+                if (!rr)
+                        return log_oom();
                 rr->ptr.name = strdup(service_type);
                 rr->ttl = MDNS_DEFAULT_TTL;
 

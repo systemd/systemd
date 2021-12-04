@@ -1220,6 +1220,8 @@ static int swap_process_proc_swaps(Manager *m) {
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
                         Swap *swap = SWAP(u);
 
+                        assert(swap);
+
                         swap->is_active = swap->just_activated = false;
                 }
 
@@ -1230,6 +1232,8 @@ static int swap_process_proc_swaps(Manager *m) {
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
                 Swap *swap = SWAP(u);
+
+                assert(swap);
 
                 if (!swap->is_active) {
 
@@ -1494,6 +1498,9 @@ static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = SWAP(u);
         usec_t t;
         int r;
+
+        assert(s);
+        assert(u);
 
         if (!s->timer_event_source)
                 return 0;
