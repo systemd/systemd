@@ -1260,24 +1260,25 @@ static int route_configure(
         return 0;
 }
 
-void route_cancel_request(Route *route) {
+void route_cancel_request(Route *route, Link *link) {
         Request req;
 
         assert(route);
 
+        link = route->link ?: link;
+
+        assert(link);
+
         if (!route_is_requesting(route))
                 return;
 
-        if (!route->link)
-                return;
-
         req = (Request) {
-                .link = route->link,
+                .link = link,
                 .type = REQUEST_TYPE_ROUTE,
                 .route = route,
         };
 
-        request_drop(ordered_set_get(route->link->manager->request_queue, &req));
+        request_drop(ordered_set_get(link->manager->request_queue, &req));
         route_cancel_requesting(route);
 }
 
