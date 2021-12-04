@@ -97,6 +97,7 @@ enum {
         SD_DHCP_OPTION_SIP_SERVER                     = 120,
         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE         = 121,
         SD_DHCP_OPTION_MUD_URL                        = 161,
+        SD_DHCP_OPTION_6RD                            = 212,
         SD_DHCP_OPTION_PRIVATE_BASE                   = 224,
         /* Windows 10 option to send when Anonymize=true */
         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE = 249,
