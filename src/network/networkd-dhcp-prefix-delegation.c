@@ -662,7 +662,7 @@ void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
         assert(dhcp6_link->manager);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
+                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
                         continue;
 
                 r = dhcp6_pd_remove(link, /* only_marked = */ false);
