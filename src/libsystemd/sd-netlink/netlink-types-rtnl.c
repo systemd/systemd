@@ -210,7 +210,7 @@ static const NLType rtnl_link_info_data_geneve_types[] = {
         [IFLA_GENEVE_DF]                = { .type = NETLINK_TYPE_U8 },
 };
 
-static  const NLType rtnl_link_info_data_gre_types[] = {
+static const NLType rtnl_link_info_data_gre_types[] = {
         [IFLA_GRE_LINK]             = { .type = NETLINK_TYPE_U32 },
         [IFLA_GRE_IFLAGS]           = { .type = NETLINK_TYPE_U16 },
         [IFLA_GRE_OFLAGS]           = { .type = NETLINK_TYPE_U16 },
@@ -235,6 +235,12 @@ static  const NLType rtnl_link_info_data_gre_types[] = {
         [IFLA_GRE_ERSPAN_VER]       = { .type = NETLINK_TYPE_U8 },
         [IFLA_GRE_ERSPAN_DIR]       = { .type = NETLINK_TYPE_U8 },
         [IFLA_GRE_ERSPAN_HWID]      = { .type = NETLINK_TYPE_U16 },
+};
+
+static const NLType rtnl_link_info_data_ipoib_types[] = {
+        [IFLA_IPOIB_PKEY]           = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPOIB_MODE]           = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPOIB_UMCAST]         = { .type = NETLINK_TYPE_U16 },
 };
 
 /* IFLA_IPTUN_ attributes are used in ipv4/ipip.c, ipv6/ip6_tunnel.c, and ipv6/sit.c. And unfortunately,
@@ -410,9 +416,7 @@ static const NLTypeSystemUnionElement rtnl_link_info_data_type_systems[] = {
         { .name = "ip6gre",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_gre),     },
         { .name = "ip6gretap", .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_gre),     },
         { .name = "ip6tnl",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_iptun),   },
-/*
         { .name = "ipoib",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipoib),   },
-*/
         { .name = "ipip",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_iptun),   },
         { .name = "ipvlan",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvlan),  },
         { .name = "ipvtap",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvlan),  },
