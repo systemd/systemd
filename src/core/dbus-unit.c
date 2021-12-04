@@ -377,6 +377,7 @@ int bus_unit_method_start_generic(
                 bool reload_if_possible,
                 sd_bus_error *error) {
 
+        BusUnitQueueFlags job_flags = reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0;
         const char *smode, *verb;
         JobMode mode;
         int r;
@@ -405,6 +406,21 @@ int bus_unit_method_start_generic(
         else
                 verb = job_type_to_string(job_type);
 
+        if (sd_bus_message_is_method_call(message, NULL, "StartUnitWithFlags")) {
+                uint64_t flags = 0;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                if ((flags & ~_START_UNIT_MASK_PUBLIC) != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          flags);
+
+                if (FLAGS_SET(flags, START_UNIT_RETURN_SKIP_ON_CONDITION_FAIL))
+                        job_flags |= BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL;
+        }
+
         r = bus_verify_manage_units_async_full(
                         u,
                         verb,
@@ -418,8 +434,7 @@ int bus_unit_method_start_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        return bus_unit_queue_job(message, u, job_type, mode,
-                                  reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0, error);
+        return bus_unit_queue_job(message, u, job_type, mode, job_flags, error);
 }
 
 static int bus_unit_method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1780,6 +1795,9 @@ int bus_unit_queue_job_one(
         r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL))
+                j->return_skip_on_cond_failure = true;
 
         r = bus_job_track_sender(j, message);
         if (r < 0)
