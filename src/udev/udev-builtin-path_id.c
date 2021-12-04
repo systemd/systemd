@@ -482,7 +482,7 @@ static void handle_scsi_tape(sd_device *dev, char **path) {
 }
 
 static sd_device *handle_usb(sd_device *parent, char **path) {
-        const char *devtype, *str, *port;
+        const char *devtype, *str, *port, *bus;
 
         if (sd_device_get_devtype(parent, &devtype) < 0)
                 return parent;
@@ -494,9 +494,10 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
         port = strchr(str, '-');
         if (!port)
                 return parent;
+        bus = strndupa_safe(str, port - str);
         port++;
 
-        path_prepend(path, "usb-0:%s", port);
+        path_prepend(path, "usb-%s:%s", bus, port);
         return skip_subsystem(parent, "usb");
 }
 
