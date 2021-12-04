@@ -149,7 +149,6 @@ RouteMetric=
 IAID=
 DUIDType=
 DUIDRawData=
-RouteTable=
 [DHCPv6PrefixDelegation]
 UplinkInterface=
 SubnetId=
