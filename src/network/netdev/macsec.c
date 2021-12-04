@@ -511,6 +511,8 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         v = MACSEC(netdev);
 
+        assert(v);
+
         if (v->port > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
                 if (r < 0)
