@@ -2085,7 +2085,6 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>

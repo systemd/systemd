@@ -729,7 +729,6 @@ static int dhcp6_request_unreachable_route(
         route->family = AF_INET6;
         route->dst.in6 = *addr;
         route->dst_prefixlen = prefixlen;
-        route->table = link_get_dhcp6_route_table(link);
         route->type = RTN_UNREACHABLE;
         route->protocol = RTPROT_DHCP;
         route->priority = DHCP_ROUTE_METRIC;

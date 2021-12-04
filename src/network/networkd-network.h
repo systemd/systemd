@@ -133,7 +133,6 @@ struct Network {
         bool dhcp_route_metric_set;
         uint32_t dhcp_route_table;
         bool dhcp_route_table_set;
-        bool dhcp_route_table_set_explicitly;
         uint32_t dhcp_fallback_lease_lifetime;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
@@ -172,9 +171,6 @@ struct Network {
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
-        bool dhcp6_route_table;
-        bool dhcp6_route_table_set;
-        bool dhcp6_route_table_set_explicitly;
         DHCPUseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
         uint32_t dhcp6_iaid;

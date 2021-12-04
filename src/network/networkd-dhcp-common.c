@@ -39,15 +39,6 @@ uint32_t link_get_dhcp4_route_table(Link *link) {
         return link_get_vrf_table(link);
 }
 
-uint32_t link_get_dhcp6_route_table(Link *link) {
-        assert(link);
-        assert(link->network);
-
-        if (link->network->dhcp6_route_table_set)
-                return link->network->dhcp6_route_table;
-        return link_get_vrf_table(link);
-}
-
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
         assert(link);
         assert(link->network);
@@ -533,13 +524,9 @@ int config_parse_dhcp_or_ra_route_table(
 
         assert(filename);
         assert(lvalue);
-        assert(IN_SET(ltype,
-                      (RTPROT_DHCP<<16) | AF_UNSPEC,
-                      (RTPROT_DHCP<<16) | AF_INET,
-                      (RTPROT_DHCP<<16) | AF_INET6,
-                      (RTPROT_RA<<16) | AF_INET6));
+        assert(IN_SET(ltype, AF_INET, AF_INET6));
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = safe_atou32(rvalue, &rt);
         if (r < 0) {
@@ -549,28 +536,11 @@ int config_parse_dhcp_or_ra_route_table(
         }
 
         switch(ltype) {
-        case (RTPROT_DHCP<<16) | AF_INET:
+        case AF_INET:
                 network->dhcp_route_table = rt;
                 network->dhcp_route_table_set = true;
-                network->dhcp_route_table_set_explicitly = true;
                 break;
-        case (RTPROT_DHCP<<16) | AF_INET6:
-                network->dhcp6_route_table = rt;
-                network->dhcp6_route_table_set = true;
-                network->dhcp6_route_table_set_explicitly = true;
-                break;
-        case (RTPROT_DHCP<<16) | AF_UNSPEC:
-                /* For backward compatibility. */
-                if (!network->dhcp_route_table_set_explicitly) {
-                        network->dhcp_route_table = rt;
-                        network->dhcp_route_table_set = true;
-                }
-                if (!network->dhcp6_route_table_set_explicitly) {
-                        network->dhcp6_route_table = rt;
-                        network->dhcp6_route_table_set = true;
-                }
-                break;
-        case (RTPROT_RA<<16) | AF_INET6:
+        case AF_INET6:
                 network->ipv6_accept_ra_route_table = rt;
                 network->ipv6_accept_ra_route_table_set = true;
                 break;
