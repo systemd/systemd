@@ -570,44 +570,6 @@ static int dhcp6_pd_assign_prefix(
         return 1;
 }
 
-static int dhcp6_pd_distribute_prefix(
-                Link *dhcp6_link,
-                const struct in6_addr *pd_prefix,
-                uint8_t pd_prefix_len,
-                usec_t lifetime_preferred_usec,
-                usec_t lifetime_valid_usec) {
-
-        Link *link;
-        int r;
-
-        assert(dhcp6_link);
-        assert(dhcp6_link->manager);
-        assert(pd_prefix);
-        assert(pd_prefix_len <= 64);
-
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                        continue;
-
-                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
-                        continue;
-
-                if (link->network->dhcp6_pd_announce && !link->radv)
-                        continue;
-
-                r = dhcp6_pd_assign_prefix(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
-                if (r < 0) {
-                        if (link == dhcp6_link)
-                                return r;
-
-                        link_enter_failed(link);
-                        continue;
-                }
-        }
-
-        return 0;
-}
-
 static int dhcp6_pd_prepare(Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
@@ -628,12 +590,6 @@ static int dhcp6_pd_finalize(Link *link) {
         int r;
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!link_dhcp6_pd_is_enabled(link))
-                return 0;
-
-        if (link->network->dhcp6_pd_announce && !link->radv)
                 return 0;
 
         if (link->dhcp6_pd_messages == 0) {
@@ -798,9 +754,6 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
         assert(uplink);
         assert(uplink->dhcp6_lease);
 
-        /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
-         * appears later or reconfiguring the interface. */
-
         r = dhcp6_pd_prepare(link);
         if (r <= 0)
                 return r;
@@ -851,23 +804,10 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         if (r < 0)
                 return log_link_warning_errno(dhcp6_link, r, "Failed to get timestamp of DHCPv6 lease: %m");
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                r = dhcp6_pd_prepare(link);
-                if (r < 0) {
-                        /* When failed on the upstream interface (i.e., the case link == dhcp6_link),
-                         * immediately abort the assignment of the prefixes. As, the all assigned
-                         * prefixes will be dropped soon in link_enter_failed(), and it is meaningless
-                         * to continue the assignment. */
-                        if (link == dhcp6_link)
-                                return r;
-
-                        link_enter_failed(link);
-                }
-        }
-
+        /* First, logs acquired prefixes and request unreachable routes. */
         for (sd_dhcp6_lease_reset_pd_prefix_iter(dhcp6_link->dhcp6_lease);;) {
                 uint32_t lifetime_preferred_sec, lifetime_valid_sec;
-                usec_t lifetime_preferred_usec, lifetime_valid_usec;
+                usec_t lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
@@ -876,7 +816,11 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 if (r < 0)
                         break;
 
-                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                /* Mask prefix for safety. */
+                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
+                if (r < 0)
+                        return log_link_error_errno(dhcp6_link, r, "Failed to mask DHCPv6 PD prefix: %m");
+
                 lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
                 r = dhcp6_pd_prefix_add(dhcp6_link, &pd_prefix, pd_prefix_len);
@@ -888,44 +832,19 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, lifetime_valid_usec);
                 if (r < 0)
                         return r;
-
-                /* We are doing prefix allocation in two steps:
-                 * 1. all those links that have a preferred subnet id will be assigned their subnet
-                 * 2. all those links that remain will receive prefixes in sequential order. Prefixes
-                 *    that were previously already allocated to another link will be skipped.
-                 * The assignment has to be split in two phases since subnet id
-                 * preferences should be honored. Meaning that any subnet id should be
-                 * handed out to the requesting link and not to some link that didn't
-                 * specify any preference. */
-
-                assert(pd_prefix_len <= 64);
-
-                /* Mask prefix for safety. */
-                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
-                if (r < 0)
-                        return log_link_error_errno(dhcp6_link, r, "Failed to mask DHCPv6 PD prefix: %m");
-
-                if (DEBUG_LOGGING) {
-                        uint64_t n_prefixes = UINT64_C(1) << (64 - pd_prefix_len);
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in6_addr_prefix_to_string(&pd_prefix, pd_prefix_len, &buf);
-                        log_link_debug(dhcp6_link, "Assigning up to %" PRIu64 " prefixes from %s",
-                                       n_prefixes, strna(buf));
-                }
-
-                r = dhcp6_pd_distribute_prefix(dhcp6_link,
-                                               &pd_prefix,
-                                               pd_prefix_len,
-                                               lifetime_preferred_usec,
-                                               lifetime_valid_usec);
-                if (r < 0)
-                        return r;
         }
 
+        /* Then, assign subnet prefixes. */
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                r = dhcp6_pd_finalize(link);
+                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
+                        continue;
+
+                r = dhcp6_pd_assign_prefixes(link, dhcp6_link);
                 if (r < 0) {
+                        /* When failed on the upstream interface (i.e., the case link == dhcp6_link),
+                         * immediately abort the assignment of the prefixes. As, the all assigned
+                         * prefixes will be dropped soon in link_enter_failed(), and it is meaningless
+                         * to continue the assignment. */
                         if (link == dhcp6_link)
                                 return r;
 
