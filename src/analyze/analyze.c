@@ -981,7 +981,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
                 return r;
 
         STRV_FOREACH(c, deps) {
-                times = hashmap_get(unit_times_hashmap, *c);
+                times = hashmap_get(unit_times_hashmap, *c); /* lgtm [cpp/inconsistent-null-check] */
                 if (times_in_range(times, boot) && times->activated >= service_longest)
                         service_longest = times->activated;
         }
@@ -990,7 +990,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
                 return r;
 
         STRV_FOREACH(c, deps) {
-                times = hashmap_get(unit_times_hashmap, *c);
+                times = hashmap_get(unit_times_hashmap, *c); /* lgtm [cpp/inconsistent-null-check] */
                 if (times_in_range(times, boot) && service_longest - times->activated <= arg_fuzz)
                         to_print++;
         }
@@ -999,7 +999,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
                 return r;
 
         STRV_FOREACH(c, deps) {
-                times = hashmap_get(unit_times_hashmap, *c);
+                times = hashmap_get(unit_times_hashmap, *c); /* lgtm [cpp/inconsistent-null-check] */
                 if (!times_in_range(times, boot) || service_longest - times->activated > arg_fuzz)
                         continue;
 
