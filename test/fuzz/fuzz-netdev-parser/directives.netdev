@@ -241,3 +241,7 @@ GatewayBandwithUp=
 GatewayBandwidthDown=
 GatewayBandwidthUp=
 RoutingAlgorithm=
+[IPoIB]
+PartitionKey=
+Mode=
+IgnoreUserspaceMulticastGroups=
