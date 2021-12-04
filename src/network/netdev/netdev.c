@@ -18,6 +18,7 @@
 #include "fou-tunnel.h"
 #include "geneve.h"
 #include "ifb.h"
+#include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
 #include "list.h"
@@ -64,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
         [NETDEV_KIND_IP6TNL]    = &ip6tnl_vtable,
         [NETDEV_KIND_IPIP]      = &ipip_vtable,
+        [NETDEV_KIND_IPOIB]     = &ipoib_vtable,
         [NETDEV_KIND_IPVLAN]    = &ipvlan_vtable,
         [NETDEV_KIND_IPVTAP]    = &ipvtap_vtable,
         [NETDEV_KIND_L2TP]      = &l2tptnl_vtable,
@@ -103,6 +105,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
         [NETDEV_KIND_IP6TNL]    = "ip6tnl",
         [NETDEV_KIND_IPIP]      = "ipip",
+        [NETDEV_KIND_IPOIB]     = "ipoib",
         [NETDEV_KIND_IPVLAN]    = "ipvlan",
         [NETDEV_KIND_IPVTAP]    = "ipvtap",
         [NETDEV_KIND_L2TP]      = "l2tp",
@@ -391,17 +394,26 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
 
-int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_data *hw_addr) {
+int netdev_generate_hw_addr(
+                NetDev *netdev,
+                Link *parent,
+                const char *name,
+                const struct hw_addr_data *hw_addr,
+                struct hw_addr_data *ret) {
+
+        struct hw_addr_data a = HW_ADDR_NULL;
         bool warn_invalid = false;
-        struct hw_addr_data a;
         int r;
 
         assert(netdev);
         assert(name);
         assert(hw_addr);
+        assert(ret);
 
-        if (hw_addr_equal(hw_addr, &HW_ADDR_NONE))
+        if (hw_addr_equal(hw_addr, &HW_ADDR_NONE)) {
+                *ret = HW_ADDR_NULL;
                 return 0;
+        }
 
         if (hw_addr->length == 0) {
                 uint64_t result;
@@ -409,42 +421,66 @@ int netdev_generate_hw_addr(NetDev *netdev, const char *name, struct hw_addr_dat
                 /* HardwareAddress= is not specified. */
 
                 if (!NETDEV_VTABLE(netdev)->generate_mac)
-                        return 0;
+                        goto finalize;
 
-                if (NETDEV_VTABLE(netdev)->iftype != ARPHRD_ETHER)
-                        return 0;
+                if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+                        goto finalize;
 
                 r = net_get_unique_predictable_data_from_name(name, &HASH_KEY, &result);
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r,
                                                  "Failed to generate persistent MAC address, ignoring: %m");
-                        return 0;
+                        goto finalize;
                 }
 
                 a.length = arphrd_to_hw_addr_len(NETDEV_VTABLE(netdev)->iftype);
-                assert(a.length <= sizeof(result));
-                memcpy(a.bytes, &result, a.length);
 
-                if (ether_addr_is_null(&a.ether) || ether_addr_is_broadcast(&a.ether)) {
-                        log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                 "Failed to generate persistent MAC address, ignoring: %m");
-                        return 0;
+                switch (NETDEV_VTABLE(netdev)->iftype) {
+                case ARPHRD_ETHER:
+                        assert(a.length <= sizeof(result));
+                        memcpy(a.bytes, &result, a.length);
+
+                        if (ether_addr_is_null(&a.ether) || ether_addr_is_broadcast(&a.ether)) {
+                                log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                         "Failed to generate persistent MAC address, ignoring: %m");
+                                a = HW_ADDR_NULL;
+                                goto finalize;
+                        }
+
+                        break;
+                case ARPHRD_INFINIBAND:
+                        if (result == 0) {
+                                log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                         "Failed to generate persistent MAC address: %m");
+                                goto finalize;
+                        }
+
+                        assert(a.length >= sizeof(result));
+                        memzero(a.bytes, a.length - sizeof(result));
+                        memcpy(a.bytes + a.length - sizeof(result), &result, sizeof(result));
+                        break;
+                default:
+                        assert_not_reached();
                 }
+
         } else {
                 a = *hw_addr;
                 warn_invalid = true;
         }
 
-        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype, NULL, &a);
+        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype,
+                                        parent ? &parent->hw_addr : NULL, &a);
         if (r < 0)
                 return r;
 
-        *hw_addr = a;
+finalize:
+        *ret = a;
         return 0;
 }
 
 static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        struct hw_addr_data hw_addr;
         int r;
 
         assert(netdev);
@@ -470,8 +506,13 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
 
-        if (netdev->hw_addr.length > 0 && !hw_addr_equal(&netdev->hw_addr, &HW_ADDR_NULL)) {
-                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &netdev->hw_addr);
+        r = netdev_generate_hw_addr(netdev, link, netdev->ifname, &netdev->hw_addr, &hw_addr);
+        if (r < 0)
+                return r;
+
+        if (hw_addr.length > 0) {
+                log_netdev_debug(netdev, "Using MAC address: %s", HW_ADDR_TO_STR(&hw_addr));
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
@@ -788,10 +829,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
         netdev->filename = strdup(filename);
         if (!netdev->filename)
                 return log_oom();
-
-        r = netdev_generate_hw_addr(netdev, netdev->ifname, &netdev->hw_addr);
-        if (r < 0)
-                return r;
 
         r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
         if (r == -ENOMEM)
