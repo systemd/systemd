@@ -2228,6 +2228,11 @@ void unit_start_on_failure(
                         logged = true;
                 }
 
+                /* u will be kept pinned since both UNIT_ON_FAILURE and UNIT_ON_SUCCESS includes
+                 * UNIT_ATOM_BACK_REFERENCE_IMPLIED. We save the triggering unit here since we
+                 * want to be able to reference it when we come to run the OnFailure= or OnSuccess=
+                 * dependency. */
+                other->triggered_by = u;
                 r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(
@@ -3108,6 +3113,20 @@ int unit_add_dependency(
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
                 r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
+                if (r < 0)
+                        return r;
+                if (r)
+                        noop = false;
+        }
+
+        if (FLAGS_SET(a, UNIT_ATOM_BACK_REFERENCE_IMPLIED)) {
+                r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCES, u, 0, mask);
+                if (r < 0)
+                        return r;
+                if (r)
+                        noop = false;
+
+                r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCED_BY, other, 0, mask);
                 if (r < 0)
                         return r;
                 if (r)
