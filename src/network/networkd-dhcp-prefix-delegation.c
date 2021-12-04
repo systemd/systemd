@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/ipv6_route.h>
+
 #include "sd-dhcp6-client.h"
 
 #include "hashmap.h"
@@ -731,7 +733,7 @@ static int dhcp6_request_unreachable_route(
         route->dst_prefixlen = prefixlen;
         route->type = RTN_UNREACHABLE;
         route->protocol = RTPROT_DHCP;
-        route->priority = DHCP_ROUTE_METRIC;
+        route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
 
         if (route_get(link->manager, NULL, route, &existing) < 0)
