@@ -6,10 +6,10 @@ Name=veth97
 IPv6PrivacyExtensions=yes
 IPv6AcceptRA=no
 DHCP=no
-DHCPv6PrefixDelegation=yes
+DHCPPrefixDelegation=yes
 IPv6SendRA=yes
 
-[DHCPv6PrefixDelegation]
+[DHCPPrefixDelegation]
 SubnetId=8
 Announce=yes
 Token=eui64

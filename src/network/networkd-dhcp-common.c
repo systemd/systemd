@@ -1267,9 +1267,9 @@ int config_parse_uplink(
         } else if (streq(section, "IPv6SendRA")) {
                 index = &network->router_uplink_index;
                 name = &network->router_uplink_name;
-        } else if (streq(section, "DHCPv6PrefixDelegation")) {
-                index = &network->dhcp6_pd_uplink_index;
-                name = &network->dhcp6_pd_uplink_name;
+        } else if (STR_IN_SET(section, "DHCPv6PrefixDelegation", "DHCPPrefixDelegation")) {
+                index = &network->dhcp_pd_uplink_index;
+                name = &network->dhcp_pd_uplink_name;
                 accept_none = false;
         } else
                 assert_not_reached();

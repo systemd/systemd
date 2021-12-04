@@ -6,9 +6,9 @@ Name=test1
 IPv6PrivacyExtensions=yes
 IPv6AcceptRA=no
 DHCP=no
-DHCPv6PrefixDelegation=yes
+DHCPPrefixDelegation=yes
 
-[DHCPv6PrefixDelegation]
+[DHCPPrefixDelegation]
 UplinkInterface=veth99
 SubnetId=0
 Announce=no

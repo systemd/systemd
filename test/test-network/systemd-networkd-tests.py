@@ -4996,7 +4996,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
-class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
+class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
     links = [
         'dummy97',
         'dummy98',
