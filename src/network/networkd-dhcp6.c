@@ -36,7 +36,7 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
                 return link->network->dhcp6_client_start_mode;
 
         /* When this interface itself is an uplink interface, then start dhcp6 client in managed mode. */
-        if (dhcp6_pd_is_uplink(link, link, /* accept_auto = */ false))
+        if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false))
                 return DHCP6_CLIENT_START_MODE_SOLICIT;
 
         /* Otherwise, start dhcp6 client when RA is received. */
@@ -323,7 +323,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
         } else if (dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
-                dhcp6_pd_prefix_lost(link);
+                dhcp_pd_prefix_lost(link);
 
         if (link->dhcp6_messages == 0) {
                 link->dhcp6_configured = true;
@@ -354,7 +354,7 @@ static int dhcp6_lease_lost(Link *link) {
         log_link_info(link, "DHCPv6 lease lost");
 
         if (dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
-                dhcp6_pd_prefix_lost(link);
+                dhcp_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
 
