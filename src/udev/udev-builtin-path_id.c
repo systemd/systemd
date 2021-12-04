@@ -80,19 +80,29 @@ static int format_lun_number(sd_device *dev, char **path) {
 }
 
 static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
+        sd_device *parent;
+
         assert(dev);
         assert(subsys);
 
-        for (;;) {
+        /* Unlike the function name, this drops multiple parent devices EXCEPT FOR THE LAST ONE.
+         * The last one will be dropped at the end of the loop in builtin_path_id().
+         * E.g.
+         * Input:  /sys/devices/pci0000:00/0000:00:14.0/usb1/1-1/1-1:1.0
+         * Output: /sys/devices/pci0000:00/0000:00:14.0/usb1
+         */
+
+        for (parent = dev; ; ) {
                 const char *subsystem;
 
-                if (sd_device_get_subsystem(dev, &subsystem) < 0)
+                if (sd_device_get_subsystem(parent, &subsystem) < 0)
                         break;
 
                 if (!streq(subsystem, subsys))
                         break;
 
-                if (sd_device_get_parent(dev, &dev) < 0)
+                dev = parent;
+                if (sd_device_get_parent(dev, &parent) < 0)
                         break;
         }
 
@@ -479,7 +489,7 @@ static void handle_scsi_tape(sd_device *dev, char **path) {
 }
 
 static sd_device *handle_usb(sd_device *parent, char **path) {
-        const char *devtype, *str, *port;
+        const char *devtype, *str, *port, *bus;
 
         if (sd_device_get_devtype(parent, &devtype) < 0)
                 return parent;
@@ -491,9 +501,10 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
         port = strchr(str, '-');
         if (!port)
                 return parent;
+        bus = strndupa_safe(str, port - str);
         port++;
 
-        path_prepend(path, "usb-0:%s", port);
+        path_prepend(path, "usb-%s:%s", bus, port);
         return skip_subsystem(parent, "usb");
 }
 
