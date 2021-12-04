@@ -790,6 +790,59 @@ static int dhcp6_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_
         return prefixlen <= 64;
 }
 
+static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
+        usec_t timestamp_usec;
+        int r;
+
+        assert(link);
+        assert(uplink);
+        assert(uplink->dhcp6_lease);
+
+        /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
+         * appears later or reconfiguring the interface. */
+
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_pd_prepare(link);
+        if (r < 0)
+                return r;
+
+        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
+                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
+                struct in6_addr pd_prefix;
+                uint8_t pd_prefix_len;
+
+                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
+                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                if (r < 0)
+                        break;
+
+                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
+
+                if (pd_prefix_len > 64)
+                        continue;
+
+                /* Mask prefix for safety. */
+                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
+                if (r < 0)
+                        return r;
+
+                r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dhcp6_pd_finalize(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         usec_t timestamp_usec;
         Link *link;
@@ -883,59 +936,6 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                         link_enter_failed(link);
                 }
         }
-
-        return 0;
-}
-
-static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
-        usec_t timestamp_usec;
-        int r;
-
-        assert(link);
-        assert(uplink);
-        assert(uplink->dhcp6_lease);
-
-        /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
-         * appears later or reconfiguring the interface. */
-
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
-        if (r < 0)
-                return r;
-
-        r = dhcp6_pd_prepare(link);
-        if (r < 0)
-                return r;
-
-        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
-                usec_t lifetime_preferred_usec, lifetime_valid_usec;
-                struct in6_addr pd_prefix;
-                uint8_t pd_prefix_len;
-
-                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred_sec, &lifetime_valid_sec);
-                if (r < 0)
-                        break;
-
-                lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
-                lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
-
-                if (pd_prefix_len > 64)
-                        continue;
-
-                /* Mask prefix for safety. */
-                r = in6_addr_mask(&pd_prefix, pd_prefix_len);
-                if (r < 0)
-                        return r;
-
-                r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
-                if (r < 0)
-                        return r;
-        }
-
-        r = dhcp6_pd_finalize(link);
-        if (r < 0)
-                return r;
 
         return 0;
 }
