@@ -621,19 +621,13 @@ static int dhcp6_pd_prepare(Link *link) {
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
         link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
 
-        return 0;
+        return 1;
 }
 
 static int dhcp6_pd_finalize(Link *link) {
         int r;
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!link_dhcp6_pd_is_enabled(link))
-                return 0;
-
-        if (link->network->dhcp6_pd_announce && !link->radv)
                 return 0;
 
         if (link->dhcp6_pd_messages == 0) {
@@ -781,11 +775,11 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
         /* This is similar to dhcp6_pd_prefix_acquired(), but called when a downstream interface
          * appears later or reconfiguring the interface. */
 
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
-        if (r < 0)
+        r = dhcp6_pd_prepare(link);
+        if (r <= 0)
                 return r;
 
-        r = dhcp6_pd_prepare(link);
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
                 return r;
 
