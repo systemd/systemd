@@ -70,6 +70,12 @@ struct sd_dhcp_lease {
 
         char *timezone;
 
+        uint8_t sixrd_ipv4masklen;
+        uint8_t sixrd_prefixlen;
+        struct in6_addr sixrd_prefix;
+        struct in_addr *sixrd_br_addresses;
+        size_t sixrd_n_br_addresses;
+
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };
 
