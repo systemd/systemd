@@ -499,10 +499,10 @@ Manager* manager_free(Manager *m) {
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
-        m->links_by_dhcp6_pd_prefix = hashmap_free(m->links_by_dhcp6_pd_prefix);
+        m->links_by_dhcp_pd_subnet_prefix = hashmap_free(m->links_by_dhcp_pd_subnet_prefix);
         m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
-        m->dhcp6_pd_subnet_ids = set_free(m->dhcp6_pd_subnet_ids);
+        m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
@@ -586,7 +586,7 @@ int manager_load_config(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_build_dhcp6_pd_subnet_ids(m);
+        return manager_build_dhcp_pd_subnet_ids(m);
 }
 
 bool manager_should_reload(Manager *m) {

@@ -412,12 +412,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
 
-                .dhcp6_pd = -1,
-                .dhcp6_pd_announce = true,
-                .dhcp6_pd_assign = true,
-                .dhcp6_pd_manage_temporary_address = true,
-                .dhcp6_pd_subnet_id = -1,
-                .dhcp6_pd_route_metric = DHCP6PD_ROUTE_METRIC,
+                .dhcp_pd = -1,
+                .dhcp_pd_announce = true,
+                .dhcp_pd_assign = true,
+                .dhcp_pd_manage_temporary_address = true,
+                .dhcp_pd_subnet_id = -1,
+                .dhcp_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
                 .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
@@ -498,7 +498,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCP\0" /* compat */
                         "DHCPv4\0"
                         "DHCPv6\0"
-                        "DHCPv6PrefixDelegation\0"
+                        "DHCPv6PrefixDelegation\0" /* compat */
+                        "DHCPPrefixDelegation\0"
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
@@ -648,7 +649,7 @@ int network_reload(Manager *manager) {
         ordered_hashmap_free_with_destructor(manager->networks, network_unref);
         manager->networks = new_networks;
 
-        return manager_build_dhcp6_pd_subnet_ids(manager);
+        return manager_build_dhcp_pd_subnet_ids(manager);
 
 failure:
         ordered_hashmap_free_with_destructor(new_networks, network_unref);
@@ -656,25 +657,25 @@ failure:
         return r;
 }
 
-int manager_build_dhcp6_pd_subnet_ids(Manager *manager) {
+int manager_build_dhcp_pd_subnet_ids(Manager *manager) {
         Network *n;
         int r;
 
         assert(manager);
 
-        set_clear(manager->dhcp6_pd_subnet_ids);
+        set_clear(manager->dhcp_pd_subnet_ids);
 
         ORDERED_HASHMAP_FOREACH(n, manager->networks) {
                 if (n->unmanaged)
                         continue;
 
-                if (!n->dhcp6_pd)
+                if (!n->dhcp_pd)
                         continue;
 
-                if (n->dhcp6_pd_subnet_id < 0)
+                if (n->dhcp_pd_subnet_id < 0)
                         continue;
 
-                r = set_ensure_put(&manager->dhcp6_pd_subnet_ids, &uint64_hash_ops, &n->dhcp6_pd_subnet_id);
+                r = set_ensure_put(&manager->dhcp_pd_subnet_ids, &uint64_hash_ops, &n->dhcp_pd_subnet_id);
                 if (r < 0)
                         return r;
         }
@@ -756,7 +757,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_timezone);
         free(network->dhcp_server_uplink_name);
         free(network->router_uplink_name);
-        free(network->dhcp6_pd_uplink_name);
+        free(network->dhcp_pd_uplink_name);
 
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
@@ -771,7 +772,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
-        set_free(network->dhcp6_pd_tokens);
+        set_free(network->dhcp_pd_tokens);
         set_free(network->ndisc_tokens);
 
         return mfree(network);

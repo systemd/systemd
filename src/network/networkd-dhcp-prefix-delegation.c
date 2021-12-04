@@ -19,33 +19,33 @@
 #include "string-util.h"
 #include "strv.h"
 
-bool link_dhcp6_pd_is_enabled(Link *link) {
+bool link_dhcp_pd_is_enabled(Link *link) {
         assert(link);
 
         if (!link->network)
                 return false;
 
-        return link->network->dhcp6_pd;
+        return link->network->dhcp_pd;
 }
 
-bool dhcp6_pd_is_uplink(Link *link, Link *target, bool accept_auto) {
+bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto) {
         assert(link);
         assert(target);
 
-        if (!link_dhcp6_pd_is_enabled(link))
+        if (!link_dhcp_pd_is_enabled(link))
                 return false;
 
-        if (link->network->dhcp6_pd_uplink_name)
-                return streq_ptr(target->ifname, link->network->dhcp6_pd_uplink_name) ||
-                        strv_contains(target->alternative_names, link->network->dhcp6_pd_uplink_name);
+        if (link->network->dhcp_pd_uplink_name)
+                return streq_ptr(target->ifname, link->network->dhcp_pd_uplink_name) ||
+                        strv_contains(target->alternative_names, link->network->dhcp_pd_uplink_name);
 
-        if (link->network->dhcp6_pd_uplink_index > 0)
-                return target->ifindex == link->network->dhcp6_pd_uplink_index;
+        if (link->network->dhcp_pd_uplink_index > 0)
+                return target->ifindex == link->network->dhcp_pd_uplink_index;
 
-        if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF)
+        if (link->network->dhcp_pd_uplink_index == UPLINK_INDEX_SELF)
                 return link == target;
 
-        assert(link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_AUTO);
+        assert(link->network->dhcp_pd_uplink_index == UPLINK_INDEX_AUTO);
         return accept_auto;
 }
 
@@ -62,21 +62,21 @@ bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred_sec, &lifetime_valid_sec) >= 0;
 }
 
-static void link_remove_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
+static void link_remove_dhcp_pd_subnet_prefix(Link *link, const struct in6_addr *prefix) {
         void *key;
 
         assert(link);
         assert(link->manager);
         assert(prefix);
 
-        if (hashmap_get(link->manager->links_by_dhcp6_pd_prefix, prefix) != link)
+        if (hashmap_get(link->manager->links_by_dhcp_pd_subnet_prefix, prefix) != link)
                 return;
 
-        hashmap_remove2(link->manager->links_by_dhcp6_pd_prefix, prefix, &key);
+        hashmap_remove2(link->manager->links_by_dhcp_pd_subnet_prefix, prefix, &key);
         free(key);
 }
 
-static int link_add_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
+static int link_add_dhcp_pd_subnet_prefix(Link *link, const struct in6_addr *prefix) {
         _cleanup_free_ struct in6_addr *copy = NULL;
         int r;
 
@@ -87,7 +87,7 @@ static int link_add_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
         if (!copy)
                 return -ENOMEM;
 
-        r = hashmap_ensure_put(&link->manager->links_by_dhcp6_pd_prefix, &in6_addr_hash_ops_free, copy, link);
+        r = hashmap_ensure_put(&link->manager->links_by_dhcp_pd_subnet_prefix, &in6_addr_hash_ops_free, copy, link);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -96,13 +96,13 @@ static int link_add_dhcp6_pd_prefix(Link *link, const struct in6_addr *prefix) {
         return 0;
 }
 
-static int link_get_by_dhcp6_pd_prefix(Manager *manager, const struct in6_addr *prefix, Link **ret) {
+static int link_get_by_dhcp_pd_subnet_prefix(Manager *manager, const struct in6_addr *prefix, Link **ret) {
         Link *link;
 
         assert(manager);
         assert(prefix);
 
-        link = hashmap_get(manager->links_by_dhcp6_pd_prefix, prefix);
+        link = hashmap_get(manager->links_by_dhcp_pd_subnet_prefix, prefix);
         if (!link)
                 return -ENODEV;
 
@@ -111,18 +111,18 @@ static int link_get_by_dhcp6_pd_prefix(Manager *manager, const struct in6_addr *
         return 0;
 }
 
-static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_prefix, uint8_t pd_prefix_len, struct in6_addr *ret) {
+static int dhcp_pd_get_assigned_subnet_prefix(Link *link, const struct in6_addr *pd_prefix, uint8_t pd_prefix_len, struct in6_addr *ret) {
         assert(link);
         assert(pd_prefix);
 
-        if (!link_dhcp6_pd_is_enabled(link))
+        if (!link_dhcp_pd_is_enabled(link))
                 return -ENOENT;
 
-        if (link->network->dhcp6_pd_assign) {
+        if (link->network->dhcp_pd_assign) {
                 Address *address;
 
                 SET_FOREACH(address, link->addresses) {
-                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         assert(address->family == AF_INET6);
 
@@ -141,7 +141,7 @@ static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_pr
                 Route *route;
 
                 SET_FOREACH(route, link->routes) {
-                        if (route->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                        if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         assert(route->family == AF_INET6);
 
@@ -156,23 +156,23 @@ static int dhcp6_pd_get_assigned_prefix(Link *link, const struct in6_addr *pd_pr
         return -ENOENT;
 }
 
-int dhcp6_pd_remove(Link *link, bool only_marked) {
+int dhcp_pd_remove(Link *link, bool only_marked) {
         int k, r = 0;
 
         assert(link);
         assert(link->manager);
 
-        if (!link_dhcp6_pd_is_enabled(link))
+        if (!link_dhcp_pd_is_enabled(link))
                 return 0;
 
         if (!only_marked)
-                link->dhcp6_pd_configured = false;
+                link->dhcp_pd_configured = false;
 
-        if (!link->network->dhcp6_pd_assign) {
+        if (!link->network->dhcp_pd_assign) {
                 Route *route;
 
                 SET_FOREACH(route, link->routes) {
-                        if (route->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                        if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         if (only_marked && !route_is_marked(route))
                                 continue;
@@ -180,7 +180,7 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
                         if (link->radv)
                                 (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
 
-                        link_remove_dhcp6_pd_prefix(link, &route->dst.in6);
+                        link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
                         k = route_remove(route);
                         if (k < 0)
@@ -194,7 +194,7 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
                 SET_FOREACH(address, link->addresses) {
                         struct in6_addr prefix;
 
-                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         if (only_marked && !address_is_marked(address))
                                 continue;
@@ -205,7 +205,7 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
                         if (link->radv)
                                 (void) sd_radv_remove_prefix(link->radv, &prefix, 64);
 
-                        link_remove_dhcp6_pd_prefix(link, &prefix);
+                        link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
                         k = address_remove(address);
                         if (k < 0)
@@ -218,38 +218,38 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
         return r;
 }
 
-static int dhcp6_pd_check_ready(Link *link);
+static int dhcp_pd_check_ready(Link *link);
 
-static int dhcp6_pd_address_ready_callback(Address *address) {
+static int dhcp_pd_address_ready_callback(Address *address) {
         Address *a;
 
         assert(address);
         assert(address->link);
 
         SET_FOREACH(a, address->link->addresses)
-                if (a->source == NETWORK_CONFIG_SOURCE_DHCP6PD)
+                if (a->source == NETWORK_CONFIG_SOURCE_DHCP_PD)
                         a->callback = NULL;
 
-        return dhcp6_pd_check_ready(address->link);
+        return dhcp_pd_check_ready(address->link);
 }
 
-static int dhcp6_pd_check_ready(Link *link) {
+static int dhcp_pd_check_ready(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
 
-        if (link->dhcp6_pd_messages > 0) {
-                log_link_debug(link, "%s(): DHCPv6PD addresses and routes are not set.", __func__);
+        if (link->dhcp_pd_messages > 0) {
+                log_link_debug(link, "%s(): DHCP-PD addresses and routes are not set.", __func__);
                 return 0;
         }
 
-        if (link->network->dhcp6_pd_assign) {
+        if (link->network->dhcp_pd_assign) {
                 bool has_ready = false;
                 Address *address;
 
                 SET_FOREACH(address, link->addresses) {
-                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP6PD)
+                        if (address->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         if (address_is_ready(address)) {
                                 has_ready = true;
@@ -259,19 +259,19 @@ static int dhcp6_pd_check_ready(Link *link) {
 
                 if (!has_ready) {
                         SET_FOREACH(address, link->addresses)
-                                if (address->source == NETWORK_CONFIG_SOURCE_DHCP6PD)
-                                        address->callback = dhcp6_pd_address_ready_callback;
+                                if (address->source == NETWORK_CONFIG_SOURCE_DHCP_PD)
+                                        address->callback = dhcp_pd_address_ready_callback;
 
-                        log_link_debug(link, "%s(): no DHCPv6PD address is ready.", __func__);
+                        log_link_debug(link, "%s(): no DHCP-PD address is ready.", __func__);
                         return 0;
                 }
         }
 
-        link->dhcp6_pd_configured = true;
+        link->dhcp_pd_configured = true;
 
-        log_link_debug(link, "DHCPv6 PD addresses and routes set.");
+        log_link_debug(link, "DHCP-PD addresses and routes set.");
 
-        r = dhcp6_pd_remove(link, /* only_marked = */ true);
+        r = dhcp_pd_remove(link, /* only_marked = */ true);
         if (r < 0)
                 return r;
 
@@ -279,26 +279,26 @@ static int dhcp6_pd_check_ready(Link *link) {
         return 1;
 }
 
-static int dhcp6_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
-        assert(link->dhcp6_pd_messages > 0);
+        assert(link->dhcp_pd_messages > 0);
 
-        link->dhcp6_pd_messages--;
+        link->dhcp_pd_messages--;
 
-        r = route_configure_handler_internal(rtnl, m, link, "Failed to add DHCPv6 Prefix Delegation route");
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to add prefix route for DHCP delegated subnet prefix");
         if (r <= 0)
                 return r;
 
-        r = dhcp6_pd_check_ready(link);
+        r = dhcp_pd_check_ready(link);
         if (r < 0)
                 link_enter_failed(link);
 
         return 1;
 }
 
-static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, usec_t lifetime_usec) {
+static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, usec_t lifetime_usec) {
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;
         int r;
@@ -307,54 +307,54 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, uin
         assert(link->network);
         assert(prefix);
 
-        if (link->network->dhcp6_pd_assign)
+        if (link->network->dhcp_pd_assign)
                 return 0;
 
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
+        route->source = NETWORK_CONFIG_SOURCE_DHCP_PD;
         route->family = AF_INET6;
         route->dst.in6 = *prefix;
         route->dst_prefixlen = prefixlen;
         route->protocol = RTPROT_DHCP;
-        route->priority = link->network->dhcp6_pd_route_metric;
+        route->priority = link->network->dhcp_pd_route_metric;
         route->lifetime_usec = lifetime_usec;
 
         if (route_get(NULL, link, route, &existing) < 0)
-                link->dhcp6_pd_configured = false;
+                link->dhcp_pd_configured = false;
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp6_pd_messages,
-                               dhcp6_pd_route_handler, NULL);
+        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
+                               dhcp_pd_route_handler, NULL);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request DHCPv6 prefix route: %m");
+                return log_link_error_errno(link, r, "Failed to request DHCP-PD prefix route: %m");
 
         return 0;
 }
 
-static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
-        assert(link->dhcp6_pd_messages > 0);
+        assert(link->dhcp_pd_messages > 0);
 
-        link->dhcp6_pd_messages--;
+        link->dhcp_pd_messages--;
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 delegated prefix address");
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCP-PD address");
         if (r <= 0)
                 return r;
 
-        r = dhcp6_pd_check_ready(link);
+        r = dhcp_pd_check_ready(link);
         if (r < 0)
                 link_enter_failed(link);
 
         return 1;
 }
 
-static void log_dhcp6_pd_address(Link *link, const Address *address) {
+static void log_dhcp_pd_address(Link *link, const Address *address) {
         _cleanup_free_ char *buffer = NULL;
         int log_level;
 
@@ -368,13 +368,13 @@ static void log_dhcp6_pd_address(Link *link, const Address *address) {
 
         (void) in6_addr_prefix_to_string(&address->in_addr.in6, address->prefixlen, &buffer);
 
-        log_link_full(link, log_level, "DHCPv6-PD address %s (valid %s, preferred %s)",
+        log_link_full(link, log_level, "DHCP-PD address %s (valid %s, preferred %s)",
                       strna(buffer),
                       FORMAT_LIFETIME(address->lifetime_valid_usec),
                       FORMAT_LIFETIME(address->lifetime_preferred_usec));
 }
 
-static int dhcp6_pd_request_address(
+static int dhcp_pd_request_address(
                 Link *link,
                 const struct in6_addr *prefix,
                 uint8_t prefixlen,
@@ -389,12 +389,12 @@ static int dhcp6_pd_request_address(
         assert(link->network);
         assert(prefix);
 
-        if (!link->network->dhcp6_pd_assign)
+        if (!link->network->dhcp_pd_assign)
                 return 0;
 
-        r = dhcp6_pd_generate_addresses(link, prefix, prefixlen, &addresses);
+        r = dhcp_pd_generate_addresses(link, prefix, prefixlen, &addresses);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCPv6 delegated prefix: %m");
+                return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");
 
         SET_FOREACH(a, addresses) {
                 _cleanup_(address_freep) Address *address = NULL;
@@ -402,35 +402,35 @@ static int dhcp6_pd_request_address(
 
                 r = address_new(&address);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to allocate address for DHCPv6 delegated prefix: %m");
+                        return log_link_error_errno(link, r, "Failed to allocate address for DHCP delegated prefix: %m");
 
-                address->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
+                address->source = NETWORK_CONFIG_SOURCE_DHCP_PD;
                 address->family = AF_INET6;
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 if (prefixlen == 64)
-                        SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
-                address->route_metric = link->network->dhcp6_pd_route_metric;
+                        SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp_pd_manage_temporary_address);
+                address->route_metric = link->network->dhcp_pd_route_metric;
 
-                log_dhcp6_pd_address(link, address);
+                log_dhcp_pd_address(link, address);
 
                 if (address_get(link, address, &existing) < 0)
-                        link->dhcp6_pd_configured = false;
+                        link->dhcp_pd_configured = false;
                 else
                         address_unmark(existing);
 
-                r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_messages,
-                                         dhcp6_pd_address_handler, NULL);
+                r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp_pd_messages,
+                                         dhcp_pd_address_handler, NULL);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+                        return log_link_error_errno(link, r, "Failed to request DHCP delegated prefix address: %m");
         }
 
         return 0;
 }
 
-static int dhcp6_pd_calculate_prefix(
+static int dhcp_pd_calculate_subnet_prefix(
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
                 uint64_t subnet_id,
@@ -456,7 +456,7 @@ static int dhcp6_pd_calculate_prefix(
         return 0;
 }
 
-static int dhcp6_pd_get_preferred_prefix(
+static int dhcp_pd_get_preferred_subnet_prefix(
                 Link *link,
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
@@ -471,16 +471,16 @@ static int dhcp6_pd_get_preferred_prefix(
         assert(link->network);
         assert(pd_prefix);
 
-        if (link->network->dhcp6_pd_subnet_id >= 0) {
+        if (link->network->dhcp_pd_subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
 
-                r = dhcp6_pd_calculate_prefix(pd_prefix, pd_prefix_len, link->network->dhcp6_pd_subnet_id, &prefix);
+                r = dhcp_pd_calculate_subnet_prefix(pd_prefix, pd_prefix_len, link->network->dhcp_pd_subnet_id, &prefix);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
                                                       "subnet id %" PRIu64 " is out of range. Only have %" PRIu64 " subnets.",
-                                                      link->network->dhcp6_pd_subnet_id, UINT64_C(1) << (64 - pd_prefix_len));
+                                                      link->network->dhcp_pd_subnet_id, UINT64_C(1) << (64 - pd_prefix_len));
 
-                if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix, &assigned_link) >= 0 &&
+                if (link_get_by_dhcp_pd_subnet_prefix(link->manager, &prefix, &assigned_link) >= 0 &&
                     assigned_link != link) {
                         _cleanup_free_ char *assigned_buf = NULL;
 
@@ -498,18 +498,18 @@ static int dhcp6_pd_get_preferred_prefix(
                 /* If we do not have an allocation preference just iterate
                  * through the address space and return the first free prefix. */
 
-                r = dhcp6_pd_calculate_prefix(pd_prefix, pd_prefix_len, n, &prefix);
+                r = dhcp_pd_calculate_subnet_prefix(pd_prefix, pd_prefix_len, n, &prefix);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
                                                       "Couldn't find a suitable prefix. Ran out of address space.");
 
                 /* Do not use explicitly requested subnet IDs. Note that the corresponding link may not
                  * appear yet. So, we need to check the ID is not used in any .network files. */
-                if (set_contains(link->manager->dhcp6_pd_subnet_ids, &n))
+                if (set_contains(link->manager->dhcp_pd_subnet_ids, &n))
                         continue;
 
                 /* Check that the prefix is not assigned to another link. */
-                if (link_get_by_dhcp6_pd_prefix(link->manager, &prefix, &assigned_link) < 0 ||
+                if (link_get_by_dhcp_pd_subnet_prefix(link->manager, &prefix, &assigned_link) < 0 ||
                     assigned_link == link) {
                         *ret = prefix;
                         return 0;
@@ -517,7 +517,7 @@ static int dhcp6_pd_get_preferred_prefix(
         }
 }
 
-static int dhcp6_pd_assign_prefix(
+static int dhcp_pd_assign_subnet_prefix(
                 Link *link,
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
@@ -532,13 +532,13 @@ static int dhcp6_pd_assign_prefix(
         assert(link->network);
         assert(pd_prefix);
 
-        if (dhcp6_pd_get_assigned_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0 &&
-            dhcp6_pd_get_preferred_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0)
+        if (dhcp_pd_get_assigned_subnet_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0 &&
+            dhcp_pd_get_preferred_subnet_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0)
                 return 0;
 
         (void) in6_addr_prefix_to_string(&prefix, 64, &buf);
 
-        if (link_radv_enabled(link) && link->network->dhcp6_pd_announce) {
+        if (link_radv_enabled(link) && link->network->dhcp_pd_announce) {
                 r = radv_add_prefix(link, &prefix, 64, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
@@ -546,19 +546,19 @@ static int dhcp6_pd_assign_prefix(
                                                       strna(buf));
         }
 
-        r = dhcp6_pd_request_route(link, &prefix, 64, lifetime_valid_usec);
+        r = dhcp_pd_request_route(link, &prefix, 64, lifetime_valid_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to assign/update route for prefix %s: %m",
                                               strna(buf));
 
-        r = dhcp6_pd_request_address(link, &prefix, 64, lifetime_preferred_usec, lifetime_valid_usec);
+        r = dhcp_pd_request_address(link, &prefix, 64, lifetime_preferred_usec, lifetime_valid_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to assign/update address for prefix %s: %m",
                                               strna(buf));
 
-        r = link_add_dhcp6_pd_prefix(link, &prefix);
+        r = link_add_dhcp_pd_subnet_prefix(link, &prefix);
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to save assigned prefix %s: %m",
@@ -568,7 +568,7 @@ static int dhcp6_pd_assign_prefix(
         return 1;
 }
 
-static int dhcp6_pd_assign_prefix_on_uplink(
+static int dhcp_pd_assign_prefix_on_uplink(
                 Link *link,
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
@@ -584,16 +584,16 @@ static int dhcp6_pd_assign_prefix_on_uplink(
 
         (void) in6_addr_prefix_to_string(pd_prefix, pd_prefix_len, &buf);
 
-        if (link->network->dhcp6_pd_announce)
+        if (link->network->dhcp_pd_announce)
                 log_link_debug(link, "Ignoring Announce= setting on upstream interface.");
 
-        r = dhcp6_pd_request_route(link, pd_prefix, pd_prefix_len, lifetime_valid_usec);
+        r = dhcp_pd_request_route(link, pd_prefix, pd_prefix_len, lifetime_valid_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to assign/update route for prefix %s: %m",
                                               strna(buf));
 
-        r = dhcp6_pd_request_address(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+        r = dhcp_pd_request_address(link, pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to assign/update address for prefix %s: %m",
@@ -603,68 +603,68 @@ static int dhcp6_pd_assign_prefix_on_uplink(
         return 1;
 }
 
-static int dhcp6_pd_prepare(Link *link) {
+static int dhcp_pd_prepare(Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (!link_dhcp6_pd_is_enabled(link))
+        if (!link_dhcp_pd_is_enabled(link))
                 return 0;
 
-        if (link_radv_enabled(link) && link->network->dhcp6_pd_announce && !link->radv)
+        if (link_radv_enabled(link) && link->network->dhcp_pd_announce && !link->radv)
                 return 0;
 
-        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
+        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP_PD, NULL);
+        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP_PD, NULL);
 
         return 1;
 }
 
-static int dhcp6_pd_finalize(Link *link) {
+static int dhcp_pd_finalize(Link *link) {
         int r;
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (link->dhcp6_pd_messages == 0) {
-                link->dhcp6_pd_configured = false;
+        if (link->dhcp_pd_messages == 0) {
+                link->dhcp_pd_configured = false;
 
-                r = dhcp6_pd_remove(link, /* only_marked = */ true);
+                r = dhcp_pd_remove(link, /* only_marked = */ true);
                 if (r < 0)
                         return r;
         }
 
-        if (!link->dhcp6_pd_configured)
+        if (!link->dhcp_pd_configured)
                 link_set_state(link, LINK_STATE_CONFIGURING);
 
         link_check_ready(link);
         return 0;
 }
 
-void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
+void dhcp_pd_prefix_lost(Link *uplink) {
         Route *route;
         Link *link;
         int r;
 
-        assert(dhcp6_link);
-        assert(dhcp6_link->manager);
+        assert(uplink);
+        assert(uplink->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
+        HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
                         continue;
 
-                r = dhcp6_pd_remove(link, /* only_marked = */ false);
+                r = dhcp_pd_remove(link, /* only_marked = */ false);
                 if (r < 0)
                         link_enter_failed(link);
         }
 
-        SET_FOREACH(route, dhcp6_link->manager->routes) {
-                if (route->source != NETWORK_CONFIG_SOURCE_DHCP6)
+        SET_FOREACH(route, uplink->manager->routes) {
+                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
                         continue;
                 if (route->family != AF_INET6)
                         continue;
                 if (route->type != RTN_UNREACHABLE)
                         continue;
-                if (!set_contains(dhcp6_link->dhcp6_pd_prefixes,
+                if (!set_contains(uplink->dhcp_pd_prefixes,
                                   &(struct in_addr_prefix) {
                                           .family = AF_INET6,
                                           .prefixlen = route->dst_prefixlen,
@@ -673,13 +673,13 @@ void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
 
                 (void) route_remove(route);
 
-                route_cancel_request(route, dhcp6_link);
+                route_cancel_request(route, uplink);
         }
 
-        set_clear(dhcp6_link->dhcp6_pd_prefixes);
+        set_clear(uplink->dhcp_pd_prefixes);
 }
 
-static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -687,7 +687,7 @@ static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         link->dhcp6_messages--;
 
-        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv6 delegated subnet");
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCP delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -698,12 +698,15 @@ static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int dhcp6_request_unreachable_route(
+static int dhcp_request_unreachable_route(
                 Link *link,
                 const struct in6_addr *addr,
                 uint8_t prefixlen,
                 usec_t lifetime_usec,
-                const union in_addr_union *server_address) {
+                NetworkConfigSource source,
+                const union in_addr_union *server_address,
+                unsigned *counter,
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;
@@ -711,13 +714,16 @@ static int dhcp6_request_unreachable_route(
 
         assert(link);
         assert(addr);
+        assert(IN_SET(source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6));
         assert(server_address);
+        assert(counter);
+        assert(callback);
 
         if (prefixlen >= 64) {
                 _cleanup_free_ char *buf = NULL;
 
                 (void) in6_addr_prefix_to_string(addr, prefixlen, &buf);
-                log_link_debug(link, "Not adding a blocking route for DHCPv6 delegated prefix %s since the prefix has length >= 64.",
+                log_link_debug(link, "Not adding a blocking route for DHCP delegated prefix %s since the prefix has length >= 64.",
                                strna(buf));
                 return 0;
         }
@@ -726,7 +732,7 @@ static int dhcp6_request_unreachable_route(
         if (r < 0)
                 return log_oom();
 
-        route->source = NETWORK_CONFIG_SOURCE_DHCP6;
+        route->source = source;
         route->provider = *server_address;
         route->family = AF_INET6;
         route->dst.in6 = *addr;
@@ -741,20 +747,31 @@ static int dhcp6_request_unreachable_route(
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp6_messages,
-                               dhcp6_route_handler, NULL);
+        r = link_request_route(link, TAKE_PTR(route), true, counter, callback, NULL);
         if (r < 0) {
                 _cleanup_free_ char *buf = NULL;
 
                 (void) in6_addr_prefix_to_string(addr, prefixlen, &buf);
-                return log_link_error_errno(link, r, "Failed to request unreachable route for DHCPv6 delegated subnet %s: %m",
+                return log_link_error_errno(link, r, "Failed to request unreachable route for DHCP delegated prefix %s: %m",
                                             strna(buf));
         }
 
         return 0;
 }
 
-static int dhcp6_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t prefixlen) {
+static int dhcp6_request_unreachable_route(
+                Link *link,
+                const struct in6_addr *addr,
+                uint8_t prefixlen,
+                usec_t lifetime_usec,
+                const union in_addr_union *server_address) {
+
+        return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
+                                              NETWORK_CONFIG_SOURCE_DHCP6, server_address,
+                                              &link->dhcp6_messages, dhcp6_unreachable_route_handler);
+}
+
+static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t prefixlen) {
         _cleanup_free_ char *buf = NULL;
         struct in_addr_prefix *p;
         int r;
@@ -775,22 +792,22 @@ static int dhcp6_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_
         (void) in6_addr_prefix_to_string(prefix, prefixlen, &buf);
 
         log_link_full(link,
-                      set_contains(link->dhcp6_pd_prefixes, p) ? LOG_DEBUG :
+                      set_contains(link->dhcp_pd_prefixes, p) ? LOG_DEBUG :
                       prefixlen > 64 || prefixlen < 48 ? LOG_WARNING : LOG_INFO,
-                      "DHCPv6: received PD Prefix %s%s",
+                      "DHCP: received PD Prefix %s%s",
                       strna(buf),
                       prefixlen > 64 ? " with prefix length > 64, ignoring." :
                       prefixlen < 48 ? " with prefix length < 48, looks unusual.": "");
 
         /* Store PD prefix even if prefixlen > 64, not to make logged at warning level so frequently. */
-        r = set_ensure_consume(&link->dhcp6_pd_prefixes, &in_addr_prefix_hash_ops_free, p);
+        r = set_ensure_consume(&link->dhcp_pd_prefixes, &in_addr_prefix_hash_ops_free, p);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to store DHCPv6 PD prefix %s: %m", strna(buf));
+                return log_link_error_errno(link, r, "Failed to store DHCP PD prefix %s: %m", strna(buf));
 
         return 0;
 }
 
-static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
+static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
         usec_t timestamp_usec;
         int r;
 
@@ -798,7 +815,7 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
         assert(uplink);
         assert(uplink->dhcp6_lease);
 
-        r = dhcp6_pd_prepare(link);
+        r = dhcp_pd_prepare(link);
         if (r <= 0)
                 return r;
 
@@ -829,41 +846,41 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
                 lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
                 if (link == uplink)
-                        r = dhcp6_pd_assign_prefix_on_uplink(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+                        r = dhcp_pd_assign_prefix_on_uplink(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 else
-                        r = dhcp6_pd_assign_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
+                        r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefix_len, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0)
                         return r;
         }
 
-        return dhcp6_pd_finalize(link);
+        return dhcp_pd_finalize(link);
 }
 
-int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
+int dhcp6_pd_prefix_acquired(Link *uplink) {
         union in_addr_union server_address;
         usec_t timestamp_usec;
         Link *link;
         int r;
 
-        assert(dhcp6_link);
-        assert(dhcp6_link->dhcp6_lease);
+        assert(uplink);
+        assert(uplink->dhcp6_lease);
 
-        r = sd_dhcp6_lease_get_server_address(dhcp6_link->dhcp6_lease, &server_address.in6);
+        r = sd_dhcp6_lease_get_server_address(uplink->dhcp6_lease, &server_address.in6);
         if (r < 0)
-                return log_link_warning_errno(dhcp6_link, r, "Failed to get server address of DHCPv6 lease: %m");
+                return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv6 lease: %m");
 
-        r = sd_dhcp6_lease_get_timestamp(dhcp6_link->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
         if (r < 0)
-                return log_link_warning_errno(dhcp6_link, r, "Failed to get timestamp of DHCPv6 lease: %m");
+                return log_link_warning_errno(uplink, r, "Failed to get timestamp of DHCPv6 lease: %m");
 
         /* First, logs acquired prefixes and request unreachable routes. */
-        for (sd_dhcp6_lease_reset_pd_prefix_iter(dhcp6_link->dhcp6_lease);;) {
+        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
                 uint32_t lifetime_preferred_sec, lifetime_valid_sec;
                 usec_t lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
-                r = sd_dhcp6_lease_get_pd(dhcp6_link->dhcp6_lease, &pd_prefix, &pd_prefix_len,
+                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
                                           &lifetime_preferred_sec, &lifetime_valid_sec);
                 if (r < 0)
                         break;
@@ -871,31 +888,31 @@ int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                 /* Mask prefix for safety. */
                 r = in6_addr_mask(&pd_prefix, pd_prefix_len);
                 if (r < 0)
-                        return log_link_error_errno(dhcp6_link, r, "Failed to mask DHCPv6 PD prefix: %m");
+                        return log_link_error_errno(uplink, r, "Failed to mask DHCPv6 PD prefix: %m");
 
                 lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
-                r = dhcp6_pd_prefix_add(dhcp6_link, &pd_prefix, pd_prefix_len);
+                r = dhcp_pd_prefix_add(uplink, &pd_prefix, pd_prefix_len);
                 if (r < 0)
                         return r;
 
-                r = dhcp6_request_unreachable_route(dhcp6_link, &pd_prefix, pd_prefix_len, lifetime_valid_usec, &server_address);
+                r = dhcp6_request_unreachable_route(uplink, &pd_prefix, pd_prefix_len, lifetime_valid_usec, &server_address);
                 if (r < 0)
                         return r;
         }
 
         /* Then, assign subnet prefixes. */
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
+        HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
                         continue;
 
-                r = dhcp6_pd_assign_prefixes(link, dhcp6_link);
+                r = dhcp6_pd_assign_subnet_prefixes(link, uplink);
                 if (r < 0) {
-                        /* When failed on the upstream interface (i.e., the case link == dhcp6_link),
+                        /* When failed on the upstream interface (i.e., the case link == uplink),
                          * immediately abort the assignment of the prefixes. As, the all assigned
                          * prefixes will be dropped soon in link_enter_failed(), and it is meaningless
                          * to continue the assignment. */
-                        if (link == dhcp6_link)
+                        if (link == uplink)
                                 return r;
 
                         link_enter_failed(link);
@@ -929,20 +946,20 @@ static bool dhcp6_pd_uplink_is_ready(Link *link) {
         return dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
 }
 
-int dhcp6_pd_find_uplink(Link *link, Link **ret) {
+int dhcp_pd_find_uplink(Link *link, Link **ret) {
         Link *uplink = NULL;
         int r = 0;
 
         assert(link);
         assert(link->manager);
-        assert(link_dhcp6_pd_is_enabled(link));
+        assert(link_dhcp_pd_is_enabled(link));
         assert(ret);
 
-        if (link->network->dhcp6_pd_uplink_name)
-                r = link_get_by_name(link->manager, link->network->dhcp6_pd_uplink_name, &uplink);
-        else if (link->network->dhcp6_pd_uplink_index > 0)
-                r = link_get_by_index(link->manager, link->network->dhcp6_pd_uplink_index, &uplink);
-        else if (link->network->dhcp6_pd_uplink_index == UPLINK_INDEX_SELF)
+        if (link->network->dhcp_pd_uplink_name)
+                r = link_get_by_name(link->manager, link->network->dhcp_pd_uplink_name, &uplink);
+        else if (link->network->dhcp_pd_uplink_index > 0)
+                r = link_get_by_index(link->manager, link->network->dhcp_pd_uplink_index, &uplink);
+        else if (link->network->dhcp_pd_uplink_index == UPLINK_INDEX_SELF)
                 uplink = link;
         if (r < 0)
                 return r;
@@ -967,22 +984,22 @@ int dhcp6_pd_find_uplink(Link *link, Link **ret) {
         return -ENODEV;
 }
 
-int dhcp6_request_prefix_delegation(Link *link) {
+int dhcp_request_prefix_delegation(Link *link) {
         Link *uplink;
 
         assert(link);
 
-        if (!link_dhcp6_pd_is_enabled(link))
+        if (!link_dhcp_pd_is_enabled(link))
                 return 0;
 
-        if (dhcp6_pd_find_uplink(link, &uplink) < 0)
+        if (dhcp_pd_find_uplink(link, &uplink) < 0)
                 return 0;
 
         log_link_debug(link, "Requesting subnets of delegated prefixes acquired by %s", uplink->ifname);
-        return dhcp6_pd_assign_prefixes(link, uplink);
+        return dhcp6_pd_assign_subnet_prefixes(link, uplink);
 }
 
-int config_parse_dhcp6_pd_subnet_id(
+int config_parse_dhcp_pd_subnet_id(
                 const char *unit,
                 const char *filename,
                 unsigned line,

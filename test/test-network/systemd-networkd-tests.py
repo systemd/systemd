@@ -4994,7 +4994,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
-class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
+class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
     links = [
         'dummy97',
         'dummy98',
@@ -5012,14 +5012,14 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
         '25-veth.netdev',
         '25-veth-downstream-veth97.netdev',
         '25-veth-downstream-veth98.netdev',
-        'dhcp6pd-downstream-dummy97.network',
-        'dhcp6pd-downstream-dummy98.network',
-        'dhcp6pd-downstream-dummy99.network',
-        'dhcp6pd-downstream-test1.network',
-        'dhcp6pd-downstream-veth97.network',
-        'dhcp6pd-downstream-veth97-peer.network',
-        'dhcp6pd-downstream-veth98.network',
-        'dhcp6pd-downstream-veth98-peer.network',
+        'dhcp-pd-downstream-dummy97.network',
+        'dhcp-pd-downstream-dummy98.network',
+        'dhcp-pd-downstream-dummy99.network',
+        'dhcp-pd-downstream-test1.network',
+        'dhcp-pd-downstream-veth97.network',
+        'dhcp-pd-downstream-veth97-peer.network',
+        'dhcp-pd-downstream-veth98.network',
+        'dhcp-pd-downstream-veth98-peer.network',
         'dhcp6pd-server.network',
         'dhcp6pd-upstream.network',
     ]
@@ -5037,12 +5037,12 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
 
     def test_dhcp6pd(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp6pd-server.network', 'dhcp6pd-upstream.network',
-                                        '25-veth-downstream-veth97.netdev', 'dhcp6pd-downstream-veth97.network', 'dhcp6pd-downstream-veth97-peer.network',
-                                        '25-veth-downstream-veth98.netdev', 'dhcp6pd-downstream-veth98.network', 'dhcp6pd-downstream-veth98-peer.network',
-                                        '11-dummy.netdev', 'dhcp6pd-downstream-test1.network',
-                                        'dhcp6pd-downstream-dummy97.network',
-                                        '12-dummy.netdev', 'dhcp6pd-downstream-dummy98.network',
-                                        '13-dummy.netdev', 'dhcp6pd-downstream-dummy99.network')
+                                        '25-veth-downstream-veth97.netdev', 'dhcp-pd-downstream-veth97.network', 'dhcp-pd-downstream-veth97-peer.network',
+                                        '25-veth-downstream-veth98.netdev', 'dhcp-pd-downstream-veth98.network', 'dhcp-pd-downstream-veth98-peer.network',
+                                        '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
+                                        'dhcp-pd-downstream-dummy97.network',
+                                        '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
+                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network')
 
         start_networkd()
         self.wait_online(['veth-peer:routable'])

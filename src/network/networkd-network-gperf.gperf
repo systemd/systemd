@@ -140,7 +140,7 @@ Network.ConfigureWithoutCarrier,             config_parse_bool,                 
 Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,                         0,                             0
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
-Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_pd)
+Network.DHCPPrefixDelegation,                config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
@@ -329,13 +329,13 @@ BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,          
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
 BridgeVLAN.VLAN,                             config_parse_brvlan_vlan,                                 0,                             0
 BridgeVLAN.EgressUntagged,                   config_parse_brvlan_untagged,                             0,                             0
-DHCPv6PrefixDelegation.UplinkInterface,      config_parse_uplink,                                      0,                             0
-DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,                          0,                             offsetof(Network, dhcp6_pd_subnet_id)
-DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
-DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
-DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp6_pd_tokens)
-DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
+DHCPPrefixDelegation.UplinkInterface,        config_parse_uplink,                                      0,                             0
+DHCPPrefixDelegation.SubnetId,               config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
+DHCPPrefixDelegation.Announce,               config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
+DHCPPrefixDelegation.Assign,                 config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_assign)
+DHCPPrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_manage_temporary_address)
+DHCPPrefixDelegation.Token,                  config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp_pd_tokens)
+DHCPPrefixDelegation.RouteMetric,            config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
 IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
@@ -513,6 +513,7 @@ TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
 Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
+Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
 IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6PrefixDelegation.OtherInformation,       config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
@@ -552,6 +553,12 @@ DHCPv4.CriticalConnection,                   config_parse_tristate,             
 DHCPv6.RouteMetric,                          config_parse_dhcp_or_ra_route_metric,                     AF_INET6,                      0
 DHCPv6.RapidCommit,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_warn_compat,                                 DISABLED_LEGACY,               0
+DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
+DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
+DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_assign)
+DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp_pd_manage_temporary_address)
+DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp_pd_tokens)
+DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
 IPv6AcceptRA.DenyList,                       config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.BlackList,                      config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
 TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0

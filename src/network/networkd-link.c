@@ -235,7 +235,7 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
 
-        link->dhcp6_pd_prefixes = set_free(link->dhcp6_pd_prefixes);
+        link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
 
         link_free_engines(link);
 
@@ -381,7 +381,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
 
-        k = dhcp6_pd_remove(link, /* only_marked = */ false);
+        k = dhcp_pd_remove(link, /* only_marked = */ false);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
@@ -495,7 +495,7 @@ void link_check_ready(Link *link) {
                            NETWORK_CONFIG_SOURCE_IPV4LL,
                            NETWORK_CONFIG_SOURCE_DHCP4,
                            NETWORK_CONFIG_SOURCE_DHCP6,
-                           NETWORK_CONFIG_SOURCE_DHCP6PD,
+                           NETWORK_CONFIG_SOURCE_DHCP_PD,
                            NETWORK_CONFIG_SOURCE_NDISC)) {
                         has_dynamic_address = true;
                         break;
@@ -503,26 +503,26 @@ void link_check_ready(Link *link) {
         }
 
         if ((link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) ||
-             (link_dhcp6_pd_is_enabled(link) && link->network->dhcp6_pd_assign)) && !has_dynamic_address)
+             (link_dhcp_pd_is_enabled(link) && link->network->dhcp_pd_assign)) && !has_dynamic_address)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
-                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCPv6PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
+                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCP-PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
 
         /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) ||
-            link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) ||
+            link_dhcp6_enabled(link) || link_dhcp_pd_is_enabled(link) ||
             (!link->network->configure_without_carrier && link_ipv6_accept_ra_enabled(link))) {
 
                 if (!link->ipv4ll_address_configured && !link->dhcp4_configured &&
-                    !link->dhcp6_configured && !link->dhcp6_pd_configured && !link->ndisc_configured)
+                    !link->dhcp6_configured && !link->dhcp_pd_configured && !link->ndisc_configured)
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCPv6PD:%s NDisc:%s",
+                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
                                __func__,
                                yes_no(link->ipv4ll_address_configured),
                                yes_no(link->dhcp4_configured),
                                yes_no(link->dhcp6_configured),
-                               yes_no(link->dhcp6_pd_configured),
+                               yes_no(link->dhcp_pd_configured),
                                yes_no(link->ndisc_configured));
         }
 
@@ -669,14 +669,14 @@ static int link_acquire_dynamic_conf(Link *link) {
                         return r;
         }
 
-        if (!link_radv_enabled(link) || !link->network->dhcp6_pd_announce) {
+        if (!link_radv_enabled(link) || !link->network->dhcp_pd_announce) {
                 /* DHCPv6PD downstream does not require IPv6LL address. But may require RADV to be
                  * configured, and RADV may not be configured yet here. Only acquire subnet prefix when
                  * RADV is disabled, or the announcement of the prefix is disabled. Otherwise, the
                  * below will be called in radv_start(). */
-                r = dhcp6_request_prefix_delegation(link);
+                r = dhcp_request_prefix_delegation(link);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
+                        return log_link_warning_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
 
         if (link->lldp_tx) {
