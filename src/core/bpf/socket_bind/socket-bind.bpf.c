@@ -7,13 +7,12 @@
  */
 
 #include "socket-bind-api.bpf.h"
-/* <linux/types.h> must precede <bpf/bpf_helpers.h> due to
+/* <linux/bpf.h> must precede <bpf/bpf_helpers.h> due to
  * <bpf/bpf_helpers.h> does not depend from type header by design.
  */
-#include <linux/types.h>
+#include <linux/bpf.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
-#include <linux/bpf.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 
