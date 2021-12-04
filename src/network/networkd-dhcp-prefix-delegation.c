@@ -836,11 +836,7 @@ static int dhcp6_pd_assign_prefixes(Link *link, Link *uplink) {
                         return r;
         }
 
-        r = dhcp6_pd_finalize(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp6_pd_finalize(link);
 }
 
 int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
