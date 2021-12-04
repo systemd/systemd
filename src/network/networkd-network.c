@@ -756,6 +756,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_timezone);
         free(network->dhcp_server_uplink_name);
         free(network->router_uplink_name);
+        free(network->dhcp6_pd_uplink_name);
 
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
