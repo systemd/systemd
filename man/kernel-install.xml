@@ -214,8 +214,9 @@
         </term>
           <listitem>
             <para>The content of this file specifies the machine identification
-            <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
-            kernel-install will use "Linux" as the machine ID instead.</para>
+            <replaceable>MACHINE-ID</replaceable>.  If <filename>$BOOT/Default</filename> exists,
+            or <filename>/etc/machine-id</filename> doesn't, <command>kernel-install</command>
+            will use the literal <literal>Default</literal> as the machine ID instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
