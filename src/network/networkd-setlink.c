@@ -1180,3 +1180,43 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         log_link_debug(link, "Requested to bring link %s", up_or_down(up));
         return 0;
 }
+
+static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not remove interface, ignoring");
+
+        return 0;
+}
+
+int link_remove(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Removing link.");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_DELLINK, link->ifindex);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not allocate RTM_DELLINK message: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_remove_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
