@@ -426,13 +426,6 @@ static int dhcp6_pd_request_address(
         return 0;
 }
 
-static bool link_has_preferred_subnet_id(Link *link) {
-        if (!link->network)
-                return false;
-
-        return link->network->dhcp6_pd_subnet_id >= 0;
-}
-
 static int dhcp6_pd_calculate_prefix(
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
@@ -471,9 +464,10 @@ static int dhcp6_pd_get_preferred_prefix(
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
         assert(pd_prefix);
 
-        if (link_has_preferred_subnet_id(link)) {
+        if (link->network->dhcp6_pd_subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
 
                 r = dhcp6_pd_calculate_prefix(pd_prefix, pd_prefix_len, link->network->dhcp6_pd_subnet_id, &prefix);
