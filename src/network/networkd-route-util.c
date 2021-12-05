@@ -116,7 +116,7 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (route->family != family)
                         continue;
-                if (!in_addr_is_set(route->family, &route->dst))
+                if (!in_addr_is_set(route->family, &route->dst) && route->dst_prefixlen == 0)
                         continue;
                 if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) > 0)
                         return true;
