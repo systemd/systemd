@@ -44,7 +44,7 @@ DeclStmt declWithNoInit(LocalVariable v) {
   /* The variable has __attribute__((__cleanup__(...))) set */
   v.getAnAttribute().hasName("cleanup") and
   /* The type of the variable is not stack-allocated. */
-  exists(Type t | t = v.getType() | not allocatedType(t))
+  exists(Type t | t = v.getType() | not allocatedType(t) and t instanceof PointerType)
 }
 
 class UninitialisedLocalReachability extends StackVariableReachability {
