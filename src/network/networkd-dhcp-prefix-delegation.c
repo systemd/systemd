@@ -534,7 +534,7 @@ static int dhcp6_pd_assign_prefix(
 
         (void) in6_addr_prefix_to_string(&prefix, 64, &buf);
 
-        if (link->network->dhcp6_pd_announce) {
+        if (link_radv_enabled(link) && link->network->dhcp6_pd_announce) {
                 r = radv_add_prefix(link, &prefix, 64, lifetime_preferred_usec, lifetime_valid_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
@@ -571,7 +571,7 @@ static int dhcp6_pd_prepare(Link *link) {
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
-        if (link->network->dhcp6_pd_announce && !link->radv)
+        if (link_radv_enabled(link) && link->network->dhcp6_pd_announce && !link->radv)
                 return 0;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6PD, NULL);
