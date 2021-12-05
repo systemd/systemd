@@ -34,6 +34,13 @@ predicate allocatedType(Type t) {
   allocatedType(t.getUnspecifiedType())
 }
 
+/** Auxiliary predicate: List cleanup functions we want to explicitly ignore
+  * since they don't do anything illegal even when the variable is uninitialized
+  */
+predicate cleanupFunctionDenyList(string fun) {
+  fun = "erase_char"
+}
+
 /**
  * A declaration of a local variable using __attribute__((__cleanup__(x)))
  * that leaves the variable uninitialized.
@@ -43,6 +50,8 @@ DeclStmt declWithNoInit(LocalVariable v) {
   not exists(v.getInitializer()) and
   /* The variable has __attribute__((__cleanup__(...))) set */
   v.getAnAttribute().hasName("cleanup") and
+  /* Check if the cleanup function is not on a deny list */
+  not exists(Attribute a | a = v.getAnAttribute() and a.getName() = "cleanup" | cleanupFunctionDenyList(a.getAnArgument().getValueText())) and
   /* The type of the variable is not stack-allocated. */
   exists(Type t | t = v.getType() | not allocatedType(t))
 }
