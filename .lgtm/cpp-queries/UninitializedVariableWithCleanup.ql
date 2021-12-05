@@ -16,24 +16,6 @@
 import cpp
 import semmle.code.cpp.controlflow.StackVariableReachability
 
-/**
- * Auxiliary predicate: Types that don't require initialization
- * before they are used, since they're stack-allocated.
- */
-predicate allocatedType(Type t) {
-  /* Arrays: "int foo[1]; foo[0] = 42;" is ok. */
-  t instanceof ArrayType
-  or
-  /* Structs: "struct foo bar; bar.baz = 42" is ok. */
-  t instanceof Class
-  or
-  /* Typedefs to other allocated types are fine. */
-  allocatedType(t.(TypedefType).getUnderlyingType())
-  or
-  /* Type specifiers don't affect whether or not a type is allocated. */
-  allocatedType(t.getUnspecifiedType())
-}
-
 /** Auxiliary predicate: List cleanup functions we want to explicitly ignore
   * since they don't do anything illegal even when the variable is uninitialized
   */
@@ -47,13 +29,11 @@ predicate cleanupFunctionDenyList(string fun) {
  */
 DeclStmt declWithNoInit(LocalVariable v) {
   result.getADeclaration() = v and
-  not exists(v.getInitializer()) and
+  not v.hasInitializer() and
   /* The variable has __attribute__((__cleanup__(...))) set */
   v.getAnAttribute().hasName("cleanup") and
   /* Check if the cleanup function is not on a deny list */
-  not exists(Attribute a | a = v.getAnAttribute() and a.getName() = "cleanup" | cleanupFunctionDenyList(a.getAnArgument().getValueText())) and
-  /* The type of the variable is not stack-allocated. */
-  exists(Type t | t = v.getType() | not allocatedType(t))
+  not cleanupFunctionDenyList(v.getAnAttribute().getAnArgument().getValueText())
 }
 
 class UninitialisedLocalReachability extends StackVariableReachability {
@@ -78,7 +58,29 @@ class UninitialisedLocalReachability extends StackVariableReachability {
   override predicate isBarrier(ControlFlowNode node, StackVariable v) {
     // only report the _first_ possibly uninitialized use
     useOfVar(v, node) or
-    definitionBarrier(v, node)
+    (
+      /* If there's an return statement somewhere between the variable declaration
+       * and a possible definition, don't accept is as a valid initialization.
+       *
+       * E.g.:
+       * _cleanup_free_ char *x;
+       * ...
+       * if (...)
+       *    return;
+       * ...
+       * x = malloc(...);
+       *
+       * is not a valid initialization, since we might return from the function
+       * _before_ the actual iniitialization (emphasis on _might_, since we
+       * don't know if the return statement might ever evaluate to true).
+       */
+      definitionBarrier(v, node) and
+      not exists(ReturnStmt rs |
+                 /* The attribute check is "just" a complexity optimization */
+                 v.getFunction() = rs.getEnclosingFunction() and v.getAnAttribute().hasName("cleanup") |
+                 rs.getLocation().isBefore(node.getLocation())
+      )
+    )
   }
 }
 
