@@ -24,9 +24,6 @@ predicate allocatedType(Type t) {
   /* Arrays: "int foo[1]; foo[0] = 42;" is ok. */
   t instanceof ArrayType
   or
-  /* Structs: "struct foo bar; bar.baz = 42" is ok. */
-  t instanceof Class
-  or
   /* Typedefs to other allocated types are fine. */
   allocatedType(t.(TypedefType).getUnderlyingType())
   or
