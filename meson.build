@@ -1526,8 +1526,7 @@ conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
 want_repart = get_option('repart')
 if want_repart != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1)
+        have = conf.get('HAVE_LIBFDISK') == 1
         if want_repart == 'true' and not have
                 error('repart support was requested, but dependencies are not available')
         endif
@@ -2931,8 +2930,7 @@ if conf.get('ENABLE_REPART') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libblkid,
-                                libfdisk,
-                                libopenssl],
+                                libfdisk],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
