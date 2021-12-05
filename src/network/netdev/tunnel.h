@@ -6,6 +6,7 @@
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "netdev.h"
+#include "networkd-link.h"
 
 typedef enum Ip6TnlMode {
         NETDEV_IP6_TNL_MODE_IP6IP6,
@@ -59,6 +60,9 @@ typedef struct Tunnel {
         struct in6_addr sixrd_prefix;
         uint8_t sixrd_prefixlen;
 } Tunnel;
+
+int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret);
+int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback);
 
 DEFINE_NETDEV_CAST(IPIP, Tunnel);
 DEFINE_NETDEV_CAST(GRE, Tunnel);
