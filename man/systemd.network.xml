@@ -1906,6 +1906,15 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Use6RD=</varname></term>
+          <listitem><para>When true, subnets of the received IPv6 prefix are assigned to downstream
+          interfaces which enables <varname>DHCPPrefixDelegation=</varname>. See also
+          <varname>DHCPPrefixDelegation=</varname> in the [Network] section, the [DHCPPrefixDelegation]
+          section, and <ulink url="https://tools.ietf.org/html/rfc5969">RFC 5969</ulink>. Defaults to
+          false.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>FallbackLeaseLifetimeSec=</varname></term>
           <listitem>
             <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
