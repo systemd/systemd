@@ -15,9 +15,11 @@
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
+#include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tunnel.h"
 
 bool link_dhcp_pd_is_enabled(Link *link) {
         assert(link);
@@ -47,6 +49,13 @@ bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto) {
 
         assert(link->network->dhcp_pd_uplink_index == UPLINK_INDEX_AUTO);
         return accept_auto;
+}
+
+bool dhcp4_lease_has_pd_prefix(sd_dhcp_lease *lease) {
+        if (!lease)
+                return false;
+
+        return sd_dhcp_lease_get_6rd(lease, NULL, NULL, NULL, NULL, NULL) >= 0;
 }
 
 bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
@@ -679,6 +688,35 @@ void dhcp_pd_prefix_lost(Link *uplink) {
         set_clear(uplink->dhcp_pd_prefixes);
 }
 
+void dhcp4_pd_prefix_lost(Link *uplink) {
+        Link *tunnel;
+
+        dhcp_pd_prefix_lost(uplink);
+
+        if (uplink->dhcp4_6rd_tunnel_name &&
+            link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, &tunnel) >= 0)
+                (void) link_remove(tunnel);
+}
+
+static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->dhcp4_messages > 0);
+
+        link->dhcp4_messages--;
+
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCP delegated prefix");
+        if (r <= 0)
+                return r;
+
+        r = dhcp4_check_ready(link);
+        if (r < 0)
+                link_enter_failed(link);
+
+        return 1;
+}
+
 static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -759,6 +797,18 @@ static int dhcp_request_unreachable_route(
         return 0;
 }
 
+static int dhcp4_request_unreachable_route(
+                Link *link,
+                const struct in6_addr *addr,
+                uint8_t prefixlen,
+                usec_t lifetime_usec,
+                const union in_addr_union *server_address) {
+
+        return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
+                                              NETWORK_CONFIG_SOURCE_DHCP4, server_address,
+                                              &link->dhcp4_messages, dhcp4_unreachable_route_handler);
+}
+
 static int dhcp6_request_unreachable_route(
                 Link *link,
                 const struct in6_addr *addr,
@@ -803,6 +853,229 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
         r = set_ensure_consume(&link->dhcp_pd_prefixes, &in_addr_prefix_hash_ops_free, p);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to store DHCP PD prefix %s: %m", strna(buf));
+
+        return 0;
+}
+
+static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const struct in_addr *br_address, usec_t lifetime_usec) {
+        _cleanup_(route_freep) Route *route = NULL;
+        Route *existing;
+        int r;
+
+        assert(link);
+        assert(br_address);
+
+        r = route_new(&route);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to allocate default gateway for DHCP delegated prefix: %m");
+
+        route->source = NETWORK_CONFIG_SOURCE_DHCP_PD;
+        route->family = AF_INET6;
+        route->gw_family = AF_INET6;
+        route->gw.in6.s6_addr32[3] = br_address->s_addr;
+        route->scope = RT_SCOPE_UNIVERSE;
+        route->protocol = RTPROT_DHCP;
+        route->priority = IP6_RT_PRIO_USER;
+        route->lifetime_usec = lifetime_usec;
+
+        if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
+                link->dhcp_pd_configured = false;
+        else
+                route_unmark(existing);
+
+        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
+                               dhcp_pd_route_handler, NULL);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to request default gateway for DHCP delegated prefix: %m");
+
+        return 0;
+}
+
+static void dhcp4_calculate_pd_prefix(
+                const struct in_addr *ipv4address,
+                uint8_t ipv4masklen,
+                const struct in6_addr *sixrd_prefix,
+                uint8_t sixrd_prefixlen,
+                struct in6_addr *ret_pd_prefix,
+                uint8_t *ret_pd_prefixlen) {
+
+        struct in6_addr pd_prefix;
+
+        assert(ipv4address);
+        assert(ipv4masklen <= 32);
+        assert(sixrd_prefix);
+        assert(32 - ipv4masklen + sixrd_prefixlen <= 128);
+        assert(ret_pd_prefix);
+
+        pd_prefix = *sixrd_prefix;
+        for (unsigned i = 0; i < (unsigned) (32 - ipv4masklen); i++)
+                if (ipv4address->s_addr & htobe32(UINT32_C(1) << (32 - ipv4masklen - i - 1)))
+                        pd_prefix.s6_addr[(i + sixrd_prefixlen) / 8] |= 1 << (7 - (i + sixrd_prefixlen) % 8);
+
+        *ret_pd_prefix = pd_prefix;
+        if (ret_pd_prefixlen)
+                *ret_pd_prefixlen = 32 - ipv4masklen + sixrd_prefixlen;
+}
+
+static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
+        uint8_t ipv4masklen, sixrd_prefixlen, pd_prefixlen;
+        struct in6_addr sixrd_prefix, pd_prefix;
+        const struct in_addr *br_addresses;
+        struct in_addr ipv4address;
+        uint32_t lifetime_sec;
+        usec_t lifetime_usec;
+        int r;
+
+        assert(link);
+        assert(uplink);
+        assert(uplink->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(uplink->dhcp_lease, &ipv4address);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
+
+        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
+
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+
+        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get 6rd option: %m");
+
+        dhcp4_calculate_pd_prefix(&ipv4address, ipv4masklen, &sixrd_prefix, sixrd_prefixlen, &pd_prefix, &pd_prefixlen);
+
+        if (pd_prefixlen > 64)
+                return 0;
+
+        r = dhcp_pd_prepare(link);
+        if (r <= 0)
+                return r;
+
+        if (streq_ptr(uplink->dhcp4_6rd_tunnel_name, link->ifname)) {
+                r = dhcp_pd_assign_prefix_on_uplink(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec);
+                if (r < 0)
+                        return r;
+
+                r = dhcp4_pd_request_default_gateway_on_6rd_tunnel(link, &br_addresses[0], lifetime_usec);
+                if (r < 0)
+                        return r;
+        } else {
+                r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        return dhcp_pd_finalize(link);
+}
+
+static int dhcp4_pd_6rd_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->manager);
+        assert(link->dhcp4_6rd_tunnel_name);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_message_warning_errno(link, m, r, "Failed to create 6rd tunnel device");
+                link_enter_failed(link);
+                return 0;
+        }
+
+        return 0;
+}
+
+int dhcp4_pd_prefix_acquired(Link *uplink) {
+        _cleanup_free_ char *tunnel_name = NULL;
+        uint8_t ipv4masklen, sixrd_prefixlen, pd_prefixlen;
+        struct in6_addr sixrd_prefix, pd_prefix;
+        struct in_addr ipv4address;
+        union in_addr_union server_address;
+        uint32_t lifetime_sec;
+        usec_t lifetime_usec;
+        Link *link;
+        int r;
+
+        assert(uplink);
+        assert(uplink->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(uplink->dhcp_lease, &ipv4address);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
+
+        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
+
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+
+        r = sd_dhcp_lease_get_server_identifier(uplink->dhcp_lease, &server_address.in);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv4 lease: %m");
+
+        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(uplink, r, "Failed to get 6rd option: %m");
+
+        /* Calculate PD prefix */
+        dhcp4_calculate_pd_prefix(&ipv4address, ipv4masklen, &sixrd_prefix, sixrd_prefixlen, &pd_prefix, &pd_prefixlen);
+
+        /* Register and log PD prefix */
+        r = dhcp_pd_prefix_add(uplink, &pd_prefix, pd_prefixlen);
+        if (r < 0)
+                return r;
+
+        /* Request unreachable route */
+        r = dhcp4_request_unreachable_route(uplink, &pd_prefix, pd_prefixlen, lifetime_usec, &server_address);
+        if (r < 0)
+                return r;
+
+        /* Generate 6rd SIT tunnel device name. */
+        r = dhcp4_pd_create_6rd_tunnel_name(uplink, &tunnel_name);
+        if (r < 0)
+                return r;
+
+        /* Remove old tunnel device if exists. */
+        if (!streq_ptr(uplink->dhcp4_6rd_tunnel_name, tunnel_name)) {
+                Link *old_tunnel;
+
+                if (uplink->dhcp4_6rd_tunnel_name &&
+                    link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, &old_tunnel) >= 0)
+                        (void) link_remove(old_tunnel);
+
+                free_and_replace(uplink->dhcp4_6rd_tunnel_name, tunnel_name);
+        }
+
+        /* Create 6rd SIT tunnel device if it does not exist yet. */
+        if (link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, NULL) < 0) {
+                r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, assign subnet prefixes to downstream interfaces. */
+        HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                        continue;
+
+                r = dhcp4_pd_assign_subnet_prefix(link, uplink);
+                if (r < 0) {
+                        /* When failed on the upstream interface (i.e., the case link == uplink),
+                         * immediately abort the assignment of the prefixes. As, the all assigned
+                         * prefixes will be dropped soon in link_enter_failed(), and it is meaningless
+                         * to continue the assignment. */
+                        if (link == uplink)
+                                return r;
+
+                        link_enter_failed(link);
+                }
+        }
 
         return 0;
 }
@@ -922,6 +1195,30 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
         return 0;
 }
 
+static bool dhcp4_pd_uplink_is_ready(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        if (!link->network->dhcp_use_6rd)
+                return false;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link->dhcp_client)
+                return false;
+
+        if (sd_dhcp_client_is_running(link->dhcp_client) <= 0)
+                return false;
+
+        if (!link->dhcp_lease)
+                return false;
+
+        return dhcp4_lease_has_pd_prefix(link->dhcp_lease);
+}
+
 static bool dhcp6_pd_uplink_is_ready(Link *link) {
         assert(link);
 
@@ -965,20 +1262,30 @@ int dhcp_pd_find_uplink(Link *link, Link **ret) {
                 return r;
 
         if (uplink) {
-                if (!dhcp6_pd_uplink_is_ready(uplink))
-                        return -EBUSY;
+                if (dhcp4_pd_uplink_is_ready(uplink)) {
+                        *ret = uplink;
+                        return AF_INET;
+                }
 
-                *ret = uplink;
-                return 0;
+                if (dhcp6_pd_uplink_is_ready(uplink)) {
+                        *ret = uplink;
+                        return AF_INET6;
+                }
+
+                return -EBUSY;
         }
 
         HASHMAP_FOREACH(uplink, link->manager->links_by_index) {
-                if (!dhcp6_pd_uplink_is_ready(uplink))
-                        continue;
-
                 /* Assume that there exists at most one link which acquired delegated prefixes. */
-                *ret = uplink;
-                return 0;
+                if (dhcp4_pd_uplink_is_ready(uplink)) {
+                        *ret = uplink;
+                        return AF_INET;
+                }
+
+                if (dhcp6_pd_uplink_is_ready(uplink)) {
+                        *ret = uplink;
+                        return AF_INET6;
+                }
         }
 
         return -ENODEV;
@@ -986,17 +1293,23 @@ int dhcp_pd_find_uplink(Link *link, Link **ret) {
 
 int dhcp_request_prefix_delegation(Link *link) {
         Link *uplink;
+        int r;
 
         assert(link);
 
         if (!link_dhcp_pd_is_enabled(link))
                 return 0;
 
-        if (dhcp_pd_find_uplink(link, &uplink) < 0)
+        r = dhcp_pd_find_uplink(link, &uplink);
+        if (r < 0)
                 return 0;
 
-        log_link_debug(link, "Requesting subnets of delegated prefixes acquired by %s", uplink->ifname);
-        return dhcp6_pd_assign_subnet_prefixes(link, uplink);
+        log_link_debug(link, "Requesting subnets of delegated prefixes acquired by DHCPv%c client on %s",
+                       r == AF_INET ? '4' : '6', uplink->ifname);
+
+        return r == AF_INET ?
+                dhcp4_pd_assign_subnet_prefix(link, uplink) :
+                dhcp6_pd_assign_subnet_prefixes(link, uplink);
 }
 
 int config_parse_dhcp_pd_subnet_id(

@@ -23,6 +23,7 @@ void network_adjust_dhcp4(Network *network);
 int dhcp4_update_mac(Link *link);
 int dhcp4_start(Link *link);
 int dhcp4_lease_lost(Link *link);
+int dhcp4_check_ready(Link *link);
 
 int request_process_dhcp4_client(Request *req);
 int link_request_dhcp4_client(Link *link);

@@ -153,6 +153,7 @@ struct Network {
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
+        bool dhcp_use_6rd;
         bool dhcp_send_release;
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;

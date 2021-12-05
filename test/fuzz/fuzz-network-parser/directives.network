@@ -128,6 +128,7 @@ SendDecline=
 MUDURL=
 RouteMTUBytes=
 FallbackLeaseLifetimeSec=
+Use6RD=
 [DHCPv6]
 UseAddress=
 UseDelegatedPrefix=
