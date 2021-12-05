@@ -184,13 +184,15 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/usr/lib/kernel/cmdline</filename>
           <filename>/etc/kernel/cmdline</filename>
           <filename>/proc/cmdline</filename>
         </term>
           <listitem>
             <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
             <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.  If that file does not
-            exist, <filename>/proc/cmdline</filename> is used.</para>
+            exist, <filename>/usr/lib/kernel/cmdline</filename> is used.  If that also does not exist,
+            <filename>/proc/cmdline</filename> is used.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -212,8 +214,9 @@
         </term>
           <listitem>
             <para>The content of this file specifies the machine identification
-            <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
-            kernel-install will use "Linux" as the machine ID instead.</para>
+            <replaceable>MACHINE-ID</replaceable>.  If <filename>$BOOT/Default</filename> exists,
+            or it cannot read <filename>/etc/machine-id</filename>, <command>kernel-install</command>
+            will use the literal "Default" as the machine ID instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -222,7 +225,9 @@
           <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>.
+            If available, <varname>PRETTY_NAME</varname> is read from these files and used as the title of the boot menu entry.
+            Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
           </listitem>
       </varlistentry>
     </variablelist>
