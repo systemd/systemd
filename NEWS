@@ -133,6 +133,19 @@ CHANGES WITH 250 in spe:
           during regular runtime, and those that are prefixed like that apply
           during boot and shutdown.
 
+        * A new per-unit set of conditions/asserts
+          [Condition|Assert][Memory|CPU|IO]Pressure= have been added to make a
+          unit skip/fail activation if the system's (or a slice's) memory/cpu/io
+          pressure is above the configured threshold, using the kernel PSI
+          feature. Fore more details see systemd.unit.5 and
+          https://www.kernel.org/doc/html/latest/accounting/psi.html
+
+        * The combination of ProcSubset=pid and ProtectKernelTunables=yes and/or
+          ProtectKernelLogs=yes can now be used.
+
+        * The default maximum number of inodes for /dev has been doubled, from
+          64k to 128k.
+
         * The per-user service manager learnt support for communicating with
           systemd-oomd to acquire OOM kill information.
 
@@ -221,6 +234,9 @@ CHANGES WITH 250 in spe:
           date. This is useful to ensure the boot loader remains up-to-date,
           and updates automatically propagate from the OS tree in /usr/.
 
+        * sd-boot will now build with SBAT by default in order to facilitate
+          working with recent versions of Shim that require it to be present.
+
         * A new generic target unit factory-reset.target has been added. It is
           hooked into systemd-logind similar in fashion to
           reboot/poweroff/suspend/hibernate, and is supposed to be used to
@@ -285,6 +301,18 @@ CHANGES WITH 250 in spe:
           created by systemd-nspawn's --network-bridge or --network-zone
           switch.
 
+        * systemd-networkd now supports IP over InfiniBand interfaces.
+
+        * systemd-networkd's handling of Endpoint= resolution for WireGuard
+          interfaces has been improved.
+
+        * systemd-networkd will now automatically configure routes to addresses
+          specified in AllowedIPs=.
+
+        * systemd-networkd will now once again automatically generate persistent
+          MAC addresses for batadv and bridge interfaces. Users can disable this
+          by using MACAddress=none.
+
         * .link files gained a new WakeOnLanPassword= setting in the [Link]
           section that allows to specify a WoL "SecureOn" password on hardware
           that supports this.
@@ -328,6 +356,11 @@ CHANGES WITH 250 in spe:
           level. It also gained a new --json= switch for generating JSON
           output. Altogether these new features are useful for fully automatic
           analysis and enforcement of security policies on unit files.
+
+        * systemd-analyze security gained a --profile option that can be used
+          to take into account a portable profile when analyzing portable
+          services, since a lot of the security-related settings are enabled
+          through them.
 
         * systemd-analyze learnt a new --quiet switch for reducing
           non-essential output. It's honored by the "dot", "syscall-filter",
@@ -427,11 +460,6 @@ CHANGES WITH 250 in spe:
           be used to set the boot menu time-out of the boot loader (for all or
           just the subsequent boot).
 
-        * systemd-importd now honors new environment variables
-          $SYSTEMD_IMPORT_BTRFS_SUBVOL, $SYSTEMD_IMPORT_BTRFS_QUOTA,
-          $SYSTEMD_IMPORT_SYNC, which may be used disable btrfs subvolume
-          generation, btrfs quota setup and disk synchronization.
-
         * systemd-sysext now optionally doesn't insist on extension-release.d/
           files to be placed in the image under the image's right name. If the
           file system xattr user.extension-release.strict is set on the
@@ -475,6 +503,13 @@ CHANGES WITH 250 in spe:
 
         * coredumpctl gained a new --all switch for operating on all
           Journal files instead of just the local ones.
+
+        * systemd-coredump will now use libdw/libelf via dlopen() rather than
+          directly linking, allowing users to easily opt-out of backtrace/metadata
+          analysis of core files, and reduce image sizes when this is not needed.
+
+        * systemd-coredump will now analyze core files with libdw/libelf in a
+          forked, sandboxed process.
 
         * systemd-homed will now try to unmount an activate home area in
           regular intervals once the user logged out fully. Previously this was
@@ -603,6 +638,27 @@ CHANGES WITH 250 in spe:
           DNS-over-TLS if necessary. This new stub is particularly useful in
           container/VM environments, or for tethering setups: use DNAT to
           redirect traffic to any IP address to this stub.
+
+        * systemd-importd now honors new environment variables
+          $SYSTEMD_IMPORT_BTRFS_SUBVOL, $SYSTEMD_IMPORT_BTRFS_QUOTA,
+          $SYSTEMD_IMPORT_SYNC, which may be used disable btrfs subvolume
+          generation, btrfs quota setup and disk synchronization.
+
+        * systemd-importd and systemd-resolved can now be optionally built with
+          OpenSSL instead of libgcrypt.
+
+        * systemd-repart no longer requires OpenSSL.
+
+        * systemd-sysusers will no longer create the redundant 'nobody' group by default,
+          as the 'nobody' user is already created with an appropriate primary group.
+
+        * If a unit uses RuntimeMaxSec, systemctl show will now display it.
+
+        * pam_systemd will now first try to use the X11 abstract socket, and
+          fallback to the socket file in /tmp/.X11-unix/ only if that does not work.
+
+        * Initial support for the LoongArch architecture has been added
+          (system calls, defines, etc).
 
 CHANGES WITH 249:
 
