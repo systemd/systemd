@@ -612,8 +612,6 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 }
 
 static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
-        Request req;
-
         assert(netdev);
         assert(link);
 
@@ -625,13 +623,7 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
             link->state != LINK_STATE_CONFIGURED)
                 return false;
 
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MTU),
-        };
-
-        if (ordered_set_contains(link->manager->request_queue, &req))
+        if (link->set_link_messages > 0)
                 return false;
 
         return true;
