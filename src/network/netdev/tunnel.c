@@ -642,6 +642,9 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         if (netdev->kind == NETDEV_KIND_VTI)
                 t->family = AF_INET;
 
+        if (t->assign_to_loopback)
+                t->independent = true;
+
         return 0;
 }
 
