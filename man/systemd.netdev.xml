@@ -1276,8 +1276,9 @@
       <varlistentry>
         <term><varname>AssignToLoopback=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to <literal>yes</literal>, the loopback interface <literal>lo</literal>
-          is used as the underlying device of the tunnel interface. Defaults to <literal>no</literal>.</para>
+          <para>Takes a boolean. If set to <literal>yes</literal>, the loopback interface
+          <literal>lo</literal> is used as the underlying device of the tunnel interface, and implies
+          <varname>Independent=yes</varname>. Defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
