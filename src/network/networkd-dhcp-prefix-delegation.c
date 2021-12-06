@@ -184,7 +184,7 @@ int dhcp6_pd_remove(Link *link, bool only_marked) {
                         if (k < 0)
                                 r = k;
 
-                        route_cancel_request(route);
+                        route_cancel_request(route, link);
                 }
         } else {
                 Address *address;
@@ -655,6 +655,7 @@ static int dhcp6_pd_finalize(Link *link) {
 }
 
 void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
+        Route *route;
         Link *link;
         int r;
 
@@ -662,12 +663,31 @@ void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
         assert(dhcp6_link->manager);
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
-                if (link == dhcp6_link)
+                if (!dhcp6_pd_is_uplink(link, dhcp6_link, /* accept_auto = */ true))
                         continue;
 
                 r = dhcp6_pd_remove(link, /* only_marked = */ false);
                 if (r < 0)
                         link_enter_failed(link);
+        }
+
+        SET_FOREACH(route, dhcp6_link->manager->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_DHCP6)
+                        continue;
+                if (route->family != AF_INET6)
+                        continue;
+                if (route->type != RTN_UNREACHABLE)
+                        continue;
+                if (!set_contains(dhcp6_link->dhcp6_pd_prefixes,
+                                  &(struct in_addr_prefix) {
+                                          .family = AF_INET6,
+                                          .prefixlen = route->dst_prefixlen,
+                                          .address = route->dst }))
+                        continue;
+
+                (void) route_remove(route);
+
+                route_cancel_request(route, dhcp6_link);
         }
 
         set_clear(dhcp6_link->dhcp6_pd_prefixes);
