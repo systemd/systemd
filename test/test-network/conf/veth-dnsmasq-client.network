@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+Address=192.168.5.10/24
+IPv6AcceptRA=no
+DNS=192.168.5.1:9953
+DNSSEC=no
+DNSOverTLS=no
