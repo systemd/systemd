@@ -2208,7 +2208,8 @@ Table=1234</programlisting></para>
               <term><option>eui64</option></term>
               <listitem>
                 <para>
-                  The EUI-64 algorithm will be used to generate an address for that prefix.
+                  The EUI-64 algorithm will be used to generate an address for that prefix. Only
+                  supported by Ethernet or InfiniBand interfaces.
                 </para>
               </listitem>
             </varlistentry>
@@ -2267,8 +2268,9 @@ Table=1234</programlisting></para>
 
           <para>If no address generation mode is specified (which is the default), or a received
           prefix does not match any of the addresses provided in <literal>prefixstable</literal>
-          mode, then the EUI-64 algorithm will be used to form an interface identifier for that
-          prefix.</para>
+          mode, then the EUI-64 algorithm will be used for Ethernet or InfiniBand interfaces,
+          otherwise <literal>prefixstable</literal> will be used to form an interface identifier for
+          that prefix.</para>
 
           <para>This setting can be specified multiple times. If an empty string is assigned, then
           the all previous assignments are cleared.</para>
