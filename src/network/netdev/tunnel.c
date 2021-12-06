@@ -177,13 +177,13 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IPIP)
                 t = IPIP(netdev);
         else
                 t = SIT(netdev);
 
-        assert(m);
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -375,6 +375,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
                 t = IP6GRE(netdev);
@@ -382,7 +383,6 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(m);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -495,12 +495,15 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = IP6TNL(netdev);
         uint8_t proto;
+        Tunnel *t;
         int r;
 
         assert(netdev);
         assert(m);
+
+        t = IP6TNL(netdev);
+
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -564,45 +567,12 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
-        Tunnel *t = NULL;
+        Tunnel *t;
 
         assert(netdev);
         assert(filename);
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(netdev);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(netdev);
-                break;
-        case NETDEV_KIND_GRE:
-                t = GRE(netdev);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(netdev);
-                break;
-        case NETDEV_KIND_IP6GRE:
-                t = IP6GRE(netdev);
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                t = IP6GRETAP(netdev);
-                break;
-        case NETDEV_KIND_VTI:
-                t = VTI(netdev);
-                break;
-        case NETDEV_KIND_VTI6:
-                t = VTI6(netdev);
-                break;
-        case NETDEV_KIND_IP6TNL:
-                t = IP6TNL(netdev);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(netdev);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
