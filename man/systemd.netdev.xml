@@ -1769,7 +1769,7 @@
         <listitem>
           <para>Specifies the delay before a link is enabled after a
           link up status has been detected. This value is rounded down
-          to a multiple of MIIMonitorSec. The default value is
+          to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1779,7 +1779,7 @@
         <listitem>
           <para>Specifies the delay before a link is disabled after a
           link down status has been detected. This value is rounded
-          down to a multiple of MIIMonitorSec. The default value is
+          down to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1870,8 +1870,8 @@
         <term><varname>ARPIPTargets=</varname></term>
         <listitem>
           <para>Specifies the IP addresses to use as ARP monitoring peers when
-          ARPIntervalSec is greater than 0. These are the targets of the ARP request
-          sent to determine the health of the link to the targets.
+          <varname>ARPIntervalSec=</varname> is greater than 0. These are the targets of the ARP
+          request sent to determine the health of the link to the targets.
           Specify these values in IPv4 dotted decimal format. At least one IP
           address must be given for ARP monitoring to function. The
           maximum number of targets that can be specified is 16. The
@@ -1883,7 +1883,7 @@
       <varlistentry>
         <term><varname>ARPAllTargets=</varname></term>
         <listitem>
-          <para>Specifies the quantity of ARPIPTargets that must be reachable
+          <para>Specifies the quantity of <varname>ARPIPTargets=</varname> that must be reachable
           in order for the ARP monitor to consider a slave as being up.
           This option affects only active-backup mode for slaves with
           ARPValidate enabled. Possible values are
