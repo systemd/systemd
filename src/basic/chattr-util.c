@@ -59,11 +59,25 @@ int chattr_full(const char *path,
         }
 
         if (ioctl(fd, FS_IOC_SETFLAGS, &new_attr) >= 0) {
-                if (ret_previous)
-                        *ret_previous = old_attr;
-                if (ret_final)
-                        *ret_final = new_attr;
-                return 1;
+                unsigned attr;
+
+                /* Some filesystems (BTRFS) silently fail when a flag cannot be set. Let's make sure our
+                 * changes actually went through by querying the flags again and verifying they're equal to
+                 * the flags we tried to configure. */
+
+                if (ioctl(fd, FS_IOC_GETFLAGS, &attr) < 0)
+                        return -errno;
+
+                if (new_attr == attr) {
+                        if (ret_previous)
+                                *ret_previous = old_attr;
+                        if (ret_final)
+                                *ret_final = new_attr;
+                        return 1;
+                }
+
+                /* Trigger the fallback logic. */
+                errno = EINVAL;
         }
 
         if ((errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno)) ||

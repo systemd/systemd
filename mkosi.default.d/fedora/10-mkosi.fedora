@@ -73,3 +73,5 @@ Packages=
         tpm2-tss
         less
         netcat
+        e2fsprogs
+        compsize
