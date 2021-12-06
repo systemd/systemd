@@ -503,6 +503,10 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
                 return parent;
         port++;
 
+        /* USB host number may change across reboots (and probably even without reboot). The part after
+         * USB host number is determined by device topology and so does not change. Hence, drop the
+         * host number and always use '0' instead. */
+
         path_prepend(path, "usb-0:%s", port);
         return skip_subsystem(parent, "usb");
 }
