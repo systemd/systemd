@@ -80,19 +80,29 @@ static int format_lun_number(sd_device *dev, char **path) {
 }
 
 static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
+        sd_device *parent;
+
         assert(dev);
         assert(subsys);
 
-        for (;;) {
+        /* Unlike the function name, this drops multiple parent devices EXCEPT FOR THE LAST ONE.
+         * The last one will be dropped at the end of the loop in builtin_path_id().
+         * E.g.
+         * Input:  /sys/devices/pci0000:00/0000:00:14.0/usb1/1-1/1-1:1.0
+         * Output: /sys/devices/pci0000:00/0000:00:14.0/usb1
+         */
+
+        for (parent = dev; ; ) {
                 const char *subsystem;
 
-                if (sd_device_get_subsystem(dev, &subsystem) < 0)
+                if (sd_device_get_subsystem(parent, &subsystem) < 0)
                         break;
 
                 if (!streq(subsystem, subsys))
                         break;
 
-                if (sd_device_get_parent(dev, &dev) < 0)
+                dev = parent;
+                if (sd_device_get_parent(dev, &parent) < 0)
                         break;
         }
 
@@ -492,6 +502,10 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
         if (!port)
                 return parent;
         port++;
+
+        /* USB host number may change across reboots (and probably even without reboot). The part after
+         * USB host number is determined by device topology and so does not change. Hence, drop the
+         * host number and always use '0' instead. */
 
         path_prepend(path, "usb-0:%s", port);
         return skip_subsystem(parent, "usb");
