@@ -564,6 +564,9 @@ int link_save(Link *link) {
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
                         if (dhcp_domains)
                                 fputstrv(f, dhcp_domains, NULL, &space);
+                }
+
+                if (link->network->dhcp6_use_domains == DHCP_USE_DOMAINS_YES) {
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
                 }
@@ -589,6 +592,9 @@ int link_save(Link *link) {
                                 fputs_with_space(f, dhcp_domainname, NULL, &space);
                         if (dhcp_domains)
                                 fputstrv(f, dhcp_domains, NULL, &space);
+                }
+
+                if (link->network->dhcp6_use_domains == DHCP_USE_DOMAINS_ROUTE) {
                         if (dhcp6_domains)
                                 fputstrv(f, dhcp6_domains, NULL, &space);
                 }
