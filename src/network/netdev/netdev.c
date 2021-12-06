@@ -617,8 +617,10 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
-        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
+
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
             link->state != LINK_STATE_CONFIGURED)
                 return false;
