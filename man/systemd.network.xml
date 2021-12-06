@@ -861,11 +861,12 @@ Table=1234</programlisting></para>
         </varlistentry>
         <varlistentry>
           <term><varname>DHCPPrefixDelegation=</varname></term>
-          <listitem><para>Takes a boolean value. When enabled, requests prefixes using a DHCPv6 client
-          configured on another link. By default, an address within each delegated prefix will be
-          assigned, and the prefixes will be announced through IPv6 Router Advertisement when
-          <varname>IPv6SendRA=</varname> is enabled. Such default settings can be configured in
-          [DHCPPrefixDelegation] section. Defaults to disabled.</para></listitem>
+          <listitem><para>Takes a boolean value. When enabled, requests subnet prefixes acquired by a
+          DHCPv6 client, or by a DHCPv4 client through the 6RD option  configured on another link. By
+          default, an address within each delegated prefix will be assigned, and the prefixes will be
+          announced through IPv6 Router Advertisement when <varname>IPv6SendRA=</varname> is enabled.
+          Such default settings can be configured in [DHCPPrefixDelegation] section. Defaults to
+          disabled.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
@@ -1901,6 +1902,15 @@ Table=1234</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Use6RD=</varname></term>
+          <listitem><para>When true, subnets of the received IPv6 prefix are assigned to downstream
+          interfaces which enables <varname>DHCPPrefixDelegation=</varname>. See also
+          <varname>DHCPPrefixDelegation=</varname> in the [Network] section, the [DHCPPrefixDelegation]
+          section, and <ulink url="https://tools.ietf.org/html/rfc5969">RFC 5969</ulink>. Defaults to
+          false.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>FallbackLeaseLifetimeSec=</varname></term>
           <listitem>
             <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
@@ -2114,9 +2124,10 @@ Table=1234</programlisting></para>
 
   <refsect1>
     <title>[DHCPPrefixDelegation] Section Options</title>
-    <para>The [DHCPPrefixDelegation] section configures delegated prefixes assigned by DHCPv6 server.
-    The settings in this section are used only when <varname>DHCPPrefixDelegation=</varname> setting
-    is enabled.</para>
+    <para>The [DHCPPrefixDelegation] section configures subnet prefixes of the delegated prefixes
+    acquired by a DHCPv6 client, or by a DHCPv4 client through the 6RD option on another interface.
+    The settings in this section are used only when the <varname>DHCPPrefixDelegation=</varname>
+    setting in the [Network] section is enabled.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2127,7 +2138,7 @@ Table=1234</programlisting></para>
           interface itself is considered the uplink interface, and
           <varname>WithoutRA=solicit</varname> is implied if the setting is not explicitly specified.
           When <literal>:auto</literal>, the first link which acquired prefixes to be delegated from
-          the DHCPv6 server is selected. Defaults to <literal>:auto</literal>.</para>
+          the DHCPv6 or DHCPv4 server is selected. Defaults to <literal>:auto</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2147,7 +2158,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Takes a boolean. When enabled, and <varname>IPv6SendRA=</varname> in [Network] section
           is enabled, the delegated prefixes are distributed through the IPv6 Router Advertisement.
-          Defaults to yes.</para>
+          This setting will be ignored when the <varname>DHCPPrefixDelegation=</varname> setting is
+          enabled on the upstream interface. Defaults to yes.</para>
         </listitem>
       </varlistentry>
 
