@@ -166,6 +166,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
+static bool arg_default_manager_catchup;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -753,6 +754,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0, &arg_default_tasks_accounting          },
+                { "Manager", "DefaultManagerCatchup",        config_parse_bool,                  0, &arg_default_manager_catchup           },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0, &arg_cad_burst_action                  },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0, &arg_default_oom_policy                },
@@ -829,6 +831,7 @@ static void set_manager_defaults(Manager *m) {
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
+        m->default_manager_catchup = arg_default_manager_catchup;
 
         (void) manager_set_default_rlimits(m, arg_default_rlimit);
 
@@ -2485,6 +2488,8 @@ static void reset_arguments(void) {
         arg_clock_usec = 0;
 
         arg_default_oom_score_adjust_set = false;
+
+        arg_default_manager_catchup = false;
 }
 
 static void determine_default_oom_score_adjust(void) {

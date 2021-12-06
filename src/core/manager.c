@@ -838,6 +838,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .test_run_flags = test_run_flags,
 
                 .default_oom_policy = OOM_STOP,
+                .default_manager_catchup = false,
         };
 
 #if ENABLE_EFI
@@ -1726,8 +1727,9 @@ static void manager_ready(Manager *m) {
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
 
-        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
-        manager_catchup(m);
+        if (m->default_manager_catchup)
+            /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+            manager_catchup(m);
 
         m->honor_device_enumeration = true;
 }
