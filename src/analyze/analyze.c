@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "analyze-condition.h"
+#include "analyze-elf.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
@@ -2431,6 +2432,12 @@ static int do_security(int argc, char *argv[], void *userdata) {
                                 /*flags=*/ 0);
 }
 
+static int do_elf_inspection(int argc, char *argv[], void *userdata) {
+        pager_open(arg_pager_flags);
+
+        return analyze_elf(strv_skip(argv, 1), arg_json_format_flags);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -2473,6 +2480,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  timestamp TIMESTAMP...     Validate a timestamp\n"
                "  timespan SPAN...           Validate a time span\n"
                "  security [UNIT...]         Analyze security of unit\n"
+               "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -2759,7 +2767,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !streq_ptr(argv[optind], "security"))
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --json= is only supported for security right now.");
 
@@ -2835,6 +2843,7 @@ static int run(int argc, char *argv[]) {
                 { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
                 { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
+                { "inspect-elf",       2,        VERB_ANY, 0,            do_elf_inspection      },
                 {}
         };
 

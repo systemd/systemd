@@ -1338,6 +1338,10 @@ if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
+
+        # New in elfutils 0.177
+        conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
+                   have and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
 else
         have = false
         libdw = []
