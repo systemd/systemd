@@ -10,6 +10,7 @@
 #include "conf-parser.h"
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-address.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -29,18 +30,83 @@ static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode, "Failed to parse ip6 tunnel Mode");
 
+static const char * const tunnel_address_type_table[_TUNNEL_ADDRESS_TYPE_MAX] = {
+        [TUNNEL_ADDRESS_IPV4LL] = "_ipv4_link_local",
+        [TUNNEL_ADDRESS_IPV6LL] = "_ipv6_link_local",
+        [TUNNEL_ADDRESS_DHCP4]  = "_dhcp4",
+        [TUNNEL_ADDRESS_DHCP6]  = "_dhcp6",
+        [TUNNEL_ADDRESS_SLAAC]  = "_slaac",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(tunnel_address_type, TunnelAddressType);
+
+static int tunnel_get_local_address(Tunnel *t, Link *link, union in_addr_union *ret) {
+        NetworkConfigSource source;
+        Address *a;
+
+        assert(t);
+
+        switch (t->local_type) {
+        case TUNNEL_ADDRESS_STATIC:
+                if (ret)
+                        *ret = t->local;
+                return 0;
+        case TUNNEL_ADDRESS_IPV4LL:
+                source = NETWORK_CONFIG_SOURCE_IPV4LL;
+                break;
+        case TUNNEL_ADDRESS_IPV6LL:
+                source = NETWORK_CONFIG_SOURCE_FOREIGN;
+                break;
+        case TUNNEL_ADDRESS_DHCP4:
+                source = NETWORK_CONFIG_SOURCE_DHCP4;
+                break;
+        case TUNNEL_ADDRESS_DHCP6:
+                source = NETWORK_CONFIG_SOURCE_DHCP6;
+                break;
+        case TUNNEL_ADDRESS_SLAAC:
+                source = NETWORK_CONFIG_SOURCE_NDISC;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        assert(link);
+
+        SET_FOREACH(a, link->addresses) {
+                if (a->source != source)
+                        continue;
+                if (!address_exists(a))
+                        continue;
+                if (in_addr_is_set(a->family, &a->in_addr_peer))
+                        continue;
+                if (source == NETWORK_CONFIG_SOURCE_FOREIGN) {
+                        if (a->family != AF_INET6)
+                                continue;
+                        if (!in6_addr_is_link_local(&a->in_addr.in6))
+                                continue;
+                }
+
+                if (ret)
+                        *ret = a->in_addr;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         Tunnel *t;
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IPIP)
                 t = IPIP(netdev);
         else
                 t = SIT(netdev);
 
-        assert(m);
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -49,7 +115,11 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
@@ -108,6 +178,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 }
 
 static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey = 0;
         uint32_t okey = 0;
         uint16_t iflags = 0;
@@ -146,7 +217,11 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ERSPAN_INDEX attribute: %m");
         }
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
@@ -224,6 +299,7 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 }
 
 static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey = 0;
         uint32_t okey = 0;
         uint16_t iflags = 0;
@@ -232,6 +308,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
                 t = IP6GRE(netdev);
@@ -239,7 +316,6 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(m);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -247,7 +323,11 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
@@ -305,6 +385,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey, okey;
         Tunnel *t;
         int r;
@@ -340,7 +421,11 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_OKEY attribute: %m");
 
-        r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &t->local);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &local);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LOCAL attribute: %m");
 
@@ -352,12 +437,16 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = IP6TNL(netdev);
+        union in_addr_union local;
         uint8_t proto;
+        Tunnel *t;
         int r;
 
         assert(netdev);
         assert(m);
+
+        t = IP6TNL(netdev);
+
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -366,7 +455,11 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
@@ -420,46 +513,26 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         return r;
 }
 
+static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
+        Tunnel *t;
+
+        assert(netdev);
+        assert(link);
+
+        t = TUNNEL(netdev);
+
+        assert(t);
+
+        return tunnel_get_local_address(t, link, NULL) >= 0;
+}
+
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
-        Tunnel *t = NULL;
+        Tunnel *t;
 
         assert(netdev);
         assert(filename);
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(netdev);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(netdev);
-                break;
-        case NETDEV_KIND_GRE:
-                t = GRE(netdev);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(netdev);
-                break;
-        case NETDEV_KIND_IP6GRE:
-                t = IP6GRE(netdev);
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                t = IP6GRETAP(netdev);
-                break;
-        case NETDEV_KIND_VTI:
-                t = VTI(netdev);
-                break;
-        case NETDEV_KIND_VTI6:
-                t = VTI6(netdev);
-                break;
-        case NETDEV_KIND_IP6TNL:
-                t = IP6TNL(netdev);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(netdev);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
@@ -499,10 +572,18 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         if (netdev->kind == NETDEV_KIND_VTI)
                 t->family = AF_INET;
 
+        if (t->assign_to_loopback)
+                t->independent = true;
+
+        if (t->independent &&
+            t->local_type != TUNNEL_ADDRESS_STATIC)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "The local address must be a static address when Independent= or AssignToLoopback= is enabled. Ignoring");
+
         return 0;
 }
 
-int config_parse_tunnel_address(
+int config_parse_tunnel_local_address(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -514,28 +595,82 @@ int config_parse_tunnel_address(
                 void *data,
                 void *userdata) {
 
+        union in_addr_union buffer = IN_ADDR_NULL;
+        TunnelAddressType type;
         Tunnel *t = userdata;
-        union in_addr_union *addr = data, buffer;
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
-        /* This is used to parse addresses on both local and remote ends of the tunnel.
-         * Address families must match.
-         *
-         * "any" is a special value which means that the address is unspecified.
-         */
+        if (isempty(rvalue) || streq(rvalue, "any")) {
+                /* Unset the previous assignment. */
+                t->local = IN_ADDR_NULL;
+                t->local_type = TUNNEL_ADDRESS_STATIC;
 
-        if (streq(rvalue, "any")) {
-                *addr = IN_ADDR_NULL;
+                /* If the remote address is not specified, also clear the address family. */
+                if (!in_addr_is_set(t->family, &t->remote))
+                        t->family = AF_UNSPEC;
+                return 0;
+        }
 
-                /* As a special case, if both the local and remote addresses are
-                 * unspecified, also clear the address family. */
-                if (!in_addr_is_set(t->family, &t->local) &&
-                    !in_addr_is_set(t->family, &t->remote))
+        type = tunnel_address_type_from_string(rvalue);
+        if (IN_SET(type, TUNNEL_ADDRESS_IPV4LL, TUNNEL_ADDRESS_DHCP4))
+                f = AF_INET;
+        else if (IN_SET(type, TUNNEL_ADDRESS_IPV6LL, TUNNEL_ADDRESS_DHCP6, TUNNEL_ADDRESS_SLAAC))
+                f = AF_INET6;
+        else {
+                type = TUNNEL_ADDRESS_STATIC;
+                r = in_addr_from_string_auto(rvalue, &f, &buffer);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        if (t->family != AF_UNSPEC && t->family != f) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Address family does not match the previous assignment, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        t->family = f;
+        t->local = buffer;
+        t->local_type = type;
+        return 0;
+}
+
+int config_parse_tunnel_remote_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        union in_addr_union buffer;
+        Tunnel *t = userdata;
+        int r, f;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        if (isempty(rvalue) || streq(rvalue, "any")) {
+                /* Unset the previous assignment. */
+                t->remote = IN_ADDR_NULL;
+
+                /* If the local address is not specified, also clear the address family. */
+                if (t->local_type == TUNNEL_ADDRESS_STATIC &&
+                    !in_addr_is_set(t->family, &t->local))
                         t->family = AF_UNSPEC;
                 return 0;
         }
@@ -549,12 +684,12 @@ int config_parse_tunnel_address(
 
         if (t->family != AF_UNSPEC && t->family != f) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                           "Address family does not match the previous assignment, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         t->family = f;
-        *addr = buffer;
+        t->remote = buffer;
         return 0;
 }
 
@@ -909,6 +1044,7 @@ const NetDevVTable erspan_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
