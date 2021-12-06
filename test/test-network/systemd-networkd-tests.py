@@ -547,9 +547,9 @@ def remove_dnsmasq_log_file():
     if os.path.exists(dnsmasq_log_file):
         os.remove(dnsmasq_log_file)
 
-def start_isc_dhcpd(interface, conf_file):
+def start_isc_dhcpd(interface, conf_file, ip):
     conf_file_path = os.path.join(networkd_ci_path, conf_file)
-    isc_dhcpd_command = f'dhcpd -6 -cf {conf_file_path} -lf {isc_dhcpd_lease_file} -pf {isc_dhcpd_pid_file} {interface}'
+    isc_dhcpd_command = f'dhcpd {ip} -cf {conf_file_path} -lf {isc_dhcpd_lease_file} -pf {isc_dhcpd_pid_file} {interface}'
     Path(isc_dhcpd_lease_file).touch()
     check_output(isc_dhcpd_command)
 
@@ -5048,7 +5048,7 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_isc_dhcpd('veth-peer', 'isc-dhcpd-dhcp6pd.conf')
+        start_isc_dhcpd('veth-peer', 'isc-dhcpd-dhcp6pd.conf', ip='-6')
         self.wait_online(['veth-peer:routable', 'veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
 
