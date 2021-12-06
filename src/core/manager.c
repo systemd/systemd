@@ -3338,10 +3338,10 @@ int manager_reload(Manager *m) {
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
-        /* On manager reloading, device tag data should exists, thus, we should honor the results of device
-         * enumeration. The flag should be always set correctly by the serialized data, but it may fail. So,
-         * let's always set the flag here for safety. */
-        m->honor_device_enumeration = true;
+        /* On manager reloading, we should not rely on the udev database only. So
+        disable this feature temporary util there is a better way to deal with this
+        problem. */
+        m->honor_device_enumeration = false;
 
         manager_ready(m);
 
