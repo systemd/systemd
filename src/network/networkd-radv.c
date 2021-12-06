@@ -9,7 +9,7 @@
 #include "dns-domain.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
-#include "networkd-dhcp6.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
