@@ -5047,9 +5047,9 @@ class NetworkdDHCP6PDTests(unittest.TestCase, Utilities):
                                         '13-dummy.netdev', 'dhcp6pd-downstream-dummy99.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online(['veth-peer:routable'])
         start_isc_dhcpd('veth-peer', 'isc-dhcpd-dhcp6pd.conf', ip='-6')
-        self.wait_online(['veth-peer:routable', 'veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
+        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
 
         print('### ip -6 address show dev veth-peer scope global')
