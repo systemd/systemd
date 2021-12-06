@@ -128,6 +128,7 @@ SendDecline=
 MUDURL=
 RouteMTUBytes=
 FallbackLeaseLifetimeSec=
+Use6RD=
 [DHCPv6]
 UseAddress=
 UseDelegatedPrefix=
@@ -149,8 +150,14 @@ RouteMetric=
 IAID=
 DUIDType=
 DUIDRawData=
-RouteTable=
 [DHCPv6PrefixDelegation]
+SubnetId=
+Announce=
+Assign=
+ManageTemporaryAddress=
+Token=
+RouteMetric=
+[DHCPPrefixDelegation]
 UplinkInterface=
 SubnetId=
 Announce=
@@ -241,6 +248,7 @@ VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
 DHCPv6PrefixDelegation=
+DHCPPrefixDelegation=
 BatmanAdvanced=
 IPoIB=
 [IPv6Prefix]
