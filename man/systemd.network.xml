@@ -524,7 +524,8 @@ Table=1234</programlisting></para>
             is increased, by automatically turning off DNS-over-TLS servers in this case. This option
             defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>DNSOverTLS=</varname> option. Defaults to false. This setting is read by
+            global <varname>DNSOverTLS=</varname> option. Defaults to unset, and the global setting
+            will be used. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
@@ -537,7 +538,8 @@ Table=1234</programlisting></para>
             capable networks is increased, by automatically turning off DNSSEC in this case. This
             option defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>DNSSEC=</varname> option. Defaults to false. This setting is read by
+            global <varname>DNSSEC=</varname> option. Defaults to unset, and the global setting will be
+            used. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
             </para>
           </listitem>
