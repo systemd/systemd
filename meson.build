@@ -2814,7 +2814,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-remote',
                 systemd_journal_remote_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared,
                              libsystemd_journal_remote],
                 dependencies : [threads,
@@ -2830,7 +2830,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-gatewayd',
                 systemd_journal_gatewayd_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared],
                 dependencies : [threads,
                                 libmicrohttpd,
