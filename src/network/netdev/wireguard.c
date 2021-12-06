@@ -31,6 +31,8 @@
 #include "strv.h"
 #include "wireguard.h"
 
+#define MIN_RESOLVE_INTERVAL_USEC  (1 * USEC_PER_SEC)
+
 static void wireguard_resolve_endpoints(NetDev *netdev);
 static int peer_resolve_endpoint(WireguardPeer *peer);
 
@@ -315,8 +317,18 @@ static usec_t peer_next_resolve_usec(WireguardPeer *peer) {
          * milliseconds to wait starting at 200ms and capped at 25 seconds. */
 
         assert(peer);
+        assert(peer->wireguard);
 
-        usec = (2 << MIN(peer->n_retries, 7U)) * 100 * USEC_PER_MSEC;
+        /* 0 means per-peer interval is unset, and use global one. */
+        usec = peer->resolve_interval_usec > 0 ?
+                peer->resolve_interval_usec :
+                peer->wireguard->resolve_interval_usec;
+
+        if (peer->n_retries != 0)
+                usec = MIN(usec, (2 << MIN(peer->n_retries, 7U)) * 100 * USEC_PER_MSEC);
+
+        if (usec == USEC_INFINITY)
+                return USEC_INFINITY;
 
         return random_u64_range(usec / 10) + usec * 9 / 10;
 }
@@ -329,6 +341,7 @@ static int wireguard_peer_resolve_handler(
 
         WireguardPeer *peer = userdata;
         NetDev *netdev;
+        usec_t usec;
         int r;
 
         assert(peer);
@@ -353,8 +366,10 @@ static int wireguard_peer_resolve_handler(
                         if (ai->ai_addrlen != (ai->ai_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)))
                                 continue;
 
-                        memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
-                        (void) wireguard_set_interface(netdev);
+                        if (memcmp(&peer->endpoint, ai->ai_addr, ai->ai_addrlen) != 0) {
+                                memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
+                                (void) wireguard_set_interface(netdev);
+                        }
                         peer->n_retries = 0;
                         found = true;
                         break;
@@ -367,11 +382,11 @@ static int wireguard_peer_resolve_handler(
                 }
         }
 
-        if (peer->n_retries > 0) {
+        usec = peer_next_resolve_usec(peer);
+        if (usec != USEC_INFINITY) {
                 r = event_reset_time_relative(netdev->manager->event,
                                               &peer->resolve_retry_event_source,
-                                              clock_boottime_or_monotonic(),
-                                              peer_next_resolve_usec(peer), 0,
+                                              clock_boottime_or_monotonic(), usec, 0,
                                               on_resolve_retry, peer, 0, "wireguard-resolve-retry", true);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler for endpoint %s:%s, ignoring: %m",
@@ -1042,6 +1057,100 @@ int config_parse_wireguard_peer_route_priority(
         return 0;
 }
 
+int config_parse_wireguard_resolve_interval(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *interval_usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *interval_usec = USEC_INFINITY;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, interval_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (*interval_usec < MIN_RESOLVE_INTERVAL_USEC) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s=%s is too short, setting timespan to %s", lvalue, rvalue,
+                           FORMAT_TIMESPAN(MIN_RESOLVE_INTERVAL_USEC, USEC_PER_SEC));
+                *interval_usec = MIN_RESOLVE_INTERVAL_USEC;
+        }
+
+        return 0;
+}
+
+int config_parse_wireguard_peer_resolve_interval(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        Wireguard *w;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        w = WIREGUARD(userdata);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                peer->resolve_interval_usec = USEC_INFINITY;
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &peer->resolve_interval_usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (peer->resolve_interval_usec < MIN_RESOLVE_INTERVAL_USEC) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s=%s is too short, setting timespan to %s", lvalue, rvalue,
+                           FORMAT_TIMESPAN(MIN_RESOLVE_INTERVAL_USEC, USEC_PER_SEC));
+                peer->resolve_interval_usec = MIN_RESOLVE_INTERVAL_USEC;
+        }
+
+        TAKE_PTR(peer);
+        return 0;
+}
+
 static void wireguard_init(NetDev *netdev) {
         Wireguard *w;
 
@@ -1051,6 +1160,7 @@ static void wireguard_init(NetDev *netdev) {
 
         w->flags = WGDEVICE_F_REPLACE_PEERS;
         w->route_table = RT_TABLE_MAIN;
+        w->resolve_interval_usec = USEC_INFINITY;
 }
 
 static void wireguard_done(NetDev *netdev) {
