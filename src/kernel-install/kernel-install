@@ -85,35 +85,59 @@ fi
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
 
-# Reuse directory created without a machine ID present if it exists.
-if [[ -d /efi/Default ]] || [[ -d /boot/Default ]] || [[ -d /boot/efi/Default ]]; then
-    MACHINE_ID="Default"
-elif [[ -f /etc/machine-id ]]; then
-    read MACHINE_ID < /etc/machine-id
-else
-    MACHINE_ID="Default"
-fi
-
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     echo "Not enough arguments" >&2
     exit 1
 fi
 
-if [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif mountpoint -q /efi; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif mountpoint -q /boot/efi; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
-else
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+[ -r "/usr/lib/kernel/install.conf" ] && . /usr/lib/kernel/install.conf
+[ -r "/etc/kernel/install.conf" ] && . /etc/kernel/install.conf
+
+[ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
+[ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
+
+[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "Default" "loader/entries"; do
+    for pref in "/efi" "/boot/efi" "/boot"; do
+        if [ -d "$pref/$suff" ]; then
+            BOOT_ROOT="$pref"
+            break 2
+        fi
+    done
+done
+
+[ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
+    if mountpoint -q "$pref"; then
+        BOOT_ROOT="$pref"
+        break
+    fi
+done
+[ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
+
+
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
+
+if [ -z "$layout" ]; then
+    # Administrative decision: if not present, some scripts generate into /boot.
+    if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
+        layout="bls-efi"
+    else
+        layout="legacy"
+    fi
 fi
 
-export KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID
+
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
+export KERNEL_INSTALL_LAYOUT="$layout"
+
+[ -z "$no_compat_directories" ] && { [ "$layout" = "legacy" ] || [ "$layout" = "bls-efi" ]; }
+MAKE_EDA=$?
+
 
 ret=0
 
@@ -133,6 +157,18 @@ case $COMMAND in
         if [[ ! -f "$KERNEL_IMAGE" ]]; then
             echo "Kernel image argument ${KERNEL_IMAGE} not a file" >&2
             exit 1
+        fi
+
+        if [ "$MAKE_EDA" -eq 0 ]; then
+            # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
+            # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
+            # to serve as the indication to use or to not use the BLS
+            if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+                echo "+mkdir -v -p $ENTRY_DIR_ABS"
+                mkdir -v -p "$ENTRY_DIR_ABS"
+            else
+                mkdir -p "$ENTRY_DIR_ABS"
+            fi
         fi
 
         for f in "${PLUGINS[@]}"; do
@@ -163,11 +199,10 @@ case $COMMAND in
             fi
         done
 
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $ENTRY_DIR_ABS"
-
-        rm -rf "$ENTRY_DIR_ABS"
-        ((ret+=$?))
+        if [ "$MAKE_EDA" -eq 0 ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+            rm -rf "$ENTRY_DIR_ABS"
+        fi
         ;;
 
     *)
