@@ -1148,8 +1148,13 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>A static local address for tunneled packets. It must be an address on another interface of
-          this host, or the special value <literal>any</literal>.</para>
+          <para>A static local address for tunneled packets. It must be an address on another interface
+          of this host, or one of the special values <literal>any</literal>,
+          <literal>_ipv4_link_local</literal>, <literal>_ipv6_link_local</literal>,
+          <literal>_dhcp4</literal>, <literal>_dhcp6</literal>, and <literal>_slaac</literal>. If one
+          of the special values except for <literal>any</literal> is specified, an address which
+          matches the corresponding type on the underlying interface will be used. Defaults to
+          <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -21,6 +21,17 @@ typedef enum IPv6FlowLabel {
         _NETDEV_IPV6_FLOWLABEL_INVALID = -EINVAL,
 } IPv6FlowLabel;
 
+typedef enum TunnelAddressType {
+        TUNNEL_ADDRESS_STATIC,
+        TUNNEL_ADDRESS_IPV4LL,
+        TUNNEL_ADDRESS_IPV6LL,
+        TUNNEL_ADDRESS_DHCP4,
+        TUNNEL_ADDRESS_DHCP6,
+        TUNNEL_ADDRESS_SLAAC,
+        _TUNNEL_ADDRESS_TYPE_MAX,
+        _TUNNEL_ADDRESS_TYPE_INVALID,
+} TunnelAddressType;
+
 typedef struct Tunnel {
         NetDev meta;
 
@@ -43,6 +54,7 @@ typedef struct Tunnel {
 
         union in_addr_union local;
         union in_addr_union remote;
+        TunnelAddressType local_type;
 
         Ip6TnlMode ip6tnl_mode;
         FooOverUDPEncapType fou_encap_type;
@@ -115,7 +127,8 @@ const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
 Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ip6tnl_mode);
-CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_local_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_remote_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_flowlabel);
 CONFIG_PARSER_PROTOTYPE(config_parse_encap_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_key);
