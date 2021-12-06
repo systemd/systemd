@@ -5012,6 +5012,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         '25-veth.netdev',
         '25-veth-downstream-veth97.netdev',
         '25-veth-downstream-veth98.netdev',
+        '80-6rd-tunnel.network',
         'dhcp-pd-downstream-dummy97.network',
         'dhcp-pd-downstream-dummy98.network',
         'dhcp-pd-downstream-dummy99.network',
@@ -5238,7 +5239,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                                         '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
                                         'dhcp-pd-downstream-dummy97.network',
                                         '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
-                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network')
+                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network',
+                                        '80-6rd-tunnel.network')
 
         start_networkd()
         self.wait_online(['veth-peer:routable'])
