@@ -190,8 +190,6 @@ custom_target(
 ############################################################
 
 tests += [
-        [['src/libsystemd/sd-journal/test-journal.c']],
-
         [['src/libsystemd/sd-journal/test-journal-send.c']],
 
         [['src/libsystemd/sd-journal/test-journal-match.c']],
@@ -199,15 +197,7 @@ tests += [
         [['src/libsystemd/sd-journal/test-journal-enum.c'],
          [], [], [], '', 'timeout=360'],
 
-        [['src/libsystemd/sd-journal/test-journal-stream.c']],
-
-        [['src/libsystemd/sd-journal/test-journal-flush.c']],
-
         [['src/libsystemd/sd-journal/test-journal-init.c']],
-
-        [['src/libsystemd/sd-journal/test-journal-verify.c']],
-
-        [['src/libsystemd/sd-journal/test-journal-interleaving.c']],
 
         [['src/libsystemd/sd-journal/test-mmap-cache.c']],
 

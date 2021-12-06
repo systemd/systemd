@@ -91,66 +91,7 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
-/* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
- * As a result we use atomic operations on f->offline_state for inter-thread communications with
- * journal_file_set_offline() and journal_file_set_online(). */
-static void journal_file_set_offline_internal(JournalFile *f) {
-        assert(f);
-        assert(f->fd >= 0);
-        assert(f->header);
-
-        for (;;) {
-                switch (f->offline_state) {
-                case OFFLINE_CANCEL:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_CANCEL, OFFLINE_DONE))
-                                continue;
-                        return;
-
-                case OFFLINE_AGAIN_FROM_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_SYNCING))
-                                continue;
-                        break;
-
-                case OFFLINE_AGAIN_FROM_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_SYNCING))
-                                continue;
-                        break;
-
-                case OFFLINE_SYNCING:
-                        (void) fsync(f->fd);
-
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
-                                continue;
-
-                        f->header->state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
-                        (void) fsync(f->fd);
-                        break;
-
-                case OFFLINE_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_OFFLINING, OFFLINE_DONE))
-                                continue;
-                        _fallthrough_;
-                case OFFLINE_DONE:
-                        return;
-
-                case OFFLINE_JOINED:
-                        log_debug("OFFLINE_JOINED unexpected offline state for journal_file_set_offline_internal()");
-                        return;
-                }
-        }
-}
-
-static void * journal_file_set_offline_thread(void *arg) {
-        JournalFile *f = arg;
-
-        (void) pthread_setname_np(pthread_self(), "journal-offline");
-
-        journal_file_set_offline_internal(f);
-
-        return NULL;
-}
-
-static int journal_file_set_offline_thread_join(JournalFile *f) {
+int journal_file_set_offline_thread_join(JournalFile *f) {
         int r;
 
         assert(f);
@@ -166,110 +107,6 @@ static int journal_file_set_offline_thread_join(JournalFile *f) {
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
                 return -EIO;
-
-        return 0;
-}
-
-/* Trigger a restart if the offline thread is mid-flight in a restartable state. */
-static bool journal_file_set_offline_try_restart(JournalFile *f) {
-        for (;;) {
-                switch (f->offline_state) {
-                case OFFLINE_AGAIN_FROM_SYNCING:
-                case OFFLINE_AGAIN_FROM_OFFLINING:
-                        return true;
-
-                case OFFLINE_CANCEL:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_CANCEL, OFFLINE_AGAIN_FROM_SYNCING))
-                                continue;
-                        return true;
-
-                case OFFLINE_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_AGAIN_FROM_SYNCING))
-                                continue;
-                        return true;
-
-                case OFFLINE_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_OFFLINING, OFFLINE_AGAIN_FROM_OFFLINING))
-                                continue;
-                        return true;
-
-                default:
-                        return false;
-                }
-        }
-}
-
-/* Sets a journal offline.
- *
- * If wait is false then an offline is dispatched in a separate thread for a
- * subsequent journal_file_set_offline() or journal_file_set_online() of the
- * same journal to synchronize with.
- *
- * If wait is true, then either an existing offline thread will be restarted
- * and joined, or if none exists the offline is simply performed in this
- * context without involving another thread.
- */
-int journal_file_set_offline(JournalFile *f, bool wait) {
-        int target_state;
-        bool restarted;
-        int r;
-
-        assert(f);
-
-        if (!f->writable)
-                return -EPERM;
-
-        if (f->fd < 0 || !f->header)
-                return -EINVAL;
-
-        target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
-
-        /* An offlining journal is implicitly online and may modify f->header->state,
-         * we must also join any potentially lingering offline thread when already in
-         * the desired offline state.
-         */
-        if (!journal_file_is_offlining(f) && f->header->state == target_state)
-                return journal_file_set_offline_thread_join(f);
-
-        /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
-        restarted = journal_file_set_offline_try_restart(f);
-        if ((restarted && wait) || !restarted) {
-                r = journal_file_set_offline_thread_join(f);
-                if (r < 0)
-                        return r;
-        }
-
-        if (restarted)
-                return 0;
-
-        /* Initiate a new offline. */
-        f->offline_state = OFFLINE_SYNCING;
-
-        if (wait) /* Without using a thread if waiting. */
-                journal_file_set_offline_internal(f);
-        else {
-                sigset_t ss, saved_ss;
-                int k;
-
-                assert_se(sigfillset(&ss) >= 0);
-                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
-                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
-                assert_se(sigdelset(&ss, SIGBUS) >= 0);
-
-                r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
-                if (r > 0)
-                        return -r;
-
-                r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
-
-                k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
-                if (r > 0) {
-                        f->offline_state = OFFLINE_JOINED;
-                        return -r;
-                }
-                if (k > 0)
-                        return -k;
-        }
 
         return 0;
 }
@@ -341,55 +178,12 @@ static int journal_file_set_online(JournalFile *f) {
         }
 }
 
-bool journal_file_is_offlining(JournalFile *f) {
-        assert(f);
-
-        __sync_synchronize();
-
-        if (IN_SET(f->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
-                return false;
-
-        return true;
-}
-
 JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
-#if HAVE_GCRYPT
-        /* Write the final tag */
-        if (f->seal && f->writable) {
-                int r;
-
-                r = journal_file_append_tag(f);
-                if (r < 0)
-                        log_error_errno(r, "Failed to append tag when closing journal: %m");
-        }
-#endif
-
-        if (f->post_change_timer) {
-                if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
-                        journal_file_post_change(f);
-
-                sd_event_source_disable_unref(f->post_change_timer);
-        }
-
-        journal_file_set_offline(f, true);
-
         if (f->mmap && f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
-
-        if (f->fd >= 0 && f->defrag_on_close) {
-
-                /* Be friendly to btrfs: turn COW back on again now,
-                 * and defragment the file. We won't write to the file
-                 * ever again, hence remove all fragmentation, and
-                 * reenable all the good bits COW usually provides
-                 * (such as data checksumming). */
-
-                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
-                (void) btrfs_defrag_fd(f->fd);
-        }
 
         if (f->close_fd)
                 safe_close(f->fd);
@@ -3377,7 +3171,6 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -3562,8 +3355,6 @@ int journal_file_open(
         f->header = h;
 
         if (!newly_created) {
-                set_clear_with_destructor(deferred_closes, journal_file_close);
-
                 r = journal_file_verify_header(f);
                 if (r < 0)
                         goto fail;
@@ -3641,7 +3432,7 @@ fail:
         return r;
 }
 
-int journal_file_archive(JournalFile *f) {
+int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         _cleanup_free_ char *p = NULL;
 
         assert(f);
@@ -3672,6 +3463,13 @@ int journal_file_archive(JournalFile *f) {
         /* Sync the rename to disk */
         (void) fsync_directory_of_file(f->fd);
 
+        if (ret_previous_path)
+                *ret_previous_path = f->path;
+        else
+                free(f->path);
+
+        f->path = p;
+
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
          * which would result in the rotated journal never getting fsync() called before closing.  Now we simply queue
@@ -3679,75 +3477,11 @@ int journal_file_archive(JournalFile *f) {
          * occurs. */
         f->archive = true;
 
-        /* Currently, btrfs is not very good with out write patterns and fragments heavily. Let's defrag our journal
-         * files when we archive them */
-        f->defrag_on_close = true;
-
         return 0;
-}
-
-JournalFile* journal_initiate_close(
-                JournalFile *f,
-                Set *deferred_closes) {
-
-        int r;
-
-        assert(f);
-
-        if (deferred_closes) {
-
-                r = set_put(deferred_closes, f);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
-                else {
-                        (void) journal_file_set_offline(f, false);
-                        return NULL;
-                }
-        }
-
-        return journal_file_close(f);
-}
-
-int journal_file_rotate(
-                JournalFile **f,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                Set *deferred_closes) {
-
-        JournalFile *new_file = NULL;
-        int r;
-
-        assert(f);
-        assert(*f);
-
-        r = journal_file_archive(*f);
-        if (r < 0)
-                return r;
-
-        r = journal_file_open(
-                        -1,
-                        (*f)->path,
-                        (*f)->flags,
-                        (*f)->mode,
-                        compress,
-                        compress_threshold_bytes,
-                        seal,
-                        NULL,            /* metrics */
-                        (*f)->mmap,
-                        deferred_closes,
-                        *f,              /* template */
-                        &new_file);
-
-        journal_initiate_close(*f, deferred_closes);
-        *f = new_file;
-
-        return r;
 }
 
 int journal_file_dispose(int dir_fd, const char *fname) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -1;
 
         assert(fname);
 
@@ -3768,65 +3502,7 @@ int journal_file_dispose(int dir_fd, const char *fname) {
         if (renameat(dir_fd, fname, dir_fd, p) < 0)
                 return -errno;
 
-        /* btrfs doesn't cope well with our write pattern and fragments heavily. Let's defrag all files we rotate */
-        fd = openat(dir_fd, p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                log_debug_errno(errno, "Failed to open file for defragmentation/FS_NOCOW_FL, ignoring: %m");
-        else {
-                (void) chattr_fd(fd, 0, FS_NOCOW_FL, NULL);
-                (void) btrfs_defrag_fd(fd);
-        }
-
         return 0;
-}
-
-int journal_file_open_reliably(
-                const char *fname,
-                int flags,
-                mode_t mode,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                JournalMetrics *metrics,
-                MMapCache *mmap_cache,
-                Set *deferred_closes,
-                JournalFile *template,
-                JournalFile **ret) {
-
-        int r;
-
-        r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
-                              deferred_closes, template, ret);
-        if (!IN_SET(r,
-                    -EBADMSG,           /* Corrupted */
-                    -ENODATA,           /* Truncated */
-                    -EHOSTDOWN,         /* Other machine */
-                    -EPROTONOSUPPORT,   /* Incompatible feature */
-                    -EBUSY,             /* Unclean shutdown */
-                    -ESHUTDOWN,         /* Already archived */
-                    -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM,             /* File has been deleted */
-                    -ETXTBSY))          /* File is from the future */
-                return r;
-
-        if ((flags & O_ACCMODE) == O_RDONLY)
-                return r;
-
-        if (!(flags & O_CREAT))
-                return r;
-
-        if (!endswith(fname, ".journal"))
-                return r;
-
-        /* The file is corrupted. Rotate it away and try it again (but only once) */
-        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
-
-        r = journal_file_dispose(AT_FDCWD, fname);
-        if (r < 0)
-                return r;
-
-        return journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
-                                 deferred_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
