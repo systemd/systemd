@@ -456,24 +456,14 @@
       </varlistentry>
       <varlistentry>
         <term><varname>EgressQOSMaps=</varname></term>
-        <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for outgoing frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1…4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>IngressQOSMaps=</varname></term>
         <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for incoming frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1…4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
+          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>)
+          to VLAN header PCP field for outgoing and incoming frames, respectively. Takes a
+          whitespace-separated list of integer pairs, where each integer must be in the range
+          1…4294967294, in the format <literal>from</literal>-<literal>to</literal>, e.g.,
+          <literal>21-7 45-5</literal>. Note that <literal>from</literal> must be greater than or equal
+          to <literal>to</literal>. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
