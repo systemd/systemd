@@ -350,6 +350,11 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
 }
 
 static void link_save_dns(Link *link, FILE *f, struct in_addr_full **dns, unsigned n_dns, bool *space) {
+        bool _space = false;
+
+        if (!space)
+                space = &_space;
+
         for (unsigned j = 0; j < n_dns; j++) {
                 const char *str;
 
@@ -418,6 +423,45 @@ static void serialize_addresses(
                 fputc('\n', f);
 }
 
+static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, DHCPUseDomains use_domains) {
+        bool space = false;
+        const char *p;
+
+        assert(link);
+        assert(link->network);
+        assert(f);
+
+        ORDERED_SET_FOREACH(p, static_domains)
+                fputs_with_space(f, p, NULL, &space);
+
+        if (use_domains == DHCP_USE_DOMAINS_NO)
+                return;
+
+        if (link->dhcp_lease && link->network->dhcp_use_domains == use_domains) {
+                const char *domainname;
+                char **domains;
+
+                if (sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname) >= 0)
+                        fputs_with_space(f, domainname, NULL, &space);
+                if (sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains) >= 0)
+                        fputstrv(f, domains, NULL, &space);
+        }
+
+        if (link->dhcp6_lease && link->network->dhcp6_use_domains == use_domains) {
+                char **domains;
+
+                if (sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains) >= 0)
+                        fputstrv(f, domains, NULL, &space);
+        }
+
+        if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+                NDiscDNSSL *dd;
+
+                SET_FOREACH(dd, link->ndisc_dnssl)
+                        fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+        }
+}
+
 int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -470,8 +514,7 @@ int link_save(Link *link) {
                 admin_state, oper_state, carrier_state, address_state, ipv4_address_state, ipv6_address_state);
 
         if (link->network) {
-                char **dhcp6_domains = NULL, **dhcp_domains = NULL;
-                const char *dhcp_domainname = NULL, *online_state, *p;
+                const char *online_state;
                 bool space;
 
                 online_state = link_online_state_to_string(link->online_state);
@@ -497,46 +540,52 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                fputs("DNS=", f);
-                space = false;
-                if (link->n_dns != UINT_MAX)
-                        link_save_dns(link, f, link->dns, link->n_dns, &space);
-                else
-                        link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
-
-                serialize_addresses(f, NULL, &space,
-                                    NULL,
-                                    link->dhcp_lease,
-                                    link->network->dhcp_use_dns,
-                                    SD_DHCP_LEASE_DNS,
-                                    link->dhcp6_lease,
-                                    link->network->dhcp6_use_dns,
-                                    sd_dhcp6_lease_get_dns,
-                                    NULL);
-
                 /* Make sure to flush out old entries before we use the NDisc data */
                 ndisc_vacuum(link);
 
-                if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
-                        NDiscRDNSS *dd;
+                fputs("DNS=", f);
+                if (link->n_dns != UINT_MAX)
+                        link_save_dns(link, f, link->dns, link->n_dns, NULL);
+                else {
+                        space = false;
+                        link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
-                        SET_FOREACH(dd, link->ndisc_rdnss)
-                                serialize_in6_addrs(f, &dd->address, 1, &space);
+                        serialize_addresses(f, NULL, &space,
+                                            NULL,
+                                            link->dhcp_lease,
+                                            link->network->dhcp_use_dns,
+                                            SD_DHCP_LEASE_DNS,
+                                            link->dhcp6_lease,
+                                            link->network->dhcp6_use_dns,
+                                            sd_dhcp6_lease_get_dns,
+                                            NULL);
+
+                        if (link->network->ipv6_accept_ra_use_dns) {
+                                NDiscRDNSS *dd;
+
+                                SET_FOREACH(dd, link->ndisc_rdnss)
+                                        serialize_in6_addrs(f, &dd->address, 1, &space);
+                        }
                 }
 
                 fputc('\n', f);
 
                 /************************************************************/
 
-                serialize_addresses(f, "NTP", NULL,
-                                    link->ntp ?: link->network->ntp,
-                                    link->dhcp_lease,
-                                    link->network->dhcp_use_ntp,
-                                    SD_DHCP_LEASE_NTP,
-                                    link->dhcp6_lease,
-                                    link->network->dhcp6_use_ntp,
-                                    sd_dhcp6_lease_get_ntp_addrs,
-                                    sd_dhcp6_lease_get_ntp_fqdn);
+                if (link->ntp) {
+                        fputs("NTP=", f);
+                        fputstrv(f, link->ntp, NULL, NULL);
+                        fputc('\n', f);
+                } else
+                        serialize_addresses(f, "NTP", NULL,
+                                            link->network->ntp,
+                                            link->dhcp_lease,
+                                            link->network->dhcp_use_ntp,
+                                            SD_DHCP_LEASE_NTP,
+                                            link->dhcp6_lease,
+                                            link->network->dhcp6_use_ntp,
+                                            sd_dhcp6_lease_get_ntp_addrs,
+                                            sd_dhcp6_lease_get_ntp_fqdn);
 
                 serialize_addresses(f, "SIP", NULL,
                                     NULL,
@@ -547,65 +596,20 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO && link->dhcp_lease) {
-                        (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
-                        (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
-                }
-                if (link->network->dhcp6_use_domains != DHCP_USE_DOMAINS_NO && link->dhcp6_lease)
-                        (void) sd_dhcp6_lease_get_domains(link->dhcp6_lease, &dhcp6_domains);
-
                 fputs("DOMAINS=", f);
-                space = false;
-                ORDERED_SET_FOREACH(p, link->search_domains ?: link->network->search_domains)
-                        fputs_with_space(f, p, NULL, &space);
-
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
-                        if (dhcp_domainname)
-                                fputs_with_space(f, dhcp_domainname, NULL, &space);
-                        if (dhcp_domains)
-                                fputstrv(f, dhcp_domains, NULL, &space);
-                }
-
-                if (link->network->dhcp6_use_domains == DHCP_USE_DOMAINS_YES) {
-                        if (dhcp6_domains)
-                                fputstrv(f, dhcp6_domains, NULL, &space);
-                }
-
-                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_YES) {
-                        NDiscDNSSL *dd;
-
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
-                }
-
+                if (link->search_domains)
+                        link_save_domains(link, f, link->search_domains, DHCP_USE_DOMAINS_NO);
+                else
+                        link_save_domains(link, f, link->network->search_domains, DHCP_USE_DOMAINS_YES);
                 fputc('\n', f);
 
                 /************************************************************/
 
                 fputs("ROUTE_DOMAINS=", f);
-                space = false;
-                ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains)
-                        fputs_with_space(f, p, NULL, &space);
-
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        if (dhcp_domainname)
-                                fputs_with_space(f, dhcp_domainname, NULL, &space);
-                        if (dhcp_domains)
-                                fputstrv(f, dhcp_domains, NULL, &space);
-                }
-
-                if (link->network->dhcp6_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        if (dhcp6_domains)
-                                fputstrv(f, dhcp6_domains, NULL, &space);
-                }
-
-                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        NDiscDNSSL *dd;
-
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
-                }
-
+                if (link->route_domains)
+                        link_save_domains(link, f, link->route_domains, DHCP_USE_DOMAINS_NO);
+                else
+                        link_save_domains(link, f, link->network->route_domains, DHCP_USE_DOMAINS_ROUTE);
                 fputc('\n', f);
 
                 /************************************************************/
