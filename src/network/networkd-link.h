@@ -114,6 +114,7 @@ typedef struct Link {
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
+        char *dhcp4_6rd_tunnel_name;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
@@ -146,11 +147,12 @@ typedef struct Link {
 
         sd_dhcp6_client *dhcp6_client;
         sd_dhcp6_lease *dhcp6_lease;
-        Set *dhcp6_pd_prefixes;
         unsigned dhcp6_messages;
-        unsigned dhcp6_pd_messages;
-        bool dhcp6_configured:1;
-        bool dhcp6_pd_configured:1;
+        bool dhcp6_configured;
+
+        Set *dhcp_pd_prefixes;
+        unsigned dhcp_pd_messages;
+        bool dhcp_pd_configured;
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
