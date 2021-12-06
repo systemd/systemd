@@ -172,9 +172,6 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (link->set_link_messages > 0)
                 return false;
 
-        if (!link->stacked_netdevs_created)
-                return false;
-
         if (!link->activated)
                 return false;
 
@@ -440,6 +437,9 @@ void link_check_ready(Link *link) {
                 link_set_state(link, LINK_STATE_CONFIGURED);
                 return;
         }
+
+        if (!link->stacked_netdevs_created)
+                return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
 
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
