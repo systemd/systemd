@@ -542,7 +542,7 @@ static bool hw_addr_is_valid(Link *link, const struct hw_addr_data *hw_addr) {
 
 static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
         struct hw_addr_data hw_addr = HW_ADDR_NULL;
-        bool warn_invalid = false;
+        bool is_static = false;
         uint8_t *p;
         size_t len;
         int r;
@@ -558,7 +558,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
         if (link->config->mac_address_policy == MAC_ADDRESS_POLICY_NONE) {
                 log_link_debug(link, "Using static MAC address.");
                 hw_addr = link->config->hw_addr;
-                warn_invalid = true;
+                is_static = true;
                 goto finalize;
         }
 
@@ -634,7 +634,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
 
 finalize:
 
-        r = net_verify_hardware_address(link->ifname, warn_invalid, link->iftype, &link->hw_addr, &hw_addr);
+        r = net_verify_hardware_address(link->ifname, is_static, link->iftype, &link->hw_addr, &hw_addr);
         if (r < 0)
                 return r;
 

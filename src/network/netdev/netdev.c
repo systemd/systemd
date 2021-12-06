@@ -402,7 +402,7 @@ int netdev_generate_hw_addr(
                 struct hw_addr_data *ret) {
 
         struct hw_addr_data a = HW_ADDR_NULL;
-        bool warn_invalid = false;
+        bool is_static = false;
         int r;
 
         assert(netdev);
@@ -465,10 +465,10 @@ int netdev_generate_hw_addr(
 
         } else {
                 a = *hw_addr;
-                warn_invalid = true;
+                is_static = true;
         }
 
-        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype,
+        r = net_verify_hardware_address(name, is_static, NETDEV_VTABLE(netdev)->iftype,
                                         parent ? &parent->hw_addr : NULL, &a);
         if (r < 0)
                 return r;

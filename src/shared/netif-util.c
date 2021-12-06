@@ -110,7 +110,7 @@ typedef struct Link {
 
 int net_verify_hardware_address(
                 const char *ifname,
-                bool warn_invalid,
+                bool is_static,
                 uint16_t iftype,
                 const struct hw_addr_data *ib_hw_addr, /* current or parent HW address */
                 struct hw_addr_data *new_hw_addr) {
@@ -123,7 +123,7 @@ int net_verify_hardware_address(
                 return 0;
 
         if (new_hw_addr->length != arphrd_to_hw_addr_len(iftype)) {
-                if (warn_invalid)
+                if (is_static)
                         log_link_warning(&link,
                                          "Specified MAC address with invalid length (%zu, expected %zu), refusing.",
                                          new_hw_addr->length, arphrd_to_hw_addr_len(iftype));
@@ -135,30 +135,27 @@ int net_verify_hardware_address(
                 /* see eth_random_addr() in the kernel */
 
                 if (ether_addr_is_null(&new_hw_addr->ether)) {
-                        if (warn_invalid)
+                        if (is_static)
                                 log_link_warning(&link, "Specified MAC address is null, refusing.");
                         return -EINVAL;
                 }
 
                 if (ether_addr_is_broadcast(&new_hw_addr->ether)) {
-                        if (warn_invalid)
+                        if (is_static)
                                 log_link_warning(&link, "Specified MAC address is broadcast, refusing.");
                         return -EINVAL;
                 }
 
                 if (ether_addr_is_multicast(&new_hw_addr->ether)) {
-                        if (warn_invalid)
+                        if (is_static)
                                 log_link_warning(&link, "Specified MAC address has the multicast bit set, clearing the bit.");
 
                         new_hw_addr->bytes[0] &= 0xfe;
                 }
 
-                if (!ether_addr_is_local(&new_hw_addr->ether)) {
-                        if (warn_invalid)
-                                log_link_warning(&link, "Specified MAC address does not have the local assignment bit set, setting the bit.");
-
+                if (!is_static && !ether_addr_is_local(&new_hw_addr->ether))
+                        /* Adjust local assignment bit when the MAC address is generated randomly. */
                         new_hw_addr->bytes[0] |= 0x02;
-                }
 
                 break;
 
@@ -168,13 +165,13 @@ int net_verify_hardware_address(
                 assert(ib_hw_addr);
                 assert(ib_hw_addr->length == INFINIBAND_ALEN);
 
-                if (warn_invalid &&
+                if (is_static &&
                     (!memeqzero(new_hw_addr->bytes, INFINIBAND_ALEN - 8) ||
                      memcmp(new_hw_addr->bytes, ib_hw_addr->bytes, INFINIBAND_ALEN - 8) != 0))
                         log_link_warning(&link, "Only the last 8 bytes of the InifniBand MAC address can be changed, ignoring the first 12 bytes.");
 
                 if (memeqzero(new_hw_addr->bytes + INFINIBAND_ALEN - 8, 8)) {
-                        if (warn_invalid)
+                        if (is_static)
                                 log_link_warning(&link, "The last 8 bytes of the InfiniBand MAC address cannot be null, refusing.");
                         return -EINVAL;
                 }
@@ -183,7 +180,7 @@ int net_verify_hardware_address(
                 break;
 
         default:
-                if (warn_invalid)
+                if (is_static)
                         log_link_warning(&link, "Unsupported interface type %s%u to set MAC address, refusing.",
                                          strna(arphrd_to_name(iftype)), iftype);
                 return -EINVAL;

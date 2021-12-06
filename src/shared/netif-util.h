@@ -15,7 +15,7 @@ int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_
 int net_get_unique_predictable_data_from_name(const char *name, const sd_id128_t *key, uint64_t *ret);
 int net_verify_hardware_address(
                 const char *ifname,
-                bool warn_invalid,
+                bool is_static,
                 uint16_t iftype,
                 const struct hw_addr_data *ib_hw_addr,
                 struct hw_addr_data *new_hw_addr);
