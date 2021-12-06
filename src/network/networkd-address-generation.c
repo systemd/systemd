@@ -4,6 +4,7 @@
 
 #include "sd-id128.h"
 
+#include "arphrd-util.h"
 #include "id128-util.h"
 #include "memory-util.h"
 #include "networkd-address-generation.h"
@@ -39,17 +40,19 @@ typedef struct IPv6Token {
         sd_id128_t secret_key;
 } IPv6Token;
 
-static void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
+static int generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
         assert(link);
         assert(prefix);
         assert(ret);
 
         memcpy(ret->s6_addr, prefix, 8);
 
-        if (link->iftype == ARPHRD_INFINIBAND)
+        switch (link->iftype) {
+        case ARPHRD_INFINIBAND:
                 /* Use last 8 byte. See RFC4391 section 8 */
                 memcpy(&ret->s6_addr[8], &link->hw_addr.infiniband[INFINIBAND_ALEN - 8], 8);
-        else {
+                break;
+        case ARPHRD_ETHER:
                 /* see RFC4291 section 2.5.1 */
                 ret->s6_addr[8]  = link->hw_addr.ether.ether_addr_octet[0];
                 ret->s6_addr[9]  = link->hw_addr.ether.ether_addr_octet[1];
@@ -59,9 +62,15 @@ static void generate_eui64_address(const Link *link, const struct in6_addr *pref
                 ret->s6_addr[13] = link->hw_addr.ether.ether_addr_octet[3];
                 ret->s6_addr[14] = link->hw_addr.ether.ether_addr_octet[4];
                 ret->s6_addr[15] = link->hw_addr.ether.ether_addr_octet[5];
+                break;
+        default:
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                            "Token=eui64 is not supported for interface type %s, ignoring.",
+                                            strna(arphrd_to_name(link->iftype)));
         }
 
         ret->s6_addr[8] ^= 1 << 1;
+        return 0;
 }
 
 static bool stable_private_address_is_valid(const struct in6_addr *addr) {
@@ -188,7 +197,8 @@ static int generate_addresses(
 
                 switch (j->type) {
                 case ADDRESS_GENERATION_EUI64:
-                        generate_eui64_address(link, &masked, &addr);
+                        if (generate_eui64_address(link, &masked, &addr) < 0)
+                                continue;
                         break;
 
                 case ADDRESS_GENERATION_STATIC:
@@ -226,7 +236,12 @@ static int generate_addresses(
                 if (!addr)
                         return -ENOMEM;
 
-                generate_eui64_address(link, &masked, addr);
+                if (IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+                        r = generate_eui64_address(link, &masked, addr);
+                else
+                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, addr);
+                if (r < 0)
+                        return r;
 
                 r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, addr);
                 if (r < 0)
