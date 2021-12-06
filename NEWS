@@ -366,6 +366,11 @@ CHANGES WITH 250 in spe:
           non-essential output. It's honored by the "dot", "syscall-filter",
           "filesystems" commands.
 
+        * systemd-analyze learnt a new inspect-elf verb that parses ELF core
+          files, binaries and executables and prints metadata information,
+          including the build-id and other info described on:
+          https://systemd.io/COREDUMP_PACKAGE_METADATA/
+
         * systemd-nspawn's --setenv= switch now supports an additional syntax:
           if only a variable name is specified (i.e. without being suffixed by
           a '=' character and a value) the current value of the environment
@@ -482,6 +487,9 @@ CHANGES WITH 250 in spe:
         * A new hwdb database entry has been added that carries information
           about what type of camera discovered cameras are (regular or
           infrared), and in which direction they point (front or back).
+
+        * A new rule to allow console users access to rfkill by default has been
+          added to hwdb.
 
         * A new build-time meson option "extra-net-naming-schemes=" has been
           added for defining additional naming schemes schemes definitions for
@@ -654,8 +662,13 @@ CHANGES WITH 250 in spe:
 
         * If a unit uses RuntimeMaxSec, systemctl show will now display it.
 
+        * systemctl show-environment gained support for --output=json.
+
         * pam_systemd will now first try to use the X11 abstract socket, and
           fallback to the socket file in /tmp/.X11-unix/ only if that does not work.
+
+        * systemd-journald will no longer go back to volatile storage regardless of
+          configuration when its unit is restarted.
 
         * Initial support for the LoongArch architecture has been added
           (system calls, defines, etc).
