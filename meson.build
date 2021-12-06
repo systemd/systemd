@@ -432,6 +432,11 @@ add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), langu
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 add_project_link_arguments(cc.get_supported_link_arguments(possible_link_flags), language : 'c')
 
+# Make the GNU build ID available in all our binaries via a friendly C symbol
+# via this linker script. This is used by src/basic/elf-build-id.[ch] to
+# reference the build ID of the ELF objects we run in
+add_project_link_arguments(['-Wl,' + (meson.current_source_dir() / 'gnu-build-id.ld')], language : 'c')
+
 have = cc.has_argument('-Wzero-length-bounds')
 conf.set10('HAVE_ZERO_LENGTH_BOUNDS', have)
 

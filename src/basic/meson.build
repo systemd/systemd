@@ -37,6 +37,8 @@ basic_sources = files('''
         dns-def.h
         efivars.c
         efivars.h
+        elf-build-id.c
+        elf-build-id.h
         env-file.c
         env-file.h
         env-util.c

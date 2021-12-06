@@ -6,8 +6,8 @@
 #define log_interface_full_errno_zerook(ifname, level, error, ...)      \
         ({                                                              \
                 const char *_ifname = (ifname);                         \
-                _ifname ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                _ifname ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, "INTERFACE=", _ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, _elf_note_build_id, ##__VA_ARGS__); \
         })
 
 #define log_interface_full_errno(ifname, level, error, ...)             \
