@@ -1299,7 +1299,7 @@ int config_parse_uplink(
                 name = &network->router_uplink_name;
         } else if (streq(section, "DHCPv6PrefixDelegation")) {
                 index = &network->dhcp6_pd_uplink_index;
-                name = &network->dhcp_server_uplink_name;
+                name = &network->dhcp6_pd_uplink_name;
                 accept_none = false;
         } else
                 assert_not_reached();
