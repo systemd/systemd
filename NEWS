@@ -673,6 +673,10 @@ CHANGES WITH 250 in spe:
         * Initial support for the LoongArch architecture has been added
           (system calls, defines, etc).
 
+        * A LICENSES/ directory is now included in the git tree. It contains a README.md
+          file that explains the licenses used by source files in this repository.
+          It also contains the text of all applicable licenses as they appear on spdx.org.
+
 CHANGES WITH 249:
 
         * When operating on disk images via the --image= switch of various
