@@ -807,7 +807,7 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
                 return 0;
 
         link->requested_hw_addr = link->network->hw_addr;
-        r = net_verify_hardware_address(link->ifname, /* warn_invalid = */ true,
+        r = net_verify_hardware_address(link->ifname, /* is_static = */ true,
                                         link->iftype, &link->hw_addr, &link->requested_hw_addr);
         if (r < 0)
                 return r;

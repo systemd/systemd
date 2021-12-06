@@ -1082,8 +1082,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip link show dropin-test')
         print(output)
-        # 00:50:56:c0:00:28 was requested, and the local bit is set by networkd.
-        self.assertRegex(output, '02:50:56:c0:00:28')
+        self.assertRegex(output, '00:50:56:c0:00:28')
 
     def test_match_udev_property(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '13-not-match-udev-property.network', '14-match-udev-property.network')
@@ -2771,8 +2770,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip link show dummy98')
         print(output)
-        # 00:01:02:aa:bb:cc was requested, and the local bit is set by networkd.
-        self.assertRegex(output, '02:01:02:aa:bb:cc')
+        self.assertRegex(output, '00:01:02:aa:bb:cc')
 
     def test_ip_link_unmanaged(self):
         copy_unit_to_networkd_unit_path('25-link-section-unmanaged.network', '12-dummy.netdev')
