@@ -459,7 +459,7 @@
         <listitem>
           <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
           PCP field for outgoing frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
+          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1…4294967294.
           Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
           the kernel's default will be used.
           </para>
@@ -470,7 +470,7 @@
         <listitem>
           <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
           PCP field for incoming frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
+          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1…4294967294.
           Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
           the kernel's default will be used.
           </para>
@@ -1230,7 +1230,7 @@
           value of zero means that a packet carrying that option may not enter
           another tunnel before exiting the current tunnel.
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
-          The valid range is 0–255 and <literal>none</literal>. Defaults to 4.
+          The valid range is 0…255 and <literal>none</literal>. Defaults to 4.
         </para>
         </listitem>
       </varlistentry>
@@ -1789,7 +1789,7 @@
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
           driver sends learning packets to each slave peer switch.
-          The valid range is 1–0x7fffffff; the default value is 1. This option
+          The valid range is 1…0x7fffffff; the default value is 1. This option
           has an effect only for the balance-tlb and balance-alb modes.</para>
         </listitem>
       </varlistentry>
@@ -1914,7 +1914,7 @@
           <para>Specifies the number of IGMP membership reports to be issued after
           a failover event. One membership report is issued immediately after
           the failover, subsequent packets are sent in each 200ms interval.
-          The valid range is 0–255. Defaults to 1. A value of 0
+          The valid range is 0…255. Defaults to 1. A value of 0
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
@@ -1926,7 +1926,7 @@
         <listitem>
           <para>Specify the number of packets to transmit through a slave before
           moving to the next one. When set to 0, then a slave is chosen at
-          random. The valid range is 0–65535. Defaults to 1. This option
+          random. The valid range is 0…65535. Defaults to 1. This option
           only has effect when in balance-rr mode.
           </para>
         </listitem>
@@ -1941,7 +1941,7 @@
           a peer notification is sent on the  bonding device and each
           VLAN sub-device.  This is repeated at each link monitor interval
           (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-          greater than 1. The valid range is 0–255. The default value is 1.
+          greater than 1. The valid range is 0…255. The default value is 1.
           These options affect only the active-backup mode.
           </para>
         </listitem>
