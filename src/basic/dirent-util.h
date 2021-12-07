@@ -26,7 +26,7 @@ struct dirent *readdir_no_dot(DIR *dirp);
                 else
 
 #define FOREACH_DIRENT_ALL(de, d, on_error)                             \
-        for (de = readdir_ensure_type(d);; de = readdir_ensure_type(d)) \
+        for (struct dirent *(de) = readdir_ensure_type(d);; (de) = readdir_ensure_type(d)) \
                 if (!de) {                                              \
                         if (errno > 0) {                                \
                                 on_error;                               \

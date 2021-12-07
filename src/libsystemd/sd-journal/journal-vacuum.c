@@ -127,7 +127,6 @@ int journal_directory_vacuum(
         _cleanup_closedir_ DIR *d = NULL;
         struct vacuum_info *list = NULL;
         usec_t retention_limit = 0;
-        struct dirent *de;
         int r;
 
         assert(directory);
