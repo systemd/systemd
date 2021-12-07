@@ -12,12 +12,18 @@ typedef enum NetDevLocalAddressType {
         NETDEV_LOCAL_ADDRESS_DHCP4,
         NETDEV_LOCAL_ADDRESS_DHCP6,
         NETDEV_LOCAL_ADDRESS_SLAAC,
+        NETDEV_LOCAL_ADDRESS_AUTO,
+        NETDEV_LOCAL_ADDRESS_STATIC,
+        NETDEV_LOCAL_ADDRESS_DYNAMIC,
         _NETDEV_LOCAL_ADDRESS_TYPE_MAX,
         _NETDEV_LOCAL_ADDRESS_TYPE_INVALID = -EINVAL,
 } NetDevLocalAddressType;
 
 const char *netdev_local_address_type_to_string(NetDevLocalAddressType t) _const_;
 NetDevLocalAddressType netdev_local_address_type_from_string(const char *s) _pure_;
+
+const char *netdev_local_address_type_compat_to_string(NetDevLocalAddressType t) _const_;
+NetDevLocalAddressType netdev_local_address_type_compat_from_string(const char *s) _pure_;
 
 int link_get_local_address(
                 Link *link,
