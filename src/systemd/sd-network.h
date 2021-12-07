@@ -18,6 +18,7 @@
 ***/
 
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "_sd-common.h"
@@ -186,6 +187,8 @@ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid);
 
 /* Get DHCPv6 client DUID for a given link. */
 int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **duid);
+
+int sd_network_link_get_stat(int ifindex, struct stat *ret);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
