@@ -48,11 +48,11 @@ struct Manager {
         Hashmap *links_by_index;
         Hashmap *links_by_name;
         Hashmap *links_by_hw_addr;
-        Hashmap *links_by_dhcp6_pd_prefix;
+        Hashmap *links_by_dhcp_pd_subnet_prefix;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         OrderedSet *address_pools;
-        Set *dhcp6_pd_subnet_ids;
+        Set *dhcp_pd_subnet_ids;
 
         usec_t network_dirs_ts_usec;
 

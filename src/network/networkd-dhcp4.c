@@ -12,6 +12,7 @@
 #include "parse-util.h"
 #include "network-internal.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
@@ -27,7 +28,6 @@
 #include "sysctl-util.h"
 
 static int dhcp4_request_address_and_routes(Link *link, bool announce);
-static int dhcp4_check_ready(Link *link);
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
@@ -119,7 +119,7 @@ static int dhcp4_address_ready_callback(Address *address) {
         return dhcp4_check_ready(address->link);
 }
 
-static int dhcp4_check_ready(Link *link) {
+int dhcp4_check_ready(Link *link) {
         Address *address;
         int r;
 
@@ -789,10 +789,15 @@ int dhcp4_lease_lost(Link *link) {
 
         assert(link);
         assert(link->dhcp_lease);
+        assert(link->network);
 
         log_link_info(link, "DHCP lease lost");
 
         link->dhcp4_configured = false;
+
+        if (link->network->dhcp_use_6rd &&
+            dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+                dhcp4_pd_prefix_lost(link);
 
         k = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
         if (k < 0)
@@ -964,19 +969,30 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
 }
 
 static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *old_lease = NULL;
         sd_dhcp_lease *lease;
         int r;
 
         assert(link);
+        assert(link->network);
         assert(client);
 
         r = sd_dhcp_client_get_lease(client, &lease);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no lease: %m");
 
-        sd_dhcp_lease_unref(link->dhcp_lease);
+        old_lease = TAKE_PTR(link->dhcp_lease);
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
+
+        if (link->network->dhcp_use_6rd) {
+                if (dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+                        r = dhcp4_pd_prefix_acquired(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
+                } else if (dhcp4_lease_has_pd_prefix(old_lease))
+                        dhcp4_pd_prefix_lost(link);
+        }
 
         return dhcp4_request_address_and_routes(link, false);
 }
@@ -1041,6 +1057,13 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set timezone to '%s': %m", tz);
                 }
+        }
+
+        if (link->network->dhcp_use_6rd &&
+            dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+                r = dhcp4_pd_prefix_acquired(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
         }
 
         return dhcp4_request_address_and_routes(link, true);
@@ -1437,6 +1460,12 @@ static int dhcp4_configure(Link *link) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for timezone: %m");
+                }
+
+                if (link->network->dhcp_use_6rd) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_6RD);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
                 }
 
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
