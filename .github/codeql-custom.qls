@@ -1,0 +1,33 @@
+---
+# vi: ts=2 sw=2 et syntax=yaml:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Note: it is not recommended to directly reference the respective queries from
+#       the github/codeql repository, so we have to "dance" around it using
+#       a custom QL suite
+# See:
+#   - https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#running-additional-queries
+#   - https://github.com/github/codeql-action/issues/430#issuecomment-806092120
+#   - https://codeql.github.com/docs/codeql-cli/creating-codeql-query-suites/
+
+- import: codeql-suites/cpp-lgtm.qls
+  from: codeql/cpp-queries
+- include:
+    id:
+      - cpp/bad-strncpy-size
+      - cpp/declaration-hides-variable
+      - cpp/inconsistent-null-check
+      - cpp/mistyped-function-arguments
+      - cpp/nested-loops-with-same-variable
+      - cpp/sizeof-side-effect
+      - cpp/suspicious-pointer-scaling
+      - cpp/suspicious-pointer-scaling-void
+      - cpp/suspicious-sizeof
+      - cpp/unsafe-strcat
+      - cpp/unsafe-strncat
+      - cpp/unsigned-difference-expression-compared-zero
+      - cpp/unused-local-variable
+    tags:
+      - "security"
+      - "correctness"
+    severity: "error"
