@@ -6,4 +6,7 @@ name: "CodeQL config"
 disable-default-queries: false
 
 queries:
-  - uses: ./.github/codeql-custom.qls
+  - name: Enable possibly useful queries which are disabled by default
+    uses: ./.github/codeql-custom.qls
+  - name: systemd-specific CodeQL queries
+    uses: ./.lgtm/cpp-queries/
