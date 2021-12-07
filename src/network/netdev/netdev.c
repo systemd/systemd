@@ -612,26 +612,20 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 }
 
 static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
-        Request req;
-
         assert(netdev);
         assert(link);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
-        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
+
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
             link->state != LINK_STATE_CONFIGURED)
                 return false;
 
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MTU),
-        };
-
-        if (ordered_set_contains(link->manager->request_queue, &req))
+        if (link->set_link_messages > 0)
                 return false;
 
         return true;

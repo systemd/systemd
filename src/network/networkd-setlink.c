@@ -568,12 +568,19 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
+                Request req_mac = {
+                        .link = link,
+                        .type = REQUEST_TYPE_SET_LINK,
+                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MAC),
+                };
 
                 if (link->network->batadv) {
                         if (!netdev_is_ready(link->network->batadv))
                                 return false;
                         m = link->network->batadv->ifindex;
                 } else if (link->network->bond) {
+                        if (ordered_set_contains(link->manager->request_queue, &req_mac))
+                                return false;
                         if (!netdev_is_ready(link->network->bond))
                                 return false;
                         m = link->network->bond->ifindex;
@@ -589,6 +596,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                                 }
                         }
                 } else if (link->network->bridge) {
+                        if (ordered_set_contains(link->manager->request_queue, &req_mac))
+                                return false;
                         if (!netdev_is_ready(link->network->bridge))
                                 return false;
                         m = link->network->bridge->ifindex;
