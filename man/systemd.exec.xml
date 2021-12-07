@@ -3365,13 +3365,17 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
         <varlistentry>
           <term><varname>$SERVICE_RESULT</varname></term>
+          <term><varname>$MONITOR_SERVICE_RESULT</varname></term>
 
-          <listitem><para>Only defined for the service unit type, this environment variable is passed to all
+          <listitem><para>Only defined for the service unit type, <varname>$SERVICE_RESULT</varname> is passed to all
           <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
-          "result". Currently, the following values are defined:</para>
+          "result". <varname>$MONITOR_SERVICE_RESULT</varname> is passed to all <varname>ExecStart=</varname> and
+          <varname>ExecStartPre=</varname> processes which are spawned as the result of an
+          <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependency being triggered. Currently,
+          the following values are defined:</para>
 
           <table>
-            <title>Defined <varname>$SERVICE_RESULT</varname> values</title>
+            <title>Defined <varname>$SERVICE_RESULT</varname>, <varname>$MONITOR_SERVICE_RESULT</varname> values</title>
             <tgroup cols='2'>
               <colspec colname='result'/>
               <colspec colname='meaning'/>
@@ -3423,7 +3427,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             </tgroup>
           </table>
 
-          <para>This environment variable is useful to monitor failure or successful termination of a service. Even
+          <para><varname>$SERVICE_RESULT</varname> is useful to monitor failure or successful termination of a service. Even
           though this variable is available in both <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>, it
           is usually a better choice to place monitoring tools in the latter, as the former is only invoked for services
           that managed to start up correctly, and the latter covers both services that failed during their start-up and
@@ -3433,16 +3437,21 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varlistentry>
           <term><varname>$EXIT_CODE</varname></term>
           <term><varname>$EXIT_STATUS</varname></term>
+          <term><varname>$MONITOR_EXIT_CODE</varname></term>
+          <term><varname>$MONITOR_EXIT_STATUS</varname></term>
 
-          <listitem><para>Only defined for the service unit type, these environment variables are passed to all
-          <varname>ExecStop=</varname>, <varname>ExecStopPost=</varname> processes and contain exit status/code
+          <listitem><para>Only defined for the service unit type, <varname>$EXIT_CODE</varname> and <varname>$EXIT_STATUS</varname>
+          are passed to all <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes and contain exit status/code
           information of the main process of the service. For the precise definition of the exit code and status, see
           <citerefentry><refentrytitle>wait</refentrytitle><manvolnum>2</manvolnum></citerefentry>. <varname>$EXIT_CODE</varname>
           is one of <literal>exited</literal>, <literal>killed</literal>,
           <literal>dumped</literal>. <varname>$EXIT_STATUS</varname> contains the numeric exit code formatted as string
           if <varname>$EXIT_CODE</varname> is <literal>exited</literal>, and the signal name in all other cases. Note
           that these environment variables are only set if the service manager succeeded to start and identify the main
-          process of the service.</para>
+          process of the service. <varname>$MONITOR_EXIT_CODE</varname> and <varname>$MONITOR_EXIT_STATUS</varname> are passed
+          to all <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which are spawned as the result of an <varname>OnFailure=</varname>
+          or <varname>OnSuccess=</varname> dependency being triggered.
+          </para>
 
           <table>
             <title>Summary of possible service result variable values</title>
@@ -3452,9 +3461,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
               <colspec colname='status' />
               <thead>
                 <row>
-                  <entry><varname>$SERVICE_RESULT</varname></entry>
-                  <entry><varname>$EXIT_CODE</varname></entry>
-                  <entry><varname>$EXIT_STATUS</varname></entry>
+                  <entry><varname>$SERVICE_RESULT</varname>, <varname>$MONITOR_SERVICE_RESULT</varname></entry>
+                  <entry><varname>$EXIT_CODE</varname>, <varname>$MONITOR_EXIT_CODE</varname></entry>
+                  <entry><varname>$EXIT_STATUS</varname>, <varname>$MONITOR_EXIT_STATUS</varname></entry>
                 </row>
               </thead>
 
@@ -3544,6 +3553,27 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
               </tbody>
             </tgroup>
           </table></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$MONITOR_INVOCATION_ID</varname></term>
+
+          <listitem><para>Only defined for the service unit type, <varname>$MONITOR_INVOCATION_ID</varname> is passed
+          to all <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which are spawned as the result of an <varname>OnFailure=</varname>
+          or <varname>OnSuccess=</varname> dependency being triggered. The value of this variable is the invocation
+          ID of the unit which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> service
+          dependency.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$MONITOR_UNIT</varname></term>
+
+          <listitem><para>Only defined for the service unit type, <varname>$MONITOR_UNIT</varname> is passed
+          to all <varname>ExecStart=</varname> and <varname>ExecStart=</varname> processes which are spawned as the result of an <varname>OnFailure=</varname>
+          dependency being triggered. The value of this variable is the name of the unit which triggered the
+          <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> service dependency.</para></listitem>
+
         </varlistentry>
 
         <varlistentry>
