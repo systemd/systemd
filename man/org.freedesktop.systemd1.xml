@@ -334,6 +334,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t UnitsLoadFinishTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t UnitsLoadTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t UnitsLoadTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InitRDSecurityStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InitRDSecurityStartTimestampMonotonic = ...;
@@ -983,6 +987,10 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="UnitsLoadFinishTimestampMonotonic"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsLoadTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsLoadTimestampMonotonic"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="InitRDSecurityStartTimestamp"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InitRDSecurityStartTimestampMonotonic"/>
@@ -1504,6 +1512,11 @@ node /org/freedesktop/systemd1 {
       be read as negative values. Also, not all fields are always available, depending on the used firmware,
       boot loader or initrd implementation. In these cases the respective pairs of timestamps are both 0,
       indicating that no data is available.</para>
+
+      <para><varname>UnitsLoadTimestamp</varname> and <varname>UnitsLoadTimestampMonotonic</varname> encode
+      <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microseconds timestamps
+      (as described above). The timestamps are taken every time when the manager starts loading unit files.
+      </para>
 
       <para>Similarly, the <varname>SecurityStartTimestamp</varname>,
       <varname>GeneratorsStartTimestamp</varname> and <varname>LoadUnitTimestamp</varname> (as well as their
