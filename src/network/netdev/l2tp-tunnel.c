@@ -335,6 +335,7 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
         int r;
 
         assert(netdev);
+        assert(link);
 
         t = L2TP(netdev);
 
@@ -361,6 +362,29 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
                 return log_netdev_error_errno(netdev, r, "Failed to create L2TP tunnel: %m");
 
         netdev_ref(netdev);
+
+        return 0;
+}
+
+static int netdev_l2tp_create(NetDev *netdev, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->create_stacked_netdev_messages > 0);
+
+        link->create_stacked_netdev_messages--;
+
+        r = l2tp_create_tunnel(netdev, link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
+
+        if (link->create_stacked_netdev_messages == 0) {
+                link->stacked_netdevs_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
+        }
 
         return 0;
 }
@@ -735,13 +759,15 @@ static void l2tp_tunnel_done(NetDev *netdev) {
         ordered_hashmap_free_with_destructor(t->sessions_by_section, l2tp_session_free);
 }
 
+/* FIXEME:
+ * L2TP is not a stacked netdev, but requires that the local address exists, and the remote address is accessible. */
 const NetDevVTable l2tptnl_vtable = {
         .object_size = sizeof(L2tpTunnel),
         .init = l2tp_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "L2TP\0L2TPSession\0",
-        .create_after_configured = l2tp_create_tunnel,
+        .create_stacked = netdev_l2tp_create,
         .done = l2tp_tunnel_done,
-        .create_type = NETDEV_CREATE_AFTER_CONFIGURED,
+        .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_l2tp_is_ready_to_create,
         .config_verify = netdev_l2tp_tunnel_verify,
 };
