@@ -24,6 +24,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 }
 
 static void test_non_empty(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         dual_timestamp ts;
         JournaldFile *f;
         struct iovec iovec;
@@ -35,9 +36,12 @@ static void test_non_empty(void) {
 
         test_setup_logging(LOG_DEBUG);
 
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
@@ -98,8 +102,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journald_file_rotate(&f, NULL, true, UINT64_MAX, true, NULL);
-        journald_file_rotate(&f, NULL, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, m, true, UINT64_MAX, true, NULL);
+        journald_file_rotate(&f, m, true, UINT64_MAX, true, NULL);
 
         (void) journald_file_close(f);
 
@@ -117,17 +121,21 @@ static void test_non_empty(void) {
 }
 
 static void test_empty(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         JournaldFile *f1, *f2, *f3, *f4;
         char t[] = "/var/tmp/journal-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
 
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f1) == 0);
-        assert_se(journald_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f2) == 0);
-        assert_se(journald_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f3) == 0);
-        assert_se(journald_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f4) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, m, NULL, NULL, &f1) == 0);
+        assert_se(journald_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &f2) == 0);
+        assert_se(journald_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, m, NULL, NULL, &f3) == 0);
+        assert_se(journald_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f4) == 0);
 
         journal_file_print_header(f1->file);
         puts("");
@@ -156,6 +164,7 @@ static void test_empty(void) {
 
 #if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         dual_timestamp ts;
         JournaldFile *f;
         struct iovec iovec;
@@ -170,9 +179,12 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         test_setup_logging(LOG_DEBUG);
 
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, m, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 

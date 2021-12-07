@@ -14,6 +14,7 @@
 #include "string-util.h"
 
 int main(int argc, char *argv[]) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
         JournaldFile *new_journal = NULL;
@@ -21,12 +22,14 @@ int main(int argc, char *argv[]) {
         unsigned n = 0;
         int r;
 
+        m = mmap_cache_new();
+        assert_se(m != NULL);
         assert_se(mkdtemp(dn));
         (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         fn = path_join(dn, "test.journal");
 
-        r = journald_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, NULL, NULL, NULL, &new_journal);
+        r = journald_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, m, NULL, NULL, &new_journal);
         assert_se(r >= 0);
 
         if (argc > 1)
