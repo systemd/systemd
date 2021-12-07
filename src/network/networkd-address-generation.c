@@ -230,7 +230,7 @@ static int generate_addresses(
 
         /* fall back to EUI-64 if no token is provided */
         if (set_isempty(addresses)) {
-                struct in6_addr *addr;
+                _cleanup_free_ struct in6_addr *addr = NULL;
 
                 addr = new(struct in6_addr, 1);
                 if (!addr)
@@ -243,7 +243,7 @@ static int generate_addresses(
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, addr);
+                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, TAKE_PTR(addr));
                 if (r < 0)
                         return r;
         }
