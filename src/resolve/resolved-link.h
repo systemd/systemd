@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/stat.h>
+
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
@@ -65,6 +67,7 @@ struct Link {
         DnsScope *mdns_ipv4_scope;
         DnsScope *mdns_ipv6_scope;
 
+        struct stat networkd_state_file_stat;
         bool is_managed;
 
         char *ifname;
