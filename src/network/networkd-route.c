@@ -1646,7 +1646,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
-        unsigned char table;
         size_t rta_len;
         int r;
 
@@ -1785,6 +1784,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_netlink_message_read_u32(message, RTA_TABLE, &tmp->table);
         if (r == -ENODATA) {
+                unsigned char table;
+
                 r = sd_rtnl_message_route_get_table(message, &table);
                 if (r >= 0)
                         tmp->table = table;
