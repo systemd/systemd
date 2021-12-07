@@ -681,6 +681,7 @@ static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_messa
         if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
                 log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
         }
 
         return 0;
