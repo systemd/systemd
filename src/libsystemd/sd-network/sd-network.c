@@ -387,6 +387,23 @@ int sd_network_link_get_carrier_bound_by(int ifindex, int **ret) {
         return network_link_get_ifindexes(ifindex, "CARRIER_BOUND_BY", ret);
 }
 
+int sd_network_link_get_stat(int ifindex, struct stat *ret) {
+        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
+        struct stat st;
+
+        assert_return(ifindex > 0, -EINVAL);
+
+        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
+
+        if (stat(path, &st) < 0)
+                return -errno;
+
+        if (ret)
+                *ret = st;
+
+        return 0;
+}
+
 static int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
