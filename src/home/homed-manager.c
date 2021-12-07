@@ -447,7 +447,6 @@ unlink_this_file:
 
 static int manager_enumerate_records(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 
@@ -919,7 +918,6 @@ static int manager_assess_image(
 
 int manager_enumerate_images(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 

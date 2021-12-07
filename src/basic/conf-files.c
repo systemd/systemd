@@ -30,7 +30,6 @@ static int files_add(
 
         _cleanup_closedir_ DIR *dir = NULL;
         const char *dirpath;
-        struct dirent *de;
         int r;
 
         assert(h);
