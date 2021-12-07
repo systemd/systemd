@@ -775,7 +775,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
 
                 if (!timezone_is_valid(tz, LOG_DEBUG)) {
-                        log_debug_errno(r, "Timezone is not valid, ignoring: %m");
+                        log_debug("Timezone is not valid, ignoring.");
                         return 0;
                 }
 
