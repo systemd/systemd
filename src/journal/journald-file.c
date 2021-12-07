@@ -403,6 +403,7 @@ JournaldFile* journald_file_initiate_close(JournaldFile *f, Set *deferred_closes
 
 int journald_file_rotate(
                 JournaldFile **f,
+                MMapCache *mmap_cache,
                 bool compress,
                 uint64_t compress_threshold_bytes,
                 bool seal,
@@ -428,7 +429,7 @@ int journald_file_rotate(
                         compress_threshold_bytes,
                         seal,
                         NULL,            /* metrics */
-                        (*f)->file->mmap,
+                        mmap_cache,
                         deferred_closes,
                         *f,              /* template */
                         &new_file);

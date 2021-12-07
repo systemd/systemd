@@ -92,7 +92,6 @@ typedef struct JournalFile {
         uint64_t current_xor_hash;
 
         JournalMetrics metrics;
-        MMapCache *mmap;
 
         sd_event_source *post_change_timer;
         usec_t post_change_timer_period;
@@ -232,6 +231,7 @@ void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
 int journal_file_archive(JournalFile *f, char **ret_previous_path);
+JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
 
 int journal_file_dispose(int dir_fd, const char *fname);
 
