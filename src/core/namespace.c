@@ -57,12 +57,12 @@ typedef enum MountMode {
         EMPTY_DIR,
         SYSFS,
         PROCFS,
-        RUN,
         READONLY,
         READWRITE,
         NOEXEC,
         EXEC,
         TMPFS,
+        RUN,
         EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
         MQUEUEFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
