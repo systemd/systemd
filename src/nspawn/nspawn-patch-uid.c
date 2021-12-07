@@ -313,8 +313,6 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 goto read_only;
 
         if (S_ISDIR(st->st_mode)) {
-                struct dirent *de;
-
                 if (!donate_fd) {
                         int copy;
 

@@ -1747,7 +1747,6 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
 static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir) {
         _cleanup_free_ char *path_dir = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         const char *syspath;
         int r;
 
@@ -1779,33 +1778,33 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_free_ char *path = NULL, *p = NULL;
                 struct stat statbuf;
 
-                if (dot_or_dot_dot(dent->d_name))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 /* only handle symlinks, regular files, and directories */
-                if (!IN_SET(dent->d_type, DT_LNK, DT_REG, DT_DIR))
+                if (!IN_SET(de->d_type, DT_LNK, DT_REG, DT_DIR))
                         continue;
 
                 if (subdir) {
-                        p = path_join(subdir, dent->d_name);
+                        p = path_join(subdir, de->d_name);
                         if (!p)
                                 return -ENOMEM;
                 }
 
-                if (dent->d_type == DT_DIR) {
+                if (de->d_type == DT_DIR) {
                         /* read subdirectory */
-                        r = device_sysattrs_read_all_internal(device, p ?: dent->d_name);
+                        r = device_sysattrs_read_all_internal(device, p ?: de->d_name);
                         if (r < 0)
                                 return r;
 
                         continue;
                 }
 
-                path = path_join(syspath, p ?: dent->d_name);
+                path = path_join(syspath, p ?: de->d_name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1815,7 +1814,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
                         continue;
 
-                r = set_put_strdup(&device->sysattrs, p ?: dent->d_name);
+                r = set_put_strdup(&device->sysattrs, p ?: de->d_name);
                 if (r < 0)
                         return r;
         }

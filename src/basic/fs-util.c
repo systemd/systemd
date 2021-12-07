@@ -533,7 +533,6 @@ int mkfifoat_atomic(int dirfd, const char *path, mode_t mode) {
 int get_files_in_directory(const char *path, char ***list) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         size_t n = 0;
 
         assert(path);

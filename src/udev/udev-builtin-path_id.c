@@ -309,7 +309,6 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         int host, bus, target, lun;
         const char *name, *base, *pos;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         int basenum = -1;
 
         assert(parent);
@@ -352,16 +351,16 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         if (!dir)
                 return NULL;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
+        FOREACH_DIRENT_ALL(de, dir, break) {
                 unsigned i;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
-                if (!IN_SET(dent->d_type, DT_DIR, DT_LNK))
+                if (!IN_SET(de->d_type, DT_DIR, DT_LNK))
                         continue;
-                if (!startswith(dent->d_name, "host"))
+                if (!startswith(de->d_name, "host"))
                         continue;
-                if (safe_atou_full(&dent->d_name[4], 10, &i) < 0)
+                if (safe_atou_full(&de->d_name[4], 10, &i) < 0)
                         continue;
                 /*
                  * find the smallest number; the host really needs to export its

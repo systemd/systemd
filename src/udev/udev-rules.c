@@ -1494,7 +1494,6 @@ static int import_parent_into_properties(sd_device *dev, const char *filter) {
 
 static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         char buf[UDEV_PATH_SIZE], *p;
         const char *tail;
         size_t len, size;
@@ -1516,11 +1515,11 @@ static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                if (dent->d_name[0] == '.')
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                if (de->d_name[0] == '.')
                         continue;
 
-                strscpyl(p, size, dent->d_name, tail, NULL);
+                strscpyl(p, size, de->d_name, tail, NULL);
                 if (faccessat(dirfd(dir), p, F_OK, 0) < 0)
                         continue;
 

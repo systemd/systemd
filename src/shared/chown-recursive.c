@@ -52,7 +52,6 @@ static int chown_recursive_internal(
 
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
-        struct dirent *de;
         int r;
 
         assert(fd >= 0);

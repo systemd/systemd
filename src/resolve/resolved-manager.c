@@ -1536,7 +1536,6 @@ void manager_reset_server_features(Manager *m) {
 
 void manager_cleanup_saved_user(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 

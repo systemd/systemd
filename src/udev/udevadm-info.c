@@ -229,8 +229,6 @@ static int export_devices(void) {
 }
 
 static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
-        struct dirent *dent;
-
         if (depth <= 0)
                 return;
 

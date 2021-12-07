@@ -103,7 +103,6 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
         _cleanup_free_ char *first_found = NULL;
-        struct dirent *de;
         const char *q;
         dev_t devt;
         int r;

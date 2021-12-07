@@ -789,7 +789,6 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         bool exists, created;
         int r;
 

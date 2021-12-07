@@ -199,8 +199,6 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
 }
 
 int cg_read_subgroup(DIR *d, char **fn) {
-        struct dirent *de;
-
         assert(d);
         assert(fn);
 

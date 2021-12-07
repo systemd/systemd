@@ -287,7 +287,6 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
 static int have_ask_password(void) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *de;
 
         dir = opendir("/run/systemd/ask-password");
         if (!dir) {
@@ -297,10 +296,9 @@ static int have_ask_password(void) {
                         return -errno;
         }
 
-        FOREACH_DIRENT_ALL(de, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno)
                 if (startswith(de->d_name, "ask."))
                         return true;
-        }
         return false;
 }
 

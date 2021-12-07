@@ -97,7 +97,6 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         const char *physfn_syspath, *syspath;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         int r;
 
         assert(pcidev);
@@ -123,15 +122,15 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
+        FOREACH_DIRENT_ALL(de, dir, break) {
                 _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
                 const char *n;
 
-                n = startswith(dent->d_name, "virtfn");
+                n = startswith(de->d_name, "virtfn");
                 if (!n)
                         continue;
 
-                virtfn_link_file = path_join(physfn_syspath, dent->d_name);
+                virtfn_link_file = path_join(physfn_syspath, de->d_name);
                 if (!virtfn_link_file)
                         return -ENOMEM;
 
@@ -390,8 +389,6 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                struct dirent *dent;
-
                 r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, slots, &hotplug_slot);
                 if (r < 0)
                         return 0;
@@ -404,20 +401,20 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 if (r < 0)
                         return log_device_debug_errno(hotplug_slot_dev, r, "Failed to get sysname: %m");
 
-                FOREACH_DIRENT_ALL(dent, dir, break) {
+                FOREACH_DIRENT_ALL(de, dir, break) {
                         _cleanup_free_ char *address = NULL;
                         char str[PATH_MAX];
                         uint32_t i;
 
-                        if (dot_or_dot_dot(dent->d_name))
+                        if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        r = safe_atou32(dent->d_name, &i);
+                        r = safe_atou32(de->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
 
                         /* match slot address with device by stripping the function */
-                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
+                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, de->d_name) &&
                             read_one_line_file(str, &address) >= 0 &&
                             startswith(sysname, address)) {
                                 hotplug_slot = i;
