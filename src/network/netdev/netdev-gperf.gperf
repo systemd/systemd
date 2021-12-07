@@ -68,8 +68,8 @@ IPVLAN.Mode,                              config_parse_ipvlan_mode,             
 IPVLAN.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
 IPVTAP.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
 IPVTAP.Flags,                             config_parse_ipvlan_flags,                 0,                             offsetof(IPVlan, flags)
-Tunnel.Local,                             config_parse_tunnel_address,               0,                             offsetof(Tunnel, local)
-Tunnel.Remote,                            config_parse_tunnel_address,               0,                             offsetof(Tunnel, remote)
+Tunnel.Local,                             config_parse_tunnel_local_address,         0,                             0
+Tunnel.Remote,                            config_parse_tunnel_remote_address,        0,                             0
 Tunnel.TOS,                               config_parse_unsigned,                     0,                             offsetof(Tunnel, tos)
 Tunnel.TTL,                               config_parse_unsigned,                     0,                             offsetof(Tunnel, ttl)
 Tunnel.Key,                               config_parse_tunnel_key,                   0,                             offsetof(Tunnel, key)
