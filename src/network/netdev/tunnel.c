@@ -19,7 +19,7 @@
 #include "tunnel.h"
 #include "util.h"
 
-#define DEFAULT_TNL_HOP_LIMIT   64
+#define DEFAULT_IPV6_TTL   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
 #define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
@@ -835,101 +835,31 @@ int config_parse_6rd_prefix(
         return 0;
 }
 
-static void ipip_sit_init(NetDev *n) {
+static void netdev_tunnel_init(NetDev *netdev) {
         Tunnel *t;
 
-        assert(n);
+        assert(netdev);
 
-        switch (n->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(n);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(n);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
         t->pmtudisc = true;
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
         t->isatap = -1;
-}
-
-static void vti_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_VTI)
-                t = VTI(n);
-        else
-                t = VTI6(n);
-
-        assert(t);
-
-        t->pmtudisc = true;
-}
-
-static void gre_erspan_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        switch (n->kind) {
-        case NETDEV_KIND_GRE:
-                t = GRE(n);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(n);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(n);
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        assert(t);
-
-        t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
-        t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
-}
-
-static void ip6gre_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_IP6GRE)
-                t = IP6GRE(n);
-        else
-                t = IP6GRETAP(n);
-
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
-}
-
-static void ip6tnl_init(NetDev *n) {
-        Tunnel *t = IP6TNL(n);
-
-        assert(n);
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
         t->allow_localremote = -1;
+
+        if (IN_SET(netdev->kind, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_IP6TNL))
+                t->ttl = DEFAULT_IPV6_TTL;
 }
 
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -939,7 +869,7 @@ const NetDevVTable ipip_vtable = {
 
 const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -949,7 +879,7 @@ const NetDevVTable sit_vtable = {
 
 const NetDevVTable vti_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -959,7 +889,7 @@ const NetDevVTable vti_vtable = {
 
 const NetDevVTable vti6_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -969,7 +899,7 @@ const NetDevVTable vti6_vtable = {
 
 const NetDevVTable gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -979,7 +909,7 @@ const NetDevVTable gre_vtable = {
 
 const NetDevVTable gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -990,7 +920,7 @@ const NetDevVTable gretap_vtable = {
 
 const NetDevVTable ip6gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -1000,7 +930,7 @@ const NetDevVTable ip6gre_vtable = {
 
 const NetDevVTable ip6gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -1011,7 +941,7 @@ const NetDevVTable ip6gretap_vtable = {
 
 const NetDevVTable ip6tnl_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6tnl_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -1021,7 +951,7 @@ const NetDevVTable ip6tnl_vtable = {
 
 const NetDevVTable erspan_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
