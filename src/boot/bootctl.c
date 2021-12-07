@@ -184,7 +184,6 @@ finish:
 
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         const char *p;
         int c = 0, r;
 
@@ -658,7 +657,6 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 }
 
 static int install_binaries(const char *esp_path, bool force) {
-        struct dirent *de;
         _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
 
@@ -850,7 +848,6 @@ static int install_variables(const char *esp_path,
 
 static int remove_boot_efi(const char *esp_path) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         const char *p;
         int r, c = 0;
 

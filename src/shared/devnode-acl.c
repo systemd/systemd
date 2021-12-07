@@ -166,7 +166,6 @@ int devnode_acl_all(const char *seat,
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_set_free_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         sd_device *d;
         char *n;
         int r;
@@ -218,11 +217,11 @@ int devnode_acl_all(const char *seat,
          * these devices are not known to the kernel at this moment */
         dir = opendir("/run/udev/static_node-tags/uaccess");
         if (dir) {
-                FOREACH_DIRENT(dent, dir, return -errno) {
+                FOREACH_DIRENT(de, dir, return -errno) {
                         _cleanup_free_ char *unescaped_devname = NULL;
                         ssize_t l;
 
-                        l = cunescape(dent->d_name, UNESCAPE_RELAX, &unescaped_devname);
+                        l = cunescape(de->d_name, UNESCAPE_RELAX, &unescaped_devname);
                         if (l < 0)
                                 return l;
 
