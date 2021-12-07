@@ -60,6 +60,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 }
 
 static void run_test(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         JournaldFile *one, *two, *three;
         char t[] = "/var/tmp/journal-stream-XXXXXX";
         unsigned i;
@@ -69,13 +70,16 @@ static void run_test(void) {
         size_t l;
         dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
 
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        assert_se(journald_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &one) == 0);
-        assert_se(journald_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &two) == 0);
-        assert_se(journald_file_open(-1, "three.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &three) == 0);
+        assert_se(journald_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &one) == 0);
+        assert_se(journald_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &two) == 0);
+        assert_se(journald_file_open(-1, "three.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &three) == 0);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;

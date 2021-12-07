@@ -3250,13 +3250,13 @@ int journal_file_open(
                 JournalFile **ret) {
 
         bool newly_created = false;
-        MMapCache *m = mmap_cache;
         JournalFile *f;
         void *h;
         int r;
 
         assert(ret);
         assert(fd >= 0 || fname);
+        assert(mmap_cache);
 
         if (!IN_SET((flags & O_ACCMODE), O_RDONLY, O_RDWR))
                 return -EINVAL;
@@ -3319,14 +3319,6 @@ int journal_file_open(
                 }
         }
 
-        if (!m) {
-                m = mmap_cache_new();
-                if (!m) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (fname) {
                 f->path = strdup(fname);
                 if (!f->path) {
@@ -3368,16 +3360,11 @@ int journal_file_open(
                         goto fail;
         }
 
-        /* On success this incs refcnt on *m, which mmap_cache_fd_free() will dec. */
-        f->cache_fd = mmap_cache_add_fd(m, f->fd, prot_from_flags(flags));
+        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;
         }
-
-        /* If we created *m just for this file, unref *m so only f->cache_fd's ref remains */
-        if (!mmap_cache)
-                (void) mmap_cache_unref(m);
 
         r = journal_file_fstat(f);
         if (r < 0)

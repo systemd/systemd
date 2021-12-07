@@ -10,6 +10,7 @@
 #include "journald-file.h"
 #include "journal-verify.h"
 #include "log.h"
+#include "mmap-cache.h"
 #include "rm-rf.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -38,10 +39,14 @@ static void bit_toggle(const char *fn, uint64_t p) {
 }
 
 static int raw_verify(const char *fn, const char *verification_key) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         JournalFile *f;
         int r;
 
-        r = journal_file_open(-1, fn, O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, NULL, NULL, &f);
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
+        r = journal_file_open(-1, fn, O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -52,6 +57,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
@@ -60,6 +66,9 @@ int main(int argc, char *argv[]) {
         usec_t from = 0, to = 0, total = 0;
         struct stat st;
         uint64_t p;
+
+        m = mmap_cache_new();
+        assert_se(m != NULL);
 
         /* journald_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
@@ -73,7 +82,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, !!verification_key, NULL, NULL, NULL, NULL, &df) == 0);
+        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, NULL, &df) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -95,7 +104,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
