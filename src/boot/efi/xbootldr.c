@@ -20,9 +20,7 @@ static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node
         assert(node);
 
         len = (UINT8*) NextDevicePathNode(node) - (UINT8*) path;
-        parent = (EFI_DEVICE_PATH*) AllocatePool(len + sizeof(EFI_DEVICE_PATH));
-        if (!parent)
-                return NULL;
+        parent = (EFI_DEVICE_PATH*) xallocate_pool(len + sizeof(EFI_DEVICE_PATH));
 
         CopyMem(parent, path, len);
         CopyMem((UINT8*) parent + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
@@ -112,9 +110,7 @@ static EFI_STATUS try_gpt(
 
         /* Now load the GPT entry table */
         size = ALIGN_TO((UINTN) gpt.gpt_header.SizeOfPartitionEntry * (UINTN) gpt.gpt_header.NumberOfPartitionEntries, 512);
-        entries = AllocatePool(size);
-        if (!entries)
-                return EFI_OUT_OF_RESOURCES;
+        entries = xallocate_pool(size);
 
         err = block_io->ReadBlocks(
                         block_io,
