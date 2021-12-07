@@ -777,7 +777,6 @@ static int find_mount_points(const char *what, char ***list) {
 
 static int find_loop_device(const char *backing_file, char **loop_dev) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         _cleanup_free_ char *l = NULL;
 
         assert(backing_file);

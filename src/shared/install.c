@@ -549,7 +549,6 @@ static int remove_marked_symlinks_fd(
                 size_t *n_changes) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(remove_symlinks_to);
@@ -729,7 +728,6 @@ static int find_symlinks_in_directory(
                 const char *config_path,
                 bool *same_name_link) {
 
-        struct dirent *de;
         int r = 0;
 
         FOREACH_DIRENT(de, dir, return -errno) {
@@ -814,7 +812,6 @@ static int find_symlinks(
                 bool *same_name_link) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(i);
@@ -3369,7 +3366,6 @@ int unit_file_preset_all(
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 d = opendir(*i);
                 if (!d) {
@@ -3434,7 +3430,6 @@ int unit_file_get_list(
 
         STRV_FOREACH(dirname, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 d = opendir(*dirname);
                 if (!d) {

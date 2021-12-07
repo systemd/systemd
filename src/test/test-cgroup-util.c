@@ -167,7 +167,6 @@ TEST(get_paths, .sd_booted = true) {
 
 TEST(proc) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         d = opendir("/proc");

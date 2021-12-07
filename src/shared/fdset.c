@@ -112,7 +112,6 @@ int fdset_remove(FDSet *s, int fd) {
 
 int fdset_new_fill(FDSet **_s) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
         FDSet *s;
 

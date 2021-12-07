@@ -848,7 +848,6 @@ static int stdout_stream_restore(Server *s, const char *fname, int fd) {
 
 int server_restore_streams(Server *s, FDSet *fds) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         const char *path;
         int r;
 

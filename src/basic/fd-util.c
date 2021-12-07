@@ -300,7 +300,6 @@ int close_all_fds_without_malloc(const int except[], size_t n_except) {
 
 int close_all_fds(const int except[], size_t n_except) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(n_except == 0 || except);

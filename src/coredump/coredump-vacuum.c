@@ -142,7 +142,6 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         for (;;) {
                 _cleanup_(vacuum_candidate_hashmap_freep) Hashmap *h = NULL;
                 VacuumCandidate *worst = NULL;
-                struct dirent *de;
                 uint64_t sum = 0;
 
                 rewinddir(d);
