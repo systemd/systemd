@@ -170,7 +170,7 @@ int dns_answer_add(
                 /* Entry already exists, keep the entry with the higher TTL. */
                 if (rr->ttl > exist->rr->ttl) {
                         dns_resource_record_unref(exist->rr);
-                        exist->rr = dns_resource_record_ref(rr);
+                        exist->rr = dns_resource_record_ref(rr); /* lgtm [cpp/inconsistent-null-check] */
 
                         /* Update RRSIG and RR at the same time */
                         if (rrsig) {
