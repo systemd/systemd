@@ -41,6 +41,7 @@ jobs:
       uses: github/codeql-action/init@546b30f35ae5a3db0e0be1843008c2224f71c3b0
       with:
         languages: ${{ matrix.language }}
+        config-file: ./.github/codeql-config.yml
 
     - run: sudo -E .github/workflows/unit_tests.sh SETUP
 

@@ -1,0 +1,9 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: "CodeQL config"
+
+disable-default-queries: false
+
+queries:
+  - uses: ./.github/codeql-custom.qls
