@@ -74,6 +74,10 @@ node /org/freedesktop/systemd1 {
       StartUnit(in  s name,
                 in  s mode,
                 out o job);
+      StartUnitWithFlags(in  s name,
+                         in  s mode,
+                         in  t flags,
+                         out o job);
       StartUnitReplace(in  s old_unit,
                        in  s new_unit,
                        in  s mode,
@@ -759,6 +763,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="StartUnit()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="StartUnitWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="StartUnitReplace()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="StopUnit()"/>
@@ -1173,6 +1179,13 @@ node /org/freedesktop/systemd1 {
 
       <para><function>StartUnitReplace()</function> is similar to <function>StartUnit()</function> but
       replaces a job that is queued for one unit by a job for another unit.</para>
+
+      <para><function>StartUnitWithFlags()</function> is similar to <function>StartUnit()</function> but
+      allows the caller to pass an extra <varname>flags</varname> parameter, which does not support any
+      flags for now, and is reserved for future extensions. The new method also changes the behaviour
+      of the <varname>JobRemoved</varname> signal and make it return <literal>skipped</literal> in case
+      the unit activation job is skipped because a <varname>Condition*=</varname> is not satisfied.
+      With the <varname>StartUnit</varname> method, <literal>done</literal> would be returned instead.</para>
 
       <para><function>StopUnit()</function> is similar to <function>StartUnit()</function> but stops the
       specified unit rather than starting it. Note that the <literal>isolate</literal> mode is invalid for this
