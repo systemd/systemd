@@ -19,7 +19,7 @@
 #include "tunnel.h"
 #include "util.h"
 
-#define DEFAULT_TNL_HOP_LIMIT   64
+#define DEFAULT_IPV6_TTL   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
 #define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
@@ -172,18 +172,31 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
         return 0;
 }
 
+static int tunnel_get_local_address(Tunnel *t, Link *link, union in_addr_union *ret) {
+        assert(t);
+
+        if (t->local_type < 0) {
+                if (ret)
+                        *ret = t->local;
+                return 0;
+        }
+
+        return link_get_local_address(link, t->local_type, t->family, ret);
+}
+
 static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         Tunnel *t;
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IPIP)
                 t = IPIP(netdev);
         else
                 t = SIT(netdev);
 
-        assert(m);
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -192,7 +205,11 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
@@ -251,6 +268,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 }
 
 static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey = 0;
         uint32_t okey = 0;
         uint16_t iflags = 0;
@@ -289,7 +307,11 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ERSPAN_INDEX attribute: %m");
         }
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &t->local.in);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &local.in);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
@@ -367,6 +389,7 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 }
 
 static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey = 0;
         uint32_t okey = 0;
         uint16_t iflags = 0;
@@ -375,6 +398,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
                 t = IP6GRE(netdev);
@@ -382,7 +406,6 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(m);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -390,7 +413,11 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
 
@@ -448,6 +475,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
         uint32_t ikey, okey;
         Tunnel *t;
         int r;
@@ -483,7 +511,11 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_OKEY attribute: %m");
 
-        r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &t->local);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &local);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LOCAL attribute: %m");
 
@@ -495,12 +527,16 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = IP6TNL(netdev);
+        union in_addr_union local;
         uint8_t proto;
+        Tunnel *t;
         int r;
 
         assert(netdev);
         assert(m);
+
+        t = IP6TNL(netdev);
+
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -509,7 +545,11 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
         }
 
-        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &local.in6);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
 
@@ -563,46 +603,26 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         return r;
 }
 
+static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
+        Tunnel *t;
+
+        assert(netdev);
+        assert(link);
+
+        t = TUNNEL(netdev);
+
+        assert(t);
+
+        return tunnel_get_local_address(t, link, NULL) >= 0;
+}
+
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
-        Tunnel *t = NULL;
+        Tunnel *t;
 
         assert(netdev);
         assert(filename);
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(netdev);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(netdev);
-                break;
-        case NETDEV_KIND_GRE:
-                t = GRE(netdev);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(netdev);
-                break;
-        case NETDEV_KIND_IP6GRE:
-                t = IP6GRE(netdev);
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                t = IP6GRETAP(netdev);
-                break;
-        case NETDEV_KIND_VTI:
-                t = VTI(netdev);
-                break;
-        case NETDEV_KIND_VTI6:
-                t = VTI6(netdev);
-                break;
-        case NETDEV_KIND_IP6TNL:
-                t = IP6TNL(netdev);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(netdev);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
@@ -642,10 +662,18 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         if (netdev->kind == NETDEV_KIND_VTI)
                 t->family = AF_INET;
 
+        if (t->assign_to_loopback)
+                t->independent = true;
+
+        if (t->independent && t->local_type >= 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "The local address cannot be '%s' when Independent= or AssignToLoopback= is enabled, ignoring.",
+                                              strna(netdev_local_address_type_to_string(t->local_type)));
+
         return 0;
 }
 
-int config_parse_tunnel_address(
+int config_parse_tunnel_local_address(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -657,28 +685,82 @@ int config_parse_tunnel_address(
                 void *data,
                 void *userdata) {
 
+        union in_addr_union buffer = IN_ADDR_NULL;
+        NetDevLocalAddressType type;
         Tunnel *t = userdata;
-        union in_addr_union *addr = data, buffer;
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
-        /* This is used to parse addresses on both local and remote ends of the tunnel.
-         * Address families must match.
-         *
-         * "any" is a special value which means that the address is unspecified.
-         */
+        if (isempty(rvalue) || streq(rvalue, "any")) {
+                /* Unset the previous assignment. */
+                t->local = IN_ADDR_NULL;
+                t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
 
-        if (streq(rvalue, "any")) {
-                *addr = IN_ADDR_NULL;
+                /* If the remote address is not specified, also clear the address family. */
+                if (!in_addr_is_set(t->family, &t->remote))
+                        t->family = AF_UNSPEC;
+                return 0;
+        }
 
-                /* As a special case, if both the local and remote addresses are
-                 * unspecified, also clear the address family. */
-                if (!in_addr_is_set(t->family, &t->local) &&
-                    !in_addr_is_set(t->family, &t->remote))
+        type = netdev_local_address_type_from_string(rvalue);
+        if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV4LL, NETDEV_LOCAL_ADDRESS_DHCP4))
+                f = AF_INET;
+        else if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV6LL, NETDEV_LOCAL_ADDRESS_DHCP6, NETDEV_LOCAL_ADDRESS_SLAAC))
+                f = AF_INET6;
+        else {
+                type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
+                r = in_addr_from_string_auto(rvalue, &f, &buffer);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        if (t->family != AF_UNSPEC && t->family != f) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Address family does not match the previous assignment, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        t->family = f;
+        t->local = buffer;
+        t->local_type = type;
+        return 0;
+}
+
+int config_parse_tunnel_remote_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        union in_addr_union buffer;
+        Tunnel *t = userdata;
+        int r, f;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        if (isempty(rvalue) || streq(rvalue, "any")) {
+                /* Unset the previous assignment. */
+                t->remote = IN_ADDR_NULL;
+
+                /* If the local address is not specified, also clear the address family. */
+                if (t->local_type == _NETDEV_LOCAL_ADDRESS_TYPE_INVALID &&
+                    !in_addr_is_set(t->family, &t->local))
                         t->family = AF_UNSPEC;
                 return 0;
         }
@@ -692,12 +774,12 @@ int config_parse_tunnel_address(
 
         if (t->family != AF_UNSPEC && t->family != f) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                           "Address family does not match the previous assignment, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         t->family = f;
-        *addr = buffer;
+        t->remote = buffer;
         return 0;
 }
 
@@ -862,154 +944,91 @@ int config_parse_6rd_prefix(
         return 0;
 }
 
-static void ipip_sit_init(NetDev *n) {
+static void netdev_tunnel_init(NetDev *netdev) {
         Tunnel *t;
 
-        assert(n);
+        assert(netdev);
 
-        switch (n->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(n);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(n);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
+        t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         t->pmtudisc = true;
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
         t->isatap = -1;
-}
-
-static void vti_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_VTI)
-                t = VTI(n);
-        else
-                t = VTI6(n);
-
-        assert(t);
-
-        t->pmtudisc = true;
-}
-
-static void gre_erspan_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        switch (n->kind) {
-        case NETDEV_KIND_GRE:
-                t = GRE(n);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(n);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(n);
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        assert(t);
-
-        t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
-        t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
-}
-
-static void ip6gre_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_IP6GRE)
-                t = IP6GRE(n);
-        else
-                t = IP6GRETAP(n);
-
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
-}
-
-static void ip6tnl_init(NetDev *n) {
-        Tunnel *t = IP6TNL(n);
-
-        assert(n);
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
         t->allow_localremote = -1;
+
+        if (IN_SET(netdev->kind, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_IP6TNL))
+                t->ttl = DEFAULT_IPV6_TTL;
 }
 
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_SIT,
 };
 
 const NetDevVTable vti_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable vti6_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_IPGRE,
 };
 
 const NetDevVTable gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
@@ -1017,20 +1036,22 @@ const NetDevVTable gretap_vtable = {
 
 const NetDevVTable ip6gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_IP6GRE,
 };
 
 const NetDevVTable ip6gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
@@ -1038,20 +1059,22 @@ const NetDevVTable ip6gretap_vtable = {
 
 const NetDevVTable ip6tnl_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6tnl_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable erspan_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,

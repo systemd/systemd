@@ -5,6 +5,7 @@
 
 #include "conf-parser.h"
 #include "fou-tunnel.h"
+#include "netdev-util.h"
 #include "netdev.h"
 #include "networkd-link.h"
 
@@ -42,6 +43,7 @@ typedef struct Tunnel {
         uint32_t okey;
         uint32_t erspan_index;
 
+        NetDevLocalAddressType local_type;
         union in_addr_union local;
         union in_addr_union remote;
 
@@ -74,6 +76,36 @@ DEFINE_NETDEV_CAST(VTI, Tunnel);
 DEFINE_NETDEV_CAST(VTI6, Tunnel);
 DEFINE_NETDEV_CAST(IP6TNL, Tunnel);
 DEFINE_NETDEV_CAST(ERSPAN, Tunnel);
+
+static inline Tunnel* TUNNEL(NetDev *netdev) {
+        assert(netdev);
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_IPIP:
+                return IPIP(netdev);
+        case NETDEV_KIND_SIT:
+                return SIT(netdev);
+        case NETDEV_KIND_GRE:
+                return GRE(netdev);
+        case NETDEV_KIND_GRETAP:
+                return GRETAP(netdev);
+        case NETDEV_KIND_IP6GRE:
+                return IP6GRE(netdev);
+        case NETDEV_KIND_IP6GRETAP:
+                return IP6GRETAP(netdev);
+        case NETDEV_KIND_VTI:
+                return VTI(netdev);
+        case NETDEV_KIND_VTI6:
+                return VTI6(netdev);
+        case NETDEV_KIND_IP6TNL:
+                return IP6TNL(netdev);
+        case NETDEV_KIND_ERSPAN:
+                return ERSPAN(netdev);
+        default:
+                return NULL;
+        }
+}
+
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;
@@ -89,7 +121,8 @@ const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
 Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ip6tnl_mode);
-CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_local_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_remote_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_flowlabel);
 CONFIG_PARSER_PROTOTYPE(config_parse_encap_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_key);
