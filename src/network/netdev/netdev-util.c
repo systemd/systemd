@@ -11,6 +11,9 @@ static const char * const netdev_local_address_type_table[_NETDEV_LOCAL_ADDRESS_
         [NETDEV_LOCAL_ADDRESS_DHCP4]   = "dhcp4",
         [NETDEV_LOCAL_ADDRESS_DHCP6]   = "dhcp6",
         [NETDEV_LOCAL_ADDRESS_SLAAC]   = "slaac",
+        [NETDEV_LOCAL_ADDRESS_AUTO]    = "auto",
+        [NETDEV_LOCAL_ADDRESS_STATIC]  = "static",
+        [NETDEV_LOCAL_ADDRESS_DYNAMIC] = "dynamic",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_local_address_type, NetDevLocalAddressType);
@@ -43,12 +46,18 @@ int link_get_local_address(Link *link, NetDevLocalAddressType type, int family, 
                 assert(family == AF_INET6);
                 source = NETWORK_CONFIG_SOURCE_NDISC;
                 break;
+        case NETDEV_LOCAL_ADDRESS_AUTO:
+        case NETDEV_LOCAL_ADDRESS_STATIC:
+        case NETDEV_LOCAL_ADDRESS_DYNAMIC:
+                /* cannot map to NetworkConfigSource */
+                source = _NETWORK_CONFIG_SOURCE_INVALID;
+                break;
         default:
                 assert_not_reached();
         }
 
         SET_FOREACH(a, link->addresses) {
-                if (a->source != source)
+                if (source >= 0 && a->source != source)
                         continue;
 
                 if (!address_exists(a))
@@ -67,6 +76,12 @@ int link_get_local_address(Link *link, NetDevLocalAddressType type, int family, 
                         if (!in6_addr_is_link_local(&a->in_addr.in6))
                                 continue;
                 }
+
+                if (type == NETDEV_LOCAL_ADDRESS_STATIC && !FLAGS_SET(a->flags, IFA_F_PERMANENT))
+                        continue;
+
+                if (type == NETDEV_LOCAL_ADDRESS_DYNAMIC && FLAGS_SET(a->flags, IFA_F_PERMANENT))
+                        continue;
 
                 if (ret)
                         *ret = a->in_addr;
