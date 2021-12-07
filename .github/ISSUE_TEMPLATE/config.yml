@@ -1,0 +1,9 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+blank_issues_enabled: true
+contact_links:
+  - name: systemd-devel mailing list
+    url: https://lists.freedesktop.org/mailman/listinfo/systemd-devel
+    about: Please ask (and answer) questions here, use the issue tracker only for issues.
