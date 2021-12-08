@@ -1314,6 +1314,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
+        if (r == -ENODATA) {
+                unsigned char flags;
+
+                /* For old kernels. */
+                r = sd_rtnl_message_addr_get_flags(message, &flags);
+                if (r >= 0)
+                        tmp->flags = flags;
+        }
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
