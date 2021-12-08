@@ -160,7 +160,7 @@ static void journald_file_set_offline_internal(JournaldFile *f) {
                         (void) fsync(f->file->fd);
 
                         /* If we've archived the journal file, first try to re-enable COW on the file. If the
-                         * FS_NOCOW_FL flag was never set or we succesfully removed it, continue. If we fail
+                         * FS_NOCOW_FL flag was never set or we successfully removed it, continue. If we fail
                          * to remove the flag on the archived file, rewrite the file without the NOCOW flag.
                          * We need this fallback because on some filesystems (BTRFS), the NOCOW flag cannot
                          * be removed after data has been written to a file. The only way to remove it is to
