@@ -236,7 +236,7 @@ static int gather_stdout_three(int fd, void *arg) {
         return 0;
 }
 
-const gather_stdout_callback_t gather_stdout[] = {
+const gather_stdout_callback_t gather_stdouts[] = {
         gather_stdout_one,
         gather_stdout_two,
         gather_stdout_three,
@@ -277,7 +277,8 @@ TEST(stdout_gathering) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
