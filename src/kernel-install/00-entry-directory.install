@@ -32,10 +32,9 @@ if [[ $COMMAND != add ]]; then
     exit 0
 fi
 
-# If the boot dir exists (e.g. $ESP/<machine-id>),
-# create the entry directory ($ESP/<machine-id>/<kernel-version>).
-# This is the only function of this plugin.
-MACHINE_ID_DIR="${ENTRY_DIR_ABS%/*}"
+# Create the entry directory if its parent exists ‒
+# this is an administrative decision and the only function of this plugin.
+MACHINE_ID_DIR="$KERNEL_INSTALL_BOOT_ROOT/$KERNEL_INSTALL_MACHINE_ID"
 if ! [ -d "$MACHINE_ID_DIR" ]; then
     exit 0
 fi
