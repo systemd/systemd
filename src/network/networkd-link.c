@@ -1602,13 +1602,21 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
 
-        /* If the SSID is changed, then the connected wireless network could be changed. So, always
-         * reconfigure the link. Which means e.g. the DHCP client will be restarted, and the correct
-         * network information will be gained.
+        /* If a wireless interface was connected to an access point, and the SSID is changed (that is,
+         * both previous_ssid and ssid are non-NULL), then the connected wireless network could be
+         * changed. So, always reconfigure the link. Which means e.g. the DHCP client will be
+         * restarted, and the correct network information will be gained.
+         *
+         * However, do not reconfigure the wireless interface forcibly if it was not connected to any
+         * access points previously (previous_ssid is NULL in this case). As, a .network file may be
+         * already assigned to the interface (in that case, the .network file does not have the SSID=
+         * setting in the [Match] section), and the interface is already being configured. Of course,
+         * there may exist another .network file with higher priority and a matching SSID= setting. But
+         * in that case, link_reconfigure_impl() can handle that without the force_reconfigure flag.
+         *
          * For non-wireless interfaces, we have no way to detect the connected network change. So,
-         * setting force_reconfigure = false. Note, both ssid and previous_ssid should be NULL for
-         * non-wireless interfaces, and streq_ptr() returns true. */
-        force_reconfigure = !streq_ptr(link->previous_ssid, link->ssid);
+         * setting force_reconfigure = false. Note, both ssid and previous_ssid are NULL in that case. */
+        force_reconfigure = link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid);
         link->previous_ssid = mfree(link->previous_ssid);
 
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
