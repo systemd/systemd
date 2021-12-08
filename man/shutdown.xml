@@ -125,6 +125,13 @@
         <literal>now</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--show</option></term>
+
+        <listitem><para>Show a pending shutdown action and time if
+        there is any.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

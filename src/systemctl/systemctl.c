@@ -1169,6 +1169,10 @@ static int run(int argc, char *argv[]) {
                 r = logind_cancel_shutdown();
                 break;
 
+        case ACTION_SHOW_SHUTDOWN:
+                r = logind_show_shutdown();
+                break;
+
         case ACTION_RUNLEVEL:
                 r = runlevel_main();
                 break;

@@ -372,6 +372,41 @@ int logind_cancel_shutdown(void) {
 #endif
 }
 
+int logind_show_shutdown(void) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        sd_bus *bus;
+        const char *action = NULL;
+        uint64_t elapse;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = bus_get_property(bus, bus_login_mgr, "ScheduledShutdown", &error, &reply, "(st)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to query scheduled shutdown: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(st)", &action, &elapse);
+        if (r < 0)
+                return r;
+
+        if (isempty(action))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+
+        log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                 action,
+                 FORMAT_TIMESTAMP_STYLE(arg_when, arg_timestamp_style));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Not compiled with logind support, cannot show scheduled shutdowns.");
+#endif
+}
+
 int help_boot_loader_entry(void) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
