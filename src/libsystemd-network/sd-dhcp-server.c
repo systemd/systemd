@@ -1191,8 +1191,13 @@ static int server_receive_message(sd_event_source *s, int fd,
         assert(server);
 
         datagram_size = next_datagram_size_fd(fd);
-        if (datagram_size < 0)
-                return datagram_size;
+        if (datagram_size < 0) {
+                if (ERRNO_IS_TRANSIENT(datagram_size) || ERRNO_IS_DISCONNECT(datagram_size))
+                        return 0;
+
+                log_dhcp_server_errno(server, datagram_size, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
 
         size_t buflen = datagram_size;
         if (sd_dhcp_server_is_in_relay_mode(server))
@@ -1207,9 +1212,11 @@ static int server_receive_message(sd_event_source *s, int fd,
 
         len = recvmsg_safe(fd, &msg, 0);
         if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(len))
+                if (ERRNO_IS_TRANSIENT(len) || ERRNO_IS_DISCONNECT(len))
                         return 0;
-                return len;
+
+                log_dhcp_server_errno(server, len, "Could not receive message, ignoring: %m");
+                return 0;
         }
 
         if ((size_t) len < sizeof(DHCPMessage))
@@ -1233,11 +1240,11 @@ static int server_receive_message(sd_event_source *s, int fd,
         if (sd_dhcp_server_is_in_relay_mode(server)) {
                 r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
                 if (r < 0)
-                        log_dhcp_server_errno(server, r, "Couldn't relay message: %m");
+                        log_dhcp_server_errno(server, r, "Couldn't relay message, ignoring: %m");
         } else {
                 r = dhcp_server_handle_message(server, message, (size_t) len);
                 if (r < 0)
-                        log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
+                        log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
         }
         return 0;
 }

@@ -200,6 +200,9 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
 
         space = next_datagram_size_fd(fd);
         if (space < 0) {
+                if (ERRNO_IS_TRANSIENT(space) || ERRNO_IS_DISCONNECT(space))
+                        return 0;
+
                 log_lldp_rx_errno(lldp_rx, space, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
@@ -212,7 +215,7 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
 
         length = recv(fd, LLDP_NEIGHBOR_RAW(n), n->raw_size, MSG_DONTWAIT);
         if (length < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT(errno) || ERRNO_IS_DISCONNECT(errno))
                         return 0;
 
                 log_lldp_rx_errno(lldp_rx, errno, "Failed to read LLDP datagram, ignoring: %m");
