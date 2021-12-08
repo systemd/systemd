@@ -1,11 +1,6 @@
-*.a
 *.cache
-*.gch
-*.log
-*.o
 *.plist
 *.py[co]
-*.stamp
 *.swp
 *.trs
 *~
