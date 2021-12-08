@@ -27,6 +27,9 @@
     <para><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></para>
     <para><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></para>
     <para><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></para>
+    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></para>
+    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></para>
+    <para><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -78,13 +81,14 @@
     <title>Companion Files</title>
 
     <para>The <command>systemd-stub</command> UEFI boot stub automatically collects two types of auxiliary
-    companion files optionally placed in a drop-in directory next to the EFI binary and dynamically generates
-    <command>cpio</command> initrd archives from them, and passes them to the kernel. Specifically:</para>
+    companion files optionally placed in drop-in directories on the same partition as the EFI binary,
+    dynamically generates <command>cpio</command> initrd archives from them, and passes them to the kernel.
+    Specifically:</para>
 
     <itemizedlist>
-      <listitem><para>For a kernel binary called <filename><replaceable>foo</replaceable>.efi</filename> it
+      <listitem><para>For a kernel binary called <filename><replaceable>foo</replaceable>.efi</filename>, it
       will look for files with the <filename>.cred</filename> suffix in a directory named
-      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename>, next to it. A <command>cpio</command>
+      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. A <command>cpio</command>
       archive is generated from all files found that way, placing them in the
       <filename>/.extra/credentials/</filename> directory of the initrd file hierarchy. The main initrd may
       then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
@@ -94,16 +98,22 @@
       details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
       PCR 4 (if a TPM is present)</para></listitem>
 
-      <listitem><para>Similar, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
-      are packed up as <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
+      <listitem><para>Similarly, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
+      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
       directory in the initrd file hierarchy. This is supposed to be used to pass additional system extension
       images to the initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 8 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
+      directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
+      the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
+      measured into TPM PCR 4 (if a TPM is present)</para></listitem>
     </itemizedlist>
 
-    <para>Both mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
+    <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
     images in a reasonably safe way: all data they contain is measured into TPM PCRs. On access they should be
     further validated: in case of the credentials case by encrypting/authenticating them via TPM, as exposed
     by <command>systemd-creds encrypt -T</command> (see

@@ -20,6 +20,7 @@ _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: syste
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
                 const void *credential_initrd, UINTN credential_initrd_size,
+                const void *global_credential_initrd, UINTN global_credential_initrd_size,
                 const void *sysext_initrd, UINTN sysext_initrd_size,
                 EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
 
@@ -31,7 +32,7 @@ static EFI_STATUS combine_initrd(
         assert(ret_initrd_base);
         assert(ret_initrd_size);
 
-        /* Combines three initrds into one, by simple concatenation in memory */
+        /* Combines four initrds into one, by simple concatenation in memory */
 
         n = ALIGN_TO(initrd_size, 4); /* main initrd might not be padded yet */
         if (credential_initrd) {
@@ -39,6 +40,12 @@ static EFI_STATUS combine_initrd(
                         return EFI_OUT_OF_RESOURCES;
 
                 n += credential_initrd_size;
+        }
+        if (global_credential_initrd) {
+                if (n > UINTN_MAX - global_credential_initrd_size)
+                        return EFI_OUT_OF_RESOURCES;
+
+                n += global_credential_initrd_size;
         }
         if (sysext_initrd) {
                 if (n > UINTN_MAX - sysext_initrd_size)
@@ -74,6 +81,11 @@ static EFI_STATUS combine_initrd(
         if (credential_initrd) {
                 CopyMem(p, credential_initrd, credential_initrd_size);
                 p += credential_initrd_size;
+        }
+
+        if (global_credential_initrd) {
+                CopyMem(p, global_credential_initrd, global_credential_initrd_size);
+                p += global_credential_initrd_size;
         }
 
         if (sysext_initrd) {
@@ -156,8 +168,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         };
 
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
-        UINTN credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ void *credential_initrd = NULL, *sysext_initrd = NULL;
+        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
+        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
+        _cleanup_freepool_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE *loaded_image;
@@ -213,6 +226,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         export_variables(loaded_image);
 
         (void) pack_cpio(loaded_image,
+                         NULL,
                          L".cred",
                          (const CHAR8*) ".extra/credentials",
                          /* dir_mode= */ 0500,
@@ -223,6 +237,18 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &credential_initrd_size);
 
         (void) pack_cpio(loaded_image,
+                         L"\\loader\\credentials",
+                         L".cred",
+                         (const CHAR8*) ".extra/global_credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Global credentials initrd",
+                         &global_credential_initrd,
+                         &global_credential_initrd_size);
+
+        (void) pack_cpio(loaded_image,
+                         NULL,
                          L".raw",
                          (const CHAR8*) ".extra/sysext",
                          /* dir_mode= */ 0555,
@@ -241,26 +267,21 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         dt_size = szs[SECTION_DTB];
         dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_DTB] : 0;
 
-        if (credential_initrd || sysext_initrd) {
+        if (credential_initrd || global_credential_initrd || sysext_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
                                 initrd_base, initrd_size,
                                 credential_initrd, credential_initrd_size,
+                                global_credential_initrd, global_credential_initrd_size,
                                 sysext_initrd, sysext_initrd_size,
                                 &initrd_base, &initrd_size);
                 if (EFI_ERROR(err))
                         return err;
 
                 /* Given these might be large let's free them explicitly, quickly. */
-                if (credential_initrd) {
-                        FreePool(credential_initrd);
-                        credential_initrd = NULL;
-                }
-
-                if (sysext_initrd) {
-                        FreePool(sysext_initrd);
-                        sysext_initrd = NULL;
-                }
+                credential_initrd = mfree(credential_initrd);
+                global_credential_initrd = mfree(global_credential_initrd);
+                sysext_initrd = mfree(sysext_initrd);
         }
 
         if (dt_size > 0) {
