@@ -31,3 +31,6 @@
       - "security"
       - "correctness"
     severity: "error"
+- exclude:
+    id:
+      - cpp/fixme-comment
