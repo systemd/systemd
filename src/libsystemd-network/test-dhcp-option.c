@@ -146,7 +146,6 @@ static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *
         int *desclen = NULL, *descpos = NULL;
         uint8_t optcode = 0;
         uint8_t optlen = 0;
-        uint8_t i;
 
         assert_se((!desc && !code && !len) || desc);
 
@@ -199,11 +198,11 @@ static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *
         assert_se(code == optcode);
         assert_se(len == optlen);
 
-        for (i = 0; i < len; i++) {
-
+        for (unsigned i = 0; i < len; i++) {
                 if (verbose)
-                        printf("0x%02x(0x%02x) ", ((uint8_t*) option)[i],
-                                        descoption[*descpos + 2 + i]);
+                        printf("0x%02x(0x%02x) ",
+                               ((uint8_t*) option)[i],
+                               descoption[*descpos + 2 + i]);
 
                 assert_se(((uint8_t*) option)[i] == descoption[*descpos + 2 + i]);
         }
@@ -292,7 +291,6 @@ static uint8_t the_options[64] = {
 static void test_option_set(void) {
         _cleanup_free_ DHCPMessage *result = NULL;
         size_t offset = 0, len, pos;
-        unsigned i;
 
         result = malloc0(sizeof(DHCPMessage) + 11);
         assert_se(result);
@@ -331,7 +329,7 @@ static void test_option_set(void) {
                         assert_se(offset == pos);
         }
 
-        for (i = 0; i < 9; i++) {
+        for (unsigned i = 0; i < 9; i++) {
                 if (verbose)
                         printf("%2u: 0x%02x(0x%02x) (options)\n", i, result->options[i],
                                the_options[i]);
@@ -350,7 +348,7 @@ static void test_option_set(void) {
 
         assert_se(result->options[10] == SD_DHCP_OPTION_PAD);
 
-        for (i = 0; i < pos - 8; i++) {
+        for (unsigned i = 0; i < pos - 8; i++) {
                 if (verbose)
                         printf("%2u: 0x%02x(0x%02x) (sname)\n", i, result->sname[i],
                                the_options[i + 9]);
@@ -362,19 +360,17 @@ static void test_option_set(void) {
 }
 
 int main(int argc, char *argv[]) {
-        unsigned i;
-
         test_invalid_buffer_length();
         test_message_init();
 
         test_options(NULL);
 
-        for (i = 0; i < ELEMENTSOF(option_tests); i++)
+        for (unsigned i = 0; i < ELEMENTSOF(option_tests); i++)
                 test_options(&option_tests[i]);
 
         test_option_set();
 
-        for (i = 0; i < ELEMENTSOF(option_tests); i++) {
+        for (unsigned i = 0; i < ELEMENTSOF(option_tests); i++) {
                 struct option_desc *desc = &option_tests[i];
                 if (!desc->success || desc->snamelen > 0 || desc->filelen > 0)
                         continue;
