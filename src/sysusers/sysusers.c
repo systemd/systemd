@@ -387,7 +387,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_isempty(todo_uids))
                 return 0;
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
@@ -506,7 +506,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_isempty(todo_uids))
                 return 0;
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
@@ -639,7 +639,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
+        if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
 
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
@@ -740,7 +740,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
+        if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
