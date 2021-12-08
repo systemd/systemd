@@ -167,6 +167,11 @@
 
     <para>If <varname>MACHINE_ID=</varname> is set and not empty, it will be used as <replaceable>MACHINE-ID</replaceable>,
     overriding any automatic detection attempts.  The value must be a valid machine ID (32 hexadecimal characters).</para>
+
+    <para><varname>KERNEL_INSTALL_MACHINE_ID=</varname> is set for the plugins to the desired <replaceable>MACHINE-ID</replaceable> –
+    either 32 hexadecimal characters or the special value <literal>Default</literal>.</para>
+    <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the root directory (mount point, usually) of the hierarchy
+    where boot-loader entries, kernel images, and associated resources should be placed.  Can be overriden by setting <varname>BOOT_ROOT=</varname>.</para>
   </refsect1>
 
   <refsect1>
