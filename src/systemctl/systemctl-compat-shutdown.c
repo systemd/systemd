@@ -28,6 +28,7 @@ static int shutdown_help(void) {
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "  -c             Cancel a pending shutdown\n"
+               "  -s             Show pending shutdown\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -59,7 +60,7 @@ int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkKat:fFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKat:fFcs", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -106,6 +107,10 @@ int shutdown_parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_action = ACTION_CANCEL_SHUTDOWN;
+                        break;
+
+                case 's':
+                        arg_action = ACTION_SHOW_SHUTDOWN;
                         break;
 
                 case '?':
