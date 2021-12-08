@@ -38,11 +38,26 @@
 #include "util.h"
 
 typedef enum ItemType {
-        ADD_USER = 'u',
-        ADD_GROUP = 'g',
+        ADD_USER =   'u',
+        ADD_GROUP =  'g',
         ADD_MEMBER = 'm',
-        ADD_RANGE = 'r',
+        ADD_RANGE =  'r',
 } ItemType;
+
+static inline const char* item_type_to_string(ItemType t) {
+        switch (t) {
+        case ADD_USER:
+                return "user";
+        case ADD_GROUP:
+                return "group";
+        case ADD_MEMBER:
+                return "member";
+        case ADD_RANGE:
+                return "range";
+        default:
+                assert_not_reached();
+        }
+}
 
 typedef struct Item {
         ItemType type;
@@ -1150,7 +1165,7 @@ static int add_user(Item *i) {
                                        i->name, i->uid, i->gid);
 
         i->todo_user = true;
-        log_info("Creating user %s (%s) with UID " UID_FMT " and GID " GID_FMT ".",
+        log_info("Creating user '%s' (%s) with UID " UID_FMT " and GID " GID_FMT ".",
                  i->name, strna(i->description), i->uid, i->gid);
 
         return 0;
@@ -1320,7 +1335,7 @@ static int add_group(Item *i) {
                 return log_error_errno(r, "Failed to store group %s with GID " GID_FMT " to be created: %m", i->name, i->gid);
 
         i->todo_group = true;
-        log_info("Creating group %s with GID " GID_FMT ".", i->name, i->gid);
+        log_info("Creating group '%s' with GID " GID_FMT ".", i->name, i->gid);
 
         return 0;
 }
@@ -1484,7 +1499,6 @@ static bool item_equal(Item *a, Item *b) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-
         _cleanup_free_ char *action = NULL,
                 *name = NULL, *resolved_name = NULL,
                 *id = NULL, *resolved_id = NULL,
@@ -1749,7 +1763,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (existing) {
                 /* Two identical items are fine */
                 if (!item_equal(existing, i))
-                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->name);
+                        log_warning("%s:%u: conflict with earlier configuration for %s '%s', ignoring line.",
+                                    fname, line,
+                                    item_type_to_string(i->type), i->name);
 
                 return 0;
         }
