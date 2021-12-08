@@ -104,10 +104,10 @@
       system extension images is measured into TPM PCR 8 (if a TPM is present).</para></listitem>
 
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
-      <command>cpio</command> archive and placed in the <filename>/.extra/credentials</filename> directory of
-      the initrd file hierarchy. This is supposed to be used to pass additional credentials to the initrd,
-      regardless of the kernel being booted. The generated <command>cpio</command> archive is measured into
-      TPM PCR 4 (if a TPM is present)</para></listitem>
+      <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials</filename>
+      directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
+      the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
+      measured into TPM PCR 4 (if a TPM is present)</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd

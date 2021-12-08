@@ -239,7 +239,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         (void) pack_cpio(loaded_image,
                          L"\\loader\\credentials",
                          L".cred",
-                         (const CHAR8*) ".extra/credentials",
+                         (const CHAR8*) ".extra/global_credentials",
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
                          /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
