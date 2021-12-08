@@ -217,14 +217,12 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
-        if (f->mmap && f->cache_fd)
+        if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
         if (f->close_fd)
                 safe_close(f->fd);
         free(f->path);
-
-        mmap_cache_unref(f->mmap);
 
         ordered_hashmap_free_free(f->chain_cache);
 
@@ -3258,6 +3256,7 @@ int journal_file_open(
 
         assert(ret);
         assert(fd >= 0 || fname);
+        assert(mmap_cache);
 
         if (!IN_SET((flags & O_ACCMODE), O_RDONLY, O_RDWR))
                 return -EINVAL;
@@ -3320,16 +3319,6 @@ int journal_file_open(
                 }
         }
 
-        if (mmap_cache)
-                f->mmap = mmap_cache_ref(mmap_cache);
-        else {
-                f->mmap = mmap_cache_new();
-                if (!f->mmap) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (fname) {
                 f->path = strdup(fname);
                 if (!f->path) {
@@ -3371,7 +3360,7 @@ int journal_file_open(
                         goto fail;
         }
 
-        f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd, prot_from_flags(flags));
+        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;
