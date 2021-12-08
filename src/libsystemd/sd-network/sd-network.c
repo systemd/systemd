@@ -107,7 +107,7 @@ int sd_network_get_route_domains(char ***ret) {
 }
 
 static int network_link_get_string(int ifindex, const char *field, char **ret) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
+        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -130,7 +130,7 @@ static int network_link_get_string(int ifindex, const char *field, char **ret) {
 }
 
 static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
+        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_strv_free_ char **a = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
@@ -319,7 +319,7 @@ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
 }
 
 int sd_network_link_get_dns_default_route(int ifindex) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
+        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -338,7 +338,7 @@ int sd_network_link_get_dns_default_route(int ifindex) {
 }
 
 static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
+        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_free_ int *ifis = NULL;
         _cleanup_free_ char *s = NULL;
         size_t c = 0;
