@@ -26,6 +26,7 @@ int mmap_cache_fd_get(
 MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot);
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
 void mmap_cache_fd_free(MMapFileDescriptor *f);
+int mmap_cache_fd_isolate(MMapFileDescriptor *f);
 
 void mmap_cache_stats_log_debug(MMapCache *m);
 
