@@ -4,8 +4,6 @@
 #include "measure.h"
 #include "util.h"
 
-#define EXTRA_DIR_SUFFIX L".extra.d"
-
 static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
         static const char hex[] = "0123456789abcdef";
 
@@ -308,6 +306,7 @@ static EFI_STATUS pack_cpio_trailer(
 
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *dropin_dir,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -319,7 +318,7 @@ EFI_STATUS pack_cpio(
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *extra_dir_path = NULL;
+        _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
@@ -335,8 +334,10 @@ EFI_STATUS pack_cpio(
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
 
-        extra_dir_path = xpool_print(L"%D" EXTRA_DIR_SUFFIX, loaded_image->FilePath);
-        err = open_directory(root, extra_dir_path, &extra_dir);
+        if (!dropin_dir)
+                dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
+
+        err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;
