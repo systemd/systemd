@@ -110,3 +110,12 @@ if [ -n "$IMAGE_VERSION" ] ; then
     cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
     rm /tmp/os-release.tmp
 fi
+
+# If $CI_BUILD is set, copy over the CI service which executes a service check
+# after boot and then shuts down the machine
+if [ -n "$CI_BUILD" ]; then
+    mkdir -p "$DESTDIR/usr/lib/systemd/system"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+fi

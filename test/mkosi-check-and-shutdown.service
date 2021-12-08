@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Check if any service failed and then shutdown the machine
+After=multi-user.target network-online.target
+Requires=multi-user.target
+Wants=systemd-resolved.service systemd-networkd.service network-online.target
+OnFailure=poweroff.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+ExecStartPre=-rm -f /failed-services
+ExecStart=/usr/lib/systemd/mkosi-check-and-shutdown.sh
+ExecStartPost=systemctl poweroff --no-block

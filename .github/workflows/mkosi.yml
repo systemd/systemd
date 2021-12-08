@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Enable debug logging in systemd, but keep udev's log level to info,
+  # since it's _very_ verbose in the QEMU task
+  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console"
+
 jobs:
   ci:
     runs-on: ubuntu-20.04
@@ -57,13 +62,20 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi build
+      run: |
+        sudo python3 -m mkosi --build-environment=CI_BUILD=1 --kernel-command-line "${{ env.KERNEL_CMDLINE }}" build
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo python3 -m mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi boot
+      run: sudo python3 -m mkosi boot ${{ env.KERNEL_CMDLINE }}
+
+    - name: Check ${{ matrix.distro }} systemd-nspawn
+      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi qemu
+      run: sudo python3 -m mkosi qemu
+
+    - name: Check ${{ matrix.distro }} QEMU
+      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
