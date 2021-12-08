@@ -258,8 +258,13 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         buflen = next_datagram_size_fd(fd);
-        if (buflen < 0)
-                return (int) buflen;
+        if (buflen < 0) {
+                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                        return 0;
+
+                log_radv_errno(ra, buflen, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
 
         buf = new0(char, buflen);
         if (!buf)
@@ -267,6 +272,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
         if (r < 0) {
+                if (ERRNO_IS_TRANSIENT(r) || ERRNO_IS_DISCONNECT(r))
+                        return 0;
+
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
@@ -281,11 +289,8 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         log_radv(ra, "Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
-                case -EAGAIN: /* ignore spurious wakeups */
-                        break;
-
                 default:
-                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, Ignoring: %m");
+                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, ignoring: %m");
                         break;
                 }
 
