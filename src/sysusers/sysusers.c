@@ -75,6 +75,7 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
+static bool arg_dry_run = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 
@@ -390,6 +391,11 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         if (ordered_hashmap_isempty(todo_uids))
                 return 0;
 
+        if (arg_dry_run) {
+                log_info("Would write /etc/passwd…");
+                return 0;
+        }
+
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", passwd_path);
@@ -508,6 +514,11 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
         if (ordered_hashmap_isempty(todo_uids))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/shadow…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
@@ -642,6 +653,11 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
 
+        if (arg_dry_run) {
+                log_info("Would write /etc/group…");
+                return 0;
+        }
+
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", group_path);
@@ -742,6 +758,11 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
         if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/gshadow…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
         if (r < 0)
@@ -1825,6 +1846,7 @@ static int help(void) {
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --dry-run              Just print what would be done\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
@@ -1842,6 +1864,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_REPLACE,
+                ARG_DRY_RUN,
                 ARG_INLINE,
                 ARG_NO_PAGER,
         };
@@ -1851,8 +1874,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "root",       required_argument, NULL, ARG_ROOT       },
-                { "image",      required_argument, NULL, ARG_IMAGE          },
+                { "image",      required_argument, NULL, ARG_IMAGE      },
                 { "replace",    required_argument, NULL, ARG_REPLACE    },
+                { "dry-run",    no_argument,       NULL, ARG_DRY_RUN    },
                 { "inline",     no_argument,       NULL, ARG_INLINE     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
@@ -1901,6 +1925,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "The argument to --replace= must an absolute path to a config file");
 
                         arg_replace = optarg;
+                        break;
+
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
                         break;
 
                 case ARG_INLINE:
@@ -2077,9 +2105,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        lock = take_etc_passwd_lock(arg_root);
-        if (lock < 0)
-                return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
+        if (!arg_dry_run) {
+                lock = take_etc_passwd_lock(arg_root);
+                if (lock < 0)
+                        return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
+        }
 
         r = load_user_database();
         if (r < 0)
