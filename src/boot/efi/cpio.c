@@ -34,7 +34,7 @@ static CHAR8* mangle_filename(CHAR8 *p, const CHAR16 *f) {
                 *(w++) = *f;
         }
 
-        *w = 0;
+        *(w++) = 0;
         return w;
 }
 
@@ -138,7 +138,7 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, 0);                                          /* minor(dev) */
         a = write_cpio_word(a, 0);                                          /* major(rdev) */
         a = write_cpio_word(a, 0);                                          /* minor(rdev) */
-        a = write_cpio_word(a, target_dir_prefix_size + fname_size + 1);    /* fname size */
+        a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
         CopyMem(a, target_dir_prefix, target_dir_prefix_size);
