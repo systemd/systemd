@@ -60,8 +60,8 @@ typedef struct Item {
 
         bool gid_set:1;
 
-        /* When set the group with the specified gid must exist
-         * and the check if a uid clashes with the gid is skipped.
+        /* When set the group with the specified GID must exist
+         * and the check if a UID clashes with the GID is skipped.
          */
         bool id_set_strict:1;
 
@@ -969,13 +969,13 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
 
         assert(i);
 
-        /* First, try to get the gid directly */
+        /* First, try to get the GID directly */
         if (_gid && i->gid_path && root_stat(i->gid_path, &st) >= 0) {
                 gid = st.st_gid;
                 found_gid = true;
         }
 
-        /* Then, try to get the uid directly */
+        /* Then, try to get the UID directly */
         if ((_uid || (_gid && !found_gid))
             && i->uid_path
             && root_stat(i->uid_path, &st) >= 0) {
@@ -983,14 +983,14 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
                 uid = st.st_uid;
                 found_uid = true;
 
-                /* If we need the gid, but had no success yet, also derive it from the uid path */
+                /* If we need the gid, but had no success yet, also derive it from the UID path */
                 if (_gid && !found_gid) {
                         gid = st.st_gid;
                         found_gid = true;
                 }
         }
 
-        /* If that didn't work yet, then let's reuse the gid as uid */
+        /* If that didn't work yet, then let's reuse the GID as UID */
         if (_uid && !found_uid && i->gid_path) {
 
                 if (found_gid) {
@@ -1055,11 +1055,11 @@ static int add_user(Item *i) {
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
         }
 
-        /* Try to use the suggested numeric uid */
+        /* Try to use the suggested numeric UID */
         if (i->uid_set) {
                 r = uid_is_ok(i->uid, i->name, !i->id_set_strict);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r == 0) {
                         log_debug("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
                         i->uid_set = false;
@@ -1077,7 +1077,7 @@ static int add_user(Item *i) {
                         else {
                                 r = uid_is_ok(c, i->name, true);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                                 else if (r > 0) {
                                         i->uid = c;
                                         i->uid_set = true;
@@ -1091,7 +1091,7 @@ static int add_user(Item *i) {
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name, true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r > 0) {
                         i->uid = (uid_t) i->gid;
                         i->uid_set = true;
@@ -1109,7 +1109,7 @@ static int add_user(Item *i) {
 
                         r = uid_is_ok(search_uid, i->name, true);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                         else if (r > 0)
                                 break;
                 }
@@ -1120,16 +1120,16 @@ static int add_user(Item *i) {
 
         r = ordered_hashmap_ensure_put(&todo_uids, NULL, UID_TO_PTR(i->uid), i);
         if (r == -EEXIST)
-                return log_error_errno(r, "Requested user %s with uid " UID_FMT " and gid" GID_FMT " to be created is duplicated "
+                return log_error_errno(r, "Requested user %s with UID " UID_FMT " and gid" GID_FMT " to be created is duplicated "
                                        "or conflicts with another user.", i->name, i->uid, i->gid);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to store user %s with uid " UID_FMT " and gid " GID_FMT " to be created: %m",
+                return log_error_errno(r, "Failed to store user %s with UID " UID_FMT " and GID " GID_FMT " to be created: %m",
                                        i->name, i->uid, i->gid);
 
         i->todo_user = true;
-        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".",
+        log_info("Creating user %s (%s) with UID " UID_FMT " and GID " GID_FMT ".",
                  i->name, strna(i->description), i->uid, i->gid);
 
         return 0;
@@ -1214,15 +1214,15 @@ static int add_group(Item *i) {
                 return 0;
         }
 
-        /* Try to use the suggested numeric gid */
+        /* Try to use the suggested numeric GID */
         if (i->gid_set) {
                 r = gid_is_ok(i->gid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (i->id_set_strict) {
-                        /* If we require the gid to already exist we can return here:
-                         * r > 0: means the gid does not exist -> fail
-                         * r == 0: means the gid exists -> nothing more to do.
+                        /* If we require the GID to already exist we can return here:
+                         * r > 0: means the GID does not exist -> fail
+                         * r == 0: means the GID exists -> nothing more to do.
                          */
                         if (r > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1241,7 +1241,7 @@ static int add_group(Item *i) {
         if (!i->gid_set && i->uid_set) {
                 r = gid_is_ok((gid_t) i->uid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (r > 0) {
                         i->gid = (gid_t) i->uid;
                         i->gid_set = true;
@@ -1259,7 +1259,7 @@ static int add_group(Item *i) {
                         else {
                                 r = gid_is_ok(c);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                                 else if (r > 0) {
                                         i->gid = c;
                                         i->gid_set = true;
@@ -1281,7 +1281,7 @@ static int add_group(Item *i) {
 
                         r = gid_is_ok(search_uid);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                         else if (r > 0)
                                 break;
                 }
@@ -1292,14 +1292,14 @@ static int add_group(Item *i) {
 
         r = ordered_hashmap_ensure_put(&todo_gids, NULL, GID_TO_PTR(i->gid), i);
         if (r == -EEXIST)
-                return log_error_errno(r, "Requested group %s with gid "GID_FMT " to be created is duplicated or conflicts with another user.", i->name, i->gid);
+                return log_error_errno(r, "Requested group %s with GID "GID_FMT " to be created is duplicated or conflicts with another user.", i->name, i->gid);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to store group %s with gid " GID_FMT " to be created: %m", i->name, i->gid);
+                return log_error_errno(r, "Failed to store group %s with GID " GID_FMT " to be created: %m", i->name, i->gid);
 
         i->todo_group = true;
-        log_info("Creating group %s with gid " GID_FMT ".", i->name, i->gid);
+        log_info("Creating group %s with GID " GID_FMT ".", i->name, i->gid);
 
         return 0;
 }
@@ -2061,7 +2061,7 @@ static int run(int argc, char *argv[]) {
                 login_defs_need_warning = true;
 
                 /* We pick a range that very conservative: we look at compiled-in maximum and the value in
-                 * /etc/login.defs. That way the uids/gids which we allocate will be interpreted correctly,
+                 * /etc/login.defs. That way the UIDs/GIDs which we allocate will be interpreted correctly,
                  * even if /etc/login.defs is removed later. (The bottom bound doesn't matter much, since
                  * it's only used during allocation, so we use the configured value directly). */
                 uid_t begin = login_defs.system_alloc_uid_min,
