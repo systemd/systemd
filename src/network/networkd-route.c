@@ -560,8 +560,8 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         (void) network_config_state_to_string_alloc(route->state, &state);
         if (in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0)
                 (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-        if (in_addr_is_set(route->family, &route->src))
-                (void) in_addr_to_string(route->family, &route->src, &src);
+        if (in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0)
+                (void) in_addr_prefix_to_string(route->family, &route->src, route->src_prefixlen, &src);
         if (in_addr_is_set(route->gw_family, &route->gw)) {
                 (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
                 gw = gw_alloc;
