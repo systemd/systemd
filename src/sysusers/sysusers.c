@@ -1097,7 +1097,7 @@ static int add_user(Item *i) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r == 0) {
-                        log_debug("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
+                        log_info("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
                         i->uid_set = false;
                 }
         }
@@ -1268,7 +1268,7 @@ static int add_group(Item *i) {
                                 return 0;
                 }
                 if (r == 0) {
-                        log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
+                        log_info("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
                         i->gid_set = false;
                 }
         }
