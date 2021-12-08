@@ -2124,6 +2124,8 @@ int config_parse_destination(
                 return 0;
         }
 
+        (void) in_addr_mask(n->family, buffer, *prefixlen);
+
         TAKE_PTR(n);
         return 0;
 }
