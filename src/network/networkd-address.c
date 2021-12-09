@@ -600,7 +600,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL;
+        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
         assert(str);
@@ -615,13 +615,14 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
+        (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
-        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s",
+        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
                        strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
-                       strna(flags_str));
+                       strna(flags_str), strna(scope_str));
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
@@ -751,7 +752,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
         /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
          * So, we need to dump all IPv6 addresses. */
 
-        if (link_ipv6ll_enabled(link))
+        if (link_may_have_ipv6ll(link))
                 return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
@@ -1916,18 +1917,11 @@ static int address_section_verify(Address *address) {
                 address->label = mfree(address->label);
         }
 
-        if (in_addr_is_localhost(address->family, &address->in_addr) > 0 &&
-            (address->family == AF_INET || !address->scope_set)) {
-                /* For IPv4, scope must be always RT_SCOPE_HOST.
-                 * For IPv6, use RT_SCOPE_HOST only when it is not explicitly specified. */
-
-                if (address->scope_set && address->scope != RT_SCOPE_HOST)
-                        log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                          "%s: non-host scope is set for localhost address. "
-                                          "Ignoring Scope= setting in the [Address] section from line %u. ",
-                                          address->section->filename, address->section->line);
-
-                address->scope = RT_SCOPE_HOST;
+        if (!address->scope_set) {
+                if (in_addr_is_localhost(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_HOST;
+                else if (in_addr_is_link_local(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_LINK;
         }
 
         if (address->family == AF_INET6 &&
