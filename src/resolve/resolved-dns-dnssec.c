@@ -13,6 +13,14 @@
 #include "sort-util.h"
 #include "string-table.h"
 
+#if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
+#  pragma GCC diagnostic pop
+#endif
+
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
 
@@ -88,13 +96,15 @@ static int dnssec_rsa_verify_raw(
                 const void *data, size_t data_size,
                 const void *exponent, size_t exponent_size,
                 const void *modulus, size_t modulus_size) {
+        int r;
 
 #if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         _cleanup_(RSA_freep) RSA *rpubkey = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
         _cleanup_(BN_freep) BIGNUM *e = NULL, *m = NULL;
-        int r;
 
         assert(hash_algorithm);
 
@@ -141,13 +151,11 @@ static int dnssec_rsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-        return r;
-
+#  pragma GCC diagnostic pop
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t n = NULL, e = NULL, s = NULL;
         gcry_error_t ge;
-        int r;
 
         assert(hash_algorithm);
 
@@ -223,9 +231,8 @@ finish:
                 gcry_sexp_release(signature_sexp);
         if (data_sexp)
                 gcry_sexp_release(data_sexp);
-
-        return r;
 #endif
+        return r;
 }
 
 static int dnssec_rsa_verify(
@@ -291,15 +298,17 @@ static int dnssec_ecdsa_verify_raw(
                 const void *signature_s, size_t signature_s_size,
                 const void *data, size_t data_size,
                 const void *key, size_t key_size) {
+        int k;
 
 #if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
         _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
         _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
         _cleanup_(BN_CTX_freep) BN_CTX *bctx = NULL;
         _cleanup_(BN_freep) BIGNUM *r = NULL, *s = NULL;
         _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = NULL;
-        int k;
 
         assert(hash_algorithm);
 
@@ -354,13 +363,11 @@ static int dnssec_ecdsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-        return k;
-
+#  pragma GCC diagnostic pop
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t q = NULL, r = NULL, s = NULL;
         gcry_error_t ge;
-        int k;
 
         assert(hash_algorithm);
 
@@ -435,9 +442,8 @@ finish:
                 gcry_sexp_release(signature_sexp);
         if (data_sexp)
                 gcry_sexp_release(data_sexp);
-
-        return k;
 #endif
+        return k;
 }
 
 static int dnssec_ecdsa_verify(
