@@ -1916,8 +1916,12 @@ static int address_section_verify(Address *address) {
                 address->label = mfree(address->label);
         }
 
-        if (!address->scope_set && in_addr_is_localhost(address->family, &address->in_addr) > 0)
-                address->scope = RT_SCOPE_HOST;
+        if (!address->scope_set) {
+                if (in_addr_is_localhost(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_HOST;
+                else if (in_addr_is_link_local(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_LINK;
+        }
 
         if (address->family == AF_INET6 &&
             !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
