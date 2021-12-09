@@ -4,36 +4,52 @@ if install_tests
         testdata_dir = testsdir + '/testdata/'
 
         install_subdir('journal-data',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('test-execute',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('test-path',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('test-path-util',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('test-umount',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('test-network-generator-conversion',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-04.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-06.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-10.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-11.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-16.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-28.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-30.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-52.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
         install_subdir('testsuite-63.units',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
 
         install_data(kbd_model_map,
@@ -53,6 +69,7 @@ if install_tests
 
         if conf.get('ENABLE_RESOLVE') == 1
                 install_subdir('test-resolve',
+                               exclude_files : '.gitattributes',
                                install_dir : testdata_dir)
         endif
 
@@ -75,6 +92,7 @@ if install_tests and conf.get('ENABLE_SYSUSERS') == 1
         install_data(test_sysusers_sh,
                      install_dir : testsdir)
         install_subdir('test-sysusers',
+                       exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
 endif
 
