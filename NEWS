@@ -76,7 +76,7 @@ CHANGES WITH 250 in spe:
           does not trigger any operation by default.
 
         * When showing unit status updates on the console during boot and
-          shutdown, and a service is slow to start so that the KITT animation
+          shutdown, and a service is slow to start so that the cylon animation
           is shown, the most recent sd_notify() STATUS= text is now shown as
           well. Services may use this to make the boot/shutdown output easier
           to understand, and to indicate what precisely a service that is slow
