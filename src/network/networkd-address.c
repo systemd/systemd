@@ -600,7 +600,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL;
+        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
         assert(str);
@@ -615,13 +615,14 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
+        (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
-        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s",
+        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
                        strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
-                       strna(flags_str));
+                       strna(flags_str), strna(scope_str));
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
