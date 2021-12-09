@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2021.10.24
-# Date:    2021-10-24 20:34:08
+# Version: 2022.03.18
+# Date:    2022-03-18 20:34:09
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -2712,6 +2712,8 @@
 	0845  ConferenceCam CC3000e Camera
 	0846  ConferenceCam CC3000e Speakerphone
 	084b  ConferenceCam Connect Video
+	084c  ConferenceCam Connect Audio
+	084e  ConferenceCam Connect
 	0850  QuickCam Web
 	0857  Logi Group Speakerphone
 	085c  C922 Pro Stream Webcam
@@ -2764,7 +2766,7 @@
 	08d7  QuickCam Communicate STX
 	08d8  QuickCam for Notebook Deluxe
 	08d9  QuickCam IM/Connect
-	08da  QuickCam Messanger
+	08da  QuickCam Messenger
 	08dd  QuickCam for Notebooks
 	08e0  QuickCam Express
 	08e1  Labtec Webcam
@@ -2903,7 +2905,7 @@
 	c06a  USB Optical Mouse
 	c06b  G700 Wireless Gaming Mouse
 	c06c  Optical Mouse
-	c077  M105 Optical Mouse
+	c077  Mouse
 	c07c  M-R0017 [G700s Rechargeable Gaming Mouse]
 	c07d  G502 Mouse
 	c07e  G402 Gaming Mouse
@@ -2911,7 +2913,7 @@
 	c083  G403 Prodigy Gaming Mouse
 	c084  G203 Gaming Mouse
 	c08b  G502 SE HERO Gaming Mouse
-	c092  G203 LIGHTSYNC Gaming Mouse
+	c092  G102/G203 LIGHTSYNC Gaming Mouse
 	c101  UltraX Media Remote
 	c110  Harmony 785/880/885 Remote
 	c111  Harmony 525 Remote
@@ -3060,6 +3062,7 @@
 	c532  Unifying Receiver
 	c534  Unifying Receiver
 	c537  Cordless Mouse Receiver
+	c539  Cordless Mouse Receiver
 	c53a  PowerPlay Wireless Charging System
 	c53d  G631 Keyboard
 	c603  3Dconnexion Spacemouse Plus XT
@@ -19572,10 +19575,11 @@
 	5512  CH341 in EPP/MEM/I2C mode, EPP/I2C adapter
 	5523  CH341 in serial mode, usb to serial port converter
 	5584  CH341 in parallel mode, usb to printer port converter
+	7522  CH340 serial converter
 	7523  CH340 serial converter
 	752d  CH345 MIDI adapter
 	7584  CH340S
-	e008  HID-based serial adapater
+	e008  HID-based serial adapter
 1a89  Dynalith Systems Co., Ltd.
 1a8b  SGS Taiwan Ltd.
 1a8d  BandRich, Inc.
@@ -20338,7 +20342,7 @@
 	6052  APB Team Robotic Development Board
 	6053  Darkgame Controller
 	6054  Satlab/AAUSAT3 BlueBox
-	6055  RADiuS ER900TRS-02 transciever with SMA Connector
+	6055  RADiuS ER900TRS-02 transceiver with SMA Connector
 	6056  The Glitch
 	6057  OpenPipe MIDI Shield
 	6058  Novena OTG port
@@ -20475,10 +20479,10 @@
 	60ec  Duet 2 WiFi or Duet 2 Ethernet 3D printer control electronics
 	60ed  Duet 2 Maestro 3D printer control electronics
 	60ee  Duet 3 motion control electronics
-	60f0  UDAD-T1 data aquisition device (boot)
-	60f1  UDAD-T1 data aquisition device
-	60f2  UDAD-T2 data aquisition device (boot)
-	60f3  UDAD-T2 data aquisition device
+	60f0  UDAD-T1 data acquisition device (boot)
+	60f1  UDAD-T1 data acquisition device
+	60f2  UDAD-T2 data acquisition device (boot)
+	60f3  UDAD-T2 data acquisition device
 	60f4  Uniti ARC motor controller
 	60f5  EightByEight Blinky Badge (DFU)
 	60f6  EightByEight Blinky Badge
@@ -20494,6 +20498,7 @@
 	6118  Thomson MO5 keyboard
 	6122  Ultimate Hacking Keyboard
 	614c  dwtk In-Circuit Emulator
+	614d  Generic Display
 	8085  Box0 (box0-v5)
 	cc15  rad1o badge for CCC summer camp 2015
 1d57  Xenta
@@ -20511,7 +20516,7 @@
 	ad03  [T3] 2.4GHz and IR Air Mouse Remote Control
 	af01  AUVIO Universal Remote Receiver for PlayStation 3
 	af03  Wireless Receiver
-	fa20  2.4GHz Wireless Reciever (Mini Keyboard & Mouse)
+	fa20  2.4GHz Wireless Receiver (Mini Keyboard & Mouse)
 1d5b  Smartronix, Inc.
 1d5c  Fresco Logic
 	2000  FL2000/FL2000DX VGA/DVI/HDMI Adapter
@@ -20819,7 +20824,12 @@
 	0001  Wi-Fi Body Scale (WBS01)
 1fba  DERMALOG Identification Systems GmbH
 1fbd  Delphin Technology AG
-	0001  Expert Key - Data aquisition system
+	0001  Expert Key - Data acquisition system
+	0004  MetiOS Device (RNDIS)
+	0005  Loggito
+	0006  LoggitoLab 8 AI-RTD
+	0007  LoggitoLab 8 TC
+	0008  LoggitoLab 4 AI-RTD 4 TC
 1fc9  NXP Semiconductors
 	0003  LPC1343
 	000c  LPC4330FET180 [ARM Cortex M4 + M0] (device firmware upgrade mode)
@@ -22644,6 +22654,14 @@
 	f190  MSO-19
 	f280  MSO-28
 	f281  MSO-28
+3197  Katusha
+	1001  M151
+	1002  M250
+	1003  P130
+	1004  M130
+	1101  P247
+	1102  M247
+	1103  M348
 31c9  BeiJing LanXum Computer Technology Co., Ltd.
 	1001  Printer
 	1301  Black and White Laser Printer
@@ -23238,7 +23256,12 @@
 	0780  CS780 Microphone Input
 	07d3  BLOB boot loader firmware
 	07dc  Bluetooth 4.0* Smart Ready (low energy)
+	0a66  RealSense 3D Camera (Front F200)
+	0aa5  RealSense SR300
+	0ad2  RealSense D410
+	0ad3  RealSense D415
 	0b07  RealSense D435
+	0b64  RealSense L515
 	0dad  Cherry MiniatureCard Keyboard
 	1010  AnyPoint(TM) Home Network 10 Mbps Phoneline Adapter
 	110a  Bluetooth Controller from (Ericsson P4A)
@@ -23264,6 +23287,7 @@
 	9303  8x930Hx Hub
 	9500  CE 9500 DVB-T
 	9890  82930 Test Board
+	a36d  Host Controller
 	beef  SCM Miniature Card Reader/Writer
 	c013  Wireless HID Station
 	dead  Galileo
@@ -23278,7 +23302,6 @@
 	0032  AX210 Bluetooth
 	0716  Modem Flashloader
 	07da  Centrino Bluetooth Wireless Transceiver
-		8087 07da  Centrino Advanced-N 6235
 	07db  Atom C2000 Root Hub
 	07dc  Bluetooth wireless interface
 	07eb  Oaktrail tablet
