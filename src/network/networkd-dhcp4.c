@@ -1704,17 +1704,24 @@ int config_parse_dhcp_ip_service_type(
                 void *data,
                 void *userdata) {
 
+        int *tos = data;
+
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(data);
 
-        if (streq(rvalue, "CS4"))
-                *((int *)data) = IPTOS_CLASS_CS4;
+        if (isempty(rvalue))
+                *tos = -1; /* use sd_dhcp_client's default (currently, CS6). */
+        else if (streq(rvalue, "none"))
+                *tos = 0;
+        else if (streq(rvalue, "CS4"))
+                *tos = IPTOS_CLASS_CS4;
         else if (streq(rvalue, "CS6"))
-                *((int *)data) = IPTOS_CLASS_CS6;
+                *tos = IPTOS_CLASS_CS6;
         else
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
 
         return 0;
 }
