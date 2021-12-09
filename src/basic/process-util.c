@@ -221,9 +221,12 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                         return -ENOMEM;
 
                 /* Drop trailing empty strings. See issue #21186. */
-                STRV_FOREACH_BACKWARDS(p, args)
-                        if (isempty(*p))
-                                *p = mfree(*p);
+                STRV_FOREACH_BACKWARDS(p, args) {
+                        if (!isempty(*p))
+                                break;
+
+                        *p = mfree(*p);
+                }
 
                 ans = quote_command_line(args, shflags);
                 if (!ans)
