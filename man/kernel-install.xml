@@ -171,7 +171,7 @@
     <para><varname>KERNEL_INSTALL_MACHINE_ID=</varname> is set for the plugins to the desired <replaceable>MACHINE-ID</replaceable> –
     either 32 hexadecimal characters or the special value <literal>Default</literal>.</para>
     <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the root directory (mount point, usually) of the hierarchy
-    where boot-loader entries, kernel images, and associated resources should be placed.  Can be overriden by setting <varname>BOOT_ROOT=</varname>.</para>
+    where boot-loader entries, kernel images, and associated resources should be placed. Can be overridden by setting <varname>BOOT_ROOT=</varname>.</para>
   </refsect1>
 
   <refsect1>
