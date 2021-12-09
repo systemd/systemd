@@ -2550,6 +2550,23 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
 
+        if (streq_ptr(link->driver, "dsa")) {
+                uint32_t dsa_master_ifindex;
+
+                r = sd_netlink_message_read_u32(message, IFLA_LINK, &dsa_master_ifindex);
+                if (r < 0) {
+                        dsa_master_ifindex = 0;
+                        if (r != -ENODATA)
+                                log_link_warning_errno(link, r, "rtnl: failed to read ifindex of the DSA master interface, ignoring: %m");
+                } else if (dsa_master_ifindex > INT_MAX) {
+                        dsa_master_ifindex = 0;
+                        log_link_warning(link, "rtnl: received too large DSA master ifindex (%"PRIu32" > INT_MAX), ignoring.",
+                                         dsa_master_ifindex);
+                }
+
+                link->dsa_master_ifindex = (int) dsa_master_ifindex;
+        }
+
         *ret = TAKE_PTR(link);
         return 0;
 }

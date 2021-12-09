@@ -948,6 +948,41 @@ int link_configure_mtu(Link *link) {
         return link_request_to_set_mtu(link, mtu);
 }
 
+static int link_up_dsa_slave(Link *link) {
+        Link *master;
+        int r;
+
+        assert(link);
+
+        /* For older kernels (specifically, older than 9d5ef190e5615a7b63af89f88c4106a5bc127974, kernel-5.12),
+         * it is necessary to bring up a DSA slave that its master interface is already up. And bringing up
+         * the slave fails with -ENETDOWN. So, let's bring up the master even if it is not managed by us,
+         * and try to bring up the slave after the master becomes up. */
+
+        if (link->dsa_master_ifindex <= 0)
+                return 0;
+
+        if (!streq_ptr(link->driver, "dsa"))
+                return 0;
+
+        if (link_get_by_index(link->manager, link->dsa_master_ifindex, &master) < 0)
+                return 0;
+
+        if (master->state == LINK_STATE_UNMANAGED) {
+                /* If the DSA master interface is unmanaged, then it will never become up.
+                 * Let's request to bring up the master. */
+                r = link_request_to_bring_up_or_down(master, /* up = */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        r = link_request_to_bring_up_or_down(link, /* up = */ true);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up, bool on_activate) {
         int r;
 
@@ -958,7 +993,9 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
                 goto on_error;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
+        if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
+                log_link_message_debug_errno(link, m, r, "Could not bring up dsa slave, retrying again after dsa master becomes up");
+        else if (r < 0) {
                 const char *error_msg;
 
                 error_msg = up ?
@@ -1130,8 +1167,20 @@ int link_request_to_activate(Link *link) {
         return 0;
 }
 
-static bool link_is_ready_to_bring_up_or_down(Link *link) {
+static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
         assert(link);
+
+        if (up && link->dsa_master_ifindex > 0) {
+                Link *master;
+
+                /* The master inteface must be up. See comments in link_up_dsa_slave(). */
+
+                if (link_get_by_index(link->manager, link->dsa_master_ifindex, &master) < 0)
+                        return false;
+
+                if (!FLAGS_SET(master->flags, IFF_UP))
+                        return false;
+        }
 
         if (link->state == LINK_STATE_UNMANAGED)
                 return true;
@@ -1160,7 +1209,7 @@ int request_process_link_up_or_down(Request *req) {
         link = req->link;
         up = PTR_TO_INT(req->userdata);
 
-        if (!link_is_ready_to_bring_up_or_down(link))
+        if (!link_is_ready_to_bring_up_or_down(link, up))
                 return 0;
 
         r = link_up_or_down(link, up, req->netlink_handler);
