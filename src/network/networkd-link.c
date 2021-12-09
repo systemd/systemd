@@ -87,9 +87,12 @@ bool link_ipv4ll_enabled(Link *link) {
         if (ether_addr_is_null(&link->hw_addr.ether))
                 return false;
 
-        if (STRPTR_IN_SET(link->kind,
-                          "vrf", "wireguard", "ipip", "gre", "ip6gre","ip6tnl", "sit", "vti",
-                          "vti6", "nlmon", "xfrm", "bareudp"))
+        /* ARPHRD_INFINIBAND seems to potentially support IPv4LL.
+         * But currently sd-ipv4ll and sd-ipv4acd only support ARPHRD_ETHER. */
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (streq_ptr(link->kind, "vrf"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
