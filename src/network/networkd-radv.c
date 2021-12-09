@@ -54,7 +54,7 @@ void network_adjust_radv(Network *network) {
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_may_have_ipv6ll(link))
                 return false;
 
         return link->network->router_prefix_delegation;

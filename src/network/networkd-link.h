@@ -215,6 +215,7 @@ bool link_has_carrier(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
+bool link_may_have_ipv6ll(Link *link);
 int link_ipv6ll_gained(Link *link);
 
 bool link_ipv4ll_enabled(Link *link);
