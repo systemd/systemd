@@ -144,8 +144,8 @@ CHANGES WITH 250 in spe:
         * The combination of ProcSubset=pid and ProtectKernelTunables=yes and/or
           ProtectKernelLogs=yes can now be used.
 
-        * The default maximum numbers of inodes have been raised from 64k to 1m
-          for /dev, and from 400k to 1m for /tmp.
+        * The default maximum numbers of inodes have been raised from 64k to 1M
+          for /dev, and from 400k to 1M for /tmp.
 
         * The per-user service manager learnt support for communicating with
           systemd-oomd to acquire OOM kill information.
@@ -732,6 +732,9 @@ CHANGES WITH 250 in spe:
         * More of sd-journal's functions are now resistant against journal file
           corruption.
 
+        * The shutdown command learnt a new option --show, to display the
+          scheduled shutdown.
+
         * A LICENSES/ directory is now included in the git tree. It contains a
           README.md file that explains the licenses used by source files in
           this repository.  It also contains the text of all applicable
@@ -762,13 +765,13 @@ CHANGES WITH 250 in spe:
         José Expósito, Julia Kartseva, Kai-Heng Feng, Kai Wohlfahrt,
         Kay Siver Bø, KennthStailey, Kevin Kuehler, Kevin Orr, Khem Raj,
         Kristian Klausen, Kyle Laker, lainahai, Lennart Poettering,
-        Lia Lenckowski, longpanda, Luca Boccassi, Luca BRUNO, Lukas Senionis,
-        Maanya Goenka, Maciek Borzecki, Marcel Menzel, Marco Scardovi,
-        Marcus Harrison, Mark Boudreau, Matthijs van Duin, Mauricio Vásquez,
-        Maxime de Roucy, Max Resch, MertsA, Michael Biebl, Michael Catanzaro,
-        Michal Koutný, Michal Sekletár, Miika Karanki, Mike Gilbert,
-        Milo Turner, ml, monosans, Nacho Barrientos, nassir90, nl6720,
-        Ondrej Kozina, Paulo Neves, Pavel Březina, pedro martelletto,
+        Lia Lenckowski, longpanda, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
+        Lukas Senionis, Maanya Goenka, Maciek Borzecki, Marcel Menzel,
+        Marco Scardovi, Marcus Harrison, Mark Boudreau, Matthijs van Duin,
+        Mauricio Vásquez, Maxime de Roucy, Max Resch, MertsA, Michael Biebl,
+        Michael Catanzaro, Michal Koutný, Michal Sekletár, Miika Karanki,
+        Mike Gilbert, Milo Turner, ml, monosans, Nacho Barrientos, nassir90,
+        nl6720, Ondrej Kozina, Paulo Neves, Pavel Březina, pedro martelletto,
         Peter Hutterer, Peter Morrow, Piotr Drąg, Rasmus Villemoes, ratijas,
         Raul Tambre, rene, Riccardo Schirone, Robert-L-Turner, Ross Jennings,
         saikat0511, Scott Lamb, Sergei Trofimovich, Sho Iizuka,
