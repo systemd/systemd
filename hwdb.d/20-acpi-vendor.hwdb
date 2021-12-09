@@ -51,6 +51,9 @@ acpi:ATML*:
 acpi:AUTH*:
  ID_VENDOR_FROM_DATABASE=AuthenTec
 
+acpi:AWDZ*:
+ ID_VENDOR_FROM_DATABASE=Shanghai Aiwei Electronic Technology Co., Ltd.
+
 acpi:BABA*:
  ID_VENDOR_FROM_DATABASE=Alibaba Co., Ltd.
 
@@ -219,6 +222,9 @@ acpi:MSHW*:
 acpi:MXIM*:
  ID_VENDOR_FROM_DATABASE=Maxim Integrated
 
+acpi:NOLO*:
+ ID_VENDOR_FROM_DATABASE=NOLO VR
+
 acpi:NVDA*:
  ID_VENDOR_FROM_DATABASE=Nvidia
 
@@ -272,6 +278,9 @@ acpi:SECC*:
 
 acpi:SHRP*:
  ID_VENDOR_FROM_DATABASE=Sharp Corporation
+
+acpi:SILC*:
+ ID_VENDOR_FROM_DATABASE=Silicom Ltd. Connectivity Solutions
 
 acpi:SNSL*:
  ID_VENDOR_FROM_DATABASE=Sensel, Inc.
@@ -911,6 +920,9 @@ acpi:ATV*:
 
 acpi:ATX*:
  ID_VENDOR_FROM_DATABASE=Athenix Corporation
+
+acpi:AUD*:
+ ID_VENDOR_FROM_DATABASE=AudioControl
 
 acpi:AUG*:
  ID_VENDOR_FROM_DATABASE=August Home, Inc.
@@ -6036,6 +6048,9 @@ acpi:SBS*:
 acpi:SBT*:
  ID_VENDOR_FROM_DATABASE=Senseboard Technologies AB
 
+acpi:SCA*:
+ ID_VENDOR_FROM_DATABASE=Schneider Consumer Group
+
 acpi:SCB*:
  ID_VENDOR_FROM_DATABASE=SeeCubic B.V.
 
@@ -6155,6 +6170,9 @@ acpi:SES*:
 
 acpi:SET*:
  ID_VENDOR_FROM_DATABASE=SendTek Corporation
+
+acpi:SFL*:
+ ID_VENDOR_FROM_DATABASE=Shiftall Inc.
 
 acpi:SFM*:
  ID_VENDOR_FROM_DATABASE=TORNADO Company
