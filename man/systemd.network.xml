@@ -1550,8 +1550,11 @@ Table=1234</programlisting></para>
         <varlistentry>
           <term><varname>IPServiceType=</varname></term>
           <listitem>
-            <para>Takes string; <literal>CS6</literal> or <literal>CS4</literal>. Used to set IP
-            service type to CS6 (network control) or CS4 (Realtime). Defaults to CS6.</para>
+            <para>Takes one of the special values <literal>none</literal>, <literal>CS6</literal>, or
+            <literal>CS4</literal>. When <literal>none</literal> no IP sevice type is set to the packet
+            sent from the DHCPv4 client. When <literal>CS6</literal> (network control) or
+            <literal>CS4</literal> (realtime), the corresponding service type will be set. Defaults to
+            <literal>CS6</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
