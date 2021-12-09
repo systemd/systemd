@@ -13,6 +13,14 @@
 #include "sort-util.h"
 #include "string-table.h"
 
+#if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
+#  pragma GCC diagnostic pop
+#endif
+
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
 
@@ -88,66 +96,72 @@ static int dnssec_rsa_verify_raw(
                 const void *data, size_t data_size,
                 const void *exponent, size_t exponent_size,
                 const void *modulus, size_t modulus_size) {
-
-#if PREFER_OPENSSL
-        _cleanup_(RSA_freep) RSA *rpubkey = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        _cleanup_(BN_freep) BIGNUM *e = NULL, *m = NULL;
         int r;
 
+#if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         assert(hash_algorithm);
 
+        _cleanup_(BN_freep) BIGNUM *e = NULL, *m = NULL;
         e = BN_bin2bn(exponent, exponent_size, NULL);
-        if (!e)
-                return -EIO;
-
         m = BN_bin2bn(modulus, modulus_size, NULL);
-        if (!m)
+        if (!e || !m)
                 return -EIO;
 
-        rpubkey = RSA_new();
-        if (!rpubkey)
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx1 = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+        if (!ctx1)
                 return -ENOMEM;
 
-        if (RSA_set0_key(rpubkey, m, e, NULL) <= 0)
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *params_build = OSSL_PARAM_BLD_new();
+        if (!params_build)
+                return -ENOMEM;
+        if (!OSSL_PARAM_BLD_push_BN(params_build, "n", m) ||
+            !OSSL_PARAM_BLD_push_BN(params_build, "e", e) ||
+            !OSSL_PARAM_BLD_push_BN(params_build, "d", NULL))
                 return -EIO;
-        e = m = NULL;
 
-        assert((size_t) RSA_size(rpubkey) == signature_size);
-
-        epubkey = EVP_PKEY_new();
-        if (!epubkey)
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(params_build);
+        if (!params)
                 return -ENOMEM;
 
-        if (EVP_PKEY_assign_RSA(epubkey, RSAPublicKey_dup(rpubkey)) <= 0)
-                return -EIO;
-
-        ctx = EVP_PKEY_CTX_new(epubkey, NULL);
-        if (!ctx)
+        if (EVP_PKEY_fromdata_init(ctx1) <= 0)
                 return -ENOMEM;
 
-        if (EVP_PKEY_verify_init(ctx) <= 0)
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key1 = NULL;
+        if (EVP_PKEY_fromdata(ctx1, &key1, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return -ENOMEM;
+        assert(key1);
+        assert((size_t) EVP_PKEY_get_size(key1) == signature_size);
+
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key2 = EVP_PKEY_dup(key1);
+        if (!key2)
+                return -ENOMEM;
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx2 = EVP_PKEY_CTX_new(key2, NULL);
+        if (!ctx2)
+                return -ENOMEM;
+
+        if (EVP_PKEY_verify_init(ctx2) <= 0)
                 return -EIO;
 
-        if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
+        if (EVP_PKEY_CTX_set_rsa_padding(ctx2, RSA_PKCS1_PADDING) <= 0)
                 return -EIO;
 
-        if (EVP_PKEY_CTX_set_signature_md(ctx, hash_algorithm) <= 0)
+        if (EVP_PKEY_CTX_set_signature_md(ctx2, hash_algorithm) <= 0)
                 return -EIO;
 
-        r = EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
+        r = EVP_PKEY_verify(ctx2, signature, signature_size, data, data_size);
         if (r < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-        return r;
-
+#  pragma GCC diagnostic pop
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t n = NULL, e = NULL, s = NULL;
         gcry_error_t ge;
-        int r;
 
         assert(hash_algorithm);
 
@@ -223,9 +237,8 @@ finish:
                 gcry_sexp_release(signature_sexp);
         if (data_sexp)
                 gcry_sexp_release(data_sexp);
-
-        return r;
 #endif
+        return r;
 }
 
 static int dnssec_rsa_verify(
@@ -291,15 +304,17 @@ static int dnssec_ecdsa_verify_raw(
                 const void *signature_s, size_t signature_s_size,
                 const void *data, size_t data_size,
                 const void *key, size_t key_size) {
+        int k;
 
 #if PREFER_OPENSSL
+#  pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
         _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
         _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
         _cleanup_(BN_CTX_freep) BN_CTX *bctx = NULL;
         _cleanup_(BN_freep) BIGNUM *r = NULL, *s = NULL;
         _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = NULL;
-        int k;
 
         assert(hash_algorithm);
 
@@ -354,13 +369,11 @@ static int dnssec_ecdsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-        return k;
-
+#  pragma GCC diagnostic pop
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t q = NULL, r = NULL, s = NULL;
         gcry_error_t ge;
-        int k;
 
         assert(hash_algorithm);
 
@@ -435,9 +448,8 @@ finish:
                 gcry_sexp_release(signature_sexp);
         if (data_sexp)
                 gcry_sexp_release(data_sexp);
-
-        return k;
 #endif
+        return k;
 }
 
 static int dnssec_ecdsa_verify(
