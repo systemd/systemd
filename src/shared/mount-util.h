@@ -11,9 +11,15 @@
 #include "errno-util.h"
 #include "macro.h"
 
-/* 4MB for contents of regular files, 128k inodes for directories, symbolic links and device specials, using
- * large storage array systems as a baseline */
-#define TMPFS_LIMITS_DEV             ",size=4m,nr_inodes=128k"
+/* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
+ * consume any space and udev isn't supposed to create regular file either. There's no limit on the
+ * max number of inodes since such limit is hard to guess especially on large storage array
+ * systems. */
+#define TMPFS_LIMITS_DEV             ",size=4m"
+
+/* The limit used for /dev in private namespaces. 4MB for contents of regular files. The number of
+ * inodes should be relatively low in private namespaces but for now use a 64k limit. */
+#define TMPFS_LIMITS_PRIVATE_DEV     ",size=4m,nr_inodes=64k"
 
 /* Very little, if any use expected */
 #define TMPFS_LIMITS_EMPTY_OR_ALMOST ",size=4m,nr_inodes=1k"
