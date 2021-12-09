@@ -121,7 +121,7 @@ struct JsonVariant {
 
 /* Let's make sure this structure isn't increased in size accidentally. This check is only for our most relevant arch
  * (x86-64). */
-#ifdef __x86_64__
+#if defined(__x86_64__) && __SIZEOF_POINTER__ == 8
 assert_cc(sizeof(JsonVariant) == 40U);
 assert_cc(INLINE_STRING_MAX == 7U);
 #endif
