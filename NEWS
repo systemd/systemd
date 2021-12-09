@@ -62,6 +62,9 @@ CHANGES WITH 250 in spe:
 
         * The GPT image dissection logic in systemd-nspawn/systemd-dissect/…
           now is able to decode images for non-native architectures as well.
+          This enables systemd-nspawn to boot images of non-native
+          architectures if the corresponding user mode emulator is installed
+          and systemd-binfmtd is running.
 
         * systemd-logind gained a new settings HandlePowerKeyLongPress=,
           HandleRebootKeyLongPress=, HandleSuspendKeyLongPress= and
@@ -677,34 +680,22 @@ CHANGES WITH 250 in spe:
           file that explains the licenses used by source files in this repository.
           It also contains the text of all applicable licenses as they appear on spdx.org.
 
-CHANGES WITH 249:
+        * systemd-journald now re-enables COW for archived journal files on filesystems
+          that support COW. One benefit of this change is that archived journal files will
+          now get compressed on btrfs filesystems that have compression enabled.
 
-        * When operating on disk images via the --image= switch of various
-          tools (such as systemd-nspawn or systemd-dissect), or when udev finds
-          no 'root=' parameter on the kernel command line, and multiple
-          suitable root or /usr/ partitions exist in the image, then a simple
-          comparison inspired by strverscmp() is done on the GPT partition
-          label, and the newest partition is picked. This permits a simple and
-          generic whole-file-system A/B update logic where new operating system
-          versions are dropped into partitions whose label is then updated with
-          a matching version identifier.
+        * systemd-journald now truncates archived journal files and punches holes in unused
+          parts of archived journal files, leading to some minor reductions in disk usage.
 
-        * systemd-sysusers now supports querying the passwords to set for the
-          users it creates via the "credentials" logic introduced in v247: the
-          passwd.hashed-password.<user> and passwd.plaintext-password.<user>
-          credentials are consulted for the password to use (either in UNIX
-          hashed form, or literally). By default these credentials are inherited
-          down from PID1 (which in turn imports it from a container manager if
-          there is one). This permits easy configuration of user passwords
-          during first boot. Example:
+        * systemd-journald now deduplicates fields in a single log message before adding
+          it to the journal.
 
-          # systemd-nspawn -i foo.raw --volatile=yes --set-credential=passwd.plaintext-password.root:foo
+        * journalctl --verify was extended with more informative error messages.
 
-          Note that systemd-sysusers operates in purely additive mode: it
-          executes no operation if the declared users already exist, and hence
-          doesn't set any passwords as effect of the command line above if the
-          specified root user exists already in the image. (Note that
-          --volatile=yes ensures it doesn't, though.)
+        * More of sd-journal's functions are now resistant against journal file corruption.
+
+        * systemd-journald's own logging messages are now also logged to the journal itself
+          when systemd-journald logs to /dev/kmsg.
 
         * systemd-firstboot now also supports querying various system
           parameters via the credential subsystems. Thus, as above this may be
