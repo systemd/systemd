@@ -551,11 +551,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_lines == ARG_LINES_DEFAULT)
                                 arg_lines = 1000;
 
-                        break;
+                        goto this_boot;
 
                 case 'f':
                         arg_follow = true;
-                        break;
+                        goto this_boot;
 
                 case 'o':
                         if (streq(optarg, "help")) {
@@ -632,6 +632,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_THIS_BOOT:
+this_boot:
                         arg_boot = true;
                         arg_boot_id = SD_ID128_NULL;
                         arg_boot_offset = 0;
