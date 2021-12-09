@@ -1962,6 +1962,8 @@ static int method_do_shutdown_or_sleep(
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
+        m->scheduled_shutdown_type = strdup("poweroff");
+
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_POWEROFF_TARGET,
@@ -1976,6 +1978,8 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+
+        m->scheduled_shutdown_type = strdup("reboot");
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1992,6 +1996,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
+        m->scheduled_shutdown_type = strdup("halt");
+
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HALT_TARGET,
@@ -2006,6 +2012,8 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 
 static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+
+        m->scheduled_shutdown_type = strdup("suspend");
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -2022,6 +2030,8 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
 static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
+        m->scheduled_shutdown_type = strdup("hibernate");
+
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HIBERNATE_TARGET,
@@ -2037,6 +2047,8 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
 static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
+        m->scheduled_shutdown_type = strdup("hybrid-sleep");
+
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HYBRID_SLEEP_TARGET,
@@ -2051,6 +2063,8 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
 
 static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+
+        m->scheduled_shutdown_type = strdup("sleep");
 
         return method_do_shutdown_or_sleep(
                         m, message,
