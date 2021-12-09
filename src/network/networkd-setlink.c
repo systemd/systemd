@@ -1054,6 +1054,18 @@ static bool link_is_ready_to_activate(Link *link) {
         if (link->set_link_messages > 0)
                 return false;
 
+        if (link->link_ifindex > 0) {
+                Link *underlying_link;
+
+                /* The underlying inteface must be up. See #7478. */
+
+                if (link_get_by_index(link->manager, link->link_ifindex, &underlying_link) < 0)
+                        false;
+
+                if (!FLAGS_SET(underlying_link->flags, IFF_UP))
+                        false;
+        }
+
         return true;
 }
 

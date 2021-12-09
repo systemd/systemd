@@ -48,6 +48,7 @@ typedef struct Link {
 
         int ifindex;
         int master_ifindex;
+        int link_ifindex; /* IFLA_LINK attribute, the ifindex of the underlying interface */
         char *ifname;
         char **alternative_names;
         char *kind;

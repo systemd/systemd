@@ -2450,6 +2450,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL, *lldp_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
         unsigned short iftype;
+        uint32_t link_ifindex;
         int r, ifindex;
 
         assert(manager);
@@ -2469,6 +2470,17 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, &ifname);
         if (r < 0)
                 return log_debug_errno(r, "rtnl: failed to read interface name from link message: %m");
+
+        r = sd_netlink_message_read_u32(message, IFLA_LINK, &link_ifindex);
+        if (r == -ENODATA)
+                link_ifindex = 0;
+        else if (r < 0)
+                return log_debug_errno(r, "rtnl: failed to read ifindex of the underlying interface: %m");
+        else if (link_ifindex > INT_MAX) {
+                log_debug_errno(r, "rtnl: received ifindex of the underlying interface is too large "
+                                "(%"PRIu32" > INT_MAX), ignoring.", link_ifindex);
+                link_ifindex = 0;
+        }
 
         /* check for link kind */
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
@@ -2502,6 +2514,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .state = LINK_STATE_PENDING,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .ifindex = ifindex,
+                .link_ifindex = link_ifindex,
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),
                 .kind = TAKE_PTR(kind),
