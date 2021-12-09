@@ -737,6 +737,52 @@ CHANGES WITH 250 in spe:
           this repository.  It also contains the text of all applicable
           licenses as they appear on spdx.org.
 
+        Contributions from: Aakash Singh, Adolfo Jayme Barrientos, Albert Brox,
+        Alberto Mardegan, Alexander Kanavin, alexlzhu, Alfonso Sánchez-Beato,
+        Alvin Šipraga, Alyssa Ross, Amir Omidi, Anatol Pomozov,
+        Andika Triwidada, Andreas Rammhold, Andreas Valder, Andrej Lajovic,
+        Andrew Soutar, Andrew Stone, Andy Chi, Anita Zhang, Anssi Hannula,
+        Antonio Alvarez Feijoo, Antony Deepak Thomas, Arnaud Ferraris,
+        Arvid E. Picciani, Bastien Nocera, Benjamin Berg,
+        Benjamin Herrenschmidt, Ben Stockett, Bogdan Seniuc, Boqun Feng,
+        Carl Lei, chlorophyll-zz, Chris Packham, Christian Brauner,
+        Christian Göttsche, Christian Wehrli, Christoph Anton Mitterer,
+        Cristian Rodríguez, Daan De Meyer, Daniel Maixner, Dann Frazier,
+        Dan Streetman, David Seifert, David Tardon, dependabot[bot],
+        Dimitri John Ledkov, Dimitri Papadopoulos, Dimitry Ishenko,
+        Dmitry Khlebnikov, Dominique Martinet, duament, Egor, Egor Ignatov,
+        Emil Renner Berthing, Emily Gonyer, Ettore Atalan, Evgeny Vereshchagin,
+        Florian Klink, Franck Bui, Frantisek Sumsal, Geass-LL, Gibeom Gwon,
+        GnunuX, Gogo Gogsi, gregzuro, Greg Zuro, Gustavo Costa, Hans de Goede,
+        Hela Basa, Henri Chain, hikigaya58, Hugo Carvalho,
+        Hugo Osvaldo Barrera, Iago Lopez Galeiras, Iago López Galeiras,
+        I-dont-need-name, Jack Dähn, James Hilliard, Jan Janssen,
+        Jan Kuparinen, Jan Macku, Jan Palus, jiangchuangang, jlempen,
+        John Lindgren, Jonas Dreßler, Jonas Witschel, Joris Hartog,
+        José Expósito, Julia Kartseva, Kai-Heng Feng, Kai Wohlfahrt,
+        Kay Siver Bø, KennthStailey, Kevin Kuehler, Kevin Orr, Khem Raj,
+        Kristian Klausen, Kyle Laker, lainahai, Lennart Poettering,
+        Lia Lenckowski, longpanda, Luca Boccassi, Luca BRUNO, Lukas Senionis,
+        Maanya Goenka, Maciek Borzecki, Marcel Menzel, Marco Scardovi,
+        Marcus Harrison, Mark Boudreau, Matthijs van Duin, Mauricio Vásquez,
+        Maxime de Roucy, Max Resch, MertsA, Michael Biebl, Michael Catanzaro,
+        Michal Koutný, Michal Sekletár, Miika Karanki, Mike Gilbert,
+        Milo Turner, ml, monosans, Nacho Barrientos, nassir90, nl6720,
+        Ondrej Kozina, Paulo Neves, Pavel Březina, pedro martelletto,
+        Peter Hutterer, Peter Morrow, Piotr Drąg, Rasmus Villemoes, ratijas,
+        Raul Tambre, rene, Riccardo Schirone, Robert-L-Turner, Ross Jennings,
+        saikat0511, Scott Lamb, Sergei Trofimovich, Sho Iizuka,
+        Slava Bacherikov, Slimane Selyan Amiri, StefanBruens, Steven Siloti,
+        svonohr, Taiki Sugawara, Takashi Sakamoto, Takuro Onoue, Thomas Blume,
+        Thomas Haller, Thomas Mühlbacher, Tianlu Shao, Toke Høiland-Jørgensen,
+        Tom Yan, Tony Asleson, Topi Miettinen, Ulrich Ölmann, Urs Ritzmann,
+        Vincent Bernat, Vito Caputo, Vladimir Panteleev, WANG Xuerui, Wind/owZ,
+        Wu Xiaotian, xdavidwu, Xiaotian Wu, xujing, yangmingtai, Yao Wei,
+        Yao Wei (魏銘廷), Yegor Alexeyev, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски, наб
+
+        — Warsaw, 2021-12---
+
 CHANGES WITH 249:
 
         * When operating on disk images via the --image= switch of various
