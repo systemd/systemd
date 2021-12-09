@@ -37,7 +37,7 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_may_have_ipv6ll(link))
                 return false;
 
         assert(link->network->ipv6_accept_ra >= 0);
