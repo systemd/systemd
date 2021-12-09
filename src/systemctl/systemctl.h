@@ -32,6 +32,7 @@ enum action {
         ACTION_RUNLEVEL,
         ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
+        ACTION_SHOW_SHUTDOWN,
         _ACTION_MAX,
         _ACTION_INVALID = -EINVAL,
 };
