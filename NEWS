@@ -258,6 +258,12 @@ CHANGES WITH 250 in spe:
           doesn't accidentally jump too far ahead due to faulty hardware or
           batteries.
 
+        * A new setting SaveIntervalSec= has been added to systemd-timesyncd,
+          which may be used to automatically save the current system time to
+          disk in regular intervals. This is useful to maintain a roughly
+          monotonic clock even without RTC hardware and with some robustness
+          against abnormal system shutdown.
+
         * .network files gained a new UplinkInterface in the [IPv6SendRA]
           section, for automatically propagating DNS settings from other
           interfaces.
@@ -265,26 +271,27 @@ CHANGES WITH 250 in spe:
         * The static lease DHCP server logic in systemd-networkd may now serve
           IP addresses outside of the configured IP pool range for the server.
 
-        * A new setting SaveIntervalSec= has been added to systemd-timesyncd,
-          which may be used to automatically save the current system time to
-          disk in regular intervals. This is useful to maintain a roughly
-          monotonic clock even without RTC hardware and with some robustness
-          against abnormal system shutdown.
-
         * CAN support in systemd-networkd gained four new settings Loopback=,
           OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
           control modes. It gained a number of further settings for tweaking
           CAN timing quanta.
 
+        * The [CAN] section in .network file gained new TimeQuantaNSec=,
+          PropagationSegment=, PhaseBufferSegment1=, PhaseBufferSegment2=,
+          SyncJumpWidth=, DataTimeQuantaNSec=, DataPropagationSegment=,
+          DataPhaseBufferSegment1=, DataPhaseBufferSegment2=, and
+          DataSyncJumpWidth= settings to control bit-timing processed by the
+          CAN interface.
+
         * DHCPv4 client support in systemd-networkd learnt a new Label= option
           for configuring the address label to apply to configure IPv4
           addresses.
 
-        * The various systemd-networkd "ethtool" buffer settings now understand
+        * The various systemd-udevd "ethtool" buffer settings now understand
           the special value "max" to configure the buffers to the maximum the
           hardware supports.
 
-        * systemd-networkd's .link files may now configure a large variety of
+        * systemd-udevd's .link files may now configure a large variety of
           NIC coalescing settings, plus more hardware offload settings.
 
         * systemd-analyze verify gained support for a pair of new --image= +
@@ -299,18 +306,21 @@ CHANGES WITH 250 in spe:
           UseMTU= setting that may be used to control whether to apply the
           announced MTU settings to the local interface.
 
-        * systemd-networkd now ships with another default .network file:
-          80-container-vb.network. It matches host-side network bridge device
+        * systemd-networkd now ships with another default .network files:
+          80-container-vb.network which matches host-side network bridge device
           created by systemd-nspawn's --network-bridge or --network-zone
-          switch.
+          switch, and 80-6rd-tunnel.network which matches automatically created
+          sit tunnel with 6rd prefix when the DHCP 6RD option is received.
 
-        * systemd-networkd now supports IP over InfiniBand interfaces.
+        * systemd-networkd and systemd-udevd now support IP over InfiniBand
+          interfaces.
 
         * systemd-networkd's handling of Endpoint= resolution for WireGuard
           interfaces has been improved.
 
         * systemd-networkd will now automatically configure routes to addresses
-          specified in AllowedIPs=.
+          specified in AllowedIPs=. This feature can be controlled via RouteTable=
+          and RouteMetric= settings in [WireGuard] or [WireGuardPeer] sections.
 
         * systemd-networkd will now once again automatically generate persistent
           MAC addresses for batadv and bridge interfaces. Users can disable this
@@ -320,28 +330,55 @@ CHANGES WITH 250 in spe:
           section that allows to specify a WoL "SecureOn" password on hardware
           that supports this.
 
-        * DHCPv6 Prefix Delegation gained new settings UplinkInterface= and
-          UseDelegatedPrefix= for configuring how to propagate delegated
-          prefixes between uplink and downlink interfaces.
+        * The [DHCPv4] section in .network file gained a new Use6RD= boolean
+          setting to control whether the DHCPv4 client request and process the
+          DHCP 6RD option.
+
+        * The [DHCPv6PrefixDelegation] section in .network file is renamed to
+          [DHCPPrefixDelegation], as now the prefix delegation is also supported
+          with DHCPv4 protocol by enabling the Use6RD= setting.
+
+        * The [DHCPPrefixDelegation] section in .network file gained a new
+          setting UplinkInterface= to specify the upstream interface.
+
+        * The [DHCPv6] section in .network file gained a new setting
+          UseDelegatedPrefix= to control whether the delegated prefixes will be
+          propagated to the downstream interfaces.
 
         * The [IPv6AcceptRA] section of .network files now understands two new
           settings UseGateway=/UseRoutePrefix= for explicitly configuring
           whether to use the relevant fields from the IPv6 Router Advertisement
           records.
 
-        * The [CAKE] section of .network files gained a new setting
-          AutoRateIngress= for controlling automatic capacity estimation for
-          CAKE.
+        * The ForceDHCPv6PDOtherInformation= setting in the [DHCPv6] section is
+          now deprecated. Please use the WithoutRA= and UseDelegatedPrefix=
+          settings in the [DHCPv6] section and the DHCPv6Client= setting in the
+          [IPv6AcceptRA] section to control when the DHCPv6 client is started
+          and how the delegated prefixes are handled by the DHCPv6 client.
 
-        * IPv6 tokens configured in .network files may now optionally take a
-          secret key (i.e. Token=prefixstable:…)
+        * The [CAKE] section of .network files gained various new settings
+          AutoRateIngress=, CompensationMode=, FlowIsolationMode=, NAT=,
+          MPUBytes=, PriorityQueueingPreset=, FirewallMark=, Wash=, SplitGSO=,
+          and UseRawPacketSize= for configuring CAKE.
 
-        * A new SuppressInterfaceGroup= setting has been added to the
-          [RoutingPolicyRule] section of .network files.
+        * The IPv6Token= section in the [Network] section is deprecated, and
+          the [IPv6AcceptRA] section gained the Token= setting for its
+          replacement. The [IPv6Prefix] section also gained the Token= setting.
+          The Token= setting gained 'eui64' mode to explicitly configure an
+          address with the EUI64 algorithm based on the interface MAC address.
+          The 'prefixstable' mode can now optionally take a secret key. The
+          Token= setting in the [DHCPPrefixDelegation] section now supports all
+          algorithms supported by the same settings in the other sections.
+
+        * The [RoutingPolicyRule] section of .network file gained a new
+          SuppressInterfaceGroup= setting.
 
         * The IgnoreCarrierLoss= setting in the [Network] section of .network
           files now accepts a duration to be specified, controlling how time to
           wait before no longer ignoring carrier losses.
+
+        * The [DHCPServer] section of .network file gained a new Router= setting
+          to specify the router address.
 
         * systemd-analyze verify gained a new switch --recursive-errors= which
           controls whether to only fail on errors found in the specified units
