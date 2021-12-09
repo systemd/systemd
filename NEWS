@@ -62,6 +62,9 @@ CHANGES WITH 250 in spe:
 
         * The GPT image dissection logic in systemd-nspawn/systemd-dissect/…
           now is able to decode images for non-native architectures as well.
+          This enables systemd-nspawn to boot images of non-native
+          architectures if the corresponding user mode emulator is installed
+          and systemd-binfmtd is running.
 
         * systemd-logind gained a new settings HandlePowerKeyLongPress=,
           HandleRebootKeyLongPress=, HandleSuspendKeyLongPress= and
@@ -676,6 +679,23 @@ CHANGES WITH 250 in spe:
         * A LICENSES/ directory is now included in the git tree. It contains a README.md
           file that explains the licenses used by source files in this repository.
           It also contains the text of all applicable licenses as they appear on spdx.org.
+
+        * systemd-journald now re-enables COW for archived journal files on filesystems
+          that support COW. One benefit of this change is that archived journal files will
+          now get compressed on btrfs filesystems that have compression enabled.
+
+        * systemd-journald now truncates archived journal files and punches holes in unused
+          parts of archived journal files, leading to some minor reductions in disk usage.
+
+        * systemd-journald now deduplicates fields in a single log message before adding
+          it to the journal.
+
+        * journalctl --verify was extended with more informative error messages.
+
+        * More of sd-journal's functions are now resistant against journal file corruption.
+
+        * systemd-journald's own logging messages are now also logged to the journal itself
+          when systemd-journald logs to /dev/kmsg.
 
 CHANGES WITH 249:
 
