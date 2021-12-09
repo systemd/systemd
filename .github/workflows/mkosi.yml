@@ -62,20 +62,19 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
-      run: |
-        sudo python3 -m mkosi --build-environment=CI_BUILD=1 --kernel-command-line "${{ env.KERNEL_CMDLINE }}" build
+      run: ./.github/workflows/run_mkosi.sh --build-environment=CI_BUILD=1 --kernel-command-line "${{ env.KERNEL_CMDLINE }}" build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: sudo python3 -m mkosi summary
+      run: ./.github/workflows/run_mkosi.sh summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi boot ${{ env.KERNEL_CMDLINE }}
+      run: ./.github/workflows/run_mkosi.sh boot ${{ env.KERNEL_CMDLINE }}
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo python3 -m mkosi qemu
+      run: ./.github/workflows/run_mkosi.sh qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
