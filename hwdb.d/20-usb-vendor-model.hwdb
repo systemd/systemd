@@ -8078,6 +8078,12 @@ usb:v046Dp0846*
 usb:v046Dp084B*
  ID_MODEL_FROM_DATABASE=ConferenceCam Connect Video
 
+usb:v046Dp084C*
+ ID_MODEL_FROM_DATABASE=ConferenceCam Connect Audio
+
+usb:v046Dp084E*
+ ID_MODEL_FROM_DATABASE=ConferenceCam Connect
+
 usb:v046Dp0850*
  ID_MODEL_FROM_DATABASE=QuickCam Web
 
@@ -8235,7 +8241,7 @@ usb:v046Dp08D9*
  ID_MODEL_FROM_DATABASE=QuickCam IM/Connect
 
 usb:v046Dp08DA*
- ID_MODEL_FROM_DATABASE=QuickCam Messanger
+ ID_MODEL_FROM_DATABASE=QuickCam Messenger
 
 usb:v046Dp08DD*
  ID_MODEL_FROM_DATABASE=QuickCam for Notebooks
@@ -8652,7 +8658,7 @@ usb:v046DpC06C*
  ID_MODEL_FROM_DATABASE=Optical Mouse
 
 usb:v046DpC077*
- ID_MODEL_FROM_DATABASE=M105 Optical Mouse
+ ID_MODEL_FROM_DATABASE=Mouse
 
 usb:v046DpC07C*
  ID_MODEL_FROM_DATABASE=M-R0017 [G700s Rechargeable Gaming Mouse]
@@ -8676,7 +8682,7 @@ usb:v046DpC08B*
  ID_MODEL_FROM_DATABASE=G502 SE HERO Gaming Mouse
 
 usb:v046DpC092*
- ID_MODEL_FROM_DATABASE=G203 LIGHTSYNC Gaming Mouse
+ ID_MODEL_FROM_DATABASE=G102/G203 LIGHTSYNC Gaming Mouse
 
 usb:v046DpC101*
  ID_MODEL_FROM_DATABASE=UltraX Media Remote
@@ -9120,6 +9126,9 @@ usb:v046DpC534*
  ID_MODEL_FROM_DATABASE=Unifying Receiver
 
 usb:v046DpC537*
+ ID_MODEL_FROM_DATABASE=Cordless Mouse Receiver
+
+usb:v046DpC539*
  ID_MODEL_FROM_DATABASE=Cordless Mouse Receiver
 
 usb:v046DpC53A*
@@ -58655,6 +58664,9 @@ usb:v1A86p5523*
 usb:v1A86p5584*
  ID_MODEL_FROM_DATABASE=CH341 in parallel mode, usb to printer port converter
 
+usb:v1A86p7522*
+ ID_MODEL_FROM_DATABASE=CH340 serial converter
+
 usb:v1A86p7523*
  ID_MODEL_FROM_DATABASE=CH340 serial converter
 
@@ -58665,7 +58677,7 @@ usb:v1A86p7584*
  ID_MODEL_FROM_DATABASE=CH340S
 
 usb:v1A86pE008*
- ID_MODEL_FROM_DATABASE=HID-based serial adapater
+ ID_MODEL_FROM_DATABASE=HID-based serial adapter
 
 usb:v1A89*
  ID_VENDOR_FROM_DATABASE=Dynalith Systems Co., Ltd.
@@ -60954,7 +60966,7 @@ usb:v1D50p6054*
  ID_MODEL_FROM_DATABASE=Satlab/AAUSAT3 BlueBox
 
 usb:v1D50p6055*
- ID_MODEL_FROM_DATABASE=RADiuS ER900TRS-02 transciever with SMA Connector
+ ID_MODEL_FROM_DATABASE=RADiuS ER900TRS-02 transceiver with SMA Connector
 
 usb:v1D50p6056*
  ID_MODEL_FROM_DATABASE=The Glitch
@@ -61365,16 +61377,16 @@ usb:v1D50p60EE*
  ID_MODEL_FROM_DATABASE=Duet 3 motion control electronics
 
 usb:v1D50p60F0*
- ID_MODEL_FROM_DATABASE=UDAD-T1 data aquisition device (boot)
+ ID_MODEL_FROM_DATABASE=UDAD-T1 data acquisition device (boot)
 
 usb:v1D50p60F1*
- ID_MODEL_FROM_DATABASE=UDAD-T1 data aquisition device
+ ID_MODEL_FROM_DATABASE=UDAD-T1 data acquisition device
 
 usb:v1D50p60F2*
- ID_MODEL_FROM_DATABASE=UDAD-T2 data aquisition device (boot)
+ ID_MODEL_FROM_DATABASE=UDAD-T2 data acquisition device (boot)
 
 usb:v1D50p60F3*
- ID_MODEL_FROM_DATABASE=UDAD-T2 data aquisition device
+ ID_MODEL_FROM_DATABASE=UDAD-T2 data acquisition device
 
 usb:v1D50p60F4*
  ID_MODEL_FROM_DATABASE=Uniti ARC motor controller
@@ -61420,6 +61432,9 @@ usb:v1D50p6122*
 
 usb:v1D50p614C*
  ID_MODEL_FROM_DATABASE=dwtk In-Circuit Emulator
+
+usb:v1D50p614D*
+ ID_MODEL_FROM_DATABASE=Generic Display
 
 usb:v1D50p8085*
  ID_MODEL_FROM_DATABASE=Box0 (box0-v5)
@@ -61473,7 +61488,7 @@ usb:v1D57pAF03*
  ID_MODEL_FROM_DATABASE=Wireless Receiver
 
 usb:v1D57pFA20*
- ID_MODEL_FROM_DATABASE=2.4GHz Wireless Reciever (Mini Keyboard & Mouse)
+ ID_MODEL_FROM_DATABASE=2.4GHz Wireless Receiver (Mini Keyboard & Mouse)
 
 usb:v1D5B*
  ID_VENDOR_FROM_DATABASE=Smartronix, Inc.
@@ -62397,7 +62412,22 @@ usb:v1FBD*
  ID_VENDOR_FROM_DATABASE=Delphin Technology AG
 
 usb:v1FBDp0001*
- ID_MODEL_FROM_DATABASE=Expert Key - Data aquisition system
+ ID_MODEL_FROM_DATABASE=Expert Key - Data acquisition system
+
+usb:v1FBDp0004*
+ ID_MODEL_FROM_DATABASE=MetiOS Device (RNDIS)
+
+usb:v1FBDp0005*
+ ID_MODEL_FROM_DATABASE=Loggito
+
+usb:v1FBDp0006*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 8 AI-RTD
+
+usb:v1FBDp0007*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 8 TC
+
+usb:v1FBDp0008*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 4 AI-RTD 4 TC
 
 usb:v1FC9*
  ID_VENDOR_FROM_DATABASE=NXP Semiconductors
@@ -67871,6 +67901,30 @@ usb:v3195pF280*
 usb:v3195pF281*
  ID_MODEL_FROM_DATABASE=MSO-28
 
+usb:v3197*
+ ID_VENDOR_FROM_DATABASE=Katusha
+
+usb:v3197p1001*
+ ID_MODEL_FROM_DATABASE=M151
+
+usb:v3197p1002*
+ ID_MODEL_FROM_DATABASE=M250
+
+usb:v3197p1003*
+ ID_MODEL_FROM_DATABASE=P130
+
+usb:v3197p1004*
+ ID_MODEL_FROM_DATABASE=M130
+
+usb:v3197p1101*
+ ID_MODEL_FROM_DATABASE=P247
+
+usb:v3197p1102*
+ ID_MODEL_FROM_DATABASE=M247
+
+usb:v3197p1103*
+ ID_MODEL_FROM_DATABASE=M348
+
 usb:v31C9*
  ID_VENDOR_FROM_DATABASE=BeiJing LanXum Computer Technology Co., Ltd.
 
@@ -69653,8 +69707,23 @@ usb:v8086p07D3*
 usb:v8086p07DC*
  ID_MODEL_FROM_DATABASE=Bluetooth 4.0* Smart Ready (low energy)
 
+usb:v8086p0A66*
+ ID_MODEL_FROM_DATABASE=RealSense 3D Camera (Front F200)
+
+usb:v8086p0AA5*
+ ID_MODEL_FROM_DATABASE=RealSense SR300
+
+usb:v8086p0AD2*
+ ID_MODEL_FROM_DATABASE=RealSense D410
+
+usb:v8086p0AD3*
+ ID_MODEL_FROM_DATABASE=RealSense D415
+
 usb:v8086p0B07*
  ID_MODEL_FROM_DATABASE=RealSense D435
+
+usb:v8086p0B64*
+ ID_MODEL_FROM_DATABASE=RealSense L515
 
 usb:v8086p0DAD*
  ID_MODEL_FROM_DATABASE=Cherry MiniatureCard Keyboard
@@ -69730,6 +69799,9 @@ usb:v8086p9500*
 
 usb:v8086p9890*
  ID_MODEL_FROM_DATABASE=82930 Test Board
+
+usb:v8086pA36D*
+ ID_MODEL_FROM_DATABASE=Host Controller
 
 usb:v8086pBEEF*
  ID_MODEL_FROM_DATABASE=SCM Miniature Card Reader/Writer
