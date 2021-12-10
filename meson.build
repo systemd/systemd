@@ -1676,8 +1676,14 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
-#####################################################################
+############################################################
 
+tests = []
+fuzzers = []
+
+############################################################
+
+# Include these now as they provide gnu-efi detection.
 subdir('src/fundamental')
 subdir('src/boot/efi')
 
@@ -1695,7 +1701,7 @@ update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 
-#####################################################################
+############################################################
 
 config_h = configure_file(
         output : 'config.h',
@@ -1715,9 +1721,6 @@ dbus_interfaces_dir = get_option('dbus-interfaces-dir')
 if dbus_interfaces_dir == ''
    dbus_interfaces_dir = get_option('datadir') + '/dbus-1'
 endif
-
-tests = []
-fuzzers = []
 
 basic_includes = include_directories(
         'src/basic',
