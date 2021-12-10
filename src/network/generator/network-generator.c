@@ -16,10 +16,10 @@
 
 /*
   # .network
-  ip={dhcp|on|any|dhcp6|auto6|either6}
-  ip=<interface>:{dhcp|on|any|dhcp6|auto6}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<dns1>][:<dns2>]]
+  ip={dhcp|on|any|dhcp6|auto6|either6|link6}
+  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<dns1>][:<dns2>]]
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
@@ -51,6 +51,7 @@ static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_AUTO6]   = "auto6",
         [DHCP_TYPE_EITHER6] = "either6",
         [DHCP_TYPE_IBFT]    = "ibft",
+        [DHCP_TYPE_LINK6]   = "link6",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dracut_dhcp_type, DHCPType);
@@ -65,6 +66,7 @@ static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_AUTO6]   = "no",   /* TODO: enable other setting? */
         [DHCP_TYPE_EITHER6] = "ipv6", /* TODO: enable other setting? */
         [DHCP_TYPE_IBFT]    = "no",
+        [DHCP_TYPE_LINK6]   = "no",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType);
@@ -566,8 +568,8 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         unsigned char prefixlen;
         int r;
 
-        /* ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<mtu>][:<macaddr>]]
-         * ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<dns1>][:<dns2>]] */
+        /* ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<mtu>][:<macaddr>]]
+         * ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<dns1>][:<dns2>]] */
 
         r = parse_ip_address_one(family, &value, &addr);
         if (r < 0)
@@ -660,7 +662,7 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
         const char *ifname, *dhcp_type, *p;
         int r;
 
-        /* ip=<interface>:{dhcp|on|any|dhcp6|auto6}[:[<mtu>][:<macaddr>]] */
+        /* ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]] */
 
         p = strchr(value, ':');
         if (!p)
@@ -694,7 +696,7 @@ static int parse_cmdline_ip(Context *context, const char *key, const char *value
 
         p = strchr(value, ':');
         if (!p)
-                /* ip={dhcp|on|any|dhcp6|auto6|either6} */
+                /* ip={dhcp|on|any|dhcp6|auto6|either6|link6} */
                 return network_set_dhcp_type(context, "", value);
 
         if (value[0] == '[')
