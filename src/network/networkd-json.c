@@ -1196,7 +1196,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("SSID", link->ssid),
                                 JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL("BSSID", &link->bssid),
                                 /* link state */
-                                JSON_BUILD_PAIR_STRING("SetupState", link_state_to_string(link->state)),
+                                JSON_BUILD_PAIR_STRING("AdministrativeState", link_state_to_string(link->state)),
                                 JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
                                 JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
                                 JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(link->address_state)),
