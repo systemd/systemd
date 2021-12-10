@@ -3547,6 +3547,41 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$MONITOR_METADATA</varname></term>
+
+          <listitem><para>Only defined for the service unit type, this environment variable is passed to all
+          <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which run in services
+          triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.</para>
+
+          <para>
+          The contents of this variable consists of a semi-colon separated list of metadata fields associated with the triggering
+          service. For each service which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname>
+          dependency the following fields will be set:
+          </para>
+
+          <itemizedlist>
+            <listitem><para><constant>SERVICE_RESULT</constant></para></listitem>
+            <listitem><para><constant>EXIT_CODE</constant></para></listitem>
+            <listitem><para><constant>EXIT_STATUS</constant></para></listitem>
+            <listitem><para><constant>INVOCATION_ID</constant></para></listitem>
+            <listitem><para><constant>UNIT</constant></para></listitem>
+          </itemizedlist>
+
+          <para>The fields <constant>SERVICE_RESULT</constant>, <constant>EXIT_CODE</constant> and
+          <constant>EXIT_STATUS</constant> may take the same values that are allowed when set for
+          <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes. The fields
+          <constant>INVOCATION_ID</constant> and <constant>UNIT</constant> are the invocaton id and unit
+          name of the service which triggered the dependency. Each field is comma separated, i.e.</para>
+
+          <programlisting>
+SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=triggering.service
+          </programlisting>
+
+          </listitem>
+
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$PIDFILE</varname></term>
 
           <listitem><para>The path to the configured PID file, in case the process is forked off on behalf of
@@ -3981,6 +4016,77 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </tbody>
       </tgroup>
     </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+      <example>
+        <title><varname>$MONITOR_METADATA</varname> usage</title>
+
+        <para>A service <filename index="false">myfailer.service</filename> which can trigger an
+        <varname>OnFailure=</varname> dependency.</para>
+
+        <programlisting>
+[Unit]
+Description=Service which can trigger an OnFailure= dependency
+OnFailure=myhandler.service
+
+[Service]
+ExecStart=/bin/myprogram
+        </programlisting>
+
+        <para>A service <filename index="false">mysuccess.service</filename> which can trigger an
+        <varname>OnSuccess=</varname> dependency.</para>
+
+        <programlisting>
+[Unit]
+Description=Service which can trigger an OnSuccess= dependency
+OnSuccess=myhandler.service
+
+[Service]
+ExecStart=/bin/mysecondprogram
+        </programlisting>
+
+        <para>A service <filename index="false">myhandler.service</filename> which can be triggered
+        by any of the above services.</para>
+
+        <programlisting>
+[Unit]
+Description=Acts on service failing or succeeding
+
+[Service]
+ExecStart=/bin/bash -c "echo $MONITOR_METADATA"
+        </programlisting>
+
+        <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
+        then <filename index="false">myhandler.service</filename> would be triggered and the
+        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service
+        </programlisting>
+
+        <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
+        then <filename index="false">myhandler.service</filename> would be triggered and the
+        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+        </programlisting>
+
+        <para>If <filename index="false">myfailer.service</filename> and <filename index="false">mysuccess.service</filename> were to run and exit,
+        there is a chance that the triggered dependency start job might be merged. Thus only a single invocation of
+        <filename index="false">myhandler.service</filename> would be triggered. In this case the <varname>$MONITOR_METADATA</varname> variable
+        would be a list containing exit metadata for both of <filename index="false">myfailer.service</filename>
+        and <filename index="false">mysuccess.service</filename>.</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service;SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+        </programlisting>
+
+    </example>
+
   </refsect1>
 
   <refsect1>
