@@ -566,7 +566,7 @@ EFI_STATUS get_file_info_harder(
                 EFI_FILE_INFO **ret,
                 UINTN *ret_size) {
 
-        UINTN size = OFFSETOF(EFI_FILE_INFO, FileName) + 256;
+        UINTN size = offsetof(EFI_FILE_INFO, FileName) + 256;
         _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
 
@@ -610,7 +610,7 @@ EFI_STATUS readdir_harder(
          * the specified buffer needs to be freed by caller, after final use. */
 
         if (!*buffer) {
-                sz = OFFSETOF(EFI_FILE_INFO, FileName) /* + 256 */;
+                sz = offsetof(EFI_FILE_INFO, FileName) /* + 256 */;
                 *buffer = xallocate_pool(sz);
                 *buffer_size = sz;
         } else
