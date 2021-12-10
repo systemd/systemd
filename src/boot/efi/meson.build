@@ -363,6 +363,12 @@ endforeach
 
 ############################################################
 
+tests += [
+        [['src/boot/efi/test-bcd.c'],
+         [],
+         [libzstd]],
+]
+
 test_efi_disk_img = custom_target(
         'test-efi-disk.img',
         input : [efi_stubs[0][0], efi_stubs[1][1]],
