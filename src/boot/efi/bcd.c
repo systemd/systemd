@@ -1,8 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include "macro-fundamental.h"
-#include "util.h"
+/* Provide our own "EFI API" if we are running as a unit test. */
+#if __STDC_HOSTED__
+#        include <stddef.h>
+#        include <strings.h>
+#        include <uchar.h>
+
+#        define CHAR8 char
+#        define CHAR16 char16_t
+#        define UINT8 uint8_t
+#        define UINT16 uint16_t
+#        define UINT32 uint32_t
+#        define UINT64 uint64_t
+#        define UINTN size_t
+#        define strncasecmpa(a, b, n) strncasecmp((a), (b), (n))
+
+#        define HOSTESD_STATIC static
+#else
+#        include <efi.h>
+#        include "macro-fundamental.h"
+#        include "util.h"
+#        define HOSTESD_STATIC
+#endif
 
 enum {
         SIG_BASE_BLOCK = 1718052210, /* regf */
@@ -202,7 +221,7 @@ static KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key *key,
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
+HOSTESD_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
         assert(bcd);
 
         if (HIVE_CELL_OFFSET > bcd_len)
