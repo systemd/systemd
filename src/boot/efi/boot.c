@@ -4,6 +4,7 @@
 #include <efigpt.h>
 #include <efilib.h>
 
+#include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
@@ -1941,7 +1942,7 @@ static void config_entry_add_osx(Config *config) {
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR8 *bcd = NULL;
-        const CHAR16 *title = NULL;
+        CHAR16 *title = NULL;
         EFI_STATUS err;
         UINTN len;
 
@@ -1954,34 +1955,8 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 
         /* Try to find a better title. */
         err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
-        if (!EFI_ERROR(err)) {
-                static const CHAR16 *versions[] = {
-                        L"Windows 11",
-                        L"Windows 10",
-                        L"Windows 8.1",
-                        L"Windows 8",
-                        L"Windows 7",
-                        L"Windows Vista",
-                };
-
-                CHAR8 *p = bcd;
-                while (!title) {
-                        CHAR8 *q = mempmem_safe(p, len, versions[0], STRLEN(L"Windows "));
-                        if (!q)
-                                break;
-
-                        len -= q - p;
-                        p = q;
-
-                        /* We found the prefix, now try all the version strings. */
-                        for (UINTN i = 0; i < ELEMENTSOF(versions); i++) {
-                                if (memory_startswith(p, len, versions[i] + STRLEN("Windows "))) {
-                                        title = versions[i];
-                                        break;
-                                }
-                        }
-                }
-        }
+        if (!EFI_ERROR(err))
+                title = get_bcd_title((UINT8 *) bcd, len);
 
         config_entry_add_loader_auto(config, device, root_dir, NULL,
                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",

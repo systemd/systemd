@@ -90,6 +90,7 @@ if efi_lds == ''
 endif
 
 efi_headers = files('''
+        bcd.h
         console.h
         cpio.h
         devicetree.h
@@ -119,6 +120,7 @@ common_sources = '''
 '''.split()
 
 systemd_boot_sources = '''
+        bcd.c
         boot.c
         console.c
         drivers.c
@@ -360,6 +362,12 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
 endforeach
 
 ############################################################
+
+tests += [
+        [['src/boot/efi/test-bcd.c'],
+         [],
+         [libzstd]],
+]
 
 test_efi_disk_img = custom_target(
         'test-efi-disk.img',

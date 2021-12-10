@@ -1,5 +1,6 @@
 *.[ch] whitespace=tab-in-indent,trailing-space
 *.gpg  binary generated
+*.bcd  binary
 *.bmp  binary
 
 # Mark files as "generated", i.e. no license applies to them.
