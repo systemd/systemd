@@ -3421,7 +3421,7 @@ public_programs += executable(
         install : true)
 
 if conf.get('ENABLE_NETWORKD') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-networkd',
                 systemd_networkd_sources,
                 include_directories : network_includes,
