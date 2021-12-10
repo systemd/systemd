@@ -127,6 +127,20 @@ static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
             (x >= CGROUP_CPU_SHARES_MIN && x <= CGROUP_CPU_SHARES_MAX);
 }
 
+/* Special values for the special {blkio,io}.bfq.weight attribute */
+#define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
+#define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
+#define CGROUP_BFQ_WEIGHT_DEFAULT UINT64_C(100)
+
+/* Convert the normal io.weight value to io.bfq.weight */
+static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
+        return
+            io_weight <= CGROUP_WEIGHT_DEFAULT ?
+            CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - io_weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN) :
+            CGROUP_BFQ_WEIGHT_DEFAULT + (io_weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
+}
+
 /* Special values for the blkio.weight attribute */
 #define CGROUP_BLKIO_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_BLKIO_WEIGHT_MIN UINT64_C(10)
