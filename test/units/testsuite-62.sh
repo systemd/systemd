@@ -47,6 +47,11 @@ if [[ "$KERNEL_MAJOR" -lt $MAJOR_REQUIRED || ("$KERNEL_MAJOR" -eq $MAJOR_REQUIRE
     exit 0
 fi
 
+if systemctl --version | grep -q -F "-BPF_FRAMEWORK"; then
+    echo "bpf-framework is disabled" >>/skipped
+    exit 0
+fi
+
 trap teardown EXIT
 setup
 
