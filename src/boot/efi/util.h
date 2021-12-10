@@ -13,7 +13,7 @@
 /* This TPM PCR is where most Linux infrastructure extends the initrd binary images into, and so do we. */
 #define TPM_PCR_INDEX_INITRD 4
 
-#define OFFSETOF(x,y) __builtin_offsetof(x,y)
+#define offsetof(type, member) __builtin_offsetof(type, member)
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
@@ -111,13 +111,6 @@ EFI_STATUS log_oom(void);
                 err; \
         })
 
-void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len);
-
-static inline void *mempmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
-        CHAR8 *p = memmem_safe(haystack, haystack_len, needle, needle_len);
-        return p ? p + needle_len : NULL;
-}
-
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 void clear_screen(UINTN attr);
 
@@ -130,6 +123,7 @@ EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN 
 
 UINTN strnlena(const CHAR8 *p, UINTN maxlen);
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz);
+INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen);
 
 BOOLEAN is_ascii(const CHAR16 *f);
 
