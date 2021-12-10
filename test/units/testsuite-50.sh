@@ -127,7 +127,7 @@ verity_size="$((verity_size * 2))KiB"
 signature_size="$((signature_size * 2))KiB"
 
 HAVE_OPENSSL=0
-if systemctl --version | grep -q -- +OPENSSL ; then
+if systemctl --version | grep -q -e +OPENSSL && command -v openssl >/dev/null 2>&1; then
     HAVE_OPENSSL=1
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
     cat >> "${image}.openssl.cnf" <<EOF
