@@ -36,7 +36,7 @@ teardown() {
 
 KERNEL_VERSION="$(uname -r)"
 KERNEL_MAJOR="${KERNEL_VERSION%%.*}"
-KERNEL_MINOR="${KERNEL_VERSION#$KERNEL_MAJOR.}"
+KERNEL_MINOR="${KERNEL_VERSION#"$KERNEL_MAJOR".}"
 KERNEL_MINOR="${KERNEL_MINOR%%.*}"
 
 MAJOR_REQUIRED=5
@@ -44,6 +44,11 @@ MINOR_REQUIRED=7
 
 if [[ "$KERNEL_MAJOR" -lt $MAJOR_REQUIRED || ("$KERNEL_MAJOR" -eq $MAJOR_REQUIRED && "$KERNEL_MINOR" -lt $MINOR_REQUIRED) ]]; then
     echo "kernel is not 5.7+" >>/skipped
+    exit 0
+fi
+
+if systemctl --version | grep -q -F "-BPF_FRAMEWORK"; then
+    echo "bpf-framework is disabled" >>/skipped
     exit 0
 fi
 
