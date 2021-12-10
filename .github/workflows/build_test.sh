@@ -62,6 +62,7 @@ PACKAGES=(
 )
 COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
+LINKER="${LINKER:?}"
 RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -117,7 +118,12 @@ for args in "${ARGS[@]}"; do
 
     info "Checking build with $args"
     # shellcheck disable=SC2086
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" \
+         CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
+         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
+         meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+               $args build; then
+
         fatal "meson failed with $args"
     fi
 
