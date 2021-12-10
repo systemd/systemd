@@ -13,7 +13,7 @@
 /* This TPM PCR is where most Linux infrastructure extends the initrd binary images into, and so do we. */
 #define TPM_PCR_INDEX_INITRD 4
 
-#define OFFSETOF(x,y) __builtin_offsetof(x,y)
+#define offsetof(type, member) __builtin_offsetof(type, member)
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
