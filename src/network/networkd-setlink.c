@@ -948,7 +948,7 @@ int link_configure_mtu(Link *link) {
         return link_request_to_set_mtu(link, mtu);
 }
 
-static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up, bool check_ready) {
+static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up, bool on_activate) {
         int r;
 
         assert(m);
@@ -958,10 +958,17 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
                 goto on_error;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, up ?
-                                               "Could not bring up interface, ignoring" :
-                                               "Could not bring down interface, ignoring");
+        if (r < 0) {
+                const char *error_msg;
+
+                error_msg = up ?
+                        (on_activate ? "Could not bring up interface" : "Could not bring up interface, ignoring") :
+                        (on_activate ? "Could not bring down interface" : "Could not bring down interface, ignoring");
+
+                log_link_message_warning_errno(link, m, r, error_msg);
+                if (on_activate)
+                        goto on_error;
+        }
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -969,7 +976,7 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
                 goto on_error;
         }
 
-        if (check_ready) {
+        if (on_activate) {
                 link->activated = true;
                 link_check_ready(link);
         }
@@ -984,19 +991,19 @@ on_error:
 }
 
 static int link_activate_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, true, true);
+        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ true, /* on_activate = */ true);
 }
 
 static int link_activate_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, false, true);
+        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ false, /* on_activate = */ true);
 }
 
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, true, false);
+        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ true, /* on_activate = */ false);
 }
 
 static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, false, false);
+        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ false, /* on_activate = */ false);
 }
 
 static const char *up_or_down(bool up) {
