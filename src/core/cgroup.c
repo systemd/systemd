@@ -1279,6 +1279,7 @@ assert_cc(BFQ_WEIGHT(10000) == 1000);
 
 static void set_io_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("default \n")+DECIMAL_STR_MAX(uint64_t)];
+        uint64_t bfq_weight;
 
         assert(u);
 
@@ -1286,8 +1287,11 @@ static void set_io_weight(Unit *u, uint64_t weight) {
          * See also: https://github.com/systemd/systemd/pull/13335 and
          * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
          * The range is 1..1000 apparently, and the default is 100. */
-        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
-        (void) set_attribute_and_warn(u, "io", "io.bfq.weight", buf);
+        bfq_weight = BFQ_WEIGHT(weight);
+        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        if (set_attribute_and_warn(u, "io", "io.bfq.weight", buf) >= 0 && weight != bfq_weight)
+                log_unit_debug(u, "IOWeight=%" PRIu64 " scaled to io.bfq.weight=%" PRIu64,
+                               weight, bfq_weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
@@ -1295,12 +1299,16 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
 static void set_blkio_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("\n")+DECIMAL_STR_MAX(uint64_t)];
+        uint64_t bfq_weight;
 
         assert(u);
 
         /* FIXME: see comment in set_io_weight(). */
-        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
-        (void) set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf);
+        bfq_weight = BFQ_WEIGHT(weight);
+        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        if (set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf) >= 0 && weight != bfq_weight)
+                log_unit_debug(u, "BlockIOWeight=%" PRIu64 " scaled to blkio.bfq.weight=%" PRIu64,
+                               weight, bfq_weight);
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
