@@ -10,7 +10,7 @@
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 
-#include "bpf/restrict_ifaces/restrict-ifaces.skel.h"
+#include "bpf/restrict_ifaces/restrict-ifaces-skel.h"
 
 static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifaces_bpf *obj) {
         restrict_ifaces_bpf__destroy(obj);

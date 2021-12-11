@@ -558,10 +558,10 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 return;
 
         (void) network_config_state_to_string_alloc(route->state, &state);
-        if (in_addr_is_set(route->family, &route->dst))
+        if (in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0)
                 (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-        if (in_addr_is_set(route->family, &route->src))
-                (void) in_addr_to_string(route->family, &route->src, &src);
+        if (in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0)
+                (void) in_addr_prefix_to_string(route->family, &route->src, route->src_prefixlen, &src);
         if (in_addr_is_set(route->gw_family, &route->gw)) {
                 (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
                 gw = gw_alloc;
@@ -1260,24 +1260,25 @@ static int route_configure(
         return 0;
 }
 
-void route_cancel_request(Route *route) {
+void route_cancel_request(Route *route, Link *link) {
         Request req;
 
         assert(route);
 
+        link = route->link ?: link;
+
+        assert(link);
+
         if (!route_is_requesting(route))
                 return;
 
-        if (!route->link)
-                return;
-
         req = (Request) {
-                .link = route->link,
+                .link = link,
                 .type = REQUEST_TYPE_ROUTE,
                 .route = route,
         };
 
-        request_drop(ordered_set_get(route->link->manager->request_queue, &req));
+        request_drop(ordered_set_get(link->manager->request_queue, &req));
         route_cancel_requesting(route);
 }
 
@@ -1645,7 +1646,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
-        unsigned char table;
         size_t rta_len;
         int r;
 
@@ -1784,6 +1784,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_netlink_message_read_u32(message, RTA_TABLE, &tmp->table);
         if (r == -ENODATA) {
+                unsigned char table;
+
                 r = sd_rtnl_message_route_get_table(message, &table);
                 if (r >= 0)
                         tmp->table = table;
@@ -2121,6 +2123,8 @@ int config_parse_destination(
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
+
+        (void) in_addr_mask(n->family, buffer, *prefixlen);
 
         TAKE_PTR(n);
         return 0;

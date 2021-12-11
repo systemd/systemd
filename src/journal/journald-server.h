@@ -10,7 +10,7 @@ typedef struct Server Server;
 
 #include "conf-parser.h"
 #include "hashmap.h"
-#include "journal-file.h"
+#include "journald-file.h"
 #include "journald-context.h"
 #include "journald-rate-limit.h"
 #include "journald-stream.h"
@@ -89,8 +89,8 @@ struct Server {
         sd_event_source *watchdog_event_source;
         sd_event_source *idle_event_source;
 
-        JournalFile *runtime_journal;
-        JournalFile *system_journal;
+        JournaldFile *runtime_journal;
+        JournaldFile *system_journal;
         OrderedHashmap *user_journals;
 
         uint64_t seqnum;

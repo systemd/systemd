@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journal-file.h"
+#include "journald-file.h"
 #include "journal-importer.h"
 
 typedef struct RemoteServer RemoteServer;
 
 typedef struct Writer {
-        JournalFile *journal;
+        JournaldFile *journal;
         JournalMetrics metrics;
 
         MMapCache *mmap;

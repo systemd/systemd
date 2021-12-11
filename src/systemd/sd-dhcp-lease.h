@@ -71,6 +71,13 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes);
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
 int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
+int sd_dhcp_lease_get_6rd(
+                sd_dhcp_lease *lease,
+                uint8_t *ret_ipv4masklen,
+                uint8_t *ret_prefixlen,
+                struct in6_addr *ret_prefix,
+                const struct in_addr **ret_br_addresses,
+                size_t *ret_n_br_addresses);
 
 int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination);
 int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length);

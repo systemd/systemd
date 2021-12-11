@@ -402,7 +402,7 @@ int netdev_generate_hw_addr(
                 struct hw_addr_data *ret) {
 
         struct hw_addr_data a = HW_ADDR_NULL;
-        bool warn_invalid = false;
+        bool is_static = false;
         int r;
 
         assert(netdev);
@@ -465,10 +465,10 @@ int netdev_generate_hw_addr(
 
         } else {
                 a = *hw_addr;
-                warn_invalid = true;
+                is_static = true;
         }
 
-        r = net_verify_hardware_address(name, warn_invalid, NETDEV_VTABLE(netdev)->iftype,
+        r = net_verify_hardware_address(name, is_static, NETDEV_VTABLE(netdev)->iftype,
                                         parent ? &parent->hw_addr : NULL, &a);
         if (r < 0)
                 return r;
@@ -612,26 +612,20 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 }
 
 static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
-        Request req;
-
         assert(netdev);
         assert(link);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
-        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
+
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
             link->state != LINK_STATE_CONFIGURED)
                 return false;
 
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MTU),
-        };
-
-        if (ordered_set_contains(link->manager->request_queue, &req))
+        if (link->set_link_messages > 0)
                 return false;
 
         return true;
@@ -687,6 +681,7 @@ static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_messa
         if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
                 log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
         }
 
         return 0;

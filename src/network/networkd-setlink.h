@@ -49,3 +49,5 @@ int link_request_to_activate(Link *link);
 
 int request_process_link_up_or_down(Request *req);
 int link_request_to_bring_up_or_down(Link *link, bool up);
+
+int link_remove(Link *link);

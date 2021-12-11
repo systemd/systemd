@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '249',
+        version : '250',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.53.2',
        )
 
-libsystemd_version = '0.32.0'
-libudev_version = '1.7.2'
+libsystemd_version = '0.33.0'
+libudev_version = '1.7.3'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
@@ -1008,11 +1008,9 @@ else
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
 
-        bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
-        conf.set10('BPF_FRAMEWORK',
-                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
+        conf.set10('BPF_FRAMEWORK', deps_found)
 endif
 
 libmount = dependency('mount',
@@ -1338,6 +1336,10 @@ if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
+
+        # New in elfutils 0.177
+        conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
+                   have and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
 else
         have = false
         libdw = []
@@ -1526,8 +1528,7 @@ conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
 want_repart = get_option('repart')
 if want_repart != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1)
+        have = conf.get('HAVE_LIBFDISK') == 1
         if want_repart == 'true' and not have
                 error('repart support was requested, but dependencies are not available')
         endif
@@ -1682,7 +1683,6 @@ subdir('src/boot/efi')
 
 ############################################################
 
-build_bpf_skel_py = find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1693,6 +1693,7 @@ update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
+export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 
 #####################################################################
 
@@ -1707,6 +1708,13 @@ add_project_arguments('-include', 'config.h', language : 'c')
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
+
+# D-Bus introspection XML export
+dbus_programs = []
+dbus_interfaces_dir = get_option('dbus-interfaces-dir')
+if dbus_interfaces_dir == ''
+   dbus_interfaces_dir = get_option('datadir') + '/dbus-1'
+endif
 
 tests = []
 fuzzers = []
@@ -1975,7 +1983,7 @@ endforeach
 
 ############################################################
 
-executable(
+dbus_programs += executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
@@ -2144,7 +2152,7 @@ if conf.get('HAVE_BLKID') == 1
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-resolved',
                 systemd_resolved_sources,
                 include_directories : resolve_includes,
@@ -2181,7 +2189,7 @@ if conf.get('ENABLE_RESOLVE') == 1
 endif
 
 if conf.get('ENABLE_LOGIND') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-logind',
                 systemd_logind_sources,
                 include_directories : includes,
@@ -2327,7 +2335,7 @@ public_programs += executable(
         install_dir : rootbindir)
 
 if conf.get('ENABLE_PORTABLED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-portabled',
                 systemd_portabled_sources,
                 include_directories : includes,
@@ -2407,7 +2415,7 @@ if conf.get('ENABLE_HOMED') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        dbus_programs += executable(
                 'systemd-homed',
                 systemd_homed_sources,
                 include_directories : home_includes,
@@ -2610,7 +2618,7 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
 endif
 
 if conf.get('ENABLE_HOSTNAMED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-hostnamed',
                 'src/hostname/hostnamed.c',
                 include_directories : includes,
@@ -2637,7 +2645,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 deps = []
         endif
 
-        executable(
+        dbus_programs += executable(
                 'systemd-localed',
                 systemd_localed_sources,
                 include_directories : includes,
@@ -2657,7 +2665,7 @@ if conf.get('ENABLE_LOCALED') == 1
 endif
 
 if conf.get('ENABLE_TIMEDATED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-timedated',
                 'src/timedate/timedated.c',
                 include_directories : includes,
@@ -2701,7 +2709,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
 endif
 
 if conf.get('ENABLE_MACHINED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-machined',
                 systemd_machined_sources,
                 include_directories : includes,
@@ -2726,7 +2734,7 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-importd',
                 systemd_importd_sources,
                 include_directories : includes,
@@ -2811,7 +2819,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-remote',
                 systemd_journal_remote_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared,
                              libsystemd_journal_remote],
                 dependencies : [threads,
@@ -2827,7 +2835,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-gatewayd',
                 systemd_journal_gatewayd_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared],
                 dependencies : [threads,
                                 libmicrohttpd,
@@ -2885,7 +2893,7 @@ if conf.get('ENABLE_PSTORE') == 1
 endif
 
 if conf.get('ENABLE_OOMD') == 1
-        executable('systemd-oomd',
+        dbus_programs += executable('systemd-oomd',
                    systemd_oomd_sources,
                    include_directories : includes,
                    link_with : [libshared],
@@ -2931,8 +2939,7 @@ if conf.get('ENABLE_REPART') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libblkid,
-                                libfdisk,
-                                libopenssl],
+                                libfdisk],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
@@ -3414,7 +3421,7 @@ public_programs += executable(
         install : true)
 
 if conf.get('ENABLE_NETWORKD') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-networkd',
                 systemd_networkd_sources,
                 include_directories : network_includes,
@@ -3829,6 +3836,13 @@ run_target(
 
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
+
+custom_target(
+        'export-dbus-interfaces',
+        output : 'interfaces',
+        install : dbus_interfaces_dir != 'no',
+        install_dir : dbus_interfaces_dir,
+        command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 
 ############################################################
 

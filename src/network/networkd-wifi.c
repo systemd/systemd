@@ -130,7 +130,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
 
         log_link_debug(link, "nl80211: received %s(%u) message: iftype=%s, ssid=%s",
                        strna(nl80211_cmd_to_string(cmd)), cmd,
-                       strna(nl80211_iftype_to_string(wlan_iftype)), ssid);
+                       strna(nl80211_iftype_to_string(wlan_iftype)), strna(ssid));
 
         switch(cmd) {
         case NL80211_CMD_SET_INTERFACE:

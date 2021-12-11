@@ -1463,12 +1463,13 @@ static int client_receive_message(
         assert(client->event);
 
         buflen = next_datagram_size_fd(fd);
-        if (buflen == -ENETDOWN)
-                /* the link is down. Don't return an error or the I/O event source will be disconnected
-                 * and we won't be able to receive packets again when the link comes back. */
+        if (buflen < 0) {
+                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                        return 0;
+
+                log_dhcp6_client_errno(client, buflen, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
-        if (buflen < 0)
-                return buflen;
+        }
 
         message = malloc(buflen);
         if (!message)
@@ -1478,12 +1479,11 @@ static int client_receive_message(
 
         len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
         if (len < 0) {
-                /* see comment above for why we shouldn't error out on ENETDOWN. */
-                if (ERRNO_IS_TRANSIENT(len) || len == -ENETDOWN)
+                if (ERRNO_IS_TRANSIENT(len) || ERRNO_IS_DISCONNECT(len))
                         return 0;
 
-                return log_dhcp6_client_errno(client, len, "Could not receive message from UDP socket: %m");
-
+                log_dhcp6_client_errno(client, len, "Could not receive message from UDP socket, ignoring: %m");
+                return 0;
         }
         if ((size_t) len < sizeof(DHCP6Message)) {
                 log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");

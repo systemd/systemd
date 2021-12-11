@@ -41,8 +41,9 @@
     <title>Configuration Format</title>
 
     <para>Each file contains a list of binfmt_misc kernel binary format rules. Consult the kernel's <ulink
-    url="https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html">binfmt-misc.rst</ulink> documentation
-    file for more information on registration of additional binary formats and how to write rules.</para>
+    url="https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html">Kernel Support for
+    miscellaneous Binary Formats (binfmt_misc)</ulink> documentation file for more information on
+    registration of additional binary formats and how to write rules.</para>
 
     <para>Empty lines and lines beginning with <literal>;</literal> and <literal>#</literal> are ignored.
     Note that this means you may not use those symbols as the delimiter in binary format rules.</para>

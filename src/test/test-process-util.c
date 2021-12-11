@@ -484,8 +484,8 @@ TEST(get_process_cmdline_harder) {
         /* Test with multiple arguments that do require quoting */
 
 #define CMDLINE1 "foo\0'bar'\0\"bar$\"\0x y z\0!``\0"
-#define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\" \"\""
-#define EXPECT1p  "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``' \"\""
+#define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\""
+#define EXPECT1p  "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
         assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
@@ -503,8 +503,8 @@ TEST(get_process_cmdline_harder) {
         line = mfree(line);
 
 #define CMDLINE2 "foo\0\1\2\3\0\0"
-#define EXPECT2  "foo \"\\001\\002\\003\" \"\" \"\""
-#define EXPECT2p  "foo $'\\001\\002\\003' \"\" \"\""
+#define EXPECT2  "foo \"\\001\\002\\003\""
+#define EXPECT2p  "foo $'\\001\\002\\003'"
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
         assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);

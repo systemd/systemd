@@ -13,6 +13,7 @@ typedef struct MMapFileDescriptor MMapFileDescriptor;
 MMapCache* mmap_cache_new(void);
 MMapCache* mmap_cache_ref(MMapCache *m);
 MMapCache* mmap_cache_unref(MMapCache *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MMapCache*, mmap_cache_unref);
 
 int mmap_cache_fd_get(
         MMapFileDescriptor *f,
@@ -22,7 +23,8 @@ int mmap_cache_fd_get(
         size_t size,
         struct stat *st,
         void **ret);
-MMapFileDescriptor * mmap_cache_add_fd(MMapCache *m, int fd, int prot);
+MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot);
+MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
 void mmap_cache_fd_free(MMapFileDescriptor *f);
 
 void mmap_cache_stats_log_debug(MMapCache *m);

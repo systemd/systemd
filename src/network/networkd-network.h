@@ -133,7 +133,6 @@ struct Network {
         bool dhcp_route_metric_set;
         uint32_t dhcp_route_table;
         bool dhcp_route_table_set;
-        bool dhcp_route_table_set_explicitly;
         uint32_t dhcp_fallback_lease_lifetime;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
@@ -154,6 +153,7 @@ struct Network {
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
+        bool dhcp_use_6rd;
         bool dhcp_send_release;
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
@@ -172,9 +172,6 @@ struct Network {
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
-        bool dhcp6_route_table;
-        bool dhcp6_route_table_set;
-        bool dhcp6_route_table_set_explicitly;
         DHCPUseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
         uint32_t dhcp6_iaid;
@@ -233,16 +230,16 @@ struct Network {
         int router_uplink_index;
         char *router_uplink_name;
 
-        /* DHCPv6 Prefix Delegation support */
-        int dhcp6_pd;
-        bool dhcp6_pd_announce;
-        bool dhcp6_pd_assign;
-        bool dhcp6_pd_manage_temporary_address;
-        int64_t dhcp6_pd_subnet_id;
-        uint32_t dhcp6_pd_route_metric;
-        Set *dhcp6_pd_tokens;
-        int dhcp6_pd_uplink_index;
-        char *dhcp6_pd_uplink_name;
+        /* DHCP Prefix Delegation support */
+        int dhcp_pd;
+        bool dhcp_pd_announce;
+        bool dhcp_pd_assign;
+        bool dhcp_pd_manage_temporary_address;
+        int64_t dhcp_pd_subnet_id;
+        uint32_t dhcp_pd_route_metric;
+        Set *dhcp_pd_tokens;
+        int dhcp_pd_uplink_index;
+        char *dhcp_pd_uplink_name;
 
         /* Bridge Support */
         int use_bpdu;
@@ -370,7 +367,7 @@ int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
 
-int manager_build_dhcp6_pd_subnet_ids(Manager *manager);
+int manager_build_dhcp_pd_subnet_ids(Manager *manager);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 void network_apply_anonymize_if_set(Network *network);

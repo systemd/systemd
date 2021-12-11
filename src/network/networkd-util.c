@@ -17,7 +17,7 @@ static const char * const network_config_source_table[_NETWORK_CONFIG_SOURCE_MAX
         [NETWORK_CONFIG_SOURCE_IPV4LL]  = "IPv4LL",
         [NETWORK_CONFIG_SOURCE_DHCP4]   = "DHCPv4",
         [NETWORK_CONFIG_SOURCE_DHCP6]   = "DHCPv6",
-        [NETWORK_CONFIG_SOURCE_DHCP6PD] = "DHCPv6-PD",
+        [NETWORK_CONFIG_SOURCE_DHCP_PD] = "DHCP-PD",
         [NETWORK_CONFIG_SOURCE_NDISC]   = "NDisc",
         [NETWORK_CONFIG_SOURCE_RUNTIME] = "runtime",
 };

@@ -568,12 +568,19 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
+                Request req_mac = {
+                        .link = link,
+                        .type = REQUEST_TYPE_SET_LINK,
+                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MAC),
+                };
 
                 if (link->network->batadv) {
                         if (!netdev_is_ready(link->network->batadv))
                                 return false;
                         m = link->network->batadv->ifindex;
                 } else if (link->network->bond) {
+                        if (ordered_set_contains(link->manager->request_queue, &req_mac))
+                                return false;
                         if (!netdev_is_ready(link->network->bond))
                                 return false;
                         m = link->network->bond->ifindex;
@@ -589,6 +596,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                                 }
                         }
                 } else if (link->network->bridge) {
+                        if (ordered_set_contains(link->manager->request_queue, &req_mac))
+                                return false;
                         if (!netdev_is_ready(link->network->bridge))
                                 return false;
                         m = link->network->bridge->ifindex;
@@ -807,7 +816,7 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
                 return 0;
 
         link->requested_hw_addr = link->network->hw_addr;
-        r = net_verify_hardware_address(link->ifname, /* warn_invalid = */ true,
+        r = net_verify_hardware_address(link->ifname, /* is_static = */ true,
                                         link->iftype, &link->hw_addr, &link->requested_hw_addr);
         if (r < 0)
                 return r;
@@ -1169,5 +1178,45 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to bring link %s", up_or_down(up));
+        return 0;
+}
+
+static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not remove interface, ignoring");
+
+        return 0;
+}
+
+int link_remove(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Removing link.");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_DELLINK, link->ifindex);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not allocate RTM_DELLINK message: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_remove_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
         return 0;
 }

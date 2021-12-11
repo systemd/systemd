@@ -116,7 +116,7 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (route->family != family)
                         continue;
-                if (!in_addr_is_set(route->family, &route->dst))
+                if (!in_addr_is_set(route->family, &route->dst) && route->dst_prefixlen == 0)
                         continue;
                 if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) > 0)
                         return true;
@@ -360,9 +360,19 @@ int config_parse_route_table_names(
 
                 *num++ = '\0';
 
+                if (isempty(name)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Route table name cannot be empty. Ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+                if (in_charset(name, DIGITS)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Route table name cannot be numeric. Ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
                 if (STR_IN_SET(name, "default", "main", "local")) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Route table name %s already predefined. Ignoring assignment: %s:%s", name, name, num);
+                                   "Route table name %s is already predefined. Ignoring assignment: %s:%s", name, name, num);
                         continue;
                 }
 

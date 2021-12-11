@@ -16,6 +16,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
 #include "socket-netlink.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -568,27 +569,42 @@ static int link_is_managed(Link *l) {
         return !STR_IN_SET(state, "pending", "initialized", "unmanaged");
 }
 
+static void link_enter_unmanaged(Link *l) {
+        assert(l);
+
+        /* If this link used to be managed, but is now unmanaged, flush all our settings — but only once. */
+        if (l->is_managed)
+                link_flush_settings(l);
+
+        l->is_managed = false;
+}
+
 static void link_read_settings(Link *l) {
+        struct stat st;
         int r;
 
         assert(l);
 
         /* Read settings from networkd, except when networkd is not managing this interface. */
 
+        r = sd_network_link_get_stat(l->ifindex, &st);
+        if (r == -ENOENT)
+                return link_enter_unmanaged(l);
+        if (r < 0)
+                return (void) log_link_warning_errno(l, r, "Failed to stat() networkd's link state file, ignoring: %m");
+
+        if (stat_inode_unmodified(&l->networkd_state_file_stat, &st))
+                /* The state file is unmodified. Not necessary to re-read settings. */
+                return;
+
+        /* Save the new stat for the next event. */
+        l->networkd_state_file_stat = st;
+
         r = link_is_managed(l);
-        if (r < 0) {
-                log_link_warning_errno(l, r, "Failed to determine whether the interface is managed: %m");
-                return;
-        }
-        if (r == 0) {
-
-                /* If this link used to be managed, but is now unmanaged, flush all our settings — but only once. */
-                if (l->is_managed)
-                        link_flush_settings(l);
-
-                l->is_managed = false;
-                return;
-        }
+        if (r < 0)
+                return (void) log_link_warning_errno(l, r, "Failed to determine whether the interface is managed, ignoring: %m");
+        if (r == 0)
+                return link_enter_unmanaged(l);
 
         l->is_managed = true;
 

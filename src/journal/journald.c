@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
                 if (server.system_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(server.system_journal, &u)) {
+                        if (journal_file_next_evolve_usec(server.system_journal->file, &u)) {
                                 if (n >= u)
                                         t = 0;
                                 else

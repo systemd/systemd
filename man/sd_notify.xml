@@ -218,7 +218,7 @@
 
         <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this way will
         be maintained per-service by the service manager and will later be handed back using the usual file descriptor
-        passing logic at the next invocation of the service, see
+        passing logic at the next invocation of the service (e.g. when it is restarted), see
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.  This is
         useful for implementing services that can restart after an explicit request or a crash without losing
         state. Any open sockets and other file descriptors which should not be closed during the restart may be stored
@@ -232,7 +232,8 @@
         <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in their
         automatic removal from the store. Multiple arrays of file descriptors may be sent in separate messages, in
         which case the arrays are combined. Note that the service manager removes duplicate (pointing to the same
-        object) file descriptors before passing them to the service. Use <function>sd_pid_notify_with_fds()</function>
+        object) file descriptors before passing them to the service. When a service is stopped, its file descriptor
+        store is discarded and all file descriptors in it are closed. Use <function>sd_pid_notify_with_fds()</function>
         to send messages with <literal>FDSTORE=1</literal>, see below.</para></listitem>
       </varlistentry>
 

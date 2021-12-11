@@ -26,10 +26,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         assert(description);
 
         desc_len = StrSize(description);
-        tcg_event = AllocateZeroPool(OFFSETOF(TCG_PCR_EVENT, Event) + desc_len);
-        if (!tcg_event)
-                return EFI_OUT_OF_RESOURCES;
-
+        tcg_event = xallocate_zero_pool(OFFSETOF(TCG_PCR_EVENT, Event) + desc_len);
         *tcg_event = (TCG_PCR_EVENT) {
                 .EventSize = desc_len,
                 .PCRIndex = pcrindex,
@@ -60,10 +57,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
         assert(description);
 
         desc_len = StrSize(description);
-        tcg_event = AllocateZeroPool(OFFSETOF(EFI_TCG2_EVENT, Event) + desc_len);
-        if (!tcg_event)
-                return EFI_OUT_OF_RESOURCES;
-
+        tcg_event = xallocate_zero_pool(OFFSETOF(EFI_TCG2_EVENT, Event) + desc_len);
         *tcg_event = (EFI_TCG2_EVENT) {
                 .Size = OFFSETOF(EFI_TCG2_EVENT, Event) + desc_len,
                 .Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER),

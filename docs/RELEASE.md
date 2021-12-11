@@ -10,7 +10,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 1. Add all items to NEWS
 2. Update the contributors list in NEWS (`meson compile -C build git-contrib`)
 3. Update the time and place in NEWS
-4. Update hwb (`meson compile -C build update-hwdb update-hwdb-autosuspend`)
+4. Update hwdb (`meson compile -C build update-hwdb update-hwdb-autosuspend`)
 5. [RC1] Update version and library numbers in `meson.build`
 6. Check dbus docs with `meson compile -C build update-dbus-docs`
 7. Tag the release: `version=vXXX-rcY && git tag -s "${version}" -m "systemd ${version}"`

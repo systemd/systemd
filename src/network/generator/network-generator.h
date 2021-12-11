@@ -18,6 +18,7 @@ typedef enum DHCPType {
         DHCP_TYPE_AUTO6,
         DHCP_TYPE_EITHER6,
         DHCP_TYPE_IBFT,
+        DHCP_TYPE_LINK6,
         _DHCP_TYPE_MAX,
         _DHCP_TYPE_INVALID = -EINVAL,
 } DHCPType;

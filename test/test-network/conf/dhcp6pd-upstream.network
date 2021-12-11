@@ -6,12 +6,12 @@ Name=veth99
 IPv6PrivacyExtensions=yes
 IPv6AcceptRA=no
 DHCP=ipv6
-DHCPv6PrefixDelegation=yes
+DHCPPrefixDelegation=yes
 
 [DHCPv6]
 WithoutRA=solicit
 
-[DHCPv6PrefixDelegation]
+[DHCPPrefixDelegation]
 UplinkInterface=:self
 SubnetId=10
 Announce=no

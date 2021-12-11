@@ -11,7 +11,7 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/socket_bind/socket-bind.skel.h"
+#include "bpf/socket_bind/socket-bind-skel.h"
 #include "bpf/socket_bind/socket-bind-api.bpf.h"
 
 static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj) {

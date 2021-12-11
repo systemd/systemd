@@ -25,10 +25,7 @@ static EFI_STATUS load_one_driver(
         assert(loaded_image);
         assert(fname);
 
-        spath = PoolPrint(L"\\EFI\\systemd\\drivers\\%s", fname);
-        if (!spath)
-                return log_oom();
-
+        spath = xpool_print(L"\\EFI\\systemd\\drivers\\%s", fname);
         path = FileDevicePath(loaded_image->DeviceHandle, spath);
         if (!path)
                 return log_oom();

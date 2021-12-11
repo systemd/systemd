@@ -116,6 +116,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Process the configuration and figure out what entries would be created, but don't
+        actually write anything.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--inline</option></term>
         <listitem><para>Treat each positional argument as a separate configuration
         line instead of a file name.</para></listitem>

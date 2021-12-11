@@ -35,6 +35,7 @@
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -86,9 +87,12 @@ bool link_ipv4ll_enabled(Link *link) {
         if (ether_addr_is_null(&link->hw_addr.ether))
                 return false;
 
-        if (STRPTR_IN_SET(link->kind,
-                          "vrf", "wireguard", "ipip", "gre", "ip6gre","ip6tnl", "sit", "vti",
-                          "vti6", "nlmon", "xfrm", "bareudp"))
+        /* ARPHRD_INFINIBAND seems to potentially support IPv4LL.
+         * But currently sd-ipv4ll and sd-ipv4acd only support ARPHRD_ETHER. */
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (streq_ptr(link->kind, "vrf"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */
@@ -123,6 +127,43 @@ bool link_ipv6ll_enabled(Link *link) {
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
+}
+
+bool link_may_have_ipv6ll(Link *link) {
+        assert(link);
+
+        /*
+         * This is equivalent to link_ipv6ll_enabled() for non-WireGuard interfaces.
+         *
+         * For WireGuard interface, the kernel does not assign any IPv6LL addresses, but we can assign
+         * it manually. It is necessary to set an IPv6LL address manually to run NDisc or RADV on
+         * WireGuard interface. Note, also Multicast=yes must be set. See #17380.
+         *
+         * TODO: May be better to introduce GenerateIPv6LinkLocalAddress= setting, and use algorithms
+         *       used in networkd-address-generation.c
+         */
+
+        if (link_ipv6ll_enabled(link))
+                return true;
+
+        /* IPv6LL address can be manually assigned on WireGuard interface. */
+        if (streq_ptr(link->kind, "wireguard")) {
+                Address *a;
+
+                if (!link->network)
+                        return false;
+
+                ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
+                        if (a->family != AF_INET6)
+                                continue;
+                        if (in6_addr_is_set(&a->in_addr_peer.in6))
+                                continue;
+                        if (in6_addr_is_link_local(&a->in_addr.in6))
+                                return true;
+                }
+        }
+
+        return false;
 }
 
 bool link_ipv6_enabled(Link *link) {
@@ -171,9 +212,6 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (link->set_link_messages > 0)
                 return false;
 
-        if (!link->stacked_netdevs_created)
-                return false;
-
         if (!link->activated)
                 return false;
 
@@ -210,6 +248,7 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp4_6rd_tunnel_name = mfree(link->dhcp4_6rd_tunnel_name);
 
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
@@ -237,7 +276,7 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
 
-        link->dhcp6_pd_prefixes = set_free(link->dhcp6_pd_prefixes);
+        link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
 
         link_free_engines(link);
 
@@ -383,7 +422,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
 
-        k = dhcp6_pd_remove(link, /* only_marked = */ false);
+        k = dhcp_pd_remove(link, /* only_marked = */ false);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
@@ -440,6 +479,9 @@ void link_check_ready(Link *link) {
                 return;
         }
 
+        if (!link->stacked_netdevs_created)
+                return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
+
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
@@ -494,7 +536,7 @@ void link_check_ready(Link *link) {
                            NETWORK_CONFIG_SOURCE_IPV4LL,
                            NETWORK_CONFIG_SOURCE_DHCP4,
                            NETWORK_CONFIG_SOURCE_DHCP6,
-                           NETWORK_CONFIG_SOURCE_DHCP6PD,
+                           NETWORK_CONFIG_SOURCE_DHCP_PD,
                            NETWORK_CONFIG_SOURCE_NDISC)) {
                         has_dynamic_address = true;
                         break;
@@ -502,26 +544,26 @@ void link_check_ready(Link *link) {
         }
 
         if ((link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) ||
-             (link_dhcp6_pd_is_enabled(link) && link->network->dhcp6_pd_assign)) && !has_dynamic_address)
+             (link_dhcp_pd_is_enabled(link) && link->network->dhcp_pd_assign)) && !has_dynamic_address)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
-                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCPv6PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
+                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCP-PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
 
         /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) ||
-            link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) ||
+            link_dhcp6_enabled(link) || link_dhcp_pd_is_enabled(link) ||
             (!link->network->configure_without_carrier && link_ipv6_accept_ra_enabled(link))) {
 
                 if (!link->ipv4ll_address_configured && !link->dhcp4_configured &&
-                    !link->dhcp6_configured && !link->dhcp6_pd_configured && !link->ndisc_configured)
+                    !link->dhcp6_configured && !link->dhcp_pd_configured && !link->ndisc_configured)
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCPv6PD:%s NDisc:%s",
+                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
                                __func__,
                                yes_no(link->ipv4ll_address_configured),
                                yes_no(link->dhcp4_configured),
                                yes_no(link->dhcp6_configured),
-                               yes_no(link->dhcp6_pd_configured),
+                               yes_no(link->dhcp_pd_configured),
                                yes_no(link->ndisc_configured));
         }
 
@@ -589,8 +631,10 @@ static int link_request_stacked_netdevs(Link *link) {
                         return r;
         }
 
-        if (link->create_stacked_netdev_messages == 0)
+        if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
+                link_check_ready(link);
+        }
         if (link->create_stacked_netdev_after_configured_messages == 0)
                 link->stacked_netdevs_after_configured_created = true;
 
@@ -668,14 +712,14 @@ static int link_acquire_dynamic_conf(Link *link) {
                         return r;
         }
 
-        if (!link_radv_enabled(link) || !link->network->dhcp6_pd_announce) {
+        if (!link_radv_enabled(link) || !link->network->dhcp_pd_announce) {
                 /* DHCPv6PD downstream does not require IPv6LL address. But may require RADV to be
                  * configured, and RADV may not be configured yet here. Only acquire subnet prefix when
                  * RADV is disabled, or the announcement of the prefix is disabled. Otherwise, the
                  * below will be called in radv_start(). */
-                r = dhcp6_request_prefix_delegation(link);
+                r = dhcp_request_prefix_delegation(link);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
+                        return log_link_warning_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
 
         if (link->lldp_tx) {
@@ -1598,13 +1642,21 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
 
-        /* If the SSID is changed, then the connected wireless network could be changed. So, always
-         * reconfigure the link. Which means e.g. the DHCP client will be restarted, and the correct
-         * network information will be gained.
+        /* If a wireless interface was connected to an access point, and the SSID is changed (that is,
+         * both previous_ssid and ssid are non-NULL), then the connected wireless network could be
+         * changed. So, always reconfigure the link. Which means e.g. the DHCP client will be
+         * restarted, and the correct network information will be gained.
+         *
+         * However, do not reconfigure the wireless interface forcibly if it was not connected to any
+         * access points previously (previous_ssid is NULL in this case). As, a .network file may be
+         * already assigned to the interface (in that case, the .network file does not have the SSID=
+         * setting in the [Match] section), and the interface is already being configured. Of course,
+         * there may exist another .network file with higher priority and a matching SSID= setting. But
+         * in that case, link_reconfigure_impl() can handle that without the force_reconfigure flag.
+         *
          * For non-wireless interfaces, we have no way to detect the connected network change. So,
-         * setting force_reconfigure = false. Note, both ssid and previous_ssid should be NULL for
-         * non-wireless interfaces, and streq_ptr() returns true. */
-        force_reconfigure = !streq_ptr(link->previous_ssid, link->ssid);
+         * setting force_reconfigure = false. Note, both ssid and previous_ssid are NULL in that case. */
+        force_reconfigure = link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid);
         link->previous_ssid = mfree(link->previous_ssid);
 
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_FAILED, LINK_STATE_LINGER)) {

@@ -23,6 +23,7 @@ BuildPackages=
         libcryptsetup-devel
         libcurl-devel
         libgcrypt-devel
+        libgnutls-devel
         libkmod-devel
         liblz4-devel
         libmicrohttpd-devel
@@ -35,8 +36,8 @@ BuildPackages=
         pciutils-devel
         pcre-devel
         python3
-        python3-lxml
         python3-Jinja2
+        python3-lxml
         qrencode-devel
         system-user-nobody
         systemd-sysvinit
@@ -61,6 +62,7 @@ Packages=
         libcrypt1
         libcryptsetup12
         libgcrypt20
+        libgnutls30
         libkmod2
         liblz4-1
         libmount1
