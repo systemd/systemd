@@ -444,6 +444,7 @@ struct Manager {
         unsigned notifygen;
 
         bool honor_device_enumeration;
+        bool default_manager_catchup;
 
         VarlinkServer *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
