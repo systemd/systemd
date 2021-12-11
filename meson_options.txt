@@ -415,7 +415,7 @@ option('efi-cc', type : 'array',
        description : 'the compiler to use for EFI modules')
 # Note that LLD does not support PE/COFF relocations
 # https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
-option('efi-ld', type : 'combo', choices : ['bfd', 'gold'],
+option('efi-ld', type : 'combo', choices : ['auto', 'bfd', 'gold'],
        description : 'the linker to use for EFI modules')
 option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')

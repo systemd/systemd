@@ -19,20 +19,20 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.env.COMPILER }}-${{ matrix.env.COMPILER_VERSION }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ matrix.env.COMPILER }}-${{ matrix.env.COMPILER_VERSION }}-${{ matrix.env.LINKER }}-${{ github.ref }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
         env:
-          - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
-          - { COMPILER: "gcc",   COMPILER_VERSION: "11" }
-          - { COMPILER: "clang", COMPILER_VERSION: "11" }
-          - { COMPILER: "clang", COMPILER_VERSION: "12" }
-          - { COMPILER: "clang", COMPILER_VERSION: "13" }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "10", LINKER: "bfd"  }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "gold" }
+          - { COMPILER: "clang", COMPILER_VERSION: "11", LINKER: "bfd"  }
+          - { COMPILER: "clang", COMPILER_VERSION: "12", LINKER: "gold" }
+          - { COMPILER: "clang", COMPILER_VERSION: "13", LINKER: "lld"  }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
-      - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
+      - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }}-${{ env.LINKER }})
         run: sudo -E .github/workflows/build_test.sh
