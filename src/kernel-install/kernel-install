@@ -124,7 +124,7 @@ if [ -z "$layout" ]; then
     if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
         layout="bls"
     else
-        layout="legacy"
+        layout="other"
     fi
 fi
 
@@ -135,7 +135,7 @@ export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 
-[ "$layout" = "legacy" ] || [ "$layout" = "bls" ]
+[ "$layout" = "bls" ]
 MAKE_EDA=$?
 
 

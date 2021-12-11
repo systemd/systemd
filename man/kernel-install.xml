@@ -171,18 +171,12 @@
     <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the root directory (mount point, usually) of the hierarchy
     where boot-loader entries, kernel images, and associated resources should be placed. Can be overridden by setting <varname>BOOT_ROOT=</varname>.</para>
 
-    <para><varname>KERNEL_INSTALL_LAYOUT=legacy|bls|...</varname>
+    <para><varname>KERNEL_INSTALL_LAYOUT=bls|other...</varname>
     is set for the plugins to select the target layout hierarchy – free-form.
-    Defaults to "bls" if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename> exists, or "legacy" otherwise;
+    Defaults to "bls" if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename> exists, or "other" otherwise;
     overriden by setting <varname>layout=</varname> in <filename>install.conf</filename>,
 
     <variablelist>
-      <varlistentry>
-        <term>legacy</term>
-        <listitem>
-          <para>A non-BLS bootloader system (like GRUB). Outlined for compatibility.</para>
-        </listitem>
-      </varlistentry>
       <varlistentry>
         <term>bls</term>
         <listitem>
@@ -191,6 +185,12 @@
           <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].conf</filename>,
           kernel and initrds under <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></para>
           <para>Provided by <filename>90-loaderentry.install</filename>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>other...</term>
+        <listitem>
+          <para>Handled by a specific third-party plugin.</para>
         </listitem>
       </varlistentry>
     </variablelist></para>
