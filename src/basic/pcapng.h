@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
 /*
  * For details about the file format see RFC:
  *   https://www.ietf.org/id/draft-tuexen-opsawg-pcapng-03.html
@@ -27,7 +29,7 @@ struct pcapng_option {
 #define PCAPNG_MINOR_VERS 0
 
 enum pcapng_opt {
-        PCAPNG_OPT_END	= 0,
+        PCAPNG_OPT_END	   = 0,
         PCAPNG_OPT_COMMENT = 1,
 };
 
@@ -42,7 +44,7 @@ struct pcapng_section_header {
 
 enum pcapng_section_opt {
         PCAPNG_SHB_HARDWARE = 2,
-        PCAPNG_SHB_OS	    = 3,
+        PCAPNG_SHB_OS       = 3,
         PCAPNG_SHB_USERAPPL = 4,
 };
 
