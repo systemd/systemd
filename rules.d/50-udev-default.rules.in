@@ -41,6 +41,7 @@ SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="{{GROUP_RENDER_MODE}
 SUBSYSTEM=="kfd", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 
 SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
+SUBSYSTEM=="misc", KERNEL=="sgx_vepc", GROUP="sgx", MODE="0660"
 
 # When using static_node= with non-default permissions, also update
 # tmpfiles.d/static-nodes-permissions.conf.in to keep permissions synchronized.
