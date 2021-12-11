@@ -1719,7 +1719,14 @@ public_programs = []
 dbus_programs = []
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
 if dbus_interfaces_dir == ''
-   dbus_interfaces_dir = get_option('datadir') + '/dbus-1'
+        if not meson.is_cross_build()
+                dbus_interfaces_dir = datadir / 'dbus-1'
+        else
+                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
+                dbus_interfaces_dir = 'no'
+        endif
+elif dbus_interfaces_dir == 'yes'
+        dbus_interfaces_dir = datadir / 'dbus-1'
 endif
 
 basic_includes = include_directories(
