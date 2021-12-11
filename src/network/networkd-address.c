@@ -840,6 +840,10 @@ int link_drop_foreign_addresses(Link *link) {
         assert(link);
         assert(link->network);
 
+        /* Keep all addresses when KeepConfiguration=yes. */
+        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                return 0;
+
         /* First, mark all addresses. */
         SET_FOREACH(address, link->addresses) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
@@ -854,10 +858,9 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                if (link_address_is_dynamic(link, address)) {
-                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                                continue;
-                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                /* link_address_is_dynamic() is slightly heavy. Let's call the function only when KeepConfiguration= is set. */
+                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP, KEEP_CONFIGURATION_STATIC) &&
+                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DHCP))
                         continue;
 
                 address_mark(address);
