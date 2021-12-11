@@ -728,6 +728,10 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
+                /* The route is not assigned yet, or already removed. Ignoring. */
+                if (!route_exists(route))
+                        continue;
+
                 if (route->protocol != RTPROT_DHCP)
                         continue;
 
