@@ -33,6 +33,7 @@ if efi_arch.length() == 0
 endif
 
 if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
+                args: ['-nostdlib', '-ffreestanding', '-fshort-wchar'],
                 include_directories: include_directories(efi_incdir, efi_incdir / efi_arch[1]))
 
         if get_option('gnu-efi') == 'true'
