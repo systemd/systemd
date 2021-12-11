@@ -48,6 +48,15 @@ if efi_cc.length() == 0
         efi_cc = cc.cmd_array()
 endif
 
+efi_ld = get_option('efi-ld')
+if efi_ld == 'auto'
+        efi_ld = cc.get_linker_id().split('.')[1]
+        if efi_ld not in ['bfd', 'gold']
+                warning('Not using @0@ as efi-ld, falling back to bfd'.format(efi_ld))
+                efi_ld = 'bfd'
+        endif
+endif
+
 efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
@@ -256,7 +265,7 @@ foreach arg : get_option('c_args')
 endforeach
 
 efi_ldflags = [
-        '-fuse-ld=' + get_option('efi-ld'),
+        '-fuse-ld=' + efi_ld,
         '-L', efi_libdir,
         '-nostdlib',
         '-T', efi_lds,
@@ -276,7 +285,7 @@ if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         efi_format = ['-O', 'binary']
 else
         efi_ldflags += ['-pie']
-        if get_option('efi-ld') == 'bfd'
+        if efi_ld == 'bfd'
                 efi_ldflags += '-Wl,--no-dynamic-linker'
         endif
         efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]

@@ -3912,6 +3912,7 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_GNU_EFI') == 1
         summary({
                 'EFI machine type' :                efi_arch[0],
                 'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
+                'EFI LD' :                          efi_ld,
                 'EFI lds' :                         efi_lds,
                 'EFI crt0' :                        efi_crt0,
                 'EFI include directory' :           efi_incdir},
