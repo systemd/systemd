@@ -895,8 +895,11 @@ int link_drop_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
+                /* Do not drop IPv6LL addresses assigned by the kernel here. They will be dropped in
+                 * link_drop_ipv6ll_addresses() if IPv6LL addressing is disabled. */
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                    address->family == AF_INET6 &&
+                    in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 k = address_remove(address);
