@@ -67,6 +67,11 @@ if install_tests
                                  '../-.mount',
                                  testsuite08_dir + '/local-fs.target.wants/-.mount')
 
+        if conf.get('HAVE_GNU_EFI') == 1 and conf.get('HAVE_ZSTD') == 1
+                install_subdir('test-bcd',
+                               exclude_files : '.gitattributes',
+                               install_dir : testdata_dir)
+        endif
         if conf.get('ENABLE_RESOLVE') == 1
                 install_subdir('test-resolve',
                                exclude_files : '.gitattributes',
