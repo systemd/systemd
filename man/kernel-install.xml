@@ -94,7 +94,7 @@
             <filename>/etc/os-release</filename> or <filename>/usr/lib/os-release</filename> (if the former is
             missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.</para>
 
-            <para>If <varname>$KERNEL_INSTALL_LAYOUT=</varname> is not "bls-efi", this plugin does nothing.</para></listitem>
+            <para>If <varname>$KERNEL_INSTALL_LAYOUT=</varname> is not "bls", this plugin does nothing.</para></listitem>
           </itemizedlist>
         </listitem>
       </varlistentry>
@@ -171,9 +171,9 @@
     <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the root directory (mount point, usually) of the hierarchy
     where boot-loader entries, kernel images, and associated resources should be placed. Can be overridden by setting <varname>BOOT_ROOT=</varname>.</para>
 
-    <para><varname>KERNEL_INSTALL_LAYOUT=legacy|bls-efi|...</varname>
+    <para><varname>KERNEL_INSTALL_LAYOUT=legacy|bls|...</varname>
     is set for the plugins to select the target layout hierarchy – free-form.
-    Defaults to "bls-efi" if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename> exists, or "legacy" otherwise;
+    Defaults to "bls" if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename> exists, or "legacy" otherwise;
     overriden by setting <varname>layout=</varname> in <filename>install.conf</filename>,
 
     <variablelist>
@@ -184,7 +184,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>bls-efi</term>
+        <term>bls</term>
         <listitem>
           <para>Standard <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> layout,
           compatible with <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>: entries in

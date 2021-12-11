@@ -122,7 +122,7 @@ export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 if [ -z "$layout" ]; then
     # Administrative decision: if not present, some scripts generate into /boot.
     if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
-        layout="bls-efi"
+        layout="bls"
     else
         layout="legacy"
     fi
@@ -135,7 +135,7 @@ export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 
-[ "$layout" = "legacy" ] || [ "$layout" = "bls-efi" ]
+[ "$layout" = "legacy" ] || [ "$layout" = "bls" ]
 MAKE_EDA=$?
 
 
