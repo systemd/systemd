@@ -725,7 +725,10 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
         SET_FOREACH(route, link->routes) {
-                if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* Do not check route->source, as the route may be foreign yet when this function is called. */
+
+                /* The route is not assigned yet, or already removed. Ignoring. */
+                if (!route_exists(route))
                         continue;
 
                 if (route->protocol != RTPROT_DHCP)
@@ -840,6 +843,10 @@ int link_drop_foreign_addresses(Link *link) {
         assert(link);
         assert(link->network);
 
+        /* Keep all addresses when KeepConfiguration=yes. */
+        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                return 0;
+
         /* First, mark all addresses. */
         SET_FOREACH(address, link->addresses) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
@@ -854,10 +861,9 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                if (link_address_is_dynamic(link, address)) {
-                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                                continue;
-                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                /* link_address_is_dynamic() is slightly heavy. Let's call the function only when KeepConfiguration= is set. */
+                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP, KEEP_CONFIGURATION_STATIC) &&
+                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DHCP))
                         continue;
 
                 address_mark(address);
@@ -895,8 +901,11 @@ int link_drop_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
+                /* Do not drop IPv6LL addresses assigned by the kernel here. They will be dropped in
+                 * link_drop_ipv6ll_addresses() if IPv6LL addressing is disabled. */
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                    address->family == AF_INET6 &&
+                    in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 k = address_remove(address);
