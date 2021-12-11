@@ -1713,7 +1713,12 @@ public_programs = []
 dbus_programs = []
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
 if dbus_interfaces_dir == ''
-   dbus_interfaces_dir = get_option('datadir') + '/dbus-1'
+   if meson.is_cross_build()
+      warning('D-Bus Introspection XML export not supported for cross-compilation.')
+      dbus_interfaces_dir = 'no'
+   else
+      dbus_interfaces_dir = get_option('datadir') + '/dbus-1'
+   endif
 endif
 
 tests = []
