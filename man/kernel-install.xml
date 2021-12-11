@@ -194,10 +194,6 @@
         </listitem>
       </varlistentry>
     </variablelist></para>
-
-    <para><varname>no_compat_directories=</varname> can be set in <filename>install.conf</filename> and
-    will, if nonempty, disable management of <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable></filename>.
-    If it isn't, then the directory will be created and destroyed if <varname>KERNEL_INSTALL_LAYOUT=legacy|bls-efi</varname>.</para>
   </refsect1>
 
   <refsect1>

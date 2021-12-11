@@ -135,7 +135,7 @@ export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 
-[ -z "$no_compat_directories" ] && { [ "$layout" = "legacy" ] || [ "$layout" = "bls-efi" ]; }
+[ "$layout" = "legacy" ] || [ "$layout" = "bls-efi" ]
 MAKE_EDA=$?
 
 
