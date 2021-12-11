@@ -725,7 +725,10 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
         SET_FOREACH(route, link->routes) {
-                if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* Do not check route->source, as the route may be foreign yet when this function is called. */
+
+                /* The route is not assigned yet, or already removed. Ignoring. */
+                if (!route_exists(route))
                         continue;
 
                 if (route->protocol != RTPROT_DHCP)
