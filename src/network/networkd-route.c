@@ -893,6 +893,7 @@ int link_drop_foreign_routes(Link *link) {
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
 
         SET_FOREACH(route, link->routes) {
                 /* do not touch routes managed by the kernel */
@@ -907,11 +908,11 @@ int link_drop_foreign_routes(Link *link) {
                 if (!route_exists(route))
                         continue;
 
-                if (route->protocol == RTPROT_STATIC && link->network &&
+                if (route->protocol == RTPROT_STATIC &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
-                if (route->protocol == RTPROT_DHCP && link->network &&
+                if (route->protocol == RTPROT_DHCP &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
