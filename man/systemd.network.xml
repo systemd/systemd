@@ -968,6 +968,39 @@ Table=1234</programlisting></para>
           <literal>no</literal> otherwise.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <term><varname>IPv6NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>This setting provides a method for integrating dynamic network configuration into firewall
+          rules with NFT sets. This option expects a whitespace separated list of NFT set definitions. Each
+          definition consists of a colon-separated tuple of NFT address family (one of
+          <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
+          <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
+          and sets must conform to lexical restrictions of NFT table names. When an interface is configured
+          with IP addresses, the addresses and subnetwork masks will be appended to the NFT sets. They will
+          be removed when the interface is deconfigured. Failures to manage the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Network]
+IPv4NFTSet=netdev:filter:lan_ipv4_address
+IPv6NFTSet=netdev:filter:lan_ipv6_address</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table netdev filter {
+        set lan_ipv4_address {
+                type ipv4_addr
+                flags interval
+        }
+        chain lan_ingress {
+                type filter hook ingress device "lan" priority filter; policy drop;
+                ip daddr != @lan_ipv4_address drop
+                accept
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
