@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=vxlan-slaac
+Kind=vxlan
+
+[VXLAN]
+VNI=4831584
+Local=slaac

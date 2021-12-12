@@ -895,6 +895,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ip6gretun97',
         'ip6gretun98',
         'ip6gretun99',
+        'ip6tnl-slaac',
         'ip6tnl97',
         'ip6tnl98',
         'ip6tnl99',
@@ -928,6 +929,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun98',
         'vtitun99',
         'vxcan99',
+        'vxlan-slaac',
         'vxlan97',
         'vxlan98',
         'vxlan99',
@@ -981,6 +983,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ip6gre-tunnel.netdev',
         '25-ip6tnl-tunnel-any-any.netdev',
         '25-ip6tnl-tunnel-local-any.netdev',
+        '25-ip6tnl-tunnel-local-slaac.netdev',
+        '25-ip6tnl-tunnel-local-slaac.network',
         '25-ip6tnl-tunnel-remote-any.netdev',
         '25-ip6tnl-tunnel.netdev',
         '25-ipip-tunnel-any-any.netdev',
@@ -1021,6 +1025,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vxcan.netdev',
         '25-vxlan-independent.netdev',
         '25-vxlan-ipv6.netdev',
+        '25-vxlan-local-slaac.netdev',
+        '25-vxlan-local-slaac.network',
+        '25-vxlan-veth99.network',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -1039,8 +1046,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'gretun.network',
         'ip6gretap.network',
         'ip6gretun.network',
+        'ip6tnl-slaac.network',
         'ip6tnl.network',
         'ipip.network',
+        'ipv6-prefix.network',
         'ipvlan.network',
         'ipvtap.network',
         'isatap.network',
@@ -1659,19 +1668,33 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6tnl.network',
                                         '25-ip6tnl-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-veth.netdev', 'ip6tnl-slaac.network', 'ipv6-prefix.network',
+                                        '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network')
         start_networkd()
-        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'dummy98:degraded'])
+        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'ip6tnl-slaac:degraded',
+                          'dummy98:degraded', 'veth99:routable', 'veth-peer:degraded'])
 
         output = check_output('ip -d link show ip6tnl99')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98', output)
         output = check_output('ip -d link show ip6tnl98')
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (any|::) dev dummy98')
         output = check_output('ip -d link show ip6tnl97')
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = check_output('ip -d link show ip6tnl-slaac')
+        print(output)
+        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
+
+        output = check_output('ip -6 address show veth99')
+        print(output)
+        self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
+
+        output = check_output('ip -4 route show default')
+        print(output)
+        self.assertIn('default dev ip6tnl-slaac proto static', output)
 
     def test_sit_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
@@ -1801,13 +1824,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
 
     def test_vxlan(self):
-        copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', 'vxlan-test1.network',
+                                        '25-vxlan.netdev', 'vxlan.network',
                                         '25-vxlan-ipv6.netdev', 'vxlan-ipv6.network',
                                         '25-vxlan-independent.netdev', 'netdev-link-local-addressing-yes.network',
-                                        '11-dummy.netdev', 'vxlan-test1.network')
+                                        '25-veth.netdev', '25-vxlan-veth99.network', 'ipv6-prefix.network',
+                                        '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded'])
+        self.wait_online(['test1:degraded', 'veth99:routable', 'veth-peer:degraded',
+                          'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded'])
 
         output = check_output('ip -d link show vxlan99')
         print(output)
@@ -1839,6 +1865,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('00:00:00:00:00:00 dst fe80::23b:d2ff:fe95:967f via test1 self permanent', output)
         self.assertIn('00:00:00:00:00:00 dst fe80::27c:16ff:fec0:6c74 via test1 self permanent', output)
         self.assertIn('00:00:00:00:00:00 dst fe80::2a2:e4ff:fef9:2269 via test1 self permanent', output)
+
+        output = check_output('ip -d link show vxlan-slaac')
+        print(output)
+        self.assertIn('vxlan id 4831584 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
+
+        output = check_output('ip -6 address show veth99')
+        print(output)
+        self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
