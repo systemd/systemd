@@ -183,49 +183,50 @@ finish:
 }
 
 int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *ret_size) {
-        _cleanup_free_ char *efn = NULL, *ep = NULL;
+        _cleanup_free_ char *_dirname = NULL, *_filename = NULL;
         _cleanup_close_ int dfd = -1;
         sd_id128_t machine_id;
-        const char *e, *fn, *p;
+        const char *dirname, *filename;
         int r;
 
         r = sd_id128_get_machine_app_specific(credential_app_id, &machine_id);
         if (r < 0)
                 return r;
 
-        e = secure_getenv("SYSTEMD_CREDENTIAL_SECRET");
+        const char *e = secure_getenv("SYSTEMD_CREDENTIAL_SECRET");
         if (e) {
                 if (!path_is_normalized(e))
                         return -EINVAL;
                 if (!path_is_absolute(e))
                         return -EINVAL;
 
-                r = path_extract_directory(e, &ep);
+                r = path_extract_directory(e, &_dirname);
                 if (r < 0)
                         return r;
 
-                r = path_extract_filename(e, &efn);
+                r = path_extract_filename(e, &_filename);
                 if (r < 0)
                         return r;
 
-                p = ep;
-                fn = efn;
+                dirname = _dirname;
+                filename = _filename;
         } else {
-                p = "/var/lib/systemd";
-                fn = "credential.secret";
+                dirname = "/var/lib/systemd";
+                filename = "credential.secret";
         }
 
-        mkdir_parents(p, 0755);
-        dfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
+        mkdir_parents(dirname, 0755);
+        dfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC, 0755);
         if (dfd < 0)
-                return dfd;
+                return log_debug_errno(dfd, "Failed to create or open directory '%s': %m", dirname);
 
         if (FLAGS_SET(flags, CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS)) {
                 r = fd_is_temporary_fs(dfd);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to check directory '%s': %m", dirname);
                 if (r > 0)
-                        return -ENOMEDIUM;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                               "Directory '%s' is on a temporary file system, refusing.", dirname);
         }
 
         for (unsigned attempt = 0;; attempt++) {
@@ -236,51 +237,66 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                 struct stat st;
 
                 if (attempt >= 3) /* Somebody is playing games with us */
-                        return -EIO;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                               "All attempts to create secret store in %s failed.", dirname);
 
-                fd = openat(dfd, fn, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+                fd = openat(dfd, filename, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
                 if (fd < 0) {
                         if (errno != ENOENT || !FLAGS_SET(flags, CREDENTIAL_SECRET_GENERATE))
-                                return -errno;
+                                return log_debug_errno(errno,
+                                                       "Failed to open %s/%s: %m", dirname, filename);
 
-                        r = make_credential_host_secret(dfd, machine_id, fn, ret, ret_size);
+
+                        r = make_credential_host_secret(dfd, machine_id, filename, ret, ret_size);
                         if (r == -EEXIST) {
-                                log_debug_errno(r, "Credential secret was created while we were creating it. Trying to read new secret.");
+                                log_debug_errno(r, "Credential secret %s/%s appeared while we were creating it, rereading.",
+                                                dirname, filename);
                                 continue;
                         }
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to create credential secret %s/%s: %m",
+                                                       dirname, filename);
 
                         return 0;
                 }
 
                 if (fstat(fd, &st) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to stat %s/%s: %m", dirname, filename);
 
                 r = stat_verify_regular(&st);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "%s/%s is not a regular file: %m", dirname, filename);
                 if (st.st_nlink == 0) /* Deleted by now, try again */
                         continue;
                 if (st.st_nlink > 1)
-                        return -EPERM; /* Our deletion check won't work if hardlinked somewhere else */
-                if ((st.st_mode & 07777) != 0400) /* Don't use file if not 0400 access mode */
-                        return -EPERM;
-                if (st.st_size > 16*1024*1024)
-                        return -E2BIG;
+                        /* Our deletion check won't work if hardlinked somewhere else */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "%s/%s has too many links, refusing.",
+                                               dirname, filename);
+                if ((st.st_mode & 07777) != 0400)
+                        /* Don't use file if not 0400 access mode */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "%s/%s has permissive access mode, refusing.",
+                                               dirname, filename);
                 l = st.st_size;
                 if (l < offsetof(struct credential_host_secret_format, data) + 1)
-                        return -EINVAL;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s/%s is too small, refusing.", dirname, filename);
+                if (l > 16*1024*1024)
+                        return log_debug_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "%s/%s is too big, refusing.", dirname, filename);
 
                 f = malloc(l+1);
                 if (!f)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 n = read(fd, f, l+1);
                 if (n < 0)
-                        return -errno;
+                        return log_debug_errno(errno,
+                                               "Failed to read %s/%s: %m", dirname, filename);
                 if ((size_t) n != l) /* What? The size changed? */
-                        return -EIO;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to read %s/%s: %m", dirname, filename);
 
                 if (sd_id128_equal(machine_id, f->machine_id)) {
                         size_t sz;
@@ -288,9 +304,11 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                         if (FLAGS_SET(flags, CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED)) {
                                 r = fd_is_encrypted(fd);
                                 if (r < 0)
-                                        log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.", p, fn);
+                                        log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.",
+                                                        dirname, filename);
                                 else if (r == 0)
-                                        log_warning("Credential secret file '%s/%s' is not located on encrypted media, using anyway.", p, fn);
+                                        log_warning("Credential secret file '%s/%s' is not located on encrypted media, using anyway.",
+                                                    dirname, filename);
                         }
 
                         sz = l - offsetof(struct credential_host_secret_format, data);
@@ -303,7 +321,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
 
                                 copy = memdup(f->data, sz);
                                 if (!copy)
-                                        return -ENOMEM;
+                                        return log_oom_debug();
 
                                 *ret = copy;
                         }
@@ -318,18 +336,20 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                  * to ensure we are the only ones accessing the file while we delete it. */
 
                 if (flock(fd, LOCK_EX) < 0)
-                        return -errno;
+                        return log_debug_errno(errno,
+                                               "Failed to flock %s/%s: %m", dirname, filename);
 
                 /* Before we delete it check that the file is still linked into the file system */
                 if (fstat(fd, &st) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to stat %s/%s: %m", dirname, filename);
                 if (st.st_nlink == 0) /* Already deleted by now? */
                         continue;
                 if (st.st_nlink != 1) /* Safety check, someone is playing games with us */
-                        return -EPERM;
-
-                if (unlinkat(dfd, fn, 0) < 0)
-                        return -errno;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "%s/%s unexpectedly has too many links.",
+                                               dirname, filename);
+                if (unlinkat(dfd, filename, 0) < 0)
+                        return log_debug_errno(errno, "Failed to unlink %s/%s: %m", dirname, filename);
 
                 /* And now try again */
         }
