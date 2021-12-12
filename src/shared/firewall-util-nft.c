@@ -19,6 +19,7 @@
 #include "in-addr-util.h"
 #include "macro.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"
@@ -845,9 +846,12 @@ static int nft_message_add_setelem_ip6range(
 
 #define NFT_MASQ_MSGS   3
 
-static int fw_nftables_add_masquerade_internal(
-                FirewallContext *ctx,
+static int nft_set_element_op_in_addr(
+                sd_netlink *nfnl,
+                const char *table,
+                const char *set,
                 bool add,
+                int nfproto,
                 int af,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
@@ -862,14 +866,14 @@ static int fw_nftables_add_masquerade_internal(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_message_batch_begin(ctx->nfnl, &transaction[0]);
+        r = sd_nfnl_message_batch_begin(nfnl, &transaction[0]);
         if (r < 0)
                 return r;
         tsize = 1;
         if (add)
-                r = sd_nfnl_nft_message_new_setelems_begin(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+                r = sd_nfnl_nft_message_new_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
         else
-                r = sd_nfnl_nft_message_del_setelems_begin(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+                r = sd_nfnl_nft_message_del_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
         if (r < 0)
                 goto out_unref;
 
@@ -882,17 +886,77 @@ static int fw_nftables_add_masquerade_internal(
 
         ++tsize;
         assert(tsize < NFT_MASQ_MSGS);
-        r = sd_nfnl_message_batch_end(ctx->nfnl, &transaction[tsize]);
+        r = sd_nfnl_message_batch_end(nfnl, &transaction[tsize]);
         if (r < 0)
                 return r;
 
         ++tsize;
-        r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
+        r = nfnl_netlink_sendv(nfnl, transaction, tsize);
 
 out_unref:
         while (tsize > 0)
                 sd_netlink_message_unref(transaction[--tsize]);
         return r < 0 ? r : 0;
+}
+
+static int nft_set_element_op_in_addr_open(
+                bool add,
+                const NFTSetContext *nft_set_context,
+                int af,
+                const union in_addr_union *address,
+                unsigned int prefixlen) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
+        _cleanup_free_ char *addr_str = NULL;
+        int r, nfproto;
+        const char *table, *set;
+
+        assert(nft_set_context);
+        nfproto = nft_set_context->nfproto;
+        table = nft_set_context->table;
+        assert(table);
+        set = nft_set_context->set;
+        assert(set);
+
+        r = sd_nfnl_socket_open(&nfnl);
+        if (r < 0)
+                return r;
+
+        r = nft_set_element_op_in_addr(nfnl, table, set,
+                                       add, nfproto, af, address, prefixlen);
+
+        int r2;
+        r2 = in_addr_to_string(af, address, &addr_str);
+
+        log_debug("%s NFT family %d table %s set %s IP addresss %s/%d", add? "Added" : "Deleted", nfproto, table, set,
+                  r2 == 0? addr_str: "(error while translating to string)", prefixlen);
+
+        return r;
+}
+
+int nft_set_element_add_in_addr(
+                const NFTSetContext *nft_set_context,
+                int af,
+                const union in_addr_union *address,
+                unsigned int prefixlen) {
+        return nft_set_element_op_in_addr_open(true, nft_set_context, af, address, prefixlen);
+}
+
+int nft_set_element_del_in_addr(
+                const NFTSetContext *nft_set_context,
+                int af,
+                const union in_addr_union *address,
+                unsigned int prefixlen) {
+        return nft_set_element_op_in_addr_open(false, nft_set_context, af, address, prefixlen);
+}
+
+static int fw_nftables_add_masquerade_internal(
+                FirewallContext *ctx,
+                bool add,
+                int af,
+                const union in_addr_union *source,
+                unsigned int source_prefixlen) {
+        return nft_set_element_op_in_addr(ctx->nfnl, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                          add, af, af, source, source_prefixlen);
 }
 
 int fw_nftables_add_masquerade(
@@ -1067,4 +1131,111 @@ int fw_nftables_add_local_dnat(
 
         /* table created anew; previous address already gone */
         return fw_nftables_add_local_dnat_internal(ctx, add, af, protocol, local_port, remote, remote_port, NULL);
+}
+
+static const char *const nfproto_table[] = {
+        [NFPROTO_ARP] = "arp",
+        [NFPROTO_BRIDGE] = "bridge",
+        [NFPROTO_INET] = "inet",
+        [NFPROTO_IPV4] = "ip",
+        [NFPROTO_IPV6] = "ip6",
+        [NFPROTO_NETDEV] = "netdev",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
+
+#define NFT_SET_MSGS 3
+
+static int nft_set_element_op(bool add, const NFTSetContext *nft_set_context, void *element, size_t element_size) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
+        sd_netlink_message *transaction[NFT_SET_MSGS] = {};
+        _cleanup_free_ uint32_t *serial = NULL;
+        size_t tsize;
+        int r, nfproto;
+        const char *table, *set;
+
+        assert(nft_set_context);
+        nfproto = nft_set_context->nfproto;
+        table = nft_set_context->table;
+        assert(table);
+        set = nft_set_context->set;
+        assert(set);
+        assert(element);
+
+        r = sd_nfnl_socket_open(&nfnl);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_message_batch_begin(nfnl, &transaction[0]);
+        if (r < 0)
+                return r;
+        tsize = 1;
+
+        if (add)
+                r = sd_nfnl_nft_message_new_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
+        else
+                r = sd_nfnl_nft_message_del_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
+        if (r < 0)
+                goto out_unref;
+
+        r = sd_nfnl_nft_message_add_setelem(transaction[tsize], 0, element, element_size, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_add_setelem_end(transaction[tsize]);
+        if (r < 0)
+                return r;
+        ++tsize;
+        assert(tsize < ELEMENTSOF(transaction));
+        r = sd_nfnl_message_batch_end(nfnl, &transaction[tsize]);
+        if (r < 0)
+                return r;
+
+        ++tsize;
+        r = sd_netlink_sendv(nfnl, transaction, tsize, &serial);
+
+out_unref:
+        while (tsize > 0)
+                sd_netlink_message_unref(transaction[--tsize]);
+        return r < 0 ? r : 0;
+}
+
+int nft_set_element_add_uint32(const NFTSetContext *nft_set_context, uint32_t element) {
+        int r;
+
+        assert(nft_set_context);
+        r = nft_set_element_op(true, nft_set_context, &element, sizeof(element));
+        if (r == 0)
+                log_debug("Added NFT family %d table %s set %s element %d", nft_set_context->nfproto, nft_set_context->table, nft_set_context->set, element);
+        return r;
+}
+
+int nft_set_element_del_uint32(const NFTSetContext *nft_set_context, uint32_t element) {
+        int r;
+
+        assert(nft_set_context);
+        r = nft_set_element_op(false, nft_set_context, &element, sizeof(element));
+        if (r == 0)
+                log_debug("Deleted NFT family %d table %s set %s element %d", nft_set_context->nfproto, nft_set_context->table, nft_set_context->set, element);
+        return r;
+}
+
+int nft_set_element_add_uint64(const NFTSetContext *nft_set_context, uint64_t element) {
+        int r;
+
+        assert(nft_set_context);
+        r = nft_set_element_op(true, nft_set_context, &element, sizeof(element));
+        if (r == 0)
+                log_debug("Added NFT family %d table %s set %s element %"PRIu64, nft_set_context->nfproto, nft_set_context->table, nft_set_context->set, element);
+        return r;
+}
+
+int nft_set_element_del_uint64(const NFTSetContext *nft_set_context, uint64_t element) {
+        int r;
+
+        assert(nft_set_context);
+        r = nft_set_element_op(false, nft_set_context, &element, sizeof(element));
+        if (r == 0)
+                log_debug("Deleted NFT family %d table %s set %s element %"PRIu64, nft_set_context->nfproto, nft_set_context->table, nft_set_context->set, element);
+        return r;
 }
