@@ -601,9 +601,16 @@ static int parse_fstab(bool initrd) {
                 if (!what)
                         return log_oom();
 
-                if (is_device_path(what) && path_is_read_only_fs("/sys") > 0) {
-                        log_info("Running in a container, ignoring fstab device entry for %s.", what);
-                        continue;
+                if (path_is_read_only_fs("/sys") > 0) {
+                        if (streq(what, "sysfs")) {
+                                log_info("Running in a container, ignoring fstab entry for %s.", what);
+                                continue;
+                        }
+
+                        if (is_device_path(what)) {
+                                log_info("Running in a container, ignoring fstab device entry for %s.", what);
+                                continue;
+                        }
                 }
 
                 where = strdup(me->mnt_dir);
