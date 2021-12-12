@@ -22,6 +22,9 @@ Wants=dbus.socket
 After=dbus.socket
 
 [Service]
+BindPaths=/run/systemd:/run/systemd:norbind
+BindReadOnlyPaths=/run/dbus:/run/dbus:norbind
+BindReadOnlyPaths=/run/udev:/run/udev:norbind
 BusName=org.freedesktop.login1
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG CAP_LINUX_IMMUTABLE
 DeviceAllow=block-* r
@@ -58,6 +61,7 @@ StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
+TemporaryFileSystem=/run:nodev,noexec,nosuid,ro,size=32k,nr_inodes=10,mode=0755
 {{SERVICE_WATCHDOG}}
 
 # Increase the default a bit in order to allow many simultaneous logins since
