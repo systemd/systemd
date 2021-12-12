@@ -934,6 +934,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun98',
         'vtitun99',
         'vxcan99',
+        'vxlan-slaac',
         'vxlan97',
         'vxlan98',
         'vxlan99',
@@ -1029,6 +1030,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vxcan.netdev',
         '25-vxlan-independent.netdev',
         '25-vxlan-ipv6.netdev',
+        '25-vxlan-local-slaac.netdev',
+        '25-vxlan-local-slaac.network',
+        '25-vxlan-veth99.network',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -1825,13 +1829,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
 
     def test_vxlan(self):
-        copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', 'vxlan-test1.network',
+                                        '25-vxlan.netdev', 'vxlan.network',
                                         '25-vxlan-ipv6.netdev', 'vxlan-ipv6.network',
                                         '25-vxlan-independent.netdev', 'netdev-link-local-addressing-yes.network',
-                                        '11-dummy.netdev', 'vxlan-test1.network')
+                                        '25-veth.netdev', '25-vxlan-veth99.network', 'ipv6-prefix.network',
+                                        '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded'])
+        self.wait_online(['test1:degraded', 'veth99:routable', 'veth-peer:degraded',
+                          'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded'])
 
         output = check_output('ip -d link show vxlan99')
         print(output)
@@ -1863,6 +1870,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('00:00:00:00:00:00 dst fe80::23b:d2ff:fe95:967f via test1 self permanent', output)
         self.assertIn('00:00:00:00:00:00 dst fe80::27c:16ff:fec0:6c74 via test1 self permanent', output)
         self.assertIn('00:00:00:00:00:00 dst fe80::2a2:e4ff:fef9:2269 via test1 self permanent', output)
+
+        output = check_output('ip -d link show vxlan-slaac')
+        print(output)
+        self.assertIn('vxlan id 4831584 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
+
+        output = check_output('ip -6 address show veth99')
+        print(output)
+        self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
