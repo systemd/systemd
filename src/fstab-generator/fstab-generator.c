@@ -26,7 +26,6 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
-#include "virt.h"
 #include "volatile-util.h"
 
 typedef enum MountPointFlags {
@@ -112,7 +111,7 @@ static int add_swap(
                 return 0;
         }
 
-        if (detect_container() > 0) {
+        if (path_is_read_only_fs("/sys") > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
         }
@@ -601,9 +600,16 @@ static int parse_fstab(bool initrd) {
                 if (!what)
                         return log_oom();
 
-                if (is_device_path(what) && path_is_read_only_fs("/sys") > 0) {
-                        log_info("Running in a container, ignoring fstab device entry for %s.", what);
-                        continue;
+                if (path_is_read_only_fs("/sys") > 0) {
+                        if (streq(what, "sysfs")) {
+                                log_info("Running in a container, ignoring fstab entry for %s.", what);
+                                continue;
+                        }
+
+                        if (is_device_path(what)) {
+                                log_info("Running in a container, ignoring fstab device entry for %s.", what);
+                                continue;
+                        }
                 }
 
                 where = strdup(me->mnt_dir);
