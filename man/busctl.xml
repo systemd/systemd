@@ -78,10 +78,10 @@
         <term><command>capture</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Similar to <command>monitor</command> but
-        writes the output in pcapng format (for details, see the RFC
-        <ulink url="https://www.ietf.org/staging/draft-tuexen-opsawg-pcapng-02.html">
+        writes the output in pcapng format (for details, see
+        <ulink url="https://github.com/pcapng/pcapng/">
         PCAP Next Generation (pcapng) Capture File Format</ulink>).
-        Make sure to redirect standard output to a file. Tools like
+        Make sure to redirect standard output to a file or pipe. Tools like
         <citerefentry project='die-net'><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         may be used to dissect and view the resulting
         files.</para></listitem>
