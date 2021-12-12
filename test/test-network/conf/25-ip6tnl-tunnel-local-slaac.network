@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=ip6tnl-slaac
+
+[Network]
+IPv6AcceptRA=no
+LinkLocalAddressing=yes
+
+[Route]
+Destination=0.0.0.0/0
