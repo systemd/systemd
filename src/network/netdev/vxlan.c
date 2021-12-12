@@ -22,9 +22,24 @@ static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(df, VxLanDF, NETDEV_VXLAN_DF_YES);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_df, df, VxLanDF, "Failed to parse VXLAN IPDoNotFragment= setting");
 
+static int vxlan_get_local_address(VxLan *v, Link *link, int *ret_family, union in_addr_union *ret_address) {
+        assert(v);
+
+        if (v->local_type < 0) {
+                if (ret_family)
+                        *ret_family = v->local_family;
+                if (ret_address)
+                        *ret_address = v->local;
+                return 0;
+        }
+
+        return link_get_local_address(link, v->local_type, v->local_family, ret_family, ret_address);
+}
+
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        union in_addr_union local;
+        int local_family, r;
         VxLan *v;
-        int r;
 
         assert(netdev);
         assert(m);
@@ -55,11 +70,15 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
         }
 
-        if (in_addr_is_set(v->local_family, &v->local)) {
-                if (v->local_family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &v->local.in);
+        r = vxlan_get_local_address(v, link, &local_family, &local);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+
+        if (in_addr_is_set(local_family, &local)) {
+                if (local_family == AF_INET)
+                        r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &local.in);
                 else
-                        r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &v->local.in6);
+                        r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &local.in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
         }
@@ -190,16 +209,45 @@ int config_parse_vxlan_address(
 
         VxLan *v = userdata;
         union in_addr_union *addr = data, buffer;
-        int r, f;
+        int *family, f, r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+        assert(userdata);
+
+        if (streq(lvalue, "Local"))
+                family = &v->local_family;
+        else if (streq(lvalue, "Remote"))
+                family = &v->remote_family;
+        else if (streq(lvalue, "Group"))
+                family = &v->group_family;
+        else
+                assert_not_reached();
+
+        if (isempty(rvalue)) {
+                *addr = IN_ADDR_NULL;
+                *family = AF_UNSPEC;
+                return 0;
+        }
+
+        if (streq(lvalue, "Local")) {
+                NetDevLocalAddressType t;
+
+                t = netdev_local_address_type_from_string(rvalue);
+                if (t >= 0) {
+                        v->local = IN_ADDR_NULL;
+                        v->local_family = AF_UNSPEC;
+                        v->local_type = t;
+                        return 0;
+                }
+        }
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "vxlan '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -207,24 +255,22 @@ int config_parse_vxlan_address(
 
         if (streq(lvalue, "Group")) {
                 if (r <= 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "%s= must be a multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
-
-                v->group_family = f;
         } else {
                 if (r > 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "%s= cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
-
-                if (streq(lvalue, "Remote"))
-                        v->remote_family = f;
-                else
-                        v->local_family = f;
         }
 
+        if (streq(lvalue, "Local"))
+                v->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         *addr = buffer;
+        *family = f;
 
         return 0;
 }
@@ -369,7 +415,25 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
                                                 "%s: VXLAN both 'Group=' and 'Remote=' cannot be specified. Ignoring.",
                                                 filename);
 
+        if (v->independent && v->local_type >= 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "The local address cannot be '%s' when Independent= is enabled, ignoring.",
+                                              strna(netdev_local_address_type_to_string(v->local_type)));
+
         return 0;
+}
+
+static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
+        VxLan *v;
+
+        assert(netdev);
+        assert(link);
+
+        v = VXLAN(netdev);
+
+        assert(v);
+
+        return vxlan_get_local_address(v, link, NULL, NULL) >= 0;
 }
 
 static void vxlan_init(NetDev *netdev) {
@@ -381,6 +445,7 @@ static void vxlan_init(NetDev *netdev) {
 
         assert(v);
 
+        v->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         v->vni = VXLAN_VID_MAX + 1;
         v->df = _NETDEV_VXLAN_DF_INVALID;
         v->learning = true;
@@ -395,6 +460,7 @@ const NetDevVTable vxlan_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "VXLAN\0",
         .fill_message_create = netdev_vxlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .is_ready_to_create = netdev_vxlan_is_ready_to_create,
         .config_verify = netdev_vxlan_verify,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,

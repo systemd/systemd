@@ -573,7 +573,11 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>Configures local IP address.</para>
+          <para>Configures local IP address. It must be an address on the underlying interface of the
+          VXLAN interface, or one of the special values <literal>ipv4_link_local</literal>,
+          <literal>ipv6_link_local</literal>, <literal>dhcp4</literal>, <literal>dhcp6</literal>, and
+          <literal>slaac</literal>. If one of the special values is specified, an address which matches
+          the corresponding type on the underlying interface will be used. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
