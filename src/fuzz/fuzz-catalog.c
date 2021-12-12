@@ -9,7 +9,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-catalog.XXXXXX";
         _cleanup_close_ int fd = -1;
-        _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
+        OrderedHashmap *h = NULL;
 
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
