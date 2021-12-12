@@ -29,11 +29,11 @@ struct pcapng_option {
 #define PCAPNG_MINOR_VERS 0
 
 enum pcapng_opt {
-        PCAPNG_OPT_END	   = 0,
+        PCAPNG_OPT_END     = 0,
         PCAPNG_OPT_COMMENT = 1,
 };
 
-struct pcapng_section_header {
+struct pcapng_section {
         uint32_t block_type;
         uint32_t block_length;
         uint32_t byte_order_magic;

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/time.h>
-#include <sys/utsname.h>
 
 #include "alloc-util.h"
 #include "bus-dump.h"
@@ -19,7 +18,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
-#include "version.h"
 
 static char *indent(unsigned level, uint64_t flags) {
         char *p;
@@ -509,29 +507,43 @@ static uint16_t pcapng_optlen(size_t len) {
         return ALIGN4(len + sizeof(struct pcapng_option));
 }
 
-static void pcapng_opt_write(FILE *f, uint16_t code, const void *data, size_t len) {
-        _cleanup_free_ struct pcapng_option *opt = NULL;
-        uint32_t optlen = ALIGN4(sizeof(*opt) + len);
+static void pcapng_putopt(FILE *f, uint16_t code, const void *data, size_t len) {
+        struct pcapng_option opt = {
+                .code = code,
+                .length = len,
+        };
 
-        opt = calloc(1, optlen);
-        opt->code = code;
-        opt->length = len;
-        if (len > 0)
-                memcpy(opt->data, data, len);
-        fwrite(opt, 1, optlen, f);
+        assert(f);
+        assert(len < UINT16_MAX);
+        assert(data || len == 0);
+
+        fwrite(&opt, 1, sizeof(opt), f);
+        if (len > 0) {
+                uint32_t pad = ALIGN4(len) - len;
+
+                fwrite(data, 1, len, f);
+                while (pad > 0) {
+                        fputc('\0', f);
+                        --pad;
+                }
+        }
 }
 
 static void pcapng_section_header(FILE *f, const char *os, const char *app) {
         uint32_t len;
 
+        assert(f);
+
         /* determine length of section header and options */
-        len = sizeof(struct pcapng_section_header);
-        len += pcapng_optlen(strlen(os));
-        len += pcapng_optlen(strlen(app));
+        len = sizeof(struct pcapng_section);
+        if (os)
+                len += pcapng_optlen(strlen(os));
+        if (app)
+                len += pcapng_optlen(strlen(app));
         len += pcapng_optlen(0);	/* OPT_END */
         len += sizeof(uint32_t);	/* trailer length */
 
-        struct pcapng_section_header hdr = {
+        struct pcapng_section hdr = {
                 .block_type = PCAPNG_SECTION_BLOCK,
                 .block_length = len,
                 .byte_order_magic = PCAPNG_BYTE_ORDER_MAGIC,
@@ -541,16 +553,19 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
         };
 
         fwrite(&hdr, 1, sizeof(hdr), f);
-        pcapng_opt_write(f, PCAPNG_SHB_OS, os, strlen(os));
-        pcapng_opt_write(f, PCAPNG_SHB_USERAPPL, app, strlen(app));
-        pcapng_opt_write(f, PCAPNG_OPT_END, NULL, 0);
+        if (os)
+                pcapng_putopt(f, PCAPNG_SHB_OS, os, strlen(os));
+        if (app)
+                pcapng_putopt(f, PCAPNG_SHB_USERAPPL, app, strlen(app));
+        pcapng_putopt(f, PCAPNG_OPT_END, NULL, 0);
         fwrite(&len, 1, sizeof(uint32_t), f);
 }
 
 /* Only have a single instance of dbus pseudo interface */
-static void pcapng_interface_block(FILE *f, uint32_t snaplen) {
+static void pcapng_interface_header(FILE *f, uint32_t snaplen) {
         uint32_t len;
 
+        assert(f);
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
 
@@ -567,26 +582,18 @@ static void pcapng_interface_block(FILE *f, uint32_t snaplen) {
         fwrite(&len, 1, sizeof(uint32_t), f);
 }
 
-int bus_pcap_header(size_t snaplen, FILE *f) {
-        struct utsname u;
-        const char appinfo[]
-                = "systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")";
-        _cleanup_free_ char *os = NULL;
-
+int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f) {
         if (!f)
                 f = stdout;
 
-        assert_se(uname(&u) >= 0);
-        asprintf(&os, "%s %s", u.sysname, u.release);
-
-        pcapng_section_header(f, os, appinfo);
-        pcapng_interface_block(f, snaplen);
+        pcapng_section_header(f, os, info);
+        pcapng_interface_header(f, snaplen);
         return fflush_and_check(f);
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
         struct bus_body_part *part;
-        size_t msglen, caplen, padlen;
+        size_t msglen, caplen, pad;
         uint32_t length;
         uint64_t ts;
         unsigned i;
@@ -599,14 +606,14 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
 
-        ts = m->realtime ? : now(CLOCK_REALTIME);
+        ts = m->realtime ?: now(CLOCK_REALTIME);
         msglen = BUS_MESSAGE_SIZE(m);
         caplen = MIN(msglen, snaplen);
-        padlen = ALIGN4(caplen) - caplen;
+        pad = ALIGN4(caplen) - caplen;
 
         /* packet block has no options */
         length = sizeof(struct pcapng_enhance_packet_block)
-                + caplen + padlen + sizeof(uint32_t);
+                + caplen + pad + sizeof(uint32_t);
 
         struct pcapng_enhance_packet_block epb = {
                 .block_type = PCAPNG_ENHANCED_PACKET_BLOCK,
@@ -636,9 +643,9 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
                 snaplen -= w;
         }
 
-        if (padlen > 0) {
-                const uint32_t zero = 0;
-                fwrite(&zero, 1, padlen, f);
+        while (pad > 0) {
+                fputc('\0', f);
+                --pad;
         }
 
         /* trailing block length */
