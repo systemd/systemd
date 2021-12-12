@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/utsname.h>
 
 #include "sd-bus.h"
 
@@ -31,6 +32,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "verbs.h"
+#include "version.h"
 
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -1329,13 +1331,20 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
+        const char info[] =
+                "systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")";
+        _cleanup_free_ char *os = NULL;
+        struct utsname u;
         int r;
 
         if (isatty(fileno(stdout)) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
-        bus_pcap_header(arg_snaplen, stdout);
+        assert_se(uname(&u) >= 0);
+        asprintf(&os, "%s %s", u.sysname, u.release);
+
+        bus_pcap_header(arg_snaplen, os, info, stdout);
 
         r = monitor(argc, argv, message_pcap);
         if (r < 0)
