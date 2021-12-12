@@ -100,7 +100,6 @@ typedef struct Link {
         unsigned set_link_messages;
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
-        unsigned create_stacked_netdev_after_configured_messages;
 
         Set *addresses;
         Set *neighbors;
@@ -133,7 +132,6 @@ typedef struct Link {
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
-        bool stacked_netdevs_after_configured_created:1;
 
         sd_dhcp_server *dhcp_server;
 
