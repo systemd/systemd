@@ -628,6 +628,9 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         if (link->set_link_messages > 0)
                 return false;
 
+        if (NETDEV_VTABLE(netdev)->is_ready_to_create)
+                return NETDEV_VTABLE(netdev)->is_ready_to_create(netdev, link);
+
         return true;
 }
 
