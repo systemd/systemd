@@ -37,6 +37,7 @@ DevicePolicy=
 DirectoryMode=
 DisableControllers=
 DynamicUser=
+DynamicUserNFTSet=
 Environment=
 EnvironmentFile=
 ExecPaths=
