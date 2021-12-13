@@ -13,7 +13,6 @@ if want_kernel_install
                      install_dir : kernelinstalldir)
 
         install_data('install.conf',
-                     install_mode : 'rw-r--r--',
                      install_dir : kerneldir)
 
         if install_sysconfdir
