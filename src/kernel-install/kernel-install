@@ -90,8 +90,11 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
-[ -r "/usr/lib/kernel/install.conf" ] && . /usr/lib/kernel/install.conf
-[ -r "/etc/kernel/install.conf" ] && . /etc/kernel/install.conf
+if [ -r "/etc/kernel/install.conf" ]; then
+    . /etc/kernel/install.conf
+elif [ -r "/usr/lib/kernel/install.conf" ]; then
+    . /usr/lib/kernel/install.conf
+fi
 
 [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
