@@ -1332,7 +1332,7 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 
 static int verb_capture(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *osname = NULL;
-        const char appinfo[] =
+        static const char info[] =
                 "busctl (systemd) " STRINGIFY(PROJECT_VERSION) " (Git " GIT_VERSION ")";
         int r;
 
@@ -1344,7 +1344,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_INFO, r,
                                "Failed to read os-release file, ignoring: %m");
-        bus_pcap_header(arg_snaplen, osname, appinfo, stdout);
+        bus_pcap_header(arg_snaplen, osname, info, stdout);
 
         r = monitor(argc, argv, message_pcap);
         if (r < 0)
