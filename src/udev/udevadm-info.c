@@ -73,6 +73,7 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
         _cleanup_free_ SysAttr *sysattrs = NULL;
         const char *name, *value;
         size_t n_items = 0;
+        int r;
 
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
@@ -96,18 +97,22 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                 if (skip_attribute(name))
                         continue;
 
-                if (sd_device_get_sysattr_value(device, name, &value) < 0)
-                        continue;
+                r = sd_device_get_sysattr_value(device, name, &value);
+                if (r >= 0) {
+                        /* skip any values that look like a path */
+                        if (value[0] == '/')
+                                continue;
 
-                /* skip any values that look like a path */
-                if (value[0] == '/')
-                        continue;
+                        /* skip nonprintable attributes */
+                        len = strlen(value);
+                        while (len > 0 && isprint((unsigned char) value[len-1]))
+                                len--;
+                        if (len > 0)
+                                continue;
 
-                /* skip nonprintable attributes */
-                len = strlen(value);
-                while (len > 0 && isprint((unsigned char) value[len-1]))
-                        len--;
-                if (len > 0)
+                } else if (r == -EPERM)
+                        value = "(write-only)";
+                else
                         continue;
 
                 if (!GREEDY_REALLOC(sysattrs, n_items + 1))
