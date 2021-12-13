@@ -87,6 +87,12 @@ int control_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
+        if (pid_is_in_exec_pid(getpid_cached())) {
+                r = udev_ctrl_send_pid(uctrl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send pid of this process: %m");
+        }
+
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
