@@ -522,10 +522,10 @@ static void pcapng_putopt(FILE *f, uint16_t code, const void *data, size_t len) 
                 uint32_t pad = ALIGN4(len) - len;
 
                 fwrite(data, 1, len, f);
-                while (pad > 0) {
+
+                assert(pad < sizeof(uint32_t));
+                while (pad-- > 0)
                         fputc('\0', f);
-                        --pad;
-                }
         }
 }
 
@@ -643,10 +643,8 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
                 snaplen -= w;
         }
 
-        while (pad > 0) {
+        while (pad-- > 0)
                 fputc('\0', f);
-                --pad;
-        }
 
         /* trailing block length */
         fwrite(&length, 1, sizeof(uint32_t), f);
