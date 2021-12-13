@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-bless-boot-generator" conditional='ENABLE_EFI'>
+<refentry id="systemd-bless-boot-generator" conditional='HAVE_GNU_EFI'>
 
   <refentryinfo>
     <title>systemd-bless-boot-generator</title>
