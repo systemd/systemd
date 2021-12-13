@@ -9,7 +9,7 @@
 
 #define BUF_SIZE 1024
 
-static void test_event_spawn_core(bool with_pidfd, const char *cmd, char result_buf[BUF_SIZE]) {
+static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_(udev_event_freep) UdevEvent *event = NULL;
 
@@ -17,12 +17,12 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char result_
 
         assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
         assert_se(event = udev_event_new(dev, 0, NULL, LOG_DEBUG));
-        assert_se(udev_event_spawn(event, 5 * USEC_PER_SEC, SIGKILL, false, cmd, result_buf, BUF_SIZE, NULL) == 0);
+        assert_se(udev_event_spawn(event, 5 * USEC_PER_SEC, SIGKILL, false, cmd, result_buf, buf_size, NULL) == 0);
 
         assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
 }
 
-static void test_event_spawn_cat(bool with_pidfd) {
+static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
         _cleanup_strv_free_ char **lines = NULL;
         _cleanup_free_ char *cmd = NULL;
         char result_buf[BUF_SIZE];
@@ -32,13 +32,16 @@ static void test_event_spawn_cat(bool with_pidfd) {
         assert_se(find_executable("cat", &cmd) >= 0);
         assert_se(strextend_with_separator(&cmd, " ", "/sys/class/net/lo/uevent"));
 
-        test_event_spawn_core(with_pidfd, cmd, result_buf);
+        test_event_spawn_core(with_pidfd, cmd, result_buf,
+                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
 
         assert_se(lines = strv_split_newlines(result_buf));
         strv_print(lines);
 
-        assert_se(strv_contains(lines, "INTERFACE=lo"));
-        assert_se(strv_contains(lines, "IFINDEX=1"));
+        if (buf_size >= BUF_SIZE) {
+                assert_se(strv_contains(lines, "INTERFACE=lo"));
+                assert_se(strv_contains(lines, "IFINDEX=1"));
+        }
 }
 
 static void test_event_spawn_self(const char *self, const char *arg, bool with_pidfd) {
@@ -50,7 +53,7 @@ static void test_event_spawn_self(const char *self, const char *arg, bool with_p
 
         assert_se(cmd = strjoin(self, " ", arg));
 
-        test_event_spawn_core(with_pidfd, cmd, result_buf);
+        test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE);
 
         assert_se(lines = strv_split_newlines(result_buf));
         strv_print(lines);
@@ -92,8 +95,10 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
-        test_event_spawn_cat(true);
-        test_event_spawn_cat(false);
+        test_event_spawn_cat(true, SIZE_MAX);
+        test_event_spawn_cat(false, SIZE_MAX);
+        test_event_spawn_cat(true, 5);
+        test_event_spawn_cat(false, 5);
 
         assert_se(path_make_absolute_cwd(argv[0], &self) >= 0);
         path_simplify(self);
