@@ -99,6 +99,7 @@ SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/syste
 SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR/systemd")}"
 SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
 JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
+SYSTEMCTL="${SYSTEMCTL:-$(command -v "$BUILD_DIR/systemctl" || command -v systemctl)}"
 
 TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
