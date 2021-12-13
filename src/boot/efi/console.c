@@ -30,24 +30,26 @@ static inline void EventClosep(EFI_EVENT *event) {
  * On the other hand we have ConIn, where some firmware likes to just freeze on us
  * if we call ReadKeyStroke on it.
  *
- * Therefore, we use WaitForEvent on both ConIn and TextInputEx (if available) along
- * with a timer event. The timer ensures there is no need to call into functions
- * that might freeze on us, while still allowing us to show a timeout counter.
- */
+ * Therefore, we use WaitForEvent on whichever API we can use along with a timer event.
+ * The timer ensures there is no need to call into functions that might freeze on us,
+ * while still allowing us to show a timeout counter.
+ *
+ * Note that we cannot wait on both APIs and fall back to ConIn if TextInputEx did not return
+ * a key, because sometimes ConIn will still return an old key we already processed
+ * through TextInputEx resulting in double input. */
 EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *TextInputEx;
         static BOOLEAN checked;
-        UINTN index;
-        EFI_INPUT_KEY k;
         EFI_STATUS err;
         _cleanup_(EventClosep) EFI_EVENT timer = NULL;
-        EFI_EVENT events[3] = { ST->ConIn->WaitForKey };
-        UINTN n_events = 1;
 
         assert(key);
 
         if (!checked) {
-                err = LibLocateProtocol(&SimpleTextInputExProtocol, (void **)&TextInputEx);
+                /* We use HandleProtocol here instead of LibLocateProtocol because the latter returns the
+                 * *first* device that supports TextInputEx. It is not guaranteed to be our console input
+                 * device we get from ST->ConIn. */
+                err = BS->HandleProtocol(ST->ConsoleInHandle, &SimpleTextInputExProtocol, (void **) &TextInputEx);
                 if (EFI_ERROR(err) || BS->CheckEvent(TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
@@ -55,17 +57,19 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 checked = TRUE;
         }
 
-        if (TextInputEx)
-                events[n_events++] = TextInputEx->WaitForKeyEx;
-
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error creating timer event: %r", err);
-        events[n_events++] = timer;
+
+        EFI_EVENT events[] = {
+                timer,
+                TextInputEx ? TextInputEx->WaitForKeyEx : ST->ConIn->WaitForKey,
+        };
 
         /* Watchdog rearming loop in case the user never provides us with input or some
          * broken firmware never returns from WaitForEvent. */
         for (;;) {
+                UINTN index;
                 UINT64 watchdog_timeout_sec = 5 * 60,
                        watchdog_ping_usec = watchdog_timeout_sec / 2 * 1000 * 1000;
 
@@ -78,7 +82,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
-                err = BS->WaitForEvent(n_events, events, &index);
+                err = BS->WaitForEvent(ELEMENTSOF(events), events, &index);
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
 
                 if (EFI_ERROR(err))
@@ -100,8 +104,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 return EFI_TIMEOUT;
         }
 
-        /* TextInputEx might be ready too even if ConIn got to signal first. */
-        if (TextInputEx && !EFI_ERROR(BS->CheckEvent(TextInputEx->WaitForKeyEx))) {
+        if (TextInputEx) {
                 EFI_KEY_DATA keydata;
                 UINT64 keypress;
                 UINT32 shift = 0;
@@ -116,7 +119,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                                 shift |= EFI_CONTROL_PRESSED;
                         if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED))
                                 shift |= EFI_ALT_PRESSED;
-                };
+                }
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
                 keypress = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
@@ -126,14 +129,16 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 }
 
                 return EFI_NOT_READY;
+        } else {
+                EFI_INPUT_KEY k;
+
+                err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
+                if (EFI_ERROR(err))
+                        return err;
+
+                *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
+                return EFI_SUCCESS;
         }
-
-        err  = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
-        if (EFI_ERROR(err))
-                return err;
-
-        *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
-        return EFI_SUCCESS;
 }
 
 static EFI_STATUS change_mode(INT64 mode) {
