@@ -20,6 +20,7 @@
 #include "json.h"
 #include "log.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -31,6 +32,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "verbs.h"
+#include "version.h"
 
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -1329,13 +1331,20 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
+        _cleanup_free_ char *osname = NULL;
+        static const char info[] =
+                "busctl (systemd) " STRINGIFY(PROJECT_VERSION) " (Git " GIT_VERSION ")";
         int r;
 
         if (isatty(fileno(stdout)) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
-        bus_pcap_header(arg_snaplen, stdout);
+        r = parse_os_release(NULL, "PRETTY_NAME", &osname);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_INFO, r,
+                               "Failed to read os-release file, ignoring: %m");
+        bus_pcap_header(arg_snaplen, osname, info, stdout);
 
         r = monitor(argc, argv, message_pcap);
         if (r < 0)
