@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TESTSUITE-99-TBD
+After=dbus.service multi-user.target systemd-resolved.service systemd-networkd.service
+After=systemd-machined.service systemd-oomd.service systemd-homed.service systemd-timesyncd.service
+Wants=dbus.service multi-user.target systemd-resolved.service systemd-networkd.service
+Wants=systemd-machined.service systemd-oomd.service systemd-homed.service systemd-timesyncd.service
+
+[Service]
+ExecStartPre=rm -f /failed /skipped /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
