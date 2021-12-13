@@ -1812,7 +1812,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 if (lstat(path, &statbuf) != 0)
                         continue;
 
-                if (!(statbuf.st_mode & S_IRUSR))
+                if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
                         continue;
 
                 r = set_put_strdup(&device->sysattrs, p ?: dent->d_name);
