@@ -91,11 +91,11 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
 fi
 
 [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
-[ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
+[ -z "$BOOT_ID" ] && [ -f /etc/systemd/boot-id ] && read -r BOOT_ID < /etc/systemd/boot-id
 
-[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "Default" "loader/entries"; do
+[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "$BOOT_ID" "Default" "loader/entries"; do
     for pref in "/efi" "/boot/efi" "/boot"; do
-        if [ -d "$pref/$suff" ]; then
+        if [ -n "$suff" ] && [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
             break 2
         fi
@@ -108,12 +108,28 @@ done
         break
     fi
 done
+
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
 
+# First, let's see if there's an existing directory in the boot root that we can reuse.
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && [ -n "$BOOT_ID" ] && [ -d "$BOOT_ROOT/$BOOT_ID" ] && KERNEL_INSTALL_BOOT_ID="$BOOT_ID"
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && [ -n "$MACHINE_ID" ] && [ -d "$BOOT_ROOT/$MACHINE_ID" ] && KERNEL_INSTALL_BOOT_ID="$MACHINE_ID"
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && [ -d "$BOOT_ROOT/Default" ] && KERNEL_INSTALL_BOOT_ID="Default"
 
-ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+# If we didn't find an existing directory, determine the directory in the following order:
+# 1. Use an existing boot ID if one exists
+# 1. Try to generate a new boot ID and use it if generating and storing the new ID succeeds
+# 2. Try to use the machine ID if it exists
+# 3. Fall back to using "Default".
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && [ -n "$BOOT_ID" ] && KERNEL_INSTALL_BOOT_ID="$BOOT_ID"
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && systemd-id128 new > /etc/systemd/boot-id && read -r KERNEL_INSTALL_BOOT_ID < /etc/systemd/boot-id
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && [ -n "$MACHINE_ID" ] && KERNEL_INSTALL_BOOT_ID="$MACHINE_ID"
+[ -z "$KERNEL_INSTALL_BOOT_ID" ] && KERNEL_INSTALL_BOOT_ID="Default"
 
-export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+ENTRY_DIR_ABS="$BOOT_ROOT/$KERNEL_INSTALL_BOOT_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_BOOT_ID="$KERNEL_INSTALL_BOOT_ID"
+export KERNEL_INSTALL_MACHINE_ID="$KERNEL_INSTALL_BOOT_ID" # Backwards compat
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
 ret=0

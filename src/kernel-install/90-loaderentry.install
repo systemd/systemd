@@ -24,7 +24,7 @@ ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 INITRD_OPTIONS_START="5"
 
-if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
+if ! [[ $KERNEL_INSTALL_BOOT_ID ]]; then
     exit 0
 fi
 
@@ -32,7 +32,7 @@ if ! [[ -d "$ENTRY_DIR_ABS" ]]; then
     exit 0
 fi
 
-MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+BOOT_ID="$KERNEL_INSTALL_BOOT_ID"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
 BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
@@ -43,8 +43,8 @@ else
 fi
 
 if [[ $COMMAND == remove ]]; then
-    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
-    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
+    rm -f "$BOOT_ROOT/loader/entries/$BOOT_ID-$KERNEL_VERSION.conf"
+    rm -f "$BOOT_ROOT/loader/entries/$BOOT_ID-$KERNEL_VERSION+"*".conf"
     exit 0
 fi
 
@@ -87,9 +87,9 @@ if [[ -f /etc/kernel/tries ]]; then
         echo "/etc/kernel/tries does not contain an integer." >&2
         exit 1
     fi
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$BOOT_ID-$KERNEL_VERSION+$TRIES.conf"
 else
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$BOOT_ID-$KERNEL_VERSION.conf"
 fi
 
 install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
@@ -125,7 +125,8 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
 {
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
-    echo "machine-id $MACHINE_ID"
+    echo "boot-id    $BOOT_ID"
+    echo "machine-id $BOOT_ID" # Backwards compat
     echo "options    ${BOOT_OPTIONS[*]}"
     echo "linux      $ENTRY_DIR/linux"
     for initrd in "${INITRD_OPTIONS[@]}"; do
