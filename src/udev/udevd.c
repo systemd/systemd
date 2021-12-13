@@ -108,6 +108,8 @@ typedef struct Manager {
 
         bool stop_exec_queue;
         bool exit;
+
+        pid_t pid_udevadm; /* pid of 'udevadm control' */
 } Manager;
 
 typedef enum EventState {
@@ -1215,6 +1217,10 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
                 break;
+        case UDEV_CTRL_SENDER_PID:
+                log_debug("Received udev control message (SENDER_PID)");
+                manager->pid_udevadm = value->pid;
+                break;
         default:
                 log_debug("Received unknown udev control message, ignoring");
         }
@@ -1490,9 +1496,35 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
 
-        if (manager->cgroup)
-                /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
+        if (!manager->cgroup)
+                return 1;
+
+        /* Cleanup possible left-over processes in our cgroup. But do not kill udevadm called by
+         * ExecReload= in systemd-udevd.service. See #16867. To protect it, the following two ways are
+         * introduced:
+         *
+         * 1. After the connection is accepted, but the PID of udevadm is not received, do not call
+         *    cg_kill(). So, in this period, unwanted process or threads may exist in our cgroup.
+         *    But, it is expected that the PID of the udevadm will be received soon. So, this time
+         *    period should be short enough.
+         * 2. After the PID of udevadm is received, check the process is active or not, and if it is
+         *    still active, set the PID to the deny list for cg_kill(). Why udev_ctrl_is_connected() is
+         *    not enough? Because the udevadm may be still active after the control socket is
+         *    disconnected. If the process is not active, then clear the PID for later connections.
+         */
+
+        if (udev_ctrl_is_connected(manager->ctrl) >= 0 && !pid_is_valid(manager->pid_udevadm))
+                return 1;
+
+        _cleanup_set_free_ Set *pids = NULL;
+        if (pid_is_valid(manager->pid_udevadm)) {
+                if (pid_is_alive(manager->pid_udevadm))
+                        (void) set_ensure_put(&pids, NULL, PID_TO_PTR(manager->pid_udevadm));
+                else
+                        manager->pid_udevadm = 0;
+        }
+
+        (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, pids, NULL, NULL);
 
         return 1;
 }
