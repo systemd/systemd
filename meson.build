@@ -1759,7 +1759,7 @@ subdir('src/cryptsetup/cryptsetup-tokens')
 
 libsystemd = shared_library(
         'systemd',
-        disable_mempool_c,
+        constructor_c,
         version : libsystemd_version,
         include_directories : libsystemd_includes,
         link_args : ['-shared',
@@ -1782,7 +1782,7 @@ install_libsystemd_static = static_library(
         basic_sources,
         basic_gcrypt_sources,
         fundamental_sources,
-        disable_mempool_c,
+        constructor_c,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
@@ -1803,7 +1803,7 @@ install_libsystemd_static = static_library(
 
 libudev = shared_library(
         'udev',
-        disable_mempool_c,
+        constructor_c,
         version : libudev_version,
         include_directories : includes,
         link_args : ['-shared',
@@ -1822,7 +1822,7 @@ install_libudev_static = static_library(
         shared_sources,
         libsystemd_sources,
         libudev_sources,
-        disable_mempool_c,
+        constructor_c,
         include_directories : includes,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
@@ -1930,7 +1930,7 @@ subdir('test')
 test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
-        disable_mempool_c,
+        constructor_c,
         include_directories : includes,
         link_with : [libbasic],
         dependencies : [libdl],
@@ -1960,7 +1960,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 nss = shared_library(
                         'nss_' + module,
                         sources,
-                        disable_mempool_c,
+                        constructor_c,
                         version : '2',
                         include_directories : incs,
                         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned

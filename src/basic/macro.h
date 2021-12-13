@@ -18,6 +18,7 @@
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
 #define _sentinel_ __attribute__((__sentinel__))
+#define _constructor_ __attribute__((__constructor__))
 #define _destructor_ __attribute__((__destructor__))
 #define _deprecated_ __attribute__((__deprecated__))
 #define _malloc_ __attribute__((__malloc__))

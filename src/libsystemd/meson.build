@@ -159,7 +159,7 @@ libsystemd_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
-disable_mempool_c = files('disable-mempool.c')
+constructor_c = files('constructor.c')
 
 libsystemd_c_args = ['-fvisibility=default']
 
