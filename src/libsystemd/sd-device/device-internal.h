@@ -35,8 +35,10 @@ struct sd_device {
 
         Hashmap *sysattr_values; /* cached sysattr values */
 
-        Set *sysattrs; /* names of sysattrs */
+        Set *sysattrs;            /* names of readable sysattrs */
+        Set *sysattrs_write_only; /* names of write-only sysattrs */
         Iterator sysattrs_iterator;
+        Iterator sysattrs_write_only_iterator;
 
         Set *all_tags, *current_tags;
         Iterator all_tags_iterator, current_tags_iterator;
