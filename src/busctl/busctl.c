@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <sys/utsname.h>
 
 #include "sd-bus.h"
 
@@ -21,6 +20,7 @@
 #include "json.h"
 #include "log.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -1331,20 +1331,20 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
-        const char info[] =
-                "systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")";
-        _cleanup_free_ char *os = NULL;
-        struct utsname u;
+        _cleanup_free_ char *osname = NULL;
+        const char appinfo[] =
+                "busctl (systemd) " STRINGIFY(PROJECT_VERSION) " (Git " GIT_VERSION ")";
         int r;
 
         if (isatty(fileno(stdout)) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
-        assert_se(uname(&u) >= 0);
-        asprintf(&os, "%s %s", u.sysname, u.release);
-
-        bus_pcap_header(arg_snaplen, os, info, stdout);
+        r = parse_os_release(NULL, "PRETTY_NAME", &osname);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_INFO, r,
+                               "Failed to read os-release file, ignoring: %m");
+        bus_pcap_header(arg_snaplen, osname, appinfo, stdout);
 
         r = monitor(argc, argv, message_pcap);
         if (r < 0)
