@@ -136,7 +136,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list) {
                 char program[UDEV_PATH_SIZE];
 
-                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false);
+                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false, NULL);
                 printf("run: '%s'\n", program);
         }
 
