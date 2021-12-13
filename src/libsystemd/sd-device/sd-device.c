@@ -74,6 +74,7 @@ static sd_device *device_free(sd_device *device) {
         ordered_hashmap_free(device->properties_db);
         hashmap_free(device->sysattr_values);
         set_free(device->sysattrs);
+        set_free(device->sysattrs_write_only);
         set_free(device->all_tags);
         set_free(device->current_tags);
         set_free(device->devlinks);
@@ -1812,10 +1813,13 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 if (lstat(path, &statbuf) != 0)
                         continue;
 
-                if (!(statbuf.st_mode & S_IRUSR))
+                if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
                         continue;
 
-                r = set_put_strdup(&device->sysattrs, p ?: dent->d_name);
+                r = set_put_strdup(FLAGS_SET(statbuf.st_mode, S_IRUSR) ?
+                                   &device->sysattrs :
+                                   &device->sysattrs_write_only,
+                                   p ?: dent->d_name);
                 if (r < 0)
                         return r;
         }
@@ -1840,7 +1844,8 @@ static int device_sysattrs_read_all(sd_device *device) {
         return 0;
 }
 
-_public_ const char *sd_device_get_sysattr_first(sd_device *device) {
+static const char *device_get_sysattr_first_internal(sd_device *device, bool write_only) {
+        Iterator *i;
         void *v;
         int r;
 
@@ -1854,13 +1859,14 @@ _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
                 }
         }
 
-        device->sysattrs_iterator = ITERATOR_FIRST;
+        i = write_only ? &device->sysattrs_write_only_iterator : &device->sysattrs_iterator;
+        *i = ITERATOR_FIRST;
 
-        (void) set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        (void) set_iterate(write_only ? device->sysattrs_write_only : device->sysattrs, i, &v);
         return v;
 }
 
-_public_ const char *sd_device_get_sysattr_next(sd_device *device) {
+static const char *device_get_sysattr_next_internal(sd_device *device, bool write_only) {
         void *v;
 
         assert_return(device, NULL);
@@ -1868,8 +1874,26 @@ _public_ const char *sd_device_get_sysattr_next(sd_device *device) {
         if (!device->sysattrs_read)
                 return NULL;
 
-        (void) set_iterate(device->sysattrs, &device->sysattrs_iterator, &v);
+        (void) set_iterate(write_only ? device->sysattrs_write_only : device->sysattrs,
+                           write_only ? &device->sysattrs_write_only_iterator : &device->sysattrs_iterator,
+                           &v);
         return v;
+}
+
+_public_ const char *sd_device_get_sysattr_first(sd_device *device) {
+        return device_get_sysattr_first_internal(device, /* write_only = */ false);
+}
+
+_public_ const char *sd_device_get_sysattr_next(sd_device *device) {
+        return device_get_sysattr_next_internal(device, /* write_only = */ false);
+}
+
+_public_ const char *sd_device_get_write_only_sysattr_first(sd_device *device) {
+        return device_get_sysattr_first_internal(device, /* write_only = */ true);
+}
+
+_public_ const char *sd_device_get_write_only_sysattr_next(sd_device *device) {
+        return device_get_sysattr_next_internal(device, /* write_only = */ true);
 }
 
 _public_ int sd_device_has_tag(sd_device *device, const char *tag) {
