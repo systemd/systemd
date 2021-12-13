@@ -569,6 +569,7 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Spawn *spawn = userdata;
         char buf[4096], *p;
+        bool full = false;
         size_t size;
         ssize_t l;
         int r;
@@ -585,7 +586,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 size = sizeof(buf);
         }
 
-        l = read(fd, p, size - 1);
+        l = read(fd, p, size - (p == buf));
         if (l < 0) {
                 if (errno == EAGAIN)
                         goto reenable;
@@ -594,6 +595,13 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                        "Failed to read stdout of '%s': %m", spawn->cmd);
 
                 return 0;
+        }
+
+        if ((size_t) l == size) {
+                log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
+                                   spawn->cmd, spawn->result_size);
+                l--;
+                full = true;
         }
 
         p[l] = '\0';
@@ -616,7 +624,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (l == 0)
+        if (l == 0 || full)
                 return 0;
 
 reenable:
