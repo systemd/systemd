@@ -514,7 +514,7 @@ static void pcapng_putopt(FILE *f, uint16_t code, const void *data, size_t len) 
         };
 
         assert(f);
-        assert(len < UINT16_MAX);
+        assert((uint16_t) len == len);
         assert(data || len == 0);
 
         fwrite(&opt, 1, sizeof(opt), f);
