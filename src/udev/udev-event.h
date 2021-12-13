@@ -56,7 +56,8 @@ size_t udev_event_apply_format(
                 const char *src,
                 char *dest,
                 size_t size,
-                bool replace_whitespace);
+                bool replace_whitespace,
+                bool *ret_truncated);
 int udev_check_format(const char *value, size_t *offset, const char **hint);
 int udev_event_spawn(
                 UdevEvent *event,
