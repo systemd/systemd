@@ -139,7 +139,7 @@ export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 
 [ "$layout" = "bls" ]
-MAKE_EDA=$?
+MAKE_ENTRY_DIR_ABS=$?
 
 
 ret=0
@@ -162,7 +162,7 @@ case $COMMAND in
             exit 1
         fi
 
-        if [ "$MAKE_EDA" -eq 0 ]; then
+        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
             # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
             # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
             # to serve as the indication to use or to not use the BLS
@@ -202,7 +202,7 @@ case $COMMAND in
             fi
         done
 
-        if [ "$MAKE_EDA" -eq 0 ]; then
+        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
             rm -rf "$ENTRY_DIR_ABS"
         fi
