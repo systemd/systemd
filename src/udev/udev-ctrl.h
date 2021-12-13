@@ -18,6 +18,7 @@ typedef enum UdevCtrlMessageType {
         UDEV_CTRL_SET_CHILDREN_MAX,
         UDEV_CTRL_PING,
         UDEV_CTRL_EXIT,
+        _UDEV_CTRL_ON_ACCEPT,
 } UdevCtrlMessageType;
 
 typedef union UdevCtrlMessageValue {
