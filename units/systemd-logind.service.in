@@ -37,7 +37,9 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectProc=invisible
+# logind must be able to read proc info from other users to be able
+# to determine who called for eg a shutdown.
+ProtectProc=default
 ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
