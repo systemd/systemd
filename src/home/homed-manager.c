@@ -253,8 +253,8 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(h, m->homes_by_worker_pid)
                 (void) home_wait_for_worker(h);
 
-        sd_bus_flush_close_unref(m->bus);
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->bus = sd_bus_flush_close_unref(m->bus);
+        m->polkit_registry = bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 
@@ -265,12 +265,12 @@ Manager* manager_free(Manager *m) {
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
         m->rebalance_event_source = sd_event_source_unref(m->rebalance_event_source);
 
-        sd_event_unref(m->event);
+        m->event = sd_event_unref(m->event);
 
-        hashmap_free(m->homes_by_uid);
-        hashmap_free(m->homes_by_name);
-        hashmap_free(m->homes_by_worker_pid);
-        hashmap_free(m->homes_by_sysfs);
+        m->homes_by_uid = hashmap_free(m->homes_by_uid);
+        m->homes_by_name = hashmap_free(m->homes_by_name);
+        m->homes_by_worker_pid = hashmap_free(m->homes_by_worker_pid);
+        m->homes_by_sysfs = hashmap_free(m->homes_by_sysfs);
 
         if (m->private_key)
                 EVP_PKEY_free(m->private_key);
