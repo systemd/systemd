@@ -58,7 +58,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ifname=</varname></term>
+        <term><varname>ifname=<replaceable>IFNAME</replaceable>:<replaceable>MACADDRESS</replaceable></varname></term>
+        <term><varname>ifname.policy=<replaceable>POLICY1</replaceable>[,<replaceable>POLICY2</replaceable>,…][,<replaceable>MACADDRESS</replaceable>]</varname></term>
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
