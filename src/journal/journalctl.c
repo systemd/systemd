@@ -2597,7 +2597,7 @@ int main(int argc, char *argv[]) {
         if (!arg_follow)
                 pager_open(arg_pager_flags);
 
-        if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
+        if (!arg_quiet && (arg_lines != 0 || arg_follow) && DEBUG_LOGGING) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 
