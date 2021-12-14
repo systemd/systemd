@@ -430,7 +430,7 @@ target2 = custom_target(
 shared_generated_gperf_headers = [target1, target2]
 shared_sources += shared_generated_gperf_headers
 
-libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
+libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
