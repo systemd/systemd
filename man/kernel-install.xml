@@ -230,6 +230,18 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/etc/machine-info</filename>
+        </term>
+          <listitem>
+            <para>If this file contains the <varname>KERNEL_INSTALL_MACHINE_ID</varname> variable,
+            <command>kernel-install</command> will use it as <replaceable>MACHINE-ID</replaceable> instead of
+            the contents of <filename>/etc/machine-id</filename>. If the variable is not found in
+            <filename>/etc/machine-info</filename>, <command>kernel-install</command> will try to save the
+            machine ID it uses to install to <varname>$BOOT</varname> to this file.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
           <filename>/etc/os-release</filename>
           <filename>/usr/lib/os-release</filename>
         </term>
