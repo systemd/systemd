@@ -408,8 +408,11 @@ int bus_verify_polkit_async(
         return -EACCES;
 }
 
-void bus_verify_polkit_async_registry_free(Hashmap *registry) {
+Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #if ENABLE_POLKIT
-        hashmap_free_with_destructor(registry, async_polkit_query_free);
+        return hashmap_free_with_destructor(registry, async_polkit_query_free);
+#else
+        assert(hashmap_isempty(registry));
+        return hashmap_free(registry);
 #endif
 }
