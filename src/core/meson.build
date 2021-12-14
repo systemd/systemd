@@ -167,12 +167,18 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-libcore = static_library(
-        'core',
+libcore_name = 'systemd-core-@0@'.format(meson.project_version())
+
+libcore = shared_library(
+        libcore_name,
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
+        c_args : ['-fvisibility=default'],
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libshared_sym_path],
+        link_with : libshared,
         dependencies : [versiondep,
                         threads,
                         libdl,
@@ -184,8 +190,10 @@ libcore = static_library(
                         libapparmor,
                         libselinux,
                         libmount,
+                        libblkid,
                         libacl],
-        build_by_default : false)
+        install : true,
+        install_dir : rootlibexecdir)
 
 core_includes = [includes, include_directories('.')]
 
