@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
@@ -270,7 +269,12 @@ static Link *link_free(Link *link) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
-static int link_new(Context *context, const char *name, struct ether_addr *mac, Link **ret) {
+static int link_new(
+                Context *context,
+                const char *name,
+                const struct hw_addr_data *mac,
+                Link **ret) {
+
         _cleanup_(link_freep) Link *link = NULL;
         _cleanup_free_ char *ifname = NULL;
         int r;
@@ -896,7 +900,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
 }
 
 static int parse_cmdline_ifname(Context *context, const char *key, const char *value) {
-        struct ether_addr mac;
+        struct hw_addr_data mac;
         const char *name, *p;
         int r;
 
@@ -911,7 +915,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
 
         name = strndupa_safe(value, p - value);
 
-        r = parse_ether_addr(p + 1, &mac);
+        r = parse_hw_addr(p + 1, &mac);
         if (r < 0)
                 return r;
 
@@ -1117,8 +1121,8 @@ void link_dump(Link *link, FILE *f) {
 
         fputs("[Match]\n", f);
 
-        if (!ether_addr_is_null(&link->mac))
-                fprintf(f, "MACAddress=%s\n", ETHER_ADDR_TO_STR(&link->mac));
+        if (!hw_addr_is_null(&link->mac))
+                fprintf(f, "MACAddress=%s\n", HW_ADDR_TO_STR(&link->mac));
 
         fprintf(f,
                 "\n[Link]\n"
