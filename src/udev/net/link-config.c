@@ -22,7 +22,6 @@
 #include "log-link.h"
 #include "memory-util.h"
 #include "net-condition.h"
-#include "netif-naming-scheme.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -1032,30 +1031,10 @@ DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
         MAC_ADDRESS_POLICY_NONE,
         "Failed to parse MAC address policy");
 
-static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
-        [NAMEPOLICY_KERNEL] = "kernel",
-        [NAMEPOLICY_KEEP] = "keep",
-        [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
                           _NAMEPOLICY_INVALID,
                           "Failed to parse interface name policy");
 
-static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
-        [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
                           _NAMEPOLICY_INVALID,
                           "Failed to parse alternative names policy");

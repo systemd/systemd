@@ -64,3 +64,21 @@ const NamingScheme* naming_scheme(void);
 static inline bool naming_scheme_has(NamingSchemeFlags flags) {
         return FLAGS_SET(naming_scheme()->flags, flags);
 }
+
+typedef enum NamePolicy {
+        NAMEPOLICY_KERNEL,
+        NAMEPOLICY_KEEP,
+        NAMEPOLICY_DATABASE,
+        NAMEPOLICY_ONBOARD,
+        NAMEPOLICY_SLOT,
+        NAMEPOLICY_PATH,
+        NAMEPOLICY_MAC,
+        _NAMEPOLICY_MAX,
+        _NAMEPOLICY_INVALID = -EINVAL,
+} NamePolicy;
+
+const char *name_policy_to_string(NamePolicy p) _const_;
+NamePolicy name_policy_from_string(const char *p) _pure_;
+
+const char *alternative_names_policy_to_string(NamePolicy p) _const_;
+NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
