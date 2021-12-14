@@ -13,6 +13,7 @@
 #include "format-util.h"
 #include "glyph-util.h"
 #include "macro.h"
+#include "pcapng.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -502,57 +503,99 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         return 0;
 }
 
-/*
- * For details about the file format, see:
- *
- * http://wiki.wireshark.org/Development/LibpcapFileFormat
- */
+static uint16_t pcapng_optlen(size_t len) {
+        return ALIGN4(len + sizeof(struct pcapng_option));
+}
 
-typedef struct _packed_ pcap_hdr_s {
-        uint32_t magic_number;   /* magic number */
-        uint16_t version_major;  /* major version number */
-        uint16_t version_minor;  /* minor version number */
-        int32_t  thiszone;       /* GMT to local correction */
-        uint32_t sigfigs;        /* accuracy of timestamps */
-        uint32_t snaplen;        /* max length of captured packets, in octets */
-        uint32_t network;        /* data link type */
-} pcap_hdr_t ;
-
-typedef struct  _packed_ pcaprec_hdr_s {
-        uint32_t ts_sec;         /* timestamp seconds */
-        uint32_t ts_usec;        /* timestamp microseconds */
-        uint32_t incl_len;       /* number of octets of packet saved in file */
-        uint32_t orig_len;       /* actual length of packet */
-} pcaprec_hdr_t;
-
-int bus_pcap_header(size_t snaplen, FILE *f) {
-
-        pcap_hdr_t hdr = {
-                .magic_number = 0xa1b2c3d4U,
-                .version_major = 2,
-                .version_minor = 4,
-                .thiszone = 0, /* UTC */
-                .sigfigs = 0,
-                .network = 231, /* D-Bus */
+static void pcapng_putopt(FILE *f, uint16_t code, const void *data, size_t len) {
+        struct pcapng_option opt = {
+                .code = code,
+                .length = len,
         };
 
-        if (!f)
-                f = stdout;
+        assert(f);
+        assert((uint16_t) len == len);
+        assert(data || len == 0);
 
+        fwrite(&opt, 1, sizeof(opt), f);
+        if (len > 0) {
+                size_t pad = ALIGN4(len) - len;
+
+                fwrite(data, 1, len, f);
+
+                assert(pad < sizeof(uint32_t));
+                while (pad-- > 0)
+                        fputc('\0', f);
+        }
+}
+
+static void pcapng_section_header(FILE *f, const char *os, const char *app) {
+        uint32_t len;
+
+        assert(f);
+
+        /* determine length of section header and options */
+        len = sizeof(struct pcapng_section);
+        if (os)
+                len += pcapng_optlen(strlen(os));
+        if (app)
+                len += pcapng_optlen(strlen(app));
+        len += pcapng_optlen(0);	/* OPT_END */
+        len += sizeof(uint32_t);	/* trailer length */
+
+        struct pcapng_section hdr = {
+                .block_type = PCAPNG_SECTION_BLOCK,
+                .block_length = len,
+                .byte_order_magic = PCAPNG_BYTE_ORDER_MAGIC,
+                .major_version = PCAPNG_MAJOR_VERS,
+                .minor_version = PCAPNG_MINOR_VERS,
+                .section_length = UINT64_MAX,
+        };
+
+        fwrite(&hdr, 1, sizeof(hdr), f);
+        if (os)
+                pcapng_putopt(f, PCAPNG_SHB_OS, os, strlen(os));
+        if (app)
+                pcapng_putopt(f, PCAPNG_SHB_USERAPPL, app, strlen(app));
+        pcapng_putopt(f, PCAPNG_OPT_END, NULL, 0);
+        fwrite(&len, 1, sizeof(uint32_t), f);
+}
+
+/* Only have a single instance of dbus pseudo interface */
+static void pcapng_interface_header(FILE *f, size_t snaplen) {
+        uint32_t len;
+
+        assert(f);
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
 
-        hdr.snaplen = (uint32_t) snaplen;
+        /* no options (yet) */
+        len = sizeof(struct pcapng_interface_block) + sizeof(uint32_t);
+        struct pcapng_interface_block hdr = {
+                .block_type = PCAPNG_INTERFACE_BLOCK,
+                .block_length = len,
+                .link_type  = 231, /* D-Bus */
+                .snap_len = snaplen,
+        };
 
         fwrite(&hdr, 1, sizeof(hdr), f);
+        fwrite(&len, 1, sizeof(uint32_t), f);
+}
 
+int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f) {
+        if (!f)
+                f = stdout;
+
+        pcapng_section_header(f, os, info);
+        pcapng_interface_header(f, snaplen);
         return fflush_and_check(f);
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
         struct bus_body_part *part;
-        pcaprec_hdr_t hdr = {};
-        struct timeval tv;
+        size_t msglen, caplen, pad;
+        uint32_t length;
+        uint64_t ts;
         unsigned i;
         size_t w;
 
@@ -563,18 +606,27 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
 
-        if (m->realtime != 0)
-                timeval_store(&tv, m->realtime);
-        else
-                assert_se(gettimeofday(&tv, NULL) >= 0);
+        ts = m->realtime ?: now(CLOCK_REALTIME);
+        msglen = BUS_MESSAGE_SIZE(m);
+        caplen = MIN(msglen, snaplen);
+        pad = ALIGN4(caplen) - caplen;
 
-        hdr.ts_sec = tv.tv_sec;
-        hdr.ts_usec = tv.tv_usec;
-        hdr.orig_len = BUS_MESSAGE_SIZE(m);
-        hdr.incl_len = MIN(hdr.orig_len, snaplen);
+        /* packet block has no options */
+        length = sizeof(struct pcapng_enhance_packet_block)
+                + caplen + pad + sizeof(uint32_t);
 
-        /* write the pcap header */
-        fwrite(&hdr, 1, sizeof(hdr), f);
+        struct pcapng_enhance_packet_block epb = {
+                .block_type = PCAPNG_ENHANCED_PACKET_BLOCK,
+                .block_length = length,
+                .interface_id = 0,
+                .timestamp_hi = (uint32_t)(ts >> 32),
+                .timestamp_lo = (uint32_t)ts,
+                .original_length = msglen,
+                .capture_length = caplen,
+        };
+
+        /* write the pcapng enhanced packet block header */
+        fwrite(&epb, 1, sizeof(epb), f);
 
         /* write the dbus header */
         w = MIN(BUS_MESSAGE_BODY_BEGIN(m), snaplen);
@@ -590,6 +642,12 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
                 fwrite(part->data, 1, w, f);
                 snaplen -= w;
         }
+
+        while (pad-- > 0)
+                fputc('\0', f);
+
+        /* trailing block length */
+        fwrite(&length, 1, sizeof(uint32_t), f);
 
         return fflush_and_check(f);
 }
