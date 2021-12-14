@@ -663,7 +663,10 @@ static void device_process_new(Manager *m, sd_device *dev) {
 }
 
 static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
+        Manager *m;
+
         assert(d);
+        m = UNIT(d)->manager;
 
         /* Didn't exist before, but does now? if so, generate a new invocation ID for it */
         if (previous == DEVICE_NOT_FOUND && now != DEVICE_NOT_FOUND)
@@ -676,10 +679,14 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
                 /* If the device has not been seen by udev yet, but is now referenced by the kernel, then we assume the
                  * kernel knows it now, and udev might soon too. */
                 device_set_state(d, DEVICE_TENTATIVE);
-        else
+        else {
+                /* We should not change device to dead only depends on enumerate. */
+                if (m->in_manager_ready)
+                    return;
                 /* If nobody sees the device, or if the device was previously seen by udev and now is only referenced
                  * from the kernel, then we consider the device is gone, the kernel just hasn't noticed it yet. */
                 device_set_state(d, DEVICE_DEAD);
+        }
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
