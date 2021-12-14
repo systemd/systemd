@@ -65,6 +65,20 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment variables</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_VALIDATE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, cryptographic validation of resource records
+        via DNSSEC will be disabled. This may be useful for testing, or when system time is known to be
+        unreliable.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Example</title>
 
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables <command>nss-resolve</command>
@@ -95,7 +109,8 @@ netgroup:       nis</programlisting>
       <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 
