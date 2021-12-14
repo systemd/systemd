@@ -30,6 +30,11 @@
              attr;                                       \
              attr = sd_device_get_sysattr_next(device))
 
+#define FOREACH_DEVICE_WRITE_ONLY_SYSATTR(device, attr)             \
+        for (attr = sd_device_get_write_only_sysattr_first(device); \
+             attr;                                       \
+             attr = sd_device_get_write_only_sysattr_next(device))
+
 #define FOREACH_DEVICE_DEVLINK(device, devlink)             \
         for (devlink = sd_device_get_devlink_first(device); \
              devlink;                                   \

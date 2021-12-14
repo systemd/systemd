@@ -120,6 +120,20 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                 n_items++;
         }
 
+        FOREACH_DEVICE_WRITE_ONLY_SYSATTR(device, name) {
+                if (skip_attribute(name))
+                        continue;
+
+                if (!GREEDY_REALLOC(sysattrs, n_items + 1))
+                        return log_oom();
+
+                sysattrs[n_items] = (SysAttr) {
+                        .name = name,
+                        .value = "(write-only)",
+                };
+                n_items++;
+        }
+
         typesafe_qsort(sysattrs, n_items, sysattr_compare);
 
         for (size_t i = 0; i < n_items; i++)
