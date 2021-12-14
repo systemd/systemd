@@ -230,6 +230,16 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/etc/machine-info</filename>
+        </term>
+          <listitem>
+            <para>If this file contains the <varname>KERNEL_INSTALL_MACHINE_ID</varname> variable,
+            <command>kernel-install</command> will use it as <replaceable>MACHINE-ID</replaceable> instead of
+            the contents of <filename>/etc/machine-id</filename>.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
           <filename>/etc/os-release</filename>
           <filename>/usr/lib/os-release</filename>
         </term>
