@@ -8,14 +8,14 @@
  *    https://github.com/pcapng/pcapng/
  */
 enum pcapng_block_types {
-        PCAPNG_INTERFACE_BLOCK		= 1,
+        PCAPNG_INTERFACE_BLOCK = 1,
         PCAPNG_PACKET_BLOCK,		/* Obsolete */
         PCAPNG_SIMPLE_PACKET_BLOCK,
         PCAPNG_NAME_RESOLUTION_BLOCK,
         PCAPNG_INTERFACE_STATS_BLOCK,
         PCAPNG_ENHANCED_PACKET_BLOCK,
 
-        PCAPNG_SECTION_BLOCK		= 0x0A0D0D0A,
+        PCAPNG_SECTION_BLOCK   = 0x0A0D0D0A,
 };
 
 struct pcapng_option {

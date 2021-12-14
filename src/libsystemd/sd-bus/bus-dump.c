@@ -519,7 +519,7 @@ static void pcapng_putopt(FILE *f, uint16_t code, const void *data, size_t len) 
 
         fwrite(&opt, 1, sizeof(opt), f);
         if (len > 0) {
-                uint32_t pad = ALIGN4(len) - len;
+                size_t pad = ALIGN4(len) - len;
 
                 fwrite(data, 1, len, f);
 
@@ -562,7 +562,7 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
 }
 
 /* Only have a single instance of dbus pseudo interface */
-static void pcapng_interface_header(FILE *f, uint32_t snaplen) {
+static void pcapng_interface_header(FILE *f, size_t snaplen) {
         uint32_t len;
 
         assert(f);
