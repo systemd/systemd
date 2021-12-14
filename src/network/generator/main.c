@@ -65,9 +65,10 @@ static int link_save(Link *link, const char *dest_dir) {
 
         assert(link);
 
-        r = asprintf(&filename, "90-%s.link",
-                     link->ifname);
-        if (r < 0)
+        filename = strjoin(!isempty(link->ifname) ? "90" :
+                           !hw_addr_is_null(&link->mac) ? "91" : "92",
+                           "-", link->filename, ".link");
+        if (!filename)
                 return log_oom();
 
         r = generator_open_unit_file(dest_dir, "kernel command line", filename, &f);
@@ -104,7 +105,7 @@ static int context_save(Context *context) {
                         r = k;
         }
 
-        HASHMAP_FOREACH(link, context->links_by_name) {
+        HASHMAP_FOREACH(link, context->links_by_filename) {
                 k = link_save(link, p);
                 if (k < 0 && r >= 0)
                         r = k;

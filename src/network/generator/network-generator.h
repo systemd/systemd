@@ -81,17 +81,21 @@ struct NetDev {
 };
 
 struct Link {
+        char *filename;
+
         /* [Match] */
         struct hw_addr_data mac;
 
         /* [Link] */
         char *ifname;
+        char **policies;
+        char **alt_policies;
 };
 
 typedef struct Context {
         Hashmap *networks_by_name;
         Hashmap *netdevs_by_name;
-        Hashmap *links_by_name;
+        Hashmap *links_by_filename;
 } Context;
 
 int parse_cmdline_item(const char *key, const char *value, void *data);
@@ -106,6 +110,6 @@ NetDev *netdev_get(Context *context, const char *ifname);
 void netdev_dump(NetDev *netdev, FILE *f);
 int netdev_format(NetDev *netdev, char **ret);
 
-Link *link_get(Context *context, const char *ifname);
+Link *link_get(Context *context, const char *filename);
 void link_dump(Link *link, FILE *f);
 int link_format(Link *link, char **ret);

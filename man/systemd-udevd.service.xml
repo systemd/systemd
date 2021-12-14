@@ -224,6 +224,45 @@
           appear, which affects older name derivation algorithms, too.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>net.ifname-policy=<replaceable>policy1</replaceable>[,<replaceable>policy2</replaceable>,…][,<replaceable>MAC</replaceable>]</varname></term>
+        <listitem>
+          <para>Specifies naming policies applied when renaming network interfaces. Takes a list of
+          policies and an optional MAC address separated with comma. Each policy value must be one of
+          the policies understood by the <varname>NamePolicy=</varname> setting in .link files, e.g.
+          <literal>onboard</literal> or <literal>path</literal>. See
+          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details. When the MAC address is specified, the policies are applied to the
+          interface which has the address. When no MAC address is specified, the policies are applied
+          to all interfaces. This kernel command line argument can be specified multiple times. This
+          argument is not directly read from <command>systemd-udevd</command>, but read and converted
+          to a .link file by <command>systemd-network-generator</command>. So, to make this argument
+          take effect, <filename>systemd-network-generator.service</filename> must be enabled and
+          started before starting <filename>systemd-udevd.service</filename>. See
+          <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for more details about the service.</para>
+          <para>Example:
+          <programlisting>net.ifname-policy=keep,kernel,path,slot,onboard,01:23:45:67:89:ab
+net.ifname-policy=keep,kernel,path,slot,onboard,mac</programlisting>
+          This is mostly equivalent to creating the following .link files:
+          <programlisting># 91-name-policy-with-mac.link
+[Match]
+MACAddress=01:23:45:67:89:ab
+
+[Link]
+NamePolicy=keep kernel path slot onboard
+AlternativeNamePolicy=path slot onboard</programlisting>
+          and
+          <programlisting># 92-name-policy-for-all.link
+[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel path slot onboard mac
+AlternativeNamePolicy=path slot onboard mac</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
     <!-- when adding entries here, consider also adding them in kernel-command-line.xml -->
   </refsect1>
