@@ -30,6 +30,11 @@ __get_machines() {
     machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
+__get_units_all() {
+    systemctl list-units --no-legend --no-pager --plain --all | \
+        { while read -r a b c; do echo " $a"; done }
+}
+
 __get_services() {
     systemctl list-units --no-legend --no-pager --plain -t service --all $1 | \
         { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
@@ -111,6 +116,8 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --fuzz --no-pager'
+        else
+            comps=$( __get_units_all )
         fi
 
     elif __contains_word "$verb" ${VERBS[DOT]}; then
