@@ -67,7 +67,9 @@ df="$build/dns-fuzzing"
 git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing "$df"
 zip -jqr "$OUT/fuzz-dns-packet_seed_corpus.zip" "$df/packet"
 
-install -Dt "$OUT/src/shared/" "$build"/src/shared/libsystemd-shared-*.so
+install -Dt "$OUT/src/shared/" \
+        "$build"/src/shared/libsystemd-shared-*.so \
+        "$build"/src/core/libsystemd-core-*.so
 
 wget -O "$OUT/fuzz-json.dict" https://raw.githubusercontent.com/rc0r/afl-fuzz/master/dictionaries/json.dict
 
