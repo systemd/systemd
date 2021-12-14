@@ -135,11 +135,11 @@ int manager_setup_wall_message_timer(Manager *m) {
                 return 0;
         }
 
-        if (elapse < n)
+        if (elapse > 0 && elapse < n)
                 return 0;
 
         /* Warn immediately if less than 15 minutes are left */
-        if (elapse - n < 15 * USEC_PER_MINUTE) {
+        if (elapse == 0 || elapse - n < 15 * USEC_PER_MINUTE) {
                 r = warn_wall(m, n);
                 if (r == 0)
                         return 0;
