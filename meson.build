@@ -2000,12 +2000,7 @@ dbus_programs += executable(
         link_with : [libcore,
                      libshared],
         dependencies : [versiondep,
-                        threads,
-                        librt,
-                        libseccomp,
-                        libselinux,
-                        libmount,
-                        libblkid],
+                        libseccomp],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -2021,12 +2016,7 @@ public_programs += executable(
         link_with : [libcore,
                      libshared],
         dependencies : [versiondep,
-                        threads,
-                        librt,
-                        libseccomp,
-                        libselinux,
-                        libmount,
-                        libblkid],
+                        libseccomp],
         install_rpath : rootlibexecdir,
         install : conf.get('ENABLE_ANALYZE'))
 
