@@ -940,6 +940,12 @@ int bus_home_emit_remove(Home *h) {
         if (!h->announced)
                 return 0;
 
+        if (!h->manager)
+                return 0;
+
+        if (!h->manager->bus)
+                return 0;
+
         r = bus_home_path(h, &path);
         if (r < 0)
                 return r;
