@@ -90,7 +90,15 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
-[ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
+# Prefer to use an existing machine ID from /etc/machine-info or /etc/machine-id. If we're using the machine
+# ID /etc/machine-id, try to persist it in /etc/machine-info. If no machine ID is found, try to generate
+# a new machine ID in /etc/machine-info. If that fails, use "Default".
+
+[ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ] && source /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+[ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id
+[ -n "$MACHINE_ID" ] && [ -z "$KERNEL_INSTALL_MACHINE_ID" ] && echo "KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID" >>/etc/machine-info
+[ -z "$MACHINE_ID" ] && NEW_MACHINE_ID="$(systemd-id128 new)" && echo "KERNEL_INSTALL_MACHINE_ID=$NEW_MACHINE_ID" >>/etc/machine-info
+[ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ] && source /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
 [ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
