@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <net/ethernet.h>
 #include <stdio.h>
 
+#include "ether-addr-util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "list.h"
@@ -82,8 +82,10 @@ struct NetDev {
 
 struct Link {
         /* [Match] */
+        struct hw_addr_data mac;
+
+        /* [Link] */
         char *ifname;
-        struct ether_addr mac;
 };
 
 typedef struct Context {
