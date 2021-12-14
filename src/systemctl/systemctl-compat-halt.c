@@ -144,35 +144,23 @@ int halt_parse_argv(int argc, char *argv[]) {
 int halt_main(void) {
         int r;
 
-        r = logind_check_inhibitors(arg_action);
-        if (r < 0)
-                return r;
+        /* always try logind first */
+        if (arg_when > 0)
+                r = logind_schedule_shutdown();
+        else {
+                r = logind_check_inhibitors(arg_action);
+                if (r < 0)
+                        return r;
 
-        /* Delayed shutdown requested, and was successful */
-        if (arg_when > 0 && logind_schedule_shutdown() == 0)
-                return 0;
-
-        /* No delay, or logind failed or is not at all available */
-        if (geteuid() != 0) {
-                if (arg_dry_run || arg_force > 0) {
-                        (void) must_be_root();
-                        return -EPERM;
-                }
-
-                /* Try logind if we are a normal user and no special mode applies. Maybe polkit allows us to
-                 * shutdown the machine. */
-                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT, ACTION_KEXEC, ACTION_HALT)) {
-                        r = logind_reboot(arg_action);
-                        if (r >= 0)
-                                return r;
-                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                                /* Requested operation is not supported on the local system or already in
-                                 * progress */
-                                return r;
-
-                        /* on all other errors, try low-level operation */
-                }
+                r = logind_reboot(arg_action);
         }
+        if (r >= 0)
+                return r;
+        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
+                /* Requested operation is not supported on the local system or already in
+                 * progress */
+                return r;
+        /* on all other errors, try low-level operation */
 
         /* In order to minimize the difference between operation with and without logind, we explicitly
          * enable non-blocking mode for this, as logind's shutdown operations are always non-blocking. */
@@ -181,7 +169,10 @@ int halt_main(void) {
         if (!arg_dry_run && !arg_force)
                 return start_with_fallback();
 
-        assert(geteuid() == 0);
+        if (geteuid() != 0) {
+                (void) must_be_root();
+                return -EPERM;
+        }
 
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)
