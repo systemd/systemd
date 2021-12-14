@@ -11,6 +11,16 @@
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 
+(( $+functions[_systemd-analyze_critical-chain] )) ||
+    _systemd-analyze_critical-chain() {
+        local -a _units
+        systemctl list-units --no-legend --no-pager --plain --all |
+        while read -r a b c; do
+            _units+=($a)
+        done
+        compadd -a _units
+    }
+
 (( $+functions[_systemd-analyze_security] )) ||
     _systemd-analyze_security() {
         _sd_unit_files
