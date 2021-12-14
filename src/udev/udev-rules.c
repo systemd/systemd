@@ -1381,10 +1381,12 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
         return token->op == (match ? OP_MATCH : OP_NOMATCH);
 }
 
-static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
+static bool token_match_attr(UdevRules *rules, UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
         char nbuf[UDEV_NAME_SIZE], vbuf[UDEV_NAME_SIZE];
         const char *name, *value;
+        bool truncated;
 
+        assert(rules);
         assert(token);
         assert(dev);
         assert(event);
@@ -1393,7 +1395,10 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
 
         switch (token->attr_subst_type) {
         case SUBST_TYPE_FORMAT:
-                (void) udev_event_apply_format(event, name, nbuf, sizeof(nbuf), false);
+                (void) udev_event_apply_format(event, name, nbuf, sizeof(nbuf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", name);
+
                 name = nbuf;
                 _fallthrough_;
         case SUBST_TYPE_PLAIN:
@@ -1646,12 +1651,16 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_ATTR:
         case TK_M_PARENTS_ATTR:
-                return token_match_attr(token, dev, event);
+                return token_match_attr(rules, token, dev, event);
         case TK_M_SYSCTL: {
                 _cleanup_free_ char *value = NULL;
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", (const char*) token->data);
+
                 r = sysctl_read(sysctl_normalize(buf), &value);
                 if (r < 0 && r != -ENOENT)
                         return log_rule_error_errno(dev, rules, r, "Failed to read sysctl '%s': %m", buf);
@@ -1662,9 +1671,12 @@ static int udev_rule_apply_token_to_event(
                 mode_t mode = PTR_TO_MODE(token->data);
                 char buf[UDEV_PATH_SIZE];
                 struct stat statbuf;
-                bool match;
+                bool match, truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (!path_is_absolute(buf) &&
                     udev_resolve_subsys_kernel(buf, buf, sizeof(buf), false) < 0) {
                         char tmp[UDEV_PATH_SIZE];
@@ -1695,10 +1707,14 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_PROGRAM: {
                 char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                bool truncated;
                 size_t count;
 
                 event->program_result = mfree(event->program_result);
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 log_rule_debug(dev, rules, "Running PROGRAM '%s'", buf);
 
                 r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result));
@@ -1722,8 +1738,12 @@ static int udev_rule_apply_token_to_event(
         case TK_M_IMPORT_FILE: {
                 _cleanup_fclose_ FILE *f = NULL;
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 log_rule_debug(dev, rules, "Importing properties from '%s'", buf);
 
                 f = fopen(buf, "re");
@@ -1769,8 +1789,12 @@ static int udev_rule_apply_token_to_event(
         case TK_M_IMPORT_PROGRAM: {
                 _cleanup_strv_free_ char **lines = NULL;
                 char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE], **line;
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
 
                 r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof result);
@@ -1814,6 +1838,7 @@ static int udev_rule_apply_token_to_event(
                 assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
                 unsigned mask = 1U << (int) cmd;
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
                 if (udev_builtin_run_once(cmd)) {
                         /* check if we ran already */
@@ -1827,7 +1852,10 @@ static int udev_rule_apply_token_to_event(
                         event->builtin_run |= mask;
                 }
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 log_rule_debug(dev, rules, "Importing properties from results of builtin command '%s'", buf);
 
                 r = udev_builtin_run(dev, &event->rtnl, cmd, buf, false);
@@ -1876,8 +1904,12 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_PARENT: {
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 r = import_parent_into_properties(dev, buf);
                 if (r < 0)
                         return log_rule_error_errno(dev, rules, r,
@@ -1926,13 +1958,17 @@ static int udev_rule_apply_token_to_event(
         case TK_A_OWNER: {
                 char owner[UDEV_NAME_SIZE];
                 const char *ow = owner;
+                bool truncated;
 
                 if (event->owner_final)
                         break;
                 if (token->op == OP_ASSIGN_FINAL)
                         event->owner_final = true;
 
-                (void) udev_event_apply_format(event, token->value, owner, sizeof(owner), false);
+                (void) udev_event_apply_format(event, token->value, owner, sizeof(owner), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         log_unknown_owner(dev, rules, r, "user", owner);
@@ -1943,13 +1979,17 @@ static int udev_rule_apply_token_to_event(
         case TK_A_GROUP: {
                 char group[UDEV_NAME_SIZE];
                 const char *gr = group;
+                bool truncated;
 
                 if (event->group_final)
                         break;
                 if (token->op == OP_ASSIGN_FINAL)
                         event->group_final = true;
 
-                (void) udev_event_apply_format(event, token->value, group, sizeof(group), false);
+                (void) udev_event_apply_format(event, token->value, group, sizeof(group), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 r = get_group_creds(&gr, &event->gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         log_unknown_owner(dev, rules, r, "group", group);
@@ -1959,13 +1999,17 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_MODE: {
                 char mode_str[UDEV_NAME_SIZE];
+                bool truncated;
 
                 if (event->mode_final)
                         break;
                 if (token->op == OP_ASSIGN_FINAL)
                         event->mode_final = true;
 
-                (void) udev_event_apply_format(event, token->value, mode_str, sizeof(mode_str), false);
+                (void) udev_event_apply_format(event, token->value, mode_str, sizeof(mode_str), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 r = parse_mode(mode_str, &event->mode);
                 if (r < 0)
                         log_rule_error_errno(dev, rules, r, "Failed to parse mode '%s', ignoring: %m", mode_str);
@@ -2006,12 +2050,16 @@ static int udev_rule_apply_token_to_event(
         case TK_A_SECLABEL: {
                 _cleanup_free_ char *name = NULL, *label = NULL;
                 char label_str[UDEV_LINE_SIZE] = {};
+                bool truncated;
 
                 name = strdup(token->data);
                 if (!name)
                         return log_oom();
 
-                (void) udev_event_apply_format(event, token->value, label_str, sizeof(label_str), false);
+                (void) udev_event_apply_format(event, token->value, label_str, sizeof(label_str), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (!isempty(label_str))
                         label = strdup(label_str);
                 else
@@ -2038,6 +2086,7 @@ static int udev_rule_apply_token_to_event(
                 const char *val, *name = token->data;
                 char value_new[UDEV_NAME_SIZE], *p = value_new;
                 size_t count, l = sizeof(value_new);
+                bool truncated;
 
                 if (isempty(token->value)) {
                         if (token->op == OP_ADD)
@@ -2052,7 +2101,10 @@ static int udev_rule_apply_token_to_event(
                     sd_device_get_property_value(dev, name, &val) >= 0)
                         l = strpcpyl(&p, l, val, " ", NULL);
 
-                (void) udev_event_apply_format(event, token->value, p, l, false);
+                (void) udev_event_apply_format(event, token->value, p, l, false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (event->esc == ESCAPE_REPLACE) {
                         count = udev_replace_chars(p, NULL);
                         if (count > 0)
@@ -2067,8 +2119,12 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_TAG: {
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (token->op == OP_ASSIGN)
                         device_cleanup_tags(dev);
 
@@ -2087,6 +2143,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_NAME: {
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
                 size_t count;
 
                 if (event->name_final)
@@ -2101,7 +2158,10 @@ static int udev_rule_apply_token_to_event(
                         break;
                 }
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                         if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
                                 count = udev_replace_ifname(buf);
@@ -2120,6 +2180,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_DEVLINK: {
                 char buf[UDEV_PATH_SIZE], *p;
+                bool truncated;
                 size_t count;
 
                 if (event->devlink_final)
@@ -2132,7 +2193,10 @@ static int udev_rule_apply_token_to_event(
                         device_cleanup_devlinks(dev);
 
                 /* allow multiple symlinks separated by spaces */
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), event->esc != ESCAPE_NONE);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), event->esc != ESCAPE_NONE, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 if (event->esc == ESCAPE_UNSET)
                         count = udev_replace_chars(buf, "/ ");
                 else if (event->esc == ESCAPE_REPLACE)
@@ -2166,6 +2230,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_ATTR: {
                 char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
                 const char *val, *key_name = token->data;
+                bool truncated;
 
                 if (udev_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
                     sd_device_get_syspath(dev, &val) >= 0)
@@ -2176,7 +2241,9 @@ static int udev_rule_apply_token_to_event(
                         log_rule_error_errno(dev, rules, r, "Could not find file matches '%s', ignoring: %m", buf);
                         break;
                 }
-                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
+                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
 
                 log_rule_debug(dev, rules, "ATTR '%s' writing '%s'", buf, value);
                 r = write_string_file(buf, value,
@@ -2190,9 +2257,16 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_SYSCTL: {
                 char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
+                bool truncated;
 
-                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
-                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", (const char*) token->data);
+
+                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
+
                 sysctl_normalize(buf);
                 log_rule_debug(dev, rules, "SYSCTL '%s' writing '%s'", buf, value);
                 r = sysctl_write(buf, value);
@@ -2204,6 +2278,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_RUN_PROGRAM: {
                 _cleanup_free_ char *cmd = NULL;
                 char buf[UDEV_PATH_SIZE];
+                bool truncated;
 
                 if (event->run_final)
                         break;
@@ -2213,7 +2288,9 @@ static int udev_rule_apply_token_to_event(
                 if (IN_SET(token->op, OP_ASSIGN, OP_ASSIGN_FINAL))
                         ordered_hashmap_clear_free_key(event->run_list);
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
+                if (truncated)
+                        log_rule_warning(dev, rules, "Result of substitution into %s is truncated.", token->value);
 
                 cmd = strdup(buf);
                 if (!cmd)
