@@ -593,6 +593,11 @@ endif
 
 versiondep = declare_dependency(sources: version_h)
 
+shared_lib_tag = get_option('shared-lib-tag')
+if shared_lib_tag == ''
+        shared_lib_tag = meson.project_version()
+endif
+
 sh = find_program('sh')
 echo = find_program('echo')
 sed = find_program('sed')
@@ -1999,13 +2004,7 @@ dbus_programs += executable(
         include_directories : includes,
         link_with : [libcore,
                      libshared],
-        dependencies : [versiondep,
-                        threads,
-                        librt,
-                        libseccomp,
-                        libselinux,
-                        libmount,
-                        libblkid],
+        dependencies : versiondep,
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -2021,12 +2020,7 @@ public_programs += executable(
         link_with : [libcore,
                      libshared],
         dependencies : [versiondep,
-                        threads,
-                        librt,
-                        libseccomp,
-                        libselinux,
-                        libmount,
-                        libblkid],
+                        libseccomp],
         install_rpath : rootlibexecdir,
         install : conf.get('ENABLE_ANALYZE'))
 
@@ -3887,6 +3881,7 @@ summary({
         'D-Bus system directory' :          dbussystemservicedir,
         'bash completions directory' :      bashcompletiondir,
         'zsh completions directory' :       zshcompletiondir,
+        'private shared lib version tag' :  shared_lib_tag,
         'extra start script' :              get_option('rc-local'),
         'debug shell' :                     '@0@ @ @1@'.format(get_option('debug-shell'),
                                                                get_option('debug-tty')),
