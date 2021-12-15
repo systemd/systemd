@@ -50,6 +50,7 @@ typedef struct Spawn {
         char *result;
         size_t result_size;
         size_t result_len;
+        bool truncated;
 } Spawn;
 
 UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level) {
@@ -569,7 +570,6 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Spawn *spawn = userdata;
         char buf[4096], *p;
-        bool full = false;
         size_t size;
         ssize_t l;
         int r;
@@ -601,7 +601,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
                                    spawn->cmd, spawn->result_size);
                 l--;
-                full = true;
+                spawn->truncated = true;
         }
 
         p[l] = '\0';
@@ -624,7 +624,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (l == 0 || full)
+        if (l == 0 || spawn->truncated)
                 return 0;
 
 reenable:
@@ -763,12 +763,16 @@ static int spawn_wait(Spawn *spawn) {
         return sd_event_loop(e);
 }
 
-int udev_event_spawn(UdevEvent *event,
-                     usec_t timeout_usec,
-                     int timeout_signal,
-                     bool accept_failure,
-                     const char *cmd,
-                     char *result, size_t ressize) {
+int udev_event_spawn(
+                UdevEvent *event,
+                usec_t timeout_usec,
+                int timeout_signal,
+                bool accept_failure,
+                const char *cmd,
+                char *result,
+                size_t ressize,
+                bool *ret_truncated) {
+
         _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
@@ -858,6 +862,9 @@ int udev_event_spawn(UdevEvent *event,
 
         if (result)
                 result[spawn.result_len] = '\0';
+
+        if (ret_truncated)
+                *ret_truncated = spawn.truncated;
 
         return r; /* 0 for success, and positive if the program failed */
 }
@@ -1133,7 +1140,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
 
-                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0);
+                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0, NULL);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */
