@@ -3,6 +3,8 @@
 
 option('version-tag', type : 'string',
        description : 'override the git version string')
+option('shared-lib-tag', type : 'string',
+       description : 'override the private shared library version tag (defaults to project version)')
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
