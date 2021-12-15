@@ -93,7 +93,7 @@ fi
 [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
-[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "Default" "loader/entries"; do
+[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
     for pref in "/efi" "/boot/efi" "/boot"; do
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
