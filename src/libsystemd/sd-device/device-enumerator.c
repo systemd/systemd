@@ -350,7 +350,6 @@ static bool match_sysname(sd_device_enumerator *enumerator, const char *sysname)
 static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator, const char *basedir, const char *subdir1, const char *subdir2) {
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
-        struct dirent *dent;
         int r = 0;
 
         assert(enumerator);
@@ -369,18 +368,18 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 /* this is necessarily racey, so ignore missing directories */
                 return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-                char syspath[strlen(path) + 1 + strlen(dent->d_name) + 1];
+                char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
                 int initialized, k;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
 
-                if (!match_sysname(enumerator, dent->d_name))
+                if (!match_sysname(enumerator, de->d_name))
                         continue;
 
-                (void) sprintf(syspath, "%s%s", path, dent->d_name);
+                (void) sprintf(syspath, "%s%s", path, de->d_name);
 
                 k = sd_device_new_from_syspath(&device, syspath);
                 if (k < 0) {
@@ -461,7 +460,6 @@ static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsys
 static int enumerator_scan_dir(sd_device_enumerator *enumerator, const char *basedir, const char *subdir, const char *subsystem) {
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
-        struct dirent *dent;
         int r = 0;
 
         path = strjoina("/sys/", basedir);
@@ -472,16 +470,16 @@ static int enumerator_scan_dir(sd_device_enumerator *enumerator, const char *bas
 
         log_debug("sd-device-enumerator: Scanning %s", path);
 
-        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
 
-                if (!match_subsystem(enumerator, subsystem ? : dent->d_name))
+                if (!match_subsystem(enumerator, subsystem ? : de->d_name))
                         continue;
 
-                k = enumerator_scan_dir_and_add_devices(enumerator, basedir, dent->d_name, subdir);
+                k = enumerator_scan_dir_and_add_devices(enumerator, basedir, de->d_name, subdir);
                 if (k < 0)
                         r = k;
         }
@@ -492,7 +490,6 @@ static int enumerator_scan_dir(sd_device_enumerator *enumerator, const char *bas
 static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const char *tag) {
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
-        struct dirent *dent;
         int r = 0;
 
         assert(enumerator);
@@ -509,15 +506,15 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
         /* TODO: filter away subsystems? */
 
-        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 const char *subsystem, *sysname;
                 int k;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
 
-                k = sd_device_new_from_device_id(&device, dent->d_name);
+                k = sd_device_new_from_device_id(&device, de->d_name);
                 if (k < 0) {
                         if (k != -ENODEV)
                                 /* this is necessarily racy, so ignore missing devices */
@@ -625,24 +622,23 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
 
 static int parent_crawl_children(sd_device_enumerator *enumerator, const char *path, unsigned maxdepth) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         int r = 0;
 
         dir = opendir(path);
         if (!dir)
                 return log_debug_errno(errno, "sd-device-enumerator: Failed to open parent directory %s: %m", path);
 
-        FOREACH_DIRENT_ALL(dent, dir, return -errno) {
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_free_ char *child = NULL;
                 int k;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
 
-                if (dent->d_type != DT_DIR)
+                if (de->d_type != DT_DIR)
                         continue;
 
-                child = path_join(path, dent->d_name);
+                child = path_join(path, de->d_name);
                 if (!child)
                         return -ENOMEM;
 

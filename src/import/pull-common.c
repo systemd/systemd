@@ -59,7 +59,6 @@ int pull_find_old_etags(
         }
 
         _cleanup_strv_free_ char **ans = NULL;
-        struct dirent *de;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 _cleanup_free_ char *u = NULL;

@@ -244,7 +244,6 @@ static int extract_now(
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 r = chase_symlinks_and_opendir(*i, where, 0, &resolved, &d);
                 if (r < 0) {
@@ -1492,7 +1491,6 @@ int portable_detach(
         _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
-        struct dirent *de;
         int ret = 0;
         int r;
 
@@ -1662,7 +1660,6 @@ static int portable_get_state_internal(
         _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where;
-        struct dirent *de;
         int r;
 
         assert(name_or_path);
