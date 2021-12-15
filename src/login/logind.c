@@ -55,6 +55,7 @@ static int manager_new(Manager **ret) {
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
                 .enable_wall_messages = true,
+                .scheduled_shutdown_type = _HANDLE_ACTION_INVALID,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
 
@@ -168,7 +169,6 @@ static Manager* manager_unref(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
-        free(m->scheduled_shutdown_type);
         free(m->scheduled_shutdown_tty);
         free(m->wall_message);
         free(m->action_job);
