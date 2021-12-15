@@ -15,6 +15,9 @@
 #include "stat-util.h"
 #include "sync-util.h"
 
+#define PAYLOAD_BUFFER_SIZE (16U * 1024U)
+#define MINIMUM_HOLE_SIZE (1U * 1024U * 1024U / 2U)
+
 static int journald_file_truncate(JournalFile *f) {
         uint64_t p;
         int r;
@@ -66,6 +69,9 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
                 (journal_file_entry_array_n_items(&o) - n_unused) * sizeof(le64_t);
         sz = p + le64toh(o.object.size) - offset;
 
+        if (sz < MINIMUM_HOLE_SIZE)
+                return 0;
+
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
                 return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
 
@@ -73,9 +79,9 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
 }
 
 static int journald_file_punch_holes(JournalFile *f) {
-        HashItem items[4096 / sizeof(HashItem)];
+        HashItem items[PAYLOAD_BUFFER_SIZE / sizeof(HashItem)];
         uint64_t p, sz;
-        size_t to_read;
+        ssize_t n;
         int r;
 
         r = journald_file_entry_array_punch_hole(
@@ -85,16 +91,13 @@ static int journald_file_punch_holes(JournalFile *f) {
 
         p = le64toh(f->header->data_hash_table_offset);
         sz = le64toh(f->header->data_hash_table_size);
-        to_read = MIN((size_t) f->last_stat.st_blksize, sizeof(items));
 
-        for (uint64_t i = p; i < p + sz; i += sizeof(items)) {
-                ssize_t n_read;
+        for (uint64_t i = p; i < p + sz; i += n) {
+                n = pread(f->fd, items, MIN(sizeof(items), p + sz - i), i);
+                if (n < 0)
+                        return n;
 
-                n_read = pread(f->fd, items, MIN(to_read, p + sz - i), i);
-                if (n_read < 0)
-                        return n_read;
-
-                for (size_t j = 0; j < (size_t) n_read / sizeof(HashItem); j++) {
+                for (size_t j = 0; j < (size_t) n / sizeof(HashItem); j++) {
                         Object o;
 
                         for (uint64_t q = le64toh(items[j].head_hash_offset); q != 0;
