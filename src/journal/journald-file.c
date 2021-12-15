@@ -81,6 +81,7 @@ static int journald_file_punch_holes(JournalFile *f) {
         HashItem items[4096 / sizeof(HashItem)];
         uint64_t p, sz;
         size_t to_read;
+        ssize_t n;
         int r;
 
         r = journald_file_entry_array_punch_hole(
@@ -92,14 +93,12 @@ static int journald_file_punch_holes(JournalFile *f) {
         sz = le64toh(f->header->data_hash_table_size);
         to_read = MIN((size_t) f->last_stat.st_blksize, sizeof(items));
 
-        for (uint64_t i = p; i < p + sz; i += sizeof(items)) {
-                ssize_t n_read;
+        for (uint64_t i = p; i < p + sz; i += n) {
+                n = pread(f->fd, items, MIN(to_read, p + sz - i), i);
+                if (n < 0)
+                        return n;
 
-                n_read = pread(f->fd, items, MIN(to_read, p + sz - i), i);
-                if (n_read < 0)
-                        return n_read;
-
-                for (size_t j = 0; j < (size_t) n_read / sizeof(HashItem); j++) {
+                for (size_t j = 0; j < (size_t) n / sizeof(HashItem); j++) {
                         Object o;
 
                         for (uint64_t q = le64toh(items[j].head_hash_offset); q != 0;
