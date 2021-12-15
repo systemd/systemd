@@ -1620,28 +1620,35 @@ bool manager_next_dnssd_names(Manager *m) {
         return tried;
 }
 
-bool manager_server_is_stub(Manager *m, DnsServer *s) {
+bool manager_server_address_is_stub(Manager *m, int family, const union in_addr_union *address, uint16_t port) {
         DnsStubListenerExtra *l;
 
         assert(m);
-        assert(s);
+        assert(address);
 
         /* Safety check: we generally already skip the main stub when parsing configuration. But let's be
          * extra careful, and check here again */
-        if (s->family == AF_INET &&
-            s->address.in.s_addr == htobe32(INADDR_DNS_STUB) &&
-            dns_server_port(s) == 53)
+        if (family == AF_INET &&
+            address->in.s_addr == htobe32(INADDR_DNS_STUB) &&
+            port == 53)
                 return true;
 
         /* Main reason to call this is to check server data against the extra listeners, and filter things
          * out. */
         ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners)
-                if (s->family == l->family &&
-                    in_addr_equal(s->family, &s->address, &l->address) &&
-                    dns_server_port(s) == dns_stub_listener_extra_port(l))
+                if (family == l->family &&
+                    in_addr_equal(family, address, &l->address) &&
+                    port == dns_stub_listener_extra_port(l))
                         return true;
 
         return false;
+}
+
+bool manager_server_is_stub(Manager *m, DnsServer *s) {
+        assert(m);
+        assert(s);
+
+        return manager_server_address_is_stub(m, s->family, &s->address, dns_server_port(s));
 }
 
 int socket_disable_pmtud(int fd, int af) {

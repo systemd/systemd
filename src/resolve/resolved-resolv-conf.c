@@ -143,7 +143,8 @@ int manager_read_resolv_conf(Manager *m) {
 
                 a = first_word(l, "nameserver");
                 if (a) {
-                        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a);
+                        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a,
+                                                                     true /* don't warn about loops to our own stub listeners */);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
 
