@@ -66,7 +66,8 @@ int udev_event_spawn(
                 bool accept_failure,
                 const char *cmd,
                 char *result,
-                size_t ressize);
+                size_t ressize,
+                bool *ret_truncated);
 int udev_event_execute_rules(
                 UdevEvent *event,
                 int inotify_fd,

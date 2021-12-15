@@ -1740,7 +1740,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_rule_debug(dev, rules, "Running PROGRAM '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result));
+                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result), NULL);
                 if (r != 0) {
                         if (r < 0)
                                 log_rule_warning_errno(dev, rules, r, "Failed to execute \"%s\": %m", buf);
@@ -1826,13 +1826,25 @@ static int udev_rule_apply_token_to_event(
 
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof result);
+                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof result, &truncated);
                 if (r != 0) {
                         if (r < 0)
                                 log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
                         else /* returned value is positive when program fails */
                                 log_rule_debug(dev, rules, "Command \"%s\" returned %d (error), ignoring", buf, r);
                         return token->op == OP_NOMATCH;
+                }
+
+                if (truncated) {
+                        bool found = false;
+
+                        /* Drop the last line. */
+                        for (char *p = buf + strlen(buf) - 1; p >= buf; p--)
+                                if (strchr(NEWLINE, *p)) {
+                                        *p = '\0';
+                                        found = true;
+                                } else if (found)
+                                        break;
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
