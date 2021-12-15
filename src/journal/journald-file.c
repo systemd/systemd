@@ -146,10 +146,10 @@ static void journald_file_set_offline_internal(JournaldFile *f) {
                         break;
 
                 case OFFLINE_SYNCING:
-                        if (f->file->archive) {
-                                (void) journald_file_truncate(f->file);
-                                (void) journald_file_punch_holes(f->file);
-                        }
+                        // if (f->file->archive) {
+                        //         (void) journald_file_truncate(f->file);
+                        //         (void) journald_file_punch_holes(f->file);
+                        // }
 
                         (void) fsync(f->file->fd);
 
