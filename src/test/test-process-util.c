@@ -135,7 +135,6 @@ static void test_get_process_cmdline_one(pid_t pid) {
 
 TEST(get_process_cmdline) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert_se(d = opendir("/proc"));
 

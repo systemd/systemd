@@ -590,14 +590,13 @@ static int dir_cleanup(
                 AgeBy age_by_dir) {
 
         bool deleted = false;
-        struct dirent *dent;
         int r = 0;
 
-        FOREACH_DIRENT_ALL(dent, d, break) {
+        FOREACH_DIRENT_ALL(de, d, break) {
                 _cleanup_free_ char *sub_path = NULL;
                 nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
 
-                if (dot_or_dot_dot(dent->d_name))
+                if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
@@ -614,7 +613,7 @@ static int dir_cleanup(
                 STRUCT_STATX_DEFINE(sx);
 
                 r = statx_fallback(
-                                dirfd(d), dent->d_name,
+                                dirfd(d), de->d_name,
                                 AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
                                 STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
                                 &sx);
@@ -623,14 +622,14 @@ static int dir_cleanup(
                 if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
                         r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                           "statx(%s/%s) failed: %m", p, dent->d_name);
+                                           "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
 
                 if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
                         /* Yay, we have the mount point API, use it */
                         if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
-                                log_debug("Ignoring \"%s/%s\": different mount points.", p, dent->d_name);
+                                log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
                                 continue;
                         }
                 } else {
@@ -638,7 +637,7 @@ static int dir_cleanup(
                          * back to traditional stx_dev checking. */
                         if (sx.stx_dev_major != rootdev_major ||
                             sx.stx_dev_minor != rootdev_minor) {
-                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
+                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, de->d_name);
                                 continue;
                         }
 
@@ -648,11 +647,11 @@ static int dir_cleanup(
                         if (S_ISDIR(sx.stx_mode)) {
                                 int q;
 
-                                q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
+                                q = fd_is_mount_point(dirfd(d), de->d_name, 0);
                                 if (q < 0)
-                                        log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, dent->d_name);
+                                        log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, de->d_name);
                                 else if (q > 0) {
-                                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
+                                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, de->d_name);
                                         continue;
                                 }
                         }
@@ -663,7 +662,7 @@ static int dir_cleanup(
                 ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
                 btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
 
-                sub_path = path_join(p, dent->d_name);
+                sub_path = path_join(p, de->d_name);
                 if (!sub_path) {
                         r = log_oom();
                         goto finish;
@@ -684,7 +683,7 @@ static int dir_cleanup(
                         _cleanup_closedir_ DIR *sub_dir = NULL;
 
                         if (mountpoint &&
-                            streq(dent->d_name, "lost+found") &&
+                            streq(de->d_name, "lost+found") &&
                             sx.stx_uid == 0) {
                                 log_debug("Ignoring directory \"%s\".", sub_path);
                                 continue;
@@ -695,7 +694,7 @@ static int dir_cleanup(
                         else {
                                 int q;
 
-                                sub_dir = xopendirat_nomod(dirfd(d), dent->d_name);
+                                sub_dir = xopendirat_nomod(dirfd(d), de->d_name);
                                 if (!sub_dir) {
                                         if (errno != ENOENT)
                                                 r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", sub_path);
@@ -737,7 +736,7 @@ static int dir_cleanup(
                                 continue;
 
                         log_debug("Removing directory \"%s\".", sub_path);
-                        if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
+                        if (unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0)
                                 if (!IN_SET(errno, ENOENT, ENOTEMPTY))
                                         r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
@@ -752,7 +751,7 @@ static int dir_cleanup(
                         if (mountpoint &&
                             S_ISREG(sx.stx_mode) &&
                             sx.stx_uid == 0 &&
-                            STR_IN_SET(dent->d_name,
+                            STR_IN_SET(de->d_name,
                                        ".journal",
                                        "aquota.user",
                                        "aquota.group")) {
@@ -783,7 +782,7 @@ static int dir_cleanup(
                                 continue;
 
                         log_debug("Removing \"%s\".", sub_path);
-                        if (unlinkat(dirfd(d), dent->d_name, 0) < 0)
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
                                 if (errno != ENOENT)
                                         r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
 
@@ -1920,7 +1919,6 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
 
         if (S_ISDIR(st.st_mode)) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 /* The passed 'fd' was opened with O_PATH. We need to convert it into a 'regular' fd before
                  * reading the directory content. */

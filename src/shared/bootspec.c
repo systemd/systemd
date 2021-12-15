@@ -488,7 +488,6 @@ static int boot_entries_find_unified(
                 size_t *n_entries) {
 
         _cleanup_(closedirp) DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         assert(root);
