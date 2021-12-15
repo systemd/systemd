@@ -15,6 +15,7 @@
 #include "stat-util.h"
 #include "sync-util.h"
 
+#define PAYLOAD_BUFFER_SIZE (16U * 1024U)
 #define MINIMUM_HOLE_SIZE (1U * 1024U * 1024U / 2U)
 
 static int journald_file_truncate(JournalFile *f) {
@@ -78,7 +79,7 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
 }
 
 static int journald_file_punch_holes(JournalFile *f) {
-        HashItem items[4096 / sizeof(HashItem)];
+        HashItem items[PAYLOAD_BUFFER_SIZE / sizeof(HashItem)];
         uint64_t p, sz;
         size_t to_read;
         ssize_t n;
