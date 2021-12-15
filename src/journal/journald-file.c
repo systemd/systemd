@@ -15,6 +15,8 @@
 #include "stat-util.h"
 #include "sync-util.h"
 
+#define MINIMUM_HOLE_SIZE (1U * 1024U * 1024U / 2U)
+
 static int journald_file_truncate(JournalFile *f) {
         uint64_t p;
         int r;
@@ -65,6 +67,9 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
         offset = p + offsetof(Object, entry_array.items) +
                 (journal_file_entry_array_n_items(&o) - n_unused) * sizeof(le64_t);
         sz = p + le64toh(o.object.size) - offset;
+
+        if (sz < MINIMUM_HOLE_SIZE)
+                return 0;
 
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
                 return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
