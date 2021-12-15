@@ -3467,22 +3467,22 @@ if conf.get('ENABLE_NETWORKD') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+endif
 
-        exe = executable(
-                'systemd-network-generator',
-                network_generator_sources,
-                include_directories : includes,
-                link_with : [networkd_link_with],
-                install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : rootlibexecdir)
+exe = executable(
+        'systemd-network-generator',
+        network_generator_sources,
+        include_directories : includes,
+        link_with : [networkd_link_with],
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootlibexecdir)
 
-        if want_tests != 'false'
-                test('test-network-generator-conversion',
-                     test_network_generator_conversion_sh,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
+if want_tests != 'false'
+        test('test-network-generator-conversion',
+             test_network_generator_conversion_sh,
+             # https://github.com/mesonbuild/meson/issues/2681
+             args : exe.full_path())
 endif
 
 executable(
