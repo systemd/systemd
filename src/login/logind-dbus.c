@@ -29,6 +29,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat-dbus.h"
@@ -52,6 +53,8 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 #include "virt.h"
+
+static void reset_scheduled_shutdown(Manager *m);
 
 static int get_sender_session(
                 Manager *m,
@@ -309,16 +312,18 @@ static int property_get_preparing(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        bool b;
+        bool b = false;
 
         assert(bus);
         assert(reply);
         assert(m);
 
-        if (streq(property, "PreparingForShutdown"))
-                b = m->action_what & INHIBIT_SHUTDOWN;
-        else
-                b = m->action_what & INHIBIT_SLEEP;
+        if (m->delayed_action) {
+                if (streq(property, "PreparingForShutdown"))
+                        b = m->delayed_action->inhibit_what & INHIBIT_SHUTDOWN;
+                else
+                        b = m->delayed_action->inhibit_what & INHIBIT_SLEEP;
+        }
 
         return sd_bus_message_append(reply, "b", b);
 }
@@ -343,7 +348,9 @@ static int property_get_scheduled_shutdown(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "st", m->scheduled_shutdown_type, m->scheduled_shutdown_timeout);
+        r = sd_bus_message_append(reply, "st",
+                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)),
+                m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
 
@@ -1488,59 +1495,35 @@ static int have_multiple_sessions(
         return false;
 }
 
-_printf_(2, 0)
-static int log_with_wall_message(Manager *m, const char *d, const char *p, const char *q) {
-        assert(m);
-
-        if (isempty(m->wall_message))
-                p = strjoina(p, ".");
-        else
-                p = strjoina(p, " (", m->wall_message, ").");
-
-        return log_struct(LOG_NOTICE, d, p, q);
-}
-
 static int bus_manager_log_shutdown(
                 Manager *m,
-                const char *unit_name) {
+                const ActionTableItem *a) {
+
+        const char *message, *log_str;
 
         assert(m);
-        assert(unit_name);
+        assert(a);
 
-        if (streq(unit_name, SPECIAL_POWEROFF_TARGET))
-                return log_with_wall_message(m,
-                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                                             "MESSAGE=System is powering down",
-                                             "SHUTDOWN=power-off");
+        message = a->message;
+        log_str = a->log_str;
 
-        if (streq(unit_name, SPECIAL_REBOOT_TARGET))
-                return log_with_wall_message(m,
-                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                                             "MESSAGE=System is rebooting",
-                                             "SHUTDOWN=reboot");
+        if (message)
+                message = strjoina("MESSAGE=", message);
+        else
+                message = "MESSAGE=System is shutting down";
 
-        if (streq(unit_name, SPECIAL_HALT_TARGET))
-                return log_with_wall_message(m,
-                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                                             "MESSAGE=System is halting",
-                                             "SHUTDOWN=halt");
+        if (isempty(m->wall_message))
+                message = strjoina(message, ".");
+        else
+                message = strjoina(message, " (", m->wall_message, ").");
 
-        if (streq(unit_name, SPECIAL_KEXEC_TARGET))
-                return log_with_wall_message(m,
-                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                                             "MESSAGE=System is rebooting with kexec",
-                                             "SHUTDOWN=kexec");
+        if (log_str)
+                log_str = strjoina("SHUTDOWN=", log_str);
 
-        if (streq(unit_name, SPECIAL_FACTORY_RESET_TARGET))
-                return log_with_wall_message(m,
-                                             "MESSAGE_ID=" SD_MESSAGE_FACTORY_RESET_STR,
-                                             "MESSAGE=System is performing factory reset",
-                                             NULL);
-
-        return log_with_wall_message(m,
-                                     "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                                     "MESSAGE=System is shutting down",
-                                     NULL);
+        return log_struct(LOG_NOTICE,
+                        "MESSAGE_ID=%s", a->message_id ? a->message_id : SD_MESSAGE_SHUTDOWN_STR,
+                        message,
+                        log_str);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
@@ -1604,8 +1587,7 @@ static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
 
 static int execute_shutdown_or_sleep(
                 Manager *m,
-                InhibitWhat w,
-                const char *unit_name,
+                const ActionTableItem *a,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1613,12 +1595,10 @@ static int execute_shutdown_or_sleep(
         int r;
 
         assert(m);
-        assert(w > 0);
-        assert(w < _INHIBIT_WHAT_MAX);
-        assert(unit_name);
+        assert(a);
 
-        if (w == INHIBIT_SHUTDOWN)
-                bus_manager_log_shutdown(m, unit_name);
+        if (a->inhibit_what == INHIBIT_SHUTDOWN)
+                bus_manager_log_shutdown(m, a);
 
         r = bus_call_method(
                         m->bus,
@@ -1626,7 +1606,7 @@ static int execute_shutdown_or_sleep(
                         "StartUnit",
                         error,
                         &reply,
-                        "ss", unit_name, "replace-irreversibly");
+                        "ss", a->target, "replace-irreversibly");
         if (r < 0)
                 goto error;
 
@@ -1638,8 +1618,7 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto error;
 
-        m->action_unit = unit_name;
-        m->action_what = w;
+        m->delayed_action = a;
 
         /* Make sure the lid switch is ignored for a while */
         manager_set_lid_switch_ignore(m, usec_add(now(CLOCK_MONOTONIC), m->holdoff_timeout_usec));
@@ -1648,7 +1627,7 @@ static int execute_shutdown_or_sleep(
 
 error:
         /* Tell people that they now may take a lock again */
-        (void) send_prepare_for(m, w, false);
+        (void) send_prepare_for(m, a->inhibit_what, false);
 
         return r;
 }
@@ -1660,10 +1639,10 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
 
         assert(manager);
 
-        if (manager->action_what == 0 || manager->action_job)
+        if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 if (!timeout)
@@ -1678,13 +1657,12 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         }
 
         /* Actually do the operation */
-        r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
+        r = execute_shutdown_or_sleep(manager, manager->delayed_action, &error);
         if (r < 0) {
                 log_warning("Error during inhibitor-delayed operation (already returned success to client): %s",
                             bus_error_message(&error, r));
 
-                manager->action_unit = NULL;
-                manager->action_what = 0;
+                manager->delayed_action = NULL;
         }
 
         return 1; /* We did some work. */
@@ -1705,15 +1683,12 @@ static int manager_inhibit_timeout_handler(
 
 static int delay_shutdown_or_sleep(
                 Manager *m,
-                InhibitWhat w,
-                const char *unit_name) {
+                const ActionTableItem *a) {
 
         int r;
 
         assert(m);
-        assert(w >= 0);
-        assert(w < _INHIBIT_WHAT_MAX);
-        assert(unit_name);
+        assert(a);
 
         if (m->inhibit_timeout_source) {
                 r = sd_event_source_set_time_relative(m->inhibit_timeout_source, m->inhibit_delay_max);
@@ -1733,16 +1708,14 @@ static int delay_shutdown_or_sleep(
                         return r;
         }
 
-        m->action_unit = unit_name;
-        m->action_what = w;
+        m->delayed_action = a;
 
         return 0;
 }
 
 int bus_manager_shutdown_or_sleep_now_or_later(
                 Manager *m,
-                const char *unit_name,
-                InhibitWhat w,
+                const ActionTableItem *a,
                 sd_bus_error *error) {
 
         _cleanup_free_ char *load_state = NULL;
@@ -1750,35 +1723,33 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         int r;
 
         assert(m);
-        assert(unit_name);
-        assert(w > 0);
-        assert(w < _INHIBIT_WHAT_MAX);
+        assert(a);
         assert(!m->action_job);
 
-        r = unit_load_state(m->bus, unit_name, &load_state);
+        r = unit_load_state(m->bus, a->target, &load_state);
         if (r < 0)
                 return r;
 
         if (!streq(load_state, "loaded"))
                 return log_notice_errno(SYNTHETIC_ERRNO(EACCES),
                                         "Unit %s is %s, refusing operation.",
-                                        unit_name, load_state);
+                                        a->target, load_state);
 
         /* Tell everybody to prepare for shutdown/sleep */
-        (void) send_prepare_for(m, w, true);
+        (void) send_prepare_for(m, a->inhibit_what, true);
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0, NULL);
+                manager_is_inhibited(m, a->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
                  * want to do, and start a timeout */
-                r = delay_shutdown_or_sleep(m, w, unit_name);
+                r = delay_shutdown_or_sleep(m, a);
         else
                 /* Shutdown is not delayed, execute it
                  * immediately */
-                r = execute_shutdown_or_sleep(m, w, unit_name, error);
+                r = execute_shutdown_or_sleep(m, a, error);
 
         return r;
 }
@@ -1786,10 +1757,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 static int verify_shutdown_creds(
                 Manager *m,
                 sd_bus_message *message,
-                InhibitWhat w,
-                const char *action,
-                const char *action_multiple_sessions,
-                const char *action_ignore_inhibit,
+                const ActionTableItem *a,
                 uint64_t flags,
                 sd_bus_error *error) {
 
@@ -1799,12 +1767,8 @@ static int verify_shutdown_creds(
         int r;
 
         assert(m);
+        assert(a);
         assert(message);
-        assert(w >= 0);
-        assert(w <= _INHIBIT_WHAT_MAX);
-        assert(action);
-        assert(action_multiple_sessions);
-        assert(action_ignore_inhibit);
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -1819,11 +1783,19 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(
+                                message,
+                                CAP_SYS_BOOT,
+                                a->polkit_action_multiple_sessions,
+                                NULL,
+                                interactive,
+                                UID_INVALID,
+                                &m->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1836,7 +1808,14 @@ static int verify_shutdown_creds(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
                                                  "Access denied to root due to active block inhibitor");
 
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message,
+                                CAP_SYS_BOOT,
+                                a->polkit_action_ignore_inhibit,
+                                NULL,
+                                interactive,
+                                UID_INVALID,
+                                &m->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1844,7 +1823,14 @@ static int verify_shutdown_creds(
         }
 
         if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message,
+                                CAP_SYS_BOOT,
+                                a->polkit_action,
+                                NULL,
+                                interactive,
+                                UID_INVALID,
+                                &m->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1880,12 +1866,7 @@ static int setup_wall_message_timer(Manager *m, sd_bus_message* message) {
 static int method_do_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
-                const char *unit_name,
-                InhibitWhat w,
-                const char *action,
-                const char *action_multiple_sessions,
-                const char *action_ignore_inhibit,
-                SleepOperation sleep_operation,
+                const ActionTableItem *a,
                 bool with_flags,
                 sd_bus_error *error) {
 
@@ -1894,9 +1875,7 @@ static int method_do_shutdown_or_sleep(
 
         assert(m);
         assert(message);
-        assert(unit_name);
-        assert(w >= 0);
-        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(a);
 
         if (with_flags) {
                 /* New style method: with flags parameter (and interactive bool in the bus message header) */
@@ -1905,7 +1884,7 @@ static int method_do_shutdown_or_sleep(
                         return r;
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
-                if (!streq(unit_name, SPECIAL_REBOOT_TARGET) && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
+                if (manager_handle_for_item(a) != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Reboot via kexec is only applicable with reboot operations");
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
@@ -1921,33 +1900,39 @@ static int method_do_shutdown_or_sleep(
         }
 
         if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
-                unit_name = SPECIAL_KEXEC_TARGET;
+                a = manager_item_for_handle(HANDLE_KEXEC);
 
         /* Don't allow multiple jobs being executed at the same time */
-        if (m->action_what > 0)
+        if (m->delayed_action)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
                                          "There's already a shutdown or sleep operation in progress");
 
-        if (sleep_operation >= 0) {
-                r = can_sleep(sleep_operation);
+        if (a->sleep_operation >= 0) {
+                r = can_sleep(a->sleep_operation);
                 if (r == -ENOSPC)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                 "Not enough swap space for hibernation");
                 if (r == 0)
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                 "Sleep verb \"%s\" not supported", sleep_operation_to_string(sleep_operation));
+                                                 "Sleep verb \"%s\" not supported", sleep_operation_to_string(a->sleep_operation));
                 if (r < 0)
                         return r;
         }
 
-        r = verify_shutdown_creds(m, message, w, action, action_multiple_sessions,
-                                  action_ignore_inhibit, flags, error);
+        r = verify_shutdown_creds(m, message, a, flags, error);
         if (r != 0)
                 return r;
 
+        /* reset case we're shorting a scheduled shutdown */
+        m->unlink_nologin = false;
+        reset_scheduled_shutdown(m);
+
+        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_type = a;
+
         (void) setup_wall_message_timer(m, message);
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
         if (r < 0)
                 return r;
 
@@ -1957,16 +1942,9 @@ static int method_do_shutdown_or_sleep(
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "poweroff");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_POWEROFF_TARGET,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.power-off",
-                        "org.freedesktop.login1.power-off-multiple-sessions",
-                        "org.freedesktop.login1.power-off-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        manager_item_for_handle(HANDLE_POWEROFF),
                         sd_bus_message_is_method_call(message, NULL, "PowerOffWithFlags"),
                         error);
 }
@@ -1974,16 +1952,9 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "reboot");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_REBOOT_TARGET,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.reboot",
-                        "org.freedesktop.login1.reboot-multiple-sessions",
-                        "org.freedesktop.login1.reboot-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        manager_item_for_handle(HANDLE_REBOOT),
                         sd_bus_message_is_method_call(message, NULL, "RebootWithFlags"),
                         error);
 }
@@ -1991,16 +1962,9 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "halt");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_HALT_TARGET,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.halt",
-                        "org.freedesktop.login1.halt-multiple-sessions",
-                        "org.freedesktop.login1.halt-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        manager_item_for_handle(HANDLE_HALT),
                         sd_bus_message_is_method_call(message, NULL, "HaltWithFlags"),
                         error);
 }
@@ -2008,16 +1972,9 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "suspend");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_SUSPEND_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.suspend",
-                        "org.freedesktop.login1.suspend-multiple-sessions",
-                        "org.freedesktop.login1.suspend-ignore-inhibit",
-                        SLEEP_SUSPEND,
+                        manager_item_for_handle(HANDLE_SUSPEND),
                         sd_bus_message_is_method_call(message, NULL, "SuspendWithFlags"),
                         error);
 }
@@ -2025,16 +1982,9 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
 static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "hibernate");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_HIBERNATE_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_HIBERNATE,
+                        manager_item_for_handle(HANDLE_HIBERNATE),
                         sd_bus_message_is_method_call(message, NULL, "HibernateWithFlags"),
                         error);
 }
@@ -2042,16 +1992,9 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
 static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "hybrid-sleep");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_HYBRID_SLEEP_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_HYBRID_SLEEP,
+                        manager_item_for_handle(HANDLE_HYBRID_SLEEP),
                         sd_bus_message_is_method_call(message, NULL, "HybridSleepWithFlags"),
                         error);
 }
@@ -2059,16 +2002,9 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
 static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        (void)free_and_strdup(&m->scheduled_shutdown_type, "sleep");
-
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_SUSPEND_THEN_HIBERNATE,
+                        manager_item_for_handle(HANDLE_SUSPEND_THEN_HIBERNATE),
                         sd_bus_message_is_method_call(message, NULL, "SuspendThenHibernateWithFlags"),
                         error);
 }
@@ -2116,7 +2052,7 @@ static int update_schedule_file(Manager *m) {
                 "MODE=%s\n",
                 m->scheduled_shutdown_timeout,
                 m->enable_wall_messages,
-                m->scheduled_shutdown_type);
+                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)));
 
         if (!isempty(m->wall_message)) {
                 _cleanup_free_ char *t = NULL;
@@ -2155,8 +2091,7 @@ static void reset_scheduled_shutdown(Manager *m) {
         m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
         m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
 
-        m->scheduled_shutdown_type = mfree(m->scheduled_shutdown_type);
-        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_type = NULL;
         m->shutdown_dry_run = false;
 
         if (m->unlink_nologin) {
@@ -2172,31 +2107,20 @@ static int manager_scheduled_shutdown_handler(
                         uint64_t usec,
                         void *userdata) {
 
+        const ActionTableItem *a = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Manager *m = userdata;
-        const char *target;
         int r;
 
         assert(m);
 
-        if (isempty(m->scheduled_shutdown_type))
-                return 0;
-
-        if (streq(m->scheduled_shutdown_type, "poweroff"))
-                target = SPECIAL_POWEROFF_TARGET;
-        else if (streq(m->scheduled_shutdown_type, "reboot"))
-                target = SPECIAL_REBOOT_TARGET;
-        else if (streq(m->scheduled_shutdown_type, "kexec"))
-                target = SPECIAL_KEXEC_TARGET;
-        else if (streq(m->scheduled_shutdown_type, "halt"))
-                target = SPECIAL_HALT_TARGET;
-        else
-                assert_not_reached();
+        a = m->scheduled_shutdown_type;
+        assert(a);
 
         /* Don't allow multiple jobs being executed at the same time */
-        if (m->action_what > 0) {
+        if (m->delayed_action) {
                 r = -EALREADY;
-                log_error("Scheduled shutdown to %s failed: shutdown or sleep operation already in progress", target);
+                log_error("Scheduled shutdown to %s failed: shutdown or sleep operation already in progress", a->target);
                 goto error;
         }
 
@@ -2206,16 +2130,16 @@ static int manager_scheduled_shutdown_handler(
                  * above) for some seconds after our admin has seen the final
                  * wall message. */
 
-                bus_manager_log_shutdown(m, target);
+                bus_manager_log_shutdown(m, a);
                 log_info("Running in dry run, suppressing action.");
                 reset_scheduled_shutdown(m);
 
                 return 0;
         }
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, target, INHIBIT_SHUTDOWN, &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, m->scheduled_shutdown_type, &error);
         if (r < 0) {
-                log_error_errno(r, "Scheduled shutdown to %s failed: %m", target);
+                log_error_errno(r, "Scheduled shutdown to %s failed: %m", a->target);
                 goto error;
         }
 
@@ -2228,9 +2152,8 @@ error:
 
 static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
-        const char *action_multiple_sessions = NULL;
-        const char *action_ignore_inhibit = NULL;
-        const char *action = NULL;
+        HandleAction handle;
+        const ActionTableItem *a;
         uint64_t elapse;
         char *type;
         int r;
@@ -2248,23 +2171,15 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 dry_run = true;
         }
 
-        if (streq(type, "poweroff")) {
-                action = "org.freedesktop.login1.power-off";
-                action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
-        } else if (STR_IN_SET(type, "reboot", "kexec")) {
-                action = "org.freedesktop.login1.reboot";
-                action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
-        } else if (streq(type, "halt")) {
-                action = "org.freedesktop.login1.halt";
-                action_multiple_sessions = "org.freedesktop.login1.halt-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.halt-ignore-inhibit";
-        } else
+        handle = handle_action_from_string(type);
+        if (!IN_SET(handle, HANDLE_POWEROFF, HANDLE_REBOOT, HANDLE_HALT, HANDLE_KEXEC))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
-        r = verify_shutdown_creds(m, message, INHIBIT_SHUTDOWN, action, action_multiple_sessions,
-                                  action_ignore_inhibit, 0, error);
+        a = manager_item_for_handle(handle);
+        assert(a);
+        assert(a->polkit_action);
+
+        r = verify_shutdown_creds(m, message, a, 0, error);
         if (r != 0)
                 return r;
 
@@ -2283,12 +2198,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                         return log_error_errno(r, "sd_event_add_time() failed: %m");
         }
 
-        r = free_and_strdup(&m->scheduled_shutdown_type, type);
-        if (r < 0) {
-                m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-                return log_oom();
-        }
-
+        m->scheduled_shutdown_type = a;
         m->shutdown_dry_run = dry_run;
 
         if (m->nologin_timeout_source) {
@@ -2323,32 +2233,25 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
 
 static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
-        const char *action;
+        const ActionTableItem *a;
         bool cancelled;
         int r;
 
         assert(m);
         assert(message);
 
-        cancelled = m->scheduled_shutdown_type != NULL;
-
+        cancelled = !IN_SET(manager_handle_for_item(m->scheduled_shutdown_type), HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
         if (!cancelled)
                 goto done;
 
-        // mirrors code in method_schedule_shutdown()
-        if (streq(m->scheduled_shutdown_type, "poweroff")) {
-                action = "org.freedesktop.login1.power-off";
-        } else if (STR_IN_SET(m->scheduled_shutdown_type, "reboot", "kexec")) {
-                action = "org.freedesktop.login1.reboot";
-        } else if (streq(m->scheduled_shutdown_type, "halt")) {
-                action = "org.freedesktop.login1.halt";
-        } else
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
+        a = m->scheduled_shutdown_type;
+        if (!a->polkit_action)
+                return sd_bus_error_set(error, SD_BUS_ERROR_AUTH_FAILED, "Unsupported shutdown type");
 
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_BOOT,
-                        action,
+                        a->polkit_action,
                         NULL,
                         false,
                         UID_INVALID,
@@ -2385,15 +2288,10 @@ done:
 static int method_can_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
-                InhibitWhat w,
-                const char *action,
-                const char *action_multiple_sessions,
-                const char *action_ignore_inhibit,
-                SleepOperation sleep_operation,
+                const ActionTableItem *a,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        HandleAction handle;
         bool multiple_sessions, challenge, blocked;
         const char *result = NULL;
         uid_t uid;
@@ -2401,14 +2299,10 @@ static int method_can_shutdown_or_sleep(
 
         assert(m);
         assert(message);
-        assert(w >= 0);
-        assert(w <= _INHIBIT_WHAT_MAX);
-        assert(action);
-        assert(action_multiple_sessions);
-        assert(action_ignore_inhibit);
+        assert(a);
 
-        if (sleep_operation >= 0) {
-                r = can_sleep(sleep_operation);
+        if (a->sleep_operation >= 0) {
+                r = can_sleep(a->sleep_operation);
                 if (IN_SET(r,  0, -ENOSPC))
                         return sd_bus_reply_method_return(message, "s", "na");
                 if (r < 0)
@@ -2428,9 +2322,9 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
-        handle = handle_action_from_string(sleep_operation_to_string(sleep_operation));
+        HandleAction handle = handle_action_from_string(sleep_operation_to_string(a->sleep_operation));
         if (handle >= 0) {
                 const char *target;
 
@@ -2450,7 +2344,7 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (multiple_sessions) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action_multiple_sessions, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2463,7 +2357,7 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action_ignore_inhibit, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2481,7 +2375,7 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_test_polkit(message, CAP_SYS_BOOT, action, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action, NULL, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -2501,12 +2395,7 @@ static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_e
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.power-off",
-                        "org.freedesktop.login1.power-off-multiple-sessions",
-                        "org.freedesktop.login1.power-off-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        m, message, manager_item_for_handle(HANDLE_POWEROFF),
                         error);
 }
 
@@ -2514,12 +2403,7 @@ static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_err
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.reboot",
-                        "org.freedesktop.login1.reboot-multiple-sessions",
-                        "org.freedesktop.login1.reboot-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        m, message, manager_item_for_handle(HANDLE_REBOOT),
                         error);
 }
 
@@ -2527,12 +2411,7 @@ static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SHUTDOWN,
-                        "org.freedesktop.login1.halt",
-                        "org.freedesktop.login1.halt-multiple-sessions",
-                        "org.freedesktop.login1.halt-ignore-inhibit",
-                        _SLEEP_OPERATION_INVALID,
+                        m, message, manager_item_for_handle(HANDLE_HALT),
                         error);
 }
 
@@ -2540,12 +2419,7 @@ static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_er
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.suspend",
-                        "org.freedesktop.login1.suspend-multiple-sessions",
-                        "org.freedesktop.login1.suspend-ignore-inhibit",
-                        SLEEP_SUSPEND,
+                        m, message, manager_item_for_handle(HANDLE_SUSPEND),
                         error);
 }
 
@@ -2553,12 +2427,7 @@ static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_HIBERNATE,
+                        m, message, manager_item_for_handle(HANDLE_HIBERNATE),
                         error);
 }
 
@@ -2566,12 +2435,7 @@ static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_b
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_HYBRID_SLEEP,
+                        m, message, manager_item_for_handle(HANDLE_HYBRID_SLEEP),
                         error);
 }
 
@@ -2579,12 +2443,7 @@ static int method_can_suspend_then_hibernate(sd_bus_message *message, void *user
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message,
-                        INHIBIT_SLEEP,
-                        "org.freedesktop.login1.hibernate",
-                        "org.freedesktop.login1.hibernate-multiple-sessions",
-                        "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        SLEEP_SUSPEND_THEN_HIBERNATE,
+                        m, message, manager_item_for_handle(HANDLE_SUSPEND_THEN_HIBERNATE),
                         error);
 }
 
@@ -3256,6 +3115,15 @@ static int method_set_wall_message(
         if (r < 0)
                 return r;
 
+        /* sysvinit has a 252 (256-(strlen(" \r\n")+1)) character
+         * limit for the wall message. There is no real technical
+         * need for that but doesn't make sense to store arbitrary
+         * armounts either.
+         * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72)
+        */
+        if (strlen(wall_message) > 252)
+                return -EMSGSIZE;
+
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
         if (streq_ptr(m->wall_message, empty_to_null(wall_message)) &&
@@ -3323,7 +3191,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
          * executing the operation. We shouldn't create the impression
          * that the lock was successful if the machine is about to go
          * down/suspend any moment. */
-        if (m->action_what & w)
+        if (m->delayed_action && m->delayed_action->inhibit_what & w)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
                                          "The operation inhibition has been requested for is already running");
 
@@ -3830,14 +3698,14 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         if (m->action_job && streq(m->action_job, path)) {
-                log_info("Operation '%s' finished.", inhibit_what_to_string(m->action_what));
+                assert(m->delayed_action);
+                log_info("Operation '%s' finished.", inhibit_what_to_string(m->delayed_action->inhibit_what));
 
                 /* Tell people that they now may take a lock again */
-                (void) send_prepare_for(m, m->action_what, false);
+                (void) send_prepare_for(m, m->delayed_action->inhibit_what, false);
 
                 m->action_job = mfree(m->action_job);
-                m->action_unit = NULL;
-                m->action_what = 0;
+                m->delayed_action = NULL;
                 return 0;
         }
 
