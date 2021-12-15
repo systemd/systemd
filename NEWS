@@ -335,14 +335,15 @@ CHANGES WITH 250 in spe:
           UseMTU= setting that may be used to control whether to apply the
           announced MTU settings to the local interface.
 
-        * systemd-networkd now ships with another default .network files:
+        * systemd-networkd now ships with new default .network files:
           80-container-vb.network which matches host-side network bridge device
           created by systemd-nspawn's --network-bridge or --network-zone
           switch, and 80-6rd-tunnel.network which matches automatically created
           sit tunnel with 6rd prefix when the DHCP 6RD option is received.
 
         * systemd-networkd and systemd-udevd now support IP over InfiniBand
-          interfaces.
+          interfaces. The Kind= setting in .netdev file accepts "ipoib". And
+          systemd.netdev files gained the [IPoIB] section.
 
         * systemd-networkd's handling of Endpoint= resolution for WireGuard
           interfaces has been improved.
@@ -353,7 +354,7 @@ CHANGES WITH 250 in spe:
 
         * systemd-networkd will now once again automatically generate persistent
           MAC addresses for batadv and bridge interfaces. Users can disable this
-          by using MACAddress=none.
+          by using MACAddress=none in .netdev files.
 
         * .link files gained a new WakeOnLanPassword= setting in the [Link]
           section that allows to specify a WoL "SecureOn" password on hardware
