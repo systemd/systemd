@@ -11,34 +11,86 @@ TEST(strpcpy) {
         char target[25];
         char *s = target;
         size_t space_left;
+        bool truncated;
 
         space_left = sizeof(target);
-        space_left = strpcpy(&s, space_left, "12345");
-        space_left = strpcpy(&s, space_left, "hey hey hey");
-        space_left = strpcpy(&s, space_left, "waldo");
-        space_left = strpcpy(&s, space_left, "ba");
-        space_left = strpcpy(&s, space_left, "r");
-        space_left = strpcpy(&s, space_left, "foo");
-
+        space_left = strpcpy_full(&s, space_left, "12345", &truncated);
+        assert_se(!truncated);
+        space_left = strpcpy_full(&s, space_left, "hey hey hey", &truncated);
+        assert_se(!truncated);
+        space_left = strpcpy_full(&s, space_left, "waldo", &truncated);
+        assert_se(!truncated);
+        space_left = strpcpy_full(&s, space_left, "ba", &truncated);
+        assert_se(!truncated);
+        space_left = strpcpy_full(&s, space_left, "r", &truncated);
+        assert_se(!truncated);
+        assert_se(space_left == 1);
         assert_se(streq(target, "12345hey hey heywaldobar"));
+
+        space_left = strpcpy_full(&s, space_left, "", &truncated);
+        assert_se(!truncated);
+        assert_se(space_left == 1);
+        assert_se(streq(target, "12345hey hey heywaldobar"));
+
+        space_left = strpcpy_full(&s, space_left, "f", &truncated);
+        assert_se(truncated);
         assert_se(space_left == 0);
+        assert_se(streq(target, "12345hey hey heywaldobar"));
+
+        space_left = strpcpy_full(&s, space_left, "", &truncated);
+        assert_se(!truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "12345hey hey heywaldobar"));
+
+        space_left = strpcpy_full(&s, space_left, "foo", &truncated);
+        assert_se(truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "12345hey hey heywaldobar"));
 }
 
 TEST(strpcpyf) {
         char target[25];
         char *s = target;
         size_t space_left;
+        bool truncated;
 
         space_left = sizeof(target);
-        space_left = strpcpyf(&s, space_left, "space left: %zu. ", space_left);
-        space_left = strpcpyf(&s, space_left, "foo%s", "bar");
-
-        assert_se(streq(target, "space left: 25. foobar"));
+        space_left = strpcpyf_full(&s, space_left, &truncated, "space left: %zu. ", space_left);
+        assert_se(!truncated);
+        space_left = strpcpyf_full(&s, space_left, &truncated, "foo%s", "bar");
+        assert_se(!truncated);
         assert_se(space_left == 3);
+        assert_se(streq(target, "space left: 25. foobar"));
+
+        space_left = strpcpyf_full(&s, space_left, &truncated, "%i", 42);
+        assert_se(!truncated);
+        assert_se(space_left == 1);
+        assert_se(streq(target, "space left: 25. foobar42"));
+
+        space_left = strpcpyf_full(&s, space_left, &truncated, "%s", "");
+        assert_se(!truncated);
+        assert_se(space_left == 1);
+        assert_se(streq(target, "space left: 25. foobar42"));
+
+        space_left = strpcpyf_full(&s, space_left, &truncated, "%c", 'x');
+        assert_se(truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "space left: 25. foobar42"));
+
+        space_left = strpcpyf_full(&s, space_left, &truncated, "%s", "");
+        assert_se(!truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "space left: 25. foobar42"));
+
+        space_left = strpcpyf_full(&s, space_left, &truncated, "abc%s", "hoge");
+        assert_se(truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "space left: 25. foobar42"));
 
         /* test overflow */
         s = target;
-        space_left = strpcpyf(&s, 12, "00 left: %i. ", 999);
+        space_left = strpcpyf_full(&s, 12, &truncated, "00 left: %i. ", 999);
+        assert_se(truncated);
         assert_se(streq(target, "00 left: 99"));
         assert_se(space_left == 0);
         assert_se(target[12] == '2');
@@ -48,21 +100,40 @@ TEST(strpcpyl) {
         char target[25];
         char *s = target;
         size_t space_left;
+        bool truncated;
 
         space_left = sizeof(target);
-        space_left = strpcpyl(&s, space_left, "waldo", " test", " waldo. ", NULL);
-        space_left = strpcpyl(&s, space_left, "Banana", NULL);
-
-        assert_se(streq(target, "waldo test waldo. Banana"));
+        space_left = strpcpyl_full(&s, space_left, &truncated, "waldo", " test", " waldo. ", NULL);
+        assert_se(!truncated);
+        space_left = strpcpyl_full(&s, space_left, &truncated, "Banana", NULL);
+        assert_se(!truncated);
         assert_se(space_left == 1);
+        assert_se(streq(target, "waldo test waldo. Banana"));
+
+        space_left = strpcpyl_full(&s, space_left, &truncated, "", "", "", NULL);
+        assert_se(!truncated);
+        assert_se(space_left == 1);
+        assert_se(streq(target, "waldo test waldo. Banana"));
+
+        space_left = strpcpyl_full(&s, space_left, &truncated, "", "x", "", NULL);
+        assert_se(truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "waldo test waldo. Banana"));
+
+        space_left = strpcpyl_full(&s, space_left, &truncated, "hoge", NULL);
+        assert_se(truncated);
+        assert_se(space_left == 0);
+        assert_se(streq(target, "waldo test waldo. Banana"));
 }
 
 TEST(strscpy) {
         char target[25];
         size_t space_left;
+        bool truncated;
 
         space_left = sizeof(target);
-        space_left = strscpy(target, space_left, "12345");
+        space_left = strscpy_full(target, space_left, "12345", &truncated);
+        assert_se(!truncated);
 
         assert_se(streq(target, "12345"));
         assert_se(space_left == 20);
@@ -71,9 +142,11 @@ TEST(strscpy) {
 TEST(strscpyl) {
         char target[25];
         size_t space_left;
+        bool truncated;
 
         space_left = sizeof(target);
-        space_left = strscpyl(target, space_left, "12345", "waldo", "waldo", NULL);
+        space_left = strscpyl_full(target, space_left, &truncated, "12345", "waldo", "waldo", NULL);
+        assert_se(!truncated);
 
         assert_se(streq(target, "12345waldowaldo"));
         assert_se(space_left == 10);
