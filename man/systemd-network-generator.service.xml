@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-network-generator.service" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd-network-generator.service">
 
   <refentryinfo>
     <title>systemd-network-generator.service</title>
