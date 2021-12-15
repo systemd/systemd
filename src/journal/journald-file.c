@@ -81,7 +81,6 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
 static int journald_file_punch_holes(JournalFile *f) {
         HashItem items[PAYLOAD_BUFFER_SIZE / sizeof(HashItem)];
         uint64_t p, sz;
-        size_t to_read;
         ssize_t n;
         int r;
 
@@ -92,10 +91,9 @@ static int journald_file_punch_holes(JournalFile *f) {
 
         p = le64toh(f->header->data_hash_table_offset);
         sz = le64toh(f->header->data_hash_table_size);
-        to_read = MIN((size_t) f->last_stat.st_blksize, sizeof(items));
 
         for (uint64_t i = p; i < p + sz; i += n) {
-                n = pread(f->fd, items, MIN(to_read, p + sz - i), i);
+                n = pread(f->fd, items, MIN(sizeof(items), p + sz - i), i);
                 if (n < 0)
                         return n;
 
