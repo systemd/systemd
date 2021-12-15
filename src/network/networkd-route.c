@@ -854,9 +854,8 @@ static bool route_by_kernel(const Route *route) {
         if (route->protocol == RTPROT_KERNEL)
                 return true;
 
-        /* Do not touch multicast route added by kernel. See issue #6088.
-         * TODO: Why the kernel adds this route with protocol RTPROT_BOOT?
-         * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
+        /* The kernels older than a826b04303a40d52439aa141035fca5654ccaccd (v5.11) create the IPv6
+         * multicast with RTPROT_BOOT. Do not touch it. */
         if (route->protocol == RTPROT_BOOT &&
             route->family == AF_INET6 &&
             route->dst_prefixlen == 8 &&
