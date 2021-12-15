@@ -20,7 +20,6 @@
 #define MIN_RANDOM_DELAY ( 10 * USEC_PER_MSEC)
 
 int udev_watch_restore(int inotify_fd) {
-        struct dirent *ent;
         DIR *dir;
         int r;
 
