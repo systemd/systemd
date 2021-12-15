@@ -66,17 +66,13 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, 0);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        break;
 
                 r = manager_add_dns_server_by_string(m, type, word);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
         }
-
-        return 0;
 }
 
 static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
@@ -121,17 +117,13 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        break;
 
                 r = manager_add_search_domain_by_string(m, word);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
         }
-
-        return 0;
 }
 
 int config_parse_dns_servers(
