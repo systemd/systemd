@@ -1848,9 +1848,13 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
-                if (r < 0)
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
                         log_rule_warning_errno(dev, rules, r,
                                                "Failed to extract lines from result of command \"%s\", ignoring: %m", buf);
+                        return false;
+                }
 
                 STRV_FOREACH(line, lines) {
                         char *key, *value;
