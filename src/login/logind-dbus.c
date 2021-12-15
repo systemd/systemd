@@ -2323,20 +2323,49 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
 
 static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+        const char *action;
         bool cancelled;
+        int r;
 
         assert(m);
         assert(message);
 
         cancelled = m->scheduled_shutdown_type != NULL;
+
+        if (!cancelled)
+                goto done;
+
+        // mirrors code in method_schedule_shutdown()
+        if (streq(m->scheduled_shutdown_type, "poweroff")) {
+                action = "org.freedesktop.login1.power-off";
+        } else if (STR_IN_SET(m->scheduled_shutdown_type, "reboot", "kexec")) {
+                action = "org.freedesktop.login1.reboot";
+        } else if (streq(m->scheduled_shutdown_type, "halt")) {
+                action = "org.freedesktop.login1.halt";
+        } else
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_BOOT,
+                        action,
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         reset_scheduled_shutdown(m);
 
-        if (cancelled && m->enable_wall_messages) {
+        if (m->enable_wall_messages) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 _cleanup_free_ char *username = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
-                int r;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_TTY|SD_BUS_CREDS_UID, &creds);
                 if (r >= 0) {
@@ -2349,6 +2378,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                           username, tty, logind_wall_tty_filter, m);
         }
 
+done:
         return sd_bus_reply_method_return(message, "b", cancelled);
 }
 
