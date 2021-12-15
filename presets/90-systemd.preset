@@ -34,7 +34,6 @@ enable reboot.target
 disable rescue.target
 disable exit.target
 
-disable systemd-networkd-wait-online.service
 disable systemd-time-wait-sync.service
 disable systemd-boot-check-no-failures.service
 disable systemd-network-generator.service
