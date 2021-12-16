@@ -56,6 +56,10 @@ WantedBy=multi-user.target
 Also=systemd-networkd.socket
 Alias=dbus-org.freedesktop.network1.service
 
+# The output from this generator is used by udevd and networkd. Enable it by
+# default when enabling systemd-networkd.service.
+Also=systemd-network-generator.service
+
 # We want to enable systemd-networkd-wait-online.service whenever this service
 # is enabled. systemd-networkd-wait-online.service has
 # WantedBy=network-online.target, so enabling it only has an effect if
