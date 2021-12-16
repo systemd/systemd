@@ -108,6 +108,7 @@ typedef struct Manager {
 
         bool stop_exec_queue;
         bool exit;
+        bool ctrl_is_connected;
 } Manager;
 
 typedef enum EventState {
@@ -1123,6 +1124,10 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         assert(value);
         assert(manager);
 
+        /* udevadm may be called via ExecReload=. In that case, udevadm is in our cgroup.
+         * Skip to call cg_kill() in on_post() when the udev control socket is connected. */
+        manager->ctrl_is_connected = true;
+
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
@@ -1214,6 +1219,9 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_EXIT:
                 log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
+                break;
+        case _UDEV_CTRL_END_MESSAGES:
+        case _UDEV_CTRL_ON_ACCEPT:
                 break;
         default:
                 log_debug("Received unknown udev control message, ignoring");
@@ -1490,9 +1498,11 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
 
-        if (manager->cgroup)
+        if (manager->cgroup && !manager->ctrl_is_connected)
                 /* cleanup possible left-over processes in our cgroup */
                 (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
+
+        manager->ctrl_is_connected = false;
 
         return 1;
 }

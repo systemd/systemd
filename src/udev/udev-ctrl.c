@@ -205,11 +205,11 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
                 return 0;
         }
 
-        if (msg_wire.type == _UDEV_CTRL_END_MESSAGES)
-                return 0;
-
         if (uctrl->callback)
                 (void) uctrl->callback(uctrl, msg_wire.type, &msg_wire.value, uctrl->userdata);
+
+        if (msg_wire.type == _UDEV_CTRL_END_MESSAGES)
+                return 0;
 
         /* Do not disconnect and wait for next message. */
         uctrl = udev_ctrl_unref(uctrl);
@@ -259,6 +259,9 @@ static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents,
 
         /* Do not accept multiple connection. */
         (void) sd_event_source_set_enabled(uctrl->event_source, SD_EVENT_OFF);
+
+        if (uctrl->callback)
+                (void) uctrl->callback(uctrl, _UDEV_CTRL_ON_ACCEPT, &(UdevCtrlMessageValue) {}, uctrl->userdata);
 
         uctrl->sock_connect = TAKE_FD(sock);
         return 0;
