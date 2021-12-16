@@ -45,12 +45,6 @@
 
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
-/* Special values for the bfq.weight attribute */
-#define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
-#define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
-#define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
-#define CGROUP_BFQ_WEIGHT_DEFAULT UINT64_C(100)
-
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
  * out specific attributes from us. */
@@ -1053,6 +1047,24 @@ static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
                      CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
+static void set_bfq_weight(Unit *u, const char *controller, uint64_t io_weight) {
+        char buf[DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
+        const char *p;
+        uint64_t bfq_weight;
+
+        /* FIXME: drop this function when distro kernels properly support BFQ through "io.weight"
+         * See also: https://github.com/systemd/systemd/pull/13335 and
+         * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9. */
+        p = strjoina(controller, ".bfq.weight");
+        /* Adjust to kernel range is 1..1000, the default is 100. */
+        bfq_weight = BFQ_WEIGHT(io_weight);
+
+        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+
+        if (!set_attribute_and_warn(u, controller, p, buf))
+                log_unit_debug(u, "IOWeight scaled to %s=%" PRIu64, p, bfq_weight);
+}
+
 static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
@@ -1264,30 +1276,12 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
-/* Convert the normal io.weight value to io.bfq.weight */
-#define BFQ_WEIGHT(weight) \
-        (weight <= CGROUP_WEIGHT_DEFAULT ? \
-         CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN) : \
-         CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT))
-
-assert_cc(BFQ_WEIGHT(1) == 1);
-assert_cc(BFQ_WEIGHT(50) == 50);
-assert_cc(BFQ_WEIGHT(100) == 100);
-assert_cc(BFQ_WEIGHT(500) == 136);
-assert_cc(BFQ_WEIGHT(5000) == 545);
-assert_cc(BFQ_WEIGHT(10000) == 1000);
-
 static void set_io_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("default \n")+DECIMAL_STR_MAX(uint64_t)];
 
         assert(u);
 
-        /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
-         * See also: https://github.com/systemd/systemd/pull/13335 and
-         * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
-         * The range is 1..1000 apparently, and the default is 100. */
-        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
-        (void) set_attribute_and_warn(u, "io", "io.bfq.weight", buf);
+        set_bfq_weight(u, "io", weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
@@ -1298,9 +1292,7 @@ static void set_blkio_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        /* FIXME: see comment in set_io_weight(). */
-        xsprintf(buf, "%" PRIu64 "\n", BFQ_WEIGHT(weight));
-        (void) set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf);
+        set_bfq_weight(u, "blkio", weight);
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
