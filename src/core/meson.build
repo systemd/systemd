@@ -184,7 +184,8 @@ libcore = static_library(
                         libapparmor,
                         libselinux,
                         libmount,
-                        libacl])
+                        libacl],
+        build_by_default : false)
 
 core_includes = [includes, include_directories('.')]
 

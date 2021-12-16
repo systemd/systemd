@@ -90,7 +90,6 @@ static int determine_path_usage(
                 uint64_t *ret_free) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         struct statvfs ss;
 
         assert(s);

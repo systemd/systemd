@@ -405,7 +405,6 @@ static int userdb_start_query(
 
         _cleanup_(strv_freep) char **except = NULL, **only = NULL;
         _cleanup_(closedirp) DIR *d = NULL;
-        struct dirent *de;
         const char *e;
         int r, ret = 0;
 

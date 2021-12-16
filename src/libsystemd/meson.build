@@ -166,12 +166,12 @@ libsystemd_c_args = ['-fvisibility=default']
 libsystemd_static = static_library(
         'systemd_static',
         libsystemd_sources,
-        install : false,
         include_directories : libsystemd_includes,
+        c_args : libsystemd_c_args,
         link_with : libbasic,
         dependencies : [threads,
                         librt],
-        c_args : libsystemd_c_args)
+        build_by_default : false)
 
 libsystemd_sym = files('libsystemd.sym')
 libsystemd_sym_path = meson.current_source_dir() / 'libsystemd.sym'
