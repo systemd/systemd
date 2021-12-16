@@ -31,12 +31,6 @@ libudev_basic = static_library(
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
-libudev_static = static_library(
-        'udev_static',
-        include_directories : includes,
-        link_with : udev_link_with,
-        link_whole : libudev_basic)
-
 static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
@@ -53,5 +47,5 @@ custom_target(
 tests += [
         [['src/libudev/test-libudev.c'],
          [libshared,
-          libudev_static]],
+          libudev_basic]],
 ]
