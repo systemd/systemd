@@ -26,8 +26,8 @@ usage()
     echo "  $0 [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE ...]"
     echo "  $0 [OPTIONS...] remove KERNEL-VERSION"
     echo "Options:"
-    echo "  -h,--help     Print this help"
-    echo "  -v,--verbose  Increase verbosity"
+    echo "  -h, --help     Print this help"
+    echo "  -v, --verbose  Increase verbosity"
 }
 
 dropindirs_sort()
@@ -58,15 +58,15 @@ dropindirs_sort()
 
 export LC_COLLATE=C
 
-for i in "$@"; do
-    if [ "$i" == "--help" -o "$i" == "-h" ]; then
+for i; do
+    if [ "$i" = "--help" ] || [ "$i" = "-h" ]; then
         usage
         exit 0
     fi
 done
 
 KERNEL_INSTALL_VERBOSE=0
-if [ "$1" == "--verbose" -o "$1" == "-v" ]; then
+if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
     shift
     KERNEL_INSTALL_VERBOSE=1
 fi
@@ -185,13 +185,13 @@ case $COMMAND in
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-                    echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[@]}"
+                    echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[*]}"
                 "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
                 x=$?
-                if [[ $x == $SKIP_REMAINING ]]; then
+                if [ $x -eq "$SKIP_REMAINING" ]; then
                     break
                 fi
-                ((ret+=$x))
+                ((ret+=x))
             fi
         done
         ;;
@@ -203,10 +203,10 @@ case $COMMAND in
                     echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
                 "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
                 x=$?
-                if [[ $x == $SKIP_REMAINING ]]; then
+                if [ $x -eq "$SKIP_REMAINING" ]; then
                     break
                 fi
-                ((ret+=$x))
+                ((ret+=x))
             fi
         done
 
@@ -222,4 +222,4 @@ case $COMMAND in
         ;;
 esac
 
-exit $ret
+exit "$ret"
