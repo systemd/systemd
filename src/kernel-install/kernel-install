@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-SKIP_REMAINING=77
+skip_remaining=77
 
 usage()
 {
@@ -32,24 +32,17 @@ usage()
 
 dropindirs_sort()
 {
-    local suffix=$1; shift
-    local -a files
-    local f d i
+    suffix="$1"
+    shift
 
-    readarray -t files <<<"$(
-        for d in "$@"; do
-            for i in "$d/"*"$suffix"; do
-                if [[ -e "$i" ]]; then
-                    echo "${i##*/}"
-                fi
-            done
-        done | sort -Vu
-    )"
-
-    for f in "${files[@]}"; do
-        for d in "$@"; do
-            if [[ -e "$d/$f" ]]; then
-                echo "$d/$f"
+    for d; do
+        for i in "$d/"*"$suffix"; do
+            [ -e "$i" ] && echo "${i##*/}"
+        done
+    done | sort -Vu | while read -r f; do
+        for d; do
+            if [ -e "$d/$f" ]; then
+                [ -x "$d/$f" ] && echo "$d/$f"
                 continue 2
             fi
         done
@@ -65,27 +58,25 @@ for i; do
     fi
 done
 
-KERNEL_INSTALL_VERBOSE=0
+export KERNEL_INSTALL_VERBOSE=0
 if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
     shift
     KERNEL_INSTALL_VERBOSE=1
 fi
-export KERNEL_INSTALL_VERBOSE
 
-if [[ "${0##*/}" == 'installkernel' ]]; then
-    COMMAND='add'
-    # make install doesn't pass any parameter wrt initrd handling
-    INITRD_OPTIONS=()
+if [ "${0##*/}" = "installkernel" ]; then
+    COMMAND=add
+    # make install doesn't pass any initrds
 else
     COMMAND="$1"
-    shift
-    INITRD_OPTIONS=( "${@:3}" )
+    [ $# -ge 1 ] && shift
 fi
 
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
+[ $# -ge 2 ] && shift 2
 
-if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
+if [ -z "$COMMAND" ] || [ -z "$KERNEL_VERSION" ]; then
     echo "Not enough arguments" >&2
     exit 1
 fi
@@ -99,12 +90,11 @@ fi
 # Prefer to use an existing machine ID from /etc/machine-info or /etc/machine-id. If we're using the machine
 # ID /etc/machine-id, try to persist it in /etc/machine-info. If no machine ID is found, try to generate
 # a new machine ID in /etc/machine-info. If that fails, use "Default".
-
-[ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ] && source /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
-[ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id
-[ -n "$MACHINE_ID" ] && [ -z "$KERNEL_INSTALL_MACHINE_ID" ] && echo "KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID" >>/etc/machine-info
+[ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ]              && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+[ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]                && read -r MACHINE_ID </etc/machine-id
+[ -n "$MACHINE_ID" ] && [ -z "$KERNEL_INSTALL_MACHINE_ID" ]   && echo "KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID" >>/etc/machine-info
 [ -z "$MACHINE_ID" ] && NEW_MACHINE_ID="$(systemd-id128 new)" && echo "KERNEL_INSTALL_MACHINE_ID=$NEW_MACHINE_ID" >>/etc/machine-info
-[ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ] && source /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+[ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ]              && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
 [ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
@@ -124,11 +114,6 @@ done
 done
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
 
-
-ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
-
-export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
-export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
 if [ -z "$layout" ]; then
     # Administrative decision: if not present, some scripts generate into /boot.
@@ -152,21 +137,23 @@ MAKE_ENTRY_DIR_ABS=$?
 
 ret=0
 
-readarray -t PLUGINS <<<"$(
+PLUGINS="$(
     dropindirs_sort ".install" \
         "/etc/kernel/install.d" \
         "/usr/lib/kernel/install.d"
 )"
+IFS="
+"
 
-case $COMMAND in
+case "$COMMAND" in
     add)
-        if [[ ! "$KERNEL_IMAGE" ]]; then
+        if [ -z "$KERNEL_IMAGE" ]; then
             echo "Command 'add' requires an argument" >&2
             exit 1
         fi
 
-        if [[ ! -f "$KERNEL_IMAGE" ]]; then
-            echo "Kernel image argument ${KERNEL_IMAGE} not a file" >&2
+        if ! [ -f "$KERNEL_IMAGE" ]; then
+            echo "Kernel image argument $KERNEL_IMAGE not a file" >&2
             exit 1
         fi
 
@@ -182,32 +169,22 @@ case $COMMAND in
             fi
         fi
 
-        for f in "${PLUGINS[@]}"; do
-            if [[ -x $f ]]; then
-                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-                    echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[*]}"
-                "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
-                x=$?
-                if [ $x -eq "$SKIP_REMAINING" ]; then
-                    break
-                fi
-                ((ret+=x))
-            fi
+        for f in $PLUGINS; do
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE $*"
+            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "$@"
+            err=$?
+            [ $err -eq $skip_remaining ] && break
+            ret=$(( ret + err ))
         done
         ;;
 
     remove)
-        for f in "${PLUGINS[@]}"; do
-            if [[ -x $f ]]; then
-                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-                    echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
-                "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
-                x=$?
-                if [ $x -eq "$SKIP_REMAINING" ]; then
-                    break
-                fi
-                ((ret+=x))
-            fi
+        for f in $PLUGINS; do
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
+            "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
+            err=$?
+            [ $err -eq $skip_remaining ] && break
+            ret=$(( ret + err ))
         done
 
         if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
