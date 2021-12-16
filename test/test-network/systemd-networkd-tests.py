@@ -4588,12 +4588,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
-        print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        with open(os.path.join(network_unit_file_path, 'dhcp-client-keep-configuration-dhcp.network'), mode='a') as f:
+            f.write('[Network]\nDHCP=no\n')
 
-        start_networkd(3)
-        self.wait_online(['veth-peer:routable'])
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         print('Still the lease address should be kept after networkd restarted')
         output = check_output('ip address show dev veth99 scope global')
