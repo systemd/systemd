@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1604,15 +1605,71 @@ bool clock_supported(clockid_t clock) {
         }
 }
 
+int find_localtime_last_symlink(char **ret) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *last_symlink = NULL;
+        int r;
+        unsigned i;
+
+        path = strdup("/etc/localtime");
+        {
+                char *copy = strdup(path);
+                free_and_replace(last_symlink, copy);
+        }
+
+        for (i = 0; i < CHASE_MAX; ++i) {
+                _cleanup_free_ char *next = NULL;
+                struct stat st;
+
+                r = lstat(path, &st);
+                if ((r == 0) && S_ISLNK(st.st_mode)) {
+                        char *copy = strdup(path);
+                        free_and_replace(last_symlink, copy);
+                }
+
+                r = chase(path, NULL, CHASE_STEP|CHASE_NONEXISTENT, &next, NULL);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        char *e = PATH_STARTSWITH_SET(next, "/usr/share/zoneinfo/");
+                        if (e) {
+                                break ;
+                        }
+                } else if (r > 0) {
+                        /* We cannot resolve further, it means the symlink is missing and t contains the path
+                           of the expected symlink */
+                        *ret = TAKE_PTR(last_symlink);
+                        return 0;
+                }
+
+                free_and_replace(path, next);
+        }
+
+        if (i >= CHASE_MAX) {
+                return -EINVAL;
+        }
+
+        *ret = TAKE_PTR(last_symlink);
+        return 0;
+}
+
 int get_timezone(char **ret) {
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ char *symlink = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *rel_zoneinfo = NULL;
+        _cleanup_free_ char *link_dir = NULL;
         const char *e;
         char *z;
         int r;
 
         assert(ret);
+        r = find_localtime_last_symlink(&symlink);
+        if (r < 0) {
+                return r;
+        }
 
-        r = readlink_malloc("/etc/localtime", &t);
+        r = readlink_malloc(symlink, &path);
         if (r == -ENOENT) {
                 /* If the symlink does not exist, assume "UTC", like glibc does */
                 z = strdup("UTC");
@@ -1621,11 +1678,19 @@ int get_timezone(char **ret) {
 
                 *ret = z;
                 return 0;
+        } else if (r < 0) {
+                return r;
         }
-        if (r < 0)
-                return r; /* returns EINVAL if not a symlink */
 
-        e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+        r = path_extract_directory(symlink, &link_dir);
+        if (r < 0)
+                return r;
+
+        r = path_make_relative(link_dir, "/usr/share/zoneinfo/", &rel_zoneinfo);
+        if (r < 0)
+                return r;
+
+        e = PATH_STARTSWITH_SET(path, "/usr/share/zoneinfo/", rel_zoneinfo);
         if (!e)
                 return -EINVAL;
 
