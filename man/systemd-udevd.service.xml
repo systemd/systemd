@@ -234,13 +234,14 @@
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for more details. When the MAC address is specified, the policies are applied to the
           interface which has the address. When no MAC address is specified, the policies are applied
-          to all interfaces. This kernel command line argument can be specified multiple times. This
-          argument is not directly read from <command>systemd-udevd</command>, but read and converted
-          to a .link file by <command>systemd-network-generator</command>. So, to make this argument
-          take effect, <filename>systemd-network-generator.service</filename> must be enabled and
-          started before starting <filename>systemd-udevd.service</filename>. See
-          <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          for more details about the service.</para>
+          to all interfaces. This kernel command line argument can be specified multiple times.</para>
+
+          <para>This argument is not directly read by <command>systemd-udevd</command>, but is instead
+          converted to a .link file by
+          <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          For this argument to take effect, <filename>systemd-network-generator.service</filename> must be
+          enabled.</para>
+
           <para>Example:
           <programlisting>net.ifname-policy=keep,kernel,path,slot,onboard,01:23:45:67:89:ab
 net.ifname-policy=keep,kernel,path,slot,onboard,mac</programlisting>
