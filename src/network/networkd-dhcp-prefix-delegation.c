@@ -706,7 +706,7 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         link->dhcp4_messages--;
 
-        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCP delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv4 delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -725,7 +725,7 @@ static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         link->dhcp6_messages--;
 
-        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCP delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv6 delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -844,7 +844,7 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
         log_link_full(link,
                       set_contains(link->dhcp_pd_prefixes, p) ? LOG_DEBUG :
                       prefixlen > 64 || prefixlen < 48 ? LOG_WARNING : LOG_INFO,
-                      "DHCP: received PD Prefix %s%s",
+                      "DHCP: received delegated prefix %s%s",
                       strna(buf),
                       prefixlen > 64 ? " with prefix length > 64, ignoring." :
                       prefixlen < 48 ? " with prefix length < 48, looks unusual.": "");
@@ -852,7 +852,7 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
         /* Store PD prefix even if prefixlen > 64, not to make logged at warning level so frequently. */
         r = set_ensure_consume(&link->dhcp_pd_prefixes, &in_addr_prefix_hash_ops_free, p);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to store DHCP PD prefix %s: %m", strna(buf));
+                return log_link_error_errno(link, r, "Failed to store DHCP delegated prefix %s: %m", strna(buf));
 
         return 0;
 }
@@ -942,7 +942,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
 
         r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
-                return log_link_warning_errno(uplink, r, "Failed to get 6rd option: %m");
+                return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 6rd option: %m");
 
         dhcp4_calculate_pd_prefix(&ipv4address, ipv4masklen, &sixrd_prefix, sixrd_prefixlen, &pd_prefix, &pd_prefixlen);
 
@@ -983,7 +983,7 @@ static int dhcp4_pd_6rd_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_messa
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, "Failed to create 6rd tunnel device");
+                log_link_message_warning_errno(link, m, r, "Failed to create tunnel device for DHCPv4 6rd");
                 link_enter_failed(link);
                 return 0;
         }
@@ -997,6 +997,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         struct in6_addr sixrd_prefix, pd_prefix;
         struct in_addr ipv4address;
         union in_addr_union server_address;
+        const struct in_addr *br_addresses;
         uint32_t lifetime_sec;
         usec_t lifetime_usec;
         Link *link;
@@ -1019,9 +1020,17 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv4 lease: %m");
 
-        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
-                return log_link_warning_errno(uplink, r, "Failed to get 6rd option: %m");
+                return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 6rd option: %m");
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf = NULL;
+
+                (void) in6_addr_prefix_to_string(&sixrd_prefix, sixrd_prefixlen, &buf);
+                log_link_debug(uplink, "DHCPv4: 6rd option is acquired: IPv4_masklen=%u, 6rd_prefix=%s, br_address="IPV4_ADDRESS_FMT_STR,
+                               ipv4masklen, strna(buf), IPV4_ADDRESS_FMT_VAL(*br_addresses));
+        }
 
         /* Calculate PD prefix */
         dhcp4_calculate_pd_prefix(&ipv4address, ipv4masklen, &sixrd_prefix, sixrd_prefixlen, &pd_prefix, &pd_prefixlen);
@@ -1161,7 +1170,7 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                 /* Mask prefix for safety. */
                 r = in6_addr_mask(&pd_prefix, pd_prefix_len);
                 if (r < 0)
-                        return log_link_error_errno(uplink, r, "Failed to mask DHCPv6 PD prefix: %m");
+                        return log_link_error_errno(uplink, r, "Failed to mask DHCPv6 delegated prefix: %m");
 
                 lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
 
