@@ -1622,6 +1622,31 @@ _noreturn_ void freeze(void) {
                 pause();
 }
 
+bool pid_is_in_exec_pid(pid_t pid) {
+        const char *e;
+        pid_t p;
+
+        if (pid <= 1)
+                return false;
+
+        /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
+         * or systemd-homed, then  $SYSTEMD_EXEC_PID= is set. */
+        e = getenv("SYSTEMD_EXEC_PID");
+        if (!e)
+                return false;
+
+        if (streq(e, "*"))
+                /* For testing. */
+                return true;
+
+        if (parse_pid(e, &p) < 0) {
+                /* We know that systemd sets the variable correctly. Something else must have set it. */
+                log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
+                return false;
+        }
+
+        return pid == p;
+}
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",
