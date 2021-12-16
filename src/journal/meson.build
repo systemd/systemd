@@ -36,7 +36,7 @@ libjournal_core = static_library(
         sources,
         include_directories : includes,
         dependencies: threads,
-        install : false)
+        build_by_default : false)
 
 journal_includes = [includes, include_directories('.')]
 

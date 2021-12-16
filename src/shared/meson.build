@@ -459,7 +459,8 @@ libshared_static = static_library(
         shared_sources,
         include_directories : includes,
         dependencies : libshared_deps,
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)
 
 libshared = shared_library(
         libshared_name,

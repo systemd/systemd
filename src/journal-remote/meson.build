@@ -31,7 +31,7 @@ libsystemd_journal_remote = static_library(
                         libgnutls,
                         libxz,
                         liblz4],
-        install : false)
+        build_by_default : false)
 
 systemd_journal_remote_sources = files('''
         journal-remote-main.c
