@@ -673,6 +673,8 @@ testcase_long_sysfs_path() {
     swapon -v -L swap_vol
     swapoff -v -L swap_vol
 
+    udevadm settle
+
     logfile="$(mktemp)"
     journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
     # Make sure we don't unnecessarily spam the log
