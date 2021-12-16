@@ -5,7 +5,7 @@ set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
 if ! test -x /usr/bin/homectl ; then
-        echo OK >/testok
+        echo "no homed" >/skipped
         exit 0
 fi
 
