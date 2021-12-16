@@ -9,6 +9,7 @@
 #include "ethtool-util.h"
 #include "list.h"
 #include "net-condition.h"
+#include "netif-naming-scheme.h"
 
 typedef struct LinkConfigContext LinkConfigContext;
 typedef struct LinkConfig LinkConfig;
@@ -20,18 +21,6 @@ typedef enum MACAddressPolicy {
         _MAC_ADDRESS_POLICY_MAX,
         _MAC_ADDRESS_POLICY_INVALID = -EINVAL,
 } MACAddressPolicy;
-
-typedef enum NamePolicy {
-        NAMEPOLICY_KERNEL,
-        NAMEPOLICY_KEEP,
-        NAMEPOLICY_DATABASE,
-        NAMEPOLICY_ONBOARD,
-        NAMEPOLICY_SLOT,
-        NAMEPOLICY_PATH,
-        NAMEPOLICY_MAC,
-        _NAMEPOLICY_MAX,
-        _NAMEPOLICY_INVALID = -EINVAL,
-} NamePolicy;
 
 typedef struct Link {
         int ifindex;
@@ -104,12 +93,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 int link_get_config(LinkConfigContext *ctx, Link *link);
 int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link);
-
-const char *name_policy_to_string(NamePolicy p) _const_;
-NamePolicy name_policy_from_string(const char *p) _pure_;
-
-const char *alternative_names_policy_to_string(NamePolicy p) _const_;
-NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
 
 const char *mac_address_policy_to_string(MACAddressPolicy p) _const_;
 MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
