@@ -128,6 +128,13 @@ signature_size="$((signature_size * 2))KiB"
 
 HAVE_OPENSSL=0
 if systemctl --version | grep -q -- +OPENSSL ; then
+    # The openssl binary is installed conditionally.
+    # If we have OpenSSL support enabled and openssl is missing, fail early
+    # with a proper error message.
+    if ! command -v openssl >/dev/null 2>&1; then
+        echo "openssl missing" >/failed
+        exit 1
+    fi
     HAVE_OPENSSL=1
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
     cat >> "${image}.openssl.cnf" <<EOF
