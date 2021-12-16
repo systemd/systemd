@@ -171,6 +171,7 @@ bool clock_supported(clockid_t clock);
 
 usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
+int find_localtime_last_symlink(char **symlink);
 int get_timezone(char **ret);
 
 time_t mktime_or_timegm(struct tm *tm, bool utc);
