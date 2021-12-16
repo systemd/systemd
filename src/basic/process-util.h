@@ -191,3 +191,5 @@ int setpriority_closest(int priority);
 bool invoked_as(char *argv[], const char *token);
 
 _noreturn_ void freeze(void);
+
+bool pid_is_in_exec_pid(pid_t pid);
