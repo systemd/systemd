@@ -159,7 +159,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 int import_mangle_os_tree(const char *path) {
         _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
-        struct dirent *de;
+        struct dirent *dent;
         struct stat st;
         int r;
 
@@ -183,8 +183,8 @@ int import_mangle_os_tree(const char *path) {
                 return log_error_errno(r, "Failed to open directory '%s': %m", path);
 
         errno = 0;
-        de = readdir_no_dot(d);
-        if (!de) {
+        dent = readdir_no_dot(d);
+        if (!dent) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
@@ -192,13 +192,13 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        child = strdup(de->d_name);
+        child = strdup(dent->d_name);
         if (!child)
                 return log_oom();
 
         errno = 0;
-        de = readdir_no_dot(d);
-        if (de) {
+        dent = readdir_no_dot(d);
+        if (dent) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 

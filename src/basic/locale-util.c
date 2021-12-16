@@ -158,20 +158,19 @@ static int add_locales_from_archive(Set *locales) {
 
 static int add_locales_from_libdir (Set *locales) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *entry;
         int r;
 
         dir = opendir("/usr/lib/locale");
         if (!dir)
                 return errno == ENOENT ? 0 : -errno;
 
-        FOREACH_DIRENT(entry, dir, return -errno) {
+        FOREACH_DIRENT(de, dir, return -errno) {
                 char *z;
 
-                if (entry->d_type != DT_DIR)
+                if (de->d_type != DT_DIR)
                         continue;
 
-                z = normalize_locale(entry->d_name);
+                z = normalize_locale(de->d_name);
                 if (!z)
                         return -ENOMEM;
 

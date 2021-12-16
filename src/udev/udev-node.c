@@ -111,7 +111,6 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ char *target = NULL;
-        struct dirent *dent;
         int r, priority = 0;
         const char *id;
 
@@ -153,18 +152,18 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
         if (r < 0)
                 return r;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
+        FOREACH_DIRENT_ALL(de, dir, break) {
                 _cleanup_free_ char *path = NULL, *buf = NULL;
                 int tmp_prio;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
 
                 /* skip ourself */
-                if (streq(dent->d_name, id))
+                if (streq(de->d_name, id))
                         continue;
 
-                path = path_join(stackdir, dent->d_name);
+                path = path_join(stackdir, de->d_name);
                 if (!path)
                         return -ENOMEM;
 
@@ -197,7 +196,7 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         /* Old format. The devnode and priority must be obtained from uevent and
                          * udev database files. */
 
-                        if (sd_device_new_from_device_id(&tmp_dev, dent->d_name) < 0)
+                        if (sd_device_new_from_device_id(&tmp_dev, de->d_name) < 0)
                                 continue;
 
                         if (device_get_devlink_priority(tmp_dev, &tmp_prio) < 0)

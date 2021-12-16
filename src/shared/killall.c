@@ -188,7 +188,6 @@ static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
 
 static int killall(int sig, Set *pids, bool send_sighup) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *d;
         int n_killed = 0;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
@@ -198,14 +197,14 @@ static int killall(int sig, Set *pids, bool send_sighup) {
         if (!dir)
                 return log_warning_errno(errno, "opendir(/proc) failed: %m");
 
-        FOREACH_DIRENT_ALL(d, dir, break) {
+        FOREACH_DIRENT_ALL(de, dir, break) {
                 pid_t pid;
                 int r;
 
-                if (!IN_SET(d->d_type, DT_DIR, DT_UNKNOWN))
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
                         continue;
 
-                if (parse_pid(d->d_name, &pid) < 0)
+                if (parse_pid(de->d_name, &pid) < 0)
                         continue;
 
                 if (ignore_proc(pid, sig == SIGKILL && !in_initrd()))

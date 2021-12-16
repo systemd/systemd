@@ -203,7 +203,6 @@ int rm_rf_children(
                 const struct stat *root_dev) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int ret = 0, r;
 
         assert(fd >= 0);

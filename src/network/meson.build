@@ -235,7 +235,8 @@ libnetworkd_core = static_library(
         'networkd-core',
         sources,
         include_directories : network_includes,
-        link_with : [networkd_link_with])
+        link_with : networkd_link_with,
+        build_by_default : false)
 
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('org.freedesktop.network1.conf',
