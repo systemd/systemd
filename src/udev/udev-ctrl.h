@@ -42,37 +42,37 @@ sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl);
 
 int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout);
 
-int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, int intval, const char *buf);
+int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data);
 static inline int udev_ctrl_send_set_log_level(UdevCtrl *uctrl, int priority) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, INT_TO_PTR(priority));
 }
 
 static inline int udev_ctrl_send_stop_exec_queue(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, NULL);
 }
 
 static inline int udev_ctrl_send_start_exec_queue(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, NULL);
 }
 
 static inline int udev_ctrl_send_reload(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_RELOAD, 0, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_RELOAD, NULL);
 }
 
 static inline int udev_ctrl_send_set_env(UdevCtrl *uctrl, const char *key) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_ENV, key);
 }
 
 static inline int udev_ctrl_send_set_children_max(UdevCtrl *uctrl, int count) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, INT_TO_PTR(count));
 }
 
 static inline int udev_ctrl_send_ping(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_PING, 0, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_PING, NULL);
 }
 
 static inline int udev_ctrl_send_exit(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_EXIT, 0, NULL);
+        return udev_ctrl_send(uctrl, UDEV_CTRL_EXIT, NULL);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevCtrl*, udev_ctrl_unref);

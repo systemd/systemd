@@ -291,7 +291,7 @@ int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdat
         return 0;
 }
 
-int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, int intval, const char *buf) {
+int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) {
         UdevCtrlMessageWire ctrl_msg_wire = {
                 .version = "udev-" STRINGIFY(PROJECT_VERSION),
                 .magic = UDEV_CTRL_MAGIC,
@@ -301,10 +301,11 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, int intval, const 
         if (uctrl->maybe_disconnected)
                 return -ENOANO; /* to distinguish this from other errors. */
 
-        if (buf)
-                strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), buf);
-        else
-                ctrl_msg_wire.value.intval = intval;
+        if (type == UDEV_CTRL_SET_ENV) {
+                assert(data);
+                strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), data);
+        } else if (IN_SET(type, UDEV_CTRL_SET_LOG_LEVEL, UDEV_CTRL_SET_CHILDREN_MAX))
+                ctrl_msg_wire.value.intval = PTR_TO_INT(data);
 
         if (!uctrl->connected) {
                 if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
@@ -333,7 +334,7 @@ int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout) {
                 return 0;
 
         if (!uctrl->maybe_disconnected) {
-                r = udev_ctrl_send(uctrl, _UDEV_CTRL_END_MESSAGES, 0, NULL);
+                r = udev_ctrl_send(uctrl, _UDEV_CTRL_END_MESSAGES, NULL);
                 if (r < 0)
                         return r;
         }
