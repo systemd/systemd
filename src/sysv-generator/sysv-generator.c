@@ -718,7 +718,6 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 
         STRV_FOREACH(path, sysvinit_path) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 d = opendir(*path);
                 if (!d) {
@@ -805,7 +804,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                 for (unsigned i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
                         _cleanup_closedir_ DIR *d = NULL;
                         _cleanup_free_ char *path = NULL;
-                        struct dirent *de;
 
                         path = path_join(*p, rcnd_table[i].path);
                         if (!path) {

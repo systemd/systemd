@@ -89,7 +89,6 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                 return log_debug_errno(r, "Cannot open %s/usr/lib/extension-release.d/, ignoring: %m", root);
 
                         r = -ENOENT;
-                        struct dirent *de;
                         FOREACH_DIRENT(de, extension_release_dir, return -errno) {
                                 int k;
 

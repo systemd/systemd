@@ -118,7 +118,6 @@ void in_initrd_force(bool value) {
 int on_ac_power(void) {
         bool found_offline = false, found_online = false;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         d = opendir("/sys/class/power_supply");

@@ -485,7 +485,6 @@ static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
 int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
-        struct dirent *de;
         int count = 0;
 
         assert(options);

@@ -51,7 +51,6 @@ static int fdopen_unlocked_at(int dfd, const char *dir, const char *name, int *s
 static int write_access2_rules(const char *srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *entry;
         int dfd = -1, r = 0;
 
         load2_fd = open("/sys/fs/smackfs/load2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -124,7 +123,6 @@ static int write_access2_rules(const char *srcdir) {
 static int write_cipso2_rules(const char *srcdir) {
         _cleanup_close_ int cipso2_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *entry;
         int dfd = -1, r = 0;
 
         cipso2_fd = open("/sys/fs/smackfs/cipso2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -184,7 +182,6 @@ static int write_cipso2_rules(const char *srcdir) {
 static int write_netlabel_rules(const char *srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *entry;
         int dfd = -1, r = 0;
 
         dst = fopen("/sys/fs/smackfs/netlabel", "we");

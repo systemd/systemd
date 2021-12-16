@@ -1560,14 +1560,11 @@ static int directory_open(sd_journal *j, const char *path, DIR **ret) {
 static int add_directory(sd_journal *j, const char *prefix, const char *dirname);
 
 static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
-        struct dirent *de;
-
         assert(j);
         assert(m);
         assert(d);
 
         FOREACH_DIRENT_ALL(de, d, goto fail) {
-
                 if (dirent_is_journal_file(de))
                         (void) add_file_by_name(j, m->path, de->d_name);
 
@@ -1576,7 +1573,6 @@ static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
         }
 
         return;
-
 fail:
         log_debug_errno(errno, "Failed to enumerate directory %s, ignoring: %m", m->path);
 }
