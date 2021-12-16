@@ -120,7 +120,8 @@ basic_dns_sources += custom_target(
 libsystemd_resolve_core = static_library(
         'systemd-resolve-core',
         basic_dns_sources,
-        include_directories : includes)
+        include_directories : includes,
+        build_by_default : false)
 
 systemd_resolved_sources += custom_target(
         'resolved_gperf.c',

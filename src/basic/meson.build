@@ -428,7 +428,7 @@ libbasic = static_library(
                         libcap,
                         libm],
         c_args : ['-fvisibility=default'],
-        install : false)
+        build_by_default : false)
 
 ############################################################
 
@@ -443,4 +443,5 @@ libbasic_gcrypt = static_library(
         basic_gcrypt_sources,
         include_directories : basic_includes,
         dependencies : [libgcrypt],
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)

@@ -45,7 +45,8 @@ if conf.get('ENABLE_IMPORTD') == 1
                 include_directories : includes,
                 dependencies : [libbzip2,
                                 libxz,
-                                libz])
+                                libz],
+                build_by_default : false)
 
         install_data('org.freedesktop.import1.conf',
                      install_dir : dbuspolicydir)
