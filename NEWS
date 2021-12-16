@@ -237,6 +237,9 @@ CHANGES WITH 250 in spe:
         * sd-boot will now build with SBAT by default in order to facilitate
           working with recent versions of Shim that require it to be present.
 
+        * sd-boot can now parse Microsoft Windows' Boot Configuration Data.
+          This is used to robustly generate boot entry titles for Windows.
+
         * A new generic target unit factory-reset.target has been added. It is
           hooked into systemd-logind similar in fashion to
           reboot/poweroff/suspend/hibernate, and is supposed to be used to
@@ -344,6 +347,11 @@ CHANGES WITH 250 in spe:
         * systemd-networkd and systemd-udevd now support IP over InfiniBand
           interfaces. The Kind= setting in .netdev file accepts "ipoib". And
           systemd.netdev files gained the [IPoIB] section.
+
+        * systemd-networkd and systemd-udevd now support net.ifname-policy=
+          option on the kernel command-line. This is implemented through the
+          systemd-network-generator service that automatically generates
+          appropriate .link, .network, and .netdev files.
 
         * systemd-networkd's handling of Endpoint= resolution for WireGuard
           interfaces has been improved.
@@ -482,14 +490,17 @@ CHANGES WITH 250 in spe:
           ".dtb" and apply it before invoking the kernel.
 
         * sd-stub (the EFI stub that can be glued in front of a Linux kernel)
-          gained the ability to pick up credentials and sysext files placed
-          next to the kernel image file, wrap them in a cpio archive and pass
-          as an additional initrd to the invoked Linux kernel, in effect
-          placing those files in the /.extra/ directory of the initrd
-          environment. This is useful to implement trusted initrd environments
-          which are fully authenticated but still can be extended (via sysexts)
-          and parameterized (via encrypted/authenticated credentials, see
-          above).
+          gained the ability to pick up credentials and sysext files, wrap them
+          in a cpio archive, and pass as an additional initrd to the invoked
+          Linux kernel, in effect placing those files in the /.extra/ directory
+          of the initrd environment. This is useful to implement trusted initrd
+          environments which are fully authenticated but still can be extended
+          (via sysexts) and parameterized (via encrypted/authenticated
+          credentials, see above).
+
+          Credentials can be located next to the kernel image file (credentials
+          specific to a single boot entry), or in one of the shared directories
+          (credentials applicable to multiple boot entries).
 
         * sd-stub now comes with a full man page, that explains its feature set
           and how to combine a kernel image, an initrd and the stub to build a
@@ -503,6 +514,8 @@ CHANGES WITH 250 in spe:
         * bootctl learnt new set-timeout and set-timeout-oneshot commands that
           may be used to set the boot menu time-out of the boot loader (for all
           or just the subsequent boot).
+
+        * bootctl and systemd-bless-boot can now be linked statically.
 
         * systemd-sysext now optionally doesn't insist on extension-release.d/
           files being placed in the image under the image's file name. If the
@@ -529,6 +542,9 @@ CHANGES WITH 250 in spe:
 
         * A new rule to allow console users access to rfkill by default has been
           added to hwdb.
+
+        * Device nodes for the Software Guard eXtension enclaves (sgx_vepc) are
+          now also owned by the system group "sgx".
 
         * A new build-time meson option "extra-net-naming-schemes=" has been
           added to define additional naming schemes schemes for udev's network
@@ -668,6 +684,14 @@ CHANGES WITH 250 in spe:
         * The x-systemd.makefs option in /etc/fstab now explicitly supports
           ext2, ext3, and f2fs file systems.
 
+        * Mount units and units generated from /etc/fstab entries with 'noauto'
+          are now ordered the same as other units. Effectively, they will be
+          started earlier (if something actually pulled them in) and stopped
+          later, similarly to normal mount units that are part of
+          fs-local.target. This change should be invisibile to users, but
+          should prevent those units from being stopped too early during
+          shutdown.
+
         * The systemd-getty-generator now honors a new kernel command line
           argument systemd.getty_auto= and a new environment variable
           $SYSTEMD_GETTY_AUTO that allows turning it off at boot. This is for
@@ -741,41 +765,43 @@ CHANGES WITH 250 in spe:
           this repository.  It also contains the text of all applicable
           licenses as they appear on spdx.org.
 
-        Contributions from: Aakash Singh, Adolfo Jayme Barrientos, Albert Brox,
-        Alberto Mardegan, Alexander Kanavin, alexlzhu, Alfonso Sánchez-Beato,
-        Alvin Šipraga, Alyssa Ross, Amir Omidi, Anatol Pomozov,
-        Andika Triwidada, Andreas Rammhold, Andreas Valder, Andrej Lajovic,
-        Andrew Soutar, Andrew Stone, Andy Chi, Anita Zhang, Anssi Hannula,
-        Antonio Alvarez Feijoo, Antony Deepak Thomas, Arnaud Ferraris,
-        Arvid E. Picciani, Bastien Nocera, Benjamin Berg,
-        Benjamin Herrenschmidt, Ben Stockett, Bogdan Seniuc, Boqun Feng,
-        Carl Lei, chlorophyll-zz, Chris Packham, Christian Brauner,
-        Christian Göttsche, Christian Wehrli, Christoph Anton Mitterer,
-        Cristian Rodríguez, Daan De Meyer, Daniel Maixner, Dann Frazier,
-        Dan Streetman, David Seifert, David Tardon, dependabot[bot],
-        Dimitri John Ledkov, Dimitri Papadopoulos, Dimitry Ishenko,
-        Dmitry Khlebnikov, Dominique Martinet, duament, Egor, Egor Ignatov,
-        Emil Renner Berthing, Emily Gonyer, Ettore Atalan, Evgeny Vereshchagin,
-        Florian Klink, Franck Bui, Frantisek Sumsal, Geass-LL, Gibeom Gwon,
-        GnunuX, Gogo Gogsi, gregzuro, Greg Zuro, Gustavo Costa, Hans de Goede,
+        Contributions from: Aakash Singh, acsfer, Adolfo Jayme Barrientos,
+        Adrian Vovk, Albert Brox, Alberto Mardegan, Alexander Kanavin,
+        alexlzhu, Alfonso Sánchez-Beato, Alvin Šipraga, Alyssa Ross,
+        Amir Omidi, Anatol Pomozov, Andika Triwidada, Andreas Rammhold,
+        Andreas Valder, Andrej Lajovic, Andrew Soutar, Andrew Stone, Andy Chi,
+        Anita Zhang, Anssi Hannula, Antonio Alvarez Feijoo,
+        Antony Deepak Thomas, Arnaud Ferraris, Arvid E. Picciani,
+        Bastien Nocera, Benjamin Berg, Benjamin Herrenschmidt, Ben Stockett,
+        Bogdan Seniuc, Boqun Feng, Carl Lei, chlorophyll-zz, Chris Packham,
+        Christian Brauner, Christian Göttsche, Christian Wehrli,
+        Christoph Anton Mitterer, Cristian Rodríguez, Daan De Meyer,
+        Daniel Maixner, Dann Frazier, Dan Streetman, Davide Cavalca,
+        David Seifert, David Tardon, dependabot[bot], Dimitri John Ledkov,
+        Dimitri Papadopoulos, Dimitry Ishenko, Dmitry Khlebnikov,
+        Dominique Martinet, duament, Egor, Egor Ignatov, Emil Renner Berthing,
+        Emily Gonyer, Ettore Atalan, Evgeny Vereshchagin, Florian Klink,
+        Franck Bui, Frantisek Sumsal, Geass-LL, Gibeom Gwon, GnunuX,
+        Gogo Gogsi, gregzuro, Greg Zuro, Gustavo Costa, Hans de Goede,
         Hela Basa, Henri Chain, hikigaya58, Hugo Carvalho,
         Hugo Osvaldo Barrera, Iago Lopez Galeiras, Iago López Galeiras,
-        I-dont-need-name, Jack Dähn, James Hilliard, Jan Janssen,
-        Jan Kuparinen, Jan Macku, Jan Palus, jiangchuangang, jlempen,
-        John Lindgren, Jonas Dreßler, Jonas Witschel, Joris Hartog,
-        José Expósito, Julia Kartseva, Kai-Heng Feng, Kai Wohlfahrt,
-        Kay Siver Bø, KennthStailey, Kevin Kuehler, Kevin Orr, Khem Raj,
-        Kristian Klausen, Kyle Laker, lainahai, Lennart Poettering,
-        Lia Lenckowski, longpanda, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
-        Lukas Senionis, Maanya Goenka, Maciek Borzecki, Marcel Menzel,
-        Marco Scardovi, Marcus Harrison, Mark Boudreau, Matthijs van Duin,
-        Mauricio Vásquez, Maxime de Roucy, Max Resch, MertsA, Michael Biebl,
-        Michael Catanzaro, Michal Koutný, Michal Sekletár, Miika Karanki,
-        Mike Gilbert, Milo Turner, ml, monosans, Nacho Barrientos, nassir90,
+        I-dont-need-name, igo95862, Jack Dähn, James Hilliard, Jan Janssen,
+        Jan Kuparinen, Jan Macku, Jan Palus, Jarkko Sakkinen, Jayce Fayne,
+        jiangchuangang, jlempen, John Lindgren, Jonas Dreßler, Jonas Jelten,
+        Jonas Witschel, Joris Hartog, José Expósito, Julia Kartseva,
+        Kai-Heng Feng, Kai Wohlfahrt, Kay Siver Bø, KennthStailey,
+        Kevin Kuehler, Kevin Orr, Khem Raj, Kristian Klausen, Kyle Laker,
+        lainahai, LaserEyess, Lennart Poettering, Lia Lenckowski, longpanda,
+        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Lukas Senionis,
+        Maanya Goenka, Maciek Borzecki, Marcel Menzel, Marco Scardovi,
+        Marcus Harrison, Mark Boudreau, Matthijs van Duin, Mauricio Vásquez,
+        Maxime de Roucy, Max Resch, MertsA, Michael Biebl, Michael Catanzaro,
+        Michal Koutný, Michal Sekletár, Miika Karanki, Mike Gilbert,
+        Milo Turner, ml, monosans, Nacho Barrientos, nassir90, Nishal Kulkarni,
         nl6720, Ondrej Kozina, Paulo Neves, Pavel Březina, pedro martelletto,
         Peter Hutterer, Peter Morrow, Piotr Drąg, Rasmus Villemoes, ratijas,
-        Raul Tambre, rene, Riccardo Schirone, Robert-L-Turner, Ross Jennings,
-        saikat0511, Scott Lamb, Sergei Trofimovich, Sho Iizuka,
+        Raul Tambre, rene, Riccardo Schirone, Robert-L-Turner, Robert Scheck,
+        Ross Jennings, saikat0511, Scott Lamb, Sergei Trofimovich, Sho Iizuka,
         Slava Bacherikov, Slimane Selyan Amiri, StefanBruens, Steven Siloti,
         svonohr, Taiki Sugawara, Takashi Sakamoto, Takuro Onoue, Thomas Blume,
         Thomas Haller, Thomas Mühlbacher, Tianlu Shao, Toke Høiland-Jørgensen,
