@@ -688,7 +688,7 @@ CHANGES WITH 250 in spe:
           are now ordered the same as other units. Effectively, they will be
           started earlier (if something actually pulled them in) and stopped
           later, similarly to normal mount units that are part of
-          fs-local.target. This change should be invisibile to users, but
+          fs-local.target. This change should be invisible to users, but
           should prevent those units from being stopped too early during
           shutdown.
 
