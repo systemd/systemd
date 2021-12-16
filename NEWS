@@ -6401,6 +6401,15 @@ CHANGES WITH 234:
           temporary directory is passed as the entry directory and removed
           after all the plugins exit.
 
+        * If KERNEL_INSTALL_MACHINE_ID is set in /etc/machine-info, kernel-install
+          will now use its value as the machine ID instead of the machine ID
+          from /etc/machine-id. If KERNEL_INSTALL_MACHINE_ID isn't set in
+          /etc/machine-info and no machine ID is set in /etc/machine-id,
+          kernel-install will try to store the current machine ID there as
+          KERNEL_INSTALL_MACHINE_ID. If there is no machine ID, kernel-install
+          will generate a new UUID, store it in /etc/machine-info as
+          KERNEL_INSTALL_MACHINE_ID and use it as the machine ID.
+
         Contributions from: Adrian Heine né Lang, Aggelos Avgerinos, Alexander
         Kurtz, Alexandros Frantzis, Alexey Brodkin, Alex Lu, Amir Pakdel, Amir
         Yalon, Anchor Cat, Anthony Parsons, Bastien Nocera, Benjamin Gilbert,

@@ -128,6 +128,16 @@
         specific as <literal>Left Rack, 2nd Shelf</literal>.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>KERNEL_INSTALL_MACHINE_ID=</varname></term>
+
+        <listitem><para>Specifies the installation-specific installation directory
+        <command>kernel-install</command> should use. The value must be a valid machine ID (32 hexadecimal
+        characters). This would generally be the original machine-id that was used when the boot loader
+        entries for this installation were first added. When not set, the current value of
+        <cite>machine-id(5)</cite> will be used.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
