@@ -6,7 +6,7 @@
 #include "tests.h"
 #include "utf8.h"
 
-/* Inlcude the implementation directly, so we can poke at some internals. */
+/* Include the implementation directly, so we can poke at some internals. */
 #include "bcd.c"
 
 static void load_bcd(const char *path, void **ret_bcd, size_t *ret_bcd_len) {
