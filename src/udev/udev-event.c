@@ -50,6 +50,7 @@ typedef struct Spawn {
         char *result;
         size_t result_size;
         size_t result_len;
+        bool truncated;
 } Spawn;
 
 UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level) {
@@ -237,9 +238,12 @@ static ssize_t udev_event_subst_format(
                 FormatSubstitutionType type,
                 const char *attr,
                 char *dest,
-                size_t l) {
+                size_t l,
+                bool *ret_truncated) {
+
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
+        bool truncated = false;
         char *s = dest;
         int r;
 
@@ -248,13 +252,13 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_devpath(dev, &val);
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_KERNEL:
                 r = sd_device_get_sysname(dev, &val);
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_KERNEL_NUMBER:
                 r = sd_device_get_sysnum(dev, &val);
@@ -262,7 +266,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_ID:
                 if (!event->dev_parent)
@@ -270,7 +274,7 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_sysname(event->dev_parent, &val);
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_DRIVER:
                 if (!event->dev_parent)
@@ -280,7 +284,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_MAJOR:
         case FORMAT_SUBST_MINOR: {
@@ -289,7 +293,7 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_devnum(dev, &devnum);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                strpcpyf(&s, l, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
+                strpcpyf_full(&s, l, &truncated, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
                 break;
         }
         case FORMAT_SUBST_RESULT: {
@@ -308,7 +312,7 @@ static ssize_t udev_event_subst_format(
                 }
 
                 if (index == 0)
-                        strpcpy(&s, l, event->program_result);
+                        strpcpy_full(&s, l, event->program_result, &truncated);
                 else {
                         const char *start, *p;
                         unsigned i;
@@ -330,11 +334,11 @@ static ssize_t udev_event_subst_format(
                         start = p;
                         /* %c{2+} copies the whole string from the second part on */
                         if (has_plus)
-                                strpcpy(&s, l, start);
+                                strpcpy_full(&s, l, start, &truncated);
                         else {
                                 while (*p && !strchr(WHITESPACE, *p))
                                         p++;
-                                strnpcpy(&s, l, start, p - start);
+                                strnpcpy_full(&s, l, start, p - start, &truncated);
                         }
                 }
                 break;
@@ -342,6 +346,7 @@ static ssize_t udev_event_subst_format(
         case FORMAT_SUBST_ATTR: {
                 char vbuf[UDEV_NAME_SIZE];
                 int count;
+                bool t;
 
                 if (isempty(attr))
                         return -EINVAL;
@@ -363,12 +368,13 @@ static ssize_t udev_event_subst_format(
 
                 /* strip trailing whitespace, and replace unwanted characters */
                 if (val != vbuf)
-                        strscpy(vbuf, sizeof(vbuf), val);
+                        strscpy_full(vbuf, sizeof(vbuf), val, &truncated);
                 delete_trailing_chars(vbuf, NULL);
                 count = udev_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
-                strpcpy(&s, l, vbuf);
+                strpcpy_full(&s, l, vbuf, &t);
+                truncated = truncated || t;
                 break;
         }
         case FORMAT_SUBST_PARENT:
@@ -382,7 +388,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val + STRLEN("/dev/"));
+                strpcpy_full(&s, l, val + STRLEN("/dev/"), &truncated);
                 break;
         case FORMAT_SUBST_DEVNODE:
                 r = sd_device_get_devname(dev, &val);
@@ -390,34 +396,37 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         case FORMAT_SUBST_NAME:
                 if (event->name)
-                        strpcpy(&s, l, event->name);
+                        strpcpy_full(&s, l, event->name, &truncated);
                 else if (sd_device_get_devname(dev, &val) >= 0)
-                        strpcpy(&s, l, val + STRLEN("/dev/"));
+                        strpcpy_full(&s, l, val + STRLEN("/dev/"), &truncated);
                 else {
                         r = sd_device_get_sysname(dev, &val);
                         if (r < 0)
                                 return r;
-                        strpcpy(&s, l, val);
+                        strpcpy_full(&s, l, val, &truncated);
                 }
                 break;
         case FORMAT_SUBST_LINKS:
-                FOREACH_DEVICE_DEVLINK(dev, val)
+                FOREACH_DEVICE_DEVLINK(dev, val) {
                         if (s == dest)
-                                strpcpy(&s, l, val + STRLEN("/dev/"));
+                                strpcpy_full(&s, l, val + STRLEN("/dev/"), &truncated);
                         else
-                                strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
+                                strpcpyl_full(&s, l, &truncated, " ", val + STRLEN("/dev/"), NULL);
+                        if (truncated)
+                                break;
+                }
                 if (s == dest)
                         goto null_terminate;
                 break;
         case FORMAT_SUBST_ROOT:
-                strpcpy(&s, l, "/dev");
+                strpcpy_full(&s, l, "/dev", &truncated);
                 break;
         case FORMAT_SUBST_SYS:
-                strpcpy(&s, l, "/sys");
+                strpcpy_full(&s, l, "/sys", &truncated);
                 break;
         case FORMAT_SUBST_ENV:
                 if (isempty(attr))
@@ -427,22 +436,34 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                strpcpy(&s, l, val);
+                strpcpy_full(&s, l, val, &truncated);
                 break;
         default:
                 assert_not_reached();
         }
 
+        if (ret_truncated)
+                *ret_truncated = truncated;
+
         return s - dest;
 
 null_terminate:
+        if (ret_truncated)
+                *ret_truncated = truncated;
+
         *s = '\0';
         return 0;
 }
 
-size_t udev_event_apply_format(UdevEvent *event,
-                               const char *src, char *dest, size_t size,
-                               bool replace_whitespace) {
+size_t udev_event_apply_format(
+                UdevEvent *event,
+                const char *src,
+                char *dest,
+                size_t size,
+                bool replace_whitespace,
+                bool *ret_truncated) {
+
+        bool truncated = false;
         const char *s = src;
         int r;
 
@@ -456,26 +477,32 @@ size_t udev_event_apply_format(UdevEvent *event,
                 FormatSubstitutionType type;
                 char attr[UDEV_PATH_SIZE];
                 ssize_t subst_len;
+                bool t;
 
                 r = get_subst_type(&s, false, &type, attr);
                 if (r < 0) {
                         log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
                         break;
                 } else if (r == 0) {
-                        if (size < 2) /* need space for this char and the terminating NUL */
+                        if (size < 2) {
+                                /* need space for this char and the terminating NUL */
+                                truncated = true;
                                 break;
+                        }
                         *dest++ = *s++;
                         size--;
                         continue;
                 }
 
-                subst_len = udev_event_subst_format(event, type, attr, dest, size);
+                subst_len = udev_event_subst_format(event, type, attr, dest, size, &t);
                 if (subst_len < 0) {
                         log_device_warning_errno(event->dev, subst_len,
                                                  "Failed to substitute variable '$%s' or apply format '%%%c', ignoring: %m",
                                                  format_type_to_string(type), format_type_to_char(type));
                         break;
                 }
+
+                truncated = truncated || t;
 
                 /* FORMAT_SUBST_RESULT handles spaces itself */
                 if (replace_whitespace && type != FORMAT_SUBST_RESULT)
@@ -488,6 +515,10 @@ size_t udev_event_apply_format(UdevEvent *event,
         }
 
         assert(size >= 1);
+
+        if (ret_truncated)
+                *ret_truncated = truncated;
+
         *dest = '\0';
         return size;
 }
@@ -555,7 +586,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 size = sizeof(buf);
         }
 
-        l = read(fd, p, size - 1);
+        l = read(fd, p, size - (p == buf));
         if (l < 0) {
                 if (errno == EAGAIN)
                         goto reenable;
@@ -564,6 +595,13 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                        "Failed to read stdout of '%s': %m", spawn->cmd);
 
                 return 0;
+        }
+
+        if ((size_t) l == size) {
+                log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
+                                   spawn->cmd, spawn->result_size);
+                l--;
+                spawn->truncated = true;
         }
 
         p[l] = '\0';
@@ -586,7 +624,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (l == 0)
+        if (l == 0 || spawn->truncated)
                 return 0;
 
 reenable:
@@ -725,12 +763,16 @@ static int spawn_wait(Spawn *spawn) {
         return sd_event_loop(e);
 }
 
-int udev_event_spawn(UdevEvent *event,
-                     usec_t timeout_usec,
-                     int timeout_signal,
-                     bool accept_failure,
-                     const char *cmd,
-                     char *result, size_t ressize) {
+int udev_event_spawn(
+                UdevEvent *event,
+                usec_t timeout_usec,
+                int timeout_signal,
+                bool accept_failure,
+                const char *cmd,
+                char *result,
+                size_t ressize,
+                bool *ret_truncated) {
+
         _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
@@ -820,6 +862,9 @@ int udev_event_spawn(UdevEvent *event,
 
         if (result)
                 result[spawn.result_len] = '\0';
+
+        if (ret_truncated)
+                *ret_truncated = spawn.truncated;
 
         return r; /* 0 for success, and positive if the program failed */
 }
@@ -1095,7 +1140,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
 
-                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0);
+                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0, NULL);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */
