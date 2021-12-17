@@ -139,7 +139,7 @@ int config_parse_ipoib_pkey(
                            rvalue);
                 return 0;
         }
-        if (u == 0 || u == 0x8000) {
+        if (IN_SET(u, 0, 0x8000)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPoIB pkey cannot be 0 nor 0x8000, ignoring assignment: %s",
                            rvalue);
