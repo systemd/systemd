@@ -46,6 +46,7 @@ typedef enum PathResult {
         PATH_FAILURE_RESOURCES,
         PATH_FAILURE_START_LIMIT_HIT,
         PATH_FAILURE_UNIT_START_LIMIT_HIT,
+        PATH_FAILURE_TRIGGER_LIMIT_HIT,
         _PATH_RESULT_MAX,
         _PATH_RESULT_INVALID = -EINVAL,
 } PathResult;
@@ -61,6 +62,8 @@ struct Path {
         mode_t directory_mode;
 
         PathResult result;
+
+        RateLimit trigger_limit;
 };
 
 void path_free_specs(Path *p);
