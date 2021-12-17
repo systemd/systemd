@@ -60,6 +60,10 @@ static inline const char *empty_to_null(const char *p) {
         return isempty(p) ? NULL : p;
 }
 
+static inline const char *empty_to_na(const char *p) {
+        return isempty(p) ? "n/a" : p;
+}
+
 static inline const char *empty_to_dash(const char *str) {
         return isempty(str) ? "-" : str;
 }
