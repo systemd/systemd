@@ -80,7 +80,7 @@
     <para><function>sd_journal_next_skip()</function> and
     <function>sd_journal_previous_skip()</function> advance/set back the read pointer by multiple
     entries at once, as specified in the <varname>skip</varname> parameter. The <varname>skip</varname>
-    parameter must be less than or equal to 2147483647 (2^31-1).</para>
+    parameter must be less than or equal to 2147483647 (2³¹-1).</para>
 
     <para>The journal is strictly ordered by reception time, and hence
     advancing to the next entry guarantees that the entry then
