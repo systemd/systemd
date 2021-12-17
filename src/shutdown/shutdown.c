@@ -342,6 +342,7 @@ int main(int argc, char *argv[]) {
          * syslog, as these logging daemons are either already dead or will die very soon. */
 
         log_set_target(LOG_TARGET_CONSOLE);
+        log_set_always_reopen_console(true);
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
