@@ -269,10 +269,10 @@ static int make_backup(const char *target, const char *x) {
                 return -errno;
 
         r = fopen_temporary_label(
-                        target,   /* The path for which to the lookup the label */
+                        target,   /* The path for which to the look up the label */
                         x,        /* Where we want the file actually to end up */
-                        &dst,
-                        &dst_tmp  /* The temporary file we write to */);
+                        &dst,     /* The temporary file we write to */
+                        &dst_tmp);
         if (r < 0)
                 return r;
 
