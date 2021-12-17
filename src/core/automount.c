@@ -811,11 +811,6 @@ static void automount_enter_running(Automount *a) {
                 goto fail;
         }
 
-        if (unit_has_failed_condition_or_assert(trigger)) {
-                automount_enter_dead(a, AUTOMOUNT_FAILURE_MOUNT_CONDITION_FAILED);
-                return;
-        }
-
         r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
@@ -1104,12 +1099,11 @@ static int automount_can_start(Unit *u) {
 }
 
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
-        [AUTOMOUNT_SUCCESS]                        = "success",
-        [AUTOMOUNT_FAILURE_RESOURCES]              = "resources",
-        [AUTOMOUNT_FAILURE_START_LIMIT_HIT]        = "start-limit-hit",
-        [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT]  = "mount-start-limit-hit",
-        [AUTOMOUNT_FAILURE_UNMOUNTED]              = "unmounted",
-        [AUTOMOUNT_FAILURE_MOUNT_CONDITION_FAILED] = "mount-condition-failed",
+        [AUTOMOUNT_SUCCESS]                       = "success",
+        [AUTOMOUNT_FAILURE_RESOURCES]             = "resources",
+        [AUTOMOUNT_FAILURE_START_LIMIT_HIT]       = "start-limit-hit",
+        [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT] = "mount-start-limit-hit",
+        [AUTOMOUNT_FAILURE_UNMOUNTED]             = "unmounted",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);

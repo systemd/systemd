@@ -12,5 +12,5 @@ ExecStart=-nc -w20 -U /run/test.ctl
 # systemd enough time even on slower machines, to reach the trigger limit.
 ExecStart=sleep 10
 ExecStart=sh -x -c 'test "$(systemctl show test10.socket -P ActiveState)" = failed'
-ExecStart=sh -x -c 'test "$(systemctl show test10.socket -P Result)" = service-condition-failed'
+ExecStart=sh -x -c 'test "$(systemctl show test10.socket -P Result)" = trigger-limit-hit'
 ExecStart=sh -x -c 'echo OK >/testok'
