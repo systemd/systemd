@@ -191,7 +191,7 @@ static bool valid_deployment(const char *deployment) {
 
 static const char* fallback_chassis(void) {
         const char *chassis;
-        char *type;
+        _cleanup_free_ char *type = NULL;
         unsigned t;
         int v, r;
 
@@ -210,18 +210,17 @@ static const char* fallback_chassis(void) {
         }
 
         r = safe_atou(type, &t);
-        free(type);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse DMI chassis type, ignoring: %m");
+                log_debug_errno(r, "Failed to parse DMI chassis type \"%s\", ignoring: %m", type);
                 goto try_acpi;
         }
 
         /* We only list the really obvious cases here. The DMI data is unreliable enough, so let's not do any
-           additional guesswork on top of that.
-
-           See the SMBIOS Specification 3.0 section 7.4.1 for details about the values listed here:
-
-           https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.0.0.pdf
+         * additional guesswork on top of that.
+         *
+         * See the SMBIOS Specification 3.0 section 7.4.1 for details about the values listed here:
+         *
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.0.0.pdf
          */
 
         switch (t) {
@@ -259,6 +258,7 @@ static const char* fallback_chassis(void) {
         }
 
 try_acpi:
+        type = mfree(type);
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed read ACPI PM profile, ignoring: %m");
@@ -266,9 +266,8 @@ try_acpi:
         }
 
         r = safe_atou(type, &t);
-        free(type);
         if (r < 0) {
-                log_debug_errno(r, "Failed parse ACPI PM profile, ignoring: %m");
+                log_debug_errno(r, "Failed parse ACPI PM profile \"%s\", ignoring: %m", type);
                 goto try_devicetree;
         }
 
@@ -302,6 +301,7 @@ try_acpi:
         }
 
 try_devicetree:
+        type = mfree(type);
         r = read_one_line_file("/proc/device-tree/chassis-type", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
@@ -314,10 +314,7 @@ try_devicetree:
          * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
         chassis = valid_chassis(type);
         if (!chassis)
-                log_debug("Invalid device-tree chassis type '%s', ignoring.", type);
-
-        free(type);
-
+                log_debug("Invalid device-tree chassis type \"%s\", ignoring.", type);
         return chassis;
 }
 
