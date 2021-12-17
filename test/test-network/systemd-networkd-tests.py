@@ -5028,11 +5028,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
     def setUp(self):
         stop_isc_dhcpd()
+        stop_dnsmasq()
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
         stop_isc_dhcpd()
+        stop_dnsmasq()
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
@@ -5243,7 +5245,12 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:routable'])
-        start_isc_dhcpd('veth-peer', 'isc-dhcpd-6rd.conf', ip='-4')
+        '''
+        ipv4masklen: 8
+        6rd-prefix: 2001:db8::/32
+        br-addresss: 10.0.0.1
+        '''
+        start_dnsmasq(additional_options='--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01', ipv4_range='10.100.100.100,10.100.100.200', ipv4_router='10.0.0.1', lease_time='2m')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
 
