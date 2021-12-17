@@ -440,10 +440,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 s = names->pci_slot;
                 l = sizeof(names->pci_slot);
                 if (domain > 0)
-                        l = strpcpyf(&s, l, "P%d", domain);
+                        l = strpcpyf(&s, l, "P%u", domain);
                 l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
-                        l = strpcpyf(&s, l, "f%d", func);
+                        l = strpcpyf(&s, l, "f%u", func);
                 if (!isempty(info->phys_port_name))
                         l = strpcpyf(&s, l, "n%s", info->phys_port_name);
                 else if (dev_port > 0)
