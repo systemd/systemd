@@ -55,7 +55,7 @@ static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
-static int arg_make_machine_id_directory = -1;
+static int arg_make_machine_id_directory = 0;
 static sd_id128_t arg_machine_id = SD_ID128_NULL;
 static char *arg_install_layout = NULL;
 
@@ -1347,8 +1347,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAKE_MACHINE_ID_DIRECTORY:
-                        if (streq(optarg, "auto"))
-                                arg_make_machine_id_directory = -1;  /* default */
+                        if (streq(optarg, "auto"))  /* retained for backwards compatibility */
+                                arg_make_machine_id_directory = -1; /* yes if machine-id is permanent */
                         else {
                                 r = parse_boolean_argument("--make-machine-id-directory=", optarg, &b);
                                 if (r < 0)
