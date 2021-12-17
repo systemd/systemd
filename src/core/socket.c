@@ -2336,15 +2336,6 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 goto refuse;
         }
 
-        if (UNIT_ISSET(s->service) && cfd < 0) {
-                Unit *service = UNIT_DEREF(s->service);
-
-                if (unit_has_failed_condition_or_assert(service)) {
-                        socket_enter_dead(s, SOCKET_FAILURE_SERVICE_CONDITION_FAILED);
-                        return;
-                }
-        }
-
         if (cfd < 0) {
                 bool pending = false;
                 Unit *other;
@@ -3452,16 +3443,15 @@ static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
 static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
-        [SOCKET_SUCCESS]                          = "success",
-        [SOCKET_FAILURE_RESOURCES]                = "resources",
-        [SOCKET_FAILURE_TIMEOUT]                  = "timeout",
-        [SOCKET_FAILURE_EXIT_CODE]                = "exit-code",
-        [SOCKET_FAILURE_SIGNAL]                   = "signal",
-        [SOCKET_FAILURE_CORE_DUMP]                = "core-dump",
-        [SOCKET_FAILURE_START_LIMIT_HIT]          = "start-limit-hit",
-        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT]        = "trigger-limit-hit",
-        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT]  = "service-start-limit-hit",
-        [SOCKET_FAILURE_SERVICE_CONDITION_FAILED] = "service-condition-failed",
+        [SOCKET_SUCCESS]                         = "success",
+        [SOCKET_FAILURE_RESOURCES]               = "resources",
+        [SOCKET_FAILURE_TIMEOUT]                 = "timeout",
+        [SOCKET_FAILURE_EXIT_CODE]               = "exit-code",
+        [SOCKET_FAILURE_SIGNAL]                  = "signal",
+        [SOCKET_FAILURE_CORE_DUMP]               = "core-dump",
+        [SOCKET_FAILURE_START_LIMIT_HIT]         = "start-limit-hit",
+        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT]       = "trigger-limit-hit",
+        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

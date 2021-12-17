@@ -8,10 +8,10 @@ Type=oneshot
 ExecStart=rm -f /tmp/nonexistent
 ExecStart=systemctl start test63.path
 ExecStart=touch /tmp/test63
+# Make sure systemd has sufficient time to hit the start limit for test63.service.
 ExecStart=sleep 2
-# Ensure both the service and the corresponding path unit go inactive due to the failed condition check.
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P ActiveState)" = inactive'
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P Result)" = success'
+ExecStart=sh -x -c 'test "$(systemctl show test63.service -P ActiveState)" = failed'
+ExecStart=sh -x -c 'test "$(systemctl show test63.service -P Result)" = start-limit-hit'
 ExecStart=sh -x -c 'test "$(systemctl show test63.path -P ActiveState)" = failed'
-ExecStart=sh -x -c 'test "$(systemctl show test63.path -P Result)" = unit-condition-failed'
+ExecStart=sh -x -c 'test "$(systemctl show test63.path -P Result)" = unit-start-limit-hit'
 ExecStart=sh -x -c 'echo OK >/testok'
