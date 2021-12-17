@@ -358,10 +358,9 @@ int config_parse_address_generation_type(
 
                                 addr = addr_alloc;
                         }
-                } else if (*addr == ',') {
-                        comma = addr;
-                        addr = NULL;
-                } else if (*addr == '\0') {
+                } else if (*addr == ',')
+                        comma = TAKE_PTR(addr);
+                else if (*addr == '\0') {
                         comma = NULL;
                         addr = NULL;
                 } else {
