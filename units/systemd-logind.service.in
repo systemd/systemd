@@ -37,6 +37,7 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateTmp=yes
+# We don't use ProtectProc= since we need to look for usernames and tty for wall messages
 ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
