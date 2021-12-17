@@ -265,6 +265,9 @@ static void path_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         p->directory_mode = 0755;
+
+        p->trigger_limit.interval = 2 * USEC_PER_SEC;
+        p->trigger_limit.burst = 200;
 }
 
 void path_free_specs(Path *p) {
@@ -493,6 +496,12 @@ static void path_enter_running(Path *p) {
         /* Don't start job if we are supposed to go down */
         if (unit_stop_pending(UNIT(p)))
                 return;
+
+        if (!ratelimit_below(&p->trigger_limit)) {
+                log_unit_warning(UNIT(p), "Trigger limit hit, refusing further activation.");
+                path_enter_dead(p, PATH_FAILURE_TRIGGER_LIMIT_HIT);
+                return;
+        }
 
         trigger = UNIT_TRIGGER(UNIT(p));
         if (!trigger) {
@@ -826,6 +835,7 @@ static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_FAILURE_RESOURCES] = "resources",
         [PATH_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [PATH_FAILURE_UNIT_START_LIMIT_HIT] = "unit-start-limit-hit",
+        [PATH_FAILURE_TRIGGER_LIMIT_HIT]    = "trigger-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
