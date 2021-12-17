@@ -488,9 +488,9 @@ static int names_vio(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-#define _PLATFORM_TEST "/sys/devices/platform/vvvvPPPP"
-#define _PLATFORM_PATTERN4 "/sys/devices/platform/%4s%4x:%2x/net/eth%u"
-#define _PLATFORM_PATTERN3 "/sys/devices/platform/%3s%4x:%2x/net/eth%u"
+#define PLATFORM_TEST "/sys/devices/platform/vvvvPPPP"
+#define PLATFORM_PATTERN4 "/sys/devices/platform/%4s%4x:%2x/net/eth%u"
+#define PLATFORM_PATTERN3 "/sys/devices/platform/%3s%4x:%2x/net/eth%u"
 
 static int names_platform(sd_device *dev, NetNames *names, bool test) {
         sd_device *parent;
@@ -516,15 +516,15 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
                 return r;
 
         /* syspath is too short, to have a valid ACPI instance */
-        if (strlen(syspath) < sizeof _PLATFORM_TEST)
+        if (strlen(syspath) < STRLEN(PLATFORM_TEST) + 1)
                 return -EINVAL;
 
         /* Vendor ID can be either PNP ID (3 chars A-Z) or ACPI ID (4 chars A-Z and numerals) */
-        if (syspath[sizeof _PLATFORM_TEST - 1] == ':') {
-                pattern = _PLATFORM_PATTERN4;
+        if (syspath[STRLEN(PLATFORM_TEST)] == ':') {
+                pattern = PLATFORM_PATTERN4;
                 validchars = UPPERCASE_LETTERS DIGITS;
         } else {
-                pattern = _PLATFORM_PATTERN3;
+                pattern = PLATFORM_PATTERN3;
                 validchars = UPPERCASE_LETTERS;
         }
 
