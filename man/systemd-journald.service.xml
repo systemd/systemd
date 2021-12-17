@@ -71,7 +71,7 @@
     </para>
 
     <para>Log data collected by the journal is primarily text-based but can also include binary data where
-    necessary. Individual fields making up a log record stored in the journal may be up to 2^64-1 bytes in size.</para>
+    necessary. Individual fields making up a log record stored in the journal may be up to 2⁶⁴-1 bytes in size.</para>
 
     <para>The journal service stores log data either persistently below <filename>/var/log/journal</filename> or in a
     volatile way below <filename>/run/log/journal/</filename> (in the latter case it is lost at reboot). By default, log
