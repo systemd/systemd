@@ -1994,6 +1994,7 @@ static int client_receive_message_udp(
                 return 0;
         }
 
+        log_dhcp_client(client, "Received message from UDP socket, processing.");
         (void) client_handle_message(client, message, len);
         return 0;
 }
@@ -2060,6 +2061,7 @@ static int client_receive_message_raw(
 
         len -= DHCP_IP_UDP_SIZE;
 
+        log_dhcp_client(client, "Received message from RAW socket, processing.");
         (void) client_handle_message(client, &packet->dhcp, len);
         return 0;
 }
