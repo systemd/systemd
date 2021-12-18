@@ -824,7 +824,7 @@
         <term><varname>TriggerLimitIntervalSec=</varname></term>
         <term><varname>TriggerLimitBurst=</varname></term>
 
-        <listitem><para>Configures a limit on how often this socket unit my be activated within a specific time
+        <listitem><para>Configures a limit on how often this socket unit may be activated within a specific time
         interval. The <varname>TriggerLimitIntervalSec=</varname> may be used to configure the length of the time
         interval in the usual time units <literal>us</literal>, <literal>ms</literal>, <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>, … and defaults to 2s (See
