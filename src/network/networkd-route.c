@@ -1346,6 +1346,16 @@ int link_request_route(
                 existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
+
+                if (existing->expire) {
+                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
+                         * message, so we need to update the timer here. */
+                        r = route_setup_timer(existing, NULL);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to update expiration timer for route, ignoring: %m");
+                        if (r > 0)
+                                log_route_debug(existing, "Updated expiration timer for", link, link->manager);
+                }
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
