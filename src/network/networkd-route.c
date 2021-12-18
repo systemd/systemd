@@ -792,6 +792,10 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                 if (foreign && route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
+                /* Do not touch dynamic routes. They will removed by dhcp_pd_prefix_lost() */
+                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
+                        continue;
+
                 /* Ignore routes not assigned yet or already removed. */
                 if (!route_exists(route))
                         continue;
