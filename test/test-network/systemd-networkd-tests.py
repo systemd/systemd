@@ -526,6 +526,11 @@ def stop_by_pid_file(pid_file):
 def stop_dnsmasq():
     stop_by_pid_file(dnsmasq_pid_file)
 
+def dump_dnsmasq_log_file():
+    if os.path.exists(dnsmasq_log_file):
+        with open (dnsmasq_log_file) as in_file:
+            print(in_file.read())
+
 def search_words_in_dnsmasq_log(words, show_all=False):
     if os.path.exists(dnsmasq_log_file):
         with open (dnsmasq_log_file) as in_file:
