@@ -542,6 +542,8 @@ Path.DirectoryNotEmpty,                  config_parse_path_spec,                
 Path.Unit,                               config_parse_trigger_unit,                   0,                                  0
 Path.MakeDirectory,                      config_parse_bool,                           0,                                  offsetof(Path, make_directory)
 Path.DirectoryMode,                      config_parse_mode,                           0,                                  offsetof(Path, directory_mode)
+Path.TriggerLimitIntervalSec,            config_parse_sec,                            0,                                  offsetof(Path, trigger_limit.interval)
+Path.TriggerLimitBurst,                  config_parse_unsigned,                       0,                                  offsetof(Path, trigger_limit.burst)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Slice') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}

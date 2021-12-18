@@ -7,4 +7,6 @@ PathChanged=
 PathExists=
 PathExistsGlob=
 PathModified=
+TriggerLimitBurst=
+TriggerLimitIntervalSec=
 Unit=
