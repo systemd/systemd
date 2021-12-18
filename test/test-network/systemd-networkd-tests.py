@@ -5444,7 +5444,6 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('link/sit 10.100.100.', output)
         self.assertIn('local 10.100.100.', output)
-        self.assertIn('dev veth99', output)
         self.assertIn('ttl 64', output)
         self.assertIn('6rd-prefix 2001:db8::/32', output)
         self.assertIn('6rd-relay_prefix 10.0.0.0/8', output)
