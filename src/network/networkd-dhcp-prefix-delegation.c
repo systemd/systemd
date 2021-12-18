@@ -667,7 +667,7 @@ void dhcp_pd_prefix_lost(Link *uplink) {
         }
 
         SET_FOREACH(route, uplink->manager->routes) {
-                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
+                if (!IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
                         continue;
                 if (route->family != AF_INET6)
                         continue;
