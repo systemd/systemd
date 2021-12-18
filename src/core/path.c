@@ -266,8 +266,8 @@ static void path_init(Unit *u) {
 
         p->directory_mode = 0755;
 
-        p->trigger_limit.interval = 2 * USEC_PER_SEC;
-        p->trigger_limit.burst = 200;
+        p->trigger_limit.interval = USEC_INFINITY;
+        p->trigger_limit.burst = UINT_MAX;
 }
 
 void path_free_specs(Path *p) {
@@ -356,6 +356,16 @@ static int path_add_trigger_dependencies(Path *p) {
 static int path_add_extras(Path *p) {
         int r;
 
+        assert(p);
+
+        /* To avoid getting pid1 in a busy-loop state (eg: failed condition on associated service),
+         * set a default trigger limit if the user didn't specify any. */
+        if (p->trigger_limit.interval == USEC_INFINITY)
+                p->trigger_limit.interval = 2 * USEC_PER_SEC;
+
+        if (p->trigger_limit.burst == UINT_MAX)
+                p->trigger_limit.burst = 200;
+
         r = path_add_trigger_dependencies(p);
         if (r < 0)
                 return r;
@@ -403,12 +413,16 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sResult: %s\n"
                 "%sUnit: %s\n"
                 "%sMakeDirectory: %s\n"
-                "%sDirectoryMode: %04o\n",
+                "%sDirectoryMode: %04o\n"
+                "%sTriggerLimitIntervalSec: %s\n"
+                "%sTriggerLimitBurst: %u\n",
                 prefix, path_state_to_string(p->state),
                 prefix, path_result_to_string(p->result),
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(p->make_directory),
-                prefix, p->directory_mode);
+                prefix, p->directory_mode,
+                prefix, FORMAT_TIMESPAN(p->trigger_limit.interval, USEC_PER_SEC),
+                prefix, p->trigger_limit.burst);
 
         LIST_FOREACH(spec, s, p->specs)
                 path_spec_dump(s, f, prefix);
