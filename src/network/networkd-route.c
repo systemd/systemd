@@ -792,6 +792,10 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                 if (foreign && route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
+                /* Do not touch dynamic routes. They will removed by dhcp_pd_prefix_lost() */
+                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
+                        continue;
+
                 /* Ignore routes not assigned yet or already removed. */
                 if (!route_exists(route))
                         continue;
@@ -1342,6 +1346,16 @@ int link_request_route(
                 existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
+
+                if (existing->expire) {
+                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
+                         * message, so we need to update the timer here. */
+                        r = route_setup_timer(existing, NULL);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to update expiration timer for route, ignoring: %m");
+                        if (r > 0)
+                                log_route_debug(existing, "Updated expiration timer for", link, link->manager);
+                }
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
