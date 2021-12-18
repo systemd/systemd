@@ -5238,27 +5238,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '3ffe:501:ffff:[2-9a-f]03::/64 proto dhcp metric [0-9]* expires')
 
-    def test_dhcp4_6rd(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp4-6rd-server.network', 'dhcp4-6rd-upstream.network',
-                                        '25-veth-downstream-veth97.netdev', 'dhcp-pd-downstream-veth97.network', 'dhcp-pd-downstream-veth97-peer.network',
-                                        '25-veth-downstream-veth98.netdev', 'dhcp-pd-downstream-veth98.network', 'dhcp-pd-downstream-veth98-peer.network',
-                                        '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
-                                        'dhcp-pd-downstream-dummy97.network',
-                                        '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
-                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network',
-                                        '80-6rd-tunnel.network')
-
-        start_networkd()
-        self.wait_online(['veth-peer:routable'])
-        '''
-        ipv4masklen: 8
-        6rd-prefix: 2001:db8::/32
-        br-addresss: 10.0.0.1
-        '''
-        start_dnsmasq(additional_options='--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01', ipv4_range='10.100.100.100,10.100.100.200', ipv4_router='10.0.0.1', lease_time='2m')
-        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
-
+    def verify_dhcp4_6rd(self, tunnel_name):
         print('### ip -4 address show dev veth-peer scope global')
         output = check_output('ip -4 address show dev veth-peer scope global')
         print(output)
@@ -5398,10 +5378,6 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+09::/64 proto ra metric [0-9]* expires')
 
-        # Test case for a downstream which appears later
-        check_output('ip link add dummy97 type dummy')
-        self.wait_online(['dummy97:routable'])
-
         print('### ip -6 address show dev dummy97 scope global')
         output = check_output('ip -6 address show dev dummy97 scope global')
         print(output)
@@ -5414,42 +5390,6 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show dev dummy97')
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+01::/64 proto kernel metric [0-9]* expires')
-
-        # Test case for reconfigure
-        check_output(*networkctl_cmd, 'reconfigure', 'dummy98', 'dummy99', env=env)
-        self.wait_online(['dummy98:routable'])
-
-        print('### ip -6 address show dev dummy98 scope global')
-        output = check_output('ip -6 address show dev dummy98 scope global')
-        print(output)
-        # address in IA_PD (Token=static)
-        self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+02:1a:2b:3c:4d/64 (metric 256 |)scope global dynamic mngtmpaddr')
-        # address in IA_PD (temporary)
-        self.wait_address('dummy98', 'inet6 2001:db8:6464:[0-9a-f]+02:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
-
-        print('### ip -6 address show dev dummy99 scope global')
-        output = check_output('ip -6 address show dev dummy99 scope global')
-        print(output)
-        # Assign=no
-        self.assertNotRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+03')
-
-        print('### ip -6 route show dev dummy98')
-        output = check_output('ip -6 route show dev dummy98')
-        print(output)
-        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+02::/64 proto kernel metric [0-9]* expires')
-
-        print('### ip -6 route show dev dummy99')
-        output = check_output('ip -6 route show dev dummy99')
-        print(output)
-        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+03::/64 proto dhcp metric [0-9]* expires')
-
-        tunnel_name = None
-        for name in os.listdir('/sys/class/net/'):
-            if name.startswith('6rd-'):
-                tunnel_name = name
-                break
-
-        self.wait_online(['{}:routable'.format(tunnel_name)])
 
         print('### ip -d link show dev {}'.format(tunnel_name))
         output = check_output('ip -d link show dev {}'.format(tunnel_name))
@@ -5477,6 +5417,65 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('default', output)
         self.assertIn('via ::10.0.0.1 dev {}'.format(tunnel_name), output)
+
+    def test_dhcp4_6rd(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp4-6rd-server.network', 'dhcp4-6rd-upstream.network',
+                                        '25-veth-downstream-veth97.netdev', 'dhcp-pd-downstream-veth97.network', 'dhcp-pd-downstream-veth97-peer.network',
+                                        '25-veth-downstream-veth98.netdev', 'dhcp-pd-downstream-veth98.network', 'dhcp-pd-downstream-veth98-peer.network',
+                                        '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
+                                        'dhcp-pd-downstream-dummy97.network',
+                                        '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
+                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network',
+                                        '80-6rd-tunnel.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:routable'])
+        '''
+        ipv4masklen: 8
+        6rd-prefix: 2001:db8::/32
+        br-addresss: 10.0.0.1
+        '''
+        start_dnsmasq(additional_options='--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01', ipv4_range='10.100.100.100,10.100.100.200', ipv4_router='10.0.0.1', lease_time='2m')
+        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        # Test case for a downstream which appears later
+        check_output('ip link add dummy97 type dummy')
+        self.wait_online(['dummy97:routable'])
+
+        # Find tunnel name
+        tunnel_name = None
+        for name in os.listdir('/sys/class/net/'):
+            if name.startswith('6rd-'):
+                tunnel_name = name
+                break
+
+        self.wait_online(['{}:routable'.format(tunnel_name)])
+
+        self.verify_dhcp4_6rd(tunnel_name)
+
+        # Test case for reconfigure
+        check_output(*networkctl_cmd, 'reconfigure', 'dummy98', 'dummy99', env=env)
+        self.wait_online(['dummy98:routable', 'dummy99:degraded'])
+
+        self.verify_dhcp4_6rd(tunnel_name)
+
+        # Test for renewing/rebinding lease
+        print('wait for 120 sec')
+        time.sleep(30)
+        print('wait for  90 sec')
+        time.sleep(30)
+        print('wait for  60 sec')
+        time.sleep(30)
+        print('wait for  30 sec')
+        time.sleep(30)
+
+        dump_dnsmasq_log_file()
+
+        self.wait_online(['veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        self.verify_dhcp4_6rd(tunnel_name)
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
     links = [
