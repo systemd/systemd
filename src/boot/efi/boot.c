@@ -2353,6 +2353,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
         init_usec = time_usec();
+        debug_hook(L"systemd-boot");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
 
         err = BS->OpenProtocol(image,
                         &LoadedImageProtocol,

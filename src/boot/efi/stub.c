@@ -181,6 +181,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
+        debug_hook(L"systemd-stub");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
 
         err = BS->OpenProtocol(
                         image,
