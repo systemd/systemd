@@ -2585,7 +2585,6 @@ static int partition_encrypt(
                          volume_key_size,
                          &(struct crypt_params_luks2) {
                                  .label = strempty(p->new_label),
-                                 .sector_size = 512U,
                          });
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
