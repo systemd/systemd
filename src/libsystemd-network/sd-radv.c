@@ -579,6 +579,7 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
         sd_radv_prefix *cur;
+        bool update = false;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -603,22 +604,8 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        /* p and cur may be equivalent. First increment the counter. */
-                        sd_radv_prefix_ref(p);
-
-                        /* Then, remove the old entry. */
-                        LIST_REMOVE(prefix, ra->prefixes, cur);
-                        sd_radv_prefix_unref(cur);
-
-                        /* Finally, add the new entry. */
-                        LIST_APPEND(prefix, ra->prefixes, p);
-
-                        log_radv(ra, "Updated/replaced IPv6 prefix %s (preferred: %s, valid: %s)",
-                                 strna(addr_p),
-                                 FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
-                                 FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
-
-                        goto announce;
+                        update = true;
+                        break;
                 }
 
                 _cleanup_free_ char *addr_cur = NULL;
@@ -628,25 +615,46 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        sd_radv_prefix_ref(p);
-        LIST_APPEND(prefix, ra->prefixes, p);
-        ra->n_prefixes++;
+        if (update) {
+                assert(cur);
 
-        log_radv(ra, "Added prefix %s", strna(addr_p));
+                /* p and cur may be equivalent. First increment the reference counter. */
+                sd_radv_prefix_ref(p);
+
+                /* Then, remove the old entry. */
+                LIST_REMOVE(prefix, ra->prefixes, cur);
+                sd_radv_prefix_unref(cur);
+
+                /* Finally, add the new entry. */
+                LIST_APPEND(prefix, ra->prefixes, p);
+
+                log_radv(ra, "Updated/replaced IPv6 prefix %s (preferred: %s, valid: %s)",
+                         strna(addr_p),
+                         FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
+                         FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
+        } else {
+                /* The prefix is new. Let's simply add it. */
+
+                sd_radv_prefix_ref(p);
+                LIST_APPEND(prefix, ra->prefixes, p);
+                ra->n_prefixes++;
+
+                log_radv(ra, "Added prefix %s", strna(addr_p));
+        }
 
         if (ra->state == RADV_STATE_IDLE)
                 return 0;
 
-announce:
         if (ra->ra_sent == 0)
                 return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix: %m");
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s: %m",
+                               strna(addr_p));
         else
-                log_radv(ra, "Sent Router Advertisement for added/updated prefix");
+                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", strna(addr_p));
 
         return 0;
 }
@@ -679,6 +687,7 @@ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
         sd_radv_route_prefix *cur;
+        bool update = false;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -699,21 +708,8 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        /* p and cur may be equivalent. First increment the counter. */
-                        sd_radv_route_prefix_ref(p);
-
-                        /* Then, remove the old entry. */
-                        LIST_REMOVE(prefix, ra->route_prefixes, cur);
-                        sd_radv_route_prefix_unref(cur);
-
-                        /* Finally, add the new entry. */
-                        LIST_APPEND(prefix, ra->route_prefixes, p);
-
-                        log_radv(ra, "Updated/replaced IPv6 route prefix %s (lifetime: %s)",
-                                 strna(addr_p),
-                                 FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
-
-                        goto announce;
+                        update = true;
+                        break;
                 }
 
                 _cleanup_free_ char *addr_cur = NULL;
@@ -723,25 +719,45 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        sd_radv_route_prefix_ref(p);
-        LIST_APPEND(prefix, ra->route_prefixes, p);
-        ra->n_route_prefixes++;
+        if (update) {
+                assert(cur);
 
-        log_radv(ra, "Added route prefix %s", strna(addr_p));
+                /* p and cur may be equivalent. First increment the reference counter. */
+                sd_radv_route_prefix_ref(p);
+
+                /* Then, remove the old entry. */
+                LIST_REMOVE(prefix, ra->route_prefixes, cur);
+                sd_radv_route_prefix_unref(cur);
+
+                /* Finally, add the new entry. */
+                LIST_APPEND(prefix, ra->route_prefixes, p);
+
+                log_radv(ra, "Updated/replaced IPv6 route prefix %s (lifetime: %s)",
+                         strna(addr_p),
+                         FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
+        } else {
+                /* The route prefix is new. Let's simply add it. */
+
+                sd_radv_route_prefix_ref(p);
+                LIST_APPEND(prefix, ra->route_prefixes, p);
+                ra->n_route_prefixes++;
+
+                log_radv(ra, "Added route prefix %s", strna(addr_p));
+        }
 
         if (ra->state == RADV_STATE_IDLE)
                 return 0;
 
-announce:
         if (ra->ra_sent == 0)
                 return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix: %m");
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s: %m",
+                               strna(addr_p));
         else
-                log_radv(ra, "Sent Router Advertisement for added route prefix");
+                log_radv(ra, "Sent Router Advertisement for added route prefix %s.", strna(addr_p));
 
         return 0;
 }
