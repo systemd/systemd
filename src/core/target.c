@@ -148,6 +148,7 @@ static int target_serialize(Unit *u, FILE *f, FDSet *fds) {
 static int target_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Target *s = TARGET(u);
 
+        assert(s);
         assert(u);
         assert(key);
         assert(value);

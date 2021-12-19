@@ -14,7 +14,6 @@
 #include "alloc-util.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing_ioprio.h"
 #include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
@@ -39,17 +38,17 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
-int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line);
-int get_process_exe(pid_t pid, char **name);
-int get_process_uid(pid_t pid, uid_t *uid);
-int get_process_gid(pid_t pid, gid_t *gid);
-int get_process_capeff(pid_t pid, char **capeff);
-int get_process_cwd(pid_t pid, char **cwd);
-int get_process_root(pid_t pid, char **root);
-int get_process_environ(pid_t pid, char **environ);
-int get_process_ppid(pid_t pid, pid_t *ppid);
-int get_process_umask(pid_t pid, mode_t *umask);
+int get_process_comm(pid_t pid, char **ret);
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
+int get_process_exe(pid_t pid, char **ret);
+int get_process_uid(pid_t pid, uid_t *ret);
+int get_process_gid(pid_t pid, gid_t *ret);
+int get_process_capeff(pid_t pid, char **ret);
+int get_process_cwd(pid_t pid, char **ret);
+int get_process_root(pid_t pid, char **ret);
+int get_process_environ(pid_t pid, char **ret);
+int get_process_ppid(pid_t pid, pid_t *ret);
+int get_process_umask(pid_t pid, mode_t *ret);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
@@ -97,9 +96,6 @@ const char *personality_to_string(unsigned long);
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
 
-int ioprio_class_to_string_alloc(int i, char **s);
-int ioprio_class_from_string(const char *s);
-
 const char *sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
@@ -130,19 +126,9 @@ static inline bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
-static inline bool ioprio_class_is_valid(int i) {
-        return IN_SET(i, IOPRIO_CLASS_NONE, IOPRIO_CLASS_RT, IOPRIO_CLASS_BE, IOPRIO_CLASS_IDLE);
-}
-
-static inline bool ioprio_priority_is_valid(int i) {
-        return i >= 0 && i < IOPRIO_BE_NR;
-}
-
 static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }
-
-int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
 void reset_cached_pid(void);

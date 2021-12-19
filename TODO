@@ -78,6 +78,74 @@ Janitorial Clean-ups:
 
 Features:
 
+* add linker script that implicitly adds symbol for build ID and new coredump
+  json package metadata, and use that when logging
+
+* systemd-dissect: show GPT disk UUID in output
+
+* Enable RestricFileSystems= for all our long-running services (similar:
+  RestrictNetworkInterfaces=)
+
+* Add systemd-analyze security checks for RestrictFileSystems= and
+  RestrictNetworkInterfaces=
+
+* cryptsetup/homed: implement TOTP authentication backed by TPM2 and its
+  internal clock.
+
+* nspawn: optionally set up nftables/iptables routes that forward UDP/TCP
+  traffic on port 53 to resolved stub 127.0.0.54
+
+* man: rework os-release(5), and clearly separate our extension-release.d/ and
+  initrd-release parts, i.e. list explicitly which fields are about what.
+
+* sysext: before applying a sysext, do a superficial validation run so that
+  things are not rearranged to wildy. I.e. protect against accidental fuckups,
+  such as masking out /usr/lib/ or so. We should probably refuse if existing
+  inodes are replaced by other types of inodes or so.
+
+* sysext: ensure one can build a sysext that can safely apply to *any* system
+  (because it contains only static go binaries in /opt/ or so)
+
+* userdb: when synthesizing NSS records, pick "best" password from defined
+  passwords, not just the first. i.e. if there are multiple defined, prefer
+  unlocked over locked and prefer non-empty over empty.
+
+* maybe add a tool inspired by the GPT auto discovery spec that runs in the
+  initrd and rearranges the rootfs hierarchy via bind mounts, if
+  enabled. Specifically in some top-level dir /@auto/ it will look for
+  dirs/symlinks/subvolumes that are named after their purpose, and optionally
+  encode a version as well as assessment counters, and then mount them into the
+  file system tree to boot into, similar to how we do that for the gpt auto
+  logic. Maybe then bind mount the original root into /.superior or something
+  like that (so that update tools can look there). Further discussion in this
+  thread:
+  https://lists.freedesktop.org/archives/systemd-devel/2021-November/047059.html
+  The GPT dissection logic should automatically enable this tool whenever we
+  detect a specially marked root fs (i.e introduce a new generic root gpt type
+  for this, that is arch independent). The also implement this in the image
+  dissection logic, so that nspawn/RootImage= and so on grok it. Maybe make
+  generic enough so that it can also work for ostrees arrangements.
+
+* if a path ending in ".auto.d/" is set for RootDirectory=/RootImage= then do a
+  strverscmp() of everything inside that dir and use that. i.e. implement very
+  simple version control. Also use this in systemd-nspawn --image= and so on.
+
+* homed: while a home dir is not activated generate slightly different NSS
+  records for it, that reports the home dir as "/" and the shell as some binary
+  provided by us. Then, when an SSH login happens and SSH permits it our binary
+  is invoked. This binary can then talk to homed and activate the homedir if
+  it's not around yet, prompting the user for a password. Once that succeeded
+  we'll switch to the real user record, i.e. home dir and shell, and our tool
+  exec()s the latter. Net effect: ssh'ing into a homed account will just work:
+  we'll neatly prompt for the homedir's password if its needed. –– Building on
+  this we could take this even further: since this tool will potentially have
+  access to the client's ssh-agent (if ssh-agent forwarding is enabled) we
+  could implement SSH unlocking of a homedir with that: when enrolling a new
+  ssh pubkey in a user record we'd ask the ssh-agent to sign some random value
+  with the privkey, then use that as luks key to unlock the home dir. Will not
+  work for ECDSA keys since their signatures contain a random component, but
+  will work for RSA and Ed25519 keys.
+
 * add tiny service that decrypts encrypted user records passed via initrd
   credential logic and drops them into /run where nss-systemd can pick them up,
   similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
@@ -215,12 +283,6 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
-* allow passing creds into kernel when booting: in EFI stub, collect creds
-  files from ESP directory, generate CPIO archive on the fly from them, so that
-  they are dropped into /run/initramfs/creds/ and pass to kernel as additional
-  initrd. Then, use LoadCredentialEncrypted=foo:/run/initramfs/creds/foo to
-  load them.
-
 * make LoadCredential= automatically find credentials in /etc/creds,
   /run/creds, … and so on, if path component is unqualified
 
@@ -267,9 +329,6 @@ Features:
 
 * cryptsetup: optionally, when run during boot-up and password is never
   entered, and we are on battery power (or so), power off machine again
-
-* cryptsetup: when FIDO2/PKCS#11/TPM2 token/chip didn't show up after some
-  time, abort the attempt, fallback to asking for pw
 
 * cryptsetup: when waiting for FIDO2/PKCS#11 token, tell plymouth that, and
   allow plymouth to abort the waiting and enter pw instead
@@ -318,14 +377,6 @@ Features:
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
-* add /etc/integritytab, to support dm-integrity setups. In particular those
-  with HMAC as hash function, so that we can have a protected /home without
-  encryption (leaving encryption to the individual dirs/homed).
-
-* complement root=, rootflags=, rootfstype= with rootsubdir= which allows
-  mounting a subdir of the root fs as actual root. This can be used as
-  fstype-agnostic version of btrfs' rootflags=subvol=foobar.
-
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
@@ -335,14 +386,11 @@ Features:
 
 * pid1: support new clone3() fork-into-cgroup feature
 
-* pid1: support new cgroup.kill to terminate all processes in a cgroup
-
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
 * make us use dynamically fewer deps for containers in general purpose distros:
   o turn into dlopen() deps:
-    - elfutils (always)
     - p11-kit-trust (always)
     - kmod-libs (only when called from PID 1)
     - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
@@ -378,17 +426,11 @@ Features:
   for "hibernate" partitions, that are exactly like swap partitions but only
   activated right before hibernation and thus never used for regular swapping.
 
-* by default, in systemd --user service bump the OOMAdjust to 100, as privs
-  allow so that systemd survives
-
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
 
-* unify on openssl (as soon as OpenSSL 3.0 is out, and the Debian license
-  confusion is gone)
-  - port resolved over from libgcrypt (DNSSEC code)
+* unify on openssl:
   - port journald + fsprg over from libgcrypt
-  - port importd over from libgcrypt
   - when that's done: kill gnutls support in resolved
 
 * add growvol and makevol options for /etc/crypttab, similar to
@@ -510,9 +552,6 @@ Features:
 * optionally: turn on cgroup delegation for per-session scope units
 
 * introduce per-unit (i.e. per-slice, per-service) journal log size limits.
-
-* sd-boot: automatically load EFI modules from some drop-in dir, so that people
-  can add in file system drivers and such
 
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
@@ -992,10 +1031,8 @@ Features:
   ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
   https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
 
-* BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
-  that the boot loader should be installed to the ESP. Define a way
-  how an installer can figure out whether a BLS compliant boot loader
-  is installed.
+* BootLoaderSpec: Define a way how an installer can figure out whether a BLS
+  compliant boot loader is installed.
 
 * think about requeuing jobs when daemon-reload is issued? usecase:
   the initrd issues a reload after fstab from the host is accessible
@@ -1009,9 +1046,6 @@ Features:
 * shutdown logging: store to EFI var, and store to USB stick?
 
 * merge unit_kill_common() and unit_kill_context()
-
-* hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
-  https://bugs.freedesktop.org/show_bug.cgi?id=54712
 
 * add a dependency on standard-conf.xml and other included files to man pages
 
@@ -1229,8 +1263,6 @@ Features:
   - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
   - rollback when resize fails mid-operation
   - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
-  - resize on login?
-  - shrink fs on logout?
   - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
   - create on activate?
   - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
@@ -1247,22 +1279,15 @@ Features:
   - make size of $XDG_RUNTIME_DIR configurable in user record
   - query password from kernel keyring first
   - update even if record is "absent"
-  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
   - move acct mgmt stuff from pam_systemd_home to pam_systemd?
   - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
   - make slice for users configurable (requires logind rework)
   - logind: populate auto-login list bus property from PKCS#11 token
   - when determining state of a LUKS home directory, check DM suspended sysfs file
-  - introduce API for "making room", that grows/shrinks home directory
-    according to elastic parameters, discards blocks, and removes additional snapshots. Call it
-    either from UI when disk space gets low
   - when homed is in use, maybe start the user session manager in a mount namespace with MS_SLAVE,
     so that mounts propagate down but not up - eg, user A setting up a backup volume
     doesn't mean user B sees it
   - use credentials logic/TPM2 logic to store homed signing key
-  - during login resize fs automatically towards size goal. Specifically,
-    resize to diskSize if possible, but leave a certain amount (configured by a
-    new value diskLeaveFreeSize) of space free on the backing fs.
   - permit multiple user record signing keys to be used locally, and pick
     the right one for signing records automatically depending on a pre-existing
     signature
@@ -1283,6 +1308,10 @@ Features:
     fallback logic to get a regular user created on uninitialized systems.
   - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
     systemd-cryptsetup, so that it can unlock homed volumes
+  - maybe make all *.home files owned by `systemd-home` user or so, so that we
+    can easily set overall quota for all users
+  - on login, if we can't fallocate initially, but rebalance is on, then allow
+    login in discard mode, then immediately rebalance, then turn off discard
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
@@ -1418,9 +1447,6 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-
-* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
-  are used.
 
 * nspawn: add support for sysext extensions, too. i.e. a new --extension=
   switch that takes one or more arguments, and applies the extensions already

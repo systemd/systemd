@@ -106,6 +106,7 @@ ftruncate	6075
 ftruncate64
 futex	6194
 futex_time64	6422
+futex_waitv
 futimesat	6255
 get_kernel_syms	6170
 get_mempolicy	6232
@@ -203,6 +204,7 @@ madvise	6027
 mbind	6231
 membarrier	6322
 memfd_create	6318
+memfd_secret
 memory_ordering
 migrate_pages	6250
 mincore	6026
@@ -374,7 +376,6 @@ pciconfig_read
 pciconfig_write
 perf_event_open	6296
 perfctr
-perfmonctl
 personality	6132
 pidfd_getfd	6438
 pidfd_open	6434
@@ -394,6 +395,7 @@ preadv	6293
 preadv2	6325
 prlimit64	6302
 process_madvise	6440
+process_mrelease	6448
 process_vm_readv	6309
 process_vm_writev	6310
 pselect6	6264
@@ -404,7 +406,7 @@ pwritev	6294
 pwritev2	6326
 query_module	6171
 quotactl	6172
-quotactl_path
+quotactl_fd	6443
 read	6000
 readahead	6179
 readdir

@@ -444,10 +444,7 @@ int recurse_dir_at(
         assert(atfd >= 0 || atfd == AT_FDCWD);
         assert(func);
 
-        if (!path)
-                path = ".";
-
-        fd = openat(atfd, path, O_DIRECTORY|O_CLOEXEC);
+        fd = openat(atfd, path ?: ".", O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 

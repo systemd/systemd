@@ -8,7 +8,7 @@
 #include "tests.h"
 #include "unit.h"
 
-static int test_default_memory_low(void) {
+TEST_RET(default_memory_low, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *root, *dml,
@@ -135,12 +135,4 @@ static int test_default_memory_low(void) {
         return 0;
 }
 
-int main(int argc, char* argv[]) {
-        int rc = EXIT_SUCCESS;
-
-        test_setup_logging(LOG_DEBUG);
-
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_default_memory_low());
-
-        return rc;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

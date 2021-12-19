@@ -65,16 +65,9 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        int fd = -1;  /* avoid false maybe-uninitialized warning */
-
         assert(pattern);
-
-        RUN_WITH_UMASK(0077)
-                fd = mkostemp(pattern, O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        BLOCK_WITH_UMASK(0077);
+        return RET_NERRNO(mkostemp(pattern, O_CLOEXEC));
 }
 
 int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
@@ -283,8 +276,6 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
 }
 
 int link_tmpfile(int fd, const char *path, const char *target) {
-        int r;
-
         assert(fd >= 0);
         assert(target);
 
@@ -295,16 +286,10 @@ int link_tmpfile(int fd, const char *path, const char *target) {
          * Note that in both cases we will not replace existing files. This is because linkat() does not support this
          * operation currently (renameat2() does), and there is no nice way to emulate this. */
 
-        if (path) {
-                r = rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
-                if (r < 0)
-                        return r;
-        } else {
-                if (linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
-                        return -errno;
-        }
+        if (path)
+                return rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
 
-        return 0;
+        return RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW));
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {

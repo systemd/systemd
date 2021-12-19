@@ -133,6 +133,8 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+subdir('bpf')
+
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
@@ -182,7 +184,8 @@ libcore = static_library(
                         libapparmor,
                         libselinux,
                         libmount,
-                        libacl])
+                        libacl],
+        build_by_default : false)
 
 core_includes = [includes, include_directories('.')]
 

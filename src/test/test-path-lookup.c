@@ -10,7 +10,7 @@
 #include "strv.h"
 #include "tests.h"
 
-static void test_paths(UnitFileScope scope) {
+static void test_paths_one(UnitFileScope scope) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
 
         _cleanup_(lookup_paths_free) LookupPaths lp_without_env = {};
@@ -35,7 +35,13 @@ static void test_paths(UnitFileScope scope) {
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
-static void test_user_and_global_paths(void) {
+TEST(paths) {
+        test_paths_one(UNIT_FILE_SYSTEM);
+        test_paths_one(UNIT_FILE_USER);
+        test_paths_one(UNIT_FILE_GLOBAL);
+}
+
+TEST(user_and_global_paths) {
         _cleanup_(lookup_paths_free) LookupPaths lp_global = {}, lp_user = {};
         char **u, **g, **p;
         unsigned k = 0;
@@ -53,7 +59,6 @@ static void test_user_and_global_paths(void) {
          * that they also exist in the user search path. Skip any
          * entries in user search path which don't exist in the global
          * one, but not vice versa. */
-        log_info("/* %s */", __func__);
         STRV_FOREACH(p, g) {
                 while (u[k] && !streq(*p, u[k])) {
                         log_info("+ %s", u[k]);
@@ -67,7 +72,7 @@ static void test_user_and_global_paths(void) {
                 log_info("+ %s", *p);
 }
 
-static void test_generator_binary_paths(UnitFileScope scope) {
+static void test_generator_binary_paths_one(UnitFileScope scope) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
 
         _cleanup_strv_free_ char **gp_without_env = NULL;
@@ -117,17 +122,9 @@ static void test_generator_binary_paths(UnitFileScope scope) {
         assert_se(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_paths(UNIT_FILE_SYSTEM);
-        test_paths(UNIT_FILE_USER);
-        test_paths(UNIT_FILE_GLOBAL);
-
-        test_user_and_global_paths();
-
-        test_generator_binary_paths(UNIT_FILE_SYSTEM);
-        test_generator_binary_paths(UNIT_FILE_USER);
-
-        return EXIT_SUCCESS;
+TEST(generator_binary_paths) {
+        test_generator_binary_paths_one(UNIT_FILE_SYSTEM);
+        test_generator_binary_paths_one(UNIT_FILE_USER);
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

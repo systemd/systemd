@@ -114,6 +114,13 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         return family == AF_INET6 ? 16 : 4;
 }
 
+#define FAMILY_ADDRESS_SIZE_SAFE(f)                                     \
+        ({                                                              \
+                int _f = (f);                                           \
+                _f == AF_INET ? sizeof(struct in_addr) :                \
+                _f == AF_INET6 ? sizeof(struct in6_addr) : 0;           \
+        })
+
 /* Workaround for clang, explicitly specify the maximum-size element here.
  * See also oss-fuzz#11344. */
 #define IN_ADDR_NULL ((union in_addr_union) { .in6 = {} })

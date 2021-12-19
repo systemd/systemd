@@ -261,7 +261,7 @@ tests += [
 
         [['src/test/test-import-util.c']],
 
-        [['src/test/test-user-record.c']],
+        [['src/test/test-uid-alloc-range.c']],
 
         [['src/test/test-user-util.c']],
 
@@ -389,8 +389,7 @@ tests += [
           test_hashmap_ordered_c],
          [], [], [], '', 'timeout=180'],
 
-        [['src/test/test-set.c'],
-         [libbasic]],
+        [['src/test/test-set.c']],
 
         [['src/test/test-ordered-set.c']],
 
@@ -434,6 +433,8 @@ tests += [
         [['src/test/test-tmpfile-util.c']],
 
         [['src/test/test-architecture.c']],
+
+        [['src/test/test-gpt.c']],
 
         [['src/test/test-log.c']],
 
@@ -593,8 +594,10 @@ tests += [
 
         [['src/test/test-id128.c']],
 
-        [['src/test/test-gcrypt-util.c'],
-         [], [], [], 'HAVE_GCRYPT'],
+        [['src/test/test-cryptolib.c'],
+         [libshared],
+         [lib_openssl_or_gcrypt],
+         [], 'HAVE_OPENSSL_OR_GCRYPT'],
 
         [['src/test/test-nss-hosts.c',
           'src/test/nss-test-util.c',

@@ -199,35 +199,60 @@ static bool display_is_local(const char *display) {
                 display[1] <= '9';
 }
 
-static int socket_from_display(const char *display, char **path) {
+static int socket_from_display(const char *display) {
+        _cleanup_free_ char *f = NULL;
         size_t k;
-        char *f, *c;
+        char *c;
+        union sockaddr_union sa;
+        socklen_t sa_len;
+        _cleanup_close_ int fd = -1;
+        int r;
 
         assert(display);
-        assert(path);
 
         if (!display_is_local(display))
                 return -EINVAL;
 
         k = strspn(display+1, "0123456789");
 
-        f = new(char, STRLEN("/tmp/.X11-unix/X") + k + 1);
+        /* Try abstract socket first. */
+        f = new(char, STRLEN("@/tmp/.X11-unix/X") + k + 1);
         if (!f)
                 return -ENOMEM;
 
-        c = stpcpy(f, "/tmp/.X11-unix/X");
+        c = stpcpy(f, "@/tmp/.X11-unix/X");
         memcpy(c, display+1, k);
         c[k] = 0;
 
-        *path = f;
+        r = sockaddr_un_set_path(&sa.un, f);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
-        return 0;
+        fd = RET_NERRNO(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        if (fd < 0)
+                return fd;
+
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        if (r >= 0)
+                return TAKE_FD(fd);
+        if (r != -ECONNREFUSED)
+                return r;
+
+        /* Try also non-abstract socket. */
+        r = sockaddr_un_set_path(&sa.un, f + 1);
+        if (r < 0)
+                return r;
+        sa_len = r;
+
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        if (r >= 0)
+                return TAKE_FD(fd);
+        return r;
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        union sockaddr_union sa;
-        socklen_t sa_len;
-        _cleanup_free_ char *p = NULL, *sys_path = NULL, *tty = NULL;
+        _cleanup_free_ char *sys_path = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
         int v, r;
@@ -242,20 +267,9 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
          * the seat and the virtual terminal. Sounds ugly, is only
          * semi-ugly. */
 
-        r = socket_from_display(display, &p);
-        if (r < 0)
-                return r;
-        r = sockaddr_un_set_path(&sa.un, p);
-        if (r < 0)
-                return r;
-        sa_len = r;
-
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        fd = socket_from_display(display);
         if (fd < 0)
-                return -errno;
-
-        if (connect(fd, &sa.sa, sa_len) < 0)
-                return -errno;
+                return fd;
 
         r = getpeercred(fd, &ucred);
         if (r < 0)

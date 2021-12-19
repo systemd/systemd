@@ -3,6 +3,7 @@
 #include <grp.h>
 #include <linux/fs.h>
 #include <linux/magic.h>
+#include <math.h>
 #include <openssl/pem.h>
 #include <pwd.h>
 #include <sys/ioctl.h>
@@ -35,7 +36,9 @@
 #include "process-util.h"
 #include "quota-util.h"
 #include "random-util.h"
+#include "resize-fs.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -201,6 +204,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .default_storage = _USER_STORAGE_INVALID,
+                .rebalance_interval_usec = 2 * USEC_PER_MINUTE, /* initially, rebalance every 2min */
         };
 
         r = manager_parse_config_file(m);
@@ -249,8 +253,8 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(h, m->homes_by_worker_pid)
                 (void) home_wait_for_worker(h);
 
-        sd_bus_flush_close_unref(m->bus);
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->bus = sd_bus_flush_close_unref(m->bus);
+        m->polkit_registry = bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 
@@ -259,13 +263,14 @@ Manager* manager_free(Manager *m) {
         m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
         m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
+        m->rebalance_event_source = sd_event_source_unref(m->rebalance_event_source);
 
-        sd_event_unref(m->event);
+        m->event = sd_event_unref(m->event);
 
-        hashmap_free(m->homes_by_uid);
-        hashmap_free(m->homes_by_name);
-        hashmap_free(m->homes_by_worker_pid);
-        hashmap_free(m->homes_by_sysfs);
+        m->homes_by_uid = hashmap_free(m->homes_by_uid);
+        m->homes_by_name = hashmap_free(m->homes_by_name);
+        m->homes_by_worker_pid = hashmap_free(m->homes_by_worker_pid);
+        m->homes_by_sysfs = hashmap_free(m->homes_by_sysfs);
 
         if (m->private_key)
                 EVP_PKEY_free(m->private_key);
@@ -442,7 +447,6 @@ unlink_this_file:
 
 static int manager_enumerate_records(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 
@@ -914,7 +918,6 @@ static int manager_assess_image(
 
 int manager_enumerate_images(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 
@@ -944,6 +947,10 @@ static int manager_connect_bus(Manager *m) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = bus_add_implementation(m->bus, &manager_object, m);
+        if (r < 0)
+                return r;
+
+        r = bus_log_control_api_register(m->bus);
         if (r < 0)
                 return r;
 
@@ -1113,10 +1120,11 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         assert(m);
 
         n = read_datagram(fd, &sender, &datagram, &passed_fd);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
                 return log_error_errno(n, "Failed to read notify datagram: %m");
+        }
 
         if (sender.pid <= 0) {
                 log_warning("Received notify datagram without valid sender PID, ignoring.");
@@ -1764,5 +1772,438 @@ int manager_enqueue_gc(Manager *m, Home *focus) {
                 log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
 
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
+        return 1;
+}
+
+static bool manager_shall_rebalance(Manager *m) {
+        Home *h;
+
+        assert(m);
+
+        if (IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
+                return true;
+
+        HASHMAP_FOREACH(h, m->homes_by_name)
+                if (home_shall_rebalance(h))
+                        return true;
+
+        return false;
+}
+
+static int home_cmp(Home *const*a, Home *const*b) {
+        int r;
+
+        assert(a);
+        assert(*a);
+        assert(b);
+        assert(*b);
+
+        /* Order user records by their weight (and by their name, to make things stable). We put the records
+         * with the highest weight last, since we distribute space from the beginning and round down, hence
+         * later entries tend to get slightly more than earlier entries. */
+
+        r = CMP(user_record_rebalance_weight((*a)->record), user_record_rebalance_weight((*b)->record));
+        if (r != 0)
+                return r;
+
+        return strcmp((*a)->user_name, (*b)->user_name);
+}
+
+static int manager_rebalance_calculate(Manager *m) {
+        uint64_t weight_sum, free_sum, usage_sum = 0, min_free = UINT64_MAX;
+        _cleanup_free_ Home **array = NULL;
+        bool relevant = false;
+        struct statfs sfs;
+        int c = 0, r;
+        Home *h;
+
+        assert(m);
+
+        if (statfs(get_home_root(), &sfs) < 0)
+                return log_error_errno(errno, "Failed to statfs() /home: %m");
+
+        free_sum = (uint64_t) sfs.f_bsize * sfs.f_bavail; /* This much free space is available on the
+                                                           * underlying pool directory */
+
+        weight_sum = REBALANCE_WEIGHT_BACKING; /* Grant the underlying pool directory a fixed weight of 20
+                                                * (home dirs get 100 by default, i.e. 5x more). This weight
+                                                * is not configurable, the per-home weights are. */
+
+        HASHMAP_FOREACH(h, m->homes_by_name) {
+                statfs_f_type_t fstype;
+                h->rebalance_pending = false; /* First, reset the flag, we only want it to be true for the
+                                               * homes that qualify for rebalancing */
+
+                if (!home_shall_rebalance(h)) /* Only look at actual candidates */
+                        continue;
+
+                if (home_is_busy(h))
+                        return -EBUSY; /* Let's not rebalance if there's a busy home directory. */
+
+                r = home_get_disk_status(
+                                h,
+                                &h->rebalance_size,
+                                &h->rebalance_usage,
+                                &h->rebalance_free,
+                                NULL,
+                                NULL,
+                                &fstype,
+                                NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get free space of home '%s', ignoring.", h->user_name);
+                        continue;
+                }
+
+                if (h->rebalance_free > UINT64_MAX - free_sum)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Rebalance free overflow");
+                free_sum += h->rebalance_free;
+
+                if (h->rebalance_usage > UINT64_MAX - usage_sum)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Rebalance usage overflow");
+                usage_sum += h->rebalance_usage;
+
+                h->rebalance_weight = user_record_rebalance_weight(h->record);
+                if (h->rebalance_weight > UINT64_MAX - weight_sum)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Rebalance weight overflow");
+                weight_sum += h->rebalance_weight;
+
+                h->rebalance_min = minimal_size_by_fs_magic(fstype);
+
+                if (!GREEDY_REALLOC(array, c+1))
+                        return log_oom();
+
+                array[c++] = h;
+        }
+
+        if (c == 0) {
+                log_debug("No homes to rebalance.");
+                return 0;
+        }
+
+        assert(weight_sum > 0);
+
+        log_debug("Disk space usage by all home directories to rebalance: %s — available disk space: %s",
+                  FORMAT_BYTES(usage_sum), FORMAT_BYTES(free_sum));
+
+        /* Bring the home directories in a well-defined order, so that we distribute space in a reproducible
+         * way for the same parameters. */
+        typesafe_qsort(array, c, home_cmp);
+
+        for (int i = 0; i < c; i++) {
+                uint64_t new_free;
+                double d;
+
+                h = array[i];
+
+                assert(h->rebalance_free <= free_sum);
+                assert(h->rebalance_usage <= usage_sum);
+                assert(h->rebalance_weight <= weight_sum);
+
+                d = ((double) (free_sum / 4096) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
+
+                /* Convert from units of 4K back to bytes */
+                if (d >= (double) (UINT64_MAX/4096))
+                        new_free = UINT64_MAX;
+                else
+                        new_free = (uint64_t) d * 4096;
+
+                /* Subtract the weight and assigned space from the sums now, to distribute the rounding noise
+                 * to the remaining home dirs */
+                free_sum = LESS_BY(free_sum, new_free);
+                weight_sum = LESS_BY(weight_sum, h->rebalance_weight);
+
+                /* Keep track of home directory with the least amount of space left: we want to schedule the
+                 * next rebalance more quickly if this is low */
+                if (new_free < min_free)
+                        min_free = h->rebalance_size;
+
+                if (new_free > UINT64_MAX - h->rebalance_usage)
+                        h->rebalance_goal = UINT64_MAX-1; /* maximum size */
+                else {
+                        h->rebalance_goal = h->rebalance_usage + new_free;
+
+                        if (h->rebalance_min != UINT64_MAX && h->rebalance_goal < h->rebalance_min)
+                                h->rebalance_goal = h->rebalance_min;
+                }
+
+                /* Skip over this home if the state doesn't match the operation */
+                if ((m->rebalance_state == REBALANCE_SHRINKING && h->rebalance_goal > h->rebalance_size) ||
+                    (m->rebalance_state == REBALANCE_GROWING && h->rebalance_goal < h->rebalance_size))
+                        h->rebalance_pending = false;
+                else {
+                        log_debug("Rebalancing home directory '%s' %s → %s.", h->user_name,
+                                  FORMAT_BYTES(h->rebalance_size), FORMAT_BYTES(h->rebalance_goal));
+                        h->rebalance_pending = true;
+                }
+
+                if ((fabs((double) h->rebalance_size - (double) h->rebalance_goal) * 100 / (double) h->rebalance_size) >= 5.0)
+                        relevant = true;
+        }
+
+        /* Scale next rebalancing interval based on the least amount of space of any of the home
+         * directories. We pick a time in the range 1min … 15min, scaled by log2(min_free), so that:
+         * 10M → ~0.7min, 100M → ~2.7min, 1G → ~4.6min, 10G → ~6.5min, 100G ~8.4 */
+        m->rebalance_interval_usec = (usec_t) CLAMP((LESS_BY(log2(min_free), 22)*15*USEC_PER_MINUTE)/26,
+                                                    1 * USEC_PER_MINUTE,
+                                                    15 * USEC_PER_MINUTE);
+
+
+        log_debug("Rebalancing interval set to %s.", FORMAT_TIMESPAN(m->rebalance_interval_usec, USEC_PER_MSEC));
+
+        /* Let's suppress small resizes, growing/shrinking file systems isn't free after all */
+        if (!relevant) {
+                log_debug("Skipping rebalancing, since all calculated size changes are below ±5%%.");
+                return 0;
+        }
+
+        return c;
+}
+
+static int manager_rebalance_apply(Manager *m) {
+        int c = 0, r;
+        Home *h;
+
+        assert(m);
+
+        HASHMAP_FOREACH(h, m->homes_by_name) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!h->rebalance_pending)
+                        continue;
+
+                h->rebalance_pending = false;
+
+                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, /* automatic= */ true, &error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to resize home '%s' for rebalancing, ignoring: %s",
+                                          h->user_name, bus_error_message(&error, r));
+                else
+                        c++;
+        }
+
+        return c;
+}
+
+static void manager_rebalance_reply_messages(Manager *m) {
+        int r;
+
+        assert(m);
+
+        for (;;) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg =
+                        set_steal_first(m->rebalance_pending_method_calls);
+
+                if (!msg)
+                        break;
+
+                r = sd_bus_reply_method_return(msg, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reply to rebalance method call, ignoring: %m");
+        }
+}
+
+static int manager_rebalance_now(Manager *m) {
+        RebalanceState busy_state; /* the state to revert to when operation fails if busy */
+        int r;
+
+        assert(m);
+
+        log_debug("Rebalancing now...");
+
+        /* We maintain a simple state engine here to keep track of what we are doing. We'll first shrink all
+         * homes that shall be shrunk and then grow all homes that shall be grown, so that they can take up
+         * the space now freed. */
+
+        for (;;) {
+                switch (m->rebalance_state) {
+
+                case REBALANCE_IDLE:
+                case REBALANCE_PENDING:
+                case REBALANCE_WAITING:
+                        /* First shrink large home dirs */
+                        m->rebalance_state = REBALANCE_SHRINKING;
+                        busy_state = REBALANCE_PENDING;
+
+                        /* We are initiating the next rebalancing cycle now, let's make the queued methods
+                         * calls the pending ones, and flush out any pending ones (which shouldn't exist at
+                         * this time anyway) */
+                        set_clear(m->rebalance_pending_method_calls);
+                        SWAP_TWO(m->rebalance_pending_method_calls, m->rebalance_queued_method_calls);
+
+                        log_debug("Shrinking phase..");
+                        break;
+
+                case REBALANCE_SHRINKING:
+                        /* Then grow small home dirs */
+                        m->rebalance_state = REBALANCE_GROWING;
+                        busy_state = REBALANCE_SHRINKING;
+                        log_debug("Growing phase..");
+                        break;
+
+                case REBALANCE_GROWING:
+                        /* Finally, we are done */
+                        log_info("Rebalancing complete.");
+                        m->rebalance_state = REBALANCE_IDLE;
+                        r = 0;
+                        goto finish;
+
+                case REBALANCE_OFF:
+                default:
+                        assert_not_reached();
+                }
+
+                r = manager_rebalance_calculate(m);
+                if (r == -EBUSY) {
+                        /* Calculations failed because one home directory is currently busy. Revert to a state that
+                         * tells us what to do next. */
+                        log_debug("Can't enter phase, busy.");
+                        m->rebalance_state = busy_state;
+                        return r;
+                }
+                if (r < 0)
+                        goto finish;
+                if (r == 0)
+                        continue; /* got to next step immediately, if there's nothing to do */
+
+                r = manager_rebalance_apply(m);
+                if (r < 0)
+                        goto finish;
+                if (r > 0)
+                        break; /* At least one resize operation is now pending, we are done for now */
+
+                /* If there was nothing to apply, go for next state right-away */
+        }
+
+        return 0;
+
+finish:
+        /* Reset state and schedule next rebalance */
+        m->rebalance_state = REBALANCE_IDLE;
+        manager_rebalance_reply_messages(m);
+        (void) manager_schedule_rebalance(m, /* immediately= */ false);
+        return r;
+}
+
+static int on_rebalance_timer(sd_event_source *s, usec_t t, void *userdata) {
+        Manager *m = userdata;
+
+        assert(s);
+        assert(m);
+        assert(IN_SET(m->rebalance_state, REBALANCE_WAITING, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING));
+
+        (void) manager_rebalance_now(m);
+        return 0;
+}
+
+int manager_schedule_rebalance(Manager *m, bool immediately) {
+        int r;
+
+        assert(m);
+
+        /* Check if there are any records where rebalancing is requested */
+        if (!manager_shall_rebalance(m)) {
+                log_debug("Not scheduling rebalancing, not needed.");
+                r = 0; /* report that we didn't schedule anything because nothing needed it */
+                goto turn_off;
+        }
+
+        if (immediately) {
+                /* If we are told to rebalance immediately, then mark a rebalance as pending (even if we area
+                 * already running one) */
+
+                if (m->rebalance_event_source) {
+                        r = sd_event_source_set_time(m->rebalance_event_source, 0);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to schedule immediate rebalancing: %m");
+                                goto turn_off;
+                        }
+
+                        r = sd_event_source_set_enabled(m->rebalance_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enable rebalancing event source: %m");
+                                goto turn_off;
+                        }
+                } else {
+                        r = sd_event_add_time(m->event, &m->rebalance_event_source, CLOCK_MONOTONIC, 0, USEC_PER_SEC, on_rebalance_timer, m);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to allocate rebalance event source: %m");
+                                goto turn_off;
+                        }
+
+                        r = sd_event_source_set_priority(m->rebalance_event_source, SD_EVENT_PRIORITY_IDLE + 10);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set rebalance event source priority: %m");
+                                goto turn_off;
+                        }
+
+                        (void) sd_event_source_set_description(m->rebalance_event_source, "rebalance");
+
+                }
+
+                if (!IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
+                        m->rebalance_state = REBALANCE_PENDING;
+
+                log_debug("Scheduled immediate rebalancing...");
+                return 1; /* report that we scheduled something */
+        }
+
+        /* If we are told to schedule a rebalancing eventually, then do so only if we are not executing
+         * anything yet. Also if we have something scheduled already, leave it in place */
+        if (!IN_SET(m->rebalance_state, REBALANCE_OFF, REBALANCE_IDLE))
+                return 1; /* report that there's already something scheduled */
+
+        if (m->rebalance_event_source) {
+                r = sd_event_source_set_time_relative(m->rebalance_event_source, m->rebalance_interval_usec);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to schedule immediate rebalancing: %m");
+                        goto turn_off;
+                }
+
+                r = sd_event_source_set_enabled(m->rebalance_event_source, SD_EVENT_ONESHOT);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to enable rebalancing event source: %m");
+                        goto turn_off;
+                }
+        } else {
+                r = sd_event_add_time_relative(m->event, &m->rebalance_event_source, CLOCK_MONOTONIC, m->rebalance_interval_usec, USEC_PER_SEC, on_rebalance_timer, m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate rebalance event source: %m");
+                        goto turn_off;
+                }
+
+                r = sd_event_source_set_priority(m->rebalance_event_source, SD_EVENT_PRIORITY_IDLE + 10);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set rebalance event source priority: %m");
+                        goto turn_off;
+                }
+
+                (void) sd_event_source_set_description(m->rebalance_event_source, "rebalance");
+        }
+
+        m->rebalance_state = REBALANCE_WAITING; /* We managed to enqueue a timer event, we now wait until it fires */
+        log_debug("Scheduled rebalancing in %s...", FORMAT_TIMESPAN(m->rebalance_interval_usec, 0));
+        return 1; /* report that we scheduled something */
+
+turn_off:
+        m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
+        m->rebalance_state = REBALANCE_OFF;
+        manager_rebalance_reply_messages(m);
+        return r;
+}
+
+int manager_reschedule_rebalance(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* If a rebalance is pending reschedules it so it gets executed immediately */
+
+        if (!IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
+                return 0;
+
+        r = manager_schedule_rebalance(m, /* immediately= */ true);
+        if (r < 0)
+                return r;
+
         return 1;
 }

@@ -40,7 +40,7 @@ clock_settime
 clock_settime64	404
 clone	220
 clone2
-clone3
+clone3	435
 close	57
 close_range	436
 connect	203
@@ -106,6 +106,7 @@ ftruncate
 ftruncate64	46
 futex
 futex_time64	422
+futex_waitv	449
 futimesat
 get_kernel_syms
 get_mempolicy	236
@@ -203,6 +204,7 @@ madvise	233
 mbind	235
 membarrier	283
 memfd_create	279
+memfd_secret
 memory_ordering
 migrate_pages	238
 mincore	232
@@ -374,7 +376,6 @@ pciconfig_read
 pciconfig_write
 perf_event_open	241
 perfctr
-perfmonctl
 personality	92
 pidfd_getfd	438
 pidfd_open	434
@@ -394,6 +395,7 @@ preadv	69
 preadv2	286
 prlimit64	261
 process_madvise	440
+process_mrelease	448
 process_vm_readv	270
 process_vm_writev	271
 pselect6
@@ -404,7 +406,7 @@ pwritev	70
 pwritev2	287
 query_module
 quotactl	60
-quotactl_path
+quotactl_fd	443
 read	63
 readahead	213
 readdir

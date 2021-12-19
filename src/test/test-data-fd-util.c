@@ -47,7 +47,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
         fd = safe_close(fd);
 }
 
-static void test_acquire_data_fd(void) {
+TEST(acquire_data_fd) {
         test_acquire_data_fd_one(0);
         test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL);
         test_acquire_data_fd_one(ACQUIRE_NO_MEMFD);
@@ -79,7 +79,7 @@ static void assert_equal_fd(int fd1, int fd2) {
         }
 }
 
-static void test_copy_data_fd(void) {
+TEST(copy_data_fd) {
         _cleanup_close_ int fd1 = -1, fd2 = -1;
         _cleanup_(close_pairp) int sfd[2] = { -1, -1 };
         _cleanup_(sigkill_waitp) pid_t pid = -1;
@@ -145,11 +145,4 @@ static void test_copy_data_fd(void) {
         assert_se(read(fd2, &j, sizeof(j)) == 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_acquire_data_fd();
-        test_copy_data_fd();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -33,9 +33,7 @@ static void test_unit_name_is_valid_one(const char *name, UnitNameFlags flags, b
         assert_se(unit_name_is_valid(name, flags) == expected);
 }
 
-static void test_unit_name_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_is_valid) {
         test_unit_name_is_valid_one("foo.service", UNIT_NAME_ANY, true);
         test_unit_name_is_valid_one("foo.service", UNIT_NAME_PLAIN, true);
         test_unit_name_is_valid_one("foo.service", UNIT_NAME_INSTANCE, false);
@@ -91,9 +89,7 @@ static void test_unit_name_replace_instance_one(const char *pattern, const char 
         assert_se(streq_ptr(t, expected));
 }
 
-static void test_unit_name_replace_instance(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_replace_instance) {
         test_unit_name_replace_instance_one("foo@.service", "waldo", "foo@waldo.service", 0);
         test_unit_name_replace_instance_one("foo@xyz.service", "waldo", "foo@waldo.service", 0);
         test_unit_name_replace_instance_one("xyz", "waldo", NULL, -EINVAL);
@@ -119,9 +115,7 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
         }
 }
 
-static void test_unit_name_from_path(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_from_path) {
         test_unit_name_from_path_one("/waldo", ".mount", "waldo.mount", 0);
         test_unit_name_from_path_one("/waldo/quuix", ".mount", "waldo-quuix.mount", 0);
         test_unit_name_from_path_one("/waldo/quuix/", ".mount", "waldo-quuix.mount", 0);
@@ -149,9 +143,7 @@ static void test_unit_name_from_path_instance_one(const char *pattern, const cha
         }
 }
 
-static void test_unit_name_from_path_instance(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_from_path_instance) {
         test_unit_name_from_path_instance_one("waldo", "/waldo", ".mount", "waldo@waldo.mount", 0);
         test_unit_name_from_path_instance_one("waldo", "/waldo////quuix////", ".mount", "waldo@waldo-quuix.mount", 0);
         test_unit_name_from_path_instance_one("waldo", "/", ".mount", "waldo@-.mount", 0);
@@ -170,9 +162,7 @@ static void test_unit_name_to_path_one(const char *unit, const char *path, int r
         assert_se(streq_ptr(path, p));
 }
 
-static void test_unit_name_to_path(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_to_path) {
         test_unit_name_to_path_one("home.mount", "/home", 0);
         test_unit_name_to_path_one("home-lennart.mount", "/home/lennart", 0);
         test_unit_name_to_path_one("home-lennart-.mount", NULL, -EINVAL);
@@ -201,9 +191,7 @@ static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, con
         }
 }
 
-static void test_unit_name_mangle(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_mangle) {
         test_unit_name_mangle_one(false, "foo.service", "foo.service", 0);
         test_unit_name_mangle_one(false, "/home", "home.mount", 1);
         test_unit_name_mangle_one(false, "/dev/sda", "dev-sda.device", 1);
@@ -220,13 +208,11 @@ static void test_unit_name_mangle(void) {
         test_unit_name_mangle_one(true, "ü*", "\\xc3\\xbc*", 1);
 }
 
-static int test_unit_printf(void) {
+TEST_RET(unit_printf, .sd_booted = true) {
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
@@ -328,9 +314,7 @@ static int test_unit_printf(void) {
         return 0;
 }
 
-static void test_unit_instance_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_instance_is_valid) {
         assert_se(unit_instance_is_valid("fooBar"));
         assert_se(unit_instance_is_valid("foo-bar"));
         assert_se(unit_instance_is_valid("foo.stUff"));
@@ -343,9 +327,7 @@ static void test_unit_instance_is_valid(void) {
         assert_se(!unit_instance_is_valid("foo/bar"));
 }
 
-static void test_unit_prefix_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_prefix_is_valid) {
         assert_se(unit_prefix_is_valid("fooBar"));
         assert_se(unit_prefix_is_valid("foo-bar"));
         assert_se(unit_prefix_is_valid("foo.stUff"));
@@ -359,10 +341,8 @@ static void test_unit_prefix_is_valid(void) {
         assert_se(!unit_prefix_is_valid("@foo-bar"));
 }
 
-static void test_unit_name_change_suffix(void) {
+TEST(unit_name_change_suffix) {
         char *t;
-
-        log_info("/* %s */", __func__);
 
         assert_se(unit_name_change_suffix("foo.mount", ".service", &t) == 0);
         assert_se(streq(t, "foo.service"));
@@ -373,10 +353,8 @@ static void test_unit_name_change_suffix(void) {
         free(t);
 }
 
-static void test_unit_name_build(void) {
+TEST(unit_name_build) {
         char *t;
-
-        log_info("/* %s */", __func__);
 
         assert_se(unit_name_build("foo", "bar", ".service", &t) == 0);
         assert_se(streq(t, "foo@bar.service"));
@@ -391,9 +369,7 @@ static void test_unit_name_build(void) {
         free(t);
 }
 
-static void test_slice_name_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(slice_name_is_valid) {
         assert_se( slice_name_is_valid(SPECIAL_ROOT_SLICE));
         assert_se( slice_name_is_valid("foo.slice"));
         assert_se( slice_name_is_valid("foo-bar.slice"));
@@ -422,11 +398,9 @@ static void test_slice_name_is_valid(void) {
         assert_se(!slice_name_is_valid("foo@bar.service"));
 }
 
-static void test_build_subslice(void) {
+TEST(build_subslice) {
         char *a;
         char *b;
-
-        log_info("/* %s */", __func__);
 
         assert_se(slice_build_subslice(SPECIAL_ROOT_SLICE, "foo", &a) >= 0);
         assert_se(slice_build_subslice(a, "bar", &b) >= 0);
@@ -449,9 +423,7 @@ static void test_build_parent_slice_one(const char *name, const char *expect, in
         assert_se(streq_ptr(s, expect));
 }
 
-static void test_build_parent_slice(void) {
-        log_info("/* %s */", __func__);
-
+TEST(build_parent_slice) {
         test_build_parent_slice_one(SPECIAL_ROOT_SLICE, NULL, 0);
         test_build_parent_slice_one("foo.slice", SPECIAL_ROOT_SLICE, 1);
         test_build_parent_slice_one("foo-bar.slice", "foo.slice", 1);
@@ -470,11 +442,9 @@ static void test_build_parent_slice(void) {
         test_build_parent_slice_one("@.slice", NULL, -EINVAL);
 }
 
-static void test_unit_name_to_instance(void) {
+TEST(unit_name_to_instance) {
         UnitNameFlags r;
         char *instance;
-
-        log_info("/* %s */", __func__);
 
         r = unit_name_to_instance("foo@bar.service", &instance);
         assert_se(r == UNIT_NAME_INSTANCE);
@@ -504,10 +474,8 @@ static void test_unit_name_to_instance(void) {
         assert_se(!instance);
 }
 
-static void test_unit_name_escape(void) {
+TEST(unit_name_escape) {
         _cleanup_free_ char *r;
-
-        log_info("/* %s */", __func__);
 
         r = unit_name_escape("ab+-c.a/bc@foo.service");
         assert_se(r);
@@ -522,9 +490,7 @@ static void test_u_n_t_one(const char *name, const char *expected, int ret) {
         assert_se(streq_ptr(f, expected));
 }
 
-static void test_unit_name_template(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_template) {
         test_u_n_t_one("foo@bar.service", "foo@.service", 0);
         test_u_n_t_one("foo.mount", NULL, -EINVAL);
 }
@@ -536,9 +502,7 @@ static void test_unit_name_path_unescape_one(const char *name, const char *path,
         assert_se(streq_ptr(path, p));
 }
 
-static void test_unit_name_path_unescape(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_path_unescape) {
         test_unit_name_path_unescape_one("foo", "/foo", 0);
         test_unit_name_path_unescape_one("foo-bar", "/foo/bar", 0);
         test_unit_name_path_unescape_one("foo-.bar", "/foo/.bar", 0);
@@ -560,9 +524,7 @@ static void test_unit_name_to_prefix_one(const char *input, int ret, const char 
         assert_se(streq_ptr(k, output));
 }
 
-static void test_unit_name_to_prefix(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_to_prefix) {
         test_unit_name_to_prefix_one("foobar.service", 0, "foobar");
         test_unit_name_to_prefix_one("", -EINVAL, NULL);
         test_unit_name_to_prefix_one("foobar", -EINVAL, NULL);
@@ -582,9 +544,7 @@ static void test_unit_name_from_dbus_path_one(const char *input, int ret, const 
         assert_se(streq_ptr(k, output));
 }
 
-static void test_unit_name_from_dbus_path(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dbus_2esocket", 0, "dbus.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/_2d_2emount", 0, "-.mount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/_2d_2eslice", 0, "-.slice");
@@ -870,9 +830,7 @@ static void test_unit_name_from_dbus_path(void) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/wpa_5fsupplicant_2eservice", 0, "wpa_supplicant.service");
 }
 
-static void test_unit_name_prefix_equal(void) {
-        log_info("/* %s */", __func__);
-
+TEST(unit_name_prefix_equal) {
         assert_se(unit_name_prefix_equal("a.service", "a.service"));
         assert_se(unit_name_prefix_equal("a.service", "a.mount"));
         assert_se(unit_name_prefix_equal("a@b.service", "a.service"));
@@ -886,39 +844,15 @@ static void test_unit_name_prefix_equal(void) {
         assert_se(!unit_name_prefix_equal("a", "a"));
 }
 
-int main(int argc, char* argv[]) {
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_INFO,
+
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        int r, rc = 0;
+        ({
+                if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+                        return log_tests_skipped("cgroupfs not available");
 
-        test_setup_logging(LOG_INFO);
+                assert_se(runtime_dir = setup_fake_runtime_dir());
+        }),
 
-        r = enter_cgroup_subroot(NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
-
-        assert_se(runtime_dir = setup_fake_runtime_dir());
-
-        test_unit_name_is_valid();
-        test_unit_name_replace_instance();
-        test_unit_name_from_path();
-        test_unit_name_from_path_instance();
-        test_unit_name_mangle();
-        test_unit_name_to_path();
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_unit_printf());
-        test_unit_instance_is_valid();
-        test_unit_prefix_is_valid();
-        test_unit_name_change_suffix();
-        test_unit_name_build();
-        test_slice_name_is_valid();
-        test_build_subslice();
-        test_build_parent_slice();
-        test_unit_name_to_instance();
-        test_unit_name_escape();
-        test_unit_name_template();
-        test_unit_name_path_unescape();
-        test_unit_name_to_prefix();
-        test_unit_name_from_dbus_path();
-        test_unit_name_prefix_equal();
-
-        return rc;
-}
+        /* no outro */);

@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "architecture.h"
 #include "list.h"
 #include "loop-util.h"
 #include "macro.h"
@@ -35,8 +36,10 @@ struct DissectedPartition {
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
         PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
+        PARTITION_ROOT_OTHER,
         PARTITION_USR,
         PARTITION_USR_SECONDARY,
+        PARTITION_USR_OTHER,
         PARTITION_HOME,
         PARTITION_SRV,
         PARTITION_ESP,
@@ -44,12 +47,16 @@ typedef enum PartitionDesignator {
         PARTITION_SWAP,
         PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY,
         PARTITION_USR_VERITY,
         PARTITION_USR_SECONDARY_VERITY,
+        PARTITION_USR_OTHER_VERITY,
         PARTITION_ROOT_VERITY_SIG, /* PKCS#7 signature for root hash for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY_SIG, /* ditto for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY_SIG,
         PARTITION_USR_VERITY_SIG,
         PARTITION_USR_SECONDARY_VERITY_SIG,
+        PARTITION_USR_OTHER_VERITY_SIG,
         PARTITION_TMP,
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
@@ -65,16 +72,22 @@ static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
         return IN_SET(d,
                       PARTITION_ROOT,
                       PARTITION_ROOT_SECONDARY,
+                      PARTITION_ROOT_OTHER,
                       PARTITION_USR,
                       PARTITION_USR_SECONDARY,
+                      PARTITION_USR_OTHER,
                       PARTITION_ROOT_VERITY,
                       PARTITION_ROOT_SECONDARY_VERITY,
+                      PARTITION_ROOT_OTHER_VERITY,
                       PARTITION_USR_VERITY,
                       PARTITION_USR_SECONDARY_VERITY,
+                      PARTITION_USR_OTHER_VERITY,
                       PARTITION_ROOT_VERITY_SIG,
                       PARTITION_ROOT_SECONDARY_VERITY_SIG,
+                      PARTITION_ROOT_OTHER_VERITY_SIG,
                       PARTITION_USR_VERITY_SIG,
-                      PARTITION_USR_SECONDARY_VERITY_SIG);
+                      PARTITION_USR_SECONDARY_VERITY_SIG,
+                      PARTITION_USR_OTHER_VERITY_SIG);
 }
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
@@ -86,11 +99,17 @@ static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
         case PARTITION_ROOT_SECONDARY:
                 return PARTITION_ROOT_SECONDARY_VERITY;
 
+        case PARTITION_ROOT_OTHER:
+                return PARTITION_ROOT_OTHER_VERITY;
+
         case PARTITION_USR:
                 return PARTITION_USR_VERITY;
 
         case PARTITION_USR_SECONDARY:
                 return PARTITION_USR_SECONDARY_VERITY;
+
+        case PARTITION_USR_OTHER:
+                return PARTITION_USR_OTHER_VERITY;
 
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
@@ -106,14 +125,52 @@ static inline PartitionDesignator PARTITION_VERITY_SIG_OF(PartitionDesignator p)
         case PARTITION_ROOT_SECONDARY:
                 return PARTITION_ROOT_SECONDARY_VERITY_SIG;
 
+        case PARTITION_ROOT_OTHER:
+                return PARTITION_ROOT_OTHER_VERITY_SIG;
+
         case PARTITION_USR:
                 return PARTITION_USR_VERITY_SIG;
 
         case PARTITION_USR_SECONDARY:
                 return PARTITION_USR_SECONDARY_VERITY_SIG;
 
+        case PARTITION_USR_OTHER:
+                return PARTITION_USR_OTHER_VERITY_SIG;
+
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
+        }
+}
+
+static inline PartitionDesignator PARTITION_ROOT_OF_ARCH(Architecture arch) {
+        switch (arch) {
+
+        case native_architecture():
+                return PARTITION_ROOT;
+
+#ifdef ARCHITECTURE_SECONDARY
+        case ARCHITECTURE_SECONDARY:
+                return PARTITION_ROOT_SECONDARY;
+#endif
+
+        default:
+                return PARTITION_ROOT_OTHER;
+        }
+}
+
+static inline PartitionDesignator PARTITION_USR_OF_ARCH(Architecture arch) {
+        switch (arch) {
+
+        case native_architecture():
+                return PARTITION_USR;
+
+#ifdef ARCHITECTURE_SECONDARY
+        case ARCHITECTURE_SECONDARY:
+                return PARTITION_USR_SECONDARY;
+#endif
+
+        default:
+                return PARTITION_USR_OTHER;
         }
 }
 
@@ -163,6 +220,7 @@ struct DissectedImage {
         char **machine_info;
         char **os_release;
         char **extension_release;
+        int has_init_system;
 };
 
 struct MountOptions {
@@ -207,7 +265,7 @@ int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphr
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 
-int dissected_image_acquire_metadata(DissectedImage *m);
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
@@ -227,4 +285,4 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
 
-int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level);
+int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope);

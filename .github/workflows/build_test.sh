@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 set -ex
@@ -27,6 +27,7 @@ PACKAGES=(
     itstool
     kbd
     libblkid-dev
+    libbpf-dev
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -48,8 +49,8 @@ PACKAGES=(
     net-tools
     perl
     python3-evdev
-    python3-lxml
     python3-jinja2
+    python3-lxml
     python3-pip
     python3-pyparsing
     python3-setuptools
@@ -61,6 +62,7 @@ PACKAGES=(
 )
 COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
+LINKER="${LINKER:?}"
 RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -100,11 +102,11 @@ add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
 apt-get -y build-dep systemd
 apt-get -y install "${PACKAGES[@]}"
-# Install the latest meson and ninja form pip, since the distro versions don't
-# support all the features we need (like --optimization=). Since the build-dep
+# Install more or less recent meson and ninja with pip, since the distro versions don't
+# always support all the features we need (like --optimization=). Since the build-dep
 # command above installs the distro versions, let's install the pip ones just
 # locally and add the local bin directory to the $PATH.
-pip3 install --user -U meson ninja
+pip3 install --user -r .github/workflows/requirements.txt --require-hashes
 export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
@@ -116,7 +118,12 @@ for args in "${ARGS[@]}"; do
 
     info "Checking build with $args"
     # shellcheck disable=SC2086
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" \
+         CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
+         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
+         meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+               $args build; then
+
         fatal "meson failed with $args"
     fi
 

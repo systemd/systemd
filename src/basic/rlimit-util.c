@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -45,10 +46,7 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 
         log_debug("Failed at setting rlimit " RLIM_FMT " for resource RLIMIT_%s. Will attempt setting value " RLIM_FMT " instead.", rlim->rlim_max, rlimit_to_string(resource), fixed.rlim_max);
 
-        if (setrlimit(resource, &fixed) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setrlimit(resource, &fixed));
 }
 
 int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {

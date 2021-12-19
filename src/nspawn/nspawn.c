@@ -1879,10 +1879,7 @@ int userns_lchown(const char *p, uid_t uid, gid_t gid) {
                         return -EOVERFLOW;
         }
 
-        if (lchown(p, uid, gid) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(lchown(p, uid, gid));
 }
 
 int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
@@ -1890,7 +1887,7 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
         int r;
 
         q = prefix_roota(root, path);
-        r = mkdir_errno_wrapper(q, mode);
+        r = RET_NERRNO(mkdir(q, mode));
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
@@ -2216,13 +2213,12 @@ static int copy_devnodes(const char *dest) {
                 "tty\0"
                 "net/tun\0";
 
-        _unused_ _cleanup_umask_ mode_t u;
         const char *d;
         int r = 0;
 
         assert(dest);
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         /* Create /dev/net, so that we can create /dev/net/tun in it */
         if (userns_mkdir(dest, "/dev/net", 0755, 0, 0) < 0)
@@ -2299,11 +2295,10 @@ static int copy_devnodes(const char *dest) {
 }
 
 static int make_extra_nodes(const char *dest) {
-        _unused_ _cleanup_umask_ mode_t u;
         size_t i;
         int r;
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         for (i = 0; i < arg_n_extra_nodes; i++) {
                 _cleanup_free_ char *path = NULL;
@@ -2346,7 +2341,7 @@ static int setup_pts(const char *dest) {
 
         /* Mount /dev/pts itself */
         p = prefix_roota(dest, "/dev/pts");
-        r = mkdir_errno_wrapper(p, 0755);
+        r = RET_NERRNO(mkdir(p, 0755));
         if (r < 0)
                 return log_error_errno(r, "Failed to create /dev/pts: %m");
 
@@ -2500,12 +2495,11 @@ static int setup_kmsg(int kmsg_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
         _cleanup_close_ int fd = -1;
-        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         assert(kmsg_socket >= 0);
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         /* We create the kmsg FIFO as as temporary file in /run, but immediately delete it after bind mounting it to
          * /proc/kmsg. While FIFOs on the reading side behave very similar to /proc/kmsg, their writing side behaves
@@ -2550,8 +2544,8 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
         assert(m);
         assert(args);
 
-        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET, &args->address4);
-        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET6, &args->address6);
+        (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET, &args->address4);
+        (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET6, &args->address6);
         return 0;
 }
 
@@ -2672,7 +2666,7 @@ static int setup_journal(const char *directory) {
                 /* don't create parents here — if the host doesn't have
                  * permanent journal set up, don't force it here */
 
-                r = mkdir_errno_wrapper(p, 0755);
+                r = RET_NERRNO(mkdir(p, 0755));
                 if (r < 0 && r != -EEXIST) {
                         if (try) {
                                 log_debug_errno(r, "Failed to create %s, skipping journal setup: %m", p);
@@ -3519,6 +3513,7 @@ static int inner_child(
         (void) fdset_close_others(fds);
 
         if (arg_start_mode == START_BOOT) {
+                const char *init;
                 char **a;
                 size_t m;
 
@@ -3529,14 +3524,13 @@ static int inner_child(
                 memcpy_safe(a + 1, arg_parameters, m * sizeof(char*));
                 a[1 + m] = NULL;
 
-                a[0] = (char*) "/usr/lib/systemd/systemd";
-                execve(a[0], a, env_use);
-
-                a[0] = (char*) "/lib/systemd/systemd";
-                execve(a[0], a, env_use);
-
-                a[0] = (char*) "/sbin/init";
-                execve(a[0], a, env_use);
+                FOREACH_STRING(init,
+                               "/usr/lib/systemd/systemd",
+                               "/lib/systemd/systemd",
+                               "/sbin/init") {
+                        a[0] = (char*) init;
+                        execve(a[0], a, env_use);
+                }
 
                 exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
         } else if (!strv_isempty(arg_parameters)) {
@@ -4217,14 +4211,15 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         }
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n == -EXFULL) {
-                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
-                return 0;
-        }
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
+                if (n == -EXFULL) {
+                        log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                        return 0;
+                }
                 return log_warning_errno(n, "Couldn't read notification socket: %m");
+        }
 
         cmsg_close_all(&msghdr);
 

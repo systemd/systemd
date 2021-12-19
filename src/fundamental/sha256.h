@@ -6,7 +6,7 @@
 #include <efilib.h>
 #endif
 
-#include "type.h"
+#include "types-fundamental.h"
 
 struct sha256_ctx {
         uint32_t H[8];

@@ -77,8 +77,8 @@
       <varlistentry>
         <term><command>setup</command></term>
 
-        <listitem><para>Generates a host encryption key for credentials, if none has been generated
-        before. This ensures the <filename>/var/lib/systemd/credential.secret</filename> file is initialized
+        <listitem><para>Generates a host encryption key for credentials, if one has not been generated
+        already. This ensures the <filename>/var/lib/systemd/credential.secret</filename> file is initialized
         with a random secret key if it doesn't exist yet. This secret key is used when encrypting/decrypting
         credentials with <command>encrypt</command> or <command>decrypt</command>, and is only accessible to
         the root user. Note that there's typically no need to invoke this command explicitly as it is
@@ -87,7 +87,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>encrypt</command> <replaceable>input</replaceable> <replaceable>output</replaceable></term>
+        <term><command>encrypt</command> <replaceable>input|-</replaceable> <replaceable>output|-</replaceable></term>
 
         <listitem><para>Loads the specified (unencrypted plaintext) input credential file, encrypts it and
         writes the (encrypted ciphertext) version to the specified output credential file. The resulting file
@@ -141,8 +141,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>decrypt</command> <replaceable>input</replaceable>
-        <optional><replaceable>output</replaceable></optional></term>
+        <term><command>decrypt</command> <replaceable>input|-</replaceable>
+        <optional><replaceable>output|-</replaceable></optional></term>
 
         <listitem><para>Undoes the effect of the <command>encrypt</command> operation: loads the specified
         (encrypted ciphertext) input credential file, decrypts it and writes the (decrypted plaintext)
@@ -152,11 +152,11 @@
         credential name embedded in the encrypted file. If it does not match decryption fails. This is done
         in order to ensure that encrypted credentials are not re-purposed without this being detected. The
         credential name to compare with the embedded credential name may also be overridden with the
-        <option>--name=</option> switch. If only one path is specified (or the output path specified as
-        <literal>-</literal>) it is taken as input path and the decrypted credential is written to standard
-        output. If the input path is specified as <literal>-</literal> the encrypted credential is read from
-        standard input. In this mode, the expected name embedded in the credential cannot be derived from the
-        path and should be specified explicitly with <option>--name=</option>.</para>
+        <option>--name=</option> switch. If the input path is specified as <literal>-</literal>, the
+        encrypted credential is read from standard input. If only one path is specified or the output path
+        specified as <literal>-</literal>, the decrypted credential is written to standard output. In this
+        mode, the expected name embedded in the credential cannot be derived from the path and should be
+        specified explicitly with <option>--name=</option>.</para>
 
         <para>Decrypting credentials requires access to the original TPM2 chip and/or credentials host key,
         see above. Information about which keys are required is embedded in the encrypted credential data,

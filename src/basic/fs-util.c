@@ -30,18 +30,13 @@
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 
 int unlink_noerrno(const char *path) {
         PROTECT_ERRNO;
-        int r;
-
-        r = unlink(path);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(unlink(path));
 }
 
 int rmdir_parents(const char *path, const char *stop) {
@@ -97,8 +92,8 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
          * want — though not atomic (i.e. for a short period both the new and the old filename will exist). */
         if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0) {
 
-                if (unlinkat(olddirfd, oldpath, 0) < 0) {
-                        r = -errno; /* Backup errno before the following unlinkat() alters it */
+                r = RET_NERRNO(unlinkat(olddirfd, oldpath, 0));
+                if (r < 0) {
                         (void) unlinkat(newdirfd, newpath, 0);
                         return r;
                 }
@@ -117,10 +112,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         if (errno != ENOENT)
                 return -errno;
 
-        if (renameat(olddirfd, oldpath, newdirfd, newpath) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(renameat(olddirfd, oldpath, newdirfd, newpath));
 }
 
 int readlinkat_malloc(int fd, const char *p, char **ret) {
@@ -286,14 +278,9 @@ int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t 
 }
 
 int fchmod_umask(int fd, mode_t m) {
-        mode_t u;
-        int r;
+        _cleanup_umask_ mode_t u = umask(0777);
 
-        u = umask(0777);
-        r = fchmod(fd, m & (~u)) < 0 ? -errno : 0;
-        umask(u);
-
-        return r;
+        return RET_NERRNO(fchmod(fd, m & (~u)));
 }
 
 int fchmod_opath(int fd, mode_t m) {
@@ -546,7 +533,6 @@ int mkfifoat_atomic(int dirfd, const char *path, mode_t mode) {
 int get_files_in_directory(const char *path, char ***list) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         size_t n = 0;
 
         assert(path);
@@ -822,7 +808,7 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
 
 int open_parent(const char *path, int flags, mode_t mode) {
         _cleanup_free_ char *parent = NULL;
-        int fd, r;
+        int r;
 
         r = path_extract_directory(path, &parent);
         if (r < 0)
@@ -836,11 +822,7 @@ int open_parent(const char *path, int flags, mode_t mode) {
         else if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY|O_RDONLY;
 
-        fd = open(parent, flags, mode);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        return RET_NERRNO(open(parent, flags, mode));
 }
 
 int conservative_renameat(
@@ -1027,4 +1009,78 @@ int parse_cifs_service(
                 *ret_path = TAKE_PTR(x);
 
         return 0;
+}
+
+int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
+        _cleanup_close_ int fd = -1, parent_fd = -1;
+        _cleanup_free_ char *fname = NULL;
+        bool made;
+        int r;
+
+        /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
+         * do. Guarantees that the returned fd refers to a directory. If O_EXCL is specified will fail if the
+         * dir already exists. Otherwise will open an existing dir, but only if it is one.  */
+
+        if (flags & ~(O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_EXCL|O_NOATIME|O_NOFOLLOW|O_PATH))
+                return -EINVAL;
+        if ((flags & O_ACCMODE) != O_RDONLY)
+                return -EINVAL;
+
+        /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
+         * flags actually make sense to specify: O_CLOEXEC, O_EXCL, O_NOATIME, O_PATH */
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (!filename_is_valid(path)) {
+                _cleanup_free_ char *parent = NULL;
+
+                /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
+                 * that we can pin it, and operate below it. */
+
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_filename(path, &fname);
+                if (r < 0)
+                        return r;
+
+                parent_fd = openat(dirfd, parent, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (parent_fd < 0)
+                        return -errno;
+
+                dirfd = parent_fd;
+                path = fname;
+        }
+
+        r = RET_NERRNO(mkdirat(dirfd, path, mode));
+        if (r == -EEXIST) {
+                if (FLAGS_SET(flags, O_EXCL))
+                        return -EEXIST;
+
+                made = false;
+        } else if (r < 0)
+                return r;
+        else
+                made = true;
+
+        fd = RET_NERRNO(openat(dirfd, path, (flags & ~O_EXCL)|O_DIRECTORY|O_NOFOLLOW));
+        if (fd < 0) {
+                if (fd == -ENOENT)  /* We got ENOENT? then someone else immediately removed it after we
+                                     * created it. In that case let's return immediately without unlinking
+                                     * anything, because there simply isn't anything to unlink anymore. */
+                        return -ENOENT;
+                if (fd == -ELOOP)   /* is a symlink? exists already → created by someone else, don't unlink */
+                        return -EEXIST;
+                if (fd == -ENOTDIR) /* not a directory? exists already → created by someone else, don't unlink */
+                        return -EEXIST;
+
+                if (made)
+                        (void) unlinkat(dirfd, path, AT_REMOVEDIR);
+
+                return fd;
+        }
+
+        return TAKE_FD(fd);
 }

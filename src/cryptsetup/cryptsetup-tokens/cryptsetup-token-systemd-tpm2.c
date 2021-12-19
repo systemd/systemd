@@ -200,7 +200,7 @@ _public_ int cryptsetup_token_validate(
         }
 
         JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!json_variant_is_number(e)) {
                         crypt_log_debug(cd, "TPM2 PCR is not a number.");

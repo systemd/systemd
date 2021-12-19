@@ -2,8 +2,46 @@
 
 #include "openssl-util.h"
 #include "alloc-util.h"
+#include "hexdecoct.h"
 
 #if HAVE_OPENSSL
+int openssl_hash(const EVP_MD *alg,
+                 const void *msg,
+                 size_t msg_len,
+                 uint8_t *ret_hash,
+                 size_t *ret_hash_len) {
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
+        unsigned len;
+        int r;
+
+        ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                /* This function just calls OPENSSL_zalloc, so failure
+                 * here is almost certainly a failed allocation. */
+                return -ENOMEM;
+
+        /* The documentation claims EVP_DigestInit behaves just like
+         * EVP_DigestInit_ex if passed NULL, except it also calls
+         * EVP_MD_CTX_reset, which deinitializes the context. */
+        r = EVP_DigestInit_ex(ctx, alg, NULL);
+        if (r == 0)
+                return -EIO;
+
+        r = EVP_DigestUpdate(ctx, msg, msg_len);
+        if (r == 0)
+                return -EIO;
+
+        r = EVP_DigestFinal_ex(ctx, ret_hash, &len);
+        if (r == 0)
+                return -EIO;
+
+        if (ret_hash_len)
+                *ret_hash_len = len;
+
+        return 0;
+}
+
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
@@ -70,4 +108,33 @@ int rsa_pkey_to_suitable_key_size(
         *ret_suitable_key_size = suitable_key_size;
         return 0;
 }
+
+#  if PREFER_OPENSSL
+int string_hashsum(
+                const char *s,
+                size_t len,
+                const EVP_MD *md_algorithm,
+                char **ret) {
+
+        uint8_t hash[EVP_MAX_MD_SIZE];
+        size_t hash_size;
+        char *enc;
+        int r;
+
+        hash_size = EVP_MD_size(md_algorithm);
+        assert(hash_size > 0);
+
+        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        if (r < 0)
+                return r;
+
+        enc = hexmem(hash, hash_size);
+        if (!enc)
+                return -ENOMEM;
+
+        *ret = enc;
+        return 0;
+
+}
+#  endif
 #endif

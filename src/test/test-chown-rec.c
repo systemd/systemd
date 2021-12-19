@@ -40,7 +40,7 @@ static bool has_xattr(const char *p) {
         return true;
 }
 
-static void test_chown_recursive(void) {
+TEST(chown_recursive) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         struct stat st;
         const char *p;
@@ -149,13 +149,10 @@ static void test_chown_recursive(void) {
         assert_se(!has_xattr(p));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        if (geteuid() != 0)
-                return log_tests_skipped("not running as root");
-
-        test_chown_recursive();
-
-        return EXIT_SUCCESS;
-}
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_DEBUG,
+        ({
+                if (geteuid() != 0)
+                        return log_tests_skipped("not running as root");
+        }),
+        /* no outro */);

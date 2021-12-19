@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '249',
+        version : '250',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.53.2',
        )
 
-libsystemd_version = '0.32.0'
-libudev_version = '1.7.2'
+libsystemd_version = '0.33.0'
+libudev_version = '1.7.3'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
@@ -27,7 +27,8 @@ project_source_root = meson.current_source_dir()
 project_build_root = meson.current_build_dir()
 relative_source_path = run_command('realpath',
                                    '--relative-to=@0@'.format(project_build_root),
-                                   project_source_root).stdout().strip()
+                                   project_source_root,
+                                   check : true).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
@@ -47,7 +48,7 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # Try to install the git pre-commit hook
 add_git_hook_sh = find_program('tools/add-git-hook.sh', required : false)
 if add_git_hook_sh.found()
-        git_hook = run_command(add_git_hook_sh)
+        git_hook = run_command(add_git_hook_sh, check : false)
         if git_hook.returncode() == 0
                 message(git_hook.stdout().strip())
         endif
@@ -55,8 +56,9 @@ endif
 
 #####################################################################
 
+fs = import('fs')
 if get_option('split-usr') == 'auto'
-        split_usr = run_command('test', '-L', '/bin').returncode() != 0
+        split_usr = not fs.is_symlink('/bin')
 else
         split_usr = get_option('split-usr') == 'true'
 endif
@@ -69,7 +71,7 @@ conf.set10('HAVE_SPLIT_USR', split_usr,
            description : '/usr/bin and /bin directories are separate')
 
 if get_option('split-bin') == 'auto'
-        split_bin = run_command('test', '-L', '/usr/sbin').returncode() != 0
+        split_bin = not fs.is_symlink('/usr/sbin')
 else
         split_bin = get_option('split-bin') == 'true'
 endif
@@ -169,7 +171,8 @@ udevlibexecdir = rootprefixdir / 'lib/udev'
 udevrulesdir = udevlibexecdir / 'rules.d'
 udevhwdbdir = udevlibexecdir / 'hwdb.d'
 catalogdir = prefixdir / 'lib/systemd/catalog'
-kernelinstalldir = prefixdir / 'lib/kernel/install.d'
+kerneldir = prefixdir / 'lib/kernel'
+kernelinstalldir = kerneldir / 'install.d'
 factorydir = datadir / 'factory'
 bootlibdir = prefixdir / 'lib/systemd/boot/efi'
 testsdir = prefixdir / 'lib/systemd/tests'
@@ -343,11 +346,11 @@ possible_common_cc_flags = [
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
         '-Werror=overflow',
+        '-Werror=override-init',
         '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
         '-Werror=undef',
-        '-Werror=unused-function',
         '-Wfloat-equal',
         '-Wimplicit-fallthrough=5',
         '-Winit-self',
@@ -362,6 +365,7 @@ possible_common_cc_flags = [
         '-Wstrict-aliasing=2',
         '-Wstrict-prototypes',
         '-Wsuggest-attribute=noreturn',
+        '-Wunused-function',
         '-Wwrite-strings',
 
         # negative arguments are correctly detected starting with meson 0.46.
@@ -408,7 +412,6 @@ possible_cc_flags = possible_common_cc_flags + [
         '-Werror=missing-declarations',
         '-Werror=missing-prototypes',
         '-fdiagnostics-show-option',
-        '-ffast-math',
         '-fno-common',
         '-fno-strict-aliasing',
         '-fstack-protector',
@@ -593,7 +596,6 @@ versiondep = declare_dependency(sources: version_h)
 
 sh = find_program('sh')
 echo = find_program('echo')
-test = find_program('test')
 sed = find_program('sed')
 awk = find_program('awk')
 stat = find_program('stat')
@@ -638,13 +640,13 @@ endforeach
 
 conf.set_quoted('TELINIT', get_option('telinit-path'))
 
-if run_command(ln, '--relative', '--help').returncode() != 0
+if run_command(ln, '--relative', '--help', check : false).returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
 endif
 
 ############################################################
 
-if run_command('python3', '-c', 'import jinja2').returncode() != 0
+if run_command('python3', '-c', 'import jinja2', check : false).returncode() != 0
         error('python3 jinja2 missing')
 endif
 
@@ -658,7 +660,8 @@ const char * in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet_format = 'echo foo,bar | @0@ -L ANSI-C'
-gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()))
+gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()),
+                            check : true)
 gperf_test = gperf_test_format.format('size_t', gperf_snippet.stdout())
 if cc.compiles(gperf_test)
         gperf_len_type = 'size_t'
@@ -741,15 +744,22 @@ endif
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
-        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"').stdout().strip()
-        if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
+        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
+        if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
-                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command(git, 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
+                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
+                                         check : false)
+                if latest_tag.returncode() == 0
+                        time_epoch = run_command(
+                                git, 'log', '--no-show-signature', '-1', '--format=%at',
+                                     latest_tag.stdout().strip(),
+                                check : false).stdout()
+                endif
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
-                time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout()
+                time_epoch = run_command(stat, '-c', '%Y', NEWS,
+                                         check : true).stdout()
         endif
         time_epoch = time_epoch.to_int()
 endif
@@ -766,7 +776,8 @@ foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.d
                 v = run_command(
                         awk,
                         '/^\s*@0@\s+/ { uid=$2 } END { print uid }'.format(tuple[1]),
-                        '/etc/login.defs').stdout().strip()
+                        '/etc/login.defs',
+                        check : false).stdout().strip()
                 if v == ''
                         v = tuple[2]
                 else
@@ -796,7 +807,7 @@ nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
 if not meson.is_cross_build()
-        getent_result = run_command('getent', 'passwd', '65534')
+        getent_result = run_command('getent', 'passwd', '65534', check : false)
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_user
@@ -805,7 +816,7 @@ if not meson.is_cross_build()
                                 'Your build will result in an user table setup that is incompatible with the local system.')
                 endif
         endif
-        id_result = run_command('id', '-u', nobody_user)
+        id_result = run_command('id', '-u', nobody_user, check : false)
         if id_result.returncode() == 0
                 id = id_result.stdout().to_int()
                 if id != 65534
@@ -815,7 +826,7 @@ if not meson.is_cross_build()
                 endif
         endif
 
-        getent_result = run_command('getent', 'group', '65534')
+        getent_result = run_command('getent', 'group', '65534', check : false)
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_group
@@ -824,7 +835,7 @@ if not meson.is_cross_build()
                                 'Your build will result in an group table setup that is incompatible with the local system.')
                 endif
         endif
-        id_result = run_command('id', '-g', nobody_group)
+        id_result = run_command('id', '-g', nobody_group, check : false)
         if id_result.returncode() == 0
                 id = id_result.stdout().to_int()
                 if id != 65534
@@ -898,7 +909,8 @@ default_locale = get_option('default-locale')
 if default_locale == ''
         if not meson.is_cross_build()
                 choose_default_locale_sh = find_program('tools/choose-default-locale.sh')
-                default_locale = run_command(choose_default_locale_sh).stdout().strip()
+                default_locale = run_command(choose_default_locale_sh,
+                                             check : true).stdout().strip()
         else
                 default_locale = 'C.UTF-8'
         endif
@@ -981,18 +993,25 @@ conf.set10('HAVE_LIBBPF', libbpf.found())
 if want_bpf_framework == 'false'
         conf.set10('BPF_FRAMEWORK', 0)
 else
-        clang = find_program('clang', required : bpf_framework_required)
-        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
+        # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
+        # (like clang-10/llvm-strip-10)
+        clang_bin = cc.get_id() == 'clang' ? cc.cmd_array()[0] : 'clang'
+        clang = find_program(clang_bin, required : bpf_framework_required)
+        if clang.found()
+                llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
+                                             check : true).stdout().strip()
+        else
+                llvm_strip_bin = 'llvm-strip'
+        endif
+        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
 
         # Debian installs this in /usr/sbin/ which is not in $PATH.
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
 
-        bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
-        conf.set10('BPF_FRAMEWORK',
-                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
+        conf.set10('BPF_FRAMEWORK', deps_found)
 endif
 
 libmount = dependency('mount',
@@ -1318,6 +1337,10 @@ if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
+
+        # New in elfutils 0.177
+        conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
+                   have and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
 else
         have = false
         libdw = []
@@ -1437,21 +1460,25 @@ else
 endif
 conf.set10('HAVE_DBUS', have)
 
-default_dnssec = get_option('default-dnssec')
-if skip_deps
-        default_dnssec = 'no'
+# We support one or the other. If gcrypt is available, we assume it's there to
+# be used, and use it in preference.
+opt = get_option('cryptolib')
+if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
+        error('openssl requested as the default cryptolib, but not available')
 endif
-if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
-        default_dnssec = 'no'
-endif
-conf.set('DEFAULT_DNSSEC_MODE',
-         'DNSSEC_' + default_dnssec.underscorify().to_upper())
-conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
+conf.set10('PREFER_OPENSSL',
+           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
+conf.set10('HAVE_OPENSSL_OR_GCRYPT',
+           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
+lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
 
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
-        if dns_over_tls == 'openssl'
+        if dns_over_tls == 'gnutls' and conf.get('PREFER_OPENSSL') == 1
+                error('Sorry, -Ddns-over-tls=gnutls is not supported when openssl is used as the cryptolib')
+        endif
+
+        if dns_over_tls == 'openssl' or conf.get('PREFER_OPENSSL') == 1
                 have_gnutls = false
         else
                 have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0'))
@@ -1502,8 +1529,7 @@ conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
 want_repart = get_option('repart')
 if want_repart != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1)
+        have = conf.get('HAVE_LIBFDISK') == 1
         if want_repart == 'true' and not have
                 error('repart support was requested, but dependencies are not available')
         endif
@@ -1512,12 +1538,24 @@ else
 endif
 conf.set10('ENABLE_REPART', have)
 
+default_dnssec = get_option('default-dnssec')
+if skip_deps
+        default_dnssec = 'no'
+endif
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
+        default_dnssec = 'no'
+endif
+conf.set('DEFAULT_DNSSEC_MODE',
+         'DNSSEC_' + default_dnssec.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
+                conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
-                conf.get('HAVE_XZ') == 1 and
-                conf.get('HAVE_GCRYPT') == 1)
+                conf.get('HAVE_XZ') == 1)
         if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
@@ -1639,14 +1677,19 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
-#####################################################################
+############################################################
 
+tests = []
+fuzzers = []
+
+############################################################
+
+# Include these now as they provide gnu-efi detection.
 subdir('src/fundamental')
 subdir('src/boot/efi')
 
 ############################################################
 
-build_bpf_skel_py = find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1657,8 +1700,9 @@ update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
+export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 
-#####################################################################
+############################################################
 
 config_h = configure_file(
         output : 'config.h',
@@ -1672,8 +1716,19 @@ add_project_arguments('-include', 'config.h', language : 'c')
 # usually, but not always, installed in /bin.
 public_programs = []
 
-tests = []
-fuzzers = []
+# D-Bus introspection XML export
+dbus_programs = []
+dbus_interfaces_dir = get_option('dbus-interfaces-dir')
+if dbus_interfaces_dir == ''
+        if not meson.is_cross_build()
+                dbus_interfaces_dir = datadir / 'dbus-1'
+        else
+                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
+                dbus_interfaces_dir = 'no'
+        endif
+elif dbus_interfaces_dir == 'yes'
+        dbus_interfaces_dir = datadir / 'dbus-1'
+endif
 
 basic_includes = include_directories(
         'src/basic',
@@ -1782,11 +1837,15 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         if conf.get('HAVE_TPM2') == 1
                 cryptsetup_token_systemd_tpm2 = shared_library(
                         'cryptsetup-token-systemd-tpm2',
+                        cryptsetup_token_systemd_tpm2_sources,
+                        include_directories : includes,
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        dependencies : libshared_deps + [libcryptsetup, versiondep],
-                        link_with : [libshared],
-                        link_whole : [cryptsetup_token_systemd_tpm2_static],
+                        link_with : [lib_cryptsetup_token_common,
+                                     libshared],
+                        dependencies : [libcryptsetup,
+                                        tpm2,
+                                        versiondep],
                         link_depends : cryptsetup_token_sym,
                         install_rpath : rootlibexecdir,
                         install : true,
@@ -1796,11 +1855,15 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         if conf.get('HAVE_LIBFIDO2') == 1
                 cryptsetup_token_systemd_fido2 = shared_library(
                         'cryptsetup-token-systemd-fido2',
+                        cryptsetup_token_systemd_fido2_sources,
+                        include_directories : includes,
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        dependencies : libshared_deps + [libcryptsetup, versiondep],
-                        link_with : [libshared],
-                        link_whole : [cryptsetup_token_systemd_fido2_static],
+                        link_with : [lib_cryptsetup_token_common,
+                                     libshared],
+                        dependencies : [libcryptsetup,
+                                        libfido2,
+                                        versiondep],
                         link_depends : cryptsetup_token_sym,
                         install_rpath : rootlibexecdir,
                         install : true,
@@ -1810,11 +1873,15 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         if conf.get('HAVE_P11KIT') == 1
                 cryptsetup_token_systemd_pkcs11 = shared_library(
                         'cryptsetup-token-systemd-pkcs11',
+                        cryptsetup_token_systemd_pkcs11_sources,
+                        include_directories : includes,
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        dependencies : libshared_deps + [libcryptsetup, versiondep],
-                        link_with : [libshared],
-                        link_whole : [cryptsetup_token_systemd_pkcs11_static],
+                        link_with : [lib_cryptsetup_token_common,
+                                     libshared],
+                        dependencies : [libcryptsetup,
+                                        libp11kit,
+                                        versiondep],
                         link_depends : cryptsetup_token_sym,
                         install_rpath : rootlibexecdir,
                         install : true,
@@ -1939,7 +2006,7 @@ endforeach
 
 ############################################################
 
-executable(
+dbus_programs += executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
@@ -2108,7 +2175,7 @@ if conf.get('HAVE_BLKID') == 1
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-resolved',
                 systemd_resolved_sources,
                 include_directories : resolve_includes,
@@ -2128,6 +2195,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
                 dependencies : [threads,
+                                lib_openssl_or_gcrypt,
                                 libgpg_error,
                                 libm,
                                 libidn],
@@ -2144,7 +2212,7 @@ if conf.get('ENABLE_RESOLVE') == 1
 endif
 
 if conf.get('ENABLE_LOGIND') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-logind',
                 systemd_logind_sources,
                 include_directories : includes,
@@ -2226,11 +2294,17 @@ if conf.get('HAVE_PAM') == 1
 endif
 
 if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
+        if get_option('link-boot-shared')
+                boot_link_with = [libshared]
+        else
+                boot_link_with = [libsystemd_static, libshared_static]
+        endif
+
         public_programs += executable(
                 'bootctl',
                 'src/boot/bootctl.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [boot_link_with],
                 dependencies : [libblkid],
                 install_rpath : rootlibexecdir,
                 install : true)
@@ -2239,7 +2313,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 'systemd-bless-boot',
                 'src/boot/bless-boot.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [boot_link_with],
                 dependencies : [libblkid],
                 install_rpath : rootlibexecdir,
                 install : true,
@@ -2249,7 +2323,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 'systemd-bless-boot-generator',
                 'src/boot/bless-boot-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [boot_link_with],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2290,7 +2364,7 @@ public_programs += executable(
         install_dir : rootbindir)
 
 if conf.get('ENABLE_PORTABLED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-portabled',
                 systemd_portabled_sources,
                 include_directories : includes,
@@ -2370,14 +2444,15 @@ if conf.get('ENABLE_HOMED') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        dbus_programs += executable(
                 'systemd-homed',
                 systemd_homed_sources,
                 include_directories : home_includes,
                 link_with : [libshared],
                 dependencies : [threads,
                                 libcrypt,
-                                libopenssl],
+                                libopenssl,
+                                libm],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2572,7 +2647,7 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
 endif
 
 if conf.get('ENABLE_HOSTNAMED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-hostnamed',
                 'src/hostname/hostnamed.c',
                 include_directories : includes,
@@ -2599,7 +2674,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 deps = []
         endif
 
-        executable(
+        dbus_programs += executable(
                 'systemd-localed',
                 systemd_localed_sources,
                 include_directories : includes,
@@ -2619,7 +2694,7 @@ if conf.get('ENABLE_LOCALED') == 1
 endif
 
 if conf.get('ENABLE_TIMEDATED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-timedated',
                 'src/timedate/timedated.c',
                 include_directories : includes,
@@ -2663,7 +2738,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
 endif
 
 if conf.get('ENABLE_MACHINED') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-machined',
                 systemd_machined_sources,
                 include_directories : includes,
@@ -2688,7 +2763,7 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-importd',
                 systemd_importd_sources,
                 include_directories : includes,
@@ -2702,13 +2777,14 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-pull',
                 systemd_pull_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             lib_import_common],
                 dependencies : [versiondep,
                                 libcurl,
+                                lib_openssl_or_gcrypt,
                                 libz,
                                 libbzip2,
-                                libxz,
-                                libgcrypt],
+                                libxz],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2717,7 +2793,8 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-import',
                 systemd_import_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             lib_import_common],
                 dependencies : [libcurl,
                                 libz,
                                 libbzip2,
@@ -2730,7 +2807,8 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-import-fs',
                 systemd_import_fs_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             lib_import_common],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2739,7 +2817,8 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-export',
                 systemd_export_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             lib_import_common],
                 dependencies : [libcurl,
                                 libz,
                                 libbzip2,
@@ -2773,7 +2852,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-remote',
                 systemd_journal_remote_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared,
                              libsystemd_journal_remote],
                 dependencies : [threads,
@@ -2789,7 +2868,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         public_programs += executable(
                 'systemd-journal-gatewayd',
                 systemd_journal_gatewayd_sources,
-                include_directories : includes,
+                include_directories : journal_includes,
                 link_with : [libshared],
                 dependencies : [threads,
                                 libmicrohttpd,
@@ -2810,7 +2889,6 @@ if conf.get('ENABLE_COREDUMP') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libacl,
-                                libdw,
                                 libxz,
                                 liblz4,
                                 libzstd],
@@ -2839,7 +2917,6 @@ if conf.get('ENABLE_PSTORE') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libacl,
-                                libdw,
                                 libxz,
                                 liblz4,
                                 libzstd],
@@ -2849,7 +2926,7 @@ if conf.get('ENABLE_PSTORE') == 1
 endif
 
 if conf.get('ENABLE_OOMD') == 1
-        executable('systemd-oomd',
+        dbus_programs += executable('systemd-oomd',
                    systemd_oomd_sources,
                    include_directories : includes,
                    link_with : [libshared],
@@ -2895,8 +2972,7 @@ if conf.get('ENABLE_REPART') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libblkid,
-                                libfdisk,
-                                libopenssl],
+                                libfdisk],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
@@ -3378,7 +3454,7 @@ public_programs += executable(
         install : true)
 
 if conf.get('ENABLE_NETWORKD') == 1
-        executable(
+        dbus_programs += executable(
                 'systemd-networkd',
                 systemd_networkd_sources,
                 include_directories : network_includes,
@@ -3408,22 +3484,22 @@ if conf.get('ENABLE_NETWORKD') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+endif
 
-        exe = executable(
-                'systemd-network-generator',
-                network_generator_sources,
-                include_directories : includes,
-                link_with : [networkd_link_with],
-                install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : rootlibexecdir)
+exe = executable(
+        'systemd-network-generator',
+        network_generator_sources,
+        include_directories : includes,
+        link_with : [networkd_link_with],
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootlibexecdir)
 
-        if want_tests != 'false'
-                test('test-network-generator-conversion',
-                     test_network_generator_conversion_sh,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
+if want_tests != 'false'
+        test('test-network-generator-conversion',
+             test_network_generator_conversion_sh,
+             # https://github.com/mesonbuild/meson/issues/2681
+             args : exe.full_path())
 endif
 
 executable(
@@ -3742,17 +3818,19 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(project_source_root),
-                'ls-files', ':/*.[ch]')
+                     'ls-files', ':/*.[ch]',
+                check : false)
+        if all_files.returncode() == 0
+                all_files = files(all_files.stdout().split())
 
-        all_files = files(all_files.stdout().split())
-
-        custom_target(
-                'tags',
-                output : 'tags',
-                command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
-        run_target(
-                'ctags',
-                command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+                custom_target(
+                        'tags',
+                        output : 'tags',
+                        command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
+                run_target(
+                        'ctags',
+                        command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+        endif
 endif
 
 if git.found()
@@ -3764,13 +3842,13 @@ endif
 
 if git.found()
         git_head = run_command(
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'rev-parse', 'HEAD').stdout().strip()
+                git, '--git-dir=@0@/.git'.format(project_source_root),
+                     'rev-parse', 'HEAD',
+                check : false).stdout().strip()
         git_head_short = run_command(
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'rev-parse', '--short=7', 'HEAD').stdout().strip()
+                git, '--git-dir=@0@/.git'.format(project_source_root),
+                     'rev-parse', '--short=7', 'HEAD',
+                check : false).stdout().strip()
 
         run_target(
                 'git-snapshot',
@@ -3792,10 +3870,17 @@ run_target(
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
+custom_target(
+        'export-dbus-interfaces',
+        output : 'interfaces',
+        install : dbus_interfaces_dir != 'no',
+        install_dir : dbus_interfaces_dir,
+        command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
+
 ############################################################
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d',
-                             '@@0@'.format(time_epoch)).stdout().strip()
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
+                             check : true).stdout().strip()
 
 summary({
         'build mode' :                      get_option('mode'),
@@ -3860,6 +3945,7 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_GNU_EFI') == 1
         summary({
                 'EFI machine type' :                efi_arch[0],
                 'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
+                'EFI LD' :                          efi_ld,
                 'EFI lds' :                         efi_lds,
                 'EFI crt0' :                        efi_crt0,
                 'EFI include directory' :           efi_incdir},
@@ -3911,7 +3997,7 @@ foreach tuple : [
         # components
         ['backlight'],
         ['binfmt'],
-        ['bpf-framework'],
+        ['bpf-framework',         conf.get('BPF_FRAMEWORK') == 1],
         ['coredump'],
         ['environment.d'],
         ['efi'],
@@ -3972,13 +4058,14 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['debug siphash'],
-        ['valgrind'],
+        ['valgrind',              conf.get('VALGRIND') == 1],
         ['trace logging',         conf.get('LOG_TRACE') == 1],
         ['install tests',         install_tests],
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
+        ['link-boot-shared',      get_option('link-boot-shared')],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
 ]
@@ -4007,6 +4094,14 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
+        found += 'cryptolib(openssl)'
+elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
+        found += 'cryptolib(gcrypt)'
+else
+        missing += 'cryptolib'
 endif
 
 if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1

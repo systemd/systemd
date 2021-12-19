@@ -258,8 +258,13 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         buflen = next_datagram_size_fd(fd);
-        if (buflen < 0)
-                return (int) buflen;
+        if (buflen < 0) {
+                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                        return 0;
+
+                log_radv_errno(ra, buflen, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
 
         buf = new0(char, buflen);
         if (!buf)
@@ -267,6 +272,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
         if (r < 0) {
+                if (ERRNO_IS_TRANSIENT(r) || ERRNO_IS_DISCONNECT(r))
+                        return 0;
+
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
@@ -281,11 +289,8 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         log_radv(ra, "Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
-                case -EAGAIN: /* ignore spurious wakeups */
-                        break;
-
                 default:
-                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, Ignoring: %m");
+                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, ignoring: %m");
                         break;
                 }
 
@@ -612,7 +617,8 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                                  strna(addr_p),
                                  FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
                                  FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
-                        return 0;
+
+                        goto announce;
                 }
 
                 _cleanup_free_ char *addr_cur = NULL;
@@ -626,19 +632,21 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         LIST_APPEND(prefix, ra->prefixes, p);
         ra->n_prefixes++;
 
-        if (ra->state == RADV_STATE_IDLE) {
-                log_radv(ra, "Added prefix %s", strna(addr_p));
+        log_radv(ra, "Added prefix %s", strna(addr_p));
+
+        if (ra->state == RADV_STATE_IDLE)
                 return 0;
-        }
+
+announce:
+        if (ra->ra_sent == 0)
+                return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
-        if (ra->ra_sent > 0) {
-                r = radv_send(ra, NULL, ra->lifetime_usec);
-                if (r < 0)
-                        log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix: %m");
-                else
-                        log_radv(ra, "Sent Router Advertisement for added prefix");
-        }
+        r = radv_send(ra, NULL, ra->lifetime_usec);
+        if (r < 0)
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix: %m");
+        else
+                log_radv(ra, "Sent Router Advertisement for added/updated prefix");
 
         return 0;
 }
@@ -704,7 +712,8 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                         log_radv(ra, "Updated/replaced IPv6 route prefix %s (lifetime: %s)",
                                  strna(addr_p),
                                  FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
-                        return 0;
+
+                        goto announce;
                 }
 
                 _cleanup_free_ char *addr_cur = NULL;
@@ -718,19 +727,21 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         LIST_APPEND(prefix, ra->route_prefixes, p);
         ra->n_route_prefixes++;
 
-        if (ra->state == RADV_STATE_IDLE) {
-                log_radv(ra, "Added route prefix %s", strna(addr_p));
+        log_radv(ra, "Added route prefix %s", strna(addr_p));
+
+        if (ra->state == RADV_STATE_IDLE)
                 return 0;
-        }
+
+announce:
+        if (ra->ra_sent == 0)
+                return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        if (ra->ra_sent > 0) {
-                r = radv_send(ra, NULL, ra->lifetime_usec);
-                if (r < 0)
-                        log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix: %m");
-                else
-                        log_radv(ra, "Sent Router Advertisement for added route prefix");
-        }
+        r = radv_send(ra, NULL, ra->lifetime_usec);
+        if (r < 0)
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix: %m");
+        else
+                log_radv(ra, "Sent Router Advertisement for added route prefix");
 
         return 0;
 }

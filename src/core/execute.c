@@ -63,6 +63,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "ioprio-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
@@ -71,7 +72,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_ioprio.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
@@ -306,7 +307,7 @@ static int connect_journal_socket(
                 }
         }
 
-        r = connect(fd, &sa.sa, sa_len) < 0 ? -errno : 0;
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
@@ -519,13 +520,13 @@ static int setup_input(
         case EXEC_INPUT_SOCKET:
                 assert(socket_fd >= 0);
 
-                return dup2(socket_fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+                return RET_NERRNO(dup2(socket_fd, STDIN_FILENO));
 
         case EXEC_INPUT_NAMED_FD:
                 assert(named_iofds[STDIN_FILENO] >= 0);
 
                 (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
-                return dup2(named_iofds[STDIN_FILENO], STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+                return RET_NERRNO(dup2(named_iofds[STDIN_FILENO], STDIN_FILENO));
 
         case EXEC_INPUT_DATA: {
                 int fd;
@@ -641,7 +642,7 @@ static int setup_output(
 
                 /* Duplicate from stdout if possible */
                 if (can_inherit_stderr_from_stdout(context, o, e))
-                        return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
 
                 o = e;
 
@@ -652,7 +653,7 @@ static int setup_output(
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
                 if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
@@ -669,7 +670,7 @@ static int setup_output(
 
         case EXEC_OUTPUT_TTY:
                 if (is_terminal_input(i))
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
@@ -704,13 +705,13 @@ static int setup_output(
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
 
-                return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
+                return RET_NERRNO(dup2(socket_fd, fileno));
 
         case EXEC_OUTPUT_NAMED_FD:
                 assert(named_iofds[fileno] >= 0);
 
                 (void) fd_nonblock(named_iofds[fileno], false);
-                return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
+                return RET_NERRNO(dup2(named_iofds[fileno], fileno));
 
         case EXEC_OUTPUT_FILE:
         case EXEC_OUTPUT_FILE_APPEND:
@@ -724,7 +725,7 @@ static int setup_output(
                         streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
 
                 if (rw)
-                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
+                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 flags = O_WRONLY;
                 if (o == EXEC_OUTPUT_FILE_APPEND)
@@ -1701,29 +1702,6 @@ static int apply_restrict_namespaces(const Unit *u, const ExecContext *c) {
         return seccomp_restrict_namespaces(c->restrict_namespaces);
 }
 
-#if HAVE_LIBBPF
-static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
-        if (lsm_bpf_supported())
-                return false;
-
-        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
-        return true;
-}
-
-static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
-        assert(u);
-        assert(c);
-
-        if (!exec_context_restrict_filesystems_set(c))
-                return 0;
-
-        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
-                return 0;
-
-        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
-}
-#endif
-
 static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         unsigned long personality;
         int r;
@@ -1750,6 +1728,29 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         return seccomp_lock_personality(personality);
 }
 
+#endif
+
+#if HAVE_LIBBPF
+static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
+        if (lsm_bpf_supported())
+                return false;
+
+        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
+        return true;
+}
+
+static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+
+        if (!exec_context_restrict_filesystems_set(c))
+                return 0;
+
+        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
+                return 0;
+
+        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
+}
 #endif
 
 static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_exit_status) {
@@ -3999,16 +4000,15 @@ static int exec_child(
         exec_context_tty_reset(context, params);
 
         if (unit_shall_confirm_spawn(unit)) {
-                const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
 
-                cmdline = quote_command_line(command->argv);
+                cmdline = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
                 if (!cmdline) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
                 }
 
-                r = ask_for_confirmation(context, vc, unit, cmdline);
+                r = ask_for_confirmation(context, params->confirm_spawn, unit, cmdline);
                 if (r != CONFIRM_EXECUTE) {
                         if (r == CONFIRM_PRETEND_SUCCESS) {
                                 *exit_status = EXIT_SUCCESS;
@@ -4580,9 +4580,12 @@ static int exec_child(
 
                 if (fd >= 0) {
                         r = mac_selinux_get_child_mls_label(fd, executable, context->selinux_context, &mac_selinux_context_net);
-                        if (r < 0 && !context->selinux_context_ignore) {
-                                *exit_status = EXIT_SELINUX_CONTEXT;
-                                return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+                        if (r < 0) {
+                                if (!context->selinux_context_ignore) {
+                                        *exit_status = EXIT_SELINUX_CONTEXT;
+                                        return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+                                }
+                                log_unit_debug_errno(unit, r, "Failed to determine SELinux context, ignoring: %m");
                         }
                 }
         }
@@ -4714,9 +4717,12 @@ static int exec_child(
 
                         if (exec_context) {
                                 r = setexeccon(exec_context);
-                                if (r < 0 && !context->selinux_context_ignore) {
-                                        *exit_status = EXIT_SELINUX_CONTEXT;
-                                        return log_unit_error_errno(unit, r, "Failed to change SELinux context to %s: %m", exec_context);
+                                if (r < 0) {
+                                        if (!context->selinux_context_ignore) {
+                                                *exit_status = EXIT_SELINUX_CONTEXT;
+                                                return log_unit_error_errno(unit, r, "Failed to change SELinux context to %s: %m", exec_context);
+                                        }
+                                        log_unit_debug_errno(unit, r, "Failed to change SELinux context to %s, ignoring: %m", exec_context);
                                 }
                         }
                 }
@@ -4884,7 +4890,7 @@ static int exec_child(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line = NULL;
 
-                line = quote_command_line(final_argv);
+                line = quote_command_line(final_argv, SHELL_ESCAPE_EMPTY);
                 if (!line) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
@@ -4976,7 +4982,7 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        line = quote_command_line(command->argv);
+        line = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
         if (!line)
                 return log_oom();
 
@@ -5063,7 +5069,7 @@ void exec_context_init(ExecContext *c) {
         assert(c);
 
         c->umask = 0022;
-        c->ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 0);
+        c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
@@ -6015,9 +6021,9 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 
         p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
         if (p < 0)
-                return ioprio_prio_value(IOPRIO_CLASS_BE, 4);
+                return IOPRIO_DEFAULT_CLASS_AND_PRIO;
 
-        return p;
+        return ioprio_normalize(p);
 }
 
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
@@ -6230,10 +6236,10 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         prefix = strempty(prefix);
         prefix2 = strjoina(prefix, "\t");
 
-        cmd = quote_command_line(c->argv);
+        cmd = quote_command_line(c->argv, SHELL_ESCAPE_EMPTY);
         fprintf(f,
                 "%sCommand Line: %s\n",
-                prefix, cmd ? cmd : strerror_safe(ENOMEM));
+                prefix, cmd ?: strerror_safe(ENOMEM));
 
         exec_status_dump(&c->exec_status, f, prefix2);
 }

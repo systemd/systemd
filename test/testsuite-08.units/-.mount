@@ -5,8 +5,7 @@ Before=local-fs.target
 [Mount]
 What=/dev/sda1
 Where=/
-Type=ext4
-Options=errors=remount-ro,noatime
+Options=noatime
 
 [Install]
 WantedBy=local-fs.target

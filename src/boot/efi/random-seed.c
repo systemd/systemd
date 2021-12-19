@@ -32,9 +32,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         if (!rng)
                 return EFI_UNSUPPORTED;
 
-        data = AllocatePool(size);
-        if (!data)
-                return log_oom();
+        data = xallocate_pool(size);
 
         err = rng->GetRNG(rng, NULL, size, data);
         if (EFI_ERROR(err))
@@ -66,8 +64,7 @@ static void hash_once(
         struct sha256_ctx hash;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
 
         sha256_init_ctx(&hash);
         sha256_process_bytes(old_seed, size, &hash);
@@ -92,16 +89,13 @@ static EFI_STATUS hash_many(
         _cleanup_freepool_ void *output = NULL;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
         assert(ret);
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
 
-        output = AllocatePool(n * HASH_VALUE_SIZE);
-        if (!output)
-                return log_oom();
+        output = xallocate_pool(n * HASH_VALUE_SIZE);
 
         for (UINTN i = 0; i < n; i++)
                 hash_once(old_seed, rng, size,
@@ -127,8 +121,7 @@ static EFI_STATUS mangle_random_seed(
         UINTN n;
 
         assert(old_seed);
-        assert(rng);
-        assert(system_token);
+        assert(system_token_size == 0 || system_token);
         assert(ret_new_seed);
         assert(ret_for_kernel);
 
@@ -274,9 +267,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (size > RANDOM_MAX_SIZE_MAX)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
 
-        seed = AllocatePool(size);
-        if (!seed)
-                return log_oom();
+        seed = xallocate_pool(size);
 
         rsize = size;
         err = handle->Read(handle, &rsize, seed);

@@ -46,7 +46,8 @@
 #include "hostname-setup.h"
 #include "id128-util.h"
 #include "import-util.h"
-#include "mkdir.h"
+#include "io-util.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -748,9 +749,13 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new0(DissectedImage, 1);
+        m = new(DissectedImage, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+        };
 
         r = sd_device_get_sysname(d, &sysname);
         if (r < 0)
@@ -986,9 +991,8 @@ int dissect_image(
                                 designator = PARTITION_XBOOTLDR;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-                        }
-#ifdef GPT_ROOT_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                        } else if (gpt_partition_type_is_root(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
@@ -999,12 +1003,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
                                         continue;
 
-                                designator = PARTITION_ROOT;
-                                architecture = native_architecture();
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_ROOT_OF_ARCH(architecture);
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+                        } else if (gpt_partition_type_is_root_verity(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1023,12 +1027,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
                                         continue;
 
-                                designator = PARTITION_ROOT_VERITY;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_OF(PARTITION_ROOT_OF_ARCH(architecture));
                                 fstype = "DM_verity_hash";
-                                architecture = native_architecture();
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY_SIG)) {
+                        } else if (gpt_partition_type_is_root_verity_sig(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1045,78 +1049,12 @@ int dissect_image(
                                 if (verity->root_hash)
                                         continue;
 
-                                designator = PARTITION_ROOT_VERITY_SIG;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_SIG_OF(PARTITION_ROOT_OF_ARCH(architecture));
                                 fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_ROOT_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                /* If a root ID is specified, ignore everything but the root id */
-                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY;
-                                architecture = SECONDARY_ARCHITECTURE;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity = true;
-
-                                /* Don't do verity if no verity config is passed in */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-
-                                /* If root hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY_VERITY;
-                                fstype = "DM_verity_hash";
-                                architecture = SECONDARY_ARCHITECTURE;
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY_SIG)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity_sig = true;
-
-                                /* If root hash is specified explicitly, then ignore any embedded signature */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-                                if (verity->root_hash)
-                                        continue;
-
-                                designator = PARTITION_ROOT_SECONDARY_VERITY_SIG;
-                                fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_USR_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_USR_NATIVE)) {
+                        } else if (gpt_partition_type_is_usr(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
@@ -1127,12 +1065,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id))
                                         continue;
 
-                                designator = PARTITION_USR;
-                                architecture = native_architecture();
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_USR_OF_ARCH(architecture);
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY)) {
+                        } else if (gpt_partition_type_is_usr_verity(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1150,12 +1088,12 @@ int dissect_image(
                                 if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
                                         continue;
 
-                                designator = PARTITION_USR_VERITY;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_OF(PARTITION_USR_OF_ARCH(architecture));
                                 fstype = "DM_verity_hash";
-                                architecture = native_architecture();
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY_SIG)) {
+                        } else if (gpt_partition_type_is_usr_verity_sig(type_id)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -1172,76 +1110,12 @@ int dissect_image(
                                 if (verity->root_hash)
                                         continue;
 
-                                designator = PARTITION_USR_VERITY_SIG;
+                                assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
+                                designator = PARTITION_VERITY_SIG_OF(PARTITION_USR_OF_ARCH(architecture));
                                 fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-#ifdef GPT_USR_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_USR_SECONDARY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                /* If a usr ID is specified, ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY;
-                                architecture = SECONDARY_ARCHITECTURE;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
-
-                        } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity = true;
-
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-
-                                /* If usr hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY_VERITY;
-                                fstype = "DM_verity_hash";
-                                architecture = SECONDARY_ARCHITECTURE;
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY_SIG)) {
-
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
-
-                                if (pflags & GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                m->has_verity_sig = true;
-
-                                /* If usr hash is specified explicitly, then ignore any embedded signature */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-                                if (verity->root_hash)
-                                        continue;
-
-                                designator = PARTITION_USR_SECONDARY_VERITY_SIG;
-                                fstype = "verity_hash_signature";
-                                architecture = native_architecture();
-                                rw = false;
-                        }
-#endif
-                        else if (sd_id128_equal(type_id, GPT_SWAP)) {
+                        } else if (sd_id128_equal(type_id, GPT_SWAP)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO);
 
@@ -1434,14 +1308,21 @@ int dissect_image(
         }
 
         if (m->partitions[PARTITION_ROOT].found) {
-                /* If we found the primary arch, then invalidate the secondary arch to avoid any ambiguities,
-                 * since we never want to mount the secondary arch in this case. */
+                /* If we found the primary arch, then invalidate the secondary and other arch to avoid any
+                 * ambiguities, since we never want to mount the secondary or other arch in this case. */
                 m->partitions[PARTITION_ROOT_SECONDARY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found = false;
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
+
+                m->partitions[PARTITION_ROOT_OTHER].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG].found = false;
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
 
         } else if (m->partitions[PARTITION_ROOT_VERITY].found ||
                    m->partitions[PARTITION_ROOT_VERITY_SIG].found)
@@ -1450,7 +1331,10 @@ int dissect_image(
         else if (m->partitions[PARTITION_ROOT_SECONDARY].found) {
 
                 /* No root partition found but there's one for the secondary architecture? Then upgrade
-                 * secondary arch to first */
+                 * secondary arch to first and invalidate the other arch. */
+
+                log_debug("No root partition found of the native architecture, falling back to a root "
+                          "partition of the secondary architecture.");
 
                 m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_SECONDARY];
                 zero(m->partitions[PARTITION_ROOT_SECONDARY]);
@@ -1466,25 +1350,63 @@ int dissect_image(
                 m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
+                m->partitions[PARTITION_ROOT_OTHER].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG].found = false;
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
+
         } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found ||
                    m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
+
+        else if (m->partitions[PARTITION_ROOT_OTHER].found) {
+
+                /* No root or secondary partition found but there's one for another architecture? Then
+                 * upgrade the other architecture to first. */
+
+                log_debug("No root partition found of the native architecture or the secondary architecture, "
+                          "falling back to a root partition of a non-native architecture (%s).",
+                          architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
+
+                m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_OTHER];
+                zero(m->partitions[PARTITION_ROOT_OTHER]);
+                m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_OTHER_VERITY];
+                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY]);
+                m->partitions[PARTITION_ROOT_VERITY_SIG] = m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG]);
+
+                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
+                zero(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+        }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
                 return -EADDRNOTAVAIL;
 
         if (m->partitions[PARTITION_USR].found) {
-                /* Invalidate secondary arch /usr/ if we found the primary arch */
+                /* Invalidate secondary and other arch /usr/ if we found the primary arch */
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
+
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
 
         } else if (m->partitions[PARTITION_USR_VERITY].found ||
                    m->partitions[PARTITION_USR_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
 
         else if (m->partitions[PARTITION_USR_SECONDARY].found) {
+
+                log_debug("No usr partition found of the native architecture, falling back to a usr "
+                          "partition of the secondary architecture.");
 
                 /* Upgrade secondary arch to primary */
                 m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_SECONDARY];
@@ -1494,9 +1416,28 @@ int dissect_image(
                 m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
+                m->partitions[PARTITION_USR_OTHER].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
+                m->partitions[PARTITION_USR_OTHER_VERITY_SIG].found = false;
+
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found ||
                    m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
+
+        else if (m->partitions[PARTITION_USR_OTHER].found) {
+
+                log_debug("No usr partition found of the native architecture or the secondary architecture, "
+                          "falling back to a usr partition of a non-native architecture (%s).",
+                          architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
+
+                /* Upgrade other arch to primary */
+                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
+                zero(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+        }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
@@ -3004,7 +2945,7 @@ int dissected_image_load_verity_sig_partition(
         return 1;
 }
 
-int dissected_image_acquire_metadata(DissectedImage *m) {
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags) {
 
         enum {
                 META_HOSTNAME,
@@ -3012,6 +2953,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
                 META_EXTENSION_RELEASE,
+                META_HAS_INIT_SYSTEM,
                 _META_MAX,
         };
 
@@ -3020,8 +2962,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
                 [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                           "/usr/lib/os-release\0"),
-                [META_EXTENSION_RELEASE] = "extension-release\0", /* Used only for logging. */
+                                            "/usr/lib/os-release\0"),
+                [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
+                [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
@@ -3032,6 +2975,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
+        int has_init_system = -1;
         ssize_t n;
 
         BLOCK_SIGNALS(SIGCHLD);
@@ -3063,6 +3007,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
         if (r == 0) {
+                /* Child in a new mount namespace */
                 error_pipe[0] = safe_close(error_pipe[0]);
 
                 r = dissected_image_mount(
@@ -3070,17 +3015,13 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 t,
                                 UID_INVALID,
                                 UID_INVALID,
-                                DISSECT_IMAGE_READ_ONLY|
-                                DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_VALIDATE_OS|
-                                DISSECT_IMAGE_VALIDATE_OS_EXT|
+                                extra_flags |
+                                DISSECT_IMAGE_READ_ONLY |
+                                DISSECT_IMAGE_MOUNT_ROOT_ONLY |
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
-                        /* Let parent know the error */
-                        (void) write(error_pipe[1], &r, sizeof(r));
-
                         log_debug_errno(r, "Failed to mount dissected image: %m");
-                        _exit(EXIT_FAILURE);
+                        goto inner_fail;
                 }
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
@@ -3092,7 +3033,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         fds[2*k] = safe_close(fds[2*k]);
 
-                        if (k == META_EXTENSION_RELEASE) {
+                        switch (k) {
+
+                        case META_EXTENSION_RELEASE:
                                 /* As per the os-release spec, if the image is an extension it will have a file
                                  * named after the image name in extension-release.d/ - we use the image name
                                  * and try to resolve it with the extension-release helpers, as sometimes
@@ -3105,12 +3048,42 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 r = open_extension_release(t, m->image_name, NULL, &fd);
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
-                        } else
+                                break;
+
+                        case META_HAS_INIT_SYSTEM: {
+                                bool found = false;
+                                const char *init;
+
+                                FOREACH_STRING(init,
+                                               "/usr/lib/systemd/systemd",  /* systemd on /usr merged system */
+                                               "/lib/systemd/systemd",      /* systemd on /usr non-merged systems */
+                                               "/sbin/init") {              /* traditional path the Linux kernel invokes */
+
+                                        r = chase_symlinks(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
+                                        if (r < 0) {
+                                                if (r != -ENOENT)
+                                                        log_debug_errno(r, "Failed to resolve %s, ignoring: %m", init);
+                                        } else {
+                                                found = true;
+                                                break;
+                                        }
+                                }
+
+                                r = loop_write(fds[2*k+1], &found, sizeof(found), false);
+                                if (r < 0)
+                                        goto inner_fail;
+
+                                continue;
+                        }
+
+                        default:
                                 NULSTR_FOREACH(p, paths[k]) {
                                         fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                                         if (fd >= 0)
                                                 break;
                                 }
+                        }
+
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
                                 fds[2*k+1] = safe_close(fds[2*k+1]);
@@ -3118,15 +3091,18 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
-                        if (r < 0) {
-                                (void) write(error_pipe[1], &r, sizeof(r));
-                                _exit(EXIT_FAILURE);
-                        }
+                        if (r < 0)
+                                goto inner_fail;
 
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
                 _exit(EXIT_SUCCESS);
+
+        inner_fail:
+                /* Let parent know the error */
+                (void) write(error_pipe[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
         }
 
         error_pipe[1] = safe_close(error_pipe[1]);
@@ -3150,7 +3126,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 case META_HOSTNAME:
                         r = read_etc_hostname_stream(f, &hostname);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/hostname: %m");
+                                log_debug_errno(r, "Failed to read /etc/hostname of image: %m");
 
                         break;
 
@@ -3159,17 +3135,17 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         r = read_line(f, LONG_LINE_MAX, &line);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-id: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-id of image: %m");
                         else if (r == 33) {
                                 r = sd_id128_from_string(line, &machine_id);
                                 if (r < 0)
                                         log_debug_errno(r, "Image contains invalid /etc/machine-id: %s", line);
                         } else if (r == 0)
-                                log_debug("/etc/machine-id file is empty.");
+                                log_debug("/etc/machine-id file of image is empty.");
                         else if (streq(line, "uninitialized"))
-                                log_debug("/etc/machine-id file is uninitialized (likely aborted first boot).");
+                                log_debug("/etc/machine-id file of image is uninitialized (likely aborted first boot).");
                         else
-                                log_debug("/etc/machine-id has unexpected length %i.", r);
+                                log_debug("/etc/machine-id file of image has unexpected length %i.", r);
 
                         break;
                 }
@@ -3177,24 +3153,37 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 case META_MACHINE_INFO:
                         r = load_env_file_pairs(f, "machine-info", &machine_info);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read /etc/machine-info: %m");
+                                log_debug_errno(r, "Failed to read /etc/machine-info of image: %m");
 
                         break;
 
                 case META_OS_RELEASE:
                         r = load_env_file_pairs(f, "os-release", &os_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read OS release file: %m");
+                                log_debug_errno(r, "Failed to read OS release file of image: %m");
 
                         break;
 
                 case META_EXTENSION_RELEASE:
                         r = load_env_file_pairs(f, "extension-release", &extension_release);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read extension release file: %m");
+                                log_debug_errno(r, "Failed to read extension release file of image: %m");
 
                         break;
-                }
+
+                case META_HAS_INIT_SYSTEM: {
+                        bool b = false;
+                        size_t nr;
+
+                        errno = 0;
+                        nr = fread(&b, 1, sizeof(b), f);
+                        if (nr != sizeof(b))
+                                log_debug_errno(errno_or_else(EIO), "Failed to read has-init-system boolean: %m");
+                        else
+                                has_init_system = b;
+
+                        break;
+                }}
         }
 
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
@@ -3218,6 +3207,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
         strv_free_and_replace(m->extension_release, extension_release);
+        m->has_init_system = has_init_system;
 
 finish:
         for (unsigned k = 0; k < n_meta_initialized; k++)
@@ -3255,28 +3245,31 @@ int dissect_image_and_warn(
                 return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
 
         case -ENOPKG:
-                return log_error_errno(r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
+                return log_error_errno(r, "%s: Couldn't identify a suitable partition table or file system.", name);
+
+        case -ENOMEDIUM:
+                return log_error_errno(r, "%s: The image does not pass validation.", name);
 
         case -EADDRNOTAVAIL:
-                return log_error_errno(r, "No root partition for specified root hash found in '%s'.", name);
+                return log_error_errno(r, "%s: No root partition for specified root hash found.", name);
 
         case -ENOTUNIQ:
-                return log_error_errno(r, "Multiple suitable root partitions found in image '%s'.", name);
+                return log_error_errno(r, "%s: Multiple suitable root partitions found in image.", name);
 
         case -ENXIO:
-                return log_error_errno(r, "No suitable root partition found in image '%s'.", name);
+                return log_error_errno(r, "%s: No suitable root partition found in image.", name);
 
         case -EPROTONOSUPPORT:
                 return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
+
+        case -ENOTBLK:
+                return log_error_errno(r, "%s: Image is not a block device.", name);
 
         case -EBADR:
                 return log_error_errno(r,
                                        "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
                                        "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
                                        name, strna(verity ? verity->data_path : NULL));
-
-        case -ENOTBLK:
-                return log_error_errno(r, "Specified image '%s' is not a block device.", name);
 
         default:
                 if (r < 0)
@@ -3443,8 +3436,10 @@ int mount_image_privately_interactively(
 static const char *const partition_designator_table[] = {
         [PARTITION_ROOT] = "root",
         [PARTITION_ROOT_SECONDARY] = "root-secondary",
+        [PARTITION_ROOT_OTHER] = "root-other",
         [PARTITION_USR] = "usr",
         [PARTITION_USR_SECONDARY] = "usr-secondary",
+        [PARTITION_USR_OTHER] = "usr-other",
         [PARTITION_HOME] = "home",
         [PARTITION_SRV] = "srv",
         [PARTITION_ESP] = "esp",
@@ -3452,12 +3447,16 @@ static const char *const partition_designator_table[] = {
         [PARTITION_SWAP] = "swap",
         [PARTITION_ROOT_VERITY] = "root-verity",
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
+        [PARTITION_ROOT_OTHER_VERITY] = "root-other-verity",
         [PARTITION_USR_VERITY] = "usr-verity",
         [PARTITION_USR_SECONDARY_VERITY] = "usr-secondary-verity",
+        [PARTITION_USR_OTHER_VERITY] = "usr-other-verity",
         [PARTITION_ROOT_VERITY_SIG] = "root-verity-sig",
         [PARTITION_ROOT_SECONDARY_VERITY_SIG] = "root-secondary-verity-sig",
+        [PARTITION_ROOT_OTHER_VERITY_SIG] = "root-other-verity-sig",
         [PARTITION_USR_VERITY_SIG] = "usr-verity-sig",
         [PARTITION_USR_SECONDARY_VERITY_SIG] = "usr-secondary-verity-sig",
+        [PARTITION_USR_OTHER_VERITY_SIG] = "usr-other-verity-sig",
         [PARTITION_TMP] = "tmp",
         [PARTITION_VAR] = "var",
 };
@@ -3468,7 +3467,8 @@ int verity_dissect_and_mount(
                 const MountOptions *options,
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
-                const char *required_host_os_release_sysext_level) {
+                const char *required_host_os_release_sysext_level,
+                const char *required_sysext_scope) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -3554,11 +3554,12 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
                 r = extension_release_validate(
-                        dissected_image->image_name,
-                        required_host_os_release_id,
-                        required_host_os_release_version_id,
-                        required_host_os_release_sysext_level,
-                        extension_release);
+                                dissected_image->image_name,
+                                required_host_os_release_id,
+                                required_host_os_release_version_id,
+                                required_host_os_release_sysext_level,
+                                required_sysext_scope,
+                                extension_release);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)

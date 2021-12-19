@@ -2908,7 +2908,7 @@ fail:
         return r;
 }
 
-static int event_source_leave_ratelimit(sd_event_source *s) {
+static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
         int r;
 
         assert(s);
@@ -2940,6 +2940,30 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
         ratelimit_reset(&s->rate_limit);
 
         log_debug("Event source %p (%s) left rate limit state.", s, strna(s->description));
+
+        if (run_callback && s->ratelimit_expire_callback) {
+                s->dispatching = true;
+                r = s->ratelimit_expire_callback(s, s->userdata);
+                s->dispatching = false;
+
+                if (r < 0) {
+                        log_debug_errno(r, "Ratelimit expiry callback of event source %s (type %s) returned error, %s: %m",
+                                        strna(s->description),
+                                        event_source_type_to_string(s->type),
+                                        s->exit_on_failure ? "exiting" : "disabling");
+
+                        if (s->exit_on_failure)
+                                (void) sd_event_exit(s->event, r);
+                }
+
+                if (s->n_ref == 0)
+                        source_free(s);
+                else if (r < 0)
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+
+                return 1;
+        }
+
         return 0;
 
 fail:
@@ -3118,7 +3142,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 
         ss = read(fd, &x, sizeof(x));
         if (ss < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 return -errno;
@@ -3139,6 +3163,7 @@ static int process_timer(
                 struct clock_data *d) {
 
         sd_event_source *s;
+        bool callback_invoked = false;
         int r;
 
         assert(e);
@@ -3156,9 +3181,11 @@ static int process_timer(
                          * again. */
                         assert(s->ratelimited);
 
-                        r = event_source_leave_ratelimit(s);
+                        r = event_source_leave_ratelimit(s, /* run_callback */ true);
                         if (r < 0)
                                 return r;
+                        else if (r == 1)
+                                callback_invoked = true;
 
                         continue;
                 }
@@ -3173,7 +3200,7 @@ static int process_timer(
                 event_source_time_prioq_reshuffle(s);
         }
 
-        return 0;
+        return callback_invoked;
 }
 
 static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priority) {
@@ -3321,7 +3348,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
 
                 n = read(d->fd, &si, sizeof(si));
                 if (n < 0) {
-                        if (IN_SET(errno, EAGAIN, EINTR))
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 return 0;
 
                         return -errno;
@@ -3375,7 +3402,7 @@ static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t
 
         n = read(d->fd, &d->buffer, sizeof(d->buffer));
         if (n < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
                 return -errno;
@@ -3664,7 +3691,7 @@ static int source_dispatch(sd_event_source *s) {
         if (s->n_ref == 0)
                 source_free(s);
         else if (r < 0)
-                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
 
         return 1;
 }
@@ -3705,7 +3732,7 @@ static int event_prepare(sd_event *e) {
                 if (s->n_ref == 0)
                         source_free(s);
                 else if (r < 0)
-                        sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
         }
 
         return 0;
@@ -3766,10 +3793,7 @@ static int arm_watchdog(sd_event *e) {
         if (its.it_value.tv_sec == 0 && its.it_value.tv_nsec == 0)
                 its.it_value.tv_nsec = 1;
 
-        if (timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL));
 }
 
 static int process_watchdog(sd_event *e) {
@@ -3879,7 +3903,7 @@ static int epoll_wait_usec(
                 int maxevents,
                 usec_t timeout) {
 
-        int r, msec;
+        int msec;
 #if 0
         static bool epoll_pwait2_absent = false;
 
@@ -3919,14 +3943,7 @@ static int epoll_wait_usec(
                         msec = (int) k;
         }
 
-        r = epoll_wait(fd,
-                       events,
-                       maxevents,
-                       msec);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
 }
 
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
@@ -4097,15 +4114,15 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
+        r = process_inotify(e);
+        if (r < 0)
+                goto finish;
+
         r = process_timer(e, e->timestamp.realtime, &e->realtime);
         if (r < 0)
                 goto finish;
 
         r = process_timer(e, e->timestamp.boottime, &e->boottime);
-        if (r < 0)
-                goto finish;
-
-        r = process_timer(e, e->timestamp.monotonic, &e->monotonic);
         if (r < 0)
                 goto finish;
 
@@ -4117,9 +4134,20 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
-        r = process_inotify(e);
+        r = process_timer(e, e->timestamp.monotonic, &e->monotonic);
         if (r < 0)
                 goto finish;
+        else if (r == 1) {
+                /* Ratelimit expiry callback was called. Let's postpone processing pending sources and
+                 * put loop in the initial state in order to evaluate (in the next iteration) also sources
+                 * there were potentially re-enabled by the callback.
+                 *
+                 * Wondering why we treat only this invocation of process_timer() differently? Once event
+                 * source is ratelimited we essentially transform it into CLOCK_MONOTONIC timer hence
+                 * ratelimit expiry callback is never called for any other timer type. */
+                r = 0;
+                goto finish;
+        }
 
         if (event_next_pending(e)) {
                 e->state = SD_EVENT_PENDING;
@@ -4190,7 +4218,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
 
                 this_run = now(CLOCK_MONOTONIC);
 
-                l = u64log2(this_run - e->last_run_usec);
+                l = log2u64(this_run - e->last_run_usec);
                 assert(l < ELEMENTSOF(e->delays));
                 e->delays[l]++;
 
@@ -4488,11 +4516,18 @@ _public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval
 
         /* When ratelimiting is configured we'll always reset the rate limit state first and start fresh,
          * non-ratelimited. */
-        r = event_source_leave_ratelimit(s);
+        r = event_source_leave_ratelimit(s, /* run_callback */ false);
         if (r < 0)
                 return r;
 
         s->rate_limit = (RateLimit) { interval, burst };
+        return 0;
+}
+
+_public_ int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback) {
+        assert_return(s, -EINVAL);
+
+        s->ratelimit_expire_callback = callback;
         return 0;
 }
 

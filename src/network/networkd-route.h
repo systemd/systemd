@@ -45,7 +45,7 @@ typedef struct Route {
         uint32_t advmss;
         unsigned char pref;
         unsigned flags;
-        int gateway_onlink;
+        int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
         uint32_t nexthop_id;
 
         bool scope_set:1;
@@ -70,6 +70,7 @@ typedef struct Route {
 
 void route_hash_func(const Route *route, struct siphash *state);
 int route_compare_func(const Route *a, const Route *b);
+extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 Route *route_free(Route *route);
@@ -80,14 +81,12 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 int route_remove(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
-int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret);
-bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw);
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 void link_foreignize_routes(Link *link);
 
-void route_cancel_request(Route *route);
+void route_cancel_request(Route *route, Link *link);
 int link_request_route(
                 Link *link,
                 Route *route,
@@ -103,9 +102,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
-
-int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
-int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router);
@@ -124,5 +120,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_table_names);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);

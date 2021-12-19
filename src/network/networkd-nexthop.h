@@ -32,7 +32,8 @@ typedef struct NextHop {
         bool blackhole;
         int family;
         union in_addr_union gw;
-        int onlink;
+        uint8_t flags;
+        int onlink; /* Only used in conf parser and nexthop_section_verify(). */
         Hashmap *group;
 } NextHop;
 

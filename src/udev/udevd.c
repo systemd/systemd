@@ -1349,7 +1349,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_TRANSIENT(errno))
                         return 1;
 
                 return log_error_errno(errno, "Failed to read inotify fd: %m");
@@ -1933,7 +1933,7 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = mkdir_errno_wrapper("/run/udev", 0755);
+        r = RET_NERRNO(mkdir("/run/udev", 0755));
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 

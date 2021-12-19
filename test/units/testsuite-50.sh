@@ -92,6 +92,11 @@ elif [ "${machine}" = "arm" ]; then
     verity_guid=7386cdf2-203c-47a9-a498-f2ecce45a2d6
     signature_guid=42b0455f-eb11-491d-98d3-56145ba9d037
     architecture="arm"
+elif [ "${machine}" = "loongarch64" ]; then
+    root_guid=77055800-792c-4f94-b39a-98c91b762bb6
+    verity_guid=f3393b22-e9af-4613-a948-9d3bfbd0c535
+    signature_guid=5afb67eb-ecc8-4f85-ae8e-ac1e7c50e7d0
+    architecture="loongarch64"
 elif [ "${machine}" = "ia64" ]; then
     root_guid=993d8d3d-f80e-4225-855a-9daf8ed7ea97
     verity_guid=86ed10d5-b607-45bb-8957-d350f23d0571
@@ -123,6 +128,13 @@ signature_size="$((signature_size * 2))KiB"
 
 HAVE_OPENSSL=0
 if systemctl --version | grep -q -- +OPENSSL ; then
+    # The openssl binary is installed conditionally.
+    # If we have OpenSSL support enabled and openssl is missing, fail early
+    # with a proper error message.
+    if ! command -v openssl >/dev/null 2>&1; then
+        echo "openssl missing" >/failed
+        exit 1
+    fi
     HAVE_OPENSSL=1
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
     cat >> "${image}.openssl.cnf" <<EOF

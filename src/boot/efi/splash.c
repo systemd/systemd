@@ -260,7 +260,6 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         struct bmp_dib *dib;
         struct bmp_map *map;
         const UINT8 *pixmap;
-        UINT64 blt_size;
         _cleanup_freepool_ void *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
@@ -302,10 +301,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                 return err;
 
         /* EFI buffer */
-        blt_size = sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * dib->x * dib->y;
-        blt = AllocatePool(blt_size);
-        if (!blt)
-                return EFI_OUT_OF_RESOURCES;
+        blt = xnew(EFI_GRAPHICS_OUTPUT_BLT_PIXEL, dib->x * dib->y);
 
         err = GraphicsOutput->Blt(
                         GraphicsOutput, blt,

@@ -128,7 +128,7 @@
 
       <varlistentry>
         <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
-        <term><option>-J</option></term>
+        <term><option>-j</option></term>
 
         <listitem><para>Controls whether to output the user record in JSON format, if the
         <command>inspect</command> command (see below) is used. Takes one of <literal>pretty</literal>,
@@ -136,7 +136,7 @@
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
         default) the user information is not shown in JSON format but in a friendly human readable formatting
-        instead. The <option>-J</option> option picks <literal>pretty</literal> when run interactively and
+        instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para></listitem>
       </varlistentry>
 
@@ -377,6 +377,9 @@
         <literal>hmac-secret</literal> extension. Most current devices (such as the YubiKey 5 series) do. If
         the extension is not implemented the device cannot be used for unlocking home directories.</para>
 
+        <para>The FIDO2 device may be subsequently removed by setting the device path to an empty string
+        (e.g. <command>homectl update $USER --fido2-device=""</command>).</para>
+
         <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
         used with either <option>--fido2-device=</option> or <option>--pkcs11-token-uri=</option>), for a
         discussion see above.</para></listitem>
@@ -501,10 +504,13 @@
       <varlistentry>
         <term><option>--disk-size=</option><replaceable>BYTES</replaceable></term>
         <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
-        suffixes for 1024 base values), or a percentage value and configures the disk space to assign to the
-        user. If a percentage value is specified (i.e. the argument suffixed with <literal>%</literal>) it is
-        taken relative to the available disk space of the backing file system. If the LUKS2 backend is used
-        this configures the size of the loopback file and file system contained therein. For the other
+        suffixes for 1024 base values), a percentage value, or the special strings <literal>min</literal> or
+        <literal>max</literal>, and configures the disk space to assign to the user. If a percentage value is
+        specified (i.e. the argument suffixed with <literal>%</literal>) it is taken relative to the
+        available disk space of the backing file system. If specified as <literal>min</literal> assigns the
+        minimal disk space permitted by the constraints of the backing file system and other limits, when
+        specified as <literal>max</literal> assigns the maximum disk space available. If the LUKS2 backend is
+        used this configures the size of the loopback file and file system contained therein. For the other
         storage backends configures disk quota using the filesystem's native quota logic, if available. If
         not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
         the others.</para></listitem>
@@ -657,6 +663,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--luks-extra-mount-options=</option><replaceable>OPTIONS</replaceable></term>
+
+        <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
+        volume. If specified, this string will be appended to the default, built-in mount
+        options.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--luks-cipher=</option><replaceable>CIPHER</replaceable></term>
         <term><option>--luks-cipher-mode=</option><replaceable>MODE</replaceable></term>
         <term><option>--luks-volume-key-size=</option><replaceable>BITS</replaceable></term>
@@ -670,6 +684,44 @@
         <citerefentry
         project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details on the specific attributes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--auto-resize-mode=</option></term>
+
+        <listitem><para>Configures whether to automatically grow and/or shrink the backing file system on
+        login and logout. Takes one of the strings <literal>off</literal>, <literal>grow</literal>,
+        <literal>shrink-and-grow</literal>. Only applies to the LUKS2 backend currently, and if the btrfs
+        file system is used inside it (since only then online growing/shrinking of the file system is
+        supported). Defaults to <literal>shrink-and-grow</literal>, if LUKS2/btrfs is used, otherwise is
+        off. If set to <literal>off</literal> no automatic shrinking/growing during login or logout is
+        done. If set to <literal>grow</literal> the home area is grown to the size configured via
+        <option>--disk-size=</option> should it currently be smaller. If it already matches the configured
+        size or is larger no operation is executed. If set to <literal>shrink-and-grow</literal> the home
+        area is also resized to the minimal size used disk space and file system constraints permit, during
+        logout. This mode thus ensures that while a home area is activated it is sized to the configured
+        size, but while deactivated it is compacted taking up only the minimal space possible. Note that if
+        the system is powered off abnormally or if the user otherwise not logged out cleanly the shrinking
+        operation will not take place, and the user has to re-login/logout again before it is executed
+        again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rebalance-weight=</option></term>
+
+        <listitem><para>Configures the weight parameter for the free disk space rebalancing logic. Only
+        applies to the LUKS2 backend (since for the LUKS2 backend disk space is allocated from a per-user
+        loopback file system instead of immediately from a common pool like the other backends do it). In
+        regular intervals free disk space in the active home areas and their backing storage is redistributed
+        among them, taking the weight value configured here into account. Expects an integer in the range
+        1…10000, or the special string <literal>off</literal>. If not specified defaults to 100. The weight
+        is used to scale free space made available to the home areas: a home area with a weight of 200 will
+        get twice the free space as one with a weight of 100; a home area with a weight of 50 will get half
+        of that. The backing file system will be assigned space for a weight of 20. If set to
+        <literal>off</literal> no automatic free space distribution is done for this home area. Note that
+        resizing the home area explicitly (with <command>homectl resize</command> see below) will implicitly
+        turn off the automatic rebalancing. To reenable the automatic rebalancing use
+        <option>--rebalance-weight=</option> with an empty parameter.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -841,7 +893,11 @@
         <literal>xfs</literal> and <literal>btrfs</literal> the home directory may be grown while the user is
         logged in, and on the latter also shrunk while the user is logged in. If the
         <literal>subvolume</literal>, <literal>directory</literal>, <literal>fscrypt</literal> storage
-        mechanisms are used, resizing will change file system quota.</para></listitem>
+        mechanisms are used, resizing will change file system quota. The size parameter may make use of the
+        usual suffixes B, K, M, G, T (to the base of 1024). The special strings <literal>min</literal> and
+        <literal>max</literal> may be specified in place of a numeric size value, for minimizing or
+        maximizing disk space assigned to the home area, taking constraints of the file system, disk usage inside
+        the home area and on the backing storage into account.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -889,6 +945,18 @@
         (unless the user is logged in otherwise). This command is useful for running privileged backup
         scripts and such, but requires authentication with the user's credentials in order to be able to
         unlock the user's home directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>rebalance</command></term>
+
+        <listitem><para>Rebalance free disk space between active home areas and the backing storage. See
+        <option>--rebalance-weight=</option> above. This executes no operation unless there's at least one
+        active LUKS2 home area that has disk space rebalancing enabled. This operation is synchronous: it
+        will only complete once disk space is rebalanced according to the rebalancing weights. Note that
+        rebalancing also takes place automatically in the background in regular intervals. Use this command
+        to synchronously ensure disk space is properly redistributed before initiating an operation requiring
+        large amounts of disk space.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

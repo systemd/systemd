@@ -17,9 +17,8 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_parse_sleep_config(void) {
+TEST(parse_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
-        log_info("/* %s */", __func__);
 
         assert_se(parse_sleep_config(&sleep_config) == 0);
 
@@ -43,7 +42,7 @@ static void test_parse_sleep_config(void) {
         log_debug("        states: %s", hys);
 }
 
-static int test_fiemap(const char *path) {
+static int test_fiemap_one(const char *path) {
         _cleanup_free_ struct fiemap *fiemap = NULL;
         _cleanup_close_ int fd = -1;
         int r;
@@ -71,7 +70,20 @@ static int test_fiemap(const char *path) {
         return 0;
 }
 
-static void test_sleep(void) {
+TEST_RET(fiemap) {
+        int r = 0;
+
+        assert_se(test_fiemap_one(saved_argv[0]) == 0);
+        for (int i = 1; i < saved_argc; i++) {
+                int k = test_fiemap_one(saved_argv[i]);
+                if (r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+TEST(sleep) {
         _cleanup_strv_free_ char
                 **standby = strv_new("standby"),
                 **mem = strv_new("mem"),
@@ -82,8 +94,6 @@ static void test_sleep(void) {
                 **shutdown = strv_new("shutdown"),
                 **freeze = strv_new("freeze");
         int r;
-
-        log_info("/* %s */", __func__);
 
         printf("Secure boot: %sd\n", enable_disable(is_efi_secure_boot()));
 
@@ -108,25 +118,10 @@ static void test_sleep(void) {
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
 }
 
-int main(int argc, char* argv[]) {
-        int i, r = 0, k;
-
-        test_setup_logging(LOG_DEBUG);
-
-        if (getuid() != 0)
-                log_warning("This program is unlikely to work for unprivileged users");
-
-        test_parse_sleep_config();
-        test_sleep();
-
-        if (argc <= 1)
-                assert_se(test_fiemap(argv[0]) == 0);
-        else
-                for (i = 1; i < argc; i++) {
-                        k = test_fiemap(argv[i]);
-                        if (r == 0)
-                                r = k;
-                }
-
-        return r;
-}
+DEFINE_CUSTOM_TEST_MAIN(
+        LOG_DEBUG,
+        ({
+                if (getuid() != 0)
+                        log_warning("This program is unlikely to work for unprivileged users");
+        }),
+        /* no outro */);

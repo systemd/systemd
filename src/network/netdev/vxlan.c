@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "conf-parser.h"
 #include "alloc-util.h"
@@ -394,5 +396,6 @@ const NetDevVTable vxlan_vtable = {
         .fill_message_create = netdev_vxlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vxlan_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

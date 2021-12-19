@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -23,35 +24,32 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
-static int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
+int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         _cleanup_free_ char *str = NULL;
-        static const struct {
-                uint32_t flag;
-                const char *name;
-        } map[] = {
-                { IFA_F_SECONDARY,      "secondary"                }, /* This is also called "temporary" for ipv6. */
-                { IFA_F_NODAD,          "nodad"                    },
-                { IFA_F_OPTIMISTIC,     "optimistic"               },
-                { IFA_F_DADFAILED,      "dadfailed"                },
-                { IFA_F_HOMEADDRESS,    "home-address"             },
-                { IFA_F_DEPRECATED,     "deprecated"               },
-                { IFA_F_TENTATIVE,      "tentative"                },
-                { IFA_F_PERMANENT,      "permanent"                },
-                { IFA_F_MANAGETEMPADDR, "manage-temporary-address" },
-                { IFA_F_NOPREFIXROUTE,  "no-prefixroute"           },
-                { IFA_F_MCAUTOJOIN,     "auto-join"                },
-                { IFA_F_STABLE_PRIVACY, "stable-privacy"           },
+        static const char* map[] = {
+                [LOG2U(IFA_F_SECONDARY)]      = "secondary", /* This is also called "temporary" for ipv6. */
+                [LOG2U(IFA_F_NODAD)]          = "nodad",
+                [LOG2U(IFA_F_OPTIMISTIC)]     = "optimistic",
+                [LOG2U(IFA_F_DADFAILED)]      = "dadfailed",
+                [LOG2U(IFA_F_HOMEADDRESS)]    = "home-address",
+                [LOG2U(IFA_F_DEPRECATED)]     = "deprecated",
+                [LOG2U(IFA_F_TENTATIVE)]      = "tentative",
+                [LOG2U(IFA_F_PERMANENT)]      = "permanent",
+                [LOG2U(IFA_F_MANAGETEMPADDR)] = "manage-temporary-address",
+                [LOG2U(IFA_F_NOPREFIXROUTE)]  = "no-prefixroute",
+                [LOG2U(IFA_F_MCAUTOJOIN)]     = "auto-join",
+                [LOG2U(IFA_F_STABLE_PRIVACY)] = "stable-privacy",
         };
 
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (flags & map[i].flag &&
-                    !strextend_with_separator(
-                                &str, ",",
-                                map[i].flag == IFA_F_SECONDARY && family == AF_INET6 ? "temporary" : map[i].name))
-                        return -ENOMEM;
+                if (FLAGS_SET(flags, 1 << i) && map[i])
+                        if (!strextend_with_separator(
+                                            &str, ",",
+                                            family == AF_INET6 && (1 << i) == IFA_F_SECONDARY ? "temporary" : map[i]))
+                                return -ENOMEM;
 
         *ret = TAKE_PTR(str);
         return 0;
@@ -602,7 +600,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL;
+        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
         assert(str);
@@ -617,13 +615,14 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
+        (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
-        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s",
+        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
                        strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
-                       strna(flags_str));
+                       strna(flags_str), strna(scope_str));
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
@@ -729,6 +728,10 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
+                /* The route is not assigned yet, or already removed. Ignoring. */
+                if (!route_exists(route))
+                        continue;
+
                 if (route->protocol != RTPROT_DHCP)
                         continue;
 
@@ -753,7 +756,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
         /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
          * So, we need to dump all IPv6 addresses. */
 
-        if (link_ipv6ll_enabled(link))
+        if (link_may_have_ipv6ll(link))
                 return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
@@ -841,6 +844,10 @@ int link_drop_foreign_addresses(Link *link) {
         assert(link);
         assert(link->network);
 
+        /* Keep all addresses when KeepConfiguration=yes. */
+        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                return 0;
+
         /* First, mark all addresses. */
         SET_FOREACH(address, link->addresses) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
@@ -855,10 +862,9 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                if (link_address_is_dynamic(link, address)) {
-                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                                continue;
-                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                /* link_address_is_dynamic() is slightly heavy. Let's call the function only when KeepConfiguration= is set. */
+                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP, KEEP_CONFIGURATION_STATIC) &&
+                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DHCP))
                         continue;
 
                 address_mark(address);
@@ -896,8 +902,11 @@ int link_drop_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
+                /* Do not drop IPv6LL addresses assigned by the kernel here. They will be dropped in
+                 * link_drop_ipv6ll_addresses() if IPv6LL addressing is disabled. */
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                    address->family == AF_INET6 &&
+                    in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 k = address_remove(address);
@@ -1316,6 +1325,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
+        if (r == -ENODATA) {
+                unsigned char flags;
+
+                /* For old kernels. */
+                r = sd_rtnl_message_addr_get_flags(message, &flags);
+                if (r >= 0)
+                        tmp->flags = flags;
+        }
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
@@ -1770,21 +1787,14 @@ int config_parse_address_scope(
                 return 0;
         }
 
-        if (streq(rvalue, "host"))
-                n->scope = RT_SCOPE_HOST;
-        else if (streq(rvalue, "link"))
-                n->scope = RT_SCOPE_LINK;
-        else if (streq(rvalue, "global"))
-                n->scope = RT_SCOPE_UNIVERSE;
-        else {
-                r = safe_atou8(rvalue , &n->scope);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
-                        return 0;
-                }
+        r = route_scope_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
         }
 
+        n->scope = r;
         n->scope_set = true;
         TAKE_PTR(n);
         return 0;
@@ -1917,18 +1927,11 @@ static int address_section_verify(Address *address) {
                 address->label = mfree(address->label);
         }
 
-        if (in_addr_is_localhost(address->family, &address->in_addr) > 0 &&
-            (address->family == AF_INET || !address->scope_set)) {
-                /* For IPv4, scope must be always RT_SCOPE_HOST.
-                 * For IPv6, use RT_SCOPE_HOST only when it is not explicitly specified. */
-
-                if (address->scope_set && address->scope != RT_SCOPE_HOST)
-                        log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                          "%s: non-host scope is set in the [Address] section from line %u. "
-                                          "Ignoring Scope= setting.",
-                                          address->section->filename, address->section->line);
-
-                address->scope = RT_SCOPE_HOST;
+        if (!address->scope_set) {
+                if (in_addr_is_localhost(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_HOST;
+                else if (in_addr_is_link_local(address->family, &address->in_addr) > 0)
+                        address->scope = RT_SCOPE_LINK;
         }
 
         if (address->family == AF_INET6 &&

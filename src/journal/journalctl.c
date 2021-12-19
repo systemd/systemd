@@ -551,10 +551,19 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_lines == ARG_LINES_DEFAULT)
                                 arg_lines = 1000;
 
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+
                         break;
 
                 case 'f':
                         arg_follow = true;
+
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+
                         break;
 
                 case 'o':
@@ -2588,7 +2597,7 @@ int main(int argc, char *argv[]) {
         if (!arg_follow)
                 pager_open(arg_pager_flags);
 
-        if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
+        if (!arg_quiet && (arg_lines != 0 || arg_follow) && DEBUG_LOGGING) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 

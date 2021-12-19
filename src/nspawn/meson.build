@@ -45,7 +45,8 @@ libnspawn_core = static_library(
         include_directories : includes,
         dependencies : [libacl,
                         libseccomp,
-                        libselinux])
+                        libselinux],
+        build_by_default : false)
 
 systemd_nspawn_sources = files('nspawn.c')
 

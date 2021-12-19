@@ -3283,7 +3283,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
                         return e;
 
                 if (need_more)
-                        /* The caller really needs some more data, he doesn't
+                        /* The caller really needs some more data, they don't
                          * care about what's already read, or any timeouts
                          * except its own. */
                         e |= POLLIN;

@@ -15,9 +15,7 @@ static void test_specifier_escape_one(const char *a, const char *b) {
         assert_se(streq_ptr(x, b));
 }
 
-static void test_specifier_escape(void) {
-        log_info("/* %s */", __func__);
-
+TEST(specifier_escape) {
         test_specifier_escape_one(NULL, NULL);
         test_specifier_escape_one("", "");
         test_specifier_escape_one("%", "%%");
@@ -33,9 +31,7 @@ static void test_specifier_escape_strv_one(char **a, char **b) {
         assert_se(strv_equal(x, b));
 }
 
-static void test_specifier_escape_strv(void) {
-        log_info("/* %s */", __func__);
-
+TEST(specifier_escape_strv) {
         test_specifier_escape_strv_one(NULL, NULL);
         test_specifier_escape_strv_one(STRV_MAKE(NULL), STRV_MAKE(NULL));
         test_specifier_escape_strv_one(STRV_MAKE(""), STRV_MAKE(""));
@@ -56,7 +52,7 @@ static const Specifier specifier_table[] = {
         {}
 };
 
-static void test_specifier_printf(void) {
+TEST(specifier_printf) {
         static const Specifier table[] = {
                 { 'X', specifier_string,         (char*) "AAAA" },
                 { 'Y', specifier_string,         (char*) "BBBB" },
@@ -66,8 +62,6 @@ static void test_specifier_printf(void) {
 
         _cleanup_free_ char *w = NULL;
         int r;
-
-        log_info("/* %s */", __func__);
 
         r = specifier_printf("xxx a=%X b=%Y yyy", SIZE_MAX, table, NULL, NULL, &w);
         assert_se(r >= 0);
@@ -88,9 +82,7 @@ static void test_specifier_printf(void) {
                 puts(w);
 }
 
-static void test_specifiers(void) {
-        log_info("/* %s */", __func__);
-
+TEST(specifiers) {
         for (const Specifier *s = specifier_table; s->specifier; s++) {
                 char spec[3];
                 _cleanup_free_ char *resolved = NULL;
@@ -103,13 +95,4 @@ static void test_specifiers(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_specifier_escape();
-        test_specifier_escape_strv();
-        test_specifier_printf();
-        test_specifiers();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

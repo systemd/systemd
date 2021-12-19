@@ -102,6 +102,7 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_GENERATORS_FINISH,
         MANAGER_TIMESTAMP_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_UNITS_LOAD_FINISH,
+        MANAGER_TIMESTAMP_UNITS_LOAD,
 
         MANAGER_TIMESTAMP_INITRD_SECURITY_START,
         MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH,
@@ -195,7 +196,7 @@ struct Manager {
 
         sd_event *event;
 
-        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
+        /* This maps PIDs we care about to units that are interested in. We allow multiple units to be interested in
          * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
          * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
          * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll
@@ -506,6 +507,8 @@ int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
+
+void manager_trigger_run_queue(Manager *m);
 
 int manager_loop(Manager *m);
 

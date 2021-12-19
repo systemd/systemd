@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
+#include "netif-naming-scheme.h"
 #include "network-generator.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -16,16 +16,17 @@
 
 /*
   # .network
-  ip={dhcp|on|any|dhcp6|auto6|either6}
-  ip=<interface>:{dhcp|on|any|dhcp6|auto6}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<dns1>][:<dns2>]]
+  ip={dhcp|on|any|dhcp6|auto6|either6|link6}
+  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<dns1>][:<dns2>]]
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
 
   # .link
   ifname=<interface>:<MAC>
+  net.ifname-policy=policy1[,policy2,...][,<MAC>] # This is an original rule, not supported by other tools.
 
   # .netdev
   vlan=<vlanname>:<phydevice>
@@ -51,6 +52,7 @@ static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_AUTO6]   = "auto6",
         [DHCP_TYPE_EITHER6] = "either6",
         [DHCP_TYPE_IBFT]    = "ibft",
+        [DHCP_TYPE_LINK6]   = "link6",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dracut_dhcp_type, DHCPType);
@@ -65,6 +67,7 @@ static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_AUTO6]   = "no",   /* TODO: enable other setting? */
         [DHCP_TYPE_EITHER6] = "ipv6", /* TODO: enable other setting? */
         [DHCP_TYPE_IBFT]    = "no",
+        [DHCP_TYPE_LINK6]   = "no",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType);
@@ -262,36 +265,59 @@ static Link *link_free(Link *link) {
         if (!link)
                 return NULL;
 
+        free(link->filename);
         free(link->ifname);
+        strv_free(link->policies);
+        strv_free(link->alt_policies);
         return mfree(link);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
-static int link_new(Context *context, const char *name, struct ether_addr *mac, Link **ret) {
+static int link_new(
+                Context *context,
+                const char *name,
+                const struct hw_addr_data *mac,
+                Link **ret) {
+
         _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_free_ char *ifname = NULL;
+        _cleanup_free_ char *ifname = NULL, *filename = NULL;
         int r;
 
         assert(context);
+        assert(mac);
 
-        if (!ifname_valid(name))
-                return -EINVAL;
+        if (name) {
+                if (!ifname_valid(name))
+                        return -EINVAL;
 
-        ifname = strdup(name);
-        if (!ifname)
-                return -ENOMEM;
+                ifname = strdup(name);
+                if (!ifname)
+                        return -ENOMEM;
+
+                filename = strdup(name);
+                if (!filename)
+                        return -ENOMEM;
+        }
+
+        if (!filename) {
+                filename = strdup(hw_addr_is_null(mac) ? "default" :
+                                  HW_ADDR_TO_STR_FULL(mac, HW_ADDR_TO_STRING_NO_COLON));
+                if (!filename)
+                        return -ENOMEM;
+        }
 
         link = new(Link, 1);
         if (!link)
                 return -ENOMEM;
 
         *link = (Link) {
+                .filename = TAKE_PTR(filename),
                 .ifname = TAKE_PTR(ifname),
                 .mac = *mac,
         };
 
-        r = hashmap_ensure_put(&context->links_by_name, &string_hash_ops, link->ifname, link);
+        r = hashmap_ensure_put(&context->links_by_filename, &string_hash_ops, link->filename, link);
         if (r < 0)
                 return r;
 
@@ -302,8 +328,10 @@ static int link_new(Context *context, const char *name, struct ether_addr *mac, 
         return 0;
 }
 
-Link *link_get(Context *context, const char *ifname) {
-        return hashmap_get(context->links_by_name, ifname);
+Link *link_get(Context *context, const char *filename) {
+        assert(context);
+        assert(filename);
+        return hashmap_get(context->links_by_filename, filename);
 }
 
 static int network_set_dhcp_type(Context *context, const char *ifname, const char *dhcp_type) {
@@ -566,8 +594,8 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         unsigned char prefixlen;
         int r;
 
-        /* ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<mtu>][:<macaddr>]]
-         * ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[<dns1>][:<dns2>]] */
+        /* ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<mtu>][:<macaddr>]]
+         * ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<dns1>][:<dns2>]] */
 
         r = parse_ip_address_one(family, &value, &addr);
         if (r < 0)
@@ -660,7 +688,7 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
         const char *ifname, *dhcp_type, *p;
         int r;
 
-        /* ip=<interface>:{dhcp|on|any|dhcp6|auto6}[:[<mtu>][:<macaddr>]] */
+        /* ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]] */
 
         p = strchr(value, ':');
         if (!p)
@@ -694,7 +722,7 @@ static int parse_cmdline_ip(Context *context, const char *key, const char *value
 
         p = strchr(value, ':');
         if (!p)
-                /* ip={dhcp|on|any|dhcp6|auto6|either6} */
+                /* ip={dhcp|on|any|dhcp6|auto6|either6|link6} */
                 return network_set_dhcp_type(context, "", value);
 
         if (value[0] == '[')
@@ -894,7 +922,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
 }
 
 static int parse_cmdline_ifname(Context *context, const char *key, const char *value) {
-        struct ether_addr mac;
+        struct hw_addr_data mac;
         const char *name, *p;
         int r;
 
@@ -909,11 +937,70 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
 
         name = strndupa_safe(value, p - value);
 
-        r = parse_ether_addr(p + 1, &mac);
+        r = parse_hw_addr(p + 1, &mac);
         if (r < 0)
                 return r;
 
         return link_new(context, name, &mac, NULL);
+}
+
+static int parse_cmdline_ifname_policy(Context *context, const char *key, const char *value) {
+        _cleanup_strv_free_ char **policies = NULL, **alt_policies = NULL;
+        struct hw_addr_data mac = HW_ADDR_NULL;
+        Link *link;
+        int r;
+
+        /* net.ifname-policy=policy1[,policy2,...][,<MAC>] */
+
+        if (proc_cmdline_value_missing(key, value))
+                return -EINVAL;
+
+        for (const char *q = value; ; ) {
+                _cleanup_free_ char *word = NULL;
+                NamePolicy p;
+
+                r = extract_first_word(&q, &word, ",", 0);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return r;
+
+                p = name_policy_from_string(word);
+                if (p < 0) {
+                        r = parse_hw_addr(word, &mac);
+                        if (r < 0)
+                                return r;
+
+                        if (hw_addr_is_null(&mac))
+                                return -EINVAL;
+
+                        if (!isempty(q))
+                                return -EINVAL;
+
+                        break;
+                }
+
+                if (alternative_names_policy_from_string(word) >= 0) {
+                        r = strv_extend(&alt_policies, word);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = strv_consume(&policies, TAKE_PTR(word));
+                if (r < 0)
+                        return r;
+        }
+
+        if (strv_isempty(policies))
+                return -EINVAL;
+
+        r = link_new(context, NULL, &mac, &link);
+        if (r < 0)
+                return r;
+
+        link->policies = TAKE_PTR(policies);
+        link->alt_policies = TAKE_PTR(alt_policies);
+        return 0;
 }
 
 int parse_cmdline_item(const char *key, const char *value, void *data) {
@@ -938,6 +1025,8 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
                 return parse_cmdline_bond(context, key, value);
         if (streq(key, "ifname"))
                 return parse_cmdline_ifname(context, key, value);
+        if (streq(key, "net.ifname-policy"))
+                return parse_cmdline_ifname_policy(context, key, value);
 
         return 0;
 }
@@ -989,7 +1078,7 @@ void context_clear(Context *context) {
 
         hashmap_free_with_destructor(context->networks_by_name, network_free);
         hashmap_free_with_destructor(context->netdevs_by_name, netdev_free);
-        hashmap_free_with_destructor(context->links_by_name, link_free);
+        hashmap_free_with_destructor(context->links_by_filename, link_free);
 }
 
 static int address_dump(Address *address, FILE *f) {
@@ -1115,13 +1204,27 @@ void link_dump(Link *link, FILE *f) {
 
         fputs("[Match]\n", f);
 
-        if (!ether_addr_is_null(&link->mac))
-                fprintf(f, "MACAddress=%s\n", ETHER_ADDR_TO_STR(&link->mac));
+        if (!hw_addr_is_null(&link->mac))
+                fprintf(f, "MACAddress=%s\n", HW_ADDR_TO_STR(&link->mac));
+        else
+                fputs("OriginalName=*\n", f);
 
-        fprintf(f,
-                "\n[Link]\n"
-                "Name=%s\n",
-                link->ifname);
+        fputs("\n[Link]\n", f);
+
+        if (!isempty(link->ifname))
+                fprintf(f, "Name=%s\n", link->ifname);
+
+        if (!strv_isempty(link->policies)) {
+                fputs("NamePolicy=", f);
+                fputstrv(f, link->policies, " ", NULL);
+                fputc('\n', f);
+        }
+
+        if (!strv_isempty(link->alt_policies)) {
+                fputs("AlternativeNamesPolicy=", f);
+                fputstrv(f, link->alt_policies, " ", NULL);
+                fputc('\n', f);
+        }
 }
 
 int network_format(Network *network, char **ret) {

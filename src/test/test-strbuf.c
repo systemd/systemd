@@ -5,13 +5,14 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static ssize_t add_string(struct strbuf *sb, const char *s) {
         return strbuf_add_string(sb, s, strlen(s));
 }
 
-static void test_strbuf(void) {
+TEST(strbuf) {
         _cleanup_(strbuf_freep) struct strbuf *sb;
         _cleanup_strv_free_ char **l;
         ssize_t a, b, c, d, e, f, g, h;
@@ -69,8 +70,4 @@ static void test_strbuf(void) {
         assert_se(sb->root == NULL);
 }
 
-int main(int argc, const char *argv[]) {
-        test_strbuf();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

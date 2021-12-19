@@ -175,7 +175,6 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
-    socat
     stat
     su
     sulogin
@@ -588,12 +587,17 @@ install_verity_minimal() {
             # missing $LD_PRELOAD libraries.
             inst_libs "$ASAN_RT_PATH"
             inst_library "$ASAN_RT_PATH"
+            # Create a dummy LSan suppression file otherwise gcc's ASan
+            # complains as it doesn't exist in the minimal image
+            # (i.e. when running TEST-29 or TEST-50 under sanitizers)
+            touch "$initdir/systemd-lsan.supp"
         fi
         cp "$os_release" "$initdir/usr/lib/os-release"
         ln -s ../usr/lib/os-release "$initdir/etc/os-release"
         touch "$initdir/etc/machine-id" "$initdir/etc/resolv.conf"
         touch "$initdir/opt/some_file"
         echo MARKER=1 >>"$initdir/usr/lib/os-release"
+        echo "PORTABLE_PREFIXES=app0 minimal" >>"$initdir/usr/lib/os-release"
         echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >"$initdir/usr/lib/systemd/system/app0.service"
         cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-foo.service"
 
@@ -638,7 +642,9 @@ EOF
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
-        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
+        ( echo "${version_id}"
+          echo "SYSEXT_SCOPE=portable"
+          echo "PORTABLE_PREFIXES=app1" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
         setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
         cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
 [Service]
@@ -778,9 +784,23 @@ if [[ ! -e "$ASAN_RT_PATH" ]]; then
     exit 1
 fi
 
+# Suppress certain leaks reported by LSan (either in external tools or bogus
+# ones)
+# Docs: # https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
+#
+# - fsck is called by systemd-homed and is reporting a leak we're not interested
+#   in
+# - libLLVM is a "side effect" caused by the previous fsck leak
+cat >/systemd-lsan.supp <<INNER_EOF
+leak:/bin/fsck$
+leak:/sbin/fsck$
+leak:/lib/libLLVM
+INNER_EOF
+
+DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-}:suppressions=/systemd-lsan.supp
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS LSAN_OPTIONS=\$DEFAULT_LSAN_OPTIONS"
 
 # As right now bash is the PID 1, we can't expect PATH to have a sane value.
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
@@ -1153,7 +1173,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2 libbpf; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2 libbpf libelf libdw; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -2083,7 +2103,7 @@ dfatal() {
 
 
 # Generic substring function.  If $2 is in $1, return 0.
-strstr() { [ "${1#*$2*}" != "$1" ]; }
+strstr() { [ "${1#*"$2"*}" != "$1" ]; }
 
 # normalize_path <path>
 # Prints the normalized path, where it removes any duplicated
@@ -2498,12 +2518,12 @@ image_install() {
 install_kmod_with_fw() {
     local module="${1:?}"
     # no need to go further if the module is already installed
-    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*/lib/modules/$KERNEL_VER/}" ]] && return 0
+    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*"/lib/modules/$KERNEL_VER/"}" ]] && return 0
     [[ -e "$initdir/.kernelmodseen/${module##*/}" ]] && return 0
 
     [ -d "$initdir/.kernelmodseen" ] && : >"$initdir/.kernelmodseen/${module##*/}"
 
-    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*/lib/modules/$KERNEL_VER/}" || return $?
+    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*"/lib/modules/$KERNEL_VER/"}" || return $?
 
     local modname="${module##*/}"
     local fwdir found fw

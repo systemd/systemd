@@ -432,12 +432,17 @@ static int validate_version(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
-        return extension_release_validate(
+        r = extension_release_validate(
                         img->name,
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_sysext_level,
+                        in_initrd() ? "initrd" : "system",
                         img->extension_release);
+        if (r < 0)
+                return log_error_errno(r, "Failed to validate extension release information: %m");
+
+        return r;
 }
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
@@ -465,7 +470,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
          * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
          * system won't be visible to anyone but us, since we opened our own namespace and then made the
          * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
-        r = mount_nofollow_verbose(LOG_ERR, "sysexit", workspace, "tmpfs", 0, "mode=0700");
+        r = mount_nofollow_verbose(LOG_ERR, "sysext", workspace, "tmpfs", 0, "mode=0700");
         if (r < 0)
                 return r;
 

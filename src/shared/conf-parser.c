@@ -677,6 +677,31 @@ int config_parse_iec_uint64(
         return 0;
 }
 
+int config_parse_iec_uint64_infinity(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *bytes = data;
+
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "infinity")) {
+                *bytes = UINT64_MAX;
+                return 0;
+        }
+
+        return config_parse_iec_uint64(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 int config_parse_bool(
                 const char* unit,
                 const char *filename,

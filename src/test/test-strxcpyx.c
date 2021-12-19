@@ -4,9 +4,10 @@
 
 #include "string-util.h"
 #include "strxcpyx.h"
+#include "tests.h"
 #include "util.h"
 
-static void test_strpcpy(void) {
+TEST(strpcpy) {
         char target[25];
         char *s = target;
         size_t space_left;
@@ -23,7 +24,7 @@ static void test_strpcpy(void) {
         assert_se(space_left == 0);
 }
 
-static void test_strpcpyf(void) {
+TEST(strpcpyf) {
         char target[25];
         char *s = target;
         size_t space_left;
@@ -43,7 +44,7 @@ static void test_strpcpyf(void) {
         assert_se(target[12] == '2');
 }
 
-static void test_strpcpyl(void) {
+TEST(strpcpyl) {
         char target[25];
         char *s = target;
         size_t space_left;
@@ -56,7 +57,7 @@ static void test_strpcpyl(void) {
         assert_se(space_left == 1);
 }
 
-static void test_strscpy(void) {
+TEST(strscpy) {
         char target[25];
         size_t space_left;
 
@@ -67,7 +68,7 @@ static void test_strscpy(void) {
         assert_se(space_left == 20);
 }
 
-static void test_strscpyl(void) {
+TEST(strscpyl) {
         char target[25];
         size_t space_left;
 
@@ -78,15 +79,18 @@ static void test_strscpyl(void) {
         assert_se(space_left == 10);
 }
 
-static void test_sd_event_code_migration(void) {
+TEST(sd_event_code_migration) {
         char b[100 * DECIMAL_STR_MAX(unsigned) + 1];
         char c[100 * DECIMAL_STR_MAX(unsigned) + 1], *p;
         unsigned i;
         size_t l;
-        int o;
+        int o, r;
 
-        for (i = o = 0; i < 100; i++)
-                o += snprintf(&b[o], sizeof(b) - o, "%u ", i);
+        for (i = o = 0; i < 100; i++) {
+                r = snprintf(&b[o], sizeof(b) - o, "%u ", i);
+                assert_se(r >= 0 && r < (int) sizeof(b) - o);
+                o += r;
+        }
 
         p = c;
         l = sizeof(c);
@@ -96,14 +100,4 @@ static void test_sd_event_code_migration(void) {
         assert_se(streq(b, c));
 }
 
-int main(int argc, char *argv[]) {
-        test_strpcpy();
-        test_strpcpyf();
-        test_strpcpyl();
-        test_strscpy();
-        test_strscpyl();
-
-        test_sd_event_code_migration();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

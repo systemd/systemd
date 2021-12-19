@@ -17,6 +17,9 @@ disown
 
 systemd-notify --ready
 
+# Run the stop/kill command
+\$1 &
+
 # process tree: systemd -> bash -> sleep
 sleep infinity
 EOF
@@ -24,14 +27,12 @@ chmod +x /tmp/test56-exit-cgroup.sh
 
 # service should be stopped cleanly
 systemd-run --wait --unit=one -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl stop one &"' \
-    /tmp/test56-exit-cgroup.sh
+    /tmp/test56-exit-cgroup.sh 'systemctl stop one'
 
 # same thing with a truthy exec condition
 systemd-run --wait --unit=two -p Type=notify -p ExitType=cgroup \
     -p ExecCondition=true \
-    -p ExecStartPost='bash -c "systemctl stop two &"' \
-    /tmp/test56-exit-cgroup.sh
+    /tmp/test56-exit-cgroup.sh 'systemctl stop two'
 
 # false exec condition: systemd-run should exit immediately with status code: 1
 systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
@@ -41,8 +42,7 @@ systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
 
 # service should exit uncleanly (main process exits with SIGKILL)
 systemd-run --wait --unit=four -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl kill --signal 9 four &"' \
-    /tmp/test56-exit-cgroup.sh \
+    /tmp/test56-exit-cgroup.sh 'systemctl kill --signal 9 four' \
     && { echo 'unexpected success'; exit 1; }
 
 
@@ -58,18 +58,19 @@ sleep infinity &
 ((sleep infinity); true) &
 
 systemd-notify --ready
+
+# Run the stop/kill command after this bash process exits
+(sleep 1; \$1) &
 EOF
 chmod +x /tmp/test56-exit-cgroup-parentless.sh
 
 # service should be stopped cleanly
 systemd-run --wait --unit=five -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl stop five &"' \
-    /tmp/test56-exit-cgroup-parentless.sh
+    /tmp/test56-exit-cgroup-parentless.sh 'systemctl stop five'
 
 # service should still exit cleanly despite SIGKILL (the main process already exited cleanly)
 systemd-run --wait --unit=six -p Type=notify -p ExitType=cgroup \
-    -p ExecStartPost='bash -c "systemctl kill --signal 9 six &"' \
-    /tmp/test56-exit-cgroup-parentless.sh
+    /tmp/test56-exit-cgroup-parentless.sh 'systemctl kill --signal 9 six'
 
 
 systemd-analyze log-level info

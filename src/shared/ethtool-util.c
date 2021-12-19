@@ -339,14 +339,14 @@ int ethtool_get_link_info(
         return 0;
 }
 
-int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
+int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw_addr_data *ret) {
         _cleanup_close_ int fd = -1;
         struct {
                 struct ethtool_perm_addr addr;
-                uint8_t space[MAX_ADDR_LEN];
+                uint8_t space[HW_ADDR_MAX_SIZE];
         } epaddr = {
                 .addr.cmd = ETHTOOL_GPERMADDR,
-                .addr.size = MAX_ADDR_LEN,
+                .addr.size = HW_ADDR_MAX_SIZE,
         };
         struct ifreq ifr = {
                 .ifr_data = (caddr_t) &epaddr,
@@ -367,17 +367,14 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
-        if (epaddr.addr.size != 6)
-                return -EOPNOTSUPP;
+        if (epaddr.addr.size == 0)
+                return -ENODATA;
 
-#pragma GCC diagnostic push
-#if HAVE_ZERO_LENGTH_BOUNDS
-#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#endif
-        for (size_t i = 0; i < epaddr.addr.size; i++)
-                ret->ether_addr_octet[i] = epaddr.addr.data[i];
-#pragma GCC diagnostic pop
+        if (epaddr.addr.size > HW_ADDR_MAX_SIZE)
+                return -EINVAL;
 
+        ret->length = epaddr.addr.size;
+        memcpy(ret->bytes, epaddr.addr.data, epaddr.addr.size);
         return 0;
 }
 
@@ -465,10 +462,8 @@ int ethtool_set_wol(
                 return 0;
         }
 
-        r = 0;
         ecmd.cmd = ETHTOOL_SWOL;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                r = -errno;
+        r = RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 
         explicit_bzero_safe(&ecmd, sizeof(ecmd));
         return r;
@@ -519,10 +514,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
                 return 0;
 
         ecmd.cmd = ETHTOOL_SRINGPARAM;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
 static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_stringset stringset_id, struct ethtool_gstrings **ret) {
@@ -881,10 +873,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
 static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
@@ -915,10 +904,7 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
 int ethtool_set_glinksettings(
@@ -1056,10 +1042,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCHANNELS;
-        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*fd, SIOCETHTOOL, &ifr));
 }
 
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
@@ -1100,10 +1083,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
                 return 0;
 
         ecmd.cmd = ETHTOOL_SPAUSEPARAM;
-        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*fd, SIOCETHTOOL, &ifr));
 }
 
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce) {
@@ -1223,10 +1203,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCOALESCE;
-        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
 int config_parse_advertise(

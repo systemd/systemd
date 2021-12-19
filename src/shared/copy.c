@@ -20,6 +20,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "rm-rf.h"
@@ -484,8 +485,6 @@ static int hardlink_context_setup(
 }
 
 static int hardlink_context_realize(HardlinkContext *c) {
-        int r;
-
         if (!c)
                 return 0;
 
@@ -497,15 +496,9 @@ static int hardlink_context_realize(HardlinkContext *c) {
 
         assert(c->subdir);
 
-        if (mkdirat(c->parent_fd, c->subdir, 0700) < 0)
-                return -errno;
-
-        c->dir_fd = openat(c->parent_fd, c->subdir, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (c->dir_fd < 0) {
-                r = -errno;
-                (void) unlinkat(c->parent_fd, c->subdir, AT_REMOVEDIR);
-                return r;
-        }
+        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_EXCL|O_CLOEXEC, 0700);
+        if (c->dir_fd < 0)
+                return c->dir_fd;
 
         return 1;
 }
@@ -796,7 +789,6 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         bool exists, created;
         int r;
 
@@ -1380,10 +1372,7 @@ int copy_access(int fdf, int fdt) {
         if (fstat(fdf, &st) < 0)
                 return -errno;
 
-        if (fchmod(fdt, st.st_mode & 07777) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fchmod(fdt, st.st_mode & 07777));
 }
 
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {

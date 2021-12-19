@@ -376,11 +376,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (sclass == 0)
                 return -ENOSYS;
 
-        r = security_compute_create_raw(mycon, fcon, sclass, label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -388,18 +384,12 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 
 int mac_selinux_get_our_label(char **label) {
 #if HAVE_SELINUX
-        int r;
-
         assert(label);
 
         if (!mac_selinux_use())
                 return -EOPNOTSUPP;
 
-        r = getcon_raw(label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(getcon_raw(label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -461,11 +451,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         if (sclass == 0)
                 return -ENOSYS;
 
-        r = security_compute_create_raw(mycon, fcon, sclass, label);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -511,52 +497,36 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
 }
 #endif
 
-int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode) {
+int mac_selinux_create_file_prepare_at(
+                int dir_fd,
+                const char *path,
+                mode_t mode) {
+
 #if HAVE_SELINUX
         _cleanup_free_ char *abspath = NULL;
         int r;
 
-        assert(path);
+        if (dir_fd < 0 && dir_fd != AT_FDCWD)
+                return -EBADF;
 
         if (!label_hnd)
                 return 0;
 
-        if (!path_is_absolute(path)) {
-                if (dirfd == AT_FDCWD)
+        if (isempty(path) || !path_is_absolute(path)) {
+                if (dir_fd == AT_FDCWD)
                         r = safe_getcwd(&abspath);
                 else
-                        r = fd_get_path(dirfd, &abspath);
+                        r = fd_get_path(dir_fd, &abspath);
                 if (r < 0)
                         return r;
 
-                if (!path_extend(&abspath, path))
+                if (!isempty(path) && !path_extend(&abspath, path))
                         return -ENOMEM;
 
                 path = abspath;
         }
 
         return selinux_create_file_prepare_abspath(path, mode);
-#else
-        return 0;
-#endif
-}
-
-int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
-#if HAVE_SELINUX
-        int r;
-
-        _cleanup_free_ char *abspath = NULL;
-
-        assert(path);
-
-        if (!label_hnd)
-                return 0;
-
-        r = path_make_absolute_cwd(path, &abspath);
-        if (r < 0)
-                return r;
-
-        return selinux_create_file_prepare_abspath(abspath, mode);
 #else
         return 0;
 #endif
@@ -684,7 +654,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                         context_changed = true;
         }
 
-        r = bind(fd, addr, addrlen) < 0 ? -errno : 0;
+        r = RET_NERRNO(bind(fd, addr, addrlen));
 
         if (context_changed)
                 (void) setfscreatecon_raw(NULL);
@@ -693,8 +663,5 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 skipped:
 #endif
-        if (bind(fd, addr, addrlen) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bind(fd, addr, addrlen));
 }

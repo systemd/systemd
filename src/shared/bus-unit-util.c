@@ -19,6 +19,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "ioprio-util.h"
 #include "ip-protocol-list.h"
 #include "libmount-util.h"
 #include "locale-util.h"
@@ -894,7 +895,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 }
 
 static int bus_append_automount_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (streq(field, "Where"))
+        if (STR_IN_SET(field, "Where",
+                              "ExtraOptions"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "DirectoryMode"))

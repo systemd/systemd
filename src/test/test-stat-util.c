@@ -18,12 +18,10 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_files_same(void) {
+TEST(files_same) {
         _cleanup_close_ int fd = -1;
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
-
-        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -38,12 +36,10 @@ static void test_files_same(void) {
         unlink(name_alias);
 }
 
-static void test_is_symlink(void) {
+TEST(is_symlink) {
         char name[] = "/tmp/test-is_symlink.XXXXXX";
         char name_link[] = "/tmp/test-is_symlink.link";
         _cleanup_close_ int fd = -1;
-
-        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -57,9 +53,7 @@ static void test_is_symlink(void) {
         unlink(name_link);
 }
 
-static void test_path_is_fs_type(void) {
-        log_info("/* %s */", __func__);
-
+TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
@@ -72,11 +66,9 @@ static void test_path_is_fs_type(void) {
         assert_se(path_is_fs_type("/i-dont-exist", BTRFS_SUPER_MAGIC) == -ENOENT);
 }
 
-static void test_path_is_temporary_fs(void) {
+TEST(path_is_temporary_fs) {
         const char *s;
         int r;
-
-        log_info("/* %s */", __func__);
 
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
                 r = path_is_temporary_fs(s);
@@ -92,11 +84,9 @@ static void test_path_is_temporary_fs(void) {
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
 
-static void test_path_is_read_only_fs(void) {
+TEST(path_is_read_only_fs) {
         const char *s;
         int r;
-
-        log_info("/* %s */", __func__);
 
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
                 r = path_is_read_only_fs(s);
@@ -112,10 +102,8 @@ static void test_path_is_read_only_fs(void) {
         assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
 }
 
-static void test_fd_is_ns(void) {
+TEST(fd_is_ns) {
         _cleanup_close_ int fd = -1;
-
-        log_info("/* %s */", __func__);
 
         assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
@@ -139,9 +127,7 @@ static void test_fd_is_ns(void) {
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 1, -EUCLEAN));
 }
 
-static void test_device_major_minor_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(device_major_minor_valid) {
         /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
         assert_cc(sizeof(dev_t) == sizeof(uint64_t));
 
@@ -209,9 +195,7 @@ static void test_device_path_make_canonical_one(const char *path) {
         assert_se((st.st_mode & S_IFMT) == (mode & S_IFMT));
 }
 
-static void test_device_path_make_canonical(void) {
-        log_info("/* %s */", __func__);
-
+TEST(device_path_make_canonical) {
         test_device_path_make_canonical_one("/dev/null");
         test_device_path_make_canonical_one("/dev/zero");
         test_device_path_make_canonical_one("/dev/full");
@@ -225,11 +209,9 @@ static void test_device_path_make_canonical(void) {
         }
 }
 
-static void test_dir_is_empty(void) {
+TEST(dir_is_empty) {
         _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
         _cleanup_free_ char *j = NULL, *jj = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(dir_is_empty_at(AT_FDCWD, "/proc") == 0);
         assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi") == -ENOENT);
@@ -254,19 +236,4 @@ static void test_dir_is_empty(void) {
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
 }
 
-int main(int argc, char *argv[]) {
-        log_show_color(true);
-        test_setup_logging(LOG_INFO);
-
-        test_files_same();
-        test_is_symlink();
-        test_path_is_fs_type();
-        test_path_is_temporary_fs();
-        test_path_is_read_only_fs();
-        test_fd_is_ns();
-        test_device_major_minor_valid();
-        test_device_path_make_canonical();
-        test_dir_is_empty();
-
-        return 0;
-}
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, log_show_color(true), /* no outro */);

@@ -19,9 +19,10 @@
 #include "dbus-unit.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fstab-util.h"
 #include "io-util.h"
 #include "label.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mount.h"
 #include "mountpoint-util.h"
@@ -68,6 +69,7 @@ static int automount_send_ready(Automount *a, Set *tokens, int status);
 static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
+        assert(a);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -109,6 +111,7 @@ static void automount_done(Unit *u) {
         unmount_autofs(a);
 
         a->where = mfree(a->where);
+        a->extra_options = mfree(a->extra_options);
 
         a->tokens = set_free(a->tokens);
         a->expire_tokens = set_free(a->expire_tokens);
@@ -168,6 +171,15 @@ static int automount_add_default_dependencies(Automount *a) {
 }
 
 static int automount_verify(Automount *a) {
+        static const char *const reserved_options[] = {
+                "fd\0",
+                "pgrp\0",
+                "minproto\0",
+                "maxproto\0",
+                "direct\0",
+                "indirect\0",
+        };
+
         _cleanup_free_ char *e = NULL;
         int r;
 
@@ -183,6 +195,14 @@ static int automount_verify(Automount *a) {
 
         if (!unit_has_name(UNIT(a), e))
                 return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Where= setting doesn't match unit name. Refusing.");
+
+        for (size_t i = 0; i < ELEMENTSOF(reserved_options); i++)
+                if (fstab_test_option(a->extra_options, reserved_options[i]))
+                        return log_unit_error_errno(
+                                UNIT(a),
+                                SYNTHETIC_ERRNO(ENOEXEC),
+                                "ExtraOptions= setting may not contain reserved option %s.",
+                                reserved_options[i]);
 
         return 0;
 }
@@ -313,11 +333,13 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sAutomount State: %s\n"
                 "%sResult: %s\n"
                 "%sWhere: %s\n"
+                "%sExtraOptions: %s\n"
                 "%sDirectoryMode: %04o\n"
                 "%sTimeoutIdleUSec: %s\n",
                 prefix, automount_state_to_string(a->state),
                 prefix, automount_result_to_string(a->result),
                 prefix, a->where,
+                prefix, a->extra_options,
                 prefix, a->directory_mode,
                 prefix, FORMAT_TIMESPAN(a->timeout_idle_usec, USEC_PER_SEC));
 }
@@ -425,10 +447,7 @@ static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, usec_t usec) {
                 /* Convert to seconds, rounding up. */
                 param.timeout.timeout = DIV_ROUND_UP(usec, USEC_PER_SEC);
 
-        if (ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_TIMEOUT, &param) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_TIMEOUT, &param));
 }
 
 static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, int status) {
@@ -446,10 +465,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
         } else
                 param.ready.token = token;
 
-        if (ioctl(dev_autofs_fd, status ? AUTOFS_DEV_IOCTL_FAIL : AUTOFS_DEV_IOCTL_READY, &param) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(dev_autofs_fd, status ? AUTOFS_DEV_IOCTL_FAIL : AUTOFS_DEV_IOCTL_READY, &param));
 }
 
 static int automount_send_ready(Automount *a, Set *tokens, int status) {
@@ -558,8 +574,7 @@ static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct")
-                     + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
+        _cleanup_free_ char *options = NULL;
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -592,7 +607,17 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
+        if (asprintf(
+                    &options,
+                    "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct%s%s",
+                    p[1],
+                    getpgrp(),
+                    isempty(a->extra_options) ? "" : ",",
+                    strempty(a->extra_options)) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
         r = mount_nofollow(name, a->where, "autofs", 0, options);
         if (r < 0)
@@ -784,11 +809,6 @@ static void automount_enter_running(Automount *a) {
         if (!trigger) {
                 log_unit_error(UNIT(a), "Unit to trigger vanished.");
                 goto fail;
-        }
-
-        if (unit_has_failed_condition_or_assert(trigger)) {
-                automount_enter_dead(a, AUTOMOUNT_FAILURE_MOUNT_CONDITION_FAILED);
-                return;
         }
 
         r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
@@ -1063,7 +1083,7 @@ static bool automount_supported(void) {
         return supported;
 }
 
-static int automount_test_start_limit(Unit *u) {
+static int automount_can_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
         int r;
 
@@ -1075,16 +1095,15 @@ static int automount_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
-        [AUTOMOUNT_SUCCESS]                        = "success",
-        [AUTOMOUNT_FAILURE_RESOURCES]              = "resources",
-        [AUTOMOUNT_FAILURE_START_LIMIT_HIT]        = "start-limit-hit",
-        [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT]  = "mount-start-limit-hit",
-        [AUTOMOUNT_FAILURE_UNMOUNTED]              = "unmounted",
-        [AUTOMOUNT_FAILURE_MOUNT_CONDITION_FAILED] = "mount-condition-failed",
+        [AUTOMOUNT_SUCCESS]                       = "success",
+        [AUTOMOUNT_FAILURE_RESOURCES]             = "resources",
+        [AUTOMOUNT_FAILURE_START_LIMIT_HIT]       = "start-limit-hit",
+        [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT] = "mount-start-limit-hit",
+        [AUTOMOUNT_FAILURE_UNMOUNTED]             = "unmounted",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
@@ -1142,5 +1161,5 @@ const UnitVTable automount_vtable = {
                 },
         },
 
-        .test_start_limit = automount_test_start_limit,
+        .can_start = automount_can_start,
 };

@@ -34,11 +34,11 @@ multiple implementers might use it when building packages, or core file analyzer
 so on.
 
 The metadata will be embedded in a single, new, 4-bytes-aligned, allocated, 0-padded,
-read-only ELF header section, in a key-value JSON format. Implementers working on parsing
-core files should not assume a specific list of keys, but parse anything that is included
-in the section. Implementers working on build tools should strive to use the same key
-names, for consistency. The most common will be listed here. When corresponding to the
-content of os-release, the values should match, again for consistency.
+read-only ELF header section, in a name-value JSON object format. Implementers working on parsing
+core files should not assume a specific list of names, but parse anything that is included
+in the section, and should look for the note using the `note type`. Implementers working on
+build tools should strive to use the same names, for consistency. The most common will be
+listed here. When corresponding to the content of os-release, the values should match, again for consistency.
 
 If available, the metadata should also include the debuginfod server URL that can provide
 the original executable, debuginfo and sources, to further facilitate debugging.
@@ -47,9 +47,9 @@ the original executable, debuginfo and sources, to further facilitate debugging.
 
 ```
 SECTION: `.note.package`
-node-id: `0xcafe1a7e`
+note type: `0xcafe1a7e`
 Owner: `FDO` (FreeDesktop.org)
-Value: a JSON string with the structure described below
+Value: a single JSON object encoded as a zero-terminated UTF-8 string
 ```
 
 * JSON payload
@@ -66,6 +66,21 @@ Value: a JSON string with the structure described below
      "debugInfoUrl": "https://debuginfod.fedoraproject.org/"
 }
 ```
+
+The format is a single JSON object, encoded as a zero-terminated `UTF-8` string.
+Each name in the object shall be unique as per recommendations of
+[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#section-4). Strings shall
+not contain any control character, nor use `\uXXX` escaping.
+
+When it comes to JSON numbers, this specification assumes that JSON parsers
+processing this information are capable of reproducing the full signed 53bit
+integer range (i.e. -2⁵³+1…+2⁵³-1) as well as the full 64bit IEEE floating
+point number range losslessly (with the exception of NaN/-inf/+inf, since JSON
+cannot encode that), as per recommendations of
+[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#page-8). Fields in
+these JSON objects are thus permitted to encode numeric values from these
+ranges as JSON numbers, and should not use numeric values not covered by these
+types and ranges.
 
 A reference implementations of a [build-time tool is provided](https://github.com/systemd/package-notes)
 and can be used to generate a linker script, which can then be used at build time via

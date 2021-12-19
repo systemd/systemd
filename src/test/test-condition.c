@@ -25,6 +25,7 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
@@ -32,11 +33,11 @@
 #include "strv.h"
 #include "tests.h"
 #include "tomoyo-util.h"
-#include "user-record.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 #include "virt.h"
 
-static void test_condition_test_path(void) {
+TEST(condition_test_path) {
         Condition *condition;
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false);
@@ -125,7 +126,7 @@ static void test_condition_test_path(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_control_group_hierarchy(void) {
+TEST(condition_test_control_group_hierarchy) {
         Condition *condition;
         int r;
 
@@ -147,7 +148,7 @@ static void test_condition_test_control_group_hierarchy(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_control_group_controller(void) {
+TEST(condition_test_control_group_controller) {
         Condition *condition;
         CGroupMask system_mask;
         _cleanup_free_ char *controller_name = NULL;
@@ -216,7 +217,7 @@ static void test_condition_test_control_group_controller(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_ac_power(void) {
+TEST(condition_test_ac_power) {
         Condition *condition;
 
         condition = condition_new(CONDITION_AC_POWER, "true", false, false);
@@ -235,7 +236,7 @@ static void test_condition_test_ac_power(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_host(void) {
+TEST(condition_test_host) {
         _cleanup_free_ char *hostname = NULL;
         Condition *condition;
         sd_id128_t id;
@@ -271,7 +272,7 @@ static void test_condition_test_host(void) {
         }
 }
 
-static void test_condition_test_architecture(void) {
+TEST(condition_test_architecture) {
         Condition *condition;
         const char *sa;
         int a;
@@ -298,7 +299,7 @@ static void test_condition_test_architecture(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_kernel_command_line(void) {
+TEST(condition_test_kernel_command_line) {
         Condition *condition;
         int r;
 
@@ -316,7 +317,7 @@ static void test_condition_test_kernel_command_line(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_kernel_version(void) {
+TEST(condition_test_kernel_version) {
         Condition *condition;
         struct utsname u;
         const char *v;
@@ -459,7 +460,7 @@ static void test_condition_test_kernel_version(void) {
 }
 
 #if defined(__i386__) || defined(__x86_64__)
-static void test_condition_test_cpufeature(void) {
+TEST(condition_test_cpufeature) {
         Condition *condition;
 
         condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false);
@@ -479,7 +480,7 @@ static void test_condition_test_cpufeature(void) {
 }
 #endif
 
-static void test_condition_test_security(void) {
+TEST(condition_test_security) {
         Condition *condition;
 
         condition = condition_new(CONDITION_SECURITY, "garbage oifdsjfoidsjoj", false, false);
@@ -523,7 +524,7 @@ static void test_condition_test_security(void) {
         condition_free(condition);
 }
 
-static void print_securities(void) {
+TEST(print_securities) {
         log_info("------ enabled security technologies ------");
         log_info("SELinux: %s", yes_no(mac_selinux_use()));
         log_info("AppArmor: %s", yes_no(mac_apparmor_use()));
@@ -535,7 +536,7 @@ static void print_securities(void) {
         log_info("-------------------------------------------");
 }
 
-static void test_condition_test_virtualization(void) {
+TEST(condition_test_virtualization) {
         Condition *condition;
         const char *virt;
         int r;
@@ -594,7 +595,7 @@ static void test_condition_test_virtualization(void) {
         }
 }
 
-static void test_condition_test_user(void) {
+TEST(condition_test_user) {
         Condition *condition;
         char* uid;
         char* username;
@@ -663,7 +664,7 @@ static void test_condition_test_user(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_group(void) {
+TEST(condition_test_group) {
         Condition *condition;
         char* gid;
         char* groupname;
@@ -753,7 +754,7 @@ static void test_condition_test_cpus_one(const char *s, bool result) {
         condition_free(condition);
 }
 
-static void test_condition_test_cpus(void) {
+TEST(condition_test_cpus) {
         _cleanup_free_ char *t = NULL;
         int cpus;
 
@@ -814,7 +815,7 @@ static void test_condition_test_memory_one(const char *s, bool result) {
         condition_free(condition);
 }
 
-static void test_condition_test_memory(void) {
+TEST(condition_test_memory) {
         _cleanup_free_ char *t = NULL;
         uint64_t memory;
 
@@ -874,7 +875,7 @@ static void test_condition_test_environment_one(const char *s, bool result) {
         condition_free(condition);
 }
 
-static void test_condition_test_environment(void) {
+TEST(condition_test_environment) {
         assert_se(setenv("EXISTINGENVVAR", "foo", false) >= 0);
 
         test_condition_test_environment_one("MISSINGENVVAR", false);
@@ -887,7 +888,7 @@ static void test_condition_test_environment(void) {
         test_condition_test_environment_one("EXISTINGENVVAR=", false);
 }
 
-static void test_condition_test_os_release(void) {
+TEST(condition_test_os_release) {
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         _cleanup_free_ char *version_id = NULL;
         const char *key_value_pair;
@@ -1031,29 +1032,158 @@ static void test_condition_test_os_release(void) {
         condition_free(condition);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
+TEST(condition_test_psi) {
+        Condition *condition;
+        CGroupMask mask;
+        int r;
 
-        test_condition_test_path();
-        test_condition_test_ac_power();
-        test_condition_test_host();
-        test_condition_test_architecture();
-        test_condition_test_kernel_command_line();
-        test_condition_test_kernel_version();
-        test_condition_test_security();
-        print_securities();
-        test_condition_test_virtualization();
-        test_condition_test_user();
-        test_condition_test_group();
-        test_condition_test_control_group_hierarchy();
-        test_condition_test_control_group_controller();
-        test_condition_test_cpus();
-        test_condition_test_memory();
-        test_condition_test_environment();
-#if defined(__i386__) || defined(__x86_64__)
-        test_condition_test_cpufeature();
-#endif
-        test_condition_test_os_release();
+        if (!is_pressure_supported())
+                return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
 
-        return 0;
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "sbarabau", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "10%sbarabau", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "10% sbarabau", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "-10", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "10%/10min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "10min/10%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "10% 5min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "/5min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_IO_PRESSURE, "10s /   ", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "100%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "0.0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "100%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "0.0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "0.01%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "0.0%/10sec", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "100.0% / 1min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_IO_PRESSURE, "50.0% / 1min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        r = cg_all_unified();
+        if (r < 0)
+                return (void) log_notice("Failed to determine whether the unified cgroups hierarchy is used, skipping %s", __func__);
+        if (r == 0)
+                return (void) log_notice("Requires the unified cgroups hierarchy, skipping %s", __func__);
+
+        if (cg_mask_supported(&mask) < 0)
+                return (void) log_notice("Failed to get supported cgroup controllers, skipping %s", __func__);
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
+                return (void) log_notice("Requires the cgroup memory controller, skipping %s", __func__);
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_CPU))
+                return (void) log_notice("Requires the cgroup CPU controller, skipping %s", __func__);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, " : / ", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) < 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "hopefullythisisnotarealone.slice:100% / 10sec", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_PRESSURE, "-.slice:100.0% / 1min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "-.slice:0.0%/5min", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_MEMORY_PRESSURE, "-.slice:100.0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_IO_PRESSURE, "-.slice:0.0%", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) >= 0);
+        condition_free(condition);
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

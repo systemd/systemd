@@ -13,7 +13,7 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO                                                   \
+#define PROTECT_ERRNO                           \
         _cleanup_(_reset_errno_) _unused_ int _saved_errno_ = errno
 
 #define UNPROTECT_ERRNO                         \
@@ -31,6 +31,29 @@ static inline int negative_errno(void) {
         return -errno;
 }
 
+static inline int RET_NERRNO(int ret) {
+
+        /* Helper to wrap system calls in to make them return negative errno errors. This brings system call
+         * error handling in sync with how we usually handle errors in our own code, i.e. with immediate
+         * returning of negative errno. Usage is like this:
+         *
+         *     …
+         *     r = RET_NERRNO(unlink(t));
+         *     …
+         *
+         * or
+         *
+         *     …
+         *     fd = RET_NERRNO(open("/etc/fstab", O_RDONLY|O_CLOEXEC));
+         *     …
+         */
+
+        if (ret < 0)
+                return negative_errno();
+
+        return ret;
+}
+
 static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
         return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
@@ -45,6 +68,13 @@ static inline int errno_or_else(int fallback) {
                 return -errno;
 
         return -abs(fallback);
+}
+
+/* For send()/recv() or read()/write(). */
+static inline bool ERRNO_IS_TRANSIENT(int r) {
+        return IN_SET(abs(r),
+                      EAGAIN,
+                      EINTR);
 }
 
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
@@ -77,10 +107,8 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
  * the accept(2) man page. */
 static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
         return ERRNO_IS_DISCONNECT(r) ||
-                IN_SET(abs(r),
-                       EAGAIN,
-                       EINTR,
-                       EOPNOTSUPP);
+                ERRNO_IS_TRANSIENT(r) ||
+                abs(r) == EOPNOTSUPP;
 }
 
 /* Resource exhaustion, could be our fault or general system trouble */

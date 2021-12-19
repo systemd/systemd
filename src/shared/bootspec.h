@@ -20,7 +20,7 @@ typedef enum BootEntryType {
 
 typedef struct BootEntry {
         BootEntryType type;
-        char *id;       /* This is the file basename without extension */
+        char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
         char *path;     /* This is the full path to the drop-in file */
         char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */

@@ -6,6 +6,7 @@
 
 #include "macro.h"
 #include "parse-socket-bind-item.h"
+#include "tests.h"
 
 static void test_valid_item(
                 const char *str,
@@ -34,7 +35,7 @@ static void test_invalid_item(const char *str) {
         log_info("%s: \"%s\" ok", __func__, str);
 }
 
-int main(int argc, char *argv[]) {
+TEST(valid_items) {
         test_valid_item("any", AF_UNSPEC, 0, 0, 0);
         test_valid_item("ipv4", AF_INET, 0, 0, 0);
         test_valid_item("ipv6", AF_INET6, 0, 0, 0);
@@ -60,7 +61,9 @@ int main(int argc, char *argv[]) {
         test_valid_item("ipv6:tcp:6666", AF_INET6, IPPROTO_TCP, 1, 6666);
         test_valid_item("ipv6:udp:6666-6667", AF_INET6, IPPROTO_UDP, 2, 6666);
         test_valid_item("ipv6:tcp:any", AF_INET6, IPPROTO_TCP, 0, 0);
+}
 
+TEST(invalid_items) {
         test_invalid_item("");
         test_invalid_item(":");
         test_invalid_item("::");
@@ -87,5 +90,6 @@ int main(int argc, char *argv[]) {
         test_invalid_item("ipv6:tcp:6666 zupa");
         test_invalid_item("ipv6:tcp:6666: zupa");
         test_invalid_item("ipv6:tcp:6666\n zupa");
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

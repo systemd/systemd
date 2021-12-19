@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -41,8 +42,10 @@ int mac_selinux_get_our_label(char **label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label);
 char* mac_selinux_free(char *label);
 
-int mac_selinux_create_file_prepare(const char *path, mode_t mode);
 int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode);
+static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
+        return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode);
+}
 int mac_selinux_create_file_prepare_label(const char *path, const char *label);
 void mac_selinux_create_file_clear(void);
 

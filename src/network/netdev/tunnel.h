@@ -6,6 +6,7 @@
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "netdev.h"
+#include "networkd-link.h"
 
 typedef enum Ip6TnlMode {
         NETDEV_IP6_TNL_MODE_IP6IP6,
@@ -60,6 +61,9 @@ typedef struct Tunnel {
         uint8_t sixrd_prefixlen;
 } Tunnel;
 
+int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret);
+int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback);
+
 DEFINE_NETDEV_CAST(IPIP, Tunnel);
 DEFINE_NETDEV_CAST(GRE, Tunnel);
 DEFINE_NETDEV_CAST(GRETAP, Tunnel);
@@ -70,6 +74,36 @@ DEFINE_NETDEV_CAST(VTI, Tunnel);
 DEFINE_NETDEV_CAST(VTI6, Tunnel);
 DEFINE_NETDEV_CAST(IP6TNL, Tunnel);
 DEFINE_NETDEV_CAST(ERSPAN, Tunnel);
+
+static inline Tunnel* TUNNEL(NetDev *netdev) {
+        assert(netdev);
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_IPIP:
+                return IPIP(netdev);
+        case NETDEV_KIND_SIT:
+                return SIT(netdev);
+        case NETDEV_KIND_GRE:
+                return GRE(netdev);
+        case NETDEV_KIND_GRETAP:
+                return GRETAP(netdev);
+        case NETDEV_KIND_IP6GRE:
+                return IP6GRE(netdev);
+        case NETDEV_KIND_IP6GRETAP:
+                return IP6GRETAP(netdev);
+        case NETDEV_KIND_VTI:
+                return VTI(netdev);
+        case NETDEV_KIND_VTI6:
+                return VTI6(netdev);
+        case NETDEV_KIND_IP6TNL:
+                return IP6TNL(netdev);
+        case NETDEV_KIND_ERSPAN:
+                return ERSPAN(netdev);
+        default:
+                return NULL;
+        }
+}
+
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;

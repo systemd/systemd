@@ -57,6 +57,8 @@ int main(void) {
         info(long long unsigned);
         info(__syscall_ulong_t);
         info(__syscall_slong_t);
+        info(intmax_t);
+        info(uintmax_t);
 
         info(float);
         info(double);
@@ -91,5 +93,13 @@ int main(void) {
 
         printf("timeval: %zu\n", sizeof(struct timeval));
         printf("timespec: %zu\n", sizeof(struct timespec));
+
+        void *x = malloc(100);
+
+        printf("local variable: %p\n", &function_pointer);
+        printf("glibc function: %p\n", memcpy);
+        printf("heap allocation: %p\n", x);
+        free(x);
+
         return 0;
 }

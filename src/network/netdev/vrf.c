@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "vrf.h"
 
@@ -28,5 +30,6 @@ const NetDevVTable vrf_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "VRF\0",
         .fill_message_create = netdev_vrf_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

@@ -115,7 +115,9 @@ libudevd_core = static_library(
         keyboard_keys_from_name_h,
         include_directories : udev_includes,
         link_with : udev_link_with,
-        dependencies : [libblkid, libkmod])
+        dependencies : [libblkid,
+                        libkmod],
+        build_by_default : false)
 
 udev_progs = [['ata_id/ata_id.c'],
               ['cdrom_id/cdrom_id.c'],

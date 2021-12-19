@@ -105,20 +105,12 @@ static void sd_eviocrevoke(int fd) {
 
 static int sd_drmsetmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_SET_MASTER, 0));
 }
 
 static int sd_drmdropmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_DROP_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_DROP_MASTER, 0));
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {

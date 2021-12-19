@@ -12,7 +12,7 @@
 #include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -143,6 +143,12 @@ static void test_route_tables(Manager *manager) {
         test_route_tables_one(manager, "local", 255);
 
         assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager) >= 0);
+        assert_se(!manager->route_table_names_by_number);
+        assert_se(!manager->route_table_numbers_by_name);
+
+        /* Invalid pairs */
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "main:123 default:333 local:999", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "1234:321 :567 hoge:foo aaa:-888", manager, manager) >= 0);
         assert_se(!manager->route_table_names_by_number);
         assert_se(!manager->route_table_numbers_by_name);
 

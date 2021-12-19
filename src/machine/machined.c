@@ -18,10 +18,10 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
-#include "label.h"
 #include "machined-varlink.h"
 #include "machined.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -136,7 +136,6 @@ static int manager_add_host_machine(Manager *m) {
 
 static int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         assert(m);

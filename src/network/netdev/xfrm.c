@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "missing_network.h"
 #include "xfrm.h"
 
@@ -29,5 +31,6 @@ const NetDevVTable xfrm_vtable = {
         .object_size = sizeof(Xfrm),
         .sections = NETDEV_COMMON_SECTIONS "Xfrm\0",
         .fill_message_create = xfrm_fill_message_create,
-        .create_type = NETDEV_CREATE_STACKED
+        .create_type = NETDEV_CREATE_STACKED,
+        .iftype = ARPHRD_NONE,
 };

@@ -152,10 +152,7 @@ int fd_nonblock(int fd, bool nonblock) {
         if (nflags == flags)
                 return 0;
 
-        if (fcntl(fd, F_SETFL, nflags) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fcntl(fd, F_SETFL, nflags));
 }
 
 int fd_cloexec(int fd, bool cloexec) {
@@ -171,10 +168,7 @@ int fd_cloexec(int fd, bool cloexec) {
         if (nflags == flags)
                 return 0;
 
-        if (fcntl(fd, F_SETFD, nflags) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fcntl(fd, F_SETFD, nflags));
 }
 
 _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
@@ -306,7 +300,6 @@ int close_all_fds_without_malloc(const int except[], size_t n_except) {
 
 int close_all_fds(const int except[], size_t n_except) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(n_except == 0 || except);
@@ -802,8 +795,5 @@ int btrfs_defrag_fd(int fd) {
         if (r < 0)
                 return r;
 
-        if (ioctl(fd, BTRFS_IOC_DEFRAG, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_DEFRAG, NULL));
 }

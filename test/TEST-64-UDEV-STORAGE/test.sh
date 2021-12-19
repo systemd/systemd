@@ -215,7 +215,7 @@ testcase_virtio_scsi_identically_named_partitions() {
     # and attach them to a virtio-scsi controller
     local qemu_opts=("-device virtio-scsi-pci,id=scsi0,num_queues=4")
     local diskpath="${TESTDIR:?}/namedpart0.img"
-    local lodev
+    local lodev qemu_timeout
 
     dd if=/dev/zero of="$diskpath" bs=1M count=18
     lodev="$(losetup --show -f -P "$diskpath")"
@@ -245,10 +245,14 @@ EOF
         )
     done
 
+    # Bump the timeout when collecting test coverage, since the test is a bit
+    # slower in that case
+    is_built_with_coverage && qemu_timeout=120 || qemu_timeout=60
+
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     # Limit the number of VCPUs and set a timeout to make sure we trigger the issue
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}" || return $?
+    QEMU_SMP=1 QEMU_TIMEOUT=$qemu_timeout test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/namedpart*.img
 }

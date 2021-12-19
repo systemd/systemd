@@ -59,12 +59,19 @@
       <command>systemd-resolved</command>.</para></listitem>
 
       <listitem><para>Additionally, <command>systemd-resolved</command> provides a local DNS stub listener on
-      IP address 127.0.0.53 on the local loopback interface. Programs issuing DNS requests directly,
-      bypassing any local API may be directed to this stub, in order to connect them to
+      the IP addresses 127.0.0.53 and 127.0.0.54 on the local loopback interface. Programs issuing DNS
+      requests directly, bypassing any local API may be directed to this stub, in order to connect them to
       <command>systemd-resolved</command>. Note however that it is strongly recommended that local programs
       use the glibc NSS or bus APIs instead (as described above), as various network resolution concepts
       (such as link-local addressing, or LLMNR Unicode domains) cannot be mapped to the unicast DNS
-      protocol.</para></listitem>
+      protocol.</para>
+
+      <para id="proxy-stub">The DNS stub resolver on 127.0.0.53 provides the full feature set of the local
+      resolver, which includes offering LLMNR/MulticastDNS resolution. The DNS stub resolver on 127.0.0.54
+      provides a more limited resolver, that operates in "proxy" mode only, i.e. it will pass most DNS
+      messages relatively unmodified to the current upstream DNS servers and back, but not try to process the
+      messages locally, and hence does not validate DNSSEC, or offer up LLMNR/MulticastDNS. (It will
+      translate to DNS-over-TLS communication if needed however.)</para></listitem>
     </itemizedlist>
 
     <para>The DNS servers contacted are determined from the global settings in

@@ -817,7 +817,7 @@ int dhcp6_option_parse_ia(
                                 /* Ignore the sub-option on non-critical errors. */
                                 continue;
 
-                        lt_min = MIN(lt_min, a->iaaddr.lifetime_valid);
+                        lt_min = MIN(lt_min, be32toh(a->iaaddr.lifetime_valid));
                         LIST_PREPEND(addresses, ia.addresses, a);
                         break;
                 }
@@ -836,7 +836,7 @@ int dhcp6_option_parse_ia(
                                 /* Ignore the sub-option on non-critical errors. */
                                 continue;
 
-                        lt_min = MIN(lt_min, a->iapdprefix.lifetime_valid);
+                        lt_min = MIN(lt_min, be32toh(a->iapdprefix.lifetime_valid));
                         LIST_PREPEND(addresses, ia.addresses, a);
                         break;
                 }

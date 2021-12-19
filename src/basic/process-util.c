@@ -181,13 +181,13 @@ static int get_process_cmdline_nulstr(
         return r;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
         _cleanup_free_ char *t = NULL;
         size_t k;
         char *ans;
 
-        assert(line);
         assert(pid >= 0);
+        assert(ret);
 
         /* Retrieve and format a commandline. See above for discussion of retrieval options.
          *
@@ -214,25 +214,23 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
                 _cleanup_strv_free_ char **args = NULL;
+                char **p;
 
                 args = strv_parse_nulstr(t, k);
                 if (!args)
                         return -ENOMEM;
 
-                for (size_t i = 0; args[i]; i++) {
-                        char *e;
+                /* Drop trailing empty strings. See issue #21186. */
+                STRV_FOREACH_BACKWARDS(p, args) {
+                        if (!isempty(*p))
+                                break;
 
-                        e = shell_maybe_quote(args[i], shflags);
-                        if (!e)
-                                return -ENOMEM;
-
-                        free_and_replace(args[i], e);
+                        *p = mfree(*p);
                 }
 
-                ans = strv_join(args, " ");
+                ans = quote_command_line(args, shflags);
                 if (!ans)
                         return -ENOMEM;
-
         } else {
                 /* Arguments are separated by NULs. Let's replace those with spaces. */
                 for (size_t i = 0; i < k - 1; i++)
@@ -251,7 +249,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 ans = str_realloc(ans);
         }
 
-        *line = ans;
+        *ret = ans;
         return 0;
 }
 
@@ -458,29 +456,29 @@ int is_kernel_thread(pid_t pid) {
         return !!(flags & PF_KTHREAD);
 }
 
-int get_process_capeff(pid_t pid, char **capeff) {
+int get_process_capeff(pid_t pid, char **ret) {
         const char *p;
         int r;
 
-        assert(capeff);
         assert(pid >= 0);
+        assert(ret);
 
         p = procfs_file_alloca(pid, "status");
 
-        r = get_proc_field(p, "CapEff", WHITESPACE, capeff);
+        r = get_proc_field(p, "CapEff", WHITESPACE, ret);
         if (r == -ENOENT)
                 return -ESRCH;
 
         return r;
 }
 
-static int get_process_link_contents(const char *proc_file, char **name) {
+static int get_process_link_contents(const char *proc_file, char **ret) {
         int r;
 
         assert(proc_file);
-        assert(name);
+        assert(ret);
 
-        r = readlink_malloc(proc_file, name);
+        r = readlink_malloc(proc_file, ret);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
@@ -489,32 +487,33 @@ static int get_process_link_contents(const char *proc_file, char **name) {
         return 0;
 }
 
-int get_process_exe(pid_t pid, char **name) {
+int get_process_exe(pid_t pid, char **ret) {
         const char *p;
         char *d;
         int r;
 
         assert(pid >= 0);
+        assert(ret);
 
         p = procfs_file_alloca(pid, "exe");
-        r = get_process_link_contents(p, name);
+        r = get_process_link_contents(p, ret);
         if (r < 0)
                 return r;
 
-        d = endswith(*name, " (deleted)");
+        d = endswith(*ret, " (deleted)");
         if (d)
                 *d = '\0';
 
         return 0;
 }
 
-static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
+static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         int r;
 
         assert(field);
-        assert(uid);
+        assert(ret);
 
         if (pid < 0)
                 return -EINVAL;
@@ -544,60 +543,62 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
 
                         l[strcspn(l, WHITESPACE)] = 0;
 
-                        return parse_uid(l, uid);
+                        return parse_uid(l, ret);
                 }
         }
 
         return -EIO;
 }
 
-int get_process_uid(pid_t pid, uid_t *uid) {
+int get_process_uid(pid_t pid, uid_t *ret) {
 
         if (pid == 0 || pid == getpid_cached()) {
-                *uid = getuid();
+                *ret = getuid();
                 return 0;
         }
 
-        return get_process_id(pid, "Uid:", uid);
+        return get_process_id(pid, "Uid:", ret);
 }
 
-int get_process_gid(pid_t pid, gid_t *gid) {
+int get_process_gid(pid_t pid, gid_t *ret) {
 
         if (pid == 0 || pid == getpid_cached()) {
-                *gid = getgid();
+                *ret = getgid();
                 return 0;
         }
 
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        return get_process_id(pid, "Gid:", gid);
+        return get_process_id(pid, "Gid:", ret);
 }
 
-int get_process_cwd(pid_t pid, char **cwd) {
+int get_process_cwd(pid_t pid, char **ret) {
         const char *p;
 
         assert(pid >= 0);
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached())
-                return safe_getcwd(cwd);
+                return safe_getcwd(ret);
 
         p = procfs_file_alloca(pid, "cwd");
 
-        return get_process_link_contents(p, cwd);
+        return get_process_link_contents(p, ret);
 }
 
-int get_process_root(pid_t pid, char **root) {
+int get_process_root(pid_t pid, char **ret) {
         const char *p;
 
         assert(pid >= 0);
+        assert(ret);
 
         p = procfs_file_alloca(pid, "root");
 
-        return get_process_link_contents(p, root);
+        return get_process_link_contents(p, ret);
 }
 
 #define ENVIRONMENT_BLOCK_MAX (5U*1024U*1024U)
 
-int get_process_environ(pid_t pid, char **env) {
+int get_process_environ(pid_t pid, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *outcome = NULL;
         size_t sz = 0;
@@ -605,7 +606,7 @@ int get_process_environ(pid_t pid, char **env) {
         int r;
 
         assert(pid >= 0);
-        assert(env);
+        assert(ret);
 
         p = procfs_file_alloca(pid, "environ");
 
@@ -637,7 +638,7 @@ int get_process_environ(pid_t pid, char **env) {
         }
 
         outcome[sz] = '\0';
-        *env = TAKE_PTR(outcome);
+        *ret = TAKE_PTR(outcome);
 
         return 0;
 }
@@ -696,13 +697,13 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         return 0;
 }
 
-int get_process_umask(pid_t pid, mode_t *umask) {
+int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
         const char *p;
         int r;
 
-        assert(umask);
         assert(pid >= 0);
+        assert(ret);
 
         p = procfs_file_alloca(pid, "status");
 
@@ -710,7 +711,7 @@ int get_process_umask(pid_t pid, mode_t *umask) {
         if (r == -ENOENT)
                 return -ESRCH;
 
-        return parse_mode(m, umask);
+        return parse_mode(m, ret);
 }
 
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
@@ -824,7 +825,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
                 if (n >= until)
                         break;
 
-                r = sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)) < 0 ? -errno : 0;
+                r = RET_NERRNO(sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)));
                 /* Assuming we woke due to the child exiting. */
                 if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
                         if (status.si_pid == pid) {
@@ -882,7 +883,7 @@ void sigterm_wait(pid_t pid) {
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
-        r = kill(pid, sig) < 0 ? -errno : 0;
+        r = RET_NERRNO(kill(pid, sig));
 
         /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent which isn't
          * affected by a process being suspended anyway. */
@@ -1056,8 +1057,8 @@ unsigned long personality_from_string(const char *p) {
 
         if (architecture == native_architecture())
                 return PER_LINUX;
-#ifdef SECONDARY_ARCHITECTURE
-        if (architecture == SECONDARY_ARCHITECTURE)
+#ifdef ARCHITECTURE_SECONDARY
+        if (architecture == ARCHITECTURE_SECONDARY)
                 return PER_LINUX32;
 #endif
 
@@ -1069,9 +1070,9 @@ const char* personality_to_string(unsigned long p) {
 
         if (p == PER_LINUX)
                 architecture = native_architecture();
-#ifdef SECONDARY_ARCHITECTURE
+#ifdef ARCHITECTURE_SECONDARY
         else if (p == PER_LINUX32)
-                architecture = SECONDARY_ARCHITECTURE;
+                architecture = ARCHITECTURE_SECONDARY;
 #endif
 
         if (architecture < 0)
@@ -1141,23 +1142,6 @@ void valgrind_summary_hack(void) {
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
         return CMP(*a, *b);
-}
-
-int ioprio_parse_priority(const char *s, int *ret) {
-        int i, r;
-
-        assert(s);
-        assert(ret);
-
-        r = safe_atoi(s, &i);
-        if (r < 0)
-                return r;
-
-        if (!ioprio_priority_is_valid(i))
-                return -EINVAL;
-
-        *ret = i;
-        return 0;
 }
 
 /* The cached PID, possible values:
@@ -1502,7 +1486,7 @@ int set_oom_score_adjust(int value) {
 }
 
 int get_oom_score_adjust(int *ret) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
         int r, a;
 
         r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, NULL);
@@ -1638,14 +1622,6 @@ _noreturn_ void freeze(void) {
                 pause();
 }
 
-static const char *const ioprio_class_table[] = {
-        [IOPRIO_CLASS_NONE] = "none",
-        [IOPRIO_CLASS_RT] = "realtime",
-        [IOPRIO_CLASS_BE] = "best-effort",
-        [IOPRIO_CLASS_IDLE] = "idle",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",

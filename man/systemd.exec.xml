@@ -730,10 +730,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Set the SELinux security context of the executed process. If set, this will override the
         automated domain transition. However, the policy still needs to authorize the transition. This directive is
-        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, all errors will be ignored. This does not
-        affect commands prefixed with <literal>+</literal>.  See <citerefentry
-        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details.</para></listitem>
+        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
+        security context will be ignored, but it's still possible that the subsequent
+        <function>execve()</function> may fail if the policy doesn't allow the transition for the
+        non-overridden context. This does not affect commands prefixed with <literal>+</literal>.  See
+        <citerefentry
+        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1137,10 +1140,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IOSchedulingClass=</varname></term>
 
-        <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
-        of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
-        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
+        <listitem><para>Sets the I/O scheduling class for executed processes. Takes one of the strings
+        <option>realtime</option>, <option>best-effort</option> or <option>idle</option>. The kernel's
+        default scheduling class is <option>best-effort</option> at a priority of 4. If the empty string is
+        assigned to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
+        <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1153,7 +1157,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         bandwidth is made available to the unit's processes, larger values mean less bandwidth. The available
         priorities depend on the selected I/O scheduling class (see above). If the empty string is assigned
         to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
-        <varname>IOSchedulingPriority=</varname> have no effect.  See
+        <varname>IOSchedulingPriority=</varname> have no effect. For the kernel's default scheduling class
+        (<option>best-effort</option>) this defaults to 4. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1332,7 +1337,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
         The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
         options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
-        using the same first parameter, but a diferent second parameter.</para></listitem>
+        using the same first parameter, but a different second parameter.</para></listitem>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
@@ -3163,7 +3168,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     configuration, with just a few environment variables. The user manager inherits environment variables as
     any other system service, but in addition may receive additional environment variables from PAM, and,
     typically, additional imported variables when the user starts a graphical session. It is recommended to
-    keep the environment blocks in both the system and user managers managers lean. Importing all variables
+    keep the environment blocks in both the system and user managers lean. Importing all variables
     inherited by the graphical session or by one of the user shells is strongly discouraged.</para>
 
     <para>Hint: <command>systemd-run -P env</command> and <command>systemd-run --user -P env</command> print

@@ -98,7 +98,6 @@ static int detect_vm_device_tree(void) {
         r = read_one_line_file("/proc/device-tree/hypervisor/compatible", &hvtype);
         if (r == -ENOENT) {
                 _cleanup_closedir_ DIR *dir = NULL;
-                struct dirent *dent;
 
                 if (access("/proc/device-tree/ibm,partition-name", F_OK) == 0 &&
                     access("/proc/device-tree/hmc-managed?", F_OK) == 0 &&
@@ -114,9 +113,9 @@ static int detect_vm_device_tree(void) {
                         return -errno;
                 }
 
-                FOREACH_DIRENT(dent, dir, return -errno)
-                        if (strstr(dent->d_name, "fw-cfg")) {
-                                log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", dent->d_name);
+                FOREACH_DIRENT(de, dir, return -errno)
+                        if (strstr(de->d_name, "fw-cfg")) {
+                                log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", de->d_name);
                                 return VIRTUALIZATION_QEMU;
                         }
 
@@ -146,7 +145,8 @@ static int detect_vm_dmi_vendor(void) {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
-                "/sys/class/dmi/id/bios_vendor"
+                "/sys/class/dmi/id/bios_vendor",
+                "/sys/class/dmi/id/product_version" /* For Hyper-V VMs test */
         };
 
         static const struct {
@@ -165,7 +165,7 @@ static int detect_vm_dmi_vendor(void) {
                 { "Parallels",           VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
                 { "BHYVE",               VIRTUALIZATION_BHYVE     },
-                { "Microsoft",           VIRTUALIZATION_MICROSOFT },
+                { "Hyper-V",             VIRTUALIZATION_MICROSOFT },
         };
         int r;
 

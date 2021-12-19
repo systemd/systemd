@@ -598,11 +598,6 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        if (unit_has_failed_condition_or_assert(trigger)) {
-                timer_enter_dead(t, TIMER_FAILURE_UNIT_CONDITION_FAILED);
-                return;
-        }
-
         r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
@@ -889,7 +884,7 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
-static int timer_test_start_limit(Unit *u) {
+static int timer_can_start(Unit *u) {
         Timer *t = TIMER(u);
         int r;
 
@@ -901,7 +896,7 @@ static int timer_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
@@ -916,10 +911,9 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
-        [TIMER_SUCCESS]                       = "success",
-        [TIMER_FAILURE_RESOURCES]             = "resources",
-        [TIMER_FAILURE_START_LIMIT_HIT]       = "start-limit-hit",
-        [TIMER_FAILURE_UNIT_CONDITION_FAILED] = "unit-condition-failed",
+        [TIMER_SUCCESS]                 = "success",
+        [TIMER_FAILURE_RESOURCES]       = "resources",
+        [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
@@ -965,5 +959,5 @@ const UnitVTable timer_vtable = {
 
         .bus_set_property = bus_timer_set_property,
 
-        .test_start_limit = timer_test_start_limit,
+        .can_start = timer_can_start,
 };

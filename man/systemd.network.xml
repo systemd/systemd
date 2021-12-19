@@ -209,7 +209,7 @@
         <listitem>
           <para>Link groups are similar to port ranges found in managed switches. When network interfaces
           are added to a numbered group, operations on all the interfaces from that group can be
-          performed at once. Takes an unsigned integer in the range 0…4294967295. Defaults to unset.
+          performed at once. Takes an unsigned integer in the range 0…2147483647. Defaults to unset.
           </para>
         </listitem>
       </varlistentry>
@@ -256,8 +256,8 @@
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
           administrative state. Specifically, this controls how <command>systemd-networkd</command>
           changes the network device's <literal>IFF_UP</literal> flag, which is sometimes
-          controlled by system administrators by running e.g., <command>ip set dev eth0 up</command>
-          or <command>ip set dev eth0 down</command>, and can also be changed with
+          controlled by system administrators by running e.g., <command>ip link set dev eth0 up</command>
+          or <command>ip link set dev eth0 down</command>, and can also be changed with
           <command>networkctl up eth0</command> or <command>networkctl down eth0</command>.</para>
 
           <para>Takes one of <literal>up</literal>, <literal>always-up</literal>,
@@ -518,18 +518,14 @@ Table=1234</programlisting></para>
         <varlistentry>
           <term><varname>DNSOverTLS=</varname></term>
           <listitem>
-            <para>Takes a boolean or <literal>opportunistic</literal>.
-            When true, enables
-            <ulink
-            url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
-            support on the link.
-            When set to <literal>opportunistic</literal>, compatibility with
-            non-DNS-over-TLS servers is increased, by automatically
-            turning off DNS-over-TLS servers in this case.
-            This option defines a per-interface setting for
+            <para>Takes a boolean or <literal>opportunistic</literal>. When true, enables
+            <ulink url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink> support on the link.
+            When set to <literal>opportunistic</literal>, compatibility with non-DNS-over-TLS servers
+            is increased, by automatically turning off DNS-over-TLS servers in this case. This option
+            defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>DNSOverTLS=</varname> option. Defaults to
-            false. This setting is read by
+            global <varname>DNSOverTLS=</varname> option. Defaults to unset, and the global setting
+            will be used. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
@@ -537,16 +533,15 @@ Table=1234</programlisting></para>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
             <para>Takes a boolean or <literal>allow-downgrade</literal>. When true, enables
-            <ulink url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
-            DNS validation support on the link. When set to
-            <literal>allow-downgrade</literal>, compatibility with
-            non-DNSSEC capable networks is increased, by automatically
-            turning off DNSSEC in this case. This option defines a
-            per-interface setting for
+            <ulink url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink> DNS validation support on
+            the link. When set to <literal>allow-downgrade</literal>, compatibility with non-DNSSEC
+            capable networks is increased, by automatically turning off DNSSEC in this case. This
+            option defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>DNSSEC=</varname> option. Defaults to
-            false. This setting is read by
-            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+            global <varname>DNSSEC=</varname> option. Defaults to unset, and the global setting will be
+            used. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -859,18 +854,19 @@ Table=1234</programlisting></para>
           <listitem><para>Whether to enable or disable Router Advertisement sending on a link. Takes a
           boolean value. When enabled, prefixes configured in [IPv6Prefix] sections and routes
           configured in [IPv6RoutePrefix] sections are distributed as defined in the [IPv6SendRA]
-          section. If <varname>DHCPv6PrefixDelegation=</varname> is enabled, then the delegated
-          prefixes are also distributed. See <varname>DHCPv6PrefixDelegation=</varname> setting and the
-          [IPv6SendRA], [IPv6Prefix], [IPv6RoutePrefix], and [DHCPv6PrefixDelegation] sections for more
+          section. If <varname>DHCPPrefixDelegation=</varname> is enabled, then the delegated prefixes
+          are also distributed. See <varname>DCHPPrefixDelegation=</varname> setting and the
+          [IPv6SendRA], [IPv6Prefix], [IPv6RoutePrefix], and [DHCPPrefixDelegation] sections for more
           configuration options.</para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>DHCPv6PrefixDelegation=</varname></term>
-          <listitem><para>Takes a boolean value. When enabled, requests prefixes using a DHCPv6 client
-          configured on another link. By default, an address within each delegated prefix will be
-          assigned, and the prefixes will be announced through IPv6 Router Advertisement when
-          <varname>IPv6SendRA=</varname> is enabled. Such default settings can be configured in
-          [DHCPv6PrefixDelegation] section. Defaults to disabled.</para></listitem>
+          <term><varname>DHCPPrefixDelegation=</varname></term>
+          <listitem><para>Takes a boolean value. When enabled, requests subnet prefixes acquired by a
+          DHCPv6 client, or by a DHCPv4 client through the 6RD option  configured on another link. By
+          default, an address within each delegated prefix will be assigned, and the prefixes will be
+          announced through IPv6 Router Advertisement when <varname>IPv6SendRA=</varname> is enabled.
+          Such default settings can be configured in [DHCPPrefixDelegation] section. Defaults to
+          disabled.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
@@ -880,9 +876,6 @@ Table=1234</programlisting></para>
         </varlistentry>
         <varlistentry>
           <term><varname>KeepMaster=</varname></term>
-          <term><varname>Bond=</varname></term>
-          <term><varname>Bridge=</varname></term>
-          <term><varname>VRF=</varname></term>
           <listitem>
             <para>Takes a boolean value. When enabled, the current master interface index will not be
             changed, and <varname>BatmanAdvanced=</varname>, <varname>Bond=</varname>,
@@ -905,6 +898,7 @@ Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPoIB=</varname></term>
           <term><varname>IPVLAN=</varname></term>
           <term><varname>IPVTAP=</varname></term>
           <term><varname>L2TP=</varname></term>
@@ -916,8 +910,8 @@ Table=1234</programlisting></para>
           <term><varname>VXLAN=</varname></term>
           <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of an IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
-            Xfrm to be created on the link. See
+            <para>The name of an IPoIB, IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
+            VXLAN, or Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -952,18 +946,21 @@ Table=1234</programlisting></para>
         <term><varname>ConfigureWithoutCarrier=</varname></term>
         <listitem>
           <para>Takes a boolean. Allows networkd to configure a specific link even if it has no carrier.
-          Defaults to false. If <option>IgnoreCarrierLoss=</option> is not explicitly set, it will
-          default to this value.
+          Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname> setting is not
+          explicitly set, then it is enabled as well.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>IgnoreCarrierLoss=</varname></term>
         <listitem>
-          <para>Takes a boolean. Allows networkd to retain both the static and dynamic configuration
-          of the interface even if its carrier is lost. When unset, the value specified with
-          <option>ConfigureWithoutCarrier=</option> is used.
-          </para>
+          <para>Takes a boolean or a timespan. When true, networkd retains both the static and dynamic
+          configuration of the interface even if its carrier is lost. When a timespan is specified,
+          networkd waits for the specified timespan, and ignores the carrier loss if the link regain
+          its carrier within the timespan. Setting a finite timespan may be useful for a wireless
+          interface connecting to a network which has multiple access points with the same SSID, or an
+          interface which is reset on changing MTU. When unset, the value specified with
+          <varname>ConfigureWithoutCarrier=</varname> is used.</para>
 
           <para>When <varname>ActivationPolicy=</varname> is set to <literal>always-up</literal>, this
           is forced to <literal>true</literal>.
@@ -1283,6 +1280,14 @@ Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SuppressInterfaceGroup=</varname></term>
+          <listitem>
+            <para>Takes an integer in the range 0…2147483647 and rejects routing decisions that have
+            an interface with the same group id. It has the same meaning as
+            <option>suppress_ifgroup</option> in <command>ip rule</command>. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
             <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of <literal>blackhole</literal>,
@@ -1545,8 +1550,11 @@ Table=1234</programlisting></para>
         <varlistentry>
           <term><varname>IPServiceType=</varname></term>
           <listitem>
-            <para>Takes string; <literal>CS6</literal> or <literal>CS4</literal>. Used to set IP
-            service type to CS6 (network control) or CS4 (Realtime). Defaults to CS6.</para>
+            <para>Takes one of the special values <literal>none</literal>, <literal>CS6</literal>, or
+            <literal>CS4</literal>. When <literal>none</literal> no IP service type is set to the packet
+            sent from the DHCPv4 client. When <literal>CS6</literal> (network control) or
+            <literal>CS4</literal> (realtime), the corresponding service type will be set. Defaults to
+            <literal>CS6</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1805,6 +1813,9 @@ Table=1234</programlisting></para>
             <para>When true, the interface maximum transmission unit from the DHCP server will be used on the
             current link. If <varname>MTUBytes=</varname> is set, then this setting is ignored. Defaults to
             false.</para>
+            <para>Note, some drivers will reset the interfaces if the MTU is changed. For such
+            interfaces, please try to use <varname>IgnoreCarrierLoss=</varname> with a short timespan,
+            e.g. <literal>3 seconds</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -1891,6 +1902,15 @@ Table=1234</programlisting></para>
           <term><varname>UseTimezone=</varname></term>
           <listitem><para>When true, the timezone received from the DHCP server will be set as timezone of
           the local system. Defaults to false.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Use6RD=</varname></term>
+          <listitem><para>When true, subnets of the received IPv6 prefix are assigned to downstream
+          interfaces which enables <varname>DHCPPrefixDelegation=</varname>. See also
+          <varname>DHCPPrefixDelegation=</varname> in the [Network] section, the [DHCPPrefixDelegation]
+          section, and <ulink url="https://tools.ietf.org/html/rfc5969">RFC 5969</ulink>. Defaults to
+          false.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -2069,16 +2089,15 @@ Table=1234</programlisting></para>
           <listitem>
             <para>When true (the default), the client will request the DHCPv6 server to delegate
             prefixes. If the server provides prefixes to be delegated, then subnets of the prefixes are
-            assigned to the interfaces which enables <varname>DHCPv6PrefixDelegation=</varname>.
-            See also <varname>DHCPv6PrefixDelegation=</varname> in [Network] section,
-            [DHCPv6PrefixDelegation] section, and
+            assigned to the interfaces which enables <varname>DHCPPrefixDelegation=</varname>.
+            See also <varname>DHCPPrefixDelegation=</varname> in [Network] section,
+            [DHCPPrefixDelegation] section, and
             <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
             </para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>
@@ -2095,21 +2114,23 @@ Table=1234</programlisting></para>
           <listitem>
             <para>Allows DHCPv6 client to start without router advertisements's managed or other
             address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
-            or <literal>information-request</literal>. When this is not specified and
-            <varname>UplinkInterface=:self</varname> is specified, then <literal>solicit</literal> is
-            implied. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be
-            started when an RA is received. See also <varname>DHCPv6Client=</varname> setting in the
-            [IPv6AcceptRA] section.</para>
+            or <literal>information-request</literal>. If this is not specified,
+            <literal>solicit</literal> is used when <varname>DHCPPrefixDelegation=</varname> is
+            enabled and <varname>UplinkInterface=:self</varname> is specified in the
+            [DHCPPrefixDelegation] section. Otherwise, defaults to <literal>no</literal>, and the
+            DHCPv6 client will be started when an RA is received. See also
+            <varname>DHCPv6Client=</varname> setting in the [IPv6AcceptRA] section.</para>
           </listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
 
   <refsect1>
-    <title>[DHCPv6PrefixDelegation] Section Options</title>
-    <para>The [DHCPv6PrefixDelegation] section configures delegated prefixes assigned by DHCPv6 server.
-    The settings in this section are used only when <varname>DHCPv6PrefixDelegation=</varname> setting
-    is enabled.</para>
+    <title>[DHCPPrefixDelegation] Section Options</title>
+    <para>The [DHCPPrefixDelegation] section configures subnet prefixes of the delegated prefixes
+    acquired by a DHCPv6 client, or by a DHCPv4 client through the 6RD option on another interface.
+    The settings in this section are used only when the <varname>DHCPPrefixDelegation=</varname>
+    setting in the [Network] section is enabled.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2120,7 +2141,7 @@ Table=1234</programlisting></para>
           interface itself is considered the uplink interface, and
           <varname>WithoutRA=solicit</varname> is implied if the setting is not explicitly specified.
           When <literal>:auto</literal>, the first link which acquired prefixes to be delegated from
-          the DHCPv6 server is selected. Defaults to <literal>:auto</literal>.</para>
+          the DHCPv6 or DHCPv4 server is selected. Defaults to <literal>:auto</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2140,7 +2161,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Takes a boolean. When enabled, and <varname>IPv6SendRA=</varname> in [Network] section
           is enabled, the delegated prefixes are distributed through the IPv6 Router Advertisement.
-          Defaults to yes.</para>
+          This setting will be ignored when the <varname>DHCPPrefixDelegation=</varname> setting is
+          enabled on the upstream interface. Defaults to yes.</para>
         </listitem>
       </varlistentry>
 
@@ -2185,219 +2207,255 @@ Table=1234</programlisting></para>
 
   <refsect1>
     <title>[IPv6AcceptRA] Section Options</title>
-      <para>The [IPv6AcceptRA] section configures the IPv6 Router Advertisement (RA) client, if it is enabled
-      with the <varname>IPv6AcceptRA=</varname> setting described above:</para>
+    <para>The [IPv6AcceptRA] section configures the IPv6 Router Advertisement (RA) client, if it is enabled
+    with the <varname>IPv6AcceptRA=</varname> setting described above:</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>Token=</varname></term>
-          <listitem>
-            <para>Specifies an optional address generation mode for the Stateless Address
-            Autoconfiguration (SLAAC). Supported modes are <literal>eui64</literal>,
-            <literal>static</literal>, and <literal>prefixstable</literal>.</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Token=</varname></term>
+        <listitem>
+          <para>Specifies an optional address generation mode for the Stateless Address
+          Autoconfiguration (SLAAC). The following values are supported:</para>
 
-            <para>When the mode is set to <literal>eui64</literal>, then the EUI-64 algorithm will be
-            used to generate an address for that prefix.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>eui64</option></term>
+              <listitem>
+                <para>
+                  The EUI-64 algorithm will be used to generate an address for that prefix. Only
+                  supported by Ethernet or InfiniBand interfaces.
+                </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>static:<replaceable>ADDRESS</replaceable></option></term>
+              <listitem>
+                <para>
+                  An IPv6 address must be specified after a colon (<literal>:</literal>), and the
+                  lower bits of the supplied address are combined with the upper bits of a prefix
+                  received in a Router Advertisement (RA) message to form a complete address. Note
+                  that if multiple prefixes are received in an RA message, or in multiple RA messages,
+                  addresses will be formed from each of them using the supplied address. This mode
+                  implements SLAAC but uses a static interface identifier instead of an identifier
+                  generated by using the EUI-64 algorithm. Because the interface identifier is static,
+                  if Duplicate Address Detection detects that the computed address is a duplicate
+                  (in use by another node on the link), then this mode will fail to provide an address
+                  for that prefix. If an IPv6 address without mode is specified, then
+                  <literal>static</literal> mode is assumed.
+                </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>prefixstable[:<replaceable>ADDRESS</replaceable>][,<replaceable>UUID</replaceable>]</option></term>
+              <listitem>
+                <para>
+                  The algorithm specified in
+                  <ulink url="https://tools.ietf.org/html/rfc7217">RFC 7217</ulink> will be used to
+                  generate interface identifiers. This mode can optionally take an IPv6 address
+                  separated with a colon (<literal>:</literal>). If an IPv6 address is specified,
+                  then an interface identifier is generated only when a prefix received in an RA
+                  message matches the supplied address.
+                </para>
+                <para>
+                  This mode can also optionally take a non-null UUID in the format which
+                  <function>sd_id128_from_string()</function> accepts, e.g.
+                  <literal>86b123b969ba4b7eb8b3d8605123525a</literal> or
+                  <literal>86b123b9-69ba-4b7e-b8b3-d8605123525a</literal>. If a UUID is specified, the
+                  value is used as the secret key to generate interface identifiers. If not specified,
+                  then an application specific ID generated with the system's machine-ID will be used
+                  as the secret key. See
+                  <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                  <citerefentry><refentrytitle>sd_id128_from_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                  and
+                  <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                </para>
+                <para>
+                  Note that the <literal>prefixstable</literal> algorithm uses both the interface
+                  name and MAC address as input to the hash to compute the interface identifier, so
+                  if either of those are changed the resulting interface identifier (and address)
+                  will be changed, even if the prefix received in the RA message has not been
+                  changed.
+                </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
 
-            <para>When the mode is set to <literal>static</literal>, an IPv6 address must be
-            specified after a colon (<literal>:</literal>), and the lower bits of the supplied
-            address are combined with the upper bits of a prefix received in a Router Advertisement
-            (RA) message to form a complete address. Note that if multiple prefixes are received in an
-            RA message, or in multiple RA messages, addresses will be formed from each of them using
-            the supplied address. This mode implements SLAAC but uses a static interface identifier
-            instead of an identifier generated by using the EUI-64 algorithm. Because the interface
-            identifier is static, if Duplicate Address Detection detects that the computed address is a
-            duplicate (in use by another node on the link), then this mode will fail to provide an
-            address for that prefix. If an IPv6 address without mode is specified, then
-            <literal>static</literal> mode is assumed.</para>
+          <para>If no address generation mode is specified (which is the default), or a received
+          prefix does not match any of the addresses provided in <literal>prefixstable</literal>
+          mode, then the EUI-64 algorithm will be used for Ethernet or InfiniBand interfaces,
+          otherwise <literal>prefixstable</literal> will be used to form an interface identifier for
+          that prefix.</para>
 
-            <para>When the mode is set to <literal>prefixstable</literal> the
-            <ulink url="https://tools.ietf.org/html/rfc7217">RFC 7217</ulink> algorithm for generating
-            interface identifiers will be used. This mode can optionally take an IPv6 address separated
-            with a colon (<literal>:</literal>). If an IPv6 address is specified, then an interface
-            identifier is generated only when a prefix received in an RA message matches the supplied
-            address.</para>
+          <para>This setting can be specified multiple times. If an empty string is assigned, then
+          the all previous assignments are cleared.</para>
 
-            <para>If no address generation mode is specified (which is the default), or a received
-            prefix does not match any of the addresses provided in <literal>prefixstable</literal>
-            mode, then the EUI-64 algorithm will be used to form an interface identifier for that
-            prefix.</para>
-
-            <para>Note that the <literal>prefixstable</literal> algorithm uses both the interface
-            name and MAC address as input to the hash to compute the interface identifier, so if either
-            of those are changed the resulting interface identifier (and address) will be changed, even
-            if the prefix received in the RA message has not been changed.</para>
-
-            <para>This setting can be specified multiple times. If an empty string is assigned, then
-            the all previous assignments are cleared.</para>
-
-            <para>Examples:
-            <programlisting>Token=eui64
+          <para>Examples:
+          <programlisting>Token=eui64
 Token=::1a:2b:3c:4d
 Token=static:::1a:2b:3c:4d
 Token=prefixstable
 Token=prefixstable:2002:da8:1::</programlisting></para>
-          </listitem>
-        </varlistentry>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseDNS=</varname></term>
-          <listitem>
-            <para>When true (the default), the DNS servers received in the Router Advertisement will be used.</para>
+      <varlistentry>
+        <term><varname>UseDNS=</varname></term>
+        <listitem>
+          <para>When true (the default), the DNS servers received in the Router Advertisement will be used.</para>
 
-            <para>This corresponds to the <option>nameserver</option> option in <citerefentry
-            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-          </listitem>
-        </varlistentry>
+          <para>This corresponds to the <option>nameserver</option> option in <citerefentry
+          project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseDomains=</varname></term>
-          <listitem>
-            <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
-            received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link, similar to
-            the effect of the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name
-            received via IPv6 RA will be used for routing DNS queries only, but not for searching, similar to the
-            effect of the <option>Domains=</option> setting when the argument is prefixed with
-            <literal>~</literal>. Defaults to false.</para>
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
+          received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link, similar to
+          the effect of the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name
+          received via IPv6 RA will be used for routing DNS queries only, but not for searching, similar to the
+          effect of the <option>Domains=</option> setting when the argument is prefixed with
+          <literal>~</literal>. Defaults to false.</para>
 
-            <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
-            of all hostnames, in particular of single-label names. It is generally safer to use the supplied domain
-            only as routing domain, rather than as search domain, in order to not have it affect local resolution of
-            single-label names.</para>
+          <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
+          of all hostnames, in particular of single-label names. It is generally safer to use the supplied domain
+          only as routing domain, rather than as search domain, in order to not have it affect local resolution of
+          single-label names.</para>
 
-            <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
-            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-          </listitem>
-        </varlistentry>
+          <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
+          project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
-          <listitem>
-            <para>The table identifier for the routes received in the Router Advertisement
-            (a number between 1 and 4294967295, or 0 to unset).
-            The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
-            </para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
+        <listitem>
+          <para>The table identifier for the routes received in the Router Advertisement
+          (a number between 1 and 4294967295, or 0 to unset).
+          The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+          </para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
-          <listitem>
-            <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
-            unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
+          unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseMTU=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When true, the MTU received in the Router Advertisement will be
-            used. Defaults to true.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>UseMTU=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the MTU received in the Router Advertisement will be
+          used. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseGateway=</varname></term>
-          <listitem>
-            <para>When true (the default), the router address will be configured as the default gateway.
-            </para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>UseGateway=</varname></term>
+        <listitem>
+          <para>When true (the default), the router address will be configured as the default gateway.
+          </para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseRoutePrefix=</varname></term>
-          <listitem>
-            <para>When true (the default), the routes corresponding to the route prefixes received in
-            the Router Advertisement will be configured.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>UseRoutePrefix=</varname></term>
+        <listitem>
+          <para>When true (the default), the routes corresponding to the route prefixes received in
+          the Router Advertisement will be configured.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseAutonomousPrefix=</varname></term>
-          <listitem>
-            <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
-            precedence over any statically configured ones.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>UseAutonomousPrefix=</varname></term>
+        <listitem>
+          <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
+          precedence over any statically configured ones.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>UseOnLinkPrefix=</varname></term>
-          <listitem>
-            <para>When true (the default), the onlink prefix received in the Router Advertisement will be
-            used and takes precedence over any statically configured ones.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>UseOnLinkPrefix=</varname></term>
+        <listitem>
+          <para>When true (the default), the onlink prefix received in the Router Advertisement will be
+          used and takes precedence over any statically configured ones.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouterDenyList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
-            take a prefix length after <literal>/</literal>. Any information advertised by the listed
-            router is ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouterDenyList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
+          take a prefix length after <literal>/</literal>. Any information advertised by the listed
+          router is ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouterAllowList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
-            take a prefix length after <literal>/</literal>. Only information advertised by the listed
-            router is accepted. Note that if <varname>RouterAllowList=</varname> is configured then
-            <varname>RouterDenyList=</varname> is ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouterAllowList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
+          take a prefix length after <literal>/</literal>. Only information advertised by the listed
+          router is accepted. Note that if <varname>RouterAllowList=</varname> is configured then
+          <varname>RouterDenyList=</varname> is ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>PrefixDenyList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
-            prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
-            in the list are ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>PrefixDenyList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
+          prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
+          in the list are ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>PrefixAllowList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
-            prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
-            in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is configured
-            then <varname>PrefixDenyList=</varname> is ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>PrefixAllowList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
+          prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
+          in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is configured
+          then <varname>PrefixDenyList=</varname> is ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouteDenyList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
-            its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
-            advertisements in the list are ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouteDenyList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
+          its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
+          advertisements in the list are ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>RouteAllowList=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
-            its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
-            advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
-            configured then <varname>RouteDenyList=</varname> is ignored.</para>
-          </listitem>
-        </varlistentry>
+      <varlistentry>
+        <term><varname>RouteAllowList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
+          its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
+          advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
+          configured then <varname>RouteDenyList=</varname> is ignored.</para>
+        </listitem>
+      </varlistentry>
 
-        <varlistentry>
-          <term><varname>DHCPv6Client=</varname></term>
-          <listitem>
-            <para>Takes a boolean, or the special value <literal>always</literal>. When true, the
-            DHCPv6 client will be started when the RA has the managed or other information flag. If set
-            to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
-            is received, even if neither managed nor other information flag is set in the RA. This will
-            be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
-            <varname>UplinkInterface=:self</varname> in the [DHCPv6PrefixDelegation] section is
-            specified. Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+      <varlistentry>
+        <term><varname>DHCPv6Client=</varname></term>
+        <listitem>
+          <para>Takes a boolean, or the special value <literal>always</literal>. When true, the
+          DHCPv6 client will be started when the RA has the managed or other information flag. If set
+          to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
+          is received, even if neither managed nor other information flag is set in the RA. This will
+          be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
+          <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
+          specified. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -2558,7 +2616,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
           to its network interface and all socket communication will be restricted to this interface.
           Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
-          in which case it defaults defaults to <literal>no</literal>.</para>
+          in which case it defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2642,9 +2700,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RouterLifetimeSec=</varname></term>
 
-        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. When set to
-        0, the host is not acting as a router. The value must be 0 second, or between 4 seconds and
-        9000 seconds. Defaults to 1800 seconds (30 minutes).</para>
+        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. The value must be 0
+        seconds, or between 4 seconds and 9000 seconds. When set to 0, the host is not acting as a router.
+        Defaults to 1800 seconds (30 minutes).</para>
         </listitem>
       </varlistentry>
 
@@ -2666,9 +2724,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
         values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
         search domains is enabled but no servers are specified, the servers configured in the uplink
-        interface will be emitted. When <literal>:auto</literal>, the link which has a default gateway
-        with the highest priority will be automatically selected. When <literal>:none</literal>, no
-        uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+        interface will be emitted. When <literal>:auto</literal>, the value specified to the same
+        setting in the [DHCPPrefixDelegation] section will be used if
+        <varname>DHCPPrefixDelegation=</varname> is enabled, otherwise the link which has a default
+        gateway with the highest priority will be automatically selected. When <literal>:none</literal>,
+        no uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3175,6 +3235,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             length code (DLC). When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPoIB] Section Options</title>
+      <para>The [IPoIB] section manages the IP over Infiniband and accepts the following keys:</para>
+      <variablelist class='network-directives'>
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_mode" />
+        <xi:include href="systemd.netdev.xml" xpointer="ipoib_umcast" />
       </variablelist>
   </refsect1>
 
@@ -4321,7 +4390,7 @@ Name=enp2s0
 
 [Network]
 IPv6SendRA=yes
-DHCPv6PrefixDelegation=yes</programlisting>
+DHCPPrefixDelegation=yes</programlisting>
 
       <para>This will enable DHCPv6-PD on the interface enp1s0 as an upstream interface where the
       DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.

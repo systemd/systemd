@@ -10,6 +10,7 @@
 #include <sys/prctl.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "memfd-util.h"
@@ -21,7 +22,6 @@
 
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;
-        int fd;
 
         if (!name) {
                 char pr[17] = {};
@@ -49,11 +49,7 @@ int memfd_new(const char *name) {
                 }
         }
 
-        fd = memfd_create(name, MFD_ALLOW_SEALING | MFD_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        return RET_NERRNO(memfd_create(name, MFD_ALLOW_SEALING | MFD_CLOEXEC));
 }
 
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
@@ -72,7 +68,6 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
                 q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, offset);
         else
                 q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
-
         if (q == MAP_FAILED)
                 return -errno;
 
@@ -81,15 +76,9 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
 }
 
 int memfd_set_sealed(int fd) {
-        int r;
-
         assert(fd >= 0);
 
-        r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL));
 }
 
 int memfd_get_sealed(int fd) {
@@ -106,13 +95,11 @@ int memfd_get_sealed(int fd) {
 
 int memfd_get_size(int fd, uint64_t *sz) {
         struct stat stat;
-        int r;
 
         assert(fd >= 0);
         assert(sz);
 
-        r = fstat(fd, &stat);
-        if (r < 0)
+        if (fstat(fd, &stat) < 0)
                 return -errno;
 
         *sz = stat.st_size;
@@ -120,15 +107,9 @@ int memfd_get_size(int fd, uint64_t *sz) {
 }
 
 int memfd_set_size(int fd, uint64_t sz) {
-        int r;
-
         assert(fd >= 0);
 
-        r = ftruncate(fd, sz);
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ftruncate(fd, sz));
 }
 
 int memfd_new_and_map(const char *name, size_t sz, void **p) {

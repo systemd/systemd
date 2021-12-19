@@ -13,6 +13,8 @@ sources = files('''
         netdev/dummy.h
         netdev/ifb.c
         netdev/ifb.h
+        netdev/ipoib.c
+        netdev/ipoib.h
         netdev/ipvlan.c
         netdev/ipvlan.h
         netdev/macvlan.c
@@ -71,6 +73,8 @@ sources = files('''
         networkd-conf.h
         networkd-dhcp-common.c
         networkd-dhcp-common.h
+        networkd-dhcp-prefix-delegation.c
+        networkd-dhcp-prefix-delegation.h
         networkd-dhcp-server-bus.c
         networkd-dhcp-server-bus.h
         networkd-dhcp-server-static-lease.c
@@ -115,6 +119,8 @@ sources = files('''
         networkd-nexthop.h
         networkd-queue.c
         networkd-queue.h
+        networkd-route-util.c
+        networkd-route-util.h
         networkd-route.c
         networkd-route.h
         networkd-routing-policy-rule.c
@@ -229,7 +235,8 @@ libnetworkd_core = static_library(
         'networkd-core',
         sources,
         include_directories : network_includes,
-        link_with : [networkd_link_with])
+        link_with : networkd_link_with,
+        build_by_default : false)
 
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('org.freedesktop.network1.conf',
@@ -277,6 +284,12 @@ tests += [
          network_includes],
 
         [['src/network/test-networkd-conf.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_includes],
+
+        [['src/network/test-networkd-util.c'],
          [libnetworkd_core,
           libsystemd_network],
          [],

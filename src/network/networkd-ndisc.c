@@ -37,7 +37,7 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_may_have_ipv6ll(link))
                 return false;
 
         assert(link->network->ipv6_accept_ra >= 0);
@@ -90,7 +90,7 @@ static int ndisc_remove(Link *link, struct in6_addr *router) {
                 if (k < 0)
                         r = k;
 
-                route_cancel_request(route);
+                route_cancel_request(route, link);
         }
 
         SET_FOREACH(address, link->addresses) {

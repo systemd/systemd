@@ -1220,6 +1220,8 @@ static int swap_process_proc_swaps(Manager *m) {
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
                         Swap *swap = SWAP(u);
 
+                        assert(swap);
+
                         swap->is_active = swap->just_activated = false;
                 }
 
@@ -1230,6 +1232,8 @@ static int swap_process_proc_swaps(Manager *m) {
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
                 Swap *swap = SWAP(u);
+
+                assert(swap);
 
                 if (!swap->is_active) {
 
@@ -1495,6 +1499,9 @@ static int swap_get_timeout(Unit *u, usec_t *timeout) {
         usec_t t;
         int r;
 
+        assert(s);
+        assert(u);
+
         if (!s->timer_event_source)
                 return 0;
 
@@ -1581,7 +1588,7 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_test_start_limit(Unit *u) {
+static int swap_can_start(Unit *u) {
         Swap *s = SWAP(u);
         int r;
 
@@ -1593,7 +1600,7 @@ static int swap_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
@@ -1692,5 +1699,5 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .test_start_limit = swap_test_start_limit,
+        .can_start = swap_can_start,
 };

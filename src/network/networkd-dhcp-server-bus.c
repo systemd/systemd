@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dhcp-server.h"
-
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
@@ -106,11 +104,17 @@ void dhcp_server_callback(sd_dhcp_server *s, uint64_t event, void *data) {
                 (void) dhcp_server_emit_changed(l, "Leases", NULL);
 }
 
-
-const sd_bus_vtable dhcp_server_vtable[] = {
+static const sd_bus_vtable dhcp_server_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Leases", "a(uayayayayt)", property_get_leases, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation dhcp_server_object = {
+        "/org/freedesktop/network1/link",
+        "org.freedesktop.network1.DHCPServer",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({dhcp_server_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
 };

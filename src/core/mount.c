@@ -17,7 +17,7 @@
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount.h"
 #include "mountpoint-util.h"
@@ -82,14 +82,6 @@ static MountParameters* get_mount_parameters(Mount *m) {
                 return &m->parameters_proc_self_mountinfo;
 
         return get_mount_parameters_fragment(m);
-}
-
-static bool mount_is_automount(const MountParameters *p) {
-        assert(p);
-
-        return fstab_test_option(p->options,
-                                 "comment=systemd.automount\0"
-                                 "x-systemd.automount\0");
 }
 
 static bool mount_is_network(const MountParameters *p) {
@@ -179,6 +171,7 @@ static bool mount_needs_quota(const MountParameters *p) {
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -483,7 +476,7 @@ static int mount_add_default_ordering_dependencies(
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!mount_is_nofail(m) && !mount_is_automount(p)) {
+        if (!mount_is_nofail(m)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
                 if (r < 0)
                         return r;
@@ -681,6 +674,7 @@ static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r, q = 0;
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -1256,6 +1250,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         Mount *m = MOUNT(u);
         int r;
 
+        assert(m);
         assert(u);
         assert(key);
         assert(value);
@@ -1794,6 +1789,9 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         usec_t t;
         int r;
 
+        assert(m);
+        assert(u);
+
         if (!m->timer_event_source)
                 return 0;
 
@@ -1836,6 +1834,27 @@ static bool mount_is_mounted(Mount *m) {
         assert(m);
 
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
+}
+
+static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Job *j;
+
+        assert(m);
+
+        /* Let's enqueue all start jobs that were previously skipped because of active ratelimit. */
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (j->unit->type != UNIT_MOUNT)
+                        continue;
+
+                job_add_to_run_queue(j);
+        }
+
+        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so
+         * let's make sure we dispatch them in the next iteration. */
+        manager_trigger_run_queue(m);
+
+        return 0;
 }
 
 static void mount_enumerate(Manager *m) {
@@ -1889,6 +1908,12 @@ static void mount_enumerate(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
                         goto fail;
+                }
+
+                r = sd_event_source_set_ratelimit_expire_callback(m->mount_event_source, mount_on_ratelimit_expire);
+                if (r < 0) {
+                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
+                         goto fail;
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
@@ -2135,11 +2160,14 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_test_start_limit(Unit *u) {
+static int mount_can_start(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
 
         assert(m);
+
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -2147,7 +2175,7 @@ static int mount_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
@@ -2248,5 +2276,5 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .test_start_limit = mount_test_start_limit,
+        .can_start = mount_can_start,
 };

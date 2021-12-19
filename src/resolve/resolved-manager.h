@@ -140,6 +140,10 @@ struct Manager {
         sd_event_source *dns_stub_udp_event_source;
         sd_event_source *dns_stub_tcp_event_source;
 
+        /* Local DNS proxy stub on 127.0.0.54:53 */
+        sd_event_source *dns_proxy_stub_udp_event_source;
+        sd_event_source *dns_proxy_stub_tcp_event_source;
+
         Hashmap *polkit_registry;
 
         VarlinkServer *varlink_server;
@@ -203,6 +207,7 @@ void manager_cleanup_saved_user(Manager *m);
 
 bool manager_next_dnssd_names(Manager *m);
 
+bool manager_server_address_is_stub(Manager *m, int family, const union in_addr_union *address, uint16_t port);
 bool manager_server_is_stub(Manager *m, DnsServer *s);
 
 int socket_disable_pmtud(int fd, int af);

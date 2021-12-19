@@ -15,7 +15,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "selinux-util.h"

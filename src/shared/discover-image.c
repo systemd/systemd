@@ -543,7 +543,6 @@ int image_discover(
         NULSTR_FOREACH(path, image_search_path[class]) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
@@ -1216,7 +1215,9 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         return r;
 
-                r = dissected_image_acquire_metadata(m);
+                r = dissected_image_acquire_metadata(m,
+                                                     DISSECT_IMAGE_VALIDATE_OS |
+                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
                 if (r < 0)
                         return r;
 

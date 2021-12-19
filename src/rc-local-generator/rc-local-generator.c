@@ -6,7 +6,7 @@
 
 #include "generator.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "string-util.h"
 #include "util.h"
 

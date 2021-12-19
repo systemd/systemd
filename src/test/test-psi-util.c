@@ -7,7 +7,7 @@
 #include "psi-util.h"
 #include "tests.h"
 
-static void test_read_mem_pressure(void) {
+TEST(read_mem_pressure) {
         _cleanup_(unlink_tempfilep) char path[] = "/tmp/pressurereadtestXXXXXX";
         ResourcePressure rp;
 
@@ -72,8 +72,4 @@ static void test_read_mem_pressure(void) {
         assert_se(rp.total == 58464525);
 }
 
-int main(void) {
-        test_setup_logging(LOG_DEBUG);
-        test_read_mem_pressure();
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

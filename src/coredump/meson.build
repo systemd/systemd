@@ -6,12 +6,6 @@ systemd_coredump_sources = files('''
         coredump-vacuum.h
 '''.split())
 
-if conf.get('HAVE_ELFUTILS') == 1
-        systemd_coredump_sources += files(
-                'stacktrace.c',
-                'stacktrace.h')
-endif
-
 coredumpctl_sources = files('coredumpctl.c')
 
 if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples

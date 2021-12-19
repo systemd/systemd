@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="bootctl" conditional='ENABLE_EFI'
+<refentry id="bootctl" conditional='HAVE_GNU_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>bootctl</title>
@@ -284,6 +284,14 @@
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Signed .efi files</title>
+    <para><command>bootctl</command> <option>install</option> and <option>update</option> will look for a
+    <command>systemd-boot</command> file ending with the <literal>.efi.signed</literal> suffix first, and copy
+    that instead of the normal <literal>.efi</literal> file. This allows distributions or end-users to provide
+    signed images for UEFI SecureBoot.</para>
   </refsect1>
 
   <refsect1>

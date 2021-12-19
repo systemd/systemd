@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "bpf-program.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "memory-util.h"
@@ -74,10 +75,7 @@ static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, u
         attr.info.info_len = info_len;
         attr.info.info = PTR_TO_UINT64(info);
 
-        if (bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr)) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr)));
 }
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
@@ -290,7 +288,6 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
 
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
         union bpf_attr attr;
-        int fd;
 
         zero(attr);
         attr.map_type = type;
@@ -299,11 +296,7 @@ int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size
         attr.max_entries = max_entries;
         attr.map_flags = flags;
 
-        fd = bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        return RET_NERRNO(bpf(BPF_MAP_CREATE, &attr, sizeof(attr)));
 }
 
 int bpf_map_update_element(int fd, const void *key, void *value) {
@@ -314,10 +307,7 @@ int bpf_map_update_element(int fd, const void *key, void *value) {
         attr.key = PTR_TO_UINT64(key);
         attr.value = PTR_TO_UINT64(value);
 
-        if (bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr)) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr)));
 }
 
 int bpf_map_lookup_element(int fd, const void *key, void *value) {
@@ -328,10 +318,7 @@ int bpf_map_lookup_element(int fd, const void *key, void *value) {
         attr.key = PTR_TO_UINT64(key);
         attr.value = PTR_TO_UINT64(value);
 
-        if (bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr)) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr)));
 }
 
 int bpf_program_pin(int prog_fd, const char *bpffs_path) {
@@ -341,10 +328,7 @@ int bpf_program_pin(int prog_fd, const char *bpffs_path) {
         attr.pathname = PTR_TO_UINT64((void *) bpffs_path);
         attr.bpf_fd = prog_fd;
 
-        if (bpf(BPF_OBJ_PIN, &attr, sizeof(attr)) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(bpf(BPF_OBJ_PIN, &attr, sizeof(attr)));
 }
 
 int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id) {

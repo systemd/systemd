@@ -189,6 +189,9 @@
 
           <row><entry><varname>batadv</varname></entry>
           <entry><ulink url="https://www.open-mesh.org/projects/open-mesh/wiki">B.A.T.M.A.N. Advanced</ulink> is a routing protocol for multi-hop mobile ad-hoc networks which operates on layer 2.</entry></row>
+
+          <row><entry><varname>ipoib</varname></entry>
+          <entry>An IP over Infiniband subinterface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -254,16 +257,22 @@
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-          devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
-          supported. Please specify it in the [Link] section of the corresponding
+          <para>Specifies the MAC address to use for the device, or takes the special value
+          <literal>none</literal>. When <literal>none</literal>, <command>systemd-networkd</command>
+          does not request the MAC address for the device, and the kernel will assign a random MAC
+          address. For <literal>tun</literal>, <literal>tap</literal>, or <literal>l2tp</literal>
+          devices, the <varname>MACAddress=</varname> setting in the [NetDev] section is not
+          supported and will be ignored. Please specify it in the [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          file. If this option is not set, <literal>bridge</literal> and <literal>vlan</literal> devices
-          inherit the MAC address of the first slave device or the physical interface, respectively. For other
-          kind of netdevs, if this option is not set, then the MAC address is generated based on the interface
-          name and the
+          file. If this option is not set, <literal>vlan</literal> device inherits the MAC address of
+          the master interface. For other kind of netdevs, if this option is not set, then the MAC
+          address is generated based on the interface name and the
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+          <para>Note, even if <literal>none</literal> is specified, <command>systemd-udevd</command>
+          will assign the persistent MAC address for the device, as <filename>99-default.link</filename>
+          has <varname>MACAddressPolicy=persistent</varname>. So, it is also necessary to create a
+          custom .link file for the device, if the MAC address assignment is not desired.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -447,24 +456,14 @@
       </varlistentry>
       <varlistentry>
         <term><varname>EgressQOSMaps=</varname></term>
-        <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for outgoing frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>IngressQOSMaps=</varname></term>
         <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for incoming frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
+          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>)
+          to VLAN header PCP field for outgoing and incoming frames, respectively. Takes a
+          whitespace-separated list of integer pairs, where each integer must be in the range
+          1…4294967294, in the format <literal>from</literal>-<literal>to</literal>, e.g.,
+          <literal>21-7 45-5</literal>. Note that <literal>from</literal> must be greater than or equal
+          to <literal>to</literal>. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1221,7 +1220,7 @@
           value of zero means that a packet carrying that option may not enter
           another tunnel before exiting the current tunnel.
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
-          The valid range is 0–255 and <literal>none</literal>. Defaults to 4.
+          The valid range is 0…255 and <literal>none</literal>. Defaults to 4.
         </para>
         </listitem>
       </varlistentry>
@@ -1563,6 +1562,29 @@
           <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
+          predefined names <literal>default</literal>, <literal>main</literal>, and
+          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. When <literal>off</literal> the routes to the
+          addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
+          Defaults to <literal>main</literal>. This setting will be ignored when the same setting is
+          specified in the [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to 0
+          for IPv4 addresses, and 1024 for IPv6 addresses. This setting will be ignored when the same
+          setting is specified in the [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1647,6 +1669,27 @@
           Most users will not need this.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
+          predefined names <literal>default</literal>, <literal>main</literal>, and
+          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. Defaults to unset, and the value specified in the
+          same setting in the [WireGuard] section will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to
+          unset, and the value specified in the same setting in the [WireGuard] section will be used.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1716,7 +1759,7 @@
         <listitem>
           <para>Specifies the delay before a link is enabled after a
           link up status has been detected. This value is rounded down
-          to a multiple of MIIMonitorSec. The default value is
+          to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1726,7 +1769,7 @@
         <listitem>
           <para>Specifies the delay before a link is disabled after a
           link down status has been detected. This value is rounded
-          down to a multiple of MIIMonitorSec. The default value is
+          down to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1736,7 +1779,7 @@
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
           driver sends learning packets to each slave peer switch.
-          The valid range is 1–0x7fffffff; the default value is 1. This option
+          The valid range is 1…0x7fffffff; the default value is 1. This option
           has an effect only for the balance-tlb and balance-alb modes.</para>
         </listitem>
       </varlistentry>
@@ -1817,8 +1860,8 @@
         <term><varname>ARPIPTargets=</varname></term>
         <listitem>
           <para>Specifies the IP addresses to use as ARP monitoring peers when
-          ARPIntervalSec is greater than 0. These are the targets of the ARP request
-          sent to determine the health of the link to the targets.
+          <varname>ARPIntervalSec=</varname> is greater than 0. These are the targets of the ARP
+          request sent to determine the health of the link to the targets.
           Specify these values in IPv4 dotted decimal format. At least one IP
           address must be given for ARP monitoring to function. The
           maximum number of targets that can be specified is 16. The
@@ -1830,7 +1873,7 @@
       <varlistentry>
         <term><varname>ARPAllTargets=</varname></term>
         <listitem>
-          <para>Specifies the quantity of ARPIPTargets that must be reachable
+          <para>Specifies the quantity of <varname>ARPIPTargets=</varname> that must be reachable
           in order for the ARP monitor to consider a slave as being up.
           This option affects only active-backup mode for slaves with
           ARPValidate enabled. Possible values are
@@ -1861,7 +1904,7 @@
           <para>Specifies the number of IGMP membership reports to be issued after
           a failover event. One membership report is issued immediately after
           the failover, subsequent packets are sent in each 200ms interval.
-          The valid range is 0–255. Defaults to 1. A value of 0
+          The valid range is 0…255. Defaults to 1. A value of 0
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
@@ -1873,7 +1916,7 @@
         <listitem>
           <para>Specify the number of packets to transmit through a slave before
           moving to the next one. When set to 0, then a slave is chosen at
-          random. The valid range is 0–65535. Defaults to 1. This option
+          random. The valid range is 0…65535. Defaults to 1. This option
           only has effect when in balance-rr mode.
           </para>
         </listitem>
@@ -1888,7 +1931,7 @@
           a peer notification is sent on the  bonding device and each
           VLAN sub-device.  This is repeated at each link monitor interval
           (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-          greater than 1. The valid range is 0–255. The default value is 1.
+          greater than 1. The valid range is 0…255. The default value is 1.
           These options affect only the active-backup mode.
           </para>
         </listitem>
@@ -2070,6 +2113,49 @@
           of <citerefentry><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
           cannot be changed after interface creation. Defaults to <literal>batman-v</literal>.
           </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPoIB] Section Options</title>
+    <para>The [IPoIB] section only applies for netdevs of kind <literal>ipoib</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PartitionKey=</varname></term>
+        <listitem>
+          <para>Takes an integer in the range 1…0xffff, except for 0x8000. Defaults to unset, and the
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_mode'>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>Takes one of the special values <literal>datagram</literal> or
+          <literal>connected</literal>. Defaults to unset, and the kernel's default is used.</para>
+
+          <para>When <literal>datagram</literal>, the Infiniband unreliable datagram (UD) transport is
+          used, and so the interface MTU is equal to the IB L2 MTU minus the IPoIB encapsulation
+          header (4 bytes). For example, in a typical IB fabric with a 2K MTU, the IPoIB MTU will be
+          2048 - 4 = 2044 bytes.</para>
+
+          <para>When <literal>connected</literal>, the Infiniband reliable connected (RC) transport is
+          used. Connected mode takes advantage of the connected nature of the IB transport and allows
+          an MTU up to the maximal IP packet size of 64K, which reduces the number of IP packets needed
+          for handling large UDP datagrams, TCP segments, etc and increases the performance for large
+          messages.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_umcast'>
+        <term><varname>IgnoreUserspaceMulticastGroup=</varname></term>
+        <listitem>
+          <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
+          userspace. Defaults to unset, and the kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -47,7 +47,7 @@ int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
 #define laccess(path, mode)                                             \
-        (faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW) < 0 ? -errno : 0)
+        RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
@@ -108,3 +108,5 @@ static inline int conservative_rename(const char *oldpath, const char *newpath) 
 int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
+
+int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);

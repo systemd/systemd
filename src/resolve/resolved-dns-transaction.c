@@ -673,6 +673,7 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
+        usec_t stream_timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
@@ -707,6 +708,14 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s = dns_stream_ref(t->server->stream);
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
+
+                /* Lower timeout in DNS-over-TLS opportunistic mode. In environments where DoT is blocked
+                 * without ICMP response overly long delays when contacting DoT servers are nasty, in
+                 * particular if multiple DNS servers are defined which we try in turn and all are
+                 * blocked. Hence, substantially lower the timeout in that case. */
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) &&
+                    dns_server_get_dns_over_tls_mode(t->server) == DNS_OVER_TLS_OPPORTUNISTIC)
+                        stream_timeout_usec = DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC;
 
                 type = DNS_STREAM_LOOKUP;
                 break;
@@ -745,7 +754,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa);
+                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa, stream_timeout_usec);
                 if (r < 0)
                         return r;
 

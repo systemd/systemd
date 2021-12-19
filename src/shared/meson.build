@@ -107,6 +107,8 @@ shared_sources = files('''
         dropin.h
         efi-loader.c
         efi-loader.h
+        elf-util.c
+        elf-util.h
         enable-mempool.c
         env-file-label.c
         env-file-label.h
@@ -118,6 +120,7 @@ shared_sources = files('''
         exit-status.h
         extension-release.c
         extension-release.h
+        fdisk-util.h
         fdset.c
         fdset.h
         fileio-label.c
@@ -173,6 +176,8 @@ shared_sources = files('''
         json.h
         kbd-util.c
         kbd-util.h
+        keyring-util.h
+        keyring-util.c
         killall.c
         killall.h
         label.c
@@ -207,6 +212,7 @@ shared_sources = files('''
         macvlan-util.h
         main-func.h
         mkdir-label.c
+        mkdir-label.h
         mkfs-util.c
         mkfs-util.h
         module-util.h
@@ -290,6 +296,8 @@ shared_sources = files('''
         tpm2-util.h
         udev-util.c
         udev-util.h
+        uid-alloc-range.c
+        uid-alloc-range.h
         uid-range.c
         uid-range.h
         user-record-nss.c
@@ -451,7 +459,8 @@ libshared_static = static_library(
         shared_sources,
         include_directories : includes,
         dependencies : libshared_deps,
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)
 
 libshared = shared_library(
         libshared_name,

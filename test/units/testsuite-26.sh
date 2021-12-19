@@ -19,6 +19,9 @@ systemctl daemon-reload
 systemctl show-environment | grep -q '^PATH=.*testaddition$'
 systemctl show-environment | grep -q '^FOO=BAR$'
 
+# Check that JSON output is supported
+systemctl show-environment --output=json | grep -q '^{.*"FOO":"BAR".*}$'
+
 # Drop both
 systemctl unset-environment FOO PATH
 

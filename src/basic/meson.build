@@ -82,6 +82,8 @@ basic_sources = files('''
         inotify-util.h
         io-util.c
         io-util.h
+        ioprio-util.c
+        ioprio-util.h
         limits-util.c
         limits-util.h
         linux/btrfs.h
@@ -342,6 +344,7 @@ arch_list = [
         'arm64',
         'i386',
         'ia64',
+        'loongarch64',
         'm68k',
         'mips64',
         'mips64n32',
@@ -383,8 +386,8 @@ filesystem_includes = ['linux/magic.h',
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command([check_filesystems, cpp, 'filesystems-gperf.gperf'] + filesystem_includes)
 if r.returncode() != 0
-    error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
-    r.stdout()
+        error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
+        r.stdout()
 endif
 
 filesystems_gperf_h = custom_target(
@@ -403,7 +406,17 @@ filesystem_list_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-basic_sources += [filesystem_list_h, filesystems_gperf_h]
+generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
+fname = 'filesystem-switch-case.h'
+filesystem_switch_case_h = custom_target(
+        fname,
+        input : 'filesystems-gperf.gperf',
+        output : 'filesystem-switch-case.h',
+        command : [generate_filesystem_switch_case_h,
+                   '@INPUT@'],
+        capture : true)
+
+basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
 libbasic = static_library(
         'basic',
@@ -415,7 +428,7 @@ libbasic = static_library(
                         libcap,
                         libm],
         c_args : ['-fvisibility=default'],
-        install : false)
+        build_by_default : false)
 
 ############################################################
 
@@ -430,4 +443,5 @@ libbasic_gcrypt = static_library(
         basic_gcrypt_sources,
         include_directories : basic_includes,
         dependencies : [libgcrypt],
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)

@@ -4,10 +4,14 @@
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "list.h"
 #include "log-link.h"
 #include "networkd-link.h"
 #include "time-util.h"
+
+/* Special hardware address value to suppress generating persistent hardware address for the netdev. */
+#define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })
 
 #define NETDEV_COMMON_SECTIONS "Match\0NetDev\0"
 /* This is the list of known sections. We need to ignore them in the initial parsing phase. */
@@ -18,6 +22,7 @@
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
         "-GENEVE\0"                               \
+        "-IPoIB\0"                                \
         "-IPVLAN\0"                               \
         "-IPVTAP\0"                               \
         "-L2TP\0"                                 \
@@ -56,6 +61,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_IP6GRETAP,
         NETDEV_KIND_IP6TNL,
         NETDEV_KIND_IPIP,
+        NETDEV_KIND_IPOIB,
         NETDEV_KIND_IPVLAN,
         NETDEV_KIND_IPVTAP,
         NETDEV_KIND_L2TP,
@@ -118,7 +124,7 @@ typedef struct NetDev {
         NetDevKind kind;
         char *description;
         char *ifname;
-        struct ether_addr *mac;
+        struct hw_addr_data hw_addr;
         uint32_t mtu;
         int ifindex;
 } NetDev;
@@ -159,6 +165,9 @@ typedef struct NetDevVTable {
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
 
+        /* expected iftype, e.g. ARPHRD_ETHER. */
+        uint16_t iftype;
+
         /* Generate MAC address when MACAddress= is not specified. */
         bool generate_mac;
 } NetDevVTable;
@@ -194,7 +203,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_get_mac(const char *ifname, struct ether_addr **ret);
+int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
+                            const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
 int request_process_stacked_netdev(Request *req);
@@ -211,6 +221,7 @@ static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
 }
 
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
+CONFIG_PARSER_PROTOTYPE(config_parse_netdev_hw_addr);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

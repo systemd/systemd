@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+echo "g adm - - -" | systemd-sysusers -
+
 U=/run/systemd/system/test12.socket
 cat >$U <<EOF
 [Unit]

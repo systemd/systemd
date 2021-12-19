@@ -19,7 +19,7 @@
 #include "machine-pool.h"
 #include "main-func.h"
 #include "missing_capability.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -567,10 +567,11 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
                 return (int) n;
+        }
 
         cmsg_close_all(&msghdr);
 

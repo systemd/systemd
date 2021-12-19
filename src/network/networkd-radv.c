@@ -9,13 +9,13 @@
 #include "dns-domain.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
-#include "networkd-dhcp6.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
-#include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "parse-util.h"
 #include "radv-internal.h"
 #include "string-util.h"
@@ -27,9 +27,9 @@ void network_adjust_radv(Network *network) {
 
         /* After this function is called, network->router_prefix_delegation can be treated as a boolean. */
 
-        if (network->dhcp6_pd < 0)
+        if (network->dhcp_pd < 0)
                 /* For backward compatibility. */
-                network->dhcp6_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
+                network->dhcp_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
                 if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
@@ -54,7 +54,7 @@ void network_adjust_radv(Network *network) {
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_ipv6ll_enabled(link))
+        if (!link_may_have_ipv6ll(link))
                 return false;
 
         return link->network->router_prefix_delegation;
@@ -410,6 +410,8 @@ set_domains:
 }
 
 static int radv_find_uplink(Link *link, Link **ret) {
+        int r;
+
         assert(link);
 
         if (link->network->router_uplink_name)
@@ -419,8 +421,12 @@ static int radv_find_uplink(Link *link, Link **ret) {
                 return link_get_by_index(link->manager, link->network->router_uplink_index, ret);
 
         if (link->network->router_uplink_index == UPLINK_INDEX_AUTO) {
-                /* It is not necessary to propagate error in automatic selection. */
-                if (manager_find_uplink(link->manager, AF_INET6, link, ret) < 0)
+                if (link_dhcp_pd_is_enabled(link))
+                        r = dhcp_pd_find_uplink(link, ret); /* When DHCP-PD is enabled, use its uplink. */
+                else
+                        r = manager_find_uplink(link->manager, AF_INET6, link, ret);
+                if (r < 0)
+                        /* It is not necessary to propagate error in automatic selection. */
                         *ret = NULL;
                 return 0;
         }
@@ -636,10 +642,10 @@ int radv_start(Link *link) {
         if (sd_radv_is_running(link->radv))
                 return 0;
 
-        if (link->network->dhcp6_pd_announce) {
-                r = dhcp6_request_prefix_delegation(link);
+        if (link->network->dhcp_pd_announce) {
+                r = dhcp_request_prefix_delegation(link);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
+                        return log_link_debug_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
 
         log_link_debug(link, "Starting IPv6 Router Advertisements");

@@ -82,13 +82,11 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(in_addr_prefixes_is_any(prefixes));
 }
 
-int main(int argc, char *argv[]) {
+TEST(in_addr_prefixes) {
         _cleanup_set_free_ Set *prefixes = NULL;
-
-        test_setup_logging(LOG_DEBUG);
 
         test_config_parse_in_addr_prefixes(&prefixes);
         test_in_addr_prefixes_reduce(prefixes);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

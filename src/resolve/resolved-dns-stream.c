@@ -10,7 +10,6 @@
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
 
-#define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)
 #define DNS_STREAMS_MAX 128
 
 #define DNS_QUERIES_PER_STREAM 32
@@ -324,7 +323,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                 ssize_t ss = dns_stream_writev(s, iov, ELEMENTSOF(iov), 0);
                 if (ss < 0) {
-                        if (!IN_SET(-ss, EINTR, EAGAIN))
+                        if (!ERRNO_IS_TRANSIENT(ss))
                                 return dns_stream_complete(s, -ss);
                 } else {
                         progressed = true;
@@ -348,7 +347,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                         ss = dns_stream_read(s, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
                         if (ss < 0) {
-                                if (!IN_SET(-ss, EINTR, EAGAIN))
+                                if (!ERRNO_IS_TRANSIENT(ss))
                                         return dns_stream_complete(s, -ss);
                         } else if (ss == 0)
                                 return dns_stream_complete(s, ECONNRESET);
@@ -401,7 +400,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                           (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
                                           sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
-                                        if (!IN_SET(-ss, EINTR, EAGAIN))
+                                        if (!ERRNO_IS_TRANSIENT(ss))
                                                 return dns_stream_complete(s, -ss);
                                 } else if (ss == 0)
                                         return dns_stream_complete(s, ECONNRESET);
@@ -437,7 +436,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
         /* If we did something, let's restart the timeout event source */
         if (progressed && s->timeout_event_source) {
-                r = sd_event_source_set_time_relative(s->timeout_event_source, DNS_STREAM_TIMEOUT_USEC);
+                r = sd_event_source_set_time_relative(s->timeout_event_source, DNS_STREAM_ESTABLISHED_TIMEOUT_USEC);
                 if (r < 0)
                         log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
@@ -482,7 +481,8 @@ int dns_stream_new(
                 DnsStreamType type,
                 DnsProtocol protocol,
                 int fd,
-                const union sockaddr_union *tfo_address) {
+                const union sockaddr_union *tfo_address,
+                usec_t connect_timeout_usec) {
 
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
@@ -523,7 +523,7 @@ int dns_stream_new(
                         m->event,
                         &s->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        DNS_STREAM_TIMEOUT_USEC, 0,
+                        connect_timeout_usec, 0,
                         on_stream_timeout, s);
         if (r < 0)
                 return r;

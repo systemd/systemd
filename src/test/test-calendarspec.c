@@ -5,6 +5,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void _test_one(int line, const char *input, const char *output) {
         CalendarSpec *c;
@@ -67,7 +68,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
 }
 #define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
 
-static void test_timestamp(void) {
+TEST(timestamp) {
         char buf[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *t = NULL;
         CalendarSpec *c;
@@ -88,7 +89,7 @@ static void test_timestamp(void) {
         assert_se(y == x);
 }
 
-static void test_hourly_bug_4031(void) {
+TEST(hourly_bug_4031) {
         CalendarSpec *c;
         usec_t n, u, w;
         int r;
@@ -111,9 +112,7 @@ static void test_hourly_bug_4031(void) {
         calendar_spec_free(c);
 }
 
-int main(int argc, char* argv[]) {
-        CalendarSpec *c;
-
+TEST(calendar_spec_one) {
         test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Sat,Thu,Mon..Wed,Sat..Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Mon,Sun 12-*-* 2,1:23", "Mon,Sun 2012-*-* 01,02:23:00");
@@ -180,7 +179,9 @@ int main(int argc, char* argv[]) {
         test_one("@0 UTC", "1970-01-01 00:00:00 UTC");
         test_one("*:05..05", "*-*-* *:05:00");
         test_one("*:05..10/6", "*-*-* *:05:00");
+}
 
+TEST(calendar_spec_next) {
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
         test_next("2016-03-27 03:17:00", "EET", 12345, -1);
@@ -214,6 +215,10 @@ int main(int argc, char* argv[]) {
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
+}
+
+TEST(calendar_spec_from_string) {
+        CalendarSpec *c;
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string(" utc", &c) < 0);
@@ -240,9 +245,6 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00:2300", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) < 0);
         assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
-
-        test_timestamp();
-        test_hourly_bug_4031();
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

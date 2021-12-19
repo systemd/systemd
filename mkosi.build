@@ -111,11 +111,11 @@ if [ -n "$IMAGE_VERSION" ] ; then
     rm /tmp/os-release.tmp
 fi
 
-# Manually update the boot loader from the one we just built
-mkdir -p "$DESTDIR"/boot/efi/EFI/systemd "$DESTDIR"/boot/efi/EFI/BOOT
-cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/boot/efi/EFI/systemd/systemd-bootx64.efi
-cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/boot/efi/EFI/BOOT/bootx64.efi
-
-mkdir -p "$DESTDIR"/efi/EFI/systemd "$DESTDIR"/efi/EFI/BOOT
-cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/efi/EFI/systemd/systemd-bootx64.efi
-cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/efi/EFI/BOOT/bootx64.efi
+# If $CI_BUILD is set, copy over the CI service which executes a service check
+# after boot and then shuts down the machine
+if [ -n "$CI_BUILD" ]; then
+    mkdir -p "$DESTDIR/usr/lib/systemd/system"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+fi

@@ -285,6 +285,25 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   one cause, it *really* should have an `int` as the return value for the error
   code.
 
+- libc system calls typically return -1 on error (with the error code in
+  `errno`), and >= 0 on success. Use the RET_NERRNO() helper if you are looking
+  for a simple way to convert this libc style error returning into systemd
+  style error returning. e.g.
+
+  ```c
+  …
+  r = RET_NERRNO(unlink(t));
+  …
+  ```
+
+  or
+
+  ```c
+  …
+  r = RET_NERRNO(open("/some/file", O_RDONLY|O_CLOEXEC));
+  …
+  ```
+
 - Do not bother with error checking whether writing to stdout/stderr worked.
 
 - Do not log errors from "library" code, only do so from "main program"
@@ -297,7 +316,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
   used for detecting programming errors, not for runtime errors. `assert()` and
-  `assert_return()` by usage of `_likely_()` inform the compiler that he should
+  `assert_return()` by usage of `_likely_()` inform the compiler that it should
   not expect these checks to fail, and they inform fellow programmers about the
   expected validity and range of parameters.
 

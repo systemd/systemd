@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=34
+Release=35
 
 [Packages]
 BuildPackages=
@@ -73,3 +73,5 @@ Packages=
         tpm2-tss
         less
         netcat
+        e2fsprogs
+        compsize

@@ -4,8 +4,6 @@
 #include "measure.h"
 #include "util.h"
 
-#define EXTRA_DIR_SUFFIX L".extra.d"
-
 static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
         static const char hex[] = "0123456789abcdef";
 
@@ -34,7 +32,7 @@ static CHAR8* mangle_filename(CHAR8 *p, const CHAR16 *f) {
                 *(w++) = *f;
         }
 
-        *w = 0;
+        *(w++) = 0;
         return w;
 }
 
@@ -113,9 +111,7 @@ static EFI_STATUS pack_cpio_one(
 
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
-        a = ReallocatePool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
-        if (!a)
-                return EFI_OUT_OF_RESOURCES;
+        a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
 
         *cpio_buffer = a;
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
@@ -140,7 +136,7 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, 0);                                          /* minor(dev) */
         a = write_cpio_word(a, 0);                                          /* major(rdev) */
         a = write_cpio_word(a, 0);                                          /* minor(rdev) */
-        a = write_cpio_word(a, target_dir_prefix_size + fname_size + 1);    /* fname size */
+        a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
         CopyMem(a, target_dir_prefix, target_dir_prefix_size);
@@ -198,11 +194,8 @@ static EFI_STATUS pack_cpio_dir(
 
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
-        a = ReallocatePool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
-        if (!a)
-                return EFI_OUT_OF_RESOURCES;
 
-        *cpio_buffer = a;
+        *cpio_buffer = a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
         CopyMem(a, "070701", 6); /* magic ID */
@@ -262,7 +255,7 @@ static EFI_STATUS pack_cpio_prefix(
                 if (e > p) {
                         _cleanup_freepool_ CHAR8 *t = NULL;
 
-                        t = strndup8(path, e - path);
+                        t = xstrndup8(path, e - path);
                         if (!t)
                                 return EFI_OUT_OF_RESOURCES;
 
@@ -298,19 +291,13 @@ static EFI_STATUS pack_cpio_trailer(
                 "00000000"
                 "TRAILER!!!\0\0\0"; /* There's a fourth NUL byte appended here, because this is a string */
 
-        void *a;
-
         /* Generates the cpio trailer record that indicates the end of our initrd cpio archive */
 
         assert(cpio_buffer);
         assert(cpio_buffer_size);
         assert_cc(sizeof(trailer) % 4 == 0);
 
-        a = ReallocatePool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
-        if (!a)
-                return EFI_OUT_OF_RESOURCES;
-
-        *cpio_buffer = a;
+        *cpio_buffer = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
         CopyMem((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
@@ -319,6 +306,7 @@ static EFI_STATUS pack_cpio_trailer(
 
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *dropin_dir,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
@@ -330,7 +318,7 @@ EFI_STATUS pack_cpio(
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *j = NULL;
+        _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
@@ -346,15 +334,10 @@ EFI_STATUS pack_cpio(
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
 
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
+        if (!dropin_dir)
+                dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
 
-        j = PoolPrint(L"%s" EXTRA_DIR_SUFFIX, loaded_image_path);
-        if (!j)
-                return log_oom();
-
-        err = open_directory(root, j, &extra_dir);
+        err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND) {
                 /* No extra subdir, that's totally OK */
                 *ret_buffer = NULL;
@@ -384,9 +367,7 @@ EFI_STATUS pack_cpio(
                 if (StrLen(dirent->FileName) > 255) /* Max filename size on Linux */
                         continue;
 
-                d = StrDuplicate(dirent->FileName);
-                if (!d)
-                        return log_oom();
+                d = xstrdup(dirent->FileName);
 
                 if (n_items+2 > n_allocated) {
                         UINTN m;
@@ -396,10 +377,7 @@ EFI_STATUS pack_cpio(
                                 return log_oom();
 
                         m = n_items + 16;
-                        items = ReallocatePool(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
-                        if (!items)
-                                return log_oom();
-
+                        items = xreallocate_pool(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
                         n_allocated = m;
                 }
 

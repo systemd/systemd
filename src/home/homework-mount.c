@@ -20,37 +20,55 @@
 #include "user-util.h"
 
 static const char *mount_options_for_fstype(const char *fstype) {
+        const char *e;
+        char *n;
+
+        assert(fstype);
+
+        /* Allow overriding our built-in defaults with an environment variable */
+        n = strjoina("SYSTEMD_HOME_MOUNT_OPTIONS_", fstype);
+        e = getenv(ascii_strupper(n));
+        if (e)
+                return e;
+
         if (streq(fstype, "ext4"))
                 return "noquota,user_xattr";
         if (streq(fstype, "xfs"))
                 return "noquota";
         if (streq(fstype, "btrfs"))
-                return "noacl";
+                return "noacl,compress=zstd:1";
         return NULL;
 }
 
-int home_mount_node(const char *node, const char *fstype, bool discard, unsigned long flags) {
+int home_mount_node(
+                const char *node,
+                const char *fstype,
+                bool discard,
+                unsigned long flags,
+                const char *extra_mount_options) {
+
         _cleanup_free_ char *joined = NULL;
-        const char *options, *discard_option;
+        const char *default_options;
         int r;
 
         assert(node);
         assert(fstype);
 
-        options = mount_options_for_fstype(fstype);
-
-        discard_option = discard ? "discard" : "nodiscard";
-
-        if (options) {
-                joined = strjoin(options, ",", discard_option);
-                if (!joined)
+        default_options = mount_options_for_fstype(fstype);
+        if (default_options) {
+                if (!strextend_with_separator(&joined, ",", default_options))
                         return log_oom();
+        }
 
-                options = joined;
-        } else
-                options = discard_option;
+        if (!strextend_with_separator(&joined, ",", discard ? "discard" : "nodiscard"))
+                return log_oom();
 
-        r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, strempty(options));
+        if (extra_mount_options) {
+                if (!strextend_with_separator(&joined, ",", extra_mount_options))
+                        return log_oom();
+        }
+
+        r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, joined);
         if (r < 0)
                 return r;
 
@@ -74,7 +92,13 @@ int home_unshare_and_mkdir(void) {
         return 0;
 }
 
-int home_unshare_and_mount(const char *node, const char *fstype, bool discard, unsigned long flags) {
+int home_unshare_and_mount(
+                const char *node,
+                const char *fstype,
+                bool discard,
+                unsigned long flags,
+                const char *extra_mount_options) {
+
         int r;
 
         assert(node);
@@ -84,7 +108,7 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard, u
         if (r < 0)
                 return r;
 
-        r = home_mount_node(node, fstype, discard, flags);
+        r = home_mount_node(node, fstype, discard, flags, extra_mount_options);
         if (r < 0)
                 return r;
 
@@ -258,6 +282,8 @@ int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t expos
                 r = move_mount(mount_fd, "", dir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH);
         if (r < 0)
                 return log_error_errno(errno, "Failed to apply UID/GID map: %m");
+
+        log_debug("Applied uidmap mount to %s. Mapping is " UID_FMT " → " UID_FMT ".", strna(target), stored_uid, exposed_uid);
 
         if (ret_mount_fd)
                 *ret_mount_fd = TAKE_FD(mount_fd);

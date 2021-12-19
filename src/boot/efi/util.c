@@ -180,9 +180,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = AllocatePool(size + sizeof(CHAR16));
-        if (!val)
-                return EFI_OUT_OF_RESOURCES;
+        val = xallocate_pool(size + sizeof(CHAR16));
 
         CopyMem(val, buf, size);
         val[size / sizeof(CHAR16)] = 0; /* NUL terminate */
@@ -256,9 +254,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         assert(name);
 
         l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
-        buf = AllocatePool(l);
-        if (!buf)
-                return EFI_OUT_OF_RESOURCES;
+        buf = xallocate_pool(l);
 
         err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
@@ -358,7 +354,7 @@ static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         return len;
 }
 
-CHAR16 *stra_to_str(const CHAR8 *stra) {
+CHAR16 *xstra_to_str(const CHAR8 *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
@@ -367,9 +363,7 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
         assert(stra);
 
         len = strlena(stra);
-        str = AllocatePool((len + 1) * sizeof(CHAR16));
-        if (!str)
-                return NULL;
+        str = xnew(CHAR16, len + 1);
 
         strlen = 0;
         i = 0;
@@ -390,7 +384,7 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
         return str;
 }
 
-CHAR16 *stra_to_path(const CHAR8 *stra) {
+CHAR16 *xstra_to_path(const CHAR8 *stra) {
         CHAR16 *str;
         UINTN strlen;
         UINTN len;
@@ -399,9 +393,7 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
         assert(stra);
 
         len = strlena(stra);
-        str = AllocatePool((len + 2) * sizeof(CHAR16));
-        if (!str)
-                return NULL;
+        str = xnew(CHAR16, len + 2);
 
         str[0] = '\\';
         strlen = 1;
@@ -471,10 +463,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                         return err;
         }
 
-        buf = AllocatePool(size + 1);
-        if (!buf)
-                return EFI_OUT_OF_RESOURCES;
-
+        buf = xallocate_pool(size + 1);
         err = handle->Read(handle, &size, buf);
         if (EFI_ERROR(err))
                 return err;
@@ -514,20 +503,6 @@ void log_error_stall(const CHAR16 *fmt, ...) {
 EFI_STATUS log_oom(void) {
         log_error_stall(L"Out of memory.");
         return EFI_OUT_OF_RESOURCES;
-}
-
-void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
-        assert(haystack || haystack_len == 0);
-        assert(needle || needle_len == 0);
-
-        if (needle_len == 0)
-                return (void*)haystack;
-
-        for (const CHAR8 *h = haystack, *n = needle; haystack_len >= needle_len; h++, haystack_len--)
-                if (*h == *n && CompareMem(h + 1, n + 1, needle_len - 1) == 0)
-                        return (void*)h;
-
-        return NULL;
 }
 
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
@@ -577,7 +552,7 @@ EFI_STATUS get_file_info_harder(
                 EFI_FILE_INFO **ret,
                 UINTN *ret_size) {
 
-        UINTN size = OFFSETOF(EFI_FILE_INFO, FileName) + 256;
+        UINTN size = offsetof(EFI_FILE_INFO, FileName) + 256;
         _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
 
@@ -586,17 +561,11 @@ EFI_STATUS get_file_info_harder(
 
         /* A lot like LibFileInfo() but with useful error propagation */
 
-        fi = AllocatePool(size);
-        if (!fi)
-                return EFI_OUT_OF_RESOURCES;
-
+        fi = xallocate_pool(size);
         err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 FreePool(fi);
-                fi = AllocatePool(size);  /* GetInfo tells us the required size, let's use that now */
-                if (!fi)
-                        return EFI_OUT_OF_RESOURCES;
-
+                fi = xallocate_pool(size);  /* GetInfo tells us the required size, let's use that now */
                 err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
@@ -627,12 +596,8 @@ EFI_STATUS readdir_harder(
          * the specified buffer needs to be freed by caller, after final use. */
 
         if (!*buffer) {
-                sz = OFFSETOF(EFI_FILE_INFO, FileName) /* + 256 */;
-
-                *buffer = AllocatePool(sz);
-                if (!*buffer)
-                        return EFI_OUT_OF_RESOURCES;
-
+                sz = offsetof(EFI_FILE_INFO, FileName) /* + 256 */;
+                *buffer = xallocate_pool(sz);
                 *buffer_size = sz;
         } else
                 sz = *buffer_size;
@@ -640,15 +605,8 @@ EFI_STATUS readdir_harder(
         err = handle->Read(handle, &sz, *buffer);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 FreePool(*buffer);
-
-                *buffer = AllocatePool(sz);
-                if (!*buffer) {
-                        *buffer_size = 0;
-                        return EFI_OUT_OF_RESOURCES;
-                }
-
+                *buffer = xallocate_pool(sz);
                 *buffer_size = sz;
-
                 err = handle->Read(handle, &sz, *buffer);
         }
         if (EFI_ERROR(err))
@@ -677,7 +635,28 @@ UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
         return c;
 }
 
-CHAR8 *strndup8(const CHAR8 *p, UINTN sz) {
+INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
+        if (!a || !b)
+                return CMP(a, b);
+
+        while (maxlen > 0) {
+                CHAR8 ca = *a, cb = *b;
+                if (ca >= 'A' && ca <= 'Z')
+                        ca += 'a' - 'A';
+                if (cb >= 'A' && cb <= 'Z')
+                        cb += 'a' - 'A';
+                if (!ca || ca != cb)
+                        return ca - cb;
+
+                a++;
+                b++;
+                maxlen--;
+        }
+
+        return 0;
+}
+
+CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
         CHAR8 *n;
 
         /* Following efilib's naming scheme this function would be called strndupa(), but we already have a
@@ -688,9 +667,7 @@ CHAR8 *strndup8(const CHAR8 *p, UINTN sz) {
 
         sz = strnlena(p, sz);
 
-        n = AllocatePool(sz + 1);
-        if (!n)
-                return NULL;
+        n = xallocate_pool(sz + 1);
 
         if (sz > 0)
                 CopyMem(n, p, sz);

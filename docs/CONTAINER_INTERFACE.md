@@ -22,10 +22,12 @@ manager, please consider supporting the following interfaces.
    (that file overrides whatever is pre-initialized by the container manager).
 
 2. Make sure to pre-mount `/proc/`, `/sys/`, and `/sys/fs/selinux/` before
-   invoking systemd, and mount `/proc/sys/`, `/sys/`, and `/sys/fs/selinux/`
-   read-only in order to prevent the container from altering the host kernel's
-   configuration settings. (As a special exception, if your container has
-   network namespaces enabled, feel free to make `/proc/sys/net/` writable).
+   invoking systemd, and mount `/sys/`, `/sys/fs/selinux/` and `/proc/sys/`
+   read-only (the latter via e.g. a read-only bind mount on itself) in order
+   to prevent the container from altering the host kernel's configuration
+   settings. (As a special exception, if your container has network namespaces
+   enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
    systemd and various other subsystems (such as the SELinux userspace) have
    been modified to behave accordingly when these file systems are read-only.
    (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
@@ -35,7 +37,10 @@ manager, please consider supporting the following interfaces.
    in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
-   mount some suitable TTY to `/dev/console`. Also, make sure to create device
+   mount some suitable TTY to `/dev/console`. If this is a pty, make sure to not
+   close the controlling pty master during systemd's lifetime. PID1 will close
+   ttys, to avoid being killed by SAK. It only opens ttys for the time it
+   actually needs to print something. Also, make sure to create device
    nodes for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`,
    `/dev/urandom`, `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to
    create `/dev/fd` or `/dev/stdout`, as systemd will do that on its own. Make

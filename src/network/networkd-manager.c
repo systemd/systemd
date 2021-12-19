@@ -123,29 +123,9 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.DHCPServer", dhcp_server_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add link enumerator: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add network object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add network enumerator: %m");
+                return r;
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
@@ -519,9 +499,10 @@ Manager* manager_free(Manager *m) {
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
-        m->links_by_dhcp6_pd_prefix = hashmap_free(m->links_by_dhcp6_pd_prefix);
+        m->links_by_dhcp_pd_subnet_prefix = hashmap_free(m->links_by_dhcp_pd_subnet_prefix);
         m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
+        m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
@@ -605,7 +586,7 @@ int manager_load_config(Manager *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return manager_build_dhcp_pd_subnet_ids(m);
 }
 
 bool manager_should_reload(Manager *m) {

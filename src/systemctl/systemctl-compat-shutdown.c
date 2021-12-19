@@ -28,6 +28,7 @@ static int shutdown_help(void) {
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "  -c             Cancel a pending shutdown\n"
+               "     --show      Show pending shutdown\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -40,7 +41,8 @@ static int shutdown_help(void) {
 int shutdown_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_HELP = 0x100,
-                ARG_NO_WALL
+                ARG_NO_WALL,
+                ARG_SHOW
         };
 
         static const struct option options[] = {
@@ -50,6 +52,7 @@ int shutdown_parse_argv(int argc, char *argv[]) {
                 { "reboot",    no_argument,       NULL, 'r'         },
                 { "kexec",     no_argument,       NULL, 'K'         }, /* not documented extension */
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
+                { "show",      no_argument,       NULL, ARG_SHOW    },
                 {}
         };
 
@@ -106,6 +109,10 @@ int shutdown_parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_action = ACTION_CANCEL_SHUTDOWN;
+                        break;
+
+                case ARG_SHOW:
+                        arg_action = ACTION_SHOW_SHUTDOWN;
                         break;
 
                 case '?':

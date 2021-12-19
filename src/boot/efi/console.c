@@ -52,11 +52,11 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
                         TextInputEx = NULL;
-                else
-                        events[n_events++] = TextInputEx->WaitForKeyEx;
-
                 checked = TRUE;
         }
+
+        if (TextInputEx)
+                events[n_events++] = TextInputEx->WaitForKeyEx;
 
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
         if (EFI_ERROR(err))

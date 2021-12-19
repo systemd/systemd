@@ -22,7 +22,7 @@
 #include "libmount-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -484,10 +484,7 @@ int mount_move_root(const char *path) {
         if (chroot(".") < 0)
                 return -errno;
 
-        if (chdir("/") < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(chdir("/"));
 }
 
 int repeat_unmount(const char *path, int flags) {
@@ -683,7 +680,7 @@ int mount_verbose_full(
                           strna(what), strna(type), where, strnull(fl), strempty(o));
 
         if (follow_symlink)
-                r = mount(what, where, type, f, o) < 0 ? -errno : 0;
+                r = RET_NERRNO(mount(what, where, type, f, o));
         else
                 r = mount_nofollow(what, where, type, f, o);
         if (r < 0)
@@ -877,7 +874,7 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, options, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, options, NULL, NULL, NULL, NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)

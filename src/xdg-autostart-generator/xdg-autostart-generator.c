@@ -43,7 +43,6 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 
         STRV_FOREACH(path, autostart_dirs) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
                 d = opendir(*path);
                 if (!d) {

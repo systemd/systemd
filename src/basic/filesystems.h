@@ -10,11 +10,14 @@
 typedef enum FilesystemGroups {
         /* Please leave BASIC_API first and KNOWN last, but sort the rest alphabetically */
         FILESYSTEM_SET_BASIC_API,
+        FILESYSTEM_SET_ANONYMOUS,
+        FILESYSTEM_SET_APPLICATION,
         FILESYSTEM_SET_AUXILIARY_API,
         FILESYSTEM_SET_COMMON_BLOCK,
         FILESYSTEM_SET_HISTORICAL_BLOCK,
         FILESYSTEM_SET_NETWORK,
         FILESYSTEM_SET_PRIVILEGED_API,
+        FILESYSTEM_SET_SECURITY,
         FILESYSTEM_SET_TEMPORARY,
         FILESYSTEM_SET_KNOWN,
         _FILESYSTEM_SET_MAX,
@@ -31,6 +34,7 @@ extern const FilesystemSet filesystem_sets[];
 
 const FilesystemSet *filesystem_set_find(const char *name);
 
+const char *fs_type_to_string(statfs_f_type_t magic);
 int fs_type_from_string(const char *name, const statfs_f_type_t **ret);
 int fs_in_group(const struct statfs *s, enum FilesystemGroups fs_group);
 

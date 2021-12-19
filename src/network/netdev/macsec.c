@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_macsec.h>
 #include <linux/genetlink.h>
@@ -509,6 +510,8 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(m);
 
         v = MACSEC(netdev);
+
+        assert(v);
 
         if (v->port > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
@@ -1230,5 +1233,6 @@ const NetDevVTable macsec_vtable = {
         .done = macsec_done,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_macsec_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

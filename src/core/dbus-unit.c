@@ -377,6 +377,7 @@ int bus_unit_method_start_generic(
                 bool reload_if_possible,
                 sd_bus_error *error) {
 
+        BusUnitQueueFlags job_flags = reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0;
         const char *smode, *verb;
         JobMode mode;
         int r;
@@ -405,6 +406,23 @@ int bus_unit_method_start_generic(
         else
                 verb = job_type_to_string(job_type);
 
+        if (sd_bus_message_is_method_call(message, NULL, "StartUnitWithFlags")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+                /* Let clients know that this version doesn't support any flags at the moment. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
+
+                /* The new method unconditionally uses the new behaviour of returning 'skip' when
+                 * a job is skipped. */
+                job_flags |= BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL;
+        }
+
         r = bus_verify_manage_units_async_full(
                         u,
                         verb,
@@ -418,35 +436,34 @@ int bus_unit_method_start_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        return bus_unit_queue_job(message, u, job_type, mode,
-                                  reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0, error);
+        return bus_unit_queue_job(message, u, job_type, mode, job_flags, error);
 }
 
-static int method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_START, false, error);
 }
 
-static int method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
@@ -941,49 +958,49 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_start,
+                                 bus_unit_method_start,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Stop",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_stop,
+                                 bus_unit_method_stop,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Reload",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload,
+                                 bus_unit_method_reload,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Restart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_restart,
+                                 bus_unit_method_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("TryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_try_restart,
+                                 bus_unit_method_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_restart,
+                                 bus_unit_method_reload_or_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrTryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_try_restart,
+                                 bus_unit_method_reload_or_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("EnqueueJob",
                                  "ss",
@@ -1780,6 +1797,9 @@ int bus_unit_queue_job_one(
         r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL))
+                j->return_skip_on_cond_failure = true;
 
         r = bus_job_track_sender(j, message);
         if (r < 0)

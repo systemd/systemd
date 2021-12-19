@@ -129,7 +129,9 @@ static int rm_rf_children_inner(
         assert(fd >= 0);
         assert(fname);
 
-        if (is_dir < 0 || (is_dir > 0 && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
+        if (is_dir < 0 ||
+            root_dev ||
+            (is_dir > 0 && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
 
                 r = fstatat_harder(fd, fname, &st, AT_SYMLINK_NOFOLLOW, flags);
                 if (r < 0)
@@ -201,7 +203,6 @@ int rm_rf_children(
                 const struct stat *root_dev) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int ret = 0, r;
 
         assert(fd >= 0);

@@ -13,165 +13,13 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
-#include "sysctl-util.h"
 #include "vrf.h"
-
-#define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
-
-static const char * const route_type_table[__RTN_MAX] = {
-        [RTN_UNICAST]     = "unicast",
-        [RTN_LOCAL]       = "local",
-        [RTN_BROADCAST]   = "broadcast",
-        [RTN_ANYCAST]     = "anycast",
-        [RTN_MULTICAST]   = "multicast",
-        [RTN_BLACKHOLE]   = "blackhole",
-        [RTN_UNREACHABLE] = "unreachable",
-        [RTN_PROHIBIT]    = "prohibit",
-        [RTN_THROW]       = "throw",
-        [RTN_NAT]         = "nat",
-        [RTN_XRESOLVE]    = "xresolve",
-};
-
-assert_cc(__RTN_MAX <= UCHAR_MAX);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_type, int);
-
-static const char * const route_scope_table[] = {
-        [RT_SCOPE_UNIVERSE] = "global",
-        [RT_SCOPE_SITE]     = "site",
-        [RT_SCOPE_LINK]     = "link",
-        [RT_SCOPE_HOST]     = "host",
-        [RT_SCOPE_NOWHERE]  = "nowhere",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_scope, int);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_scope, int, UINT8_MAX);
-
-static const char * const route_table_table[] = {
-        [RT_TABLE_DEFAULT] = "default",
-        [RT_TABLE_MAIN]    = "main",
-        [RT_TABLE_LOCAL]   = "local",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
-
-int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_t *ret) {
-        uint32_t t;
-        int r;
-
-        assert(m);
-        assert(s);
-        assert(ret);
-
-        r = route_table_from_string(s);
-        if (r >= 0) {
-                *ret = (uint32_t) r;
-                return 0;
-        }
-
-        t = PTR_TO_UINT32(hashmap_get(m->route_table_numbers_by_name, s));
-        if (t != 0) {
-                *ret = t;
-                return 0;
-        }
-
-        r = safe_atou32(s, &t);
-        if (r < 0)
-                return r;
-
-        if (t == 0)
-                return -ERANGE;
-
-        *ret = t;
-        return 0;
-}
-
-int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret) {
-        _cleanup_free_ char *str = NULL;
-        const char *s;
-        int r;
-
-        assert(m);
-        assert(ret);
-
-        if (table == 0)
-                return -EINVAL;
-
-        s = route_table_to_string(table);
-        if (!s)
-                s = hashmap_get(m->route_table_names_by_number, UINT32_TO_PTR(table));
-
-        if (s)
-                /* Currently, this is only used in debugging logs. To not confuse any bug
-                 * reports, let's include the table number. */
-                r = asprintf(&str, "%s(%" PRIu32 ")", s, table);
-        else
-                r = asprintf(&str, "%" PRIu32, table);
-        if (r < 0)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(str);
-        return 0;
-}
-
-static const char * const route_protocol_table[] = {
-        [RTPROT_KERNEL] = "kernel",
-        [RTPROT_BOOT]   = "boot",
-        [RTPROT_STATIC] = "static",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(route_protocol, int, UINT8_MAX);
-
-static const char * const route_protocol_full_table[] = {
-        [RTPROT_REDIRECT] = "redirect",
-        [RTPROT_KERNEL]   = "kernel",
-        [RTPROT_BOOT]     = "boot",
-        [RTPROT_STATIC]   = "static",
-        [RTPROT_GATED]    = "gated",
-        [RTPROT_RA]       = "ra",
-        [RTPROT_MRT]      = "mrt",
-        [RTPROT_ZEBRA]    = "zebra",
-        [RTPROT_BIRD]     = "bird",
-        [RTPROT_DNROUTED] = "dnrouted",
-        [RTPROT_XORP]     = "xorp",
-        [RTPROT_NTK]      = "ntk",
-        [RTPROT_DHCP]     = "dhcp",
-        [RTPROT_MROUTED]  = "mrouted",
-        [RTPROT_BABEL]    = "babel",
-        [RTPROT_BGP]      = "bgp",
-        [RTPROT_ISIS]     = "isis",
-        [RTPROT_OSPF]     = "ospf",
-        [RTPROT_RIP]      = "rip",
-        [RTPROT_EIGRP]    = "eigrp",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_protocol_full, int, UINT8_MAX);
-
-static unsigned routes_max(void) {
-        static thread_local unsigned cached = 0;
-        _cleanup_free_ char *s4 = NULL, *s6 = NULL;
-        unsigned val4 = ROUTES_DEFAULT_MAX_PER_FAMILY, val6 = ROUTES_DEFAULT_MAX_PER_FAMILY;
-
-        if (cached > 0)
-                return cached;
-
-        if (sysctl_read_ip_property(AF_INET, NULL, "route/max_size", &s4) >= 0)
-                if (safe_atou(s4, &val4) >= 0 && val4 == 2147483647U)
-                        /* This is the default "no limit" value in the kernel */
-                        val4 = ROUTES_DEFAULT_MAX_PER_FAMILY;
-
-        if (sysctl_read_ip_property(AF_INET6, NULL, "route/max_size", &s6) >= 0)
-                (void) safe_atou(s6, &val6);
-
-        cached = MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val4) +
-                 MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val6);
-        return cached;
-}
+#include "wireguard.h"
 
 int route_new(Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
@@ -395,7 +243,7 @@ int route_compare_func(const Route *a, const Route *b) {
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_hash_ops,
                 Route,
                 route_hash_func,
@@ -695,115 +543,9 @@ void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_a
         }
 }
 
-static bool link_address_is_reachable(Link *link, int family, const union in_addr_union *address) {
-        Route *route;
-        Address *a;
-
-        assert(link);
-        assert(link->manager);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(address);
-
-        SET_FOREACH(route, link->routes) {
-                if (!route_exists(route))
-                        continue;
-                if (route->family != family)
-                        continue;
-                if (!in_addr_is_set(route->family, &route->dst))
-                        continue;
-                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) > 0)
-                        return true;
-        }
-
-        if (link->manager->manage_foreign_routes)
-                return false;
-
-        /* If we do not manage foreign routes, then there may exist a prefix route we do not know,
-         * which was created on configuring an address. Hence, also check the addresses. */
-        SET_FOREACH(a, link->addresses) {
-                if (!address_is_ready(a))
-                        continue;
-                if (a->family != family)
-                        continue;
-                if (FLAGS_SET(a->flags, IFA_F_NOPREFIXROUTE))
-                        continue;
-                if (in_addr_is_set(a->family, &a->in_addr_peer))
-                        continue;
-                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, address) > 0)
-                        return true;
-        }
-
-        return false;
-}
-
-static Route *link_find_default_gateway(Link *link, int family, Route *gw) {
-        Route *route;
-
-        assert(link);
-
-        SET_FOREACH(route, link->routes) {
-                if (!route_exists(route))
-                        continue;
-                if (family != AF_UNSPEC && route->family != family)
-                        continue;
-                if (route->dst_prefixlen != 0)
-                        continue;
-                if (route->src_prefixlen != 0)
-                        continue;
-                if (route->table != RT_TABLE_MAIN)
-                        continue;
-                if (route->type != RTN_UNICAST)
-                        continue;
-                if (route->scope != RT_SCOPE_UNIVERSE)
-                        continue;
-                if (!in_addr_is_set(route->gw_family, &route->gw))
-                        continue;
-                if (gw) {
-                        if (route->gw_weight > gw->gw_weight)
-                                continue;
-                        if (route->priority >= gw->priority)
-                                continue;
-                }
-                gw = route;
-        }
-
-        return gw;
-}
-
-int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
-        Route *gw = NULL;
-        Link *link;
-
-        assert(m);
-        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
-
-        /* Looks for a suitable "uplink", via black magic: an interface that is up and where the
-         * default route with the highest priority points to. */
-
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                if (link == exclude)
-                        continue;
-
-                if (link->state != LINK_STATE_CONFIGURED)
-                        continue;
-
-                gw = link_find_default_gateway(link, family, gw);
-        }
-
-        if (!gw)
-                return -ENOENT;
-
-        if (ret) {
-                assert(gw->link);
-                *ret = gw->link;
-        }
-
-        return 0;
-}
-
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
         _cleanup_free_ char *state = NULL, *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
-                *table = NULL, *scope = NULL, *proto = NULL;
+                *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *gw = NULL;
 
         assert(route);
@@ -816,10 +558,10 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 return;
 
         (void) network_config_state_to_string_alloc(route->state, &state);
-        if (in_addr_is_set(route->family, &route->dst))
+        if (in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0)
                 (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-        if (in_addr_is_set(route->family, &route->src))
-                (void) in_addr_to_string(route->family, &route->src, &src);
+        if (in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0)
+                (void) in_addr_prefix_to_string(route->family, &route->src, route->src_prefixlen, &src);
         if (in_addr_is_set(route->gw_family, &route->gw)) {
                 (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
                 gw = gw_alloc;
@@ -851,19 +593,19 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         (void) route_scope_to_string_alloc(route->scope, &scope);
         (void) manager_get_route_table_to_string(manager, route->table, &table);
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
+        (void) route_flags_to_string_alloc(route->flags, &flags);
 
         log_link_debug(link,
                        "%s %s route (%s): dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, "
-                       "proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32,
+                       "proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32", flags: %s",
                        str, strna(network_config_source_to_string(route->source)), strna(state),
                        strna(dst), strna(src), strna(gw), strna(prefsrc),
                        strna(scope), strna(table), strna(proto),
                        strna(route_type_to_string(route->type)),
-                       route->nexthop_id, route->priority);
+                       route->nexthop_id, route->priority, strna(flags));
 }
 
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
-        unsigned flags;
         int r;
 
         assert(route);
@@ -918,11 +660,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set scope: %m");
 
-        flags = route->flags;
-        if (route->gateway_onlink >= 0)
-                SET_FLAG(flags, RTNH_F_ONLINK, route->gateway_onlink);
-
-        r = sd_rtnl_message_route_set_flags(req, flags);
+        r = sd_rtnl_message_route_set_flags(req, route->flags & RTNH_F_ONLINK);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set flags: %m");
 
@@ -936,7 +674,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not set route table: %m");
 
                 /* Table attribute to allow more than 256. */
-                r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
+                r = sd_netlink_message_append_u32(req, RTA_TABLE, route->table);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
@@ -1054,6 +792,10 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                 if (foreign && route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
+                /* Do not touch dynamic routes. They will removed by dhcp_pd_prefix_lost() */
+                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
+                        continue;
+
                 /* Ignore routes not assigned yet or already removed. */
                 if (!route_exists(route))
                         continue;
@@ -1116,9 +858,8 @@ static bool route_by_kernel(const Route *route) {
         if (route->protocol == RTPROT_KERNEL)
                 return true;
 
-        /* Do not touch multicast route added by kernel. See issue #6088.
-         * TODO: Why the kernel adds this route with protocol RTPROT_BOOT?
-         * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
+        /* The kernels older than a826b04303a40d52439aa141035fca5654ccaccd (v5.11) create the IPv6
+         * multicast with RTPROT_BOOT. Do not touch it. */
         if (route->protocol == RTPROT_BOOT &&
             route->family == AF_INET6 &&
             route->dst_prefixlen == 8 &&
@@ -1128,12 +869,35 @@ static bool route_by_kernel(const Route *route) {
         return false;
 }
 
+static void link_unmark_wireguard_routes(Link *link) {
+        Route *route, *existing;
+        NetDev *netdev;
+        Wireguard *w;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return;
+
+        SET_FOREACH(route, w->routes)
+                if (route_get(NULL, link, route, &existing) >= 0)
+                        route_unmark(existing);
+}
+
 int link_drop_foreign_routes(Link *link) {
         Route *route;
         int k, r;
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
 
         SET_FOREACH(route, link->routes) {
                 /* do not touch routes managed by the kernel */
@@ -1148,11 +912,11 @@ int link_drop_foreign_routes(Link *link) {
                 if (!route_exists(route))
                         continue;
 
-                if (route->protocol == RTPROT_STATIC && link->network &&
+                if (route->protocol == RTPROT_STATIC &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
-                if (route->protocol == RTPROT_DHCP && link->network &&
+                if (route->protocol == RTPROT_DHCP &&
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
@@ -1176,6 +940,8 @@ int link_drop_foreign_routes(Link *link) {
                         if (route_get(NULL, link, converted->routes[i], &existing) >= 0)
                                 route_unmark(existing);
         }
+
+        link_unmark_wireguard_routes(link);
 
         r = 0;
         SET_FOREACH(route, link->routes) {
@@ -1244,15 +1010,19 @@ void link_foreignize_routes(Link *link) {
 
 static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = userdata;
+        Link *link;
         int r;
 
         assert(route);
-        assert(route->link);
+        assert(route->manager || (route->link && route->link->manager));
+
+        link = route->link; /* This may be NULL. */
 
         r = route_remove(route);
         if (r < 0) {
-                log_link_warning_errno(route->link, r, "Could not remove route: %m");
-                link_enter_failed(route->link);
+                log_link_warning_errno(link, r, "Could not remove route: %m");
+                if (link)
+                        link_enter_failed(link);
         }
 
         return 1;
@@ -1494,24 +1264,25 @@ static int route_configure(
         return 0;
 }
 
-void route_cancel_request(Route *route) {
+void route_cancel_request(Route *route, Link *link) {
         Request req;
 
         assert(route);
 
+        link = route->link ?: link;
+
+        assert(link);
+
         if (!route_is_requesting(route))
                 return;
 
-        if (!route->link)
-                return;
-
         req = (Request) {
-                .link = route->link,
+                .link = link,
                 .type = REQUEST_TYPE_ROUTE,
                 .route = route,
         };
 
-        request_drop(ordered_set_get(route->link->manager->request_queue, &req));
+        request_drop(ordered_set_get(link->manager->request_queue, &req));
         route_cancel_requesting(route);
 }
 
@@ -1575,6 +1346,16 @@ int link_request_route(
                 existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
+
+                if (existing->expire) {
+                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
+                         * message, so we need to update the timer here. */
+                        r = route_setup_timer(existing, NULL);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to update expiration timer for route, ignoring: %m");
+                        if (r > 0)
+                                log_route_debug(existing, "Updated expiration timer for", link, link->manager);
+                }
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
@@ -1601,6 +1382,36 @@ static int link_request_static_route(Link *link, Route *route) {
                                   &link->static_route_messages, static_route_handler, NULL);
 }
 
+static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
+        NetDev *netdev;
+        Wireguard *w;
+        Route *route;
+        int r;
+
+        assert(link);
+
+        if (!streq_ptr(link->kind, "wireguard"))
+                return 0;
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return 0;
+
+        w = WIREGUARD(netdev);
+        if (!w)
+                return 0;
+
+        SET_FOREACH(route, w->routes) {
+                if (only_ipv4 && route->family != AF_INET)
+                        continue;
+
+                r = link_request_static_route(link, route);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
@@ -1622,6 +1433,10 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
                         return r;
         }
 
+        r = link_request_wireguard_routes(link, only_ipv4);
+        if (r < 0)
+                return r;
+
         if (link->static_route_messages == 0) {
                 link->static_routes_configured = true;
                 link_check_ready(link);
@@ -1631,22 +1446,6 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         }
 
         return 0;
-}
-
-bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw) {
-        assert(link);
-        assert(gw);
-
-        if (onlink > 0)
-                return true;
-
-        if (!in_addr_is_set(family, gw))
-                return true;
-
-        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
-                return true;
-
-        return link_address_is_reachable(link, family, gw);
 }
 
 static int route_is_ready_to_configure(const Route *route, Link *link) {
@@ -1688,7 +1487,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         return r;
         }
 
-        if (!gateway_is_ready(link, route->gateway_onlink, route->gw_family, &route->gw))
+        if (!gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw))
                 return false;
 
         MultipathRoute *m;
@@ -1706,7 +1505,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         m->ifindex = l->ifindex;
                 }
 
-                if (!gateway_is_ready(l ?: link, route->gateway_onlink, m->gateway.family, &a))
+                if (!gateway_is_ready(l ?: link, FLAGS_SET(route->flags, RTNH_F_ONLINK), m->gateway.family, &a))
                         return false;
         }
 
@@ -1802,6 +1601,7 @@ static int process_route_one(
         switch (type) {
         case RTM_NEWROUTE:
                 if (route) {
+                        route->flags = tmp->flags;
                         route_enter_configured(route);
                         log_route_debug(route, "Received remembered", link, manager);
 
@@ -1860,7 +1660,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
-        unsigned char table;
         size_t rta_len;
         int r;
 
@@ -1920,7 +1719,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received route message without route protocol: %m");
+                log_warning_errno(r, "rtnl: received route message without route protocol, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_flags(message, &tmp->flags);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: received route message without route flags, ignoring: %m");
                 return 0;
         }
 
@@ -1991,12 +1796,18 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_rtnl_message_route_get_table(message, &table);
+        r = sd_netlink_message_read_u32(message, RTA_TABLE, &tmp->table);
+        if (r == -ENODATA) {
+                unsigned char table;
+
+                r = sd_rtnl_message_route_get_table(message, &table);
+                if (r >= 0)
+                        tmp->table = table;
+        }
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
-        tmp->table = table;
 
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
@@ -2012,7 +1823,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = sd_netlink_message_enter_container(message, RTA_METRICS);
         if (r < 0 && r != -ENODATA) {
-                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container: %m");
+                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container, ignoring: %m");
                 return 0;
         }
         if (r >= 0) {
@@ -2036,7 +1847,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0) {
-                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
+                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container, ignoring: %m");
                         return 0;
                 }
         }
@@ -2326,6 +2137,8 @@ int config_parse_destination(
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
+
+        (void) in_addr_mask(n->family, buffer, *prefixlen);
 
         TAKE_PTR(n);
         return 0;
@@ -2956,112 +2769,6 @@ int config_parse_multipath_route(
         return 0;
 }
 
-int config_parse_route_table_names(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Manager *m = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(userdata);
-
-        if (isempty(rvalue)) {
-                m->route_table_names_by_number = hashmap_free(m->route_table_names_by_number);
-                m->route_table_numbers_by_name = hashmap_free(m->route_table_numbers_by_name);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *name = NULL;
-                uint32_t table;
-                char *num;
-
-                r = extract_first_word(&p, &name, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid RouteTable=, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                num = strchr(name, ':');
-                if (!num) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid route table name and number pair, ignoring assignment: %s", name);
-                        continue;
-                }
-
-                *num++ = '\0';
-
-                if (STR_IN_SET(name, "default", "main", "local")) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Route table name %s already predefined. Ignoring assignment: %s:%s", name, name, num);
-                        continue;
-                }
-
-                r = safe_atou32(num, &table);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse route table number '%s', ignoring assignment: %s:%s", num, name, num);
-                        continue;
-                }
-                if (table == 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid route table number, ignoring assignment: %s:%s", name, num);
-                        continue;
-                }
-
-                r = hashmap_ensure_put(&m->route_table_numbers_by_name, &string_hash_ops_free, name, UINT32_TO_PTR(table));
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r == -EEXIST) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Specified route table name and number pair conflicts with others, ignoring assignment: %s:%s", name, num);
-                        continue;
-                }
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store route table name and number pair, ignoring assignment: %s:%s", name, num);
-                        continue;
-                }
-                if (r == 0)
-                        /* The entry is duplicated. It should not be added to route_table_names_by_number hashmap. */
-                        continue;
-
-                r = hashmap_ensure_put(&m->route_table_names_by_number, NULL, UINT32_TO_PTR(table), name);
-                if (r < 0) {
-                        hashmap_remove(m->route_table_numbers_by_name, name);
-
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r == -EEXIST)
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Specified route table name and number pair conflicts with others, ignoring assignment: %s:%s", name, num);
-                        else
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Failed to store route table name and number pair, ignoring assignment: %s:%s", name, num);
-                        continue;
-                }
-                assert(r > 0);
-
-                TAKE_PTR(name);
-        }
-}
-
 static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
@@ -3158,6 +2865,9 @@ static int route_section_verify(Route *route, Network *network) {
                             network->filename);
                 route->gateway_onlink = true;
         }
+
+        if (route->gateway_onlink >= 0)
+                SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
 
         if (route->family == AF_INET6) {
                 MultipathRoute *m;

@@ -55,7 +55,8 @@ typedef struct Link {
         char *state_file;
         struct hw_addr_data hw_addr;
         struct hw_addr_data bcast_addr;
-        struct ether_addr permanent_mac;
+        struct hw_addr_data permanent_hw_addr;
+        struct hw_addr_data requested_hw_addr;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         uint32_t min_mtu;
@@ -67,10 +68,13 @@ typedef struct Link {
         /* wlan */
         enum nl80211_iftype wlan_iftype;
         char *ssid;
+        char *previous_ssid;
         struct ether_addr bssid;
 
         unsigned flags;
         uint8_t kernel_operstate;
+
+        sd_event_source *carrier_lost_timer;
 
         Network *network;
 
@@ -110,6 +114,7 @@ typedef struct Link {
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
+        char *dhcp4_6rd_tunnel_name;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
@@ -142,11 +147,12 @@ typedef struct Link {
 
         sd_dhcp6_client *dhcp6_client;
         sd_dhcp6_lease *dhcp6_lease;
-        Set *dhcp6_pd_prefixes;
         unsigned dhcp6_messages;
-        unsigned dhcp6_pd_messages;
-        bool dhcp6_configured:1;
-        bool dhcp6_pd_configured:1;
+        bool dhcp6_configured;
+
+        Set *dhcp_pd_prefixes;
+        unsigned dhcp_pd_messages;
+        bool dhcp_pd_configured;
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
@@ -209,6 +215,7 @@ bool link_has_carrier(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
+bool link_may_have_ipv6ll(Link *link);
 int link_ipv6ll_gained(Link *link);
 
 bool link_ipv4ll_enabled(Link *link);
@@ -223,3 +230,6 @@ int link_reconfigure_after_sleep(Link *link);
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
+int link_flags_to_string_alloc(uint32_t flags, char **ret);
+const char *kernel_operstate_to_string(int t) _const_;

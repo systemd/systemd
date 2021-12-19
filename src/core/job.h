@@ -160,6 +160,7 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
+        bool return_skip_on_cond_failure:1;
 };
 
 Job* job_new(Unit *unit, JobType type);

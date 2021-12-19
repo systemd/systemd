@@ -116,7 +116,7 @@ int find_tpm2_auto_data(
 
                 assert(pcr_mask == 0);
                 JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                        uintmax_t u;
+                        uint64_t u;
 
                         if (!json_variant_is_number(e))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

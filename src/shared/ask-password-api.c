@@ -28,11 +28,12 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -62,35 +63,18 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 }
 
 static int retrieve_key(key_serial_t serial, char ***ret) {
-        size_t nfinal, m = 100;
+        _cleanup_(erase_and_freep) void *p = NULL;
         char **l;
-        _cleanup_(erase_and_freep) char *pfinal = NULL;
+        size_t n;
+        int r;
 
         assert(ret);
 
-        for (;;) {
-                _cleanup_(erase_and_freep) char *p = NULL;
-                long n;
+        r = keyring_read(serial, &p, &n);
+        if (r < 0)
+                return r;
 
-                p = new(char, m);
-                if (!p)
-                        return -ENOMEM;
-
-                n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n <= m) {
-                        nfinal = (size_t) n;
-                        pfinal = TAKE_PTR(p);
-                        break;
-                }
-
-                if (m > LONG_MAX / 2) /* overflow check */
-                        return -ENOMEM;
-                m *= 2;
-        }
-
-        l = strv_parse_nulstr(pfinal, nfinal);
+        l = strv_parse_nulstr(p, n);
         if (!l)
                 return -ENOMEM;
 
@@ -169,15 +153,16 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
                 return -EUNATCH;
 
         r = lookup_key(keyname, &serial);
-        if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM) /* when retrieving the distinction between "kernel or
-                                                       * container manager don't support or allow this" and
-                                                       * "no matching key known" doesn't matter. Note that we
-                                                       * propagate EACCESS here (even if EPERM not) since
-                                                       * that is used if the keyring is available but we lack
-                                                       * access to the key. */
-                return -ENOKEY;
-        if (r < 0)
+        if (r < 0) {
+                /* when retrieving the distinction between "kernel or container manager don't support
+                 * or allow this" and "no matching key known" doesn't matter. Note that we propagate
+                 * EACCESS here (even if EPERM not) since that is used if the keyring is available but
+                 * we lack access to the key. */
+                if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM)
+                        return -ENOKEY;
+
                 return r;
+        }
 
         return retrieve_key(serial, ret);
 }
@@ -306,12 +291,13 @@ int ask_password_plymouth(
 
                 k = read(fd, buffer + p, sizeof(buffer) - p);
                 if (k < 0) {
-                        if (IN_SET(errno, EINTR, EAGAIN))
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         r = -errno;
                         goto finish;
-                } else if (k == 0) {
+                }
+                if (k == 0) {
                         r = -EIO;
                         goto finish;
                 }
@@ -537,7 +523,7 @@ int ask_password_tty(
 
                 n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
                 if (n < 0) {
-                        if (IN_SET(errno, EINTR, EAGAIN))
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         r = -errno;
@@ -897,20 +883,21 @@ int ask_password_agent(
                 };
 
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
-                if (IN_SET(n, -EAGAIN, -EINTR))
-                        continue;
-                if (n == -EXFULL) {
-                        log_debug("Got message with truncated control data, ignoring.");
-                        continue;
-                }
                 if (n < 0) {
+                        if (ERRNO_IS_TRANSIENT(n))
+                                continue;
+                        if (n == -EXFULL) {
+                                log_debug("Got message with truncated control data, ignoring.");
+                                continue;
+                        }
+
                         r = (int) n;
                         goto finish;
                 }
 
                 cmsg_close_all(&msghdr);
 
-                if (n <= 0) {
+                if (n == 0) {
                         log_debug("Message too short");
                         continue;
                 }

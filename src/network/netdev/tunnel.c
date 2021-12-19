@@ -2,20 +2,24 @@
 
 #include <netinet/in.h>
 #include <linux/fou.h>
-#include <linux/ip.h>
+#include <linux/if_arp.h>
 #include <linux/if_tunnel.h>
+#include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
 
 #include "conf-parser.h"
+#include "hexdecoct.h"
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-manager.h"
 #include "parse-util.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "tunnel.h"
 #include "util.h"
 
-#define DEFAULT_TNL_HOP_LIMIT   64
+#define DEFAULT_IPV6_TTL   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
 #define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
@@ -28,18 +32,154 @@ static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode, "Failed to parse ip6 tunnel Mode");
 
+#define HASH_KEY SD_ID128_MAKE(74,c4,de,12,f3,d9,41,34,bb,3d,c1,a4,42,93,50,87)
+
+int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
+        _cleanup_free_ char *ifname_alloc = NULL;
+        uint8_t ipv4masklen, sixrd_prefixlen, *buf, *p;
+        struct in_addr ipv4address;
+        struct in6_addr sixrd_prefix;
+        char ifname[IFNAMSIZ];
+        uint64_t result;
+        size_t sz;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to get DHCPv4 address: %m");
+
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to get 6rd option: %m");
+
+        sz = sizeof(uint8_t) * 2 + sizeof(struct in6_addr) + sizeof(struct in_addr);
+        buf = newa(uint8_t, sz);
+        p = buf;
+        p = mempcpy(p, &ipv4masklen, sizeof(uint8_t));
+        p = mempcpy(p, &ipv4address, sizeof(struct in_addr));
+        p = mempcpy(p, &sixrd_prefixlen, sizeof(uint8_t));
+        p = mempcpy(p, &sixrd_prefix, sizeof(struct in6_addr));
+
+        result = siphash24(buf, sz, HASH_KEY.bytes);
+        memcpy(ifname, "6rd-", STRLEN("6rd-"));
+        ifname[STRLEN("6rd-")    ] = urlsafe_base64char(result >> 54);
+        ifname[STRLEN("6rd-") + 1] = urlsafe_base64char(result >> 48);
+        ifname[STRLEN("6rd-") + 2] = urlsafe_base64char(result >> 42);
+        ifname[STRLEN("6rd-") + 3] = urlsafe_base64char(result >> 36);
+        ifname[STRLEN("6rd-") + 4] = urlsafe_base64char(result >> 30);
+        ifname[STRLEN("6rd-") + 5] = urlsafe_base64char(result >> 24);
+        ifname[STRLEN("6rd-") + 6] = urlsafe_base64char(result >> 18);
+        ifname[STRLEN("6rd-") + 7] = urlsafe_base64char(result >> 12);
+        ifname[STRLEN("6rd-") + 8] = urlsafe_base64char(result >> 6);
+        ifname[STRLEN("6rd-") + 9] = urlsafe_base64char(result);
+        ifname[STRLEN("6rd-") + 10] = '\0';
+        assert_cc(STRLEN("6rd-") + 10 <= IFNAMSIZ);
+
+        ifname_alloc = strdup(ifname);
+        if (!ifname_alloc)
+                return log_oom_debug();
+
+        *ret = TAKE_PTR(ifname_alloc);
+        return 0;
+}
+
+int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        uint8_t ipv4masklen, sixrd_prefixlen;
+        struct in_addr ipv4address, relay_prefix;
+        struct in6_addr sixrd_prefix;
+        int r;
+
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->dhcp_lease);
+        assert(link->dhcp4_6rd_tunnel_name);
+        assert(callback);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to get DHCPv4 address: %m");
+
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to get 6rd option: %m");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IFNAME, attribute: %m");
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "sit");
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &ipv4address);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
+
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, 64);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &sixrd_prefix);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, sixrd_prefixlen);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+
+        relay_prefix = ipv4address;
+        (void) in4_addr_mask(&relay_prefix, ipv4masklen);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIX attribute: %m");
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_RELAY_PREFIXLEN, ipv4masklen);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIXLEN attribute: %m");
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Tunnel *t;
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IPIP)
                 t = IPIP(netdev);
         else
                 t = SIT(netdev);
 
-        assert(m);
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -231,6 +371,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         int r;
 
         assert(netdev);
+        assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
                 t = IP6GRE(netdev);
@@ -238,7 +379,6 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
-        assert(m);
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -351,12 +491,15 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = IP6TNL(netdev);
         uint8_t proto;
+        Tunnel *t;
         int r;
 
         assert(netdev);
         assert(m);
+
+        t = IP6TNL(netdev);
+
         assert(t);
 
         if (link || t->assign_to_loopback) {
@@ -420,45 +563,12 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
-        Tunnel *t = NULL;
+        Tunnel *t;
 
         assert(netdev);
         assert(filename);
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(netdev);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(netdev);
-                break;
-        case NETDEV_KIND_GRE:
-                t = GRE(netdev);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(netdev);
-                break;
-        case NETDEV_KIND_IP6GRE:
-                t = IP6GRE(netdev);
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                t = IP6GRETAP(netdev);
-                break;
-        case NETDEV_KIND_VTI:
-                t = VTI(netdev);
-                break;
-        case NETDEV_KIND_VTI6:
-                t = VTI6(netdev);
-                break;
-        case NETDEV_KIND_IP6TNL:
-                t = IP6TNL(netdev);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(netdev);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
@@ -497,6 +607,9 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         /* netlink_message_append_in_addr_union() is used for vti/vti6. So, t->family cannot be AF_UNSPEC. */
         if (netdev->kind == NETDEV_KIND_VTI)
                 t->family = AF_INET;
+
+        if (t->assign_to_loopback)
+                t->independent = true;
 
         return 0;
 }
@@ -718,194 +831,127 @@ int config_parse_6rd_prefix(
         return 0;
 }
 
-static void ipip_sit_init(NetDev *n) {
+static void netdev_tunnel_init(NetDev *netdev) {
         Tunnel *t;
 
-        assert(n);
+        assert(netdev);
 
-        switch (n->kind) {
-        case NETDEV_KIND_IPIP:
-                t = IPIP(n);
-                break;
-        case NETDEV_KIND_SIT:
-                t = SIT(n);
-                break;
-        default:
-                assert_not_reached();
-        }
+        t = TUNNEL(netdev);
 
         assert(t);
 
         t->pmtudisc = true;
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
         t->isatap = -1;
-}
-
-static void vti_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_VTI)
-                t = VTI(n);
-        else
-                t = VTI6(n);
-
-        assert(t);
-
-        t->pmtudisc = true;
-}
-
-static void gre_erspan_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        switch (n->kind) {
-        case NETDEV_KIND_GRE:
-                t = GRE(n);
-                break;
-        case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(n);
-                break;
-        case NETDEV_KIND_GRETAP:
-                t = GRETAP(n);
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        assert(t);
-
-        t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
-        t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
-}
-
-static void ip6gre_init(NetDev *n) {
-        Tunnel *t;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_IP6GRE)
-                t = IP6GRE(n);
-        else
-                t = IP6GRETAP(n);
-
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
-}
-
-static void ip6tnl_init(NetDev *n) {
-        Tunnel *t = IP6TNL(n);
-
-        assert(n);
-        assert(t);
-
-        t->ttl = DEFAULT_TNL_HOP_LIMIT;
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
         t->allow_localremote = -1;
+
+        if (IN_SET(netdev->kind, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_IP6TNL))
+                t->ttl = DEFAULT_IPV6_TTL;
 }
 
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_sit_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_SIT,
 };
 
 const NetDevVTable vti_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL,
 };
 
 const NetDevVTable vti6_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = vti_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_IPGRE,
 };
 
 const NetDevVTable gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 
 const NetDevVTable ip6gre_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_IP6GRE,
 };
 
 const NetDevVTable ip6gretap_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6gre_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
 
 const NetDevVTable ip6tnl_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ip6tnl_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
-        .generate_mac = true,
+        .iftype = ARPHRD_TUNNEL6,
 };
 
 const NetDevVTable erspan_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = gre_erspan_init,
+        .init = netdev_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "Tunnel\0",
         .fill_message_create = netdev_gre_erspan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

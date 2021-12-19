@@ -33,7 +33,7 @@
     <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
 
-    <para>Currently, only a single verity device may be set up with this generator, backing the root file system of the
+    <para>Currently, only two verity devices may be set up with this generator, backing the root and <filename>/usr</filename> file systems of the
     OS.</para>
 
     <para><filename>systemd-veritysetup-generator</filename> implements
@@ -92,6 +92,14 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>usrhash=</varname></term>
+        <term><varname>systemd.verity_usr_data=</varname></term>
+        <term><varname>systemd.verity_usr_hash=</varname></term>
+        <term><varname>systemd.verity_usr_options=</varname></term>
+
+        <listitem><para>Equivalent to their counterparts for the root file system as described above, but apply to the <filename>/usr/</filename> file system instead.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

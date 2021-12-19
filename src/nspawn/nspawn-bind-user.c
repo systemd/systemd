@@ -128,7 +128,7 @@ static int convert_user(
                                         JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(allocate_uid)),
                                         JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
                                         JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING(h)),
-                                        JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.NSpawn")),
+                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
                                         JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "privileged", JSON_BUILD_OBJECT(
                                                                                   JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_VARIANT(hp))))));
         if (r < 0)
@@ -140,7 +140,7 @@ static int convert_user(
                                         JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(g->group_name)),
                                         JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(allocate_uid)),
                                         JSON_BUILD_PAIR_CONDITION(g->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(g->disposition))),
-                                        JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.NSpawn"))));
+                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn"))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build container group record: %m");
 

@@ -25,12 +25,13 @@ libsystemd_journal_remote = static_library(
         'systemd-journal-remote',
         libsystemd_journal_remote_sources,
         include_directories : journal_includes,
+        link_with : libjournal_core,
         dependencies : [threads,
                         libmicrohttpd,
                         libgnutls,
                         libxz,
                         liblz4],
-        install : false)
+        build_by_default : false)
 
 systemd_journal_remote_sources = files('''
         journal-remote-main.c
@@ -77,5 +78,7 @@ endif
 fuzzers += [
         [['src/journal-remote/fuzz-journal-remote.c'],
          [libsystemd_journal_remote,
-          libshared]],
+          libshared],
+         [],
+         [journal_includes]],
 ]

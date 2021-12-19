@@ -127,15 +127,17 @@ int home_setup_cifs(
                         return log_oom();
 
                 if (FLAGS_SET(flags, HOME_SETUP_CIFS_MKDIR)) {
-                        r = mkdir_p(j, 0700);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create CIFS subdirectory: %m");
+                        setup->root_fd = open_mkdir_at(AT_FDCWD, j, O_CLOEXEC, 0700);
+                        if (setup->root_fd < 0)
+                                return log_error_errno(setup->root_fd, "Failed to create CIFS subdirectory: %m");
                 }
         }
 
-        setup->root_fd = open(j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+        if (setup->root_fd < 0) {
+                setup->root_fd = open(j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (setup->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open home directory: %m");
+        }
 
         setup->mount_suffix = TAKE_PTR(cdir);
         return 0;
@@ -143,6 +145,7 @@ int home_setup_cifs(
 
 int home_activate_cifs(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 PasswordCache *cache,
                 UserRecord **ret_home) {
@@ -163,7 +166,7 @@ int home_activate_cifs(
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, flags, setup, header_home, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 

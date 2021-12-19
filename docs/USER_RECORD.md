@@ -476,6 +476,9 @@ executed to make sure the image matches the selected option.
 to trim/allocate the file system/backing file when deactivating the home
 directory.
 
+`luksExtraMountOptions` → A string with additional mount options to append to
+the default mount options for the file system in the LUKS volume.
+
 `luksCipher` → A string, indicating the cipher to use for the LUKS storage mechanism.
 
 `luksCipherMode` → A string, selecting the cipher mode to use for the LUKS storage mechanism.
@@ -497,6 +500,18 @@ memory cost for the PBKDF operation, when LUKS storage is used, in bytes.
 
 `luksPbkdfParallelThreads` → An unsigned 64bit integer, indicating the intended
 required parallel threads for the PBKDF operation, when LUKS storage is used.
+
+`autoResizeMode` → A string, one of `off`, `grow`, `shrink-and-grow`. Unless
+set to `off`, controls whether the home area shall be grown automatically to
+the size configured in `diskSize` automatically at login time. If set to
+`shrink-and-grown` the home area is also shrunk to the minimal size possible
+(as dictated by used disk space and file system constraints) on logout.
+
+`rebalanceWeight` → An unsigned integer, `null` or a boolean. Configures the
+free disk space rebalancing weight for the home area. The integer must be in
+the range 1…10000 to configure an explicit weight. If unset, or set to `null`
+or `true` the default weight of 100 is implied. If set to 0 or `false`
+rebalancing is turned off for this home area.
 
 `service` → A string declaring the service that defines or manages this user
 record. It is recommended to use reverse domain name notation for this. For
@@ -720,9 +735,10 @@ that may be used in this section are identical to the equally named ones in the
 `fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
 `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
 `luksPbkdfType`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
-`luksPbkdfParallelThreads`, `rateLimitIntervalUSec`, `rateLimitBurst`,
-`enforcePasswordPolicy`, `autoLogin`, `stopDelayUSec`, `killProcesses`,
-`passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
+`luksPbkdfParallelThreads`, `autoResizeMode`, `rebalanceWeight`,
+`rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
+`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
+`passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
 `fido2HmacCredential`.
 
@@ -862,6 +878,12 @@ determined the home directory is in internal built-in media. (This is used by
 on removable media the delay is selected very low to minimize the chance the
 home directory remains in unclean state if the storage device is removed from
 the system by the user).
+
+`accessMode` → The access mode currently in effect for the home directory
+itself.
+
+`fileSystemType` → The file system type backing the home directory: a short
+string, such as "btrfs", "ext4", "xfs".
 
 ## Fields in the `signature` section
 

@@ -303,6 +303,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 if (hr->file_system_type)
                         printf(" File System: %s\n", user_record_file_system_type(hr));
 
+                if (hr->luks_extra_mount_options)
+                        printf("LUKS MntOpts: %s\n", hr->luks_extra_mount_options);
+
                 if (hr->luks_cipher)
                         printf(" LUKS Cipher: %s\n", hr->luks_cipher);
                 if (hr->luks_cipher_mode)
@@ -459,6 +462,19 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->drop_caches >= 0 || user_record_drop_caches(hr))
                 printf(" Drop Caches: %s\n", yes_no(user_record_drop_caches(hr)));
+
+        if (hr->auto_resize_mode >= 0)
+                printf(" Auto Resize: %s\n", auto_resize_mode_to_string(user_record_auto_resize_mode(hr)));
+
+        if (hr->rebalance_weight != REBALANCE_WEIGHT_UNSET) {
+                uint64_t rb;
+
+                rb = user_record_rebalance_weight(hr);
+                if (rb == REBALANCE_WEIGHT_OFF)
+                        printf("   Rebalance: off\n");
+                else
+                        printf("   Rebalance: weight %" PRIu64 "\n", rb);
+        }
 
         if (!strv_isempty(hr->ssh_authorized_keys))
                 printf("SSH Pub. Key: %zu\n", strv_length(hr->ssh_authorized_keys));

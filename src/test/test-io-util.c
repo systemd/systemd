@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "macro.h"
+#include "tests.h"
 
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
@@ -25,7 +26,7 @@ static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         assert_se(memcmp(buffer, check, n) == 0);
 }
 
-static void test_sparse_write(void) {
+TEST(sparse_write) {
         const char test_a[] = "test";
         const char test_b[] = "\0\0\0\0test\0\0\0\0";
         const char test_c[] = "\0\0test\0\0\0\0";
@@ -45,8 +46,4 @@ static void test_sparse_write(void) {
         test_sparse_write_one(fd, test_e, sizeof(test_e));
 }
 
-int main(void) {
-        test_sparse_write();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

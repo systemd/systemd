@@ -129,7 +129,7 @@ static inline BOOLEAN verify_pe(const struct PeFileHeader *pe) {
 static inline UINTN section_table_offset(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
         assert(dos);
         assert(pe);
-        return dos->ExeHeader + OFFSETOF(struct PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
+        return dos->ExeHeader + offsetof(struct PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
 static void locate_sections(
@@ -259,7 +259,7 @@ EFI_STATUS pe_file_locate_sections(
                 return EFI_LOAD_ERROR;
 
         section_table_len = pe.FileHeader.NumberOfSections * sizeof(struct PeSectionHeader);
-        section_table = AllocatePool(section_table_len);
+        section_table = xallocate_pool(section_table_len);
         if (!section_table)
                 return EFI_OUT_OF_RESOURCES;
 

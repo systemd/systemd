@@ -15,14 +15,12 @@
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
-static void test_getxattr_at_malloc(void) {
+TEST(getxattr_at_malloc) {
         char t[] = "/var/tmp/xattrtestXXXXXX";
         _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -1;
         const char *x;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(mkdtemp(t));
         x = strjoina(t, "/test");
@@ -61,13 +59,11 @@ cleanup:
         assert_se(rmdir(t) >= 0);
 }
 
-static void test_getcrtime(void) {
+TEST(getcrtime) {
         _cleanup_close_ int fd = -1;
         const char *vt;
         usec_t usec, k;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(var_tmp_dir(&vt) >= 0);
 
@@ -90,11 +86,4 @@ static void test_getcrtime(void) {
         }
 }
 
-int main(void) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_getxattr_at_malloc();
-        test_getcrtime();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

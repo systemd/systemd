@@ -36,6 +36,7 @@
 #include "rlimit-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
+#include "uid-alloc-range.h"
 #include "user-record-pwquality.h"
 #include "user-record-show.h"
 #include "user-record-util.h"
@@ -254,6 +255,63 @@ static int acquire_existing_password(
         return 1;
 }
 
+static int acquire_recovery_key(
+                const char *user_name,
+                UserRecord *hr,
+                AskPasswordFlags flags) {
+
+        _cleanup_(strv_free_erasep) char **recovery_key = NULL;
+        _cleanup_free_ char *question = NULL;
+        char *e;
+        int r;
+
+        assert(user_name);
+        assert(hr);
+
+        e = getenv("RECOVERY_KEY");
+        if (e) {
+                /* People really shouldn't use environment variables for passing secrets. We support this
+                 * only for testing purposes, and do not document the behaviour, so that people won't
+                 * actually use this outside of testing. */
+
+                r = user_record_set_password(hr, STRV_MAKE(e), true); /* recovery keys are stored in the record exactly like regular passwords! */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to store recovery key: %m");
+
+                assert_se(unsetenv_erase("RECOVERY_KEY") >= 0);
+                return 1;
+        }
+
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
+
+        if (asprintf(&question, "Please enter recovery key for user %s:", user_name) < 0)
+                return log_oom();
+
+        r = ask_password_auto(question,
+                              /* icon= */ "user-home",
+                              NULL,
+                              /* key_name= */ "home-recovery-key",
+                              /* credential_name= */ "home.recovery-key",
+                              USEC_INFINITY,
+                              flags,
+                              &recovery_key);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no recovery key was found and asking interactively was
+                              * disabled via the flags. Not an error for us. */
+                log_debug_errno(r, "No recovery keys acquired.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire recovery keys: %m");
+
+        r = user_record_set_password(hr, recovery_key, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store recovery keys: %m");
+
+        return 1;
+}
+
 static int acquire_token_pin(
                 const char *user_name,
                 UserRecord *hr,
@@ -338,6 +396,20 @@ static int handle_generic_user_record_error(
                                 user_name,
                                 hr,
                                 emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
+                if (r < 0)
+                        return r;
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_RECOVERY_KEY)) {
+
+                if (!strv_isempty(hr->password))
+                        log_notice("Recovery key incorrect or not sufficient, please try again.");
+
+                /* Don't consume cache entries or credentials here, we already tried that unsuccessfully. But
+                 * let's push what we acquire here into the cache */
+                r = acquire_recovery_key(
+                                user_name,
+                                hr,
                                 ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
@@ -462,6 +534,13 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
                 return r;
 
         r = acquire_token_pin(
+                        user_name,
+                        secret,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        r = acquire_recovery_key(
                         user_name,
                         secret,
                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
@@ -758,7 +837,7 @@ static int update_last_change(JsonVariant **v, bool with_password, bool override
 
         c = json_variant_by_key(*v, "lastChangeUSec");
         if (c) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!override)
                         goto update_password;
@@ -781,7 +860,7 @@ update_password:
 
         c = json_variant_by_key(*v, "lastPasswordChangeUSec");
         if (c) {
-                uintmax_t u;
+                uint64_t u;
 
                 if (!override)
                         return 0;
@@ -1456,7 +1535,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
 
 static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
         const char *username;
         int r;
@@ -1479,6 +1558,15 @@ static int update_home(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = acquire_updated_home_record(bus, username, &hr);
+        if (r < 0)
+                return r;
+
+        /* Add in all secrets we can acquire cheaply */
+        r = acquire_passed_secrets(username, &secret);
+        if (r < 0)
+                return r;
+
+        r = user_record_merge_secret(hr, secret);
         if (r < 0)
                 return r;
 
@@ -1627,9 +1715,9 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        old_secret = user_record_new();
-        if (!old_secret)
-                return log_oom();
+        r = acquire_passed_secrets(username, &old_secret);
+        if (r < 0)
+                return r;
 
         new_secret = user_record_new();
         if (!new_secret)
@@ -1684,6 +1772,32 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int parse_disk_size(const char *t, uint64_t *ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        if (streq(t, "min"))
+                *ret = 0;
+        else if (streq(t, "max"))
+                *ret = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX special marker */
+        else {
+                uint64_t ds;
+
+                r = parse_size(t, 1024, &ds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse disk size parameter: %s", t);
+
+                if (ds >= UINT64_MAX) /* UINT64_MAX has special meaning for us ("dont change"), refuse */
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size out of range: %s", t);
+
+                *ret = ds;
+        }
+
+        return 0;
+}
+
 static int resize_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
@@ -1702,9 +1816,9 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                                                "Relative disk size specification currently not supported when resizing.");
 
         if (argc > 2) {
-                r = parse_size(argv[2], 1024, &ds);
+                r = parse_disk_size(argv[2], &ds);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse disk size parameter: %s", argv[2]);
+                        return r;
         }
 
         if (arg_disk_size != UINT64_MAX) {
@@ -1989,6 +2103,32 @@ static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int rebalance(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "Rebalance");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_REBALANCE_NOT_NEEDED))
+                        log_info("No homes needed rebalancing.");
+                else
+                        return log_error_errno(r, "Failed to rebalance: %s", bus_error_message(&error, r));
+        } else
+                log_info("Completed rebalancing.");
+
+        return 0;
+}
+
 static int drop_from_identity(const char *field) {
         int r;
 
@@ -2043,6 +2183,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  unlock USER…                 Unlock a temporarily locked home area\n"
                "  lock-all                     Lock all suitable home areas\n"
                "  deactivate-all               Deactivate all active home areas\n"
+               "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
@@ -2153,6 +2294,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Memory cost for PBKDF in bytes\n"
                "     --luks-pbkdf-parallel-threads=NUMBER\n"
                "                               Number of parallel threads for PKBDF\n"
+               "     --luks-extra-mount-options=OPTIONS\n"
+               "                               LUKS extra mount options\n"
+               "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
+               "     --rebalance-weight=WEIGHT Weight while rebalancing\n"
                "\n%4$sMounting User Record Properties:%5$s\n"
                "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
                "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
@@ -2251,6 +2396,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
+                ARG_LUKS_EXTRA_MOUNT_OPTIONS,
+                ARG_AUTO_RESIZE_MODE,
+                ARG_REBALANCE_WEIGHT,
         };
 
         static const struct option options[] = {
@@ -2335,6 +2483,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
+                { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
+                { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
+                { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
                 {}
         };
 
@@ -2452,7 +2603,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ICON_NAME:
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
-                case ARG_CIFS_EXTRA_MOUNT_OPTIONS: {
+                case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS: {
 
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -2461,6 +2613,7 @@ static int parse_argv(int argc, char *argv[]) {
                                           c == ARG_CIFS_USER_NAME ? "cifsUserName" :
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
                                 c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
+                                c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
                                                                     NULL;
 
                         assert(field);
@@ -2808,13 +2961,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DISK_SIZE:
                         if (isempty(optarg)) {
-                                r = drop_from_identity("diskSize");
-                                if (r < 0)
-                                        return r;
+                                const char *prop;
 
-                                r = drop_from_identity("diskSizeRelative");
-                                if (r < 0)
-                                        return r;
+                                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
+                                        r = drop_from_identity(prop);
+                                        if (r < 0)
+                                                return r;
+                                }
 
                                 arg_disk_size = arg_disk_size_relative = UINT64_MAX;
                                 break;
@@ -2822,9 +2975,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_permyriad(optarg);
                         if (r < 0) {
-                                r = parse_size(optarg, 1024, &arg_disk_size);
+                                r = parse_disk_size(optarg, &arg_disk_size);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Disk size '%s' not valid.", optarg);
+                                        return r;
 
                                 r = drop_from_identity("diskSizeRelative");
                                 if (r < 0)
@@ -2849,6 +3002,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 arg_disk_size = UINT64_MAX;
                         }
+
+                        /* Automatically turn off the rebalance logic if user configured a size explicitly */
+                        r = json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
                         break;
 
@@ -3429,6 +3587,59 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_AUTO_RESIZE_MODE:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("autoResizeMode");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = auto_resize_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
+
+                        r = json_variant_set_field_string(&arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
+
+                        break;
+
+                case ARG_REBALANCE_WEIGHT: {
+                        uint64_t u;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("rebalanceWeight");
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (streq(optarg, "off"))
+                                u = REBALANCE_WEIGHT_OFF;
+                        else {
+                                r = safe_atou64(optarg, &u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
+
+                                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "…%" PRIu64 ": %s",
+                                                               REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX, optarg);
+                        }
+
+                        /* Drop from per machine stuff and everywhere */
+                        r = drop_from_identity("rebalanceWeight");
+                        if (r < 0)
+                                return r;
+
+                        /* Add to main identity */
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
+
+                        break;
+                }
+
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
@@ -3562,6 +3773,7 @@ static int run(int argc, char *argv[]) {
                 { "with",           2,        VERB_ANY, 0,            with_home            },
                 { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
                 { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
+                { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
                 {}
         };
 

@@ -7,11 +7,6 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#if HAVE_ELFUTILS
-#include <dwarf.h>
-#include <elfutils/libdwfl.h>
-#endif
-
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-login.h"
@@ -27,6 +22,7 @@
 #include "copy.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
+#include "elf-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -37,20 +33,19 @@
 #include "macro.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
-#include "stacktrace.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
-#include "user-record.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps */
@@ -154,13 +149,13 @@ static uint64_t arg_max_use = UINT64_MAX;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
-                { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,        0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64,        0, &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_uint64,        0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_uint64,        0, &arg_max_use           },
+                { "Coredump", "Storage",          config_parse_coredump_storage,           0, &arg_storage           },
+                { "Coredump", "Compress",         config_parse_bool,                       0, &arg_compress          },
+                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,                 0, &arg_process_size_max  },
+                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64_infinity,        0, &arg_external_size_max },
+                { "Coredump", "JournalSizeMax",   config_parse_iec_size,                   0, &arg_journal_size_max  },
+                { "Coredump", "KeepFree",         config_parse_iec_uint64,                 0, &arg_keep_free         },
+                { "Coredump", "MaxUse",           config_parse_iec_uint64,                 0, &arg_max_use           },
                 {}
         };
 
@@ -385,7 +380,7 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        (void) mkdir_p_label("/var/lib/systemd/coredump", 0755);
+        (void) mkdir_parents_label(fn, 0755);
 
         fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
         if (fd < 0)
@@ -585,7 +580,6 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *stream = NULL;
         const char *fddelim = "", *path;
-        struct dirent *dent = NULL;
         size_t size = 0;
         int r;
 
@@ -605,20 +599,20 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (!stream)
                 return -ENOMEM;
 
-        FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
+        FOREACH_DIRENT(de, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
                 _cleanup_close_ int fd = -1;
 
-                r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
+                r = readlinkat_malloc(dirfd(proc_fd_dir), de->d_name, &fdname);
                 if (r < 0)
                         return r;
 
-                fprintf(stream, "%s%s:%s\n", fddelim, dent->d_name, fdname);
+                fprintf(stream, "%s%s:%s\n", fddelim, de->d_name, fdname);
                 fddelim = "\n";
 
                 /* Use the directory entry from /proc/[pid]/fd with /proc/[pid]/fdinfo */
-                fd = openat(proc_fdinfo_fd, dent->d_name, O_NOFOLLOW|O_CLOEXEC|O_RDONLY);
+                fd = openat(proc_fdinfo_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_RDONLY);
                 if (fd < 0)
                         continue;
 
@@ -818,15 +812,17 @@ static int submit_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-#if HAVE_ELFUTILS
         /* Try to get a stack trace if we can */
         if (coredump_size > arg_process_size_max) {
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else if (coredump_fd >= 0)
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
-#endif
+                (void) parse_elf_object(coredump_fd,
+                                        context->meta[META_EXE],
+                                        /* fork_disable_dump= */endswith(context->meta[META_EXE], "systemd-coredump"), /* avoid loops */
+                                        &stacktrace,
+                                        &json_metadata);
 
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],

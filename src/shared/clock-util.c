@@ -48,10 +48,7 @@ int clock_set_hwclock(const struct tm *tm) {
         if (fd < 0)
                 return -errno;
 
-        if (ioctl(fd, RTC_SET_TIME, tm) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, RTC_SET_TIME, tm));
 }
 
 int clock_is_localtime(const char* adjtime_path) {
@@ -131,10 +128,7 @@ int clock_reset_timewarp(void) {
 
         /* The very first call to settimeofday() does time warp magic. Do a dummy call here, so the time
          * warping is sealed and all later calls behave as expected. */
-        if (settimeofday(NULL, &tz) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(settimeofday(NULL, &tz));
 }
 
 #define EPOCH_FILE "/usr/lib/clock-epoch"
