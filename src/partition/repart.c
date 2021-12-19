@@ -2080,16 +2080,14 @@ static void context_bar_char_process_partition(
         from = p->offset;
         to = from + p->new_size;
 
-        assert(context->end >= context->start);
-        total = context->end - context->start;
+        assert(context->total > 0);
+        total = context->total;
 
-        assert(from >= context->start);
-        assert(from <= context->end);
-        x = (from - context->start) * n / total;
+        assert(from <= total);
+        x = from * n / total;
 
-        assert(to >= context->start);
-        assert(to <= context->end);
-        y = (to - context->start) * n / total;
+        assert(to <= total);
+        y = to * n / total;
 
         assert(x <= y);
         assert(y <= n);
