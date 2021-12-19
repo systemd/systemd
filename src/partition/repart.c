@@ -1580,6 +1580,9 @@ static int context_load_partition_table(
                 /* libfdisk returns EINVAL if opening a file of size zero. Let's check for that, and accept
                  * it if automatic sizing is requested. */
 
+                logical_block_size = 512;
+                alignment_size = 4096;
+
                 if (*backing_fd < 0)
                         r = stat(node, &st);
                 else
@@ -1594,6 +1597,14 @@ static int context_load_partition_table(
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", node);
+
+        logical_block_size = fdisk_get_sector_size(c);
+        assert(logical_block_size != 0);
+
+        if (logical_block_size >= 4096 || 4096 % logical_block_size != 0)
+                alignment_size = 1;
+        else
+                alignment_size = 4096;
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
@@ -1645,14 +1656,6 @@ static int context_load_partition_table(
                 from_scratch = true;
                 break;
         }
-
-        logical_block_size = fdisk_get_sector_size(c);
-        assert(logical_block_size != 0);
-
-        if (logical_block_size >= 4096 || 4096 % logical_block_size != 0)
-                alignment_size = 1;
-        else
-                alignment_size = 4096;
 
         if (from_scratch) {
                 r = fdisk_create_disklabel(c, "gpt");
