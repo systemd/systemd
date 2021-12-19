@@ -330,3 +330,43 @@ To debug systemd components other than PID 1, set "program" to the full path of 
 debug and set "processId" to "${command:pickProcess}". Now, when starting the debugger, VSCode will ask you
 the PID of the process you want to debug. Run `systemctl show --property MainPID --value <component>` in the
 container to figure out the PID and enter it when asked and VSCode will attach to that process instead.
+
+# Debugging systemd-boot
+
+During boot, systemd-boot and the stub loader will output a message like `systemd-boot@0x0A,0x0B`,
+providing the location of the text and data sections. These location can then be used to attach
+to a QEMU session (provided it was run with `-s`) with these gdb commands:
+
+```
+    (gdb) file build/src/boot/efi/systemd-bootx64.efi
+    (gdb) add-symbol-file build/src/boot/efi/systemd_boot.so 0x0A -s .data 0x0B
+    (gdb) set architecture i386:x86-64
+    (gdb) target remote :1234
+```
+
+This process can be automated by using the `debug-sd-boot.sh` script in the tools folder. If run
+without arguments it will provide usage information.
+
+If the debugger is too slow to attach to examine an early boot code passage, we can uncomment the
+call to `debug_break()` inside of `efi_main()`. As soon as the debugger has control we can then run
+`set variable wait = 0` or `return` to continue. Once the debugger has attached, setting breakpoints
+will work like usual.
+
+To debug systemd-boot in an IDE such as VSCode we can use a launch configuration like this:
+```json
+{
+    "name": "systemd-boot",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/build/src/boot/efi/systemd-bootx64.efi",
+    "cwd": "${workspaceFolder}",
+    "MIMode": "gdb",
+    "miDebuggerServerAddress": ":1234",
+    "setupCommands": [
+        { "text": "shell mkfifo /tmp/sdboot.{in,out}" },
+        { "text": "shell qemu-system-x86_64 [...] -s -serial pipe:/tmp/sdboot" },
+        { "text": "shell ${workspaceFolder}/tools/debug-sd-boot.sh ${workspaceFolder}/build/src/boot/efi/systemd-bootx64.efi /tmp/sdboot.out systemd-boot.gdb" },
+        { "text": "source /tmp/systemd-boot.gdb" },
+    ]
+}
+```
