@@ -2361,9 +2361,12 @@ static int context_discard_range(
         }
 
         if (S_ISBLK(st.st_mode)) {
+                assert(offset % logical_block_size == 0);
+                assert(size % logical_block_size == 0);
+
                 uint64_t range[2], end;
 
-                range[0] = round_up_size(offset, 512);
+                range[0] = offset;
 
                 if (offset > UINT64_MAX - size)
                         return -ERANGE;
@@ -2372,7 +2375,7 @@ static int context_discard_range(
                 if (end <= range[0])
                         return 0;
 
-                range[1] = round_down_size(end - range[0], 512);
+                range[1] = end - range[0];
                 if (range[1] <= 0)
                         return 0;
 
