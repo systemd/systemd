@@ -330,3 +330,71 @@ To debug systemd components other than PID 1, set "program" to the full path of 
 debug and set "processId" to "${command:pickProcess}". Now, when starting the debugger, VSCode will ask you
 the PID of the process you want to debug. Run `systemctl show --property MainPID --value <component>` in the
 container to figure out the PID and enter it when asked and VSCode will attach to that process instead.
+
+# Hacking on systemd-boot
+
+To test changes to systemd-boot, the easiest way is to just run QEMU directly with a properly prepared
+EFI partition. To do that, we can just create the necessary directory structure somewhere and pass that to
+QEMU and it will generate a FAT ramdisk for us. Alternatively, we can create a GPT image with a proper EFI
+partition inside, which would allow us to test XBOOTLDR features too.
+The tools directory contains the `debug-sd-boot.sh` helper script for this.
+
+To create our own EFI folder structure we can just reuse our current system EFI partition as a template:
+```sh
+mkdir ~/efi
+cp -r /boot/ ~/efi
+cp /usr/share/edk2-ovmf/x64/OVMF_VARS.fd ~/efi/
+./tools/debug-sd-boot.sh -b build -i ~/efi/boot -v ~/efi/OVMF_VARS.fd -r
+```
+
+This should give us a running QEMU window with our current sytem boot loader inside. To test our own builds
+we just need to inject it:
+
+```sh
+set -e
+ninja -C build src/boot/efi/systemd-bootx64.efi src/boot/efi/linuxx64.efi.stub
+cp build/src/boot/efi/systemd-bootx64.efi ~/efi/boot/EFI/BOOT/BOOTx64.EFI
+./tools/debug-sd-boot.sh -b build -i ~/efi/boot/ -v ~/efi/OVMF_VARS.fd -r
+```
+
+We can now change `~/efi/boot` to out needs, including changing settings in `loader.conf` and adding
+additional boot options. If we ever have the need to reset the EFI variable store, we can replace
+`~/efi/OVMF_VARS.fd` with a pristine copy from `/usr`.
+
+See `debug-sd-boot.sh --help` for all supported options.
+
+## Debugging
+
+Debugging is also possible by utilizing the `debug-sd-boot.sh` script. Passing `-g` will launch QEMU and
+setup gdb to for debugging systemd-boot. Using `-s` instead will target the stub loader instead.
+If the debugger is too slow to attach to examine an early boot code passage, we can uncomment the call to
+`debug_break()` inside of `efi_main()`. As soon as the debugger has control we can run `set variable wait = 0`
+or `return` to continue. Once the debugger has attached, setting breakpoints will work like usual.
+
+To debug systemd-boot in an IDE such as VSCode we can use a launch configuration like this:
+```json
+{
+    "name": "systemd-boot",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/build/src/boot/efi/systemd-bootx64.efi",
+    "cwd": "${workspaceFolder}",
+    "MIMode": "gdb",
+    "miDebuggerServerAddress": ":1234",
+    "setupCommands": [
+        {
+            "text": "shell ${workspaceFolder}/tools/debug-sd-boot.sh -b ${workspaceFolder}/build -i ~/efi/boot -v ~/efi/OVMF_VARS.fd -G /tmp/systemd-boot.gdb",
+        },
+        {
+            "text": "source /tmp/systemd-boot.gdb",
+        }
+    ]
+}
+```
+
+In general, the following gdb command are needed to achieve the same:
+```
+    (gdb) shell debug-sd-boot.sh -G /tmp/systemd-boot.gdb [...]
+    (gdb) source /tmp/systemd-boot.gdb
+    (gdb) target remote :1234
+```
