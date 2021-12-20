@@ -76,6 +76,55 @@
         unreliable.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_SYNTHESIZE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, synthetic records, e.g. for the local host
+        name, will not be returned. See section SYNTHETIC RECORDS in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for more information. This may be useful to query the "public" resource records, independent of the
+        configuration of the local machine.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_CACHE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, the cache of previously queried records will
+        not be used by <filename>systemd-resolved</filename>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_ZONE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers using locally registered public
+        LLMNR/mDNS resource records will not be returned.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers using locally configured trust anchors
+        will not be used.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_NETWORK</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers will be returned without using the
+        network, i.e. either from local sources or the cache in <filename>systemd-resolved</filename>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
