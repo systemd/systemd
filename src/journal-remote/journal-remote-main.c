@@ -319,7 +319,7 @@ static mhd_result request_handler(
                         /* When serialized, an entry of maximum size might be slightly larger,
                          * so this does not correspond exactly to the limit in journald. Oh well.
                          */
-                        return mhd_respondf(connection, 0, MHD_HTTP_PAYLOAD_TOO_LARGE,
+                        return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
                                             "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
         }
 
