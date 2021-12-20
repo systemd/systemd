@@ -47,7 +47,9 @@ declare -A results
 declare -A times
 
 COUNT=0
-FAILURES=0
+COUNT_SUCCESS=0
+COUNT_SKIPPED=0
+COUNT_FAILED=0
 
 cd "$(dirname "$0")"
 
@@ -90,12 +92,18 @@ if [[ $args =~ [a-z] ]]; then
         results["$TEST"]="$RESULT"
         times["$TEST"]=$(( $(date +%s) - start ))
 
-        [ "$RESULT" -ne "0" ] && FAILURES=$((FAILURES+1))
+        if [[ "$RESULT" -eq "0" ]]; then
+            COUNT_SUCCESS=$((COUNT_SUCCESS+1))
+        elif [[ "$RESULT" -eq "77" ]]; then
+            COUNT_SKIPPED=$((COUNT_SKIPPED+1))
+        else
+            COUNT_FAILED=$((COUNT_FAILED+1))
+        fi
     done
 fi
 
 # Run clean-again, if requested, and if no tests failed
-if [[ $FAILURES -eq 0 && $CLEANAGAIN -eq 1 ]]; then
+if [[ $COUNT_FAILED -eq 0 && $CLEANAGAIN -eq 1 ]]; then
     for TEST in "${!results[@]}"; do
         ( set -x ; make -C "$TEST" clean-again )
     done
@@ -106,15 +114,17 @@ echo ""
 for TEST in "${!results[@]}"; do
     RESULT="${results[$TEST]}"
     time="${times[$TEST]}"
-    string=$([ "$RESULT" = "0" ] && echo "SUCCESS" || echo "FAIL")
+    if [[ "$RESULT" -eq "0" ]]; then
+        string="SUCCESS"
+    elif [[ "$RESULT" -eq "77" ]]; then
+        string="SKIPPED"
+    else
+        string="FAIL"
+    fi
     printf "%-35s %-8s (%3s s)\n" "${TEST}:" "${string}" "$time"
 done | sort
 
-if [ "$FAILURES" -eq 0 ] ; then
-    echo -e "\nALL $COUNT TESTS PASSED"
-else
-    echo -e "\nTOTAL FAILURES: $FAILURES OF $COUNT"
-fi
+echo -e "\nTOTAL: $COUNT, SUCCESS: $COUNT_SUCCESS, SKIPPED: $COUNT_SKIPPED, FAILED: $COUNT_FAILED"
 
 # If we have coverage files, merge them into a single report for upload
 if [ -n "${ARTIFACT_DIRECTORY}" ]; then
@@ -129,4 +139,4 @@ if [ -n "${ARTIFACT_DIRECTORY}" ]; then
     fi
 fi
 
-exit "$FAILURES"
+exit "$COUNT_FAILED"
