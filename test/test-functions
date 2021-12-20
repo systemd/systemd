@@ -1422,7 +1422,7 @@ check_result_common() {
         # …/skipped always counts (a message is expected)
         echo "${TESTNAME:?} was skipped:"
         cat "$workspace/skipped"
-        ret=0
+        ret=77
     else
         echo "(failed; see logs)" >"${TESTDIR:?}/failed"
         ret=3
@@ -2767,11 +2767,21 @@ test_setup() {
 
 test_run() {
     local test_id="${1:?}"
+    local ret=0
+    local k
     mount_initdir
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then
-            check_result_qemu || { echo "QEMU test failed"; return 1; }
+            check_result_qemu
+            k=$?
+            if [[ "$k" == "77" ]]; then
+                echo "QEMU test skipped"
+                ret=$k
+            elif [[ "$k" != "0" ]]; then
+                echo "QEMU test failed"
+                return 1
+            fi
         else
             dwarn "can't run QEMU, skipping"
         fi
@@ -2780,6 +2790,14 @@ test_run() {
         mount_initdir
         if run_nspawn "${initdir:?}" "$test_id"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
+            k=$?
+            if [[ "$k" == "77" ]]; then
+                echo "nspawn-root test skipped"
+                ret=$k
+            elif [[ "$k" != "0" ]]; then
+                echo "nspawn-root test failed"
+                return 1
+            fi
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
@@ -2788,28 +2806,36 @@ test_run() {
             dir="$TESTDIR/unprivileged-nspawn-root"
             if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
+                k=$?
+                if [[ "$k" == "77" ]]; then
+                    echo "unprivileged-nspawn-root test skipped"
+                    ret=$k
+                elif [[ "$k" != "0" ]]; then
+                    echo "unprivileged-nspawn-root test failed"
+                    return 1
+                fi
             else
                 dwarn "can't run systemd-nspawn, skipping"
             fi
         fi
     fi
-    return 0
+    return $ret
 }
 
 do_test() {
     if [[ $UID != "0" ]]; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: not root" >&2
-        exit 0
+        exit 77
     fi
 
     if get_bool "${TEST_NO_QEMU:=}" && get_bool "${TEST_NO_NSPAWN:=}"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
-        exit 0
+        exit 77
     fi
 
     if get_bool "${TEST_QEMU_ONLY:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
-        exit 0
+        exit 77
     fi
 
     if get_bool "${TEST_PREFER_NSPAWN:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
@@ -2845,6 +2871,8 @@ do_test() {
                 ret=$?
                 if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
+                elif [ $ret -eq 77 ]; then
+                    echo "${testname} RUN: $TEST_DESCRIPTION [SKIPPED]"
                 else
                     echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
                 fi
@@ -2879,6 +2907,9 @@ do_test() {
                 if [ $ret -eq 0 ]; then
                     rm "$TESTLOG"
                     echo "[OK]"
+                elif [ $ret -eq 77 ]; then
+                    echo "[SKIPPED]"
+                    echo "see $TESTLOG"
                 else
                     echo "[FAILED]"
                     echo "see $TESTLOG"
