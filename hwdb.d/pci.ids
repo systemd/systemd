@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2021.12.07
-#	Date:    2021-12-07 03:15:02
+#	Version: 2021.12.15
+#	Date:    2021-12-15 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -2763,7 +2763,7 @@
 		1849 5030  Phantom Gaming D Radeon RX580 8G OC
 		1da2 e353  Radeon RX 570 Pulse 4GB
 		1da2 e366  Nitro+ Radeon RX 570/580/590
-		1da2 e387  Radeon RX 570 Pulse 4GB
+		1da2 e387  Radeon RX 580 Pulse 4GB
 	67e0  Baffin [Radeon Pro WX 4170]
 		103c 8270  Radeon Pro WX 4170
 		103c 8272  Radeon Pro WX 4170
@@ -3032,6 +3032,8 @@
 	687f  Vega 10 XL/XT [Radeon RX Vega 56/64]
 		1002 0b36  RX Vega64
 		1002 6b76  RX Vega64
+# ROG-STRIX-RXVEGA64-O8G-GAMING
+		1043 04c4  Radeon RX Vega 64
 		1458 230c  Radeon RX VEGA 56 GAMING OC 8G
 		1da2 e376  Radeon RX VEGA 56 Pulse 8GB OC HBM2
 	6880  Lexington [Radeon HD 6550M]
@@ -10233,7 +10235,7 @@
 	0331  NV35 [GeForce FX 5900]
 		1043 8145  V9950GE
 	0332  NV35 [GeForce FX 5900XT]
-	0333  NV38 [GeForce FX 5950 Ultra / PCX 5950]
+	0333  NV38 [GeForce FX 5950 Ultra]
 	0334  NV35 [GeForce FX 5900ZT]
 		1462 9373  FX5900ZT-VTD128 (MS-8937)
 	0338  NV35GL [Quadro FX 3000]
@@ -20789,12 +20791,12 @@
 	1979  MT2910 Family [ConnectX-7 PCIe Bridge]
 	197a  MT43162 Family [BlueField-3 Lx SoC PCIe Bridge]
 	197b  MT43244 Family [BlueField-3 SoC PCIe Bridge]
-	197c  CX8 Family [ConnectX-8 PCIe Bridge]
+	197c  ConnectX/BlueField Family mlx5Gen PCIe Bridge [PCIe Bridge]
 	2020  MT2892 Family [ConnectX-6 Dx Emulated PCIe Bridge]
 	2021  MT42822 Family [BlueField-2 SoC Emulated PCIe Bridge]
 	2023  MT2910 Family [ConnectX-7 Emulated PCIe Bridge]
 	2024  MT43244 Family [BlueField-3 SoC Emulated PCIe Bridge]
-	2025  CX8 Family [ConnectX-8 Emulated PCIe Bridge]
+	2025  ConnectX/BlueField Family mlx5Gen Emulated PCIe Bridge [Emulated PCIe Bridge]
 	4117  MT27712A0-FDCF-AE
 		1bd4 0039  SN10XMP2P25
 		1bd4 003a  25G SFP28 SP EO251FM9 Adapter
@@ -24154,6 +24156,12 @@
 	1000  IO Memory Controller
 	2000  NoLoad Hardware Development Kit
 	3000  eBPF-based PCIe Accelerator
+1ded  Alibaba (China) Co., Ltd.
+	8000  M1 Root Port
+	8001  ACC-RCiEP
+	8002  RCiEP VF
+	8003  RCEC PF
+	8004  RCEC VF
 1dee  Biwin Storage Technology Co., Ltd.
 1def  Ampere Computing, LLC
 	e005  eMAG PCI Express Root Port 0
@@ -24289,6 +24297,35 @@
 # https://www.medion.com/
 1e39  MEDION AG
 1e3b  Shenzhen DAPU Microelectronics Co., Ltd
+	0600  NVMe SSD Controller DPU600
+		1e3b 0030  Enterprise NVMe SSD U.2 3.84TB (J5100)
+		1e3b 0031  Enterprise NVMe SSD U.2 7.68TB (J5100)
+		1e3b 0032  Enterprise NVMe SSD U.2 15.36TB (J5100)
+		1e3b 0033  Enterprise NVMe SSD U.2 3.20TB (J5300)
+		1e3b 0034  Enterprise NVMe SSD U.2 6.40TB (J5300)
+		1e3b 0035  Enterprise NVMe SSD U.2 12.80TB (J5300)
+		1e3b 0036  Enterprise NVMe SSD AIC 7.68TB (J5110)
+		1e3b 0037  Enterprise NVMe SSD AIC 6.40TB (J5310)
+		1e3b 003e  Enterprise NVMe SSD AIC 3.84TB (J5110)
+		1e3b 003f  Enterprise NVMe SSD AIC 3.20TB (J5310)
+		1e3b 0050  Enterprise NVMe SSD U.2 3.84TB (R5100)
+		1e3b 0051  Enterprise NVMe SSD U.2 7.68TB (R5100)
+		1e3b 0052  Enterprise NVMe SSD U.2 15.36TB (R5100)
+		1e3b 0053  Enterprise NVMe SSD U.2 3.20TB (R5300)
+		1e3b 0054  Enterprise NVMe SSD U.2 6.40TB (R5300)
+		1e3b 0055  Enterprise NVMe SSD U.2 12.80TB (R5300)
+		1e3b 0056  Enterprise NVMe SSD U.2 3.84TB (R5101)
+		1e3b 0059  Enterprise NVMe SSD U.2 3.20TB (R5301)
+		1e3b 0060  Enterprise NVMe SSD U.2 3.84TB (R5100D)
+		1e3b 0061  Enterprise NVMe SSD U.2 7.68TB (R5100D)
+		1e3b 0063  Enterprise NVMe SSD U.2 3.20TB (R5300D)
+		1e3b 0064  Enterprise NVMe SSD U.2 6.40TB (R5300D)
+		1e3b 00f0  Enterprise NVMe SSD U.2 0.40TB (X2900)
+		1e3b 00f1  Enterprise NVMe SSD U.2 0.80TB (X2900)
+		1e3b 00f2  Enterprise NVMe SSD U.2 1.60TB (X2900)
+		1e3b 00f3  Enterprise NVMe SSD U.2 3.20TB (X2900)
+		1e3b 00f5  Enterprise NVMe SSD U.2 0.40TB (X2900P)
+		1e3b 00f6  Enterprise NVMe SSD U.2 0.80TB (X2900P)
 	1098  Haishen NVMe SSD
 		1e3b 0001  Enterprise NVMe SSD U.2 0.8TB (H2100)
 		1e3b 0002  Enterprise NVMe SSD U.2 0.96TB (H2200)
@@ -27287,6 +27324,7 @@
 		1bd4 0042  10G SFP+ DP EP102Fi4 Adapter
 		1bd4 0056  Ethernet Network Adapter X710-BM2 for OCP NIC 3.0
 		1bd4 0065  F102IX710
+		1bd4 0074  Ethernet Network Adapter X710-BM2 for lldp
 		8086 0000  Ethernet Converged Network Adapter X710
 		8086 0001  Ethernet Converged Network Adapter X710-4
 		8086 0002  Ethernet Converged Network Adapter X710-4

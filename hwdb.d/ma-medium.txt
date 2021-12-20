@@ -9356,17 +9356,17 @@ B00000-BFFFFF     (base 16)		Hunan Yaguan Communication Technology Co.,Ltd
 				Gyeonggi-do  Gyeonggi-do  14671
 				KR
 
+04-EE-E8   (hex)		Best Integration Technology Co., Ltd.
+E00000-EFFFFF     (base 16)		Best Integration Technology Co., Ltd.
+				5F., No.1, Ln.63, Guanxin Rd., East Dist
+				Hsinchu City  Taiwan  30072
+				TW
+
 04-EE-E8   (hex)		Zoomlion Huanuo(Beijing)Technology Co.,Ltd
 000000-0FFFFF     (base 16)		Zoomlion Huanuo(Beijing)Technology Co.,Ltd
 				Room 401, floor 4, unit 2, building 26, yard 1, Disheng North Street, Beijing Economic and Technological Development Zone, Beijing
 				Beijing    100000
 				CN
-
-18-D7-93   (hex)		Torsa Global
-800000-8FFFFF     (base 16)		Torsa Global
-				C/ Severo Ochoa, 19
-				Malaga  Malaga  29590
-				ES
 
 18-D7-93   (hex)		Shenzhen JieXingTong Technology Co.,LTD
 000000-0FFFFF     (base 16)		Shenzhen JieXingTong Technology Co.,LTD
@@ -9380,28 +9380,16 @@ B00000-BFFFFF     (base 16)		Hunan Yaguan Communication Technology Co.,Ltd
 				shenzhen  guangdong  518057
 				CN
 
-04-EE-E8   (hex)		Best Integration Technology Co., Ltd.
-E00000-EFFFFF     (base 16)		Best Integration Technology Co., Ltd.
-				5F., No.1, Ln.63, Guanxin Rd., East Dist
-				Hsinchu City  Taiwan  30072
-				TW
+18-D7-93   (hex)		Torsa Global
+800000-8FFFFF     (base 16)		Torsa Global
+				C/ Severo Ochoa, 19
+				Malaga  Malaga  29590
+				ES
 
 DC-36-43   (hex)		Wuhan Linptech Co. ,Ltd.
 200000-2FFFFF     (base 16)		Wuhan Linptech Co. ,Ltd.
 				3F,Bldg 1A,Lianxiang Enterprise Center
 				Wuhan  Hubei  430074
-				CN
-
-08-26-AE   (hex)		ShineTech Electronics Co., Ltd
-800000-8FFFFF     (base 16)		ShineTech Electronics Co., Ltd
-				No.169, Anji St., Zuoying Dist.
-				Kaohsiung    813018
-				TW
-
-08-26-AE   (hex)		SHENNAN CIRCUITS CO.,LTD
-500000-5FFFFF     (base 16)		SHENNAN CIRCUITS CO.,LTD
-				Gao Qiao Industrial Park East,Long Gang District,
-				Shenzhen  Guangdong  518117
 				CN
 
 08-26-AE   (hex)		F-Plus Mobile LLC
@@ -9422,6 +9410,24 @@ DC-36-43   (hex)		Shenzhen smart-core technology co.,ltd.
 				Shenzhen  Guangdong  518057
 				CN
 
+08-26-AE   (hex)		ShineTech Electronics Co., Ltd
+800000-8FFFFF     (base 16)		ShineTech Electronics Co., Ltd
+				No.169, Anji St., Zuoying Dist.
+				Kaohsiung    813018
+				TW
+
+08-26-AE   (hex)		SHENNAN CIRCUITS CO.,LTD
+500000-5FFFFF     (base 16)		SHENNAN CIRCUITS CO.,LTD
+				Gao Qiao Industrial Park East,Long Gang District,
+				Shenzhen  Guangdong  518117
+				CN
+
+DC-36-43   (hex)		UKG
+700000-7FFFFF     (base 16)		UKG
+				900 Chelmsford St
+				Lowell  MA  01851
+				US
+
 DC-36-43   (hex)		Beijing L&S Lancom Platform Tech. Co., Ltd.
 E00000-EFFFFF     (base 16)		Beijing L&S Lancom Platform Tech. Co., Ltd.
 				901,floor 9, jelly loft, building 28, yard 9, Huinan Road, Changping District.
@@ -9434,11 +9440,17 @@ E00000-EFFFFF     (base 16)		Beijing L&S Lancom Platform Tech. Co., Ltd.
 				Mail box 15123  Haifa  3508409
 				IL
 
-DC-36-43   (hex)		UKG
-700000-7FFFFF     (base 16)		UKG
-				900 Chelmsford St
-				Lowell  MA  01851
-				US
+98-8F-E0   (hex)		Shenzhen Vitalitim Technology Co., Ltd
+D00000-DFFFFF     (base 16)		Shenzhen Vitalitim Technology Co., Ltd
+				83C21J, 3rd Floor, Tianjing Building, Tian'an Digital City, No. 6, Tairan 5th Road, Tian'an Community, Shatou Street, Futian District,
+				Shenzhen  Guangdong  518000
+				CN
+
+98-8F-E0   (hex)		GUANGZHOU HERYSTORM TECHNOLOGY CO.,LTD.
+100000-1FFFFF     (base 16)		GUANGZHOU HERYSTORM TECHNOLOGY CO.,LTD.
+				No.2-8,Nancun North Street,Panyun District,
+				Guangzhou    511400
+				CN
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -14189,10 +14201,10 @@ B00000-BFFFFF     (base 16)		3D Biomedicine Science & Technology Co., Limited
 				Alleroed    3450
 				DK
 
-04-EE-E8   (hex)		Shenzhen Daotong Technology Co.,Ltd
-400000-4FFFFF     (base 16)		Shenzhen Daotong Technology Co.,Ltd
-				7th, 8th, 10th Floor, Building B1, Zhiyuan Road, No. 1001 Xueyuan Avenue, Xili Street, Nanshan District, Shenzhen
-				SHENZHEN    518000
+04-EE-E8   (hex)		Hengke Technology Industry Co., Ltd.
+200000-2FFFFF     (base 16)		Hengke Technology Industry Co., Ltd.
+				No.305-1 Torch Road, High District, WeiHai
+				WeiHai  ShanDong  264200
 				CN
 
 50-A0-30   (hex)		Annapurna labs
@@ -14201,17 +14213,17 @@ B00000-BFFFFF     (base 16)		3D Biomedicine Science & Technology Co., Limited
 				Mail box 15123  Haifa  3508409
 				IL
 
+04-EE-E8   (hex)		Shenzhen Daotong Technology Co.,Ltd
+400000-4FFFFF     (base 16)		Shenzhen Daotong Technology Co.,Ltd
+				7th, 8th, 10th Floor, Building B1, Zhiyuan Road, No. 1001 Xueyuan Avenue, Xili Street, Nanshan District, Shenzhen
+				SHENZHEN    518000
+				CN
+
 04-EE-E8   (hex)		RealWear
 500000-5FFFFF     (base 16)		RealWear
 				600 Hathaway Rd, Ste 105
 				Vancouver  WA  98661
 				US
-
-04-EE-E8   (hex)		Hengke Technology Industry Co., Ltd.
-200000-2FFFFF     (base 16)		Hengke Technology Industry Co., Ltd.
-				No.305-1 Torch Road, High District, WeiHai
-				WeiHai  ShanDong  264200
-				CN
 
 04-EE-E8   (hex)		Fluid Management Technology
 300000-3FFFFF     (base 16)		Fluid Management Technology
@@ -14219,17 +14231,23 @@ B00000-BFFFFF     (base 16)		3D Biomedicine Science & Technology Co., Limited
 				169 Grange Rd, Beverley, South Australia 5009 AU.  South Australia  5009
 				AU
 
+18-D7-93   (hex)		EcoG
+B00000-BFFFFF     (base 16)		EcoG
+				Gaenslerweg 24
+				Furth  Bavaria  82041
+				DE
+
 18-D7-93   (hex)		Teegarden Applied Science Inc
 E00000-EFFFFF     (base 16)		Teegarden Applied Science Inc
 				2510 rue de l'Aeroport
 				St-Mathieu-de-Beloeil  Quebec  J3G0C9
 				CA
 
-18-D7-93   (hex)		EcoG
-B00000-BFFFFF     (base 16)		EcoG
-				Gaenslerweg 24
-				Furth  Bavaria  82041
-				DE
+DC-36-43   (hex)		Meier Tobler AG
+000000-0FFFFF     (base 16)		Meier Tobler AG
+				Bahnstrasse 24
+				Schwerzenbach  ZH  8603
+				CH
 
 DC-36-43   (hex)		nami.ai
 B00000-BFFFFF     (base 16)		nami.ai
@@ -14243,22 +14261,16 @@ DC-36-43   (hex)		WIS Networks
 				foshan  guangdong  528000
 				CN
 
-DC-36-43   (hex)		Hangzhou Huanyu Vision Technology Co., Ltd
-D00000-DFFFFF     (base 16)		Hangzhou Huanyu Vision Technology Co., Ltd
-				 Room 701, block n, No. 88, China (Hangzhou) smart information industrial park, Gongshu District,
-				Hangzhou  Zhejiang  310011
-				CN
-
-DC-36-43   (hex)		Meier Tobler AG
-000000-0FFFFF     (base 16)		Meier Tobler AG
-				Bahnstrasse 24
-				Schwerzenbach  ZH  8603
-				CH
-
 DC-36-43   (hex)		Dongguan Pengchen Earth Instrument CO. LT
 100000-1FFFFF     (base 16)		Dongguan Pengchen Earth Instrument CO. LT
 				Room 301, Building 1, No.6, North Huwu Road, Liuwu Village, Shijie Town, Dongguan city, Guangdong Province
 				Dongguan    523290
+				CN
+
+DC-36-43   (hex)		Hangzhou Huanyu Vision Technology Co., Ltd
+D00000-DFFFFF     (base 16)		Hangzhou Huanyu Vision Technology Co., Ltd
+				 Room 701, block n, No. 88, China (Hangzhou) smart information industrial park, Gongshu District,
+				Hangzhou  Zhejiang  310011
 				CN
 
 08-26-AE   (hex)		BANGJOO Co., Ltd.
@@ -14296,6 +14308,18 @@ C00000-CFFFFF     (base 16)		Brannstrom Sweden AB
 				Hörnlistrasse 12
 				Eschlikon    8360
 				CH
+
+98-8F-E0   (hex)		Pavana Technologies JSC.
+A00000-AFFFFF     (base 16)		Pavana Technologies JSC.
+				Lot F1-2-3, Thang Long Vinh Phuc IP., Tam Hop Commune, Binh Xuyen District
+				Vinh Phuc    35000
+				VN
+
+10-54-D2   (hex)		LUXSHARE-ICT Co., Ltd.
+C00000-CFFFFF     (base 16)		LUXSHARE-ICT Co., Ltd.
+				1F, No. 22, Lane 35, Jihu Road, Neihu district
+				Taipei City  Taiwan  114754
+				TW
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -18998,6 +19022,12 @@ A00000-AFFFFF     (base 16)		Missing-Link Oy
 				ShenZhen  GuangDong  518000
 				CN
 
+18-D7-93   (hex)		Autel lntelligent Technology Corp.,Ltd
+600000-6FFFFF     (base 16)		Autel lntelligent Technology Corp.,Ltd
+				7th, 8th, 10th Floor, Building B1, Zhiyuan Road, No. 1001 Xueyuan Avenue, Xili Street, Nanshan District, Shenzhen
+				Shenzhen    518000
+				CN
+
 18-D7-93   (hex)		Remote Engineer B.V.
 400000-4FFFFF     (base 16)		Remote Engineer B.V.
 				It Vegelinskampke, 11
@@ -19007,22 +19037,10 @@ A00000-AFFFFF     (base 16)		Missing-Link Oy
 18-D7-93   (hex)		Private
 C00000-CFFFFF     (base 16)		Private
 
-18-D7-93   (hex)		Autel lntelligent Technology Corp.,Ltd
-600000-6FFFFF     (base 16)		Autel lntelligent Technology Corp.,Ltd
-				7th, 8th, 10th Floor, Building B1, Zhiyuan Road, No. 1001 Xueyuan Avenue, Xili Street, Nanshan District, Shenzhen
-				Shenzhen    518000
-				CN
-
 DC-36-43   (hex)		Hangzhou Chingan Tech Co., Ltd.
 500000-5FFFFF     (base 16)		Hangzhou Chingan Tech Co., Ltd.
 				4F, BLDG. 4, 16# XIYUAN YI ROAD HANGZHOU, ZHEJIANG,CHINA 310030
 				hangzhou  zhejiang  310000
-				CN
-
-DC-36-43   (hex)		Hefei EA Excelsior Information Security Co., Ltd.
-900000-9FFFFF     (base 16)		Hefei EA Excelsior Information Security Co., Ltd.
-				1F, Block A, Tsinghua Unis Infoport, Langshan Rd, Hi-Tech Industrial (North), Nanshan
-				Shenzhen  Guangdong  518000
 				CN
 
 08-26-AE   (hex)		Flextronics International Kft.
@@ -19031,16 +19049,28 @@ A00000-AFFFFF     (base 16)		Flextronics International Kft.
 				Zalaegerszeg    8900
 				HU
 
+08-26-AE   (hex)		Wuhan Tianyu Information Industry Co., Ltd.
+000000-0FFFFF     (base 16)		Wuhan Tianyu Information Industry Co., Ltd.
+				Tianyu Building, S.&T.Park, Huazhong University of S.&T.,East Lake Development Zone
+				Wuhan  Hubei  430000
+				CN
+
+DC-36-43   (hex)		Hefei EA Excelsior Information Security Co., Ltd.
+900000-9FFFFF     (base 16)		Hefei EA Excelsior Information Security Co., Ltd.
+				1F, Block A, Tsinghua Unis Infoport, Langshan Rd, Hi-Tech Industrial (North), Nanshan
+				Shenzhen  Guangdong  518000
+				CN
+
 08-26-AE   (hex)		EVTECH SOLUTIONS LTD. DBA 3D-P
 700000-7FFFFF     (base 16)		EVTECH SOLUTIONS LTD. DBA 3D-P
 				UNIT 101  2609 15TH STREET NE
 				CALGARY  Alberta  T2E 8Y4
 				CA
 
-08-26-AE   (hex)		Wuhan Tianyu Information Industry Co., Ltd.
-000000-0FFFFF     (base 16)		Wuhan Tianyu Information Industry Co., Ltd.
-				Tianyu Building, S.&T.Park, Huazhong University of S.&T.,East Lake Development Zone
-				Wuhan  Hubei  430000
+98-8F-E0   (hex)		KuaiZhu SmartTechnology?Suzhou?CO.,Ltd
+500000-5FFFFF     (base 16)		KuaiZhu SmartTechnology?Suzhou?CO.,Ltd
+				NO.209 Zhu Yuan Road
+				suzhou  jiangsu  215100
 				CN
 
 98-8F-E0   (hex)		Nawon Machinery
@@ -19049,10 +19079,16 @@ A00000-AFFFFF     (base 16)		Flextronics International Kft.
 				Paju-si  Gyeonggi-do  10863
 				KR
 
-98-8F-E0   (hex)		KuaiZhu SmartTechnology?Suzhou?CO.,Ltd
-500000-5FFFFF     (base 16)		KuaiZhu SmartTechnology?Suzhou?CO.,Ltd
-				NO.209 Zhu Yuan Road
-				suzhou  jiangsu  215100
+98-8F-E0   (hex)		Valinso B.V.
+000000-0FFFFF     (base 16)		Valinso B.V.
+				Uithof 5
+				Wijk en Aalburg    4261 LN
+				NL
+
+10-54-D2   (hex)		ComNav Technology Ltd.
+200000-2FFFFF     (base 16)		ComNav Technology Ltd.
+				3 floor Building 2,No.618 Chengliu Middle RD. Malu town,
+				Shanghai    200000
 				CN
 
 20-85-93   (hex)		Great Lite International
@@ -23816,17 +23852,17 @@ DC-36-43   (hex)		OAK INFORMATION SYSTEM CO.
 				Shinagawa-ku  Tokyo  140-0002
 				JP
 
-08-26-AE   (hex)		Veth Propulsion bv
-D00000-DFFFFF     (base 16)		Veth Propulsion bv
-				Nanengat 17
-				Papendrecht    3356AA
-				NL
-
 DC-36-43   (hex)		KUANTECH (CAMBODIA) CORPORATION LIMITED
 A00000-AFFFFF     (base 16)		KUANTECH (CAMBODIA) CORPORATION LIMITED
 				PHUM CHORMPUL, KHUM P'PEL, SROK TRAMKORK
 				KINGDOM OF CAMBODIA  TAKEO PROVINCE  210209
 				KH
+
+08-26-AE   (hex)		Veth Propulsion bv
+D00000-DFFFFF     (base 16)		Veth Propulsion bv
+				Nanengat 17
+				Papendrecht    3356AA
+				NL
 
 08-26-AE   (hex)		Mass Electronics Pty Ltd
 E00000-EFFFFF     (base 16)		Mass Electronics Pty Ltd
@@ -23838,4 +23874,10 @@ E00000-EFFFFF     (base 16)		Mass Electronics Pty Ltd
 700000-7FFFFF     (base 16)		China Huaxin Post and Telecom Technologies Co., Ltd.
 				5F, Building 1, Lane 60 Na Xian Road, Pudong District, Shanghai 201210 P.R.China
 				Shanghai    200127
+				CN
+
+98-8F-E0   (hex)		CEL Terminus (Shanghai) Information Technologies Co.,Ltd.
+E00000-EFFFFF     (base 16)		CEL Terminus (Shanghai) Information Technologies Co.,Ltd.
+				18F, Building 2, CES West Bund Center, No.277 Longlan Rd, Xuhui District,
+				Shanghai    200000
 				CN

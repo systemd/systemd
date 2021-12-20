@@ -579,6 +579,9 @@ acpi:AKM*:
 acpi:AKP*:
  ID_VENDOR_FROM_DATABASE=Atom Komplex Prylad
 
+acpi:AKR*:
+ ID_VENDOR_FROM_DATABASE=Anker Innovations Limited
+
 acpi:AKY*:
  ID_VENDOR_FROM_DATABASE=Askey Computer Corporation
 
@@ -6431,6 +6434,9 @@ acpi:SPL*:
 
 acpi:SPN*:
  ID_VENDOR_FROM_DATABASE=Sapience Corporation
+
+acpi:SPO*:
+ ID_VENDOR_FROM_DATABASE=SAMPO CORPORATION
 
 acpi:SPR*:
  ID_VENDOR_FROM_DATABASE=pmns GmbH
