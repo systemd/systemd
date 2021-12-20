@@ -72,14 +72,13 @@ else
     [ $# -ge 1 ] && shift
 fi
 
-KERNEL_VERSION="$1"
-KERNEL_IMAGE="$2"
-[ $# -ge 2 ] && shift 2
-
-if [ -z "$COMMAND" ] || [ -z "$KERNEL_VERSION" ]; then
+if [ $# -lt 1 ]; then
     echo "Not enough arguments" >&2
     exit 1
 fi
+
+KERNEL_VERSION="$1"
+shift
 
 if [ -r "/etc/kernel/install.conf" ]; then
     . /etc/kernel/install.conf
@@ -147,13 +146,13 @@ IFS="
 
 case "$COMMAND" in
     add)
-        if [ -z "$KERNEL_IMAGE" ]; then
-            echo "Command 'add' requires an argument" >&2
+        if [ $# -lt 1 ]; then
+            echo "Command 'add' requires a kernel image" >&2
             exit 1
         fi
 
-        if ! [ -f "$KERNEL_IMAGE" ]; then
-            echo "Kernel image argument $KERNEL_IMAGE not a file" >&2
+        if ! [ -f "$1" ]; then
+            echo "Kernel image argument $1 not a file" >&2
             exit 1
         fi
 
@@ -170,8 +169,8 @@ case "$COMMAND" in
         fi
 
         for f in $PLUGINS; do
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE $*"
-            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "$@"
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $*"
+            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
             err=$?
             [ $err -eq $skip_remaining ] && break
             ret=$(( ret + err ))
