@@ -154,6 +154,7 @@ BASICTOOLS=(
     ln
     loadkeys
     login
+    losetup
     lz4cat
     mkfifo
     mktemp
