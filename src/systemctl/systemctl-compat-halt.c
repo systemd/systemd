@@ -79,6 +79,8 @@ int halt_parse_argv(int argc, char *argv[]) {
                 if (IN_SET(runlevel, '0', '6'))
                         arg_force = 2;
 
+        arg_ask_password = isatty(STDIN_FILENO);
+
         while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0)
                 switch (c) {
 

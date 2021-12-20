@@ -332,6 +332,7 @@ int logind_schedule_shutdown(void) {
         if (arg_dry_run)
                 action = strjoina("dry-", action);
 
+        polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
         r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
@@ -359,6 +360,7 @@ int logind_cancel_shutdown(void) {
         if (r < 0)
                 return r;
 
+        polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
         r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, NULL, NULL);
