@@ -81,7 +81,7 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
 static int journald_file_punch_holes(JournalFile *f) {
         HashItem items[PAYLOAD_BUFFER_SIZE / sizeof(HashItem)];
         uint64_t p, sz;
-        ssize_t n;
+        ssize_t n = SSIZE_MAX;
         int r;
 
         r = journald_file_entry_array_punch_hole(
@@ -92,10 +92,13 @@ static int journald_file_punch_holes(JournalFile *f) {
         p = le64toh(f->header->data_hash_table_offset);
         sz = le64toh(f->header->data_hash_table_size);
 
-        for (uint64_t i = p; i < p + sz; i += n) {
+        for (uint64_t i = p; i < p + sz && n > 0; i += n) {
                 n = pread(f->fd, items, MIN(sizeof(items), p + sz - i), i);
                 if (n < 0)
                         return n;
+
+                /* Let's ignore any partial hash items by rounding down to the nearest multiple of HashItem. */
+                n -= n % sizeof(HashItem);
 
                 for (size_t j = 0; j < (size_t) n / sizeof(HashItem); j++) {
                         Object o;
