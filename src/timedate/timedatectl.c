@@ -742,7 +742,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         printf(" ReceiveTimestamp=%s,", FORMAT_TIMESTAMP(i.recv));
                         printf(" TransmitTimestamp=%s,", FORMAT_TIMESTAMP(i.trans));
                         printf(" DestinationTimestamp=%s,", FORMAT_TIMESTAMP(i.dest));
-                        printf(" Ignored=%s PacketCount=%" PRIu64 ",",
+                        printf(" Ignored=%s, PacketCount=%" PRIu64 ",",
                                yes_no(i.spike), i.packet_count);
                         printf(" Jitter=%s }\n", FORMAT_TIMESPAN(i.jitter, 0));
 
