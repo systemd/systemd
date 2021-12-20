@@ -116,6 +116,25 @@ grep -qxF '/var/tmp/testsuite-58.3.img3 : start=     3662944, size=    17308536,
 rm /var/tmp/testsuite-58.3.img /tmp/testsuite-58.3.dump
 rm -r /tmp/testsuite-58.3-defs/
 
+# testcase for #21817
+mkdir -p /tmp/testsuite-58-issue-21817-defs/
+truncate -s 100m /tmp/testsuite-58-issue-21817.img
+LOOP=$(losetup -P --show -f /tmp/testsuite-58-issue-21817.img)
+printf 'size=50M,type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709\n,\n' | sfdisk -X gpt /tmp/testsuite-58-issue-21817.img
+cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
+[Partition]
+Type=root
+EOF
+systemd-repart --pretty=yes --definitions /tmp/testsuite-58-issue-21817-defs/ "$LOOP"
+sfdisk --dump "$LOOP" | tee /tmp/testsuite-58-issue-21817.dump
+losetup -d "$LOOP"
+
+grep -qF 'p1 : start=        2048, size=      102400, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709,' /tmp/testsuite-58-issue-21817.dump
+grep -qF 'p2 : start=      104448, size=      100319,' /tmp/testsuite-58-issue-21817.dump
+
+rm /tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
+rm -r /tmp/testsuite-58-issue-21817-defs/
+
 echo OK >/testok
 
 exit 0
