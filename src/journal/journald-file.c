@@ -97,6 +97,9 @@ static int journald_file_punch_holes(JournalFile *f) {
                 if (n < 0)
                         return n;
 
+                /* Let's ignore any partial hash items by rounding down to the nearest multiple of HashItem. */
+                n -= n % sizeof(HashItem);
+
                 for (size_t j = 0; j < (size_t) n / sizeof(HashItem); j++) {
                         Object o;
 
