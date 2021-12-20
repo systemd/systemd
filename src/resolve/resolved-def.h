@@ -39,7 +39,7 @@
 /* Input: Don't answer request from locally registered public LLMNR/mDNS RRs */
 #define SD_RESOLVED_NO_ZONE         (UINT64_C(1) << 13)
 
-/* Input: Don't answer request from locally registered public LLMNR/mDNS RRs */
+/* Input: Don't answer request from locally configured trust anchors. */
 #define SD_RESOLVED_NO_TRUST_ANCHOR (UINT64_C(1) << 14)
 
 /* Input: Don't go to network for this request */
