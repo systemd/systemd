@@ -156,8 +156,8 @@ int halt_main(void) {
         }
         if (r >= 0)
                 return r;
-        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                /* Requested operation is not supported on the local system or already in
+        if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                /* Requested operation requires auth, is not supported on the local system or already in
                  * progress */
                 return r;
         /* on all other errors, try low-level operation */
