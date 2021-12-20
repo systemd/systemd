@@ -7,6 +7,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "env-util.h"
 #include "errno-list.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -135,7 +136,9 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         if (STR_IN_SET(module, "resolve", "mymachines") && status == NSS_STATUS_UNAVAIL)
                 return;
 
-        if (STR_IN_SET(module, "myhostname", "resolve") && streq(name, "localhost")) {
+        if (STR_IN_SET(module, "myhostname", "resolve") &&
+            streq(name, "localhost") &&
+            getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                 assert_se(status == NSS_STATUS_SUCCESS);
                 assert_se(n == 2);
         }
