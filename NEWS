@@ -187,6 +187,12 @@ CHANGES WITH 250 in spe:
           hyperlinks in modern terminals) may now be turned off altogether
           during build-time.
 
+        * Path units gained new TriggerLimitBurst= and TriggerLimitIntervalSec=
+          that default to '200' and '2s' respectively. This ensures that a path
+          unit cannot cause pid1 to busy loop when it is trying to trigger a
+          service that is skipped because of a Condition*= not being satisfied.
+          This matches the configuration and behaviour of socket units.
+
         * The TPM2/FIDO2/PKCS11 support in systemd-cryptsetup is now also built
           as a plug-in for cryptsetup. This means the plain cryptsetup command
           may now be used to unlock volumes set up this way.
