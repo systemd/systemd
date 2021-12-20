@@ -21,7 +21,6 @@ test_append_files() {
         instmods overlay =overlayfs
         install_dmevent
         generate_module_dependencies
-        inst_binary losetup
         inst_binary mksquashfs
         inst_binary unsquashfs
         install_verity_minimal

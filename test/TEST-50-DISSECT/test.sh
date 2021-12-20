@@ -27,7 +27,6 @@ test_append_files() {
         instmods overlay =overlayfs
         install_dmevent
         generate_module_dependencies
-        inst_binary losetup
         inst_binary wc
         if command -v openssl >/dev/null 2>&1; then
             inst_binary openssl
