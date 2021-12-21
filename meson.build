@@ -997,6 +997,9 @@ else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
         clang_bin = cc.get_id() == 'clang' ? cc.cmd_array()[0] : 'clang'
+        if clang_bin.contains('afl-clang') or clang_bin.contains('hfuzz-clang')
+                clang_bin = 'clang'
+        endif
         clang = find_program(clang_bin, required : bpf_framework_required)
         if clang.found()
                 llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
