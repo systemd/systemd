@@ -738,3 +738,20 @@ UINT64 get_os_indications_supported(void) {
 
         return osind;
 }
+
+#ifdef EFI_DEBUG
+__attribute__((noinline)) void debug_break(void) {
+        /* This is a poor programmer's breakpoint to wait until a debugger
+         * has attached to us. Just "set variable wait = 0" or "return" to continue. */
+        volatile BOOLEAN wait = TRUE;
+        while (wait)
+                /* Prefer asm based stalling so that gdb has a source location to present. */
+#if defined(__i386__) || defined(__x86_64__)
+                asm volatile("pause");
+#elif defined(__aarch64__)
+                asm volatile("wfi");
+#else
+                BS->Stall(5000);
+#endif
+}
+#endif
