@@ -124,8 +124,8 @@ struct security_assessor {
                 char **ret_description);
         size_t offset;
         uint64_t parameter;
-        bool default_dependencies_only:1;
-        bool system_services_only:1;
+        bool default_dependencies_only;
+        bool system_services_only;
 };
 
 static SecurityInfo *security_info_new(void) {
