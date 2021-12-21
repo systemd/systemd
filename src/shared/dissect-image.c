@@ -627,12 +627,8 @@ int dissect_image(
                 DissectedImage **ret) {
 
 #if HAVE_BLKID
-#ifdef GPT_ROOT_NATIVE
         sd_id128_t root_uuid = SD_ID128_NULL, root_verity_uuid = SD_ID128_NULL;
-#endif
-#ifdef GPT_USR_NATIVE
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
-#endif
         bool is_gpt, is_mbr, multiple_generic = false,
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
@@ -682,19 +678,13 @@ int dissect_image(
 
                 /* If the verity data declares it's for the /usr partition, then search for that, in all
                  * other cases assume it's for the root partition. */
-#ifdef GPT_USR_NATIVE
                 if (verity->designator == PARTITION_USR) {
                         usr_uuid = fsuuid;
                         usr_verity_uuid = vuuid;
                 } else {
-#endif
-#ifdef GPT_ROOT_NATIVE
                         root_uuid = fsuuid;
                         root_verity_uuid = vuuid;
-#endif
-#ifdef GPT_USR_NATIVE
                 }
-#endif
         }
 
         if (fstat(fd, &st) < 0)
