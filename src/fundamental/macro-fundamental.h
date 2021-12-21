@@ -33,6 +33,12 @@
 #endif
 #endif
 
+#if __has_attribute(retain)
+#  define _retain_ __attribute__((__retain__))
+#else
+#  define _retain_
+#endif
+
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 
