@@ -33,6 +33,12 @@
 #endif
 #endif
 
+#define _retain_                                           \
+        _Pragma("GCC diagnostic push")                     \
+        _Pragma("GCC diagnostic ignored \"-Wattributes\"") \
+        __attribute__((__retain__))                        \
+        _Pragma("GCC diagnostic pop")
+
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 

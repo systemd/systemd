@@ -30,6 +30,8 @@ typedef struct StaticDestructor {
         _alignptr_                                                      \
         /* Make sure this is not dropped from the image because not explicitly referenced */ \
         _used_                                                          \
+        /* Prevent linker from garbage collection. */                   \
+        _retain_                                                        \
         /* Make sure that AddressSanitizer doesn't pad this variable: we want everything in this section
          * packed next to each other so that we can enumerate it. */     \
         _variable_no_sanitize_address_                                  \
