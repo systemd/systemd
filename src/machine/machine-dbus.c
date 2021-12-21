@@ -688,7 +688,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         description = strjoina("Shell for User ", user);
         r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
                                   "StandardInputFileDescriptor", "h", slave,
                                   "StandardOutputFileDescriptor", "h", slave,
@@ -696,6 +696,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                   "SendSIGHUP", "b", true,
                                   "IgnoreSIGPIPE", "b", false,
                                   "KillMode", "s", "mixed",
+                                  "TTYPath", "s", pty_name,
                                   "TTYReset", "b", true,
                                   "UtmpIdentifier", "s", utmp_id,
                                   "UtmpMode", "s", "user",
