@@ -1,3 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Path]
 PathExists=/tmp/test63
+# Make the test work reliably on slower machines as well, where we might miss
+# the default TriggerLimitIntervalSec= window and end up reactivating
+# the service just slow enough to fly under the rate-limit radar
+TriggerLimitIntervalSec=10
