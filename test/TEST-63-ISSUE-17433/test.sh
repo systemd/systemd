@@ -9,13 +9,12 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/17433"
 
 test_append_files() {
     (
-        # Collecting coverage slows this particular test quite a bit, causing
-        # it to fail with the default settings (20 triggers per 2 secs)
-        # to trip over the default limit. Let's help it a bit in such case.
-        if get_bool "$IS_BUILT_WITH_COVERAGE"; then
-            mkdir -p "${initdir:?}/etc/systemd/system/test63.path.d"
-            printf "[Path]\nTriggerLimitIntervalSec=10\n" >"${initdir:?}/etc/systemd/system/test63.path.d/coverage-override.conf"
-        fi
+        # Make the test work reliably on slower machines as well, where we might
+        # miss the default TriggerLimitIntervalSec= window and end up
+        # reactivating the service just slow enough to fly under the rate-limit
+        # radar
+        mkdir -p "${initdir:?}/etc/systemd/system/test63.path.d"
+        printf "[Path]\nTriggerLimitIntervalSec=10\n" >"${initdir:?}/etc/systemd/system/test63.path.d/coverage-override.conf"
     )
 }
 
