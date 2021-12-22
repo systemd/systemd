@@ -57,7 +57,8 @@ typedef struct TestFunc {
 
 /* See static-destruct.h for an explanation of how this works. */
 #define REGISTER_TEST(func, ...)                                                                        \
-        _section_("SYSTEMD_TEST_TABLE") _alignptr_ _used_ _variable_no_sanitize_address_                \
+        _Pragma("GCC diagnostic ignored \"-Wattributes\"")                                              \
+        _section_("SYSTEMD_TEST_TABLE") _alignptr_ _used_ _retain_ _variable_no_sanitize_address_       \
         static const TestFunc UNIQ_T(static_test_table_entry, UNIQ) = {                                 \
                 .f = (union f) &(func),                                                                 \
                 .name = STRINGIFY(func),                                                                \

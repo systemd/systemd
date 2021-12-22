@@ -38,7 +38,7 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
         _Pragma("GCC diagnostic ignored \"-Wattributes\"")              \
         _section_("SYSTEMD_BUS_ERROR_MAP")                              \
         _used_                                                          \
-        __attribute__((retain))                                         \
+        _retain_                                                        \
         _alignptr_                                                      \
         _variable_no_sanitize_address_
 
