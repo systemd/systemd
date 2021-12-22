@@ -225,6 +225,7 @@ efi_cflags = cc.get_supported_arguments(
         '-std=gnu99',
         '-ffreestanding',
         '-fshort-wchar',
+        '-fvisibility=hidden',
         '-isystem', efi_incdir,
         '-isystem', efi_incdir / efi_arch[1],
         '-I', fundamental_path,
@@ -281,7 +282,7 @@ efi_ldflags = [
         efi_crt0,
 ]
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
-        efi_ldflags += ['-shared', '-fwhole-program']
+        efi_ldflags += ['-shared']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
         efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
