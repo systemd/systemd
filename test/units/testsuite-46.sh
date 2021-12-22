@@ -26,6 +26,13 @@ inspect() {
     homectl inspect --json=pretty "$USERNAME"
 }
 
+wait_for_state() {
+    for ((i=0;i<10;i++)) ; do
+        homectl inspect "$1" | grep -qF "State: $2" && break
+        sleep .5
+    done
+}
+
 systemd-analyze log-level debug
 systemd-analyze log-target console
 systemctl service-log-level systemd-homed debug
@@ -156,7 +163,15 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
     && { echo 'unexpected success'; exit 1; }
 
+wait_for_state test-user inactive
 homectl remove test-user
+
+if ! systemd-detect-virt -cq ; then
+    wait_for_state test-user2 active
+    homectl deactivate test-user2
+    wait_for_state test-user2 inactive
+    homectl remove test-user2
+fi
 
 systemd-analyze log-level info
 
