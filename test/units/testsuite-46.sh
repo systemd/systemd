@@ -153,13 +153,20 @@ if ! systemd-detect-virt -cq ; then
     inspect test-user2
 fi
 
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
     && { echo 'unexpected success'; exit 1; }
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+wait_for_state test-user inactive
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
     && { echo 'unexpected success'; exit 1; }
 
