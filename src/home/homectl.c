@@ -383,7 +383,7 @@ static int handle_generic_user_record_error(
 
         else if (sd_bus_error_has_name(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT))
                 return log_error_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
-                                       "Too frequent unsuccessful login attempts for user %s, try again later.", user_name);
+                                       "Too frequent login attempts for user %s, try again later.", user_name);
 
         else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD)) {
 
