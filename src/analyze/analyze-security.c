@@ -2770,7 +2770,7 @@ int analyze_security(sd_bus *bus,
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;
 
-        assert(bus);
+        assert(!!bus != offline);
 
         if (offline)
                 return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root, profile, pager_flags, json_format_flags);
