@@ -1896,6 +1896,8 @@ has_user_dbus_socket() {
     fi
 }
 
+setup_nspawn_root_hook() { :;}
+
 setup_nspawn_root() {
     if [ -z "${initdir}" ]; then
         dfatal "\$initdir not defined"
@@ -1908,6 +1910,8 @@ setup_nspawn_root() {
         ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
         cp -ar "$initdir" "$TESTDIR/unprivileged-nspawn-root"
     fi
+
+    setup_nspawn_root_hook
 }
 
 setup_basic_dirs() {
