@@ -293,7 +293,7 @@ static int handle_generic_user_record_error(
                 return PAM_PERM_DENIED;
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT)) {
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Too frequent unsuccessful login attempts for user %s, try again later.", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Too frequent login attempts for user %s, try again later.", user_name);
                 pam_syslog(handle, LOG_ERR, "Failed to acquire home for user %s: %s", user_name, bus_error_message(error, ret));
                 return PAM_MAXTRIES;
 
