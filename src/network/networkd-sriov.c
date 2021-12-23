@@ -265,14 +265,39 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
         return 0;
 }
 
-void network_drop_invalid_sr_iov(Network *network) {
+int network_drop_invalid_sr_iov(Network *network) {
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
         SRIOV *sr_iov;
+        int r;
 
         assert(network);
 
-        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
-                if (sr_iov_section_verify(sr_iov) < 0)
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section) {
+                SRIOV *dup;
+
+                if (sr_iov_section_verify(sr_iov) < 0) {
                         sr_iov_free(sr_iov);
+                        continue;
+                }
+
+                assert(sr_iov->vf < INT_MAX);
+
+                dup = hashmap_remove(hashmap, UINT32_TO_PTR(sr_iov->vf + 1));
+                if (dup) {
+                        log_warning("%s: Conflicting [SR-IOV] section is specified at line %u and %u, "
+                                    "dropping the [SR-IOV] section specified at line %u.",
+                                    dup->section->filename, sr_iov->section->line,
+                                    dup->section->line, dup->section->line);
+                        sr_iov_free(dup);
+                }
+
+                r = hashmap_ensure_put(&hashmap, NULL, UINT32_TO_PTR(sr_iov->vf + 1), sr_iov);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
+        }
+
+        return 0;
 }
 
 int config_parse_sr_iov_uint32(
