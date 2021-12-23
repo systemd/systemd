@@ -26,6 +26,9 @@ static void log_syntax_callback(const char *unit, int level, void *userdata) {
         if (level > LOG_WARNING)
                 return;
 
+        if (*s == POINTER_MAX)
+                return;
+
         r = set_put_strdup(s, unit);
         if (r < 0) {
                 set_free_free(*s);
