@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 250 in spe:
+CHANGES WITH 250:
 
         * Support for encrypted and authenticated credentials has been added.
           This extends the credential logic introduced with v247 to support
