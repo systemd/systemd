@@ -297,6 +297,15 @@
           <varname>IgnoreCarrierLoss=</varname> is forced to true.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SR-IOV=</varname></term>
+        <listitem>
+          <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
+          0…2147483646. When unset, the number of SR-IOV virtual functions is not changed. Defaults to
+          unset.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -313,7 +322,9 @@
         <term><varname>VirtualFunction=</varname></term>
         <listitem>
           <para>Specifies a Virtual Function (VF), lightweight PCIe function designed solely to move
-          data in and out. Takes an integer in the range 0…2147483646. This option is compulsory.
+          data in and out. Takes an integer in the range 0…2147483646. The value must be smaller than
+          the value specified in the <varname>SR-IOV=</varname> setting in the [Link] section. This
+          option is compulsory.
           </para>
         </listitem>
       </varlistentry>
