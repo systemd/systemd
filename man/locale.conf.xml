@@ -32,7 +32,8 @@
 
     <para>The basic file format of <filename>locale.conf</filename> is
     a newline-separated list of environment-like shell-compatible
-    variable assignments. It is possible to source the configuration
+    variable assignments, ignoring comments and empty lines.
+    It is possible to source the configuration
     from shell scripts, however, beyond mere variable assignments, no
     shell features are supported, allowing applications to read the
     file without implementing a shell compatible execution
@@ -107,7 +108,9 @@
 
       <para><filename>/etc/locale.conf</filename>:</para>
 
-      <programlisting>LANG=de_DE.UTF-8
+      <programlisting># Custom settings
+
+LANG=de_DE.UTF-8
 LC_MESSAGES=en_US.UTF-8</programlisting>
     </example>
 
