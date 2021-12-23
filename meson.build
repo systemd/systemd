@@ -43,6 +43,10 @@ endif
 skip_deps = want_ossfuzz or want_libfuzzer
 fuzzer_build = want_ossfuzz or want_libfuzzer
 
+# Create a title-less summary section early, so it ends up first in the output.
+# More items are added later after they have been detected.
+summary({'build mode' : get_option('mode')})
+
 #####################################################################
 
 # Try to install the git pre-commit hook
@@ -3886,7 +3890,6 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch
                              check : true).stdout().strip()
 
 summary({
-        'build mode' :                      get_option('mode'),
         'split /usr' :                      split_usr,
         'split bin-sbin' :                  split_bin,
         'prefix directory' :                prefixdir,
@@ -3943,17 +3946,6 @@ summary({
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
 # LDFLAGS:  ${OUR_LDFLAGS} ${LDFLAGS}
-
-if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_GNU_EFI') == 1
-        summary({
-                'EFI machine type' :                efi_arch[0],
-                'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
-                'EFI LD' :                          efi_ld,
-                'EFI lds' :                         efi_lds,
-                'EFI crt0' :                        efi_crt0,
-                'EFI include directory' :           efi_incdir},
-                section : 'Extensible Firmware Interface')
-endif
 
 found = []
 missing = []
