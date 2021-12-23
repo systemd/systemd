@@ -321,7 +321,9 @@ int network_verify(Network *network) {
         network_drop_invalid_route_prefixes(network);
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
-        network_drop_invalid_sr_iov(network);
+        r = network_drop_invalid_sr_iov(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_static_leases(network);
 
         network_adjust_dhcp_server(network);
@@ -383,6 +385,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .multicast = -1,
                 .allmulticast = -1,
                 .promiscuous = -1,
+                .sr_iov_num_vfs = UINT32_MAX,
 
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 

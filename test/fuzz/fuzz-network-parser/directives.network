@@ -42,6 +42,7 @@ Multicast=
 MACAddress=
 Group=
 Promiscuous=
+SR-IOV=
 [SR-IOV]
 VirtualFunction=
 MACSpoofCheck=
