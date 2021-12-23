@@ -81,7 +81,7 @@ available during earliest boot, including in the initial RAM disk).
 above). However, it does define some special group/GID assignments, which are
 primarily used for `systemd-udevd`'s device management. The precise list of the
 currently defined groups is found in this `sysusers.d` snippet:
-[basic.conf](https://raw.githubusercontent.com/systemd/systemd/master/sysusers.d/basic.conf.in)
+[basic.conf](https://raw.githubusercontent.com/systemd/systemd/main/sysusers.d/basic.conf.in)
 
 It's strongly recommended that downstream distributions include these groups in
 their default group databases.
