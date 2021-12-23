@@ -147,8 +147,11 @@ elif get_option('sbat-distro') != ''
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
                 efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
+                # This is determined during build, not configuration, so we can't display it yet.
+                sbat_distro_version_display = '(git version)'
         else
                 efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
+                sbat_distro_version_display = pkgver
         endif
 endif
 
@@ -287,6 +290,16 @@ summary({
         'EFI crt0' :                        efi_crt0,
         'EFI include directory' :           efi_incdir},
         section : 'Extensible Firmware Interface')
+
+if efi_conf.get('SBAT_DISTRO', '') != ''
+        summary({
+                'SBAT distro': efi_conf.get('SBAT_DISTRO'),
+                'SBAT distro generation': efi_conf.get('SBAT_DISTRO_GENERATION'),
+                'SBAT distro version': sbat_distro_version_display,
+                'SBAT distro summary': efi_conf.get('SBAT_DISTRO_SUMMARY'),
+                'SBAT distro URL': efi_conf.get('SBAT_DISTRO_URL')},
+                section : 'Extensible Firmware Interface')
+endif
 
 ############################################################
 
