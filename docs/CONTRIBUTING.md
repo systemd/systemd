@@ -31,7 +31,7 @@ See [reporting of security vulnerabilities](SECURITY.md).
 
 ## Posting Pull Requests
 
-* Make sure to post PRs only relative to a very recent git master.
+* Make sure to post PRs only relative to a very recent git tip.
 * Follow our [Coding Style](CODING_STYLE.md) when contributing code. This is a requirement for all code we merge.
 * Please make sure to test your change before submitting the PR. See the [Hacking guide](HACKING.md) for details on how to do this.
 * Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at your PR, if the build and tests don't pass.
