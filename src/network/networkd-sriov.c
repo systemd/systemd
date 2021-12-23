@@ -258,8 +258,8 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
 
         if (sr_iov->vf == UINT32_MAX)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [SRIOV] section without VirtualFunction= field configured. "
-                                         "Ignoring [SRIOV] section from line %u.",
+                                         "%s: [SR-IOV] section without VirtualFunction= field configured. "
+                                         "Ignoring [SR-IOV] section from line %u.",
                                          sr_iov->section->filename, sr_iov->section->line);
 
         return 0;
