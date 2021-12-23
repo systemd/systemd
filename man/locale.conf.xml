@@ -64,14 +64,14 @@
     might be checked for locale configuration as well, however only as
     fallback.</para>
 
-    <para><filename>/etc/locale.conf</filename> is usually created and updated
+    <para><filename>/etc/locale.conf</filename> can be updated
     using
     <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to alter the settings in this file during runtime from
     the command line. Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize them on mounted (but not booted) system images.</para>
+    to customize them on mounted (but not booted) system images.</para>
   </refsect1>
 
   <refsect1>
