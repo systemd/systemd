@@ -279,6 +279,15 @@ if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
 endif
 
+summary({
+        'EFI machine type' :                efi_arch[0],
+        'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
+        'EFI LD' :                          efi_ld,
+        'EFI lds' :                         efi_lds,
+        'EFI crt0' :                        efi_crt0,
+        'EFI include directory' :           efi_incdir},
+        section : 'Extensible Firmware Interface')
+
 ############################################################
 
 efi_headers = files(
