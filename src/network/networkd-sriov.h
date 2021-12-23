@@ -39,6 +39,7 @@ int network_drop_invalid_sr_iov(Network *network);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);
 
+CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_num_vfs);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_uint32);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_link_state);

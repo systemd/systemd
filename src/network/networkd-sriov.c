@@ -224,10 +224,10 @@ static int sr_iov_configure(Link *link, SRIOV *sr_iov) {
 }
 
 static int sr_iov_set_num_vfs(Link *link) {
-        uint32_t num_vfs = 0, current_num_vfs, max_num_vfs;
+        uint32_t num_vfs, current_num_vfs, max_num_vfs;
         char val[DECIMAL_STR_MAX(uint32_t)];
+        bool request_exact = false;
         const char *str;
-        SRIOV *sr_iov;
         int r;
 
         assert(link);
@@ -236,24 +236,47 @@ static int sr_iov_set_num_vfs(Link *link) {
         if (!link->sd_device)
                 return 0;
 
-        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section)
-                num_vfs = MAX(num_vfs, sr_iov->vf + 1);
+        if (link->network->sr_iov_num_vfs != UINT32_MAX) {
+                /* If the number of virtual function is explicitly specified, then use it. */
+
+                num_vfs = link->network->sr_iov_num_vfs;
+                request_exact = true;
+        } else {
+                SRIOV *sr_iov;
+
+                /* If it is not specified, then determine it from the VirtualFunction= setting in the
+                 * [SR-IOV] sections. */
+
+                num_vfs = 0;
+                ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section)
+                        num_vfs = MAX(num_vfs, sr_iov->vf + 1);
+        }
 
         /* No VF is requested. */
-        if (num_vfs == 0)
+        if (num_vfs == 0) {
+                if (!request_exact)
+                        return 0;
+
+                r = sd_device_set_sysattr_value(link->sd_device, "device/sriov_numvfs", "0");
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to write device/sriov_numvfs sysfs attribute: %m");
+
                 return 0;
+        }
 
-        r = sd_device_get_sysattr_value(link->sd_device, "device/sriov_numvfs", &str);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to read device/sriov_numvfs sysfs attribute: %m");
+        if (!request_exact) {
+                r = sd_device_get_sysattr_value(link->sd_device, "device/sriov_numvfs", &str);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to read device/sriov_numvfs sysfs attribute: %m");
 
-        r = safe_atou32(str, &current_num_vfs);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to parse device/sriov_numvfs sysfs attribute '%s': %m", str);
+                r = safe_atou32(str, &current_num_vfs);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to parse device/sriov_numvfs sysfs attribute '%s': %m", str);
 
-        /* Enough VFs already exist. */
-        if (num_vfs <= current_num_vfs)
-                return 0;
+                /* Enough VFs already exist. */
+                if (num_vfs <= current_num_vfs)
+                        return 0;
+        }
 
         r = sd_device_get_sysattr_value(link->sd_device, "device/sriov_totalvfs", &str);
         if (r >= 0) {
@@ -316,6 +339,7 @@ int link_configure_sr_iov(Link *link) {
 
 static int sr_iov_section_verify(SRIOV *sr_iov) {
         assert(sr_iov);
+        assert(sr_iov->network);
 
         if (section_is_invalid(sr_iov->section))
                 return -EINVAL;
@@ -323,6 +347,13 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
         if (sr_iov->vf == UINT32_MAX)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: [SR-IOV] section without VirtualFunction= field configured. "
+                                         "Ignoring [SR-IOV] section from line %u.",
+                                         sr_iov->section->filename, sr_iov->section->line);
+
+        if (sr_iov->vf >= sr_iov->network->sr_iov_num_vfs)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: The VirtualFunction= setting must be smaller than "
+                                         "the value specified in the SR-IOV= setting. "
                                          "Ignoring [SR-IOV] section from line %u.",
                                          sr_iov->section->filename, sr_iov->section->line);
 
@@ -361,6 +392,49 @@ int network_drop_invalid_sr_iov(Network *network) {
                 assert(r > 0);
         }
 
+        return 0;
+}
+
+int config_parse_sr_iov_num_vfs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t n, *num_vfs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *num_vfs = UINT32_MAX;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse the number of SR-IOV virtual functions, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+        if (n == UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "The number of SR-IOV virtual functions is out of range, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        *num_vfs = n;
         return 0;
 }
 
