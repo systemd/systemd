@@ -99,59 +99,6 @@ if efi_lds == ''
         subdir_done()
 endif
 
-efi_headers = files('''
-        bcd.h
-        console.h
-        cpio.h
-        devicetree.h
-        disk.h
-        drivers.h
-        graphics.h
-        linux.h
-        measure.h
-        missing_efi.h
-        pe.h
-        random-seed.h
-        shim.h
-        splash.h
-        util.h
-        xbootldr.h
-'''.split())
-
-common_sources = '''
-        assert.c
-        devicetree.c
-        disk.c
-        graphics.c
-        measure.c
-        pe.c
-        secure-boot.c
-        util.c
-'''.split()
-
-systemd_boot_sources = '''
-        bcd.c
-        boot.c
-        console.c
-        drivers.c
-        random-seed.c
-        shim.c
-        xbootldr.c
-'''.split()
-
-stub_sources = '''
-        cpio.c
-        initrd.c
-        splash.c
-        stub.c
-'''.split()
-
-if efi_arch[1] in ['ia32', 'x86_64']
-        stub_sources += 'linux_x86.c'
-else
-        stub_sources += 'linux.c'
-endif
-
 conf.set10('HAVE_GNU_EFI', true)
 conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 
@@ -330,6 +277,57 @@ efi_cc_version = run_command(efi_cc, '--version').stdout().split('\n')[0]
 if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[-1].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
+endif
+
+############################################################
+
+efi_headers = files(
+        'bcd.h',
+        'console.h',
+        'cpio.h',
+        'devicetree.h',
+        'disk.h',
+        'drivers.h',
+        'graphics.h',
+        'linux.h',
+        'measure.h',
+        'missing_efi.h',
+        'pe.h',
+        'random-seed.h',
+        'shim.h',
+        'splash.h',
+        'util.h',
+        'xbootldr.h')
+
+common_sources = [
+        'assert.c',
+        'devicetree.c',
+        'disk.c',
+        'graphics.c',
+        'measure.c',
+        'pe.c',
+        'secure-boot.c',
+        'util.c']
+
+systemd_boot_sources = [
+        'bcd.c',
+        'boot.c',
+        'console.c',
+        'drivers.c',
+        'random-seed.c',
+        'shim.c',
+        'xbootldr.c']
+
+stub_sources = [
+        'cpio.c',
+        'initrd.c',
+        'splash.c',
+        'stub.c']
+
+if efi_arch[1] in ['ia32', 'x86_64']
+        stub_sources += 'linux_x86.c'
+else
+        stub_sources += 'linux.c'
 endif
 
 systemd_boot_objects = []
