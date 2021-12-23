@@ -7,6 +7,7 @@
 #include "networkd-sriov.h"
 #include "parse-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 static int sr_iov_new(SRIOV **ret) {
@@ -222,6 +223,65 @@ static int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         return 0;
 }
 
+static int sr_iov_set_num_vfs(Link *link) {
+        uint32_t num_vfs = 0, current_num_vfs, max_num_vfs;
+        char val[DECIMAL_STR_MAX(uint32_t)];
+        const char *str;
+        SRIOV *sr_iov;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link->sd_device)
+                return 0;
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section)
+                num_vfs = MAX(num_vfs, sr_iov->vf + 1);
+
+        /* No VF is requested. */
+        if (num_vfs == 0)
+                return 0;
+
+        r = sd_device_get_sysattr_value(link->sd_device, "device/sriov_numvfs", &str);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to read device/sriov_numvfs sysfs attribute: %m");
+
+        r = safe_atou32(str, &current_num_vfs);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to parse device/sriov_numvfs sysfs attribute '%s': %m", str);
+
+        /* Enough VFs already exist. */
+        if (num_vfs <= current_num_vfs)
+                return 0;
+
+        r = sd_device_get_sysattr_value(link->sd_device, "device/sriov_totalvfs", &str);
+        if (r >= 0) {
+                r = safe_atou32(str, &max_num_vfs);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to parse device/sriov_totalvfs sysfs attribute '%s': %m", str);
+
+                if (num_vfs > max_num_vfs)
+                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(ERANGE), "Specified virtual function is out of range.");
+
+        } else if (r != -ENOENT) /* Currently, only PCI driver has this attribute. */
+                return log_link_warning_errno(link, r, "Failed to read device/sriov_totalvfs sysfs attribute: %m");
+
+        xsprintf(val, "%"PRIu32, num_vfs);
+        r = sd_device_set_sysattr_value(link->sd_device, "device/sriov_numvfs", val);
+        if (r < 0 && current_num_vfs > 0) {
+                /* Some devices e.g. netdevsim refuse to set sriov_numvfs if it has non-zero value. */
+                r = sd_device_set_sysattr_value(link->sd_device, "device/sriov_numvfs", "0");
+                if (r >= 0)
+                        r = sd_device_set_sysattr_value(link->sd_device, "device/sriov_numvfs", val);
+        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to write device/sriov_numvfs sysfs attribute: %m");
+
+        log_link_debug(link, "device/sriov_numvfs sysfs attribute set to '%s'.", val);
+        return 0;
+}
+
 int link_configure_sr_iov(Link *link) {
         SRIOV *sr_iov;
         int r;
@@ -233,6 +293,10 @@ int link_configure_sr_iov(Link *link) {
                 log_link_debug(link, "SR-IOV is configuring.");
                 return 0;
         }
+
+        r = sr_iov_set_num_vfs(link);
+        if (r < 0)
+                return r;
 
         link->sr_iov_configured = false;
 
