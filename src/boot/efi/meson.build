@@ -300,7 +300,7 @@ if efi_arch[1] == 'arm'
         #    libgcc.a(_popcountsi2.o) uses 4-byte wchar_t yet the output is to
         #    use 2-byte wchar_t; use of wchar_t values across objects may fail
         #
-        # libgcc does not have any occurences of wchar_t in its sources or the
+        # libgcc does not have any occurrences of wchar_t in its sources or the
         # documentation, so it's safe to assume that we can ignore this warning.
         #
         # So far, this only happens with arm due to popcount even though x86 and
