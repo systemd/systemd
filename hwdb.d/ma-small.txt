@@ -5687,6 +5687,18 @@ F74000-F74FFF     (base 16)		GE AVIC Civil Avionics Systems Company Limited
 				Shanghai    200241
 				CN
 
+8C-1F-64   (hex)		EnviroNode IoT Solutions
+1AF000-1AFFFF     (base 16)		EnviroNode IoT Solutions
+				4 Malvern  Avenue
+				Sydney  New South Wales  2132
+				AU
+
+8C-1F-64   (hex)		Stercom Power Solutions GmbH
+2B6000-2B6FFF     (base 16)		Stercom Power Solutions GmbH
+				Ziegelstr. 1
+				Weyarn  Bayern  83629
+				DE
+
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
 				VIA FELTRE N. 81
@@ -16808,6 +16820,12 @@ E61000-E61FFF     (base 16)		Stange Elektronik GmbH
 				Santa Clara  CA  95054
 				US
 
+8C-1F-64   (hex)		biosilver .co.,ltd
+641000-641FFF     (base 16)		biosilver .co.,ltd
+				2-14-4, shinyokohama
+				yokohama  kanagawa  2220033
+				JP
+
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
 				3-3-1
@@ -22465,6 +22483,12 @@ EFB000-EFBFFF     (base 16)		WARECUBE,INC
 				#A-811, 142-10, Saneop-ro, 156beon-gil, Gwonseon-gu
 				Suwon-si    16648
 				KR
+
+8C-1F-64   (hex)		Gemini Electronics B.V.
+81A000-81AFFF     (base 16)		Gemini Electronics B.V.
+				Burg. van Meeuwenstraat 14
+				Beek  Limburg  6191 ND
+				NL
 
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL

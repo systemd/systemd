@@ -9452,6 +9452,24 @@ D00000-DFFFFF     (base 16)		Shenzhen Vitalitim Technology Co., Ltd
 				Guangzhou    511400
 				CN
 
+10-54-D2   (hex)		SHENZHEN CARSAFE TECHNOLOGY DEVELOPMENT CO.,LTD
+700000-7FFFFF     (base 16)		SHENZHEN CARSAFE TECHNOLOGY DEVELOPMENT CO.,LTD
+				Bldg.7, N.Industrial Park,No.18 Makan Rd,Xili,Nanshan,
+				SHENZHEN    518000
+				CN
+
+10-54-D2   (hex)		Bamboo Dynamics Corporation., Ltd.
+900000-9FFFFF     (base 16)		Bamboo Dynamics Corporation., Ltd.
+				No.146, Sec. 1,Donxing Rd.
+				Zhubei City, Hsinchu County   Taiwan  302058
+				TW
+
+10-54-D2   (hex)		Raylogic Control Systems Private Limited
+400000-4FFFFF     (base 16)		Raylogic Control Systems Private Limited
+				Unit 6, 3rd floor, HILIFE, PM Road, Santacruz West
+				Mumbai  Maharashtra  400054
+				IN
+
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
 				No.112 Yongfu Rd.,BaoanDistrict,
@@ -14321,6 +14339,12 @@ C00000-CFFFFF     (base 16)		LUXSHARE-ICT Co., Ltd.
 				Taipei City  Taiwan  114754
 				TW
 
+10-54-D2   (hex)		Little Array Technology (Shenzhen) Co., Ltd.
+300000-3FFFFF     (base 16)		Little Array Technology (Shenzhen) Co., Ltd.
+				Unit 215, 2F, A1, Zhimei Industry Park, Fuhai Industrial Zone B2, Fuyong Street, Baoan District
+				Shenzhen  Guangdong  518103
+				CN
+
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
 				22nd Floor, Building 2, Aosheng Building, No.1166 Xinyi Street, High-tech Zone
@@ -19089,6 +19113,18 @@ DC-36-43   (hex)		Hefei EA Excelsior Information Security Co., Ltd.
 200000-2FFFFF     (base 16)		ComNav Technology Ltd.
 				3 floor Building 2,No.618 Chengliu Middle RD. Malu town,
 				Shanghai    200000
+				CN
+
+10-54-D2   (hex)		Shenzhen Dinstech Technology Co.,Ltd.
+B00000-BFFFFF     (base 16)		Shenzhen Dinstech Technology Co.,Ltd.
+				Shenzhen Qianhai Shenzhen-Hong Kong Cooperation Zone Nanshan Street Linhai Avenue No. 59 Seaside Avenue 3rd Floor D378, Port Building, Shipping Center
+				Shenzhen    518000
+				CN
+
+10-54-D2   (hex)		Sun wealth technology corporation limited
+D00000-DFFFFF     (base 16)		Sun wealth technology corporation limited
+				Room605,The Dongfangmingzhu business building,qian jin 1 road,xin an street,bao an district ,shenzhen ,guang dong province,China.
+				shenzhen   Guang dong   518000
 				CN
 
 20-85-93   (hex)		Great Lite International
@@ -23881,3 +23917,9 @@ E00000-EFFFFF     (base 16)		CEL Terminus (Shanghai) Information Technologies Co
 				18F, Building 2, CES West Bund Center, No.277 Longlan Rd, Xuhui District,
 				Shanghai    200000
 				CN
+
+10-54-D2   (hex)		Annapurna labs
+800000-8FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
