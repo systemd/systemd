@@ -99,59 +99,6 @@ if efi_lds == ''
         subdir_done()
 endif
 
-efi_headers = files('''
-        bcd.h
-        console.h
-        cpio.h
-        devicetree.h
-        disk.h
-        drivers.h
-        graphics.h
-        linux.h
-        measure.h
-        missing_efi.h
-        pe.h
-        random-seed.h
-        shim.h
-        splash.h
-        util.h
-        xbootldr.h
-'''.split())
-
-common_sources = '''
-        assert.c
-        devicetree.c
-        disk.c
-        graphics.c
-        measure.c
-        pe.c
-        secure-boot.c
-        util.c
-'''.split()
-
-systemd_boot_sources = '''
-        bcd.c
-        boot.c
-        console.c
-        drivers.c
-        random-seed.c
-        shim.c
-        xbootldr.c
-'''.split()
-
-stub_sources = '''
-        cpio.c
-        initrd.c
-        splash.c
-        stub.c
-'''.split()
-
-if efi_arch[1] in ['ia32', 'x86_64']
-        stub_sources += 'linux_x86.c'
-else
-        stub_sources += 'linux.c'
-endif
-
 conf.set10('HAVE_GNU_EFI', true)
 conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 
@@ -200,8 +147,11 @@ elif get_option('sbat-distro') != ''
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
                 efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
+                # This is determined during build, not configuration, so we can't display it yet.
+                sbat_distro_version_display = '(git version)'
         else
                 efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
+                sbat_distro_version_display = pkgver
         endif
 endif
 
@@ -330,6 +280,76 @@ efi_cc_version = run_command(efi_cc, '--version').stdout().split('\n')[0]
 if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[-1].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
+endif
+
+summary({
+        'EFI machine type' :                efi_arch[0],
+        'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
+        'EFI LD' :                          efi_ld,
+        'EFI lds' :                         efi_lds,
+        'EFI crt0' :                        efi_crt0,
+        'EFI include directory' :           efi_incdir},
+        section : 'Extensible Firmware Interface')
+
+if efi_conf.get('SBAT_DISTRO', '') != ''
+        summary({
+                'SBAT distro': efi_conf.get('SBAT_DISTRO'),
+                'SBAT distro generation': efi_conf.get('SBAT_DISTRO_GENERATION'),
+                'SBAT distro version': sbat_distro_version_display,
+                'SBAT distro summary': efi_conf.get('SBAT_DISTRO_SUMMARY'),
+                'SBAT distro URL': efi_conf.get('SBAT_DISTRO_URL')},
+                section : 'Extensible Firmware Interface')
+endif
+
+############################################################
+
+efi_headers = files(
+        'bcd.h',
+        'console.h',
+        'cpio.h',
+        'devicetree.h',
+        'disk.h',
+        'drivers.h',
+        'graphics.h',
+        'linux.h',
+        'measure.h',
+        'missing_efi.h',
+        'pe.h',
+        'random-seed.h',
+        'shim.h',
+        'splash.h',
+        'util.h',
+        'xbootldr.h')
+
+common_sources = [
+        'assert.c',
+        'devicetree.c',
+        'disk.c',
+        'graphics.c',
+        'measure.c',
+        'pe.c',
+        'secure-boot.c',
+        'util.c']
+
+systemd_boot_sources = [
+        'bcd.c',
+        'boot.c',
+        'console.c',
+        'drivers.c',
+        'random-seed.c',
+        'shim.c',
+        'xbootldr.c']
+
+stub_sources = [
+        'cpio.c',
+        'initrd.c',
+        'splash.c',
+        'stub.c']
+
+if efi_arch[1] in ['ia32', 'x86_64']
+        stub_sources += 'linux_x86.c'
+else
+        stub_sources += 'linux.c'
 endif
 
 systemd_boot_objects = []
