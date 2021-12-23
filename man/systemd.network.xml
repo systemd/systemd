@@ -297,6 +297,14 @@
           <varname>IgnoreCarrierLoss=</varname> is forced to true.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>SR-IOV=</varname></term>
+        <listitem>
+          <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
+          0…2147483646. When unset, the number of SR-IOV virtual functions is not changed. Defaults to
+          unset.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

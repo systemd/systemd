@@ -107,6 +107,7 @@ struct Network {
         LinkOperationalStateRange required_operstate_for_online;
         AddressFamily required_family_for_online;
         ActivationPolicy activation_policy;
+        uint32_t sr_iov_num_vfs;
 
         /* misc settings */
         bool configure_without_carrier;

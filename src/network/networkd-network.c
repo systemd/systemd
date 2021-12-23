@@ -385,6 +385,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .multicast = -1,
                 .allmulticast = -1,
                 .promiscuous = -1,
+                .sr_iov_num_vfs = UINT32_MAX,
 
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
