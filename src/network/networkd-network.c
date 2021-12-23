@@ -321,7 +321,9 @@ int network_verify(Network *network) {
         network_drop_invalid_route_prefixes(network);
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
-        network_drop_invalid_sr_iov(network);
+        r = network_drop_invalid_sr_iov(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_static_leases(network);
 
         network_adjust_dhcp_server(network);
