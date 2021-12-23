@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: BSD-3-Clause
 # -*- coding: utf-8 -*-
 
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSES/BSD-3-Clause.txt file.
+# found in the LICENSE file.
 
 """Autosuspend udev rule generator
 
