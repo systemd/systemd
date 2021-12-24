@@ -134,7 +134,7 @@
         } while (false)
 
 #define LIST_JUST_US(name,item)                                         \
-        (!(item)->name##_prev && !(item)->name##_next)                  \
+        (!(item)->name##_prev && !(item)->name##_next)
 
 #define LIST_FOREACH(name,i,head)                                       \
         for ((i) = (head); (i); (i) = (i)->name##_next)
