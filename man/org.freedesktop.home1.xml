@@ -63,8 +63,10 @@ node /org/freedesktop/home1 {
                          out b incomplete,
                          out o bus_path);
       ListHomes(out a(susussso) home_areas);
+      @org.freedesktop.systemd1.Privileged("true")
       ActivateHome(in  s user_name,
                    in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
       DeactivateHome(in  s user_name);
       RegisterHome(in  s user_record);
       UnregisterHome(in  s user_name);
@@ -72,6 +74,7 @@ node /org/freedesktop/home1 {
       RealizeHome(in  s user_name,
                   in  s secret);
       RemoveHome(in  s user_name);
+      @org.freedesktop.systemd1.Privileged("true")
       FixateHome(in  s user_name,
                  in  s secret);
       AuthenticateHome(in  s user_name,
@@ -83,19 +86,26 @@ node /org/freedesktop/home1 {
       ChangePasswordHome(in  s user_name,
                          in  s new_secret,
                          in  s old_secret);
+      @org.freedesktop.systemd1.Privileged("true")
       LockHome(in  s user_name);
+      @org.freedesktop.systemd1.Privileged("true")
       UnlockHome(in  s user_name,
                  in  s secret);
       AcquireHome(in  s user_name,
                   in  s secret,
                   in  b please_suspend,
                   out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
       RefHome(in  s user_name,
               in  b please_suspend,
               out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
       ReleaseHome(in  s user_name);
+      @org.freedesktop.systemd1.Privileged("true")
       LockAllHomes();
+      @org.freedesktop.systemd1.Privileged("true")
       DeactivateAllHomes();
+      @org.freedesktop.systemd1.Privileged("true")
       Rebalance();
     properties:
       readonly a(sso) AutoLogin = [...];
@@ -373,11 +383,14 @@ node /org/freedesktop/home1 {
 node /org/freedesktop/home1/home {
   interface org.freedesktop.home1.Home {
     methods:
+      @org.freedesktop.systemd1.Privileged("true")
       Activate(in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
       Deactivate();
       Unregister();
       Realize(in  s secret);
       Remove();
+      @org.freedesktop.systemd1.Privileged("true")
       Fixate(in  s secret);
       Authenticate(in  s secret);
       Update(in  s user_record);
@@ -385,13 +398,18 @@ node /org/freedesktop/home1/home {
              in  s secret);
       ChangePassword(in  s new_secret,
                      in  s old_secret);
+      @org.freedesktop.systemd1.Privileged("true")
       Lock();
+      @org.freedesktop.systemd1.Privileged("true")
       Unlock(in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
       Acquire(in  s secret,
               in  b please_suspend,
               out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
       Ref(in  b please_suspend,
           out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
       Release();
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
