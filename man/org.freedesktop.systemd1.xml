@@ -153,6 +153,7 @@ node /org/freedesktop/systemd1 {
       CancelJob(in  u id);
       ClearJobs();
       ResetFailed();
+      @org.freedesktop.systemd1.Privileged("true")
       SetShowStatus(in  s mode);
       ListUnits(out a(ssssssouso) units);
       ListUnitsFiltered(in  as states,
@@ -169,11 +170,17 @@ node /org/freedesktop/systemd1 {
       DumpByFileDescriptor(out h fd);
       Reload();
       Reexecute();
+      @org.freedesktop.systemd1.Privileged("true")
       Exit();
+      @org.freedesktop.systemd1.Privileged("true")
       Reboot();
+      @org.freedesktop.systemd1.Privileged("true")
       PowerOff();
+      @org.freedesktop.systemd1.Privileged("true")
       Halt();
+      @org.freedesktop.systemd1.Privileged("true")
       KExec();
+      @org.freedesktop.systemd1.Privileged("true")
       SwitchRoot(in  s new_root,
                  in  s init);
       SetEnvironment(in  as assignments);

@@ -56,6 +56,7 @@ node /org/freedesktop/login1 {
       ListUsers(out a(uso) users);
       ListSeats(out a(so) seats);
       ListInhibitors(out a(ssssuu) inhibitors);
+      @org.freedesktop.systemd1.Privileged("true")
       CreateSession(in  u uid,
                     in  u pid,
                     in  s service,
@@ -78,6 +79,7 @@ node /org/freedesktop/login1 {
                     out s seat_id,
                     out u vtnr,
                     out b existing);
+      @org.freedesktop.systemd1.Privileged("true")
       ReleaseSession(in  s session_id);
       ActivateSession(in  s session_id);
       ActivateSessionOnSeat(in  s session_id,
