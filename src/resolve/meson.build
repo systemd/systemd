@@ -135,7 +135,7 @@ systemd_resolved_sources += custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_dependencies = [threads, libgpg_error, libm]
+systemd_resolved_dependencies = [threads, lib_openssl_or_gcrypt, libm]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
                 systemd_resolved_sources += files(
