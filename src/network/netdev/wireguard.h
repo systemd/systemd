@@ -13,6 +13,7 @@ typedef struct Wireguard Wireguard;
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "socket-util.h"
+#include "time-util.h"
 
 typedef struct WireguardIPmask {
         uint16_t family;
@@ -37,6 +38,7 @@ typedef struct WireguardPeer {
         char *endpoint_port;
 
         unsigned n_retries;
+        usec_t resolve_interval_usec;
         sd_event_source *resolve_retry_event_source;
         sd_resolve_query *resolve_query;
 
@@ -65,6 +67,8 @@ struct Wireguard {
         Set *routes;
         uint32_t route_table;
         uint32_t route_priority;
+
+        usec_t resolve_interval_usec;
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
@@ -82,3 +86,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_resolve_interval);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_resolve_interval);

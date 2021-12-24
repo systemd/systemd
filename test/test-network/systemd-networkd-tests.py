@@ -506,6 +506,10 @@ def start_dnsmasq(additional_options='', interface='veth-peer', ipv4_range='192.
     dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --bind-interfaces --interface={interface} --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile={dnsmasq_lease_file} --dhcp-option=26,1492 --dhcp-option=option:router,{ipv4_router} --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
+def start_dnsmasq_dns(additional_options=''):
+    dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer -R --bind-interfaces --port=9953 ' + additional_options
+    check_output(dnsmasq_command)
+
 def stop_by_pid_file(pid_file):
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
@@ -586,6 +590,12 @@ def restart_networkd(sleep_sec=0, show_logs=True, remove_state_files=True):
     stop_networkd(show_logs, remove_state_files)
     start_networkd(sleep_sec)
 
+def nsswitch_has_resolve():
+    with open ('/etc/nsswitch.conf') as nsswitch:
+        for line in nsswitch.read().splitlines():
+            if line.startswith('hosts:') and 'resolve' in line:
+                return True
+    return False
 
 class Utilities():
     def check_link_exists(self, link):
@@ -1054,6 +1064,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'macvtap.network',
         'netdev-link-local-addressing-yes.network',
         'sit.network',
+        'veth-dnsmasq-client.network',
+        'veth-dnsmasq-server.network',
         'vti6.network',
         'vti.network',
         'vxlan-ipv6.network',
@@ -1067,12 +1079,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '55556']
 
     def setUp(self):
+        stop_dnsmasq()
+        remove_dnsmasq_log_file()
         remove_fou_ports(self.fou_ports)
         remove_links(self.links_remove_earlier)
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
+        stop_dnsmasq()
+        remove_dnsmasq_log_file()
         remove_fou_ports(self.fou_ports)
         remove_links(self.links_remove_earlier)
         remove_links(self.links)
@@ -1371,8 +1387,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-wireguard.netdev', '25-wireguard.network',
                                         '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
                                         '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
-                                        '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
+                                        '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network',
+                                        '25-veth.netdev', 'veth-dnsmasq-client.network', 'veth-dnsmasq-server.network')
         start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        start_dnsmasq_dns('--address=/wireguard.example.com/192.168.27.3')
         self.wait_online(['wg99:routable', 'wg98:routable', 'wg97:carrier'])
 
         output = check_output('ip -4 address show dev wg99')
@@ -1445,6 +1464,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('fd8d:4d6d:3ccb:f349:c4f0:10c1::/96 proto static metric 123 pref medium', output)
 
         if shutil.which('wg'):
+            has_resolve = nsswitch_has_resolve()
+            if has_resolve:
+                for i in range(20):
+                    if i > 0:
+                        time.sleep(3)
+                    output = check_output('wg show wg99 endpoints')
+                    if 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820' in output:
+                        break
+
             call('wg')
 
             output = check_output('wg show wg99 listen-port')
@@ -1467,7 +1495,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertIn('9uioxkGzjvGjkse3V35I9AhorWfIjBcrf3UPMS0bw2c=\t(none)', output)
             self.assertIn('TTiCUpCxS7zDn/ax4p5W6Evg41r8hOrnWQw2Sq6Nh10=\t(none)', output)
             self.assertIn('lsDtM3AbjxNlauRKzHEPfgS1Zp7cp/VX5Use/P4PQSc=\t(none)', output)
-            self.assertIn('RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820', output)
+            if has_resolve:
+                self.assertIn('RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820', output)
+            else:
+                self.assertIn('RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t(none)', output)
             output = check_output('wg show wg99 preshared-keys')
             self.assertIn('9uioxkGzjvGjkse3V35I9AhorWfIjBcrf3UPMS0bw2c=\t6Fsg8XN0DE6aPQgAX4r2oazEYJOGqyHUz3QRH/jCB+I=', output)
             self.assertIn('TTiCUpCxS7zDn/ax4p5W6Evg41r8hOrnWQw2Sq6Nh10=\tit7nd33chCT/tKT2ZZWfYyp43Zs+6oif72hexnSNMqA=', output)
@@ -1481,6 +1512,20 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertEqual(output, '51821')
             output = check_output('wg show wg97 fwmark')
             self.assertEqual(output, '0x4d3')
+
+            if has_resolve:
+                stop_dnsmasq()
+                start_dnsmasq_dns('--address=/wireguard.example.com/192.168.27.4')
+                check_output(*resolvectl_cmd, 'flush-caches', env=env)
+
+                for i in range(20):
+                    if i > 0:
+                        time.sleep(3)
+                    output = check_output('wg show wg99 endpoints')
+                    if 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.4:51820' in output:
+                        break
+
+                self.assertIn('RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.4:51820', output)
 
     def test_geneve(self):
         copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
