@@ -47,6 +47,14 @@ def print_method(declarations, elem, *, prefix, file, is_signal=False):
     klass = 'signal' if is_signal else 'method'
     declarations[klass].append(name)
 
+    # @org.freedesktop.systemd1.Privileged("true")
+    # SetShowStatus(in  s mode);
+
+    for anno in elem.findall('./annotation'):
+        anno_name = anno.get('name')
+        anno_value = anno.get('value')
+        print(f'''{prefix}@{anno_name}("{anno_value}")''', file=file)
+
     print(f'''{prefix}{name}(''', file=file, end='')
     lead = ',\n' + prefix + ' ' * len(name) + ' '
 
