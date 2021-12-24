@@ -597,6 +597,7 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .read_etc_hosts = true,
+                .synthesize = true,
         };
 
         r = dns_trust_anchor_load(&m->trust_anchor);

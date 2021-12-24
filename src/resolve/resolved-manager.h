@@ -136,6 +136,8 @@ struct Manager {
 
         OrderedSet *dns_extra_stub_listeners;
 
+        bool synthesize;
+
         /* Local DNS stub on 127.0.0.53:53 */
         sd_event_source *dns_stub_udp_event_source;
         sd_event_source *dns_stub_tcp_event_source;
