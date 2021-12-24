@@ -114,6 +114,10 @@ int is_this_me(const char *username);
 
 const char *get_home_root(void);
 
+static inline bool hashed_password_is_locked_or_invalid(const char *password) {
+        return password && password[0] != '$';
+}
+
 /* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
 #define PASSWORD_LOCKED_AND_INVALID "!*"
 
