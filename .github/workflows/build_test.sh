@@ -10,7 +10,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 ARGS=(
     "--optimization=0"
     "--optimization=s"
-    "--optimization=3 -Db_lto=true"
+    "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
@@ -62,6 +62,7 @@ PACKAGES=(
 COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
+CRYPTOLIB="${CRYPTOLIB:?}"
 RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -121,7 +122,7 @@ for args in "${ARGS[@]}"; do
          CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               $args build; then
+               -Dcryptolib="${CRYPTOLIB:?}" $args build; then
 
         fatal "meson failed with $args"
     fi
