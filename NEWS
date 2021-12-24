@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 250 in spe:
+CHANGES WITH 250:
 
         * Support for encrypted and authenticated credentials has been added.
           This extends the credential logic introduced with v247 to support
@@ -186,6 +186,13 @@ CHANGES WITH 250 in spe:
         * "Urlification" (generation of ESC sequences that generate clickable
           hyperlinks in modern terminals) may now be turned off altogether
           during build-time.
+
+        * Path units gained new TriggerLimitBurst= and TriggerLimitIntervalSec=
+          settings that default to 200 and 2 s respectively. The ratelimit
+          ensures that a path unit cannot cause PID1 to busy-loop when it is
+          trying to trigger a service that is skipped because of a Condition*=
+          not being satisfied. This matches the configuration and behaviour of
+          socket units.
 
         * The TPM2/FIDO2/PKCS11 support in systemd-cryptsetup is now also built
           as a plug-in for cryptsetup. This means the plain cryptsetup command
@@ -515,6 +522,49 @@ CHANGES WITH 250 in spe:
           may be used to set the boot menu time-out of the boot loader (for all
           or just the subsequent boot).
 
+        * bootctl and kernel-install will now read KERNEL_INSTALL_MACHINE_ID
+          and KERNEL_INSTALL_LAYOUT from kernel/install.conf. The first
+          variable specifies the machine-id to use for installation. It would
+          previously be used if set in the environment, and now it'll also be
+          read automatically from the config file. The second variable is new.
+          When set, it specifies the layout to use for installation directories
+          on the boot partition, so that tools don't need to guess it based on
+          the already-existing directories. The only value that is defined
+          natively is "bls", corresponding to the layout specified in
+          https://systemd.io/BOOT_LOADER_SPECIFICATION/. Plugins for
+          kernel-install that implement a different layout can declare other
+          values for this variable.
+
+          'bootctl install' will now write KERNEL_INSTALL_LAYOUT=bls, on the
+          assumption that if the user installed sd-boot to the ESP, they intend
+          to use the entry layout understood by sd-boot. It'll also write
+          KERNEL_INSTALL_MACHINE_ID= if it creates any directories using the ID
+          (and it wasn't specified in the config file yet). Similarly,
+          kernel-install will now write KERNEL_INSTALL_MACHINE_ID= (if it
+          wasn't specified in the config file yet). Effectively, those changes
+          mean that the machine-id used for boot loader entry installation is
+          "frozen" upon first use and becomes independent of the actual
+          machine-id.
+
+          Configuring KERNEL_INSTALL_MACHINE_ID fixes the following problem:
+          images created for distribution ("golden images") are built with no
+          machine-id, so that a unique machine-id can be created on the first
+          boot. But those images may contain boot loader entries with the
+          machine-id used during build included in paths. Using a "frozen"
+          value allows unambiguously identifying entries that match the
+          specific installation, while still permitting parallel installations
+          without conflict.
+
+          Configuring KERNEL_INSTALL_LAYOUT obviates the need for
+          kernel-install to guess the installation layout. This fixes the
+          problem where a (possibly empty) directory in the boot partition is
+          created from a different layout causing kernel-install plugins to
+          assume the wrong layout. A particular example of how this may happen
+          is the grub2 package in Fedora which includes directories under /boot
+          directly in its file list. Various other packages pull in grub2 as a
+          dependency, so it may be installed even if unused, breaking
+          installations that use the bls layout.
+
         * bootctl and systemd-bless-boot can now be linked statically.
 
         * systemd-sysext now optionally doesn't insist on extension-release.d/
@@ -801,17 +851,18 @@ CHANGES WITH 250 in spe:
         nl6720, Ondrej Kozina, Paulo Neves, Pavel Březina, pedro martelletto,
         Peter Hutterer, Peter Morrow, Piotr Drąg, Rasmus Villemoes, ratijas,
         Raul Tambre, rene, Riccardo Schirone, Robert-L-Turner, Robert Scheck,
-        Ross Jennings, saikat0511, Scott Lamb, Sergei Trofimovich, Sho Iizuka,
-        Slava Bacherikov, Slimane Selyan Amiri, StefanBruens, Steven Siloti,
-        svonohr, Taiki Sugawara, Takashi Sakamoto, Takuro Onoue, Thomas Blume,
-        Thomas Haller, Thomas Mühlbacher, Tianlu Shao, Toke Høiland-Jørgensen,
-        Tom Yan, Tony Asleson, Topi Miettinen, Ulrich Ölmann, Urs Ritzmann,
-        Vincent Bernat, Vito Caputo, Vladimir Panteleev, WANG Xuerui, Wind/owZ,
-        Wu Xiaotian, xdavidwu, Xiaotian Wu, xujing, yangmingtai, Yao Wei,
-        Yao Wei (魏銘廷), Yegor Alexeyev, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски, наб
+        Ross Jennings, saikat0511, Scott Lamb, Scott Worley,
+        Sergei Trofimovich, Sho Iizuka, Slava Bacherikov, Slimane Selyan Amiri,
+        StefanBruens, Steven Siloti, svonohr, Taiki Sugawara, Takashi Sakamoto,
+        Takuro Onoue, Thomas Blume, Thomas Haller, Thomas Mühlbacher,
+        Tianlu Shao, Toke Høiland-Jørgensen, Tom Yan, Tony Asleson,
+        Topi Miettinen, Ulrich Ölmann, Urs Ritzmann, Vincent Bernat,
+        Vito Caputo, Vladimir Panteleev, WANG Xuerui, Wind/owZ, Wu Xiaotian,
+        xdavidwu, Xiaotian Wu, xujing, yangmingtai, Yao Wei, Yao Wei (魏銘廷),
+        Yegor Alexeyev, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
+        Дамјан Георгиевски, наб
 
-        — Warsaw, 2021-12---
+        — Warsaw, 2021-12-23
 
 CHANGES WITH 249:
 

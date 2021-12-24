@@ -574,6 +574,9 @@ tests += [
         [['src/test/test-arphrd-util.c',
           generated_gperf_headers]],
 
+        [['src/test/test-errno-list.c',
+          generated_gperf_headers]],
+
         [['src/test/test-ip-protocol-list.c',
           shared_generated_gperf_headers]],
 

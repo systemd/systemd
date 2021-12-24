@@ -381,6 +381,8 @@ static void test_exec_personality(Manager *m) {
 
 #elif defined(__i386__)
         test(m, "exec-personality-x86.service", 0, CLD_EXITED);
+#elif defined(__loongarch64)
+        test(m, "exec-personality-loongarch64.service", 0, CLD_EXITED);
 #else
         log_notice("Unknown personality, skipping %s", __func__);
 #endif

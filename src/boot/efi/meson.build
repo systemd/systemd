@@ -225,6 +225,7 @@ efi_cflags = cc.get_supported_arguments(
         '-std=gnu99',
         '-ffreestanding',
         '-fshort-wchar',
+        '-fvisibility=hidden',
         '-isystem', efi_incdir,
         '-isystem', efi_incdir / efi_arch[1],
         '-I', fundamental_path,
@@ -281,7 +282,7 @@ efi_ldflags = [
         efi_crt0,
 ]
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
-        efi_ldflags += ['-shared', '-fwhole-program']
+        efi_ldflags += ['-shared']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
         # Use 'binary' instead, and add required symbols manually.
         efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
@@ -292,6 +293,20 @@ else
                 efi_ldflags += '-Wl,--no-dynamic-linker'
         endif
         efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
+endif
+
+if efi_arch[1] == 'arm'
+        # On arm, the compiler (correctly) gives us the following warning:
+        #    libgcc.a(_popcountsi2.o) uses 4-byte wchar_t yet the output is to
+        #    use 2-byte wchar_t; use of wchar_t values across objects may fail
+        #
+        # libgcc does not have any occurrences of wchar_t in its sources or the
+        # documentation, so it's safe to assume that we can ignore this warning.
+        #
+        # So far, this only happens with arm due to popcount even though x86 and
+        # x86_64 also have to rely on libgcc's popcount. Therefore, we only disable
+        # this for arm to make sure this doesn't mask other issues in the future.
+        efi_ldflags += ['-Wl,--no-warn-mismatch']
 endif
 
 if run_command('grep', '-q', '__CTOR_LIST__', efi_lds).returncode() == 0

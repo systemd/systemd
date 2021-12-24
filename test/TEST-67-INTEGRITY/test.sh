@@ -15,7 +15,6 @@ test_append_files() {(
     instmods loop =block
     instmods dm_integrity =md
 
-    inst_binary losetup
     inst_binary integritysetup
     inst_binary blkid
     install_dmevent
