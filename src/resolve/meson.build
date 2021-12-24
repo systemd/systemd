@@ -135,7 +135,7 @@ systemd_resolved_sources += custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_dependencies = [threads, libgpg_error, libm]
+systemd_resolved_dependencies = [threads, libm] + [lib_openssl_or_gcrypt]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
                 systemd_resolved_sources += files(
@@ -178,14 +178,12 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm]],
 
         [['src/resolve/test-dns-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm]],
 
         [['src/resolve/test-resolved-etc-hosts.c',
@@ -194,21 +192,18 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm]],
 
         [['src/resolve/test-resolved-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm]],
 
         [['src/resolve/test-dnssec.c'],
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm],
          [], 'HAVE_OPENSSL_OR_GCRYPT'],
 
@@ -216,7 +211,6 @@ tests += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm],
          [], '', 'manual'],
 ]
@@ -226,6 +220,5 @@ fuzzers += [
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,
-          libgpg_error,
           libm]],
 ]

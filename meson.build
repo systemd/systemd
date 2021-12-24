@@ -1474,7 +1474,7 @@ conf.set10('PREFER_OPENSSL',
            opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
 conf.set10('HAVE_OPENSSL_OR_GCRYPT',
            conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
-lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
+lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? [libopenssl] : [libgcrypt, libgpg_error]
 
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
@@ -2200,7 +2200,6 @@ if conf.get('ENABLE_RESOLVE') == 1
                              libsystemd_resolve_core],
                 dependencies : [threads,
                                 lib_openssl_or_gcrypt,
-                                libgpg_error,
                                 libm,
                                 libidn],
                 install_rpath : rootlibexecdir,
