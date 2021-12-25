@@ -430,7 +430,7 @@ target2 = custom_target(
 shared_generated_gperf_headers = [target1, target2]
 shared_sources += shared_generated_gperf_headers
 
-libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
+libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
@@ -465,13 +465,13 @@ libshared_static = static_library(
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
+        c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
                       libsystemd_static],
-        c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
         install : true,
         install_dir : rootlibexecdir)
