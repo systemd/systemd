@@ -39,7 +39,7 @@ EOF
 # Another service which triggers testservice-failure-exit-handler-68.service
 cat >/run/systemd/system/testservice-failure-68-additional.service <<EOF
 [Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS Additonal service with OnFailure= trigger
+Description=TEST-68-PROPAGATE-EXIT-STATUS Additional service with OnFailure= trigger
 OnFailure=testservice-failure-exit-handler-68.service
 
 [Service]

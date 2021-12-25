@@ -1733,7 +1733,7 @@ static int udev_rule_apply_token_to_event(
                 event->program_result = mfree(event->program_result);
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_rule_debug(dev, rules, "The command '%s' is trucated while substituting into '%s', "
+                        log_rule_debug(dev, rules, "The command '%s' is truncated while substituting into '%s', "
                                        "assuming the PROGRAM key does not match.", buf, token->value);
                         return false;
                 }
