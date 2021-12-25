@@ -25,7 +25,7 @@
         "list:List bus names"
         "status:Show bus service, process or bus owner credentials"
         "monitor:Show bus traffic"
-        "capture:Capture bus traffix as pcap"
+        "capture:Capture bus traffic"
         "tree:Show object tree of service"
         "introspect:Introspect object"
         "call:Call a method"

@@ -3267,6 +3267,7 @@ public_programs += executable(
         busctl_sources,
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootlibexecdir,
         install : true)
 
