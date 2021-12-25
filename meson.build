@@ -1732,15 +1732,20 @@ public_programs = []
 # D-Bus introspection XML export
 dbus_programs = []
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
-if dbus_interfaces_dir == ''
-        if not meson.is_cross_build()
-                dbus_interfaces_dir = datadir / 'dbus-1'
+if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
+        if meson.is_cross_build() and not dbus_interfaces_dir == 'yes'
+                dbus_interfaces_def =  'no'
         else
-                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
-                dbus_interfaces_dir = 'no'
+                dbus_interfaces_def =  datadir / 'dbus-1'
         endif
-elif dbus_interfaces_dir == 'yes'
-        dbus_interfaces_dir = datadir / 'dbus-1'
+        if libdbus.found()
+                dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_def)
+        else
+                dbus_interfaces_dir = dbus_interfaces_def
+        endif
+        if meson.is_cross_build() and dbus_interfaces_def == 'no'
+                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
+        endif
 endif
 
 basic_includes = include_directories(
