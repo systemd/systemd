@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=yes
+VXLAN=vxlan-slaac
+
+[IPv6AcceptRA]
+PrefixAllowList=2002:da8:1::/64
