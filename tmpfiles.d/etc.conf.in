@@ -12,6 +12,7 @@ L+ /etc/mtab - - - - ../proc/self/mounts
 {% if HAVE_SMACK_RUN_LABEL %}
 t /etc/mtab - - - - security.SMACK64=_
 {% endif %}
+C! /etc/locale.conf - - - -
 C! /etc/nsswitch.conf - - - -
 {% if HAVE_PAM %}
 C! /etc/pam.d - - - -
