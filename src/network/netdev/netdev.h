@@ -153,6 +153,9 @@ typedef struct NetDevVTable {
         /* specifies if netdev is independent, or a master device or a stacked device */
         NetDevCreateType create_type;
 
+        /* This is used for stacked netdev. Return true when the underlying link is ready. */
+        int (*is_ready_to_create)(NetDev *netdev, Link *link);
+
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 

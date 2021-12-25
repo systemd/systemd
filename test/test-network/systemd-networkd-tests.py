@@ -900,6 +900,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ip6gretun97',
         'ip6gretun98',
         'ip6gretun99',
+        'ip6tnl-slaac',
         'ip6tnl97',
         'ip6tnl98',
         'ip6tnl99',
@@ -986,6 +987,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ip6gre-tunnel.netdev',
         '25-ip6tnl-tunnel-any-any.netdev',
         '25-ip6tnl-tunnel-local-any.netdev',
+        '25-ip6tnl-tunnel-local-slaac.netdev',
+        '25-ip6tnl-tunnel-local-slaac.network',
         '25-ip6tnl-tunnel-remote-any.netdev',
         '25-ip6tnl-tunnel.netdev',
         '25-ipip-tunnel-any-any.netdev',
@@ -1044,8 +1047,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'gretun.network',
         'ip6gretap.network',
         'ip6gretun.network',
+        'ip6tnl-slaac.network',
         'ip6tnl.network',
         'ipip.network',
+        'ipv6-prefix.network',
         'ipvlan.network',
         'ipvtap.network',
         'isatap.network',
@@ -1664,19 +1669,33 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6tnl.network',
                                         '25-ip6tnl-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
-                                        '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
+                                        '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
+                                        '25-veth.netdev', 'ip6tnl-slaac.network', 'ipv6-prefix.network',
+                                        '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network')
         start_networkd()
-        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'dummy98:degraded'])
+        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'ip6tnl-slaac:degraded',
+                          'dummy98:degraded', 'veth99:routable', 'veth-peer:degraded'])
 
         output = check_output('ip -d link show ip6tnl99')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98', output)
         output = check_output('ip -d link show ip6tnl98')
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (any|::) dev dummy98')
         output = check_output('ip -d link show ip6tnl97')
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = check_output('ip -d link show ip6tnl-slaac')
+        print(output)
+        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
+
+        output = check_output('ip -6 address show veth99')
+        print(output)
+        self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
+
+        output = check_output('ip -4 route show default')
+        print(output)
+        self.assertIn('default dev ip6tnl-slaac proto static', output)
 
     def test_sit_tunnel(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
