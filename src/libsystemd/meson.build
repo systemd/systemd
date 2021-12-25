@@ -226,14 +226,6 @@ tests += [
          [],
          [threads]],
 
-        [['src/libsystemd/sd-bus/test-bus-marshal.c'],
-         [],
-         [threads,
-          libglib,
-          libgobject,
-          libgio,
-          libdbus]],
-
         [['src/libsystemd/sd-bus/test-bus-signature.c'],
          [],
          [threads]],
@@ -306,6 +298,18 @@ tests += [
 
         [['src/libsystemd/sd-device/test-sd-device-monitor.c']],
 ]
+
+if libdbus.found()
+        tests += [
+                [['src/libsystemd/sd-bus/test-bus-marshal.c'],
+                 [],
+                 [threads,
+                  libglib,
+                  libgobject,
+                  libgio,
+                  libdbus]],
+        ]
+endif
 
 if cxx_cmd != ''
         tests += [
