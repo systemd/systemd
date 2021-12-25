@@ -1592,13 +1592,6 @@ static int context_load_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", node);
 
-        /* FIXME: it's probably better to take this out of its current caller
-         * and make use of the BLKSSZGET ioctl earlier instead; however it's
-         * unclear that under what circumstances we won't get an fd after
-         * find_root() and whether we should open() the node in those cases */
-        logical_block_size = fdisk_get_sector_size(c);
-        assert(logical_block_size > 0);
-
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
                 *backing_fd = fcntl(fdisk_get_devfd(c), F_DUPFD_CLOEXEC, 3);
@@ -4785,6 +4778,24 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static void determine_sector_size(const char *node, uint64_t *lbs) {
+        int r;
+        struct stat st;
+        _cleanup_close_ int fd = -1;
+
+        r = stat(node, &st);
+
+        if (r < 0 || !S_ISBLK(st.st_mode))
+                return;
+
+        fd = open(node, O_RDONLY|O_CLOEXEC);
+
+        if (fd < 0)
+                return;
+
+        ioctl(fd, BLKSSZGET, lbs);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -4865,6 +4876,8 @@ static int run(int argc, char *argv[]) {
         r = find_root(&node, &backing_fd);
         if (r < 0)
                 return r;
+
+        determine_sector_size(node, &logical_block_size);
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
