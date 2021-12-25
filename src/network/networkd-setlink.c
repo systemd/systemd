@@ -1173,7 +1173,7 @@ static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
         if (up && link->dsa_master_ifindex > 0) {
                 Link *master;
 
-                /* The master inteface must be up. See comments in link_up_dsa_slave(). */
+                /* The master interface must be up. See comments in link_up_dsa_slave(). */
 
                 if (link_get_by_index(link->manager, link->dsa_master_ifindex, &master) < 0)
                         return false;

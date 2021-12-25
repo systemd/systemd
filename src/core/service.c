@@ -1468,8 +1468,8 @@ static int service_create_monitor_md_env(Job *j, char **ret) {
          *
          * For example:
          *
-         * MONITOR_METADATA="SERVICE_RESULT=exit-code,EXIT_CODE=exited,EXIT_STATUS=1,INVOCATION_ID=02dd868af2f344b18edaf74b618b2f90,UNIT=failer.service;
-         *                   SERVICE_RESULT=exit-code,EXIT_CODE=exited,EXIT_STATUS=1,INVOCATION_ID=80cb228bd7344f77a090eda603a3cfe2,UNIT=failer2.service"
+         * MONITOR_METADATA="SERVICE_RESULT=exit-code,EXIT_CODE=exited,EXIT_STATUS=1,INVOCATION_ID=02dd868af2f344b18edaf74b618b2f90,UNIT=failure.service;
+         *                   SERVICE_RESULT=exit-code,EXIT_CODE=exited,EXIT_STATUS=1,INVOCATION_ID=80cb228bd7344f77a090eda603a3cfe2,UNIT=failure2.service"
          */
 
         LIST_FOREACH(triggered_by, tu, j->triggered_by) {

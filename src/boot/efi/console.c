@@ -32,7 +32,7 @@ static inline void EventClosep(EFI_EVENT *event) {
  * Also, multiple input protocols can be backed by the same device, but they can be out of
  * sync. Falling back on a different protocol can end up with double input.
  *
- * Therefore, we will perferrably use TextInputEx for ConIn if that is available. Additionally,
+ * Therefore, we will preferably use TextInputEx for ConIn if that is available. Additionally,
  * we look for the first TextInputEx device the firmware gives us as a fallback option. It
  * will replace ConInEx permanently if it ever reports a key press.
  * Lastly, a timer event allows us to provide a input timeout without having to call into
