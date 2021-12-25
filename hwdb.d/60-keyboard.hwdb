@@ -231,6 +231,14 @@ evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:input:b0003v0B05p1869*
  KEYBOARD_KEY_ff31007c=f20                              # Remap micmute to f20
 
+# Asus TF103C misses the home button in its PNP0C40 GPIO resources
+# causing the volume-button mappings to be off by one, correct this
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
+ KEYBOARD_KEY_1=volumeup
+
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
+ KEYBOARD_KEY_0=volumedown
+
 ###########################################################
 # BenQ
 ###########################################################
