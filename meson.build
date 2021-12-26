@@ -191,21 +191,6 @@ if docdir == ''
         docdir = datadir / 'doc/systemd'
 endif
 
-dbuspolicydir = get_option('dbuspolicydir')
-if dbuspolicydir == ''
-        dbuspolicydir = datadir / 'dbus-1/system.d'
-endif
-
-dbussessionservicedir = get_option('dbussessionservicedir')
-if dbussessionservicedir == ''
-        dbussessionservicedir = datadir / 'dbus-1/services'
-endif
-
-dbussystemservicedir = get_option('dbussystemservicedir')
-if dbussystemservicedir == ''
-        dbussystemservicedir = datadir / 'dbus-1/system-services'
-endif
-
 pamlibdir = get_option('pamlibdir')
 if pamlibdir == ''
         pamlibdir = rootlibdir / 'security'
@@ -1473,6 +1458,44 @@ else
 endif
 conf.set10('HAVE_DBUS', have)
 
+dbuspolicydir = get_option('dbuspolicydir')
+if dbuspolicydir == ''
+        if conf.get('HAVE_DBUS') == 1
+                dbuspolicydir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1/system.d'
+        else
+                dbuspolicydir = datadir / 'dbus-1/system.d'
+        endif
+endif
+
+dbussessionservicedir = get_option('dbussessionservicedir')
+if dbussessionservicedir == ''
+        dbussessionservicedir = datadir / 'dbus-1/services'
+        if conf.get('HAVE_DBUS') == 1
+                dbussessionservicedir = libdbus.get_variable(pkgconfig: 'session_bus_services_dir', default_value: dbussessionservicedir)
+        endif
+endif
+
+dbussystemservicedir = get_option('dbussystemservicedir')
+if dbussystemservicedir == ''
+        dbussystemservicedir = datadir / 'dbus-1/system-services'
+        if conf.get('HAVE_DBUS') == 1
+                dbussystemservicedir = libdbus.get_variable(pkgconfig: 'system_bus_services_dir', default_value: dbussystemservicedir)
+        endif
+endif
+
+dbus_interfaces_dir = get_option('dbus-interfaces-dir')
+if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
+        if meson.is_cross_build() and dbus_interfaces_dir != 'yes'
+                dbus_interfaces_dir = 'no'
+                message('Exporting D-Bus interface XML files is disabled during cross build. Pass path or "yes" to force enable.')
+        else
+                dbus_interfaces_dir = datadir / 'dbus-1/interfaces'
+                if conf.get('HAVE_DBUS') == 1
+                        dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_dir)
+                endif
+        endif
+endif
+
 # We support one or the other. If gcrypt is available, we assume it's there to
 # be used, and use it in preference.
 opt = get_option('cryptolib')
@@ -1731,17 +1754,6 @@ public_programs = []
 
 # D-Bus introspection XML export
 dbus_programs = []
-dbus_interfaces_dir = get_option('dbus-interfaces-dir')
-if dbus_interfaces_dir == ''
-        if not meson.is_cross_build()
-                dbus_interfaces_dir = datadir / 'dbus-1'
-        else
-                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
-                dbus_interfaces_dir = 'no'
-        endif
-elif dbus_interfaces_dir == 'yes'
-        dbus_interfaces_dir = datadir / 'dbus-1'
-endif
 
 basic_includes = include_directories(
         'src/basic',
@@ -3905,6 +3917,7 @@ summary({
         'D-Bus policy directory' :          dbuspolicydir,
         'D-Bus session directory' :         dbussessionservicedir,
         'D-Bus system directory' :          dbussystemservicedir,
+        'D-Bus interfaces directory' :      dbus_interfaces_dir,
         'bash completions directory' :      bashcompletiondir,
         'zsh completions directory' :       zshcompletiondir,
         'private shared lib version tag' :  shared_lib_tag,
