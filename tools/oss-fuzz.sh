@@ -36,6 +36,13 @@ else
     apt-get install -y gperf m4 gettext python3-pip \
         libcap-dev libmount-dev libkmod-dev \
         pkg-config wget python3-jinja2
+
+    # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
+    # is hidden. It isn't linked against efi. It doesn't
+    # even include "efi.h" because "bcd.c" can work in "unit test" mode
+    # where it isn't necessary.
+    apt-get install -y gnu-efi zstd
+
     pip3 install -r .github/workflows/requirements.txt --require-hashes
 
     # https://github.com/google/oss-fuzz/issues/6868
@@ -55,6 +62,15 @@ if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
 fi
 
 ninja -v -C "$build" fuzzers
+
+# Compressed BCD files are kept in test/test-bcd so let's unpack them
+# and put them all in the seed corpus.
+bcd=$(mktemp -d)
+for i in test/test-bcd/*.zst; do
+     unzstd "$i" -o "$bcd/$(basename "${i%.zst}")";
+done
+zip -jqr "$OUT/fuzz-bcd_seed_corpus.zip" "$bcd"
+rm -rf "$bcd"
 
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.

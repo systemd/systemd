@@ -360,6 +360,9 @@ if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
                  [],
                  'HAVE_ZSTD'],
         ]
+        fuzzers += [
+                [['src/boot/efi/fuzz-bcd.c']],
+        ]
 endif
 
 systemd_boot_objects = []
