@@ -160,11 +160,17 @@ commands like this:
 ```
 python infra/helper.py build_image systemd
 python infra/helper.py build_fuzzers --sanitizer memory systemd ../systemd
+python infra/helper.py check_build --sanitizer memory -e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
 python infra/helper.py run_fuzzer systemd fuzz-foo
 ```
 
+Another option would be to open a PR and let [CIFuzz](https://google.github.io/oss-fuzz/getting-started/continuous-integration/)
+make sure the fuzz targets can be built using the OSS-Fuzz toolchain.
+It runs `build_image`, `build_fuzzers`, `check_build` and `run_fuzzer` every
+time PRs get updated.
+
 If you find a bug that impacts the security of systemd, please follow the
-guidance in [CONTRIBUTING.md](CONTRIBUTING.md) on how to report a security vulnerability.
+guidance in [SECURITY.md](SECURITY.md) on how to report a security vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 
