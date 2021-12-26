@@ -232,7 +232,8 @@ tests += [
           libglib,
           libgobject,
           libgio,
-          libdbus]],
+          libdbus],
+         [], 'HAVE_DBUS'],
 
         [['src/libsystemd/sd-bus/test-bus-signature.c'],
          [],
