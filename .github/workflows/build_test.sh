@@ -80,9 +80,10 @@ if [[ "$COMPILER" == clang ]]; then
     # llvm package if available in such cases to avoid that.
     if ! apt show --quiet "llvm-$COMPILER_VERSION" &>/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
-        # Following snippet was borrowed from https://apt.llvm.org/llvm.sh
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-        add-apt-repository -y "deb http://apt.llvm.org/$RELEASE/   llvm-toolchain-$RELEASE-$COMPILER_VERSION  main"
+        # Following snippet was partly borrowed from https://apt.llvm.org/llvm.sh
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
+        printf "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/%s/   llvm-toolchain-%s-%s  main\n" \
+		"$RELEASE" "$RELEASE" "$COMPILER_VERSION" >/etc/apt/sources.list.d/llvm-toolchain.list
         PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
     fi
 elif [[ "$COMPILER" == gcc ]]; then
