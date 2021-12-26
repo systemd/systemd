@@ -179,6 +179,8 @@ option('dbussessionservicedir', type : 'string',
        description : 'D-Bus session service directory')
 option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
+option('dbus-interfaces-dir', type : 'string',
+       description : 'export D-Bus introspection XML as standalone files')
 option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
 option('pkgconfiglibdir', type : 'string', value : '',
@@ -484,6 +486,3 @@ option('analyze', type: 'boolean', value: 'true',
 
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
-
-option('dbus-interfaces-dir', type : 'string',
-       description : 'export D-Bus introspection XML as standalone files')
