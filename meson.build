@@ -1466,12 +1466,10 @@ if want_dbus != 'false' and not skip_deps
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
-        have = libdbus.found()
 else
-        have = false
-        libdbus = []
+        libdbus = disabler()
 endif
-conf.set10('HAVE_DBUS', have)
+conf.set10('HAVE_DBUS', libdbus.found())
 
 # We support one or the other. If gcrypt is available, we assume it's there to
 # be used, and use it in preference.
@@ -1732,15 +1730,16 @@ public_programs = []
 # D-Bus introspection XML export
 dbus_programs = []
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
-if dbus_interfaces_dir == ''
-        if not meson.is_cross_build()
-                dbus_interfaces_dir = datadir / 'dbus-1'
-        else
-                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
+if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
+        if meson.is_cross_build() and dbus_interfaces_dir != 'yes'
                 dbus_interfaces_dir = 'no'
+                message('D-Bus interfaces export is disabled during cross build. Pass path or yes to force enable.')
+        else
+                dbus_interfaces_dir = datadir / 'dbus-1/interfaces'
+                if libdbus.found()
+                        dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_dir)
+                endif
         endif
-elif dbus_interfaces_dir == 'yes'
-        dbus_interfaces_dir = datadir / 'dbus-1'
 endif
 
 basic_includes = include_directories(
