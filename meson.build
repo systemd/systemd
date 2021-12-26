@@ -3905,6 +3905,7 @@ summary({
         'D-Bus policy directory' :          dbuspolicydir,
         'D-Bus session directory' :         dbussessionservicedir,
         'D-Bus system directory' :          dbussystemservicedir,
+        'D-Bus interfaces directory' :      dbus_interfaces_dir,
         'bash completions directory' :      bashcompletiondir,
         'zsh completions directory' :       zshcompletiondir,
         'private shared lib version tag' :  shared_lib_tag,
