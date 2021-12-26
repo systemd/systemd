@@ -22,6 +22,7 @@ int chattr_full(const char *path,
 
         _cleanup_close_ int fd_will_close = -1;
         unsigned old_attr, new_attr;
+        int set_flags_errno = 0;
         struct stat st;
 
         assert(path || fd >= 0);
@@ -109,6 +110,12 @@ int chattr_full(const char *path,
                         log_full_errno(FLAGS_SET(flags, CHATTR_WARN_UNSUPPORTED_FLAGS) ? LOG_WARNING : LOG_DEBUG,
                                        errno,
                                        "Unable to set file attribute 0x%x on %s, ignoring: %m", mask_one, strna(path));
+
+                        /* Ensures that we record whether only EOPNOTSUPP&friends are encountered, or if a more serious
+                         * error (thus worth logging at a different level, etc) was seen too. */
+                        if (set_flags_errno == 0 || !ERRNO_IS_NOT_SUPPORTED(errno))
+                                set_flags_errno = -errno;
+
                         continue;
                 }
 
@@ -121,7 +128,10 @@ int chattr_full(const char *path,
         if (ret_final)
                 *ret_final = current_attr;
 
-        return current_attr == new_attr ? 1 : -ENOANO; /* -ENOANO indicates that some attributes cannot be set. */
+        /* -ENOANO indicates that some attributes cannot be set. ERRNO_IS_NOT_SUPPORTED indicates that all
+         * encountered failures were due to flags not supported by the FS, so return a specific error in
+         * that case, so callers can handle it properly (e.g.: tmpfiles.d can use debug level logging). */
+        return current_attr == new_attr ? 1 : ERRNO_IS_NOT_SUPPORTED(set_flags_errno) ? set_flags_errno : -ENOANO;
 }
 
 int read_attr_fd(int fd, unsigned *ret) {
