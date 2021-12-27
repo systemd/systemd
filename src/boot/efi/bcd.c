@@ -117,14 +117,14 @@ static const Key *get_subkey(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, co
         assert(bcd);
         assert(name);
 
-        if ((UINT64) offset + sizeof(SubkeyFast) > bcd_len)
+        if ((UINT64) offset + sizeof(SubkeyFast) >= bcd_len)
                 return NULL;
 
         const SubkeyFast *subkey = (const SubkeyFast *) (bcd + offset);
         if (subkey->sig != SIG_SUBKEY_FAST)
                 return NULL;
 
-        if ((UINT64) offset + offsetof(SubkeyFast, entries) + sizeof(struct SubkeyFastEntry[subkey->n_entries]) > bcd_len)
+        if ((UINT64) offset + offsetof(SubkeyFast, entries) + sizeof(struct SubkeyFastEntry[subkey->n_entries]) >= bcd_len)
                 return NULL;
 
         for (UINT16 i = 0; i < subkey->n_entries; i++) {
@@ -146,14 +146,14 @@ static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const
         assert(bcd);
         assert(name);
 
-        if ((UINT64) offset + sizeof(Key) > bcd_len)
+        if ((UINT64) offset + sizeof(Key) >= bcd_len)
                 return NULL;
 
         const Key *key = (const Key *) (bcd + offset);
         if (key->sig != SIG_KEY)
                 return NULL;
 
-        if ((UINT64) offset + offsetof(Key, key_name) + sizeof(CHAR8[key->key_name_len]) > bcd_len)
+        if ((UINT64) offset + offsetof(Key, key_name) + sizeof(CHAR8[key->key_name_len]) >= bcd_len)
                 return NULL;
 
         if (*name) {
@@ -175,21 +175,21 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
         if (key->n_key_values == 0)
                 return NULL;
 
-        if ((UINT64) key->key_values_offset + sizeof(UINT32[key->n_key_values]) > bcd_len)
+        if ((UINT64) key->key_values_offset + sizeof(UINT32[key->n_key_values]) >= bcd_len)
                 return NULL;
 
         const UINT32 *key_value_list = (const UINT32 *) (bcd + key->key_values_offset);
         for (UINT32 i = 0; i < key->n_key_values; i++) {
                 UINT32 offset = *(key_value_list + i);
 
-                if ((UINT64) offset + sizeof(KeyValue) > bcd_len)
+                if ((UINT64) offset + sizeof(KeyValue) >= bcd_len)
                         continue;
 
                 const KeyValue *kv = (const KeyValue *) (bcd + offset);
                 if (kv->sig != SIG_KEY_VALUE)
                         continue;
 
-                if ((UINT64) offset + offsetof(KeyValue, name) + kv->name_len > bcd_len)
+                if ((UINT64) offset + offsetof(KeyValue, name) + kv->name_len >= bcd_len)
                         continue;
 
                 /* If most significant bit is set, data is stored in data_offset itself, but
@@ -198,7 +198,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
                 if (FLAGS_SET(kv->data_size, UINT32_C(1) << 31))
                         continue;
 
-                if ((UINT64) kv->data_offset + kv->data_size > bcd_len)
+                if ((UINT64) kv->data_offset + kv->data_size >= bcd_len)
                         continue;
 
                 if (strncaseeqa(name, kv->name, kv->name_len) && !name[kv->name_len])
@@ -228,7 +228,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
 TEST_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
         assert(bcd);
 
-        if (HIVE_CELL_OFFSET > bcd_len)
+        if (HIVE_CELL_OFFSET >= bcd_len)
                 return NULL;
 
         BaseBlock *base_block = (BaseBlock *) bcd;
