@@ -45,7 +45,7 @@ static int tclass_new(TClassKind kind, TClass **ret) {
 }
 
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(tclass_freep) TClass *tclass = NULL;
         TrafficControl *existing;
         int r;
@@ -55,7 +55,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -82,7 +82,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         tclass->network = network;
         tclass->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_put(&network->tc_by_section, &network_config_hash_ops, tclass->section, tclass);
+        r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, tclass->section, tclass);
         if (r < 0)
                 return r;
 
@@ -97,7 +97,7 @@ TClass* tclass_free(TClass *tclass) {
         if (tclass->network && tclass->section)
                 ordered_hashmap_remove(tclass->network->tc_by_section, tclass->section);
 
-        network_config_section_free(tclass->section);
+        config_section_free(tclass->section);
 
         return mfree(tclass);
 }

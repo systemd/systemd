@@ -46,15 +46,15 @@ static L2tpSession* l2tp_session_free(L2tpSession *s) {
         if (s->tunnel && s->section)
                 ordered_hashmap_remove(s->tunnel->sessions_by_section, s->section);
 
-        network_config_section_free(s->section);
+        config_section_free(s->section);
         free(s->name);
         return mfree(s);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(L2tpSession, l2tp_session_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(L2tpSession, l2tp_session_free);
 
 static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned section_line, L2tpSession **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(l2tp_session_freep) L2tpSession *s = NULL;
         int r;
 
@@ -63,7 +63,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -83,7 +83,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
                 .section = TAKE_PTR(n),
         };
 
-        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &network_config_hash_ops, s->section, s);
+        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &config_section_hash_ops, s->section, s);
         if (r < 0)
                 return r;
 

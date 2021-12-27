@@ -69,16 +69,16 @@ Prefix *prefix_free(Prefix *prefix) {
                 hashmap_remove(prefix->network->prefixes_by_section, prefix->section);
         }
 
-        network_config_section_free(prefix->section);
+        config_section_free(prefix->section);
         set_free(prefix->tokens);
 
         return mfree(prefix);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Prefix, prefix_free);
 
 static int prefix_new_static(Network *network, const char *filename, unsigned section_line, Prefix **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(prefix_freep) Prefix *prefix = NULL;
         int r;
 
@@ -87,7 +87,7 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -111,7 +111,7 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
                 .address_auto_configuration = true,
         };
 
-        r = hashmap_ensure_put(&network->prefixes_by_section, &network_config_hash_ops, prefix->section, prefix);
+        r = hashmap_ensure_put(&network->prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
         if (r < 0)
                 return r;
 
@@ -128,15 +128,15 @@ RoutePrefix *route_prefix_free(RoutePrefix *prefix) {
                 hashmap_remove(prefix->network->route_prefixes_by_section, prefix->section);
         }
 
-        network_config_section_free(prefix->section);
+        config_section_free(prefix->section);
 
         return mfree(prefix);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutePrefix, route_prefix_free);
 
 static int route_prefix_new_static(Network *network, const char *filename, unsigned section_line, RoutePrefix **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
         int r;
 
@@ -145,7 +145,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -166,7 +166,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
                 .lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
         };
 
-        r = hashmap_ensure_put(&network->route_prefixes_by_section, &network_config_hash_ops, prefix->section, prefix);
+        r = hashmap_ensure_put(&network->route_prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
         if (r < 0)
                 return r;
 

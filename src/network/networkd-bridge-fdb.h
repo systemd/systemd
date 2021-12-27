@@ -27,7 +27,7 @@ typedef enum NeighborCacheEntryFlags {
 
 typedef struct BridgeFDB {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         uint32_t vni;
 

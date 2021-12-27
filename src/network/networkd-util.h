@@ -13,12 +13,6 @@
 
 typedef struct Link Link;
 
-typedef struct NetworkConfigSection {
-        unsigned line;
-        bool invalid;
-        char filename[];
-} NetworkConfigSection;
-
 typedef enum NetworkConfigSource {
         NETWORK_CONFIG_SOURCE_FOREIGN, /* configured by kernel */
         NETWORK_CONFIG_SOURCE_STATIC,
@@ -140,37 +134,6 @@ AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
 
 const char *dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
 sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
-
-static inline NetworkConfigSection* network_config_section_free(NetworkConfigSection *cs) {
-        return mfree(cs);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
-
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
-extern const struct hash_ops network_config_hash_ops;
-unsigned hashmap_find_free_section_line(Hashmap *hashmap);
-
-static inline bool section_is_invalid(NetworkConfigSection *section) {
-        /* If this returns false, then it does _not_ mean the section is valid. */
-
-        if (!section)
-                return false;
-
-        return section->invalid;
-}
-
-#define DEFINE_NETWORK_SECTION_FUNCTIONS(type, free_func)               \
-        static inline type* free_func##_or_set_invalid(type *p) {       \
-                assert(p);                                              \
-                                                                        \
-                if (p->section)                                         \
-                        p->section->invalid = true;                     \
-                else                                                    \
-                        free_func(p);                                   \
-                return NULL;                                            \
-        }                                                               \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
 #define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)

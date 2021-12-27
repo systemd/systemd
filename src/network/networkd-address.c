@@ -77,7 +77,7 @@ int address_new(Address **ret) {
 }
 
 static int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_freep) Address *address = NULL;
         int r;
 
@@ -86,7 +86,7 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -107,7 +107,7 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         address->section = TAKE_PTR(n);
         address->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = ordered_hashmap_ensure_put(&network->addresses_by_section, &network_config_hash_ops, address->section, address);
+        r = ordered_hashmap_ensure_put(&network->addresses_by_section, &config_section_hash_ops, address->section, address);
         if (r < 0)
                 return r;
 
@@ -134,7 +134,7 @@ Address *address_free(Address *address) {
 
         sd_ipv4acd_unref(address->acd);
 
-        network_config_section_free(address->section);
+        config_section_free(address->section);
         free(address->label);
         return mfree(address);
 }

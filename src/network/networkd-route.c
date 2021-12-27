@@ -47,7 +47,7 @@ int route_new(Route **ret) {
 }
 
 static int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
@@ -56,7 +56,7 @@ static int route_new_static(Network *network, const char *filename, unsigned sec
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -78,7 +78,7 @@ static int route_new_static(Network *network, const char *filename, unsigned sec
         route->section = TAKE_PTR(n);
         route->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->routes_by_section, &network_config_hash_ops, route->section, route);
+        r = hashmap_ensure_put(&network->routes_by_section, &config_section_hash_ops, route->section, route);
         if (r < 0)
                 return r;
 
@@ -95,7 +95,7 @@ Route *route_free(Route *route) {
                 hashmap_remove(route->network->routes_by_section, route->section);
         }
 
-        network_config_section_free(route->section);
+        config_section_free(route->section);
 
         if (route->link)
                 set_remove(route->link->routes, route);

@@ -39,14 +39,14 @@ typedef struct SecurityAssociation {
 
 typedef struct TransmitAssociation {
         MACsec *macsec;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         SecurityAssociation sa;
 } TransmitAssociation;
 
 typedef struct ReceiveAssociation {
         MACsec *macsec;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         MACsecSCI sci;
         SecurityAssociation sa;
@@ -54,7 +54,7 @@ typedef struct ReceiveAssociation {
 
 typedef struct ReceiveChannel {
         MACsec *macsec;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         MACsecSCI sci;
         ReceiveAssociation *rxsa[MACSEC_MAX_ASSOCIATION_NUMBER];

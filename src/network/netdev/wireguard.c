@@ -47,7 +47,7 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
                         hashmap_remove(peer->wireguard->peers_by_section, peer->section);
         }
 
-        network_config_section_free(peer->section);
+        config_section_free(peer->section);
 
         while ((mask = peer->ipmasks)) {
                 LIST_REMOVE(ipmasks, peer->ipmasks, mask);
@@ -65,10 +65,10 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         return mfree(peer);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(WireguardPeer, wireguard_peer_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(WireguardPeer, wireguard_peer_free);
 
 static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigned section_line, WireguardPeer **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(wireguard_peer_freep) WireguardPeer *peer = NULL;
         int r;
 
@@ -77,7 +77,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
 
         LIST_PREPEND(peers, w->peers, peer);
 
-        r = hashmap_ensure_put(&w->peers_by_section, &network_config_hash_ops, peer->section, peer);
+        r = hashmap_ensure_put(&w->peers_by_section, &config_section_hash_ops, peer->section, peer);
         if (r < 0)
                 return r;
 

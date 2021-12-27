@@ -19,7 +19,7 @@ Neighbor *neighbor_free(Neighbor *neighbor) {
                 hashmap_remove(neighbor->network->neighbors_by_section, neighbor->section);
         }
 
-        network_config_section_free(neighbor->section);
+        config_section_free(neighbor->section);
 
         if (neighbor->link)
                 set_remove(neighbor->link->neighbors, neighbor);
@@ -27,10 +27,10 @@ Neighbor *neighbor_free(Neighbor *neighbor) {
         return mfree(neighbor);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Neighbor, neighbor_free);
 
 static int neighbor_new_static(Network *network, const char *filename, unsigned section_line, Neighbor **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(neighbor_freep) Neighbor *neighbor = NULL;
         int r;
 
@@ -39,7 +39,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -60,7 +60,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
                 .source = NETWORK_CONFIG_SOURCE_STATIC,
         };
 
-        r = hashmap_ensure_put(&network->neighbors_by_section, &network_config_hash_ops, neighbor->section, neighbor);
+        r = hashmap_ensure_put(&network->neighbors_by_section, &config_section_hash_ops, neighbor->section, neighbor);
         if (r < 0)
                 return r;
 

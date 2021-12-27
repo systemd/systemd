@@ -8,11 +8,11 @@
 #include "in-addr-util.h"
 
 typedef struct Network Network;
-typedef struct NetworkConfigSection NetworkConfigSection;
+typedef struct ConfigSection ConfigSection;
 
 typedef struct DHCPStaticLease {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         struct in_addr address;
         uint8_t *client_id;

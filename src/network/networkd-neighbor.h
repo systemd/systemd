@@ -18,7 +18,7 @@ typedef struct Request Request;
 typedef struct Neighbor {
         Network *network;
         Link *link;
-        NetworkConfigSection *section;
+        ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 
