@@ -174,7 +174,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
                 return EFI_SUCCESS;
 
         /* Return buffer directly if it happens to be NUL terminated already */
-        if (size >= sizeof(CHAR16) && buf[size/sizeof(CHAR16)] == 0) {
+        if (size >= sizeof(CHAR16) && buf[size / sizeof(CHAR16) - 1] == 0) {
                 *value = TAKE_PTR(buf);
                 return EFI_SUCCESS;
         }
@@ -183,7 +183,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         val = xallocate_pool(size + sizeof(CHAR16));
 
         CopyMem(val, buf, size);
-        val[size / sizeof(CHAR16)] = 0; /* NUL terminate */
+        val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;

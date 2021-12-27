@@ -316,6 +316,6 @@ TEST_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
 
         /* The data should already be NUL-terminated. */
         CHAR16 *title = (CHAR16 *) (bcd + description_value->data_offset);
-        title[description_value->data_size / sizeof(CHAR16)] = '\0';
+        title[description_value->data_size / sizeof(CHAR16) - 1] = '\0';
         return title;
 }
