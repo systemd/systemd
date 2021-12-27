@@ -224,6 +224,8 @@ shared_sources = files('''
         net-condition.h
         netif-naming-scheme.c
         netif-naming-scheme.h
+        netif-sriov.c
+        netif-sriov.h
         netif-util.c
         netif-util.h
         nscd-flush.h
