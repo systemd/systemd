@@ -19,6 +19,7 @@
 #  define UINT32 uint32_t
 #  define UINT64 uint64_t
 #  define UINTN size_t
+#  define strlena(s) strlen(s)
 #  define strncaseeqa(a, b, n) strncaseeq((a), (b), (n))
 #  define TEST_STATIC static
 #endif
@@ -157,7 +158,7 @@ static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const
                 return NULL;
 
         if (*name) {
-                if (strncaseeqa(name, key->key_name, key->key_name_len) && !name[key->key_name_len])
+                if (strncaseeqa(name, key->key_name, key->key_name_len) && strlena(name) == key->key_name_len)
                         name += key->key_name_len;
                 else
                         return NULL;
@@ -201,7 +202,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
                 if ((UINT64) kv->data_offset + kv->data_size >= bcd_len)
                         continue;
 
-                if (strncaseeqa(name, kv->name, kv->name_len) && !name[kv->name_len])
+                if (strncaseeqa(name, kv->name, kv->name_len) && strlena(name) == kv->name_len)
                         return kv;
         }
 
