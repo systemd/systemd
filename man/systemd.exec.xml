@@ -2513,18 +2513,39 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>EnvironmentFile=</varname></term>
 
-        <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text
-        file. The text file should contain new-line-separated variable assignments.  Empty lines, lines without an
-        <literal>=</literal> separator, or lines starting with ; or # will be ignored, which may be used for
-        commenting. A line ending with a backslash will be concatenated with the following one, allowing multiline
-        variable definitions. The parser strips leading and trailing whitespace from the values of assignments, unless
-        you use double quotes (").</para>
+        <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text file.
+        The text file should contain newline-separated variable assignments.  Empty lines, lines without an
+        <literal>=</literal> separator, or lines starting with <literal>;</literal> or <literal>#</literal> will be
+        ignored, which may be used for commenting. The file must be UTF-8 encoded. Valid characters are <ulink
+        url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than <ulink
+        url="https://www.unicode.org/glossary/#noncharacter">noncharacters</ulink>, U+0000 NUL, and U+FEFF <ulink
+        url="https://www.unicode.org/glossary/#byte_order_mark">byte order mark</ulink>. Control codes other than NUL
+        are allowed.</para>
 
-        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
-        are supported, but not
-        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
-        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
-        <varname>EnvironmentFile=</varname>.</para>
+        <para>In the file, an unquoted value after the <literal>=</literal> is parsed with the same backslash-escape
+        rules as <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_01">unquoted
+        text</ulink> in a POSIX shell, but unlike in a shell, interior whitespace is preserved and quotes after the
+        first non-whitespace character are preserved. Leading and trailing whitespace (space, tab, carriage return) is
+        discarded, but interior whitespace within the line is preserved verbatim. A line ending with a backslash will be
+        continued to the following one, with the newline itself discarded. A backslash
+        <literal>\</literal> followed by any character other than newline will preserve the following character, so that
+        <literal>\\</literal> will become the value <literal>\</literal>.</para>
+
+        <para>In the file, a <literal>'</literal>-quoted value after the <literal>=</literal> can span multiple lines
+        and contain any character verbatim other than single quote, like <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_02">single-quoted
+        text</ulink> in a POSIX shell. No backslash-escape sequences are recognized. Leading and trailing whitespace
+        outside of the single quotes is discarded.</para>
+
+        <para>In the file, a <literal>"</literal>-quoted value after the <literal>=</literal> can span multiple lines,
+        and the same escape sequences are recognized as in <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_03">double-quoted
+        text</ulink> of a POSIX shell. Backslash (<literal>\</literal>) followed by any of <literal>"\`$</literal> will
+        preserve that character. A backslash followed by newline is a line continuation, and the newline itself is
+        discarded. A backslash followed by any other character is ignored; both the backslash and the following
+        character are preserved verbatim. Leading and trailing whitespace outside of the double quotes is
+        discarded.</para>
 
         <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
         <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
@@ -2556,12 +2577,6 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para>Variables set for invoked processes due to this setting are subject to being overridden by those
         configured with <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>.</para>
-
-        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
-        are supported, but not
-        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
-        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
-        <varname>EnvironmentFile=</varname>.</para>
 
         <para>Example:
         <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
