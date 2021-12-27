@@ -17,7 +17,7 @@ typedef struct Request Request;
 typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 

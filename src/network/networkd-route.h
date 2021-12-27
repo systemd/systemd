@@ -19,7 +19,7 @@ typedef struct Route {
         Link *link;
         Manager *manager;
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
@@ -74,7 +74,7 @@ extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 Route *route_free(Route *route);
-DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
 int route_dup(const Route *src, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);

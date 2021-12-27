@@ -13,7 +13,7 @@ typedef struct Request Request;
 
 typedef struct BridgeMDB {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         int family;
         union in_addr_union group_addr;
