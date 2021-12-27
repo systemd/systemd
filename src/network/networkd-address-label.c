@@ -21,14 +21,14 @@ AddressLabel *address_label_free(AddressLabel *label) {
                 hashmap_remove(label->network->address_labels_by_section, label->section);
         }
 
-        network_config_section_free(label->section);
+        config_section_free(label->section);
         return mfree(label);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(AddressLabel, address_label_free);
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_label_freep) AddressLabel *label = NULL;
         int r;
 
@@ -37,7 +37,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -57,7 +57,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
                 .label = UINT32_MAX,
         };
 
-        r = hashmap_ensure_put(&network->address_labels_by_section, &network_config_hash_ops, label->section, label);
+        r = hashmap_ensure_put(&network->address_labels_by_section, &config_section_hash_ops, label->section, label);
         if (r < 0)
                 return r;
 

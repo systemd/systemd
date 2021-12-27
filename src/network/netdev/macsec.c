@@ -43,16 +43,16 @@ static ReceiveAssociation* macsec_receive_association_free(ReceiveAssociation *c
         if (c->macsec && c->section)
                 ordered_hashmap_remove(c->macsec->receive_associations_by_section, c->section);
 
-        network_config_section_free(c->section);
+        config_section_free(c->section);
         security_association_clear(&c->sa);
 
         return mfree(c);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(ReceiveAssociation, macsec_receive_association_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(ReceiveAssociation, macsec_receive_association_free);
 
 static int macsec_receive_association_new_static(MACsec *s, const char *filename, unsigned section_line, ReceiveAssociation **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(macsec_receive_association_freep) ReceiveAssociation *c = NULL;
         int r;
 
@@ -61,7 +61,7 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -82,7 +82,7 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
 
         security_association_init(&c->sa);
 
-        r = ordered_hashmap_ensure_put(&s->receive_associations_by_section, &network_config_hash_ops, c->section, c);
+        r = ordered_hashmap_ensure_put(&s->receive_associations_by_section, &config_section_hash_ops, c->section, c);
         if (r < 0)
                 return r;
 
@@ -103,12 +103,12 @@ static ReceiveChannel* macsec_receive_channel_free(ReceiveChannel *c) {
                         ordered_hashmap_remove(c->macsec->receive_channels_by_section, c->section);
         }
 
-        network_config_section_free(c->section);
+        config_section_free(c->section);
 
         return mfree(c);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(ReceiveChannel, macsec_receive_channel_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(ReceiveChannel, macsec_receive_channel_free);
 
 static int macsec_receive_channel_new(MACsec *s, uint64_t sci, ReceiveChannel **ret) {
         ReceiveChannel *c;
@@ -129,7 +129,7 @@ static int macsec_receive_channel_new(MACsec *s, uint64_t sci, ReceiveChannel **
 }
 
 static int macsec_receive_channel_new_static(MACsec *s, const char *filename, unsigned section_line, ReceiveChannel **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(macsec_receive_channel_freep) ReceiveChannel *c = NULL;
         int r;
 
@@ -138,7 +138,7 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -154,7 +154,7 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
 
         c->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_put(&s->receive_channels_by_section, &network_config_hash_ops, c->section, c);
+        r = ordered_hashmap_ensure_put(&s->receive_channels_by_section, &config_section_hash_ops, c->section, c);
         if (r < 0)
                 return r;
 
@@ -170,16 +170,16 @@ static TransmitAssociation* macsec_transmit_association_free(TransmitAssociation
         if (a->macsec && a->section)
                 ordered_hashmap_remove(a->macsec->transmit_associations_by_section, a->section);
 
-        network_config_section_free(a->section);
+        config_section_free(a->section);
         security_association_clear(&a->sa);
 
         return mfree(a);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(TransmitAssociation, macsec_transmit_association_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(TransmitAssociation, macsec_transmit_association_free);
 
 static int macsec_transmit_association_new_static(MACsec *s, const char *filename, unsigned section_line, TransmitAssociation **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(macsec_transmit_association_freep) TransmitAssociation *a = NULL;
         int r;
 
@@ -188,7 +188,7 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -209,7 +209,7 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
 
         security_association_init(&a->sa);
 
-        r = ordered_hashmap_ensure_put(&s->transmit_associations_by_section, &network_config_hash_ops, a->section, a);
+        r = ordered_hashmap_ensure_put(&s->transmit_associations_by_section, &config_section_hash_ops, a->section, a);
         if (r < 0)
                 return r;
 
