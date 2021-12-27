@@ -1238,7 +1238,7 @@ create_empty_image() {
     LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
     sfdisk "$LOOPDEV" <<EOF
-,$((size - 50))M
+,$((size - 50))M,L,*
 ,
 EOF
 
