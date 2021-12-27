@@ -34,7 +34,7 @@ typedef struct L2tpTunnel L2tpTunnel;
 
 typedef struct L2tpSession {
         L2tpTunnel *tunnel;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         char *name;
 

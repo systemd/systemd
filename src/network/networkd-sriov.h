@@ -19,7 +19,7 @@ typedef enum SRIOVLinkState {
 } SRIOVLinkState;
 
 typedef struct SRIOV {
-        NetworkConfigSection *section;
+        ConfigSection *section;
         Network *network;
 
         uint32_t vf;   /* 0 - 2147483646 */
@@ -37,7 +37,7 @@ SRIOV *sr_iov_free(SRIOV *sr_iov);
 int link_configure_sr_iov(Link *link);
 int network_drop_invalid_sr_iov(Network *network);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_uint32);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_boolean);

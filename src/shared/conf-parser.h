@@ -114,6 +114,43 @@ int config_parse_many(
                 void *userdata,
                 Hashmap **ret_stats_by_path);   /* possibly NULL */
 
+typedef struct ConfigSection {
+        unsigned line;
+        bool invalid;
+        char filename[];
+} ConfigSection;
+
+static inline ConfigSection* config_section_free(ConfigSection *cs) {
+        return mfree(cs);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
+
+int config_section_new(const char *filename, unsigned line, ConfigSection **s);
+extern const struct hash_ops config_section_hash_ops;
+unsigned hashmap_find_free_section_line(Hashmap *hashmap);
+
+static inline bool section_is_invalid(ConfigSection *section) {
+        /* If this returns false, then it does _not_ mean the section is valid. */
+
+        if (!section)
+                return false;
+
+        return section->invalid;
+}
+
+#define DEFINE_SECTION_CLEANUP_FUNCTIONS(type, free_func)               \
+        static inline type* free_func##_or_set_invalid(type *p) {       \
+                assert(p);                                              \
+                                                                        \
+                if (p->section)                                         \
+                        p->section->invalid = true;                     \
+                else                                                    \
+                        free_func(p);                                   \
+                return NULL;                                            \
+        }                                                               \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
 CONFIG_PARSER_PROTOTYPE(config_parse_long);

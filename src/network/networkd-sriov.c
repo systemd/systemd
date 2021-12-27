@@ -33,7 +33,7 @@ static int sr_iov_new(SRIOV **ret) {
 }
 
 static int sr_iov_new_static(Network *network, const char *filename, unsigned section_line, SRIOV **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(sr_iov_freep) SRIOV *sr_iov = NULL;
         SRIOV *existing = NULL;
         int r;
@@ -43,7 +43,7 @@ static int sr_iov_new_static(Network *network, const char *filename, unsigned se
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -60,7 +60,7 @@ static int sr_iov_new_static(Network *network, const char *filename, unsigned se
         sr_iov->network = network;
         sr_iov->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_put(&network->sr_iov_by_section, &network_config_hash_ops, sr_iov->section, sr_iov);
+        r = ordered_hashmap_ensure_put(&network->sr_iov_by_section, &config_section_hash_ops, sr_iov->section, sr_iov);
         if (r < 0)
                 return r;
 
@@ -75,7 +75,7 @@ SRIOV *sr_iov_free(SRIOV *sr_iov) {
         if (sr_iov->network && sr_iov->section)
                 ordered_hashmap_remove(sr_iov->network->sr_iov_by_section, sr_iov->section);
 
-        network_config_section_free(sr_iov->section);
+        config_section_free(sr_iov->section);
 
         return mfree(sr_iov);
 }

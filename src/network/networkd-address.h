@@ -22,7 +22,7 @@ typedef int (*address_ready_callback_t)(Address *address);
 struct Address {
         Link *link;
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
@@ -72,7 +72,7 @@ int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);

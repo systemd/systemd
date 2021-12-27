@@ -37,7 +37,7 @@ typedef enum QDiscKind {
 typedef struct QDisc {
         TrafficControl meta;
 
-        NetworkConfigSection *section;
+        ConfigSection *section;
         Network *network;
 
         int family;
@@ -80,7 +80,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
 int qdisc_configure(Link *link, QDisc *qdisc);
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(QDisc, qdisc_free);
 
 DEFINE_TC_CAST(QDISC, QDisc);
 
