@@ -108,7 +108,7 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
 
         /* Export the device path this image is started from, if it's not set yet */
         if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
-                if (loaded_image->DeviceHandle && disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                         efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
 
         /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
@@ -225,40 +225,38 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image);
 
-        if (loaded_image->DeviceHandle) {
-                (void) pack_cpio(loaded_image,
-                                 NULL,
-                                 L".cred",
-                                 (const CHAR8*) ".extra/credentials",
-                                 /* dir_mode= */ 0500,
-                                 /* access_mode= */ 0400,
-                                 /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                                 L"Credentials initrd",
-                                 &credential_initrd,
-                                 &credential_initrd_size);
+        (void) pack_cpio(loaded_image,
+                         NULL,
+                         L".cred",
+                         (const CHAR8*) ".extra/credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Credentials initrd",
+                         &credential_initrd,
+                         &credential_initrd_size);
 
-                (void) pack_cpio(loaded_image,
-                                 L"\\loader\\credentials",
-                                 L".cred",
-                                 (const CHAR8*) ".extra/global_credentials",
-                                 /* dir_mode= */ 0500,
-                                 /* access_mode= */ 0400,
-                                 /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                                 L"Global credentials initrd",
-                                 &global_credential_initrd,
-                                 &global_credential_initrd_size);
+        (void) pack_cpio(loaded_image,
+                         L"\\loader\\credentials",
+                         L".cred",
+                         (const CHAR8*) ".extra/global_credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Global credentials initrd",
+                         &global_credential_initrd,
+                         &global_credential_initrd_size);
 
-                (void) pack_cpio(loaded_image,
-                                 NULL,
-                                 L".raw",
-                                 (const CHAR8*) ".extra/sysext",
-                                 /* dir_mode= */ 0555,
-                                 /* access_mode= */ 0444,
-                                 /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
-                                 L"System extension initrd",
-                                 &sysext_initrd,
-                                 &sysext_initrd_size);
-        }
+        (void) pack_cpio(loaded_image,
+                         NULL,
+                         L".raw",
+                         (const CHAR8*) ".extra/sysext",
+                         /* dir_mode= */ 0555,
+                         /* access_mode= */ 0444,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
+                         L"System extension initrd",
+                         &sysext_initrd,
+                         &sysext_initrd_size);
 
         linux_size = szs[SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
