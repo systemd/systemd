@@ -1941,7 +1941,6 @@ static void config_entry_add_osx(Config *config) {
 }
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
-        _cleanup_freepool_ CHAR8 *bcd = NULL;
         CHAR16 *title = NULL;
         EFI_STATUS err;
         UINTN len;
@@ -1953,10 +1952,14 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (!config->auto_entries)
                 return;
 
-        /* Try to find a better title. */
+#if defined(__i386__) || defined(__x86_64__)
+        /* Try to find a better title by getting it from the BCD store. The parser is
+         * currently not safe for unaligned data, so only use it on arches that can handle it. */
+        _cleanup_freepool_ CHAR8 *bcd = NULL;
         err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
         if (!EFI_ERROR(err))
                 title = get_bcd_title((UINT8 *) bcd, len);
+#endif
 
         config_entry_add_loader_auto(config, device, root_dir, NULL,
                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",

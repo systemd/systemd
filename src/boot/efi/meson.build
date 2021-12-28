@@ -331,7 +331,6 @@ common_sources = [
         'util.c']
 
 systemd_boot_sources = [
-        'bcd.c',
         'boot.c',
         'console.c',
         'drivers.c',
@@ -346,6 +345,7 @@ stub_sources = [
         'stub.c']
 
 if efi_arch[1] in ['ia32', 'x86_64']
+        systemd_boot_sources += 'bcd.c'
         stub_sources += 'linux_x86.c'
 else
         stub_sources += 'linux.c'
@@ -407,13 +407,15 @@ endforeach
 
 ############################################################
 
-tests += [
-        [['src/boot/efi/test-bcd.c'],
-         [],
-         [libzstd],
-         [],
-         'HAVE_ZSTD'],
-]
+if efi_arch[1] in ['ia32', 'x86_64']
+        tests += [
+                [['src/boot/efi/test-bcd.c'],
+                 [],
+                 [libzstd],
+                 [],
+                 'HAVE_ZSTD'],
+        ]
+endif
 
 test_efi_disk_img = custom_target(
         'test-efi-disk.img',
