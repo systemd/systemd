@@ -330,6 +330,12 @@ EFI_STATUS pack_cpio(
         assert(ret_buffer);
         assert(ret_buffer_size);
 
+        if (!loaded_image->DeviceHandle) {
+                *ret_buffer = NULL;
+                *ret_buffer_size = 0;
+                return EFI_SUCCESS;
+        }
+
         root = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root)
                 return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
