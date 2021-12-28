@@ -515,6 +515,25 @@ test_invalid_dropins () {
     return 0
 }
 
+test_symlink_dropin_directory () {
+    # For issue #21920.
+    echo "Testing symlink drop-in directory..."
+    create_services test15-a
+    rmdir /{etc,run,usr/lib}/systemd/system/test15-a.service.d
+    mkdir -p /tmp/testsuite-15-test15-a-dropin-directory
+    ln -s /tmp/testsuite-15-test15-a-dropin-directory /etc/systemd/system/test15-a.service.d
+    cat >/tmp/testsuite-15-test15-a-dropin-directory/override.conf <<EOF
+[Unit]
+Description=hogehoge
+EOF
+    ln -s /tmp/testsuite-15-test15-a-dropin-directory-nonexistent /run/systemd/system/test15-a.service.d
+    touch /tmp/testsuite-15-test15-a-dropin-directory-regular
+    ln -s /tmp/testsuite-15-test15-a-dropin-directory-regular /usr/lib/systemd/system/test15-a.service.d
+    check_ok test15-a Description hogehoge
+
+    clear_services test15-a
+}
+
 test_basic_dropins
 test_linked_units
 test_template_alias
@@ -523,5 +542,6 @@ test_template_dropins
 test_alias_dropins
 test_masked_dropins
 test_invalid_dropins
+test_symlink_dropin_directory
 
 touch /testok
