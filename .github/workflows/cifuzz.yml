@@ -44,7 +44,7 @@ jobs:
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
         with:
           oss-fuzz-project-name: 'systemd'
-          fuzz-seconds: 600
+          fuzz-seconds: 3600
           dry-run: false
           sanitizer: ${{ matrix.sanitizer }}
       - name: Upload Crash
