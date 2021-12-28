@@ -24,7 +24,7 @@ typedef struct WireguardIPmask {
 
 typedef struct WireguardPeer {
         Wireguard *wireguard;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         uint8_t public_key[WG_KEY_LEN];
         uint8_t preshared_key[WG_KEY_LEN];

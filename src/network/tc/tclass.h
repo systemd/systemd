@@ -19,7 +19,7 @@ typedef enum TClassKind {
 typedef struct TClass {
         TrafficControl meta;
 
-        NetworkConfigSection *section;
+        ConfigSection *section;
         Network *network;
 
         uint32_t classid;
@@ -59,7 +59,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
 int tclass_configure(Link *link, TClass *tclass);
 int tclass_section_verify(TClass *tclass);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(TClass, tclass_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_free);
 
 DEFINE_TC_CAST(TCLASS, TClass);
 

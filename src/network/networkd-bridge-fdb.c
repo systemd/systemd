@@ -32,13 +32,13 @@ BridgeFDB *bridge_fdb_free(BridgeFDB *fdb) {
                 hashmap_remove(fdb->network->bridge_fdb_entries_by_section, fdb->section);
         }
 
-        network_config_section_free(fdb->section);
+        config_section_free(fdb->section);
 
         free(fdb->outgoing_ifname);
         return mfree(fdb);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(BridgeFDB, bridge_fdb_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(BridgeFDB, bridge_fdb_free);
 
 /* create a new FDB entry or get an existing one. */
 static int bridge_fdb_new_static(
@@ -47,7 +47,7 @@ static int bridge_fdb_new_static(
                 unsigned section_line,
                 BridgeFDB **ret) {
 
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(bridge_fdb_freep) BridgeFDB *fdb = NULL;
         int r;
 
@@ -56,7 +56,7 @@ static int bridge_fdb_new_static(
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -83,7 +83,7 @@ static int bridge_fdb_new_static(
                 .ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
 
-        r = hashmap_ensure_put(&network->bridge_fdb_entries_by_section, &network_config_hash_ops, fdb->section, fdb);
+        r = hashmap_ensure_put(&network->bridge_fdb_entries_by_section, &config_section_hash_ops, fdb->section, fdb);
         if (r < 0)
                 return r;
 

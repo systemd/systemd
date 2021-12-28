@@ -27,7 +27,7 @@ NextHop *nexthop_free(NextHop *nexthop) {
                 hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
         }
 
-        network_config_section_free(nexthop->section);
+        config_section_free(nexthop->section);
 
         if (nexthop->link) {
                 set_remove(nexthop->link->nexthops, nexthop);
@@ -48,7 +48,7 @@ NextHop *nexthop_free(NextHop *nexthop) {
         return mfree(nexthop);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(NextHop, nexthop_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(NextHop, nexthop_free);
 
 static int nexthop_new(NextHop **ret) {
         _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
@@ -68,7 +68,7 @@ static int nexthop_new(NextHop **ret) {
 }
 
 static int nexthop_new_static(Network *network, const char *filename, unsigned section_line, NextHop **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
         int r;
 
@@ -77,7 +77,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -96,7 +96,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         nexthop->section = TAKE_PTR(n);
         nexthop->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->nexthops_by_section, &network_config_hash_ops, nexthop->section, nexthop);
+        r = hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
         if (r < 0)
                 return r;
 
