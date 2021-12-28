@@ -50,7 +50,8 @@ else
     export PYTHONPATH="$ORIG_PYTHONPATH:/usr/lib/python3/dist-packages/"
 
     if [[ "$SANITIZER" == undefined ]]; then
-        UBSAN_FLAGS="-fsanitize=pointer-overflow -fno-sanitize-recover=pointer-overflow"
+        additional_ubsan_checks=pointer-overflow,alignment
+        UBSAN_FLAGS="-fsanitize=$additional_ubsan_checks -fno-sanitize-recover=$additional_ubsan_checks"
         CFLAGS="$CFLAGS $UBSAN_FLAGS"
         CXXFLAGS="$CXXFLAGS $UBSAN_FLAGS"
     fi
