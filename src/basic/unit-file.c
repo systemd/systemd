@@ -236,6 +236,31 @@ bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_
         return updated == timestamp_hash;
 }
 
+static int directory_name_is_valid(const char *name) {
+        const char *suffix;
+
+        /* Accept a directory whose name is a valid unit file name ending in .wants/, .requires/ or .d/ */
+
+        FOREACH_STRING(suffix, ".wants", ".requires", ".d") {
+                _cleanup_free_ char *chopped = NULL;
+                const char *e;
+
+                e = endswith(name, suffix);
+                if (!e)
+                        continue;
+
+                chopped = strndup(name, e - name);
+                if (!chopped)
+                        return log_oom();
+
+                if (unit_name_is_valid(chopped, UNIT_NAME_ANY) ||
+                    unit_type_from_string(chopped) >= 0)
+                        return true;
+        }
+
+        return false;
+}
+
 int unit_file_build_name_map(
                 const LookupPaths *lp,
                 uint64_t *cache_timestamp_hash,
@@ -287,50 +312,61 @@ int unit_file_build_name_map(
                 FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         _unused_ _cleanup_free_ char *_filename_free = NULL;
                         _cleanup_free_ char *simplified = NULL;
+                        bool symlink_to_dir = false;
                         const char *dst = NULL;
                         char *filename;
 
                         /* We only care about valid units and dirs with certain suffixes, let's ignore the
                          * rest. */
 
-                        if (IN_SET(de->d_type, DT_REG, DT_LNK)) {
+                        if (de->d_type == DT_REG) {
 
+                                /* Accept a regular file whose name is a valid unit file name. */
                                 if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                         continue;
 
-                                /* Accept a regular file or symlink whose name is a valid unit file name. */
-
                         } else if (de->d_type == DT_DIR) {
-                                bool valid_dir_name = false;
-                                const char *suffix;
-
-                                /* Also accept a directory whose name is a valid unit file name ending in
-                                 * .wants/, .requires/ or .d/ */
 
                                 if (!paths) /* Skip directories early unless path_cache is requested */
                                         continue;
 
-                                FOREACH_STRING(suffix, ".wants", ".requires", ".d") {
-                                        _cleanup_free_ char *chopped = NULL;
-                                        const char *e;
+                                r = directory_name_is_valid(de->d_name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
 
-                                        e = endswith(de->d_name, suffix);
-                                        if (!e)
+                        } else if (de->d_type == DT_LNK) {
+
+                                /* Accept a symlink file whose name is a valid unit file name or
+                                 * ending in .wants/, .requires/ or .d/. */
+
+                                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY)) {
+                                        _cleanup_free_ char *target = NULL;
+
+                                        if (!paths) /* Skip symlink to a directory early unless path_cache is requested */
                                                 continue;
 
-                                        chopped = strndup(de->d_name, e - de->d_name);
-                                        if (!chopped)
-                                                return log_oom();
+                                        r = directory_name_is_valid(de->d_name);
+                                        if (r < 0)
+                                                return r;
+                                        if (r == 0)
+                                                continue;
 
-                                        if (unit_name_is_valid(chopped, UNIT_NAME_ANY) ||
-                                            unit_type_from_string(chopped) >= 0) {
-                                                valid_dir_name = true;
-                                                break;
+                                        r = readlinkat_malloc(dirfd(d), de->d_name, &target);
+                                        if (r < 0) {
+                                                log_warning_errno(r, "Failed to read symlink %s/%s, ignoring: %m",
+                                                                  *dir, de->d_name);
+                                                continue;
                                         }
+
+                                        r = is_dir(target, /* follow = */ true);
+                                        if (r <= 0)
+                                                continue;
+
+                                        symlink_to_dir = true;
                                 }
 
-                                if (!valid_dir_name)
-                                        continue;
                         } else
                                 continue;
 
@@ -347,8 +383,10 @@ int unit_file_build_name_map(
                         } else
                                 _filename_free = filename; /* Make sure we free the filename. */
 
-                        if (!IN_SET(de->d_type, DT_REG, DT_LNK))
+                        if (de->d_type == DT_DIR || (de->d_type == DT_LNK && symlink_to_dir))
                                 continue;
+
+                        assert(IN_SET(de->d_type, DT_REG, DT_LNK));
 
                         /* search_path is ordered by priority (highest first). If the name is already mapped
                          * to something (incl. itself), it means that we have already seen it, and we should
