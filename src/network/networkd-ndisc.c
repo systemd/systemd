@@ -612,6 +612,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route prefix length: %m");
 
+        if (!link->network->ipv6_accept_ra_use_route_prefix &&
+            in6_addr_is_null(&dst) && prefixlen == 0)
+                /* If UseGateway=no and the route prefix is the default gateway, then ignore the prefix. */
+                return 0;
+
         if (in6_prefix_is_filtered(&dst, prefixlen, link->network->ndisc_allow_listed_route_prefix, link->network->ndisc_deny_listed_route_prefix)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
