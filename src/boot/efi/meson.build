@@ -310,7 +310,6 @@ common_sources = [
         'util.c']
 
 systemd_boot_sources = [
-        'bcd.c',
         'boot.c',
         'console.c',
         'drivers.c',
@@ -328,6 +327,18 @@ if efi_arch[1] in ['ia32', 'x86_64']
         stub_sources += 'linux_x86.c'
 else
         stub_sources += 'linux.c'
+endif
+
+# BCD parser only makes sense on arches that Windows supports.
+if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
+        systemd_boot_sources += 'bcd.c'
+        tests += [
+                [['src/boot/efi/test-bcd.c'],
+                 [],
+                 [libzstd],
+                 [],
+                 'HAVE_ZSTD'],
+        ]
 endif
 
 systemd_boot_objects = []
@@ -386,14 +397,6 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
 endforeach
 
 ############################################################
-
-tests += [
-        [['src/boot/efi/test-bcd.c'],
-         [],
-         [libzstd],
-         [],
-         'HAVE_ZSTD'],
-]
 
 test_efi_disk_img = custom_target(
         'test-efi-disk.img',
