@@ -43,7 +43,7 @@ if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
         subdir_done()
 endif
 
-objcopy = find_program('objcopy')
+objcopy = run_command(cc.cmd_array(), '-print-prog-name=objcopy', check: true).stdout().strip()
 
 efi_ld = get_option('efi-ld')
 if efi_ld == 'auto'
