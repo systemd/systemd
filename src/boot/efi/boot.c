@@ -1941,6 +1941,7 @@ static void config_entry_add_osx(Config *config) {
 }
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_freepool_ CHAR8 *bcd = NULL;
         CHAR16 *title = NULL;
         EFI_STATUS err;
@@ -1961,6 +1962,7 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         config_entry_add_loader_auto(config, device, root_dir, NULL,
                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",
                                      L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+#endif
 }
 
 static void config_entry_add_linux(
