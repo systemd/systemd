@@ -3557,13 +3557,13 @@ void manager_check_finished(Manager *m) {
 
         manager_send_ready(m);
 
+        /* Notify Type=idle units that we are done now */
+        manager_close_idle_pipe(m);
+
         if (MANAGER_IS_FINISHED(m))
                 return;
 
         manager_flip_auto_status(m, false, "boot finished");
-
-        /* Notify Type=idle units that we are done now */
-        manager_close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = NULL;
