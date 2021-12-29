@@ -44,10 +44,6 @@ if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
 endif
 
 objcopy = find_program('objcopy')
-efi_cc = get_option('efi-cc')
-if efi_cc.length() == 0
-        efi_cc = cc.cmd_array()
-endif
 
 efi_ld = get_option('efi-ld')
 if efi_ld == 'auto'
@@ -62,7 +58,7 @@ efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
                run_command('realpath', '-e',
-                        '/usr/lib' / run_command(efi_cc, '-print-multi-os-directory').stdout().strip()).stdout().strip()]
+                        '/usr/lib' / run_command(cc.cmd_array(), '-print-multi-os-directory').stdout().strip()).stdout().strip()]
         if dir != '' and fs.is_dir(dir)
                 efi_libdir = dir
                 break
@@ -275,15 +271,13 @@ if run_command('grep', '-q', '__CTOR_LIST__', efi_lds).returncode() == 0
         ]
 endif
 
-efi_cc_version = run_command(efi_cc, '--version').stdout().split('\n')[0]
-if efi_cc_version.contains('clang') and efi_cc_version.split('.')[0].split(' ')[-1].to_int() <= 10
+if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
 endif
 
 summary({
         'EFI machine type' :                efi_arch[0],
-        'EFI CC' :                          '@0@'.format(' '.join(efi_cc)),
         'EFI LD' :                          efi_ld,
         'EFI lds' :                         efi_lds,
         'EFI crt0' :                        efi_crt0,
@@ -371,7 +365,7 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         o_file = custom_target(file.split('/')[-1] + '.o',
                                input : file,
                                output : file.split('/')[-1] + '.o',
-                               command : [efi_cc, '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
+                               command : [cc.cmd_array(), '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
                                depend_files : efi_headers + fundamental_headers)
         if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
                 systemd_boot_objects += o_file
@@ -392,7 +386,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 tuple[0],
                 input : tuple[2],
                 output : tuple[0],
-                command : [efi_cc, '-o', '@OUTPUT@', efi_ldflags, efi_cflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
+                command : [cc.cmd_array(), '-o', '@OUTPUT@', efi_ldflags, efi_cflags, tuple[2], '-lefi', '-lgnuefi', '-lgcc'],
                 install : tuple[3],
                 install_dir : bootlibdir)
 
