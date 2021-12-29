@@ -3,7 +3,7 @@
 conf.set10('ENABLE_EFI', get_option('efi'))
 conf.set10('HAVE_GNU_EFI', false)
 
-if not get_option('efi') or get_option('gnu-efi') == 'false'
+if skip_deps or not get_option('efi') or get_option('gnu-efi') == 'false'
         if get_option('gnu-efi') == 'true'
                 error('gnu-efi support requested, but general efi support is disabled')
         endif
