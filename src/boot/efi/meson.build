@@ -415,6 +415,11 @@ tests += [
          'HAVE_ZSTD'],
 ]
 
+
+fuzzers += [
+        [['src/boot/efi/fuzz-bcd.c']],
+]
+
 test_efi_disk_img = custom_target(
         'test-efi-disk.img',
         input : [efi_stubs[0][0], efi_stubs[1][1]],
