@@ -4697,6 +4697,7 @@ MACVTAP=macvtap-test
       <programlisting># /etc/systemd/network/27-xfrm.netdev
 [NetDev]
 Name=xfrm0
+Kind=xfrm
 
 [Xfrm]
 InterfaceId=7</programlisting>
