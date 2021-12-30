@@ -7,7 +7,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;
 
-        if (size == 0)
+        if (size > 65536)
                 return 0;
 
         /* We don't want to fill the logs with assert warnings.

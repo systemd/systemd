@@ -32,7 +32,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ void *buf = NULL, *buf2 = NULL;
         int r;
 
-        if (size < offsetof(header, data) + 1)
+        if (size < offsetof(header, data) + 1 || size > 65536)
                 return 0;
 
         const header *h = (struct header*) data;

@@ -12,7 +12,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL, *g = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-        if (size == 0)
+        if (size == 0 || size > 65536)
                 return 0;
 
         f = fmemopen_unlocked((char*) data, size, "re");
