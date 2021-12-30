@@ -24,7 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uint8_t *client_id;
         DHCPLease *lease;
 
-        if (size < sizeof(DHCPMessage))
+        if (size < sizeof(DHCPMessage) || size > 65536)
                 return 0;
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
