@@ -20,16 +20,13 @@
 #include "util.h"
 
 static int sethostname_idempotent_full(const char *s, bool really) {
-        _cleanup_free_ char *buf = NULL;
-        int r;
+        struct utsname u;
 
         assert(s);
 
-        r = gethostname_full(GET_HOSTNAME_ALLOW_NONE | GET_HOSTNAME_ALLOW_LOCALHOST, &buf);
-        if (r < 0)
-                return r;
+        assert_se(uname(&u) >= 0);
 
-        if (streq(buf, s))
+        if (streq_ptr(s, u.nodename))
                 return 0;
 
         if (really &&
