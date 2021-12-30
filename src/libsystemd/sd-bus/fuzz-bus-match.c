@@ -15,6 +15,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
+        if (size > 65536)
+                return 0;
+
         /* We don't want to fill the logs with messages about parse errors.
          * Disable most logging if not running standalone */
         if (!getenv("SYSTEMD_LOG_LEVEL"))
