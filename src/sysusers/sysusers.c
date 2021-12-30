@@ -284,7 +284,7 @@ static int make_backup(const char *target, const char *x) {
 
         /* Copy over the access mask. Don't fail on chmod() or chown(). If it stays owned by us and/or
          * unreadable by others, then it isn't too bad... */
-        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
+        r = fchmod_and_chown_with_fallback(fileno(dst), dst_tmp, st.st_mode & 07777, st.st_uid, st.st_gid);
         if (r < 0)
                 log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
