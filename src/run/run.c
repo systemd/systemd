@@ -1229,7 +1229,7 @@ static int start_transient_service(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
                 if (r < 0)
                         return r;
         }
@@ -1465,7 +1465,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
         if (r < 0)
                 return r;
 
@@ -1685,7 +1685,7 @@ static int start_transient_trigger(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
         if (r < 0)
                 return r;
 
