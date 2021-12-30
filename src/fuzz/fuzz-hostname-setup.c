@@ -10,7 +10,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *ret = NULL;
 
-        if (size == 0)
+        if (size == 0 || size > 65536)
                 return 0;
 
         f = fmemopen_unlocked((char*) data, size, "re");

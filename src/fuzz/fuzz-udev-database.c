@@ -12,6 +12,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-database.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
+        if (size > 65536)
+                return 0;
+
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
 

@@ -36,7 +36,7 @@ void fuzz_journald_processing_function(
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
 
-        if (size == 0)
+        if (size > 65536)
                 return;
 
         dummy_server_init(&s, data, size);
