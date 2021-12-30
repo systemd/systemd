@@ -24,7 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
         int r;
 
-        if (size <= 2)
+        if (size <= 2 || size > 65536)
                 return 0;
 
         if (!getenv("SYSTEMD_LOG_LEVEL"))

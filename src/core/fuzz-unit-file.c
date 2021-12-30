@@ -21,7 +21,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         const char *name;
         long offset;
 
+        if (size > 65536)
+                return 0;
+
         f = data_to_file(data, size);
+
         assert_se(f);
 
         if (read_line(f, LINE_MAX, &p) < 0)

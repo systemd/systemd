@@ -11,7 +11,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char network_config[] = "/tmp/fuzz-networkd.XXXXXX";
 
-        if (size > 65535)
+        if (size > 65536)
                 return 0;
 
         if (!getenv("SYSTEMD_LOG_LEVEL"))
