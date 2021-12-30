@@ -686,6 +686,7 @@ int config_parse_wireguard_allowed_ips(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
+                union in_addr_union masked;
 
                 r = extract_first_word(&p, &word, "," WHITESPACE, 0);
                 if (r == 0)
@@ -705,13 +706,23 @@ int config_parse_wireguard_allowed_ips(
                         continue;
                 }
 
+                masked = addr;
+                assert_se(in_addr_mask(family, &masked, prefixlen) >= 0);
+                if (!in_addr_equal(family, &masked, &addr)) {
+                        _cleanup_free_ char *buf = NULL;
+
+                        (void) in_addr_prefix_to_string(family, &masked, prefixlen, &buf);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Specified address '%s' is not properly masked, assuming '%s'.", word, strna(buf));
+                }
+
                 ipmask = new(WireguardIPmask, 1);
                 if (!ipmask)
                         return log_oom();
 
                 *ipmask = (WireguardIPmask) {
                         .family = family,
-                        .ip = addr,
+                        .ip = masked,
                         .cidr = prefixlen,
                 };
 
