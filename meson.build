@@ -1176,12 +1176,15 @@ if want_libcryptsetup != 'false' and not skip_deps
                                    required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
         have = libcryptsetup.found()
 
-        conf.set10('HAVE_CRYPT_SET_METADATA_SIZE',
-                   have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup))
-        conf.set10('HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY',
-                   have and cc.has_function('crypt_activate_by_signed_key', dependencies : libcryptsetup))
-        conf.set10('HAVE_CRYPT_TOKEN_MAX',
-                   have and cc.has_function('crypt_token_max', dependencies : libcryptsetup))
+        foreach ident : ['crypt_set_metadata_size',
+                         'crypt_activate_by_signed_key',
+                         'crypt_token_max']
+                have_ident = have and cc.has_function(
+                        ident,
+                        prefix : '#include <libcryptsetup.h>',
+                        dependencies : libcryptsetup)
+                conf.set10('HAVE_' + ident.to_upper(), have_ident)
+        endforeach
 else
         have = false
         libcryptsetup = []
@@ -1189,8 +1192,14 @@ endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
 if want_libcryptsetup_plugins != 'false' and not skip_deps
-        have = (cc.has_function('crypt_activate_by_token_pin', dependencies : libcryptsetup) and
-                cc.has_function('crypt_token_external_path', dependencies : libcryptsetup))
+        have = (cc.has_function(
+                        'crypt_activate_by_token_pin',
+                        prefix : '#include <libcryptsetup.h>',
+                        dependencies : libcryptsetup) and
+                cc.has_function(
+                        'crypt_token_external_path',
+                        prefix : '#include <libcryptsetup.h>',
+                        dependencies : libcryptsetup))
 else
         have = false
 endif
