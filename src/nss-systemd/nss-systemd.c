@@ -237,6 +237,7 @@ static enum nss_status copy_synthesized_group(
         required = strlen(src->gr_name) + 1;
         required += strlen(src->gr_passwd) + 1;
         required += sizeof(char*); /* ...but that NULL still needs to be stored into the buffer! */
+        required = ALIGN_TO(required, sizeof(char*));
 
         if (buflen < required) {
                 *errnop = ERANGE;
@@ -250,7 +251,7 @@ static enum nss_status copy_synthesized_group(
         /* String fields point into the user-provided buffer */
         dest->gr_name = buffer;
         dest->gr_passwd = stpcpy(dest->gr_name, src->gr_name) + 1;
-        dest->gr_mem = (char **) stpcpy(dest->gr_passwd, src->gr_passwd) + 1;
+        dest->gr_mem = ALIGN_TO_PTR(stpcpy(dest->gr_passwd, src->gr_passwd) + 1, sizeof(char*));
         *dest->gr_mem = NULL;
 
         return NSS_STATUS_SUCCESS;
