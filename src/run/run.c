@@ -1228,7 +1228,7 @@ static int start_transient_service(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
         }
@@ -1473,7 +1473,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
@@ -1693,7 +1693,7 @@ static int start_transient_trigger(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
