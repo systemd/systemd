@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "pretty-print.h"
@@ -61,6 +62,8 @@ int shutdown_parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+
+        arg_ask_password = isatty(STDIN_FILENO);
 
         while ((c = getopt_long(argc, argv, "HPrhkKat:fFc", options, NULL)) >= 0)
                 switch (c) {

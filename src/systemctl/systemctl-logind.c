@@ -332,11 +332,12 @@ int logind_schedule_shutdown(void) {
         if (arg_dry_run)
                 action = strjoina("dry-", action);
 
+        polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
         r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
         if (r < 0)
-                return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
+                return log_warning_errno(r, "Failed to schedule shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
                 log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
@@ -359,6 +360,7 @@ int logind_cancel_shutdown(void) {
         if (r < 0)
                 return r;
 
+        polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
         r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, NULL, NULL);
