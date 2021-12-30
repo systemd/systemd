@@ -250,7 +250,7 @@ static enum nss_status copy_synthesized_group(
         /* String fields point into the user-provided buffer */
         dest->gr_name = buffer;
         dest->gr_passwd = stpcpy(dest->gr_name, src->gr_name) + 1;
-        dest->gr_mem = (char **) stpcpy(dest->gr_passwd, src->gr_passwd) + 1;
+        dest->gr_mem = (char **) (stpcpy(dest->gr_passwd, src->gr_passwd) + 1);
         *dest->gr_mem = NULL;
 
         return NSS_STATUS_SUCCESS;
