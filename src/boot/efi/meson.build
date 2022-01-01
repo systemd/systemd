@@ -405,6 +405,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                            '-j', '.sdata',
                            '-j', '.sdmagic',
                            '-j', '.text',
+                           '--section-alignment=512',
                            efi_format,
                            '@INPUT@', '@OUTPUT@'],
                 install : true,
