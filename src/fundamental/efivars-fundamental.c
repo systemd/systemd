@@ -4,6 +4,7 @@
 
 static const sd_char * const table[_SECURE_BOOT_MAX] = {
         [SECURE_BOOT_UNSUPPORTED] = STR_C("unsupported"),
+        [SECURE_BOOT_DISABLED]    = STR_C("disabled"),
         [SECURE_BOOT_UNKNOWN]     = STR_C("unknown"),
         [SECURE_BOOT_AUDIT]       = STR_C("audit"),
         [SECURE_BOOT_DEPLOYED]    = STR_C("deployed"),
@@ -30,6 +31,11 @@ SecureBootMode decode_secure_boot_mode(
                 return SECURE_BOOT_AUDIT;
         if (!secure && !deployed && !audit && setup)
                 return SECURE_BOOT_SETUP;
+
+        /* Some firmware allows disabling secure boot while not being in
+         * setup mode unless the PK is cleared. */
+        if (!secure && !deployed && !audit && !setup)
+                return SECURE_BOOT_DISABLED;
 
         /* Well, this should not happen. */
         return SECURE_BOOT_UNKNOWN;
