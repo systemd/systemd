@@ -569,8 +569,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
 
-# HP Laptop15s-eq0xxx
-evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPLaptop15s-eq0*:*
+# HP Laptop 15s-eq0023nl
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPLaptop15s-eq0*:sku9MG38EA#ABZ:*
  KEYBOARD_KEY_9d=102nd                                  # Greater than/Less than
 
 # Elitebook
