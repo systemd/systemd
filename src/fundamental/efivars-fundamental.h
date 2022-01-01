@@ -19,6 +19,7 @@
 
 typedef enum SecureBootMode {
         SECURE_BOOT_UNSUPPORTED,
+        SECURE_BOOT_DISABLED,
         SECURE_BOOT_UNKNOWN,
         SECURE_BOOT_AUDIT,
         SECURE_BOOT_DEPLOYED,
