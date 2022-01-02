@@ -213,6 +213,6 @@ else
 fi
 
 echo "### Testing json output ###"
-"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=help
-"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=pretty
-"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=short
+"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=help
+"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=pretty
+"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=short
