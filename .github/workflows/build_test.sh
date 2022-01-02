@@ -132,6 +132,12 @@ for args in "${ARGS[@]}"; do
         fatal "'meson compile' failed with $args"
     fi
 
+    for loader in build/src/boot/efi/*.efi; do
+        if sbverify --list "$loader" |& grep -q "gap in section table"; then
+            fatal "$loader: Gaps found in section table"
+        fi
+    done
+
     git clean -dxf
 
     success "Build with $args passed in $SECONDS seconds"
