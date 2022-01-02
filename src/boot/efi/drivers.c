@@ -43,8 +43,13 @@ static EFI_STATUS load_one_driver(
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing: %r", fname);
 
         err = BS->StartImage(image, NULL, NULL);
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to start image %s: %r", fname, err);
+        if (EFI_ERROR(err)) {
+                /* EFI_ABORTED signals an initializing driver. It uses this error code on success
+                 * so that it is unloaded after. */
+                if (err != EFI_ABORTED)
+                        log_error_stall(L"Failed to start image %s: %r", fname, err);
+                return err;
+        }
 
         TAKE_PTR(image);
         return EFI_SUCCESS;
