@@ -15,7 +15,8 @@
 #include "util.h"
 
 /* magic string to find in the binary image */
-_used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
+_used_ _section_(".sdmagic") static const char magic[] =
+        "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
