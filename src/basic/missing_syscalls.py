@@ -16,6 +16,7 @@ SYSCALLS = [
     'move_mount',
     'name_to_handle_at',
     'open_tree',
+    'openat2',
     'pidfd_open',
     'pidfd_send_signal',
     'pkey_mprotect',
