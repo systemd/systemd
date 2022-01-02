@@ -214,5 +214,5 @@ fi
 
 echo "### Testing json output ###"
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=help
-"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=pretty
+"$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=pretty --no-pager
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --json=short
