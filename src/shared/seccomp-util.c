@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
+#include <linux/unistd.h>
 #include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
