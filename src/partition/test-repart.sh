@@ -8,6 +8,8 @@ set -o pipefail
 repart="${1:?}"
 test -x "$repart"
 
+PATH=$PATH:/sbin:/usr/sbin
+
 D="$(mktemp --tmpdir --directory "test-repart.XXXXXXXXXX")"
 
 # shellcheck disable=SC2064
