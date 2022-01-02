@@ -8,6 +8,15 @@ set -o pipefail
 repart="${1:?}"
 test -x "$repart"
 
+sfdisk=
+for i in /usr/bin /usr/sbin /bin /sbin; do
+    if [[ -x "$i/sfdisk" ]]; then
+        sfdisk="$i/sfdisk"
+        break
+    fi
+done
+test -x "$sfdisk"
+
 D="$(mktemp --tmpdir --directory "test-repart.XXXXXXXXXX")"
 
 # shellcheck disable=SC2064
@@ -20,7 +29,7 @@ echo "### Testing systemd-repart --empty=create ###"
 
 "$repart" "$D/zzz" --empty=create --size=1G --seed="$SEED"
 
-sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/empty"
+"$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/empty"
 
 cmp "$D/empty" - <<EOF
 label: gpt
@@ -56,7 +65,7 @@ EOF
 
 "$repart" "$D/zzz" --dry-run=no --seed="$SEED" --definitions="$D/definitions"
 
-sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated"
+"$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated"
 
 cmp "$D/populated" - <<EOF
 label: gpt
@@ -91,7 +100,7 @@ echo "UUID=b0b1b2b3b4b5b6b7b8b9babbbcbdbebf" >>"$D/definitions/home.conf"
 
 "$repart" "$D/zzz" --dry-run=no --seed="$SEED" --definitions="$D/definitions"
 
-sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated2"
+"$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated2"
 
 cmp "$D/populated2" - <<EOF
 label: gpt
@@ -111,7 +120,7 @@ echo "### Resizing to 2G ###"
 
 "$repart" "$D/zzz" --size=2G --dry-run=no --seed="$SEED" --definitions="$D/definitions"
 
-sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated3"
+"$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated3"
 
 cmp "$D/populated3" - <<EOF
 label: gpt
@@ -141,7 +150,7 @@ EOF
 
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions"
 
-sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated4"
+"$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated4"
 
 cmp "$D/populated4" - <<EOF
 label: gpt
@@ -178,7 +187,7 @@ EOF
 
     "$repart" "$D/zzz" --size=auto --dry-run=no --seed="$SEED" --definitions="$D/definitions"
 
-    sfdisk -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated5"
+    "$sfdisk" -d "$D/zzz" | grep -v -e 'sector-size' -e '^$' >"$D/populated5"
 
     cmp "$D/populated5" - <<EOF
 label: gpt
