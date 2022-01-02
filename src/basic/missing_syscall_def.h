@@ -700,6 +700,72 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #  endif
 #endif
 
+#ifndef __IGNORE_openat2
+#  if defined(__aarch64__)
+#    define systemd_NR_openat2 437
+#  elif defined(__alpha__)
+#    define systemd_NR_openat2 547
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_openat2 437
+#  elif defined(__arm__)
+#    define systemd_NR_openat2 437
+#  elif defined(__i386__)
+#    define systemd_NR_openat2 437
+#  elif defined(__ia64__)
+#    define systemd_NR_openat2 1461
+#  elif defined(__loongarch64)
+#    define systemd_NR_openat2 437
+#  elif defined(__m68k__)
+#    define systemd_NR_openat2 437
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_openat2 4437
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_openat2 6437
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_openat2 5437
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_openat2 437
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_openat2 437
+#    elif __riscv_xlen == 64
+#      define systemd_NR_openat2 437
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_openat2 437
+#  elif defined(__sparc__)
+#    define systemd_NR_openat2 437
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_openat2 (437 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_openat2 437
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "openat2() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_openat2 && __NR_openat2 >= 0
+#    if defined systemd_NR_openat2
+assert_cc(__NR_openat2 == systemd_NR_openat2);
+#    endif
+#  else
+#    if defined __NR_openat2
+#      undef __NR_openat2
+#    endif
+#    if defined systemd_NR_openat2 && systemd_NR_openat2 >= 0
+#      define __NR_openat2 systemd_NR_openat2
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_pidfd_open
 #  if defined(__aarch64__)
 #    define systemd_NR_pidfd_open 434
