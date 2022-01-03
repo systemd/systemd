@@ -6,7 +6,6 @@
 # Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-10-03 16:04+0000\n"

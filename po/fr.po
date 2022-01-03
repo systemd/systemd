@@ -7,7 +7,6 @@
 # Arnaud T. <listes.00@gmail.com>, 2021.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-01-14 06:37+0000\n"
