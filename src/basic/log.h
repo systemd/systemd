@@ -26,10 +26,10 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
-/* Note to readers: << and >> have lower precedence than & and | */
+/* Note to readers: << and >> have lower precedence (are evaluated earlier) than & and | */
 #define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
 #define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
-#define ERRNO_VALUE(val)                    (abs(val) & 255)
+#define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
 
 const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
