@@ -813,16 +813,22 @@ static int submit_coredump(
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
         /* Try to get a stack trace if we can */
+        const char *exe = context->meta[META_EXE];
+
         if (coredump_size > arg_process_size_max) {
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
-        } else if (coredump_fd >= 0)
-                (void) parse_elf_object(coredump_fd,
-                                        context->meta[META_EXE],
-                                        /* fork_disable_dump= */endswith(context->meta[META_EXE], "systemd-coredump"), /* avoid loops */
-                                        &stacktrace,
-                                        &json_metadata);
+        } else if (coredump_fd >= 0) {
+                if (exe)
+                        (void) parse_elf_object(coredump_fd,
+                                                exe,
+                                                /* fork_disable_dump= */endswith(exe, "systemd-coredump"), /* avoid loops */
+                                                &stacktrace,
+                                                &json_metadata);
+                else
+                        log_debug("Not generating stack trace because we failed to acquire the exe path");
+        }
 
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],
@@ -861,7 +867,8 @@ log:
                 JsonVariant *package_name, *package_version;
 
                 /* We only add structured fields for the 'main' ELF module */
-                if (!path_equal_filename(module_name, context->meta[META_EXE]))
+                assert(exe);
+                if (!path_equal_filename(module_name, exe))
                         continue;
 
                 package_name = json_variant_by_key(module_json, "name");
@@ -1181,7 +1188,7 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         if (r < 0)
                 return r;
 
-        /* The following are optional but we used them if present */
+        /* The following are optional, but we use them if present. */
         r = get_process_exe(pid, &t);
         if (r >= 0)
                 r = iovw_put_string_field_free(iovw, "COREDUMP_EXE=", t);
@@ -1191,7 +1198,6 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         if (cg_pid_get_unit(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
 
-        /* The next are optional */
         if (cg_pid_get_user_unit(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
 
