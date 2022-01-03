@@ -388,6 +388,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
         int r;
 
         assert(mod || elf);
+        assert(name);
         assert(c);
 
         if (mod)
@@ -614,19 +615,20 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 elf_type = "coredump";
         } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
+                const char *e = executable ?: "(unnamed)";
                 bool interpreter_found = false;
 
-                r = parse_buildid(NULL, c.elf, executable, &c, &id_json);
+                r = parse_buildid(NULL, c.elf, e, &c, &id_json);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse build-id of ELF file: %m");
 
-                r = parse_package_metadata(executable, id_json, c.elf, &interpreter_found, &c);
+                r = parse_package_metadata(e, id_json, c.elf, &interpreter_found, &c);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse package metadata of ELF file: %m");
 
                 /* If we found a build-id and nothing else, return at least that. */
                 if (!package_metadata && id_json) {
-                        r = json_build(&package_metadata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(executable, JSON_BUILD_VARIANT(id_json))));
+                        r = json_build(&package_metadata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(e, JSON_BUILD_VARIANT(id_json))));
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to build JSON object: %m");
                 }
