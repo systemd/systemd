@@ -624,8 +624,8 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse package metadata of ELF file: %m");
 
-                /* If we found a build-id and nothing else, return at least that. */
-                if (!package_metadata && id_json) {
+                /* If we found a build-id, return at least that. */
+                if (id_json) {
                         r = json_build(&package_metadata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(executable, JSON_BUILD_VARIANT(id_json))));
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to build JSON object: %m");
