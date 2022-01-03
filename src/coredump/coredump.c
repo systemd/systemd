@@ -793,10 +793,9 @@ static int submit_coredump(
         r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
         if (r < 0)
                 return r;
-        if (r == 0) {
+        if (r == 0)
                 (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
-
-        } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+        else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                          coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
 
