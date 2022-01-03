@@ -51,13 +51,11 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         }
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;
-        if (cld_code != CLD_EXITED) {
+        if (cld_code != CLD_EXITED)
                 return log_error_errno(-SYNTHETIC_ERRNO(EBUSY), "ExecStart didn't exited, code='%s'", sigchld_code_to_string(cld_code));
-        }
 
-        if (SERVICE(u)->state != SERVICE_DEAD) {
+        if (SERVICE(u)->state != SERVICE_DEAD)
                 return log_error_errno(-SYNTHETIC_ERRNO(EBUSY), "Service is not dead");
-        }
 
         return 0;
 }
