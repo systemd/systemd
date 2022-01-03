@@ -3,12 +3,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
-#include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+
+/* include missing_syscall_def.h earlier to make __SNR_foo mapped to __NR_foo. */
+#include "missing_syscall_def.h"
+#include <seccomp.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -1736,13 +1739,11 @@ int seccomp_memory_deny_write_execute(void) {
                 if (r < 0)
                         continue;
 
-#ifdef __NR_pkey_mprotect
                 r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(pkey_mprotect),
                                                1,
                                                SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
                 if (r < 0)
                         continue;
-#endif
 
                 if (shmat_syscall > 0) {
                         r = add_seccomp_syscall_filter(seccomp, arch, shmat_syscall,
@@ -2063,7 +2064,6 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
         else
                 any = true;
 
-#if SCMP_SYS(open) > 0
         r = seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
@@ -2075,7 +2075,6 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
                 log_debug_errno(r, "Failed to add filter for open: %m");
         else
                 any = true;
-#endif
 
         r = seccomp_rule_add_exact(
                         seccomp,
@@ -2213,7 +2212,6 @@ static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
         /* Blocks open() with the specified flag, where flag is O_SYNC or so. This makes these calls return
          * EINVAL, in the hope the client code will retry without O_SYNC then.  */
 
-#if SCMP_SYS(open) > 0
         r = seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EINVAL),
@@ -2224,7 +2222,6 @@ static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
                 log_debug_errno(r, "Failed to add filter for open: %m");
         else
                 any = true;
-#endif
 
         r = seccomp_rule_add_exact(
                         seccomp,
