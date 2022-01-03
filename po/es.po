@@ -8,7 +8,6 @@
 # Emilio Herrera <ehespinosa57@gmail.com>, 2021.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-08-26 18:05+0000\n"

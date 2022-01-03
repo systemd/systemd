@@ -4,7 +4,6 @@
 # Andika Triwidada <andika@gmail.com>, 2014, 2021.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-09-24 11:05+0000\n"
