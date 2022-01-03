@@ -73,7 +73,7 @@ CHAR16 *xstra_to_str(const CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
-static inline void FreePoolp(void *p) {
+static inline void free_poolp(void *p) {
         void *q = *(void**) p;
 
         if (!q)
@@ -82,9 +82,9 @@ static inline void FreePoolp(void *p) {
         FreePool(q);
 }
 
-#define _cleanup_freepool_ _cleanup_(FreePoolp)
+#define _cleanup_freepool_ _cleanup_(free_poolp)
 
-static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
+static inline void file_handle_closep(EFI_FILE_HANDLE *handle) {
         if (!*handle)
                 return;
 

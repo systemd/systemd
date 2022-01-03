@@ -436,7 +436,7 @@ CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
 }
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
@@ -703,7 +703,7 @@ EFI_STATUS open_directory(
                 const CHAR16 *path,
                 EFI_FILE_HANDLE *ret) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE dir = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         EFI_STATUS err;
 
