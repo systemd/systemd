@@ -31,3 +31,14 @@ usb:v1679p3001*
 usb:v1679p6003*
 usb:v0483pDF11*
  ID_SIGNAL_ANALYZER=1
+
+###########################################################
+# XGecu
+###########################################################
+# TL866A/CS
+usb:v04D8pE11C*
+ ID_SIGNAL_ANALYZER=1
+
+# TL866II+
+usb:vA466p0A53*
+ ID_SIGNAL_ANALYZER=1
