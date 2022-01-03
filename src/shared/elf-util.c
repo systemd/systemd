@@ -575,7 +575,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
-        const char *elf_architecture = NULL, *elf_type;
+        const char *elf_type;
         GElf_Ehdr elf_header;
         size_t sz = 0;
         int r;
@@ -644,8 +644,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 return log_warning_errno(r, "Failed to build JSON object: %m");
 
 #if HAVE_DWELF_ELF_E_MACHINE_STRING
-        elf_architecture = sym_dwelf_elf_e_machine_string(elf_header.e_machine);
-#endif
+        const char *elf_architecture = sym_dwelf_elf_e_machine_string(elf_header.e_machine);
         if (elf_architecture) {
                 _cleanup_(json_variant_unrefp) JsonVariant *json_architecture = NULL;
 
@@ -661,6 +660,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 if (ret)
                         fprintf(c.f, "ELF object binary architecture: %s\n", elf_architecture);
         }
+#endif
 
         /* We always at least have the ELF type, so merge that (and possibly the arch). */
         r = json_variant_merge(&elf_metadata, package_metadata);
