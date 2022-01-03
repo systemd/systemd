@@ -214,7 +214,7 @@ static int parse_argv(int argc, char **argv,
 #if ENABLE_NSS_MYMACHINES
                                 "mymachines",
 #endif
-                                "files");
+                                NULL);
         assert_se(modules);
 
         if (argc > 2)
