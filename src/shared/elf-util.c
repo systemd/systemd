@@ -288,7 +288,6 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
         /* Iterate over all program headers in that ELF object. These will have been copied by
          * the kernel verbatim when the core file is generated. */
         for (size_t i = 0; i < n_program_headers; ++i) {
-                size_t note_offset = 0, name_offset, desc_offset;
                 GElf_Phdr mem, *program_header;
                 GElf_Nhdr note_header;
                 Elf_Data *data;
@@ -313,8 +312,11 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                 if (!data)
                         continue;
 
-                while (note_offset < data->d_size &&
-                       (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0) {
+                for (size_t note_offset = 0, name_offset, desc_offset;
+                     note_offset < data->d_size &&
+                     (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
+
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
                         const char *note_name = (const char *)data->d_buf + name_offset;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
@@ -323,50 +325,50 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                         /* Package metadata might have different owners, but the
                          * magic ID is always the same. */
-                        if (note_header.n_type == ELF_PACKAGE_METADATA_ID) {
-                                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+                        if (note_header.n_type != ELF_PACKAGE_METADATA_ID)
+                                continue;
 
-                                r = json_parse(payload, 0, &v, NULL, NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "json_parse on %s failed: %m", payload);
+                        r = json_parse(payload, 0, &v, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "json_parse on %s failed: %m", payload);
 
-                                /* First pretty-print to the buffer, so that the metadata goes as
-                                 * plaintext in the journal. */
-                                if (c->f) {
-                                        fprintf(c->f, "Metadata for module %s owned by %s found: ",
-                                                name, note_name);
-                                        json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
-                                        fputc('\n', c->f);
-                                }
+                        /* First pretty-print to the buffer, so that the metadata goes as
+                         * plaintext in the journal. */
+                        if (c->f) {
+                                fprintf(c->f, "Metadata for module %s owned by %s found: ",
+                                        name, note_name);
+                                json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
+                                fputc('\n', c->f);
+                        }
 
-                                /* Secondly, if we have a build-id, merge it in the same JSON object
-                                 * so that it appears all nicely together in the logs/metadata. */
-                                if (id_json) {
-                                        r = json_variant_merge(&v, id_json);
-                                        if (r < 0)
-                                                return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
-                                }
-
-                                /* Then we build a new object using the module name as the key, and merge it
-                                 * with the previous parses, so that in the end it all fits together in a single
-                                 * JSON blob. */
-                                r = json_build(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(name, JSON_BUILD_VARIANT(v))));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build JSON object: %m");
-                                r = json_variant_merge(c->package_metadata, w);
+                        /* Secondly, if we have a build-id, merge it in the same JSON object
+                         * so that it appears all nicely together in the logs/metadata. */
+                        if (id_json) {
+                                r = json_variant_merge(&v, id_json);
                                 if (r < 0)
                                         return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
-
-                                /* Finally stash the name, so we avoid double visits. */
-                                r = set_put_strdup(c->modules, name);
-                                if (r < 0)
-                                        return log_error_errno(r, "set_put_strdup failed: %m");
-
-                                if (ret_interpreter_found)
-                                        *ret_interpreter_found = interpreter_found;
-
-                                return 1;
                         }
+
+                        /* Then we build a new object using the module name as the key, and merge it
+                         * with the previous parses, so that in the end it all fits together in a single
+                         * JSON blob. */
+                        r = json_build(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(name, JSON_BUILD_VARIANT(v))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        r = json_variant_merge(c->package_metadata, w);
+                        if (r < 0)
+                                return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
+
+                        /* Finally stash the name, so we avoid double visits. */
+                        r = set_put_strdup(c->modules, name);
+                        if (r < 0)
+                                return log_error_errno(r, "set_put_strdup failed: %m");
+
+                        if (ret_interpreter_found)
+                                *ret_interpreter_found = interpreter_found;
+
+                        return 1;
                 }
         }
 
