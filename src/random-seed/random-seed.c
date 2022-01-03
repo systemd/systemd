@@ -26,6 +26,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "sha256.h"
 #include "util.h"
 #include "xattr-util.h"
 
@@ -106,9 +107,11 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
         bool read_seed_file, write_seed_file, synchronous;
         _cleanup_free_ void* buf = NULL;
+        struct sha256_ctx hash_state;
+        uint8_t hash[32];
         size_t buf_size;
         struct stat st;
-        ssize_t k;
+        ssize_t k, l;
         int r;
 
         log_setup();
@@ -242,6 +245,16 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
                 }
+                /* If we're going to later write out a seed file, initialize a hash state with
+                 * the contents of the seed file we just read, so that the new one can't regress
+                 * in entropy. */
+                if (write_seed_file) {
+                        sha256_init_ctx(&hash_state);
+                        if (k < 0)
+                                k = 0;
+                        sha256_process_bytes(&k, sizeof(k), &hash_state);
+                        sha256_process_bytes(buf, k, &hash_state);
+                }
         }
 
         if (write_seed_file) {
@@ -275,6 +288,17 @@ static int run(int argc, char *argv[]) {
                         if (k == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                        "Got EOF while reading from /dev/urandom.");
+                }
+
+                /* If we previously read in a seed file, then hash the new seed into the old one,
+                 * and replace the last 32 bytes of the seed with the hash output, so that the
+                 * new seed file can't regress in entropy. */
+                if (read_seed_file) {
+                        sha256_process_bytes(&k, sizeof(k), &hash_state);
+                        sha256_process_bytes(buf, k, &hash_state);
+                        sha256_finish_ctx(&hash_state, hash);
+                        l = MIN(k, 32);
+                        memcpy((uint8_t *)buf + k - l, hash, l);
                 }
 
                 r = loop_write(seed_fd, buf, (size_t) k, false);
