@@ -13,7 +13,7 @@ for ((i = 0; i < 5; i++)); do
     EC=0
     (sudo python3 -m mkosi "$@") |& tee "$TEMPFILE" || EC=$?
     if [[ $EC -eq 0 ]]; then
-        # The command passed - let's return immediatelly
+        # The command passed — let's return immediately
         break
     fi
 
@@ -23,7 +23,7 @@ for ((i = 0; i < 5; i++)); do
         exit $EC
     fi
 
-    # The command failed due to the dissect-related timeout - let's try again
+    # The command failed due to the dissect-related timeout — let's try again
     sleep 1
 done
 
