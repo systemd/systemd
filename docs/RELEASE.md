@@ -21,4 +21,4 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 12. "Draft" a new release on github (https://github.com/systemd/systemd/releases/new), mark "This is a pre-release" if appropriate.
 13. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 14. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released`)
-15. [FINAL] Push commits to stable, create an empty -stable branch: `git push systemd-stable origin/master:master origin/master:refs/heads/${version}-stable`, and change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
+15. [FINAL] Push commits to stable, create an empty -stable branch: `git push systemd-stable --atomic origin/main:main origin/main:refs/heads/${version}-stable`, and change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
