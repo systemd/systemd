@@ -64,10 +64,10 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
 
         /* TODO Maybe choose a number based on runtime information? */
         r = sym_bpf_map__resize(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
-        if (r != 0)
-                return log_error_errno(r,
-                                "Failed to resize BPF map '%s': %m",
-                                sym_bpf_map__name(obj->maps.cgroup_hash));
+        assert(r <= 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resize BPF map '%s': %m",
+                                       sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
         inner_map_fd = sym_bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(uint32_t), sizeof(uint32_t), 128, 0);
@@ -75,11 +75,13 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
                 return log_error_errno(errno, "Failed to create BPF map: %m");
 
         r = sym_bpf_map__set_inner_map_fd(obj->maps.cgroup_hash, inner_map_fd);
+        assert(r <= 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to set inner map fd: %m");
 
         r = restrict_fs_bpf__load(obj);
-        if (r)
+        assert(r <= 0);
+        if (r < 0)
                 return log_error_errno(r, "Failed to load BPF object");
 
         *ret_obj = TAKE_PTR(obj);
@@ -99,9 +101,8 @@ static int mac_bpf_use(void) {
 
         r = read_one_line_file("/sys/kernel/security/lsm", &lsm_list);
         if (r < 0) {
-               if (errno != ENOENT)
-                       log_debug_errno(r, "Failed to read /sys/kernel/security/lsm, ignoring: %m");
-
+               if (r != -ENOENT)
+                       log_notice_errno(r, "Failed to read /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
                return 0;
         }
 
@@ -110,21 +111,17 @@ static int mac_bpf_use(void) {
 
                 r = extract_first_word(&p, &word, ",", 0);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse /sys/kernel/security/lsm, ignoring: %m");
+                        log_notice_errno(r, "Failed to parse /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
                         return 0;
                 }
 
-                if (streq(word, "bpf")) {
-                        cached_use = 1;
-                        break;
-                }
+                if (streq(word, "bpf"))
+                        return cached_use = 1;
         }
-
-        return cached_use;
 }
 
 int lsm_bpf_supported(void) {
