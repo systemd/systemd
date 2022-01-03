@@ -46,8 +46,7 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
         assert_se(uname(&u) >= 0);
 
         s = u.nodename;
-        if (isempty(s) ||
-            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_NONE) && streq(s, "(none)")) ||
+        if (isempty(s) || streq(s, "(none)") ||
             (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_LOCALHOST) && is_localhost(s)) ||
             (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')) {
                 if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
