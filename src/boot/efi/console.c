@@ -12,7 +12,7 @@
 #define VERTICAL_MAX_OK 1080
 #define VIEWPORT_RATIO 10
 
-static inline void EventClosep(EFI_EVENT *event) {
+static inline void event_closep(EFI_EVENT *event) {
         if (!*event)
                 return;
 
@@ -42,7 +42,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         static BOOLEAN checked = FALSE;
         UINTN index;
         EFI_STATUS err;
-        _cleanup_(EventClosep) EFI_EVENT timer = NULL;
+        _cleanup_(event_closep) EFI_EVENT timer = NULL;
 
         assert(key);
 
