@@ -44,6 +44,7 @@ enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
         LOADER_LINUX,
+        LOADER_STUB,
 };
 
 typedef struct {
@@ -71,8 +72,8 @@ typedef struct {
 typedef struct {
         ConfigEntry **entries;
         UINTN entry_count;
-        INTN idx_default;
-        INTN idx_default_efivar;
+        UINTN idx_default;
+        UINTN idx_default_efivar;
         UINT32 timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
         UINT32 timeout_sec_config;
         UINT32 timeout_sec_efivar;
@@ -102,6 +103,11 @@ enum {
         TIMEOUT_MENU_FORCE  = UINT32_MAX,
         TIMEOUT_MENU_HIDDEN = 0,
         TIMEOUT_TYPE_MAX    = UINT32_MAX,
+};
+
+enum {
+        IDX_MAX = INT16_MAX,
+        IDX_INVALID,
 };
 
 static void cursor_left(UINTN *cursor, UINTN *first) {
@@ -375,7 +381,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
         assert(config);
 
         if (key == 0)
-                return -1;
+                return IDX_INVALID;
 
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
@@ -394,7 +400,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
                 if (config->entries[i]->key == key)
                         return i;
 
-        return -1;
+        return IDX_INVALID;
 }
 
 static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
@@ -583,7 +589,7 @@ static BOOLEAN menu_run(
         UINTN visible_max = 0;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
-        UINTN idx_first = 0, idx_last = 0;
+        UINTN idx, idx_first = 0, idx_last = 0;
         BOOLEAN new_mode = TRUE, clear = TRUE;
         BOOLEAN refresh = TRUE, highlight = FALSE;
         UINTN x_start = 0, y_start = 0, y_status = 0;
@@ -592,10 +598,9 @@ static BOOLEAN menu_run(
         _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        INT16 idx;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
         INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
-        INTN default_efivar_saved = config->idx_default_efivar;
+        UINTN default_efivar_saved = config->idx_default_efivar;
 
         graphics_mode(FALSE);
         ST->ConIn->Reset(ST->ConIn, FALSE);
@@ -693,7 +698,7 @@ static BOOLEAN menu_run(
                                 print_at(x_start, y_start + i - idx_first,
                                          (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
-                                if ((INTN)i == config->idx_default_efivar)
+                                if (i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                                  (CHAR16*) L"=>");
@@ -702,9 +707,9 @@ static BOOLEAN menu_run(
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
-                        if ((INTN)idx_highlight_prev == config->idx_default_efivar)
+                        if (idx_highlight_prev == config->idx_default_efivar)
                                 print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
-                        if ((INTN)idx_highlight == config->idx_default_efivar)
+                        if (idx_highlight == config->idx_default_efivar)
                                 print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
                         highlight = FALSE;
                 }
@@ -826,14 +831,14 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
-                        if (config->idx_default_efivar != (INTN)idx_highlight) {
+                        if (config->idx_default_efivar != idx_highlight) {
                                 FreePool(config->entry_default_efivar);
                                 config->entry_default_efivar = xstrdup(config->entries[idx_highlight]->id);
                                 config->idx_default_efivar = idx_highlight;
                                 status = xstrdup(L"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
-                                config->idx_default_efivar = -1;
+                                config->idx_default_efivar = IDX_INVALID;
                                 status = xstrdup(L"Default boot entry cleared.");
                         }
                         config->use_saved_entry_efivar = FALSE;
@@ -853,8 +858,18 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
-                        if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
+                        if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
+                            LOADER_EFI, LOADER_LINUX, LOADER_STUB))
                                 break;
+
+                        /* The stub will not accept command line options when secure boot is enabled
+                         * unless there is none embedded in the image. Do not try to pretend we
+                         * can edit it to only have it be ignored. */
+                        if (config->entries[idx_highlight]->type == LOADER_STUB &&
+                            secure_boot_enabled() &&
+                            config->entries[idx_highlight]->options)
+                                break;
+
                         /* The edit line may end up on the last line of the screen. And even though we're
                          * not telling the firmware to advance the line, it still does in this one case,
                          * causing a scroll to happen that screws with our beautiful boot loader output.
@@ -923,7 +938,7 @@ static BOOLEAN menu_run(
                 default:
                         /* jump with a hotkey directly to a matching entry */
                         idx = entry_lookup_key(config, idx_highlight+1, KEYCHAR(key));
-                        if (idx < 0)
+                        if (idx == IDX_INVALID)
                                 break;
                         idx_highlight = idx;
                         refresh = TRUE;
@@ -974,6 +989,9 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         assert(config);
         assert(entry);
 
+        /* This is just for paranoia. */
+        assert(config->entry_count < IDX_MAX);
+
         if ((config->entry_count & 15) == 0) {
                 UINTN i = config->entry_count + 16;
                 config->entries = xreallocate_pool(
@@ -1022,61 +1040,62 @@ static CHAR8 *line_get_key_value(
         assert(key_ret);
         assert(value_ret);
 
-skip:
-        line = content + *pos;
-        if (*line == '\0')
-                return NULL;
+        for (;;) {
+                line = content + *pos;
+                if (*line == '\0')
+                        return NULL;
 
-        linelen = 0;
-        while (line[linelen] && !strchra((CHAR8 *)"\n\r", line[linelen]))
-               linelen++;
+                linelen = 0;
+                while (line[linelen] && !strchra((CHAR8 *) "\n\r", line[linelen]))
+                        linelen++;
 
-        /* move pos to next line */
-        *pos += linelen;
-        if (content[*pos])
-                (*pos)++;
+                /* move pos to next line */
+                *pos += linelen;
+                if (content[*pos])
+                        (*pos)++;
 
-        /* empty line */
-        if (linelen == 0)
-                goto skip;
+                /* empty line */
+                if (linelen == 0)
+                        continue;
 
-        /* terminate line */
-        line[linelen] = '\0';
+                /* terminate line */
+                line[linelen] = '\0';
 
-        /* remove leading whitespace */
-        while (strchra((CHAR8 *)" \t", *line)) {
-                line++;
-                linelen--;
+                /* remove leading whitespace */
+                while (strchra((CHAR8 *) " \t", *line)) {
+                        line++;
+                        linelen--;
+                }
+
+                /* remove trailing whitespace */
+                while (linelen > 0 && strchra((CHAR8 *) " \t", line[linelen - 1]))
+                        linelen--;
+                line[linelen] = '\0';
+
+                if (*line == '#')
+                        continue;
+
+                /* split key/value */
+                value = line;
+                while (*value && !strchra(sep, *value))
+                        value++;
+                if (*value == '\0')
+                        continue;
+                *value = '\0';
+                value++;
+                while (*value && strchra(sep, *value))
+                        value++;
+
+                /* unquote */
+                if (value[0] == '"' && line[linelen - 1] == '"') {
+                        value++;
+                        line[linelen - 1] = '\0';
+                }
+
+                *key_ret = line;
+                *value_ret = value;
+                return line;
         }
-
-        /* remove trailing whitespace */
-        while (linelen > 0 && strchra((CHAR8 *)" \t", line[linelen-1]))
-                linelen--;
-        line[linelen] = '\0';
-
-        if (*line == '#')
-                goto skip;
-
-        /* split key/value */
-        value = line;
-        while (*value && !strchra(sep, *value))
-                value++;
-        if (*value == '\0')
-                goto skip;
-        *value = '\0';
-        value++;
-        while (*value && strchra(sep, *value))
-                value++;
-
-        /* unquote */
-        if (value[0] == '"' && line[linelen-1] == '"') {
-                value++;
-                line[linelen-1] = '\0';
-        }
-
-        *key_ret = line;
-        *value_ret = value;
-        return line;
 }
 
 static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
@@ -1298,7 +1317,7 @@ static void config_entry_bump_counters(
                 EFI_FILE_HANDLE root_dir) {
 
         _cleanup_freepool_ CHAR16* old_path = NULL, *new_path = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size;
         EFI_STATUS err;
@@ -1506,7 +1525,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
-                .idx_default_efivar = -1,
+                .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
                 .timeout_sec_config = TIMEOUT_UNSET,
@@ -1555,7 +1574,7 @@ static void config_load_entries(
                 EFI_FILE *root_dir,
                 const CHAR16 *loaded_image_path) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE entries_dir = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE entries_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         UINTN f_size = 0;
         EFI_STATUS err;
@@ -1632,32 +1651,32 @@ static void config_sort_entries(Config *config) {
         sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
-static INTN config_entry_find(Config *config, const CHAR16 *needle) {
+static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
         if (!needle)
-                return -1;
+                return IDX_INVALID;
 
         for (UINTN i = 0; i < config->entry_count; i++)
                 if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
-                        return (INTN) i;
+                        return i;
 
-        return -1;
+        return IDX_INVALID;
 }
 
 static void config_default_entry_select(Config *config) {
-        INTN i;
+        UINTN i;
 
         assert(config);
 
         i = config_entry_find(config, config->entry_oneshot);
-        if (i >= 0) {
+        if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
 
         i = config_entry_find(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
-        if (i >= 0) {
+        if (i != IDX_INVALID) {
                 config->idx_default = i;
                 config->idx_default_efivar = i;
                 return;
@@ -1665,10 +1684,10 @@ static void config_default_entry_select(Config *config) {
 
         if (config->use_saved_entry)
                 /* No need to do the same thing twice. */
-                i = config->use_saved_entry_efivar ? -1 : config_entry_find(config, config->entry_saved);
+                i = config->use_saved_entry_efivar ? IDX_INVALID : config_entry_find(config, config->entry_saved);
         else
                 i = config_entry_find(config, config->entry_default_config);
-        if (i >= 0) {
+        if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
@@ -1683,7 +1702,7 @@ static void config_default_entry_select(Config *config) {
         }
 
         /* no entry found */
-        config->idx_default = -1;
+        config->idx_default = IDX_INVALID;
 }
 
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
@@ -1970,7 +1989,7 @@ static void config_entry_add_linux(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE linux_dir = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE linux_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         ConfigEntry *entry;
         UINTN f_size = 0;
@@ -2098,7 +2117,7 @@ static void config_entry_add_linux(
                 entry = config_entry_add_loader(
                                 config,
                                 device,
-                                LOADER_LINUX,
+                                LOADER_STUB,
                                 f->FileName,
                                 /* key= */ 'l',
                                 good_name,
@@ -2344,7 +2363,7 @@ static void config_load_all_entries(
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE *root_dir = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         CHAR16 *loaded_image_path;
         EFI_STATUS err;
@@ -2396,7 +2415,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_default_entry_select(&config);
 
         /* if no configured entry to select from was found, enable the menu */
-        if (config.idx_default == -1) {
+        if (config.idx_default == IDX_INVALID) {
                 config.idx_default = 0;
                 if (config.timeout_sec == 0)
                         config.timeout_sec = 10;
@@ -2411,11 +2430,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Block up to 100ms to give firmware time to get input working. */
                 err = console_key_read(&key, 100 * 1000);
                 if (!EFI_ERROR(err)) {
-                        INT16 idx;
-
                         /* find matching key in config entries */
-                        idx = entry_lookup_key(&config, config.idx_default, KEYCHAR(key));
-                        if (idx >= 0)
+                        UINTN idx = entry_lookup_key(&config, config.idx_default, KEYCHAR(key));
+                        if (idx != IDX_INVALID)
                                 config.idx_default = idx;
                         else
                                 menu = TRUE;
