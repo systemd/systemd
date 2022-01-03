@@ -51,8 +51,8 @@ available functionality:
 
 9. There are multiple CI systems in use that run on every github PR submission.
 
-10. [Coverity](https://scan.coverity.com/) is analyzing systemd master in
-    regular intervals. The reports are available
+10. [Coverity](https://scan.coverity.com/) is analyzing systemd `main` branch
+    in regular intervals. The reports are available
     [online](https://scan.coverity.com/projects/systemd).
 
 11. [oss-fuzz](https://oss-fuzz.com/) is continuously fuzzing the
@@ -65,7 +65,7 @@ available functionality:
 13. When building systemd from a git checkout the build scripts will
     automatically enable a git commit hook that ensures whitespace cleanliness.
 
-14. [LGTM](https://lgtm.com/) analyzes every commit pushed to master. The list
+14. [LGTM](https://lgtm.com/) analyzes every commit pushed to `main`. The list
     of active alerts can be found
     [here](https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list).
 
@@ -75,7 +75,7 @@ available functionality:
     for more information.
 
 16. Fossies provides [source code misspelling reports](https://fossies.org/features.html#codespell).
-    The systemd report can be found [here](https://fossies.org/linux/test/systemd-master.tar.gz/codespell.html).
+    The systemd report can be found [here](https://fossies.org/linux/misc/systemd/codespell.html).
 
 Access to Coverity and oss-fuzz reports is limited. Please reach out to the
 maintainers if you need access.
