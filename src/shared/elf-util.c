@@ -689,6 +689,8 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
         _cleanup_free_ char *buf = NULL;
         int r;
 
+        assert(fd >= 0);
+
         r = dlopen_dw();
         if (r < 0)
                 return r;
