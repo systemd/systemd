@@ -178,8 +178,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         StackContext *c = userdata;
-        Dwarf_Addr pc, pc_adjusted, bias = 0;
-        _cleanup_free_ Dwarf_Die *scopes = NULL;
+        Dwarf_Addr pc, pc_adjusted;
         const char *fname = NULL, *symbol = NULL;
         Dwfl_Module *module;
         bool is_activation;
@@ -198,29 +197,32 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
 
         module = sym_dwfl_addrmodule(c->dwfl, pc_adjusted);
         if (module) {
-                Dwarf_Die *s, *cudie;
-                int n;
-                Dwarf_Addr start;
+                Dwarf_Addr start, bias = 0;
+                Dwarf_Die *cudie;
 
                 cudie = sym_dwfl_module_addrdie(module, pc_adjusted, &bias);
                 if (cudie) {
+                        _cleanup_free_ Dwarf_Die *scopes = NULL;
+                        int n;
+
                         n = sym_dwarf_getscopes(cudie, pc_adjusted - bias, &scopes);
                         if (n > 0)
-                                for (s = scopes; s && s < scopes + n; s++) {
-                                        if (IN_SET(sym_dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
-                                                Dwarf_Attribute *a, space;
+                                for (Dwarf_Die *s = scopes; s && s < scopes + n; s++) {
+                                        Dwarf_Attribute *a, space;
 
-                                                a = sym_dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
-                                                if (!a)
-                                                        a = sym_dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
-                                                if (a)
-                                                        symbol = sym_dwarf_formstring(a);
-                                                if (!symbol)
-                                                        symbol = sym_dwarf_diename(s);
+                                        if (!IN_SET(sym_dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point))
+                                                continue;
 
-                                                if (symbol)
-                                                        break;
-                                        }
+                                        a = sym_dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);
+                                        if (!a)
+                                                a = sym_dwarf_attr_integrate(s, DW_AT_linkage_name, &space);
+                                        if (a)
+                                                symbol = sym_dwarf_formstring(a);
+                                        if (!symbol)
+                                                symbol = sym_dwarf_diename(s);
+
+                                        if (symbol)
+                                                break;
                                 }
                 }
 
