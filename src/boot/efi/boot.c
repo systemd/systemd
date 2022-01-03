@@ -44,6 +44,7 @@ enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
         LOADER_LINUX,
+        LOADER_STUB,
 };
 
 typedef struct {
@@ -857,8 +858,18 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
-                        if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
+                        if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
+                            LOADER_EFI, LOADER_LINUX, LOADER_STUB))
                                 break;
+
+                        /* The stub will not accept command line options when secure boot is enabled
+                         * unless there is none embedded in the image. Do not try to pretend we
+                         * can edit it to only have it be ignored. */
+                        if (config->entries[idx_highlight]->type == LOADER_STUB &&
+                            secure_boot_enabled() &&
+                            config->entries[idx_highlight]->options)
+                                break;
+
                         /* The edit line may end up on the last line of the screen. And even though we're
                          * not telling the firmware to advance the line, it still does in this one case,
                          * causing a scroll to happen that screws with our beautiful boot loader output.
@@ -2106,7 +2117,7 @@ static void config_entry_add_linux(
                 entry = config_entry_add_loader(
                                 config,
                                 device,
-                                LOADER_LINUX,
+                                LOADER_STUB,
                                 f->FileName,
                                 /* key= */ 'l',
                                 good_name,
