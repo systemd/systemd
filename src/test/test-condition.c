@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tomoyo-util.h"
+#include "udev-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
 #include "virt.h"

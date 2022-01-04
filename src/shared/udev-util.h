@@ -53,6 +53,8 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
 int udev_queue_is_empty(void);
 int udev_queue_init(void);
 
+int on_ac_power(void);
+
 #if HAVE_SYS_SDT_H
 
 /* Each trace point can have different number of additional arguments. Note that when the macro is used only

@@ -50,9 +50,9 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tomoyo-util.h"
+#include "udev-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {

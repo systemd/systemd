@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
@@ -9,10 +10,12 @@
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -578,4 +581,63 @@ int udev_queue_init(void) {
                 return -errno;
 
         return TAKE_FD(fd);
+}
+
+int on_ac_power(void) {
+        bool found_offline = false, found_online = false;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        d = opendir("/sys/class/power_supply");
+        if (!d)
+                return errno == ENOENT ? true : -errno;
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_close_ int device_fd = -1;
+                _cleanup_free_ char *contents = NULL;
+                unsigned v;
+
+                device_fd = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                if (device_fd < 0) {
+                        if (IN_SET(errno, ENOENT, ENOTDIR))
+                                continue;
+
+                        return -errno;
+                }
+
+                r = read_virtual_file_at(device_fd, "type", SIZE_MAX, &contents, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                delete_trailing_chars(contents, NEWLINE);
+
+                /* We assume every power source is AC, except for batteries. See
+                 * https://github.com/torvalds/linux/blob/4eef766b7d4d88f0b984781bc1bcb574a6eafdc7/include/linux/power_supply.h#L176
+                 * for defined power source types. Also see:
+                 * https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power */
+                if (streq(contents, "Battery"))
+                        continue;
+
+                contents = mfree(contents);
+
+                r = read_virtual_file_at(device_fd, "online", SIZE_MAX, &contents, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                delete_trailing_chars(contents, NEWLINE);
+
+                r = safe_atou(contents, &v);
+                if (r < 0)
+                        return r;
+                if (v > 0) /* At least 1 and 2 are defined as different types of 'online' */
+                        found_online = true;
+                else
+                        found_offline = true;
+        }
+
+        return found_online || !found_offline;
 }
