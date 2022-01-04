@@ -313,8 +313,7 @@ static int macsec_receive_association_handler(sd_netlink *rtnl, sd_netlink_messa
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST)
                 log_netdev_info(netdev,
-                                "MACsec receive secure association exists, "
-                                "using existing without changing its parameters");
+                                "MACsec receive secure association exists, using it without changing parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add receive secure association: %m");
@@ -371,8 +370,7 @@ static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST)
                 log_netdev_debug(netdev,
-                                 "MACsec receive channel exists, "
-                                 "using existing without changing its parameters");
+                                 "MACsec receive channel exists, using it without changing parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add receive secure channel: %m");
@@ -437,8 +435,7 @@ static int macsec_transmit_association_handler(sd_netlink *rtnl, sd_netlink_mess
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST)
                 log_netdev_info(netdev,
-                                "MACsec transmit secure association exists, "
-                                "using existing without changing its parameters");
+                                "MACsec transmit secure association exists, using it without changing parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add transmit secure association: %m");
