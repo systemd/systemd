@@ -1090,6 +1090,8 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Button enumeration failed: %m");
 
+        manager_load_scheduled_shutdown(m);
+
         /* Remove stale objects before we start them */
         manager_gc(m, false);
 
