@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "user-util.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -38,8 +39,10 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
         [MOUNT_MOUNTING] = UNIT_ACTIVATING,
         [MOUNT_MOUNTING_DONE] = UNIT_ACTIVATING,
+        [MOUNT_CHOWNING] = UNIT_ACTIVATING,
         [MOUNT_MOUNTED] = UNIT_ACTIVE,
         [MOUNT_REMOUNTING] = UNIT_RELOADING,
+        [MOUNT_REMOUNT_CHOWNING] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
@@ -57,7 +60,9 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
                       MOUNT_MOUNTING,
                       MOUNT_MOUNTING_DONE,
+                      MOUNT_CHOWNING,
                       MOUNT_REMOUNTING,
+                      MOUNT_REMOUNT_CHOWNING,
                       MOUNT_REMOUNTING_SIGTERM,
                       MOUNT_REMOUNTING_SIGKILL,
                       MOUNT_UNMOUNTING,
@@ -191,6 +196,8 @@ static void mount_init(Unit *u) {
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
         u->ignore_on_isolate = true;
+
+        m->set_mode = MODE_INVALID;
 }
 
 static int mount_arm_timer(Mount *m, usec_t usec) {
@@ -259,6 +266,9 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
+
+        m->set_user = mfree(m->set_user);
+        m->set_group = mfree(m->set_group);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -805,6 +815,18 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->read_write_only),
                 prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC));
 
+        if (!isempty(m->set_user) || !isempty(m->set_group))
+                fprintf(f,
+                        "%sSetUser: %s\n"
+                        "%sSetGroup: %s\n",
+                        prefix, strna(m->set_user),
+                        prefix, strna(m->set_group));
+
+        if (m->set_mode != MODE_INVALID)
+                fprintf(f,
+                        "%sSetMode: %04o\n",
+                        prefix, m->set_mode);
+
         if (m->control_pid > 0)
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
@@ -891,6 +913,12 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
+        if (m->set_mode != MODE_INVALID && chmod(m->where, m->set_mode) == -1) {
+                log_unit_warning_errno(UNIT(m), errno, "Failed to chmod(%04o): %m", m->set_mode);
+                if (m->result == MOUNT_SUCCESS)
+                        m->result = MOUNT_FAILURE_RESOURCES;
+        }
+
         mount_set_state(m, MOUNT_MOUNTED);
 }
 
@@ -905,6 +933,85 @@ static void mount_enter_dead_or_mounted(Mount *m, MountResult f) {
                 mount_enter_mounted(m, f);
         else
                 mount_enter_dead(m, f);
+}
+
+static int mount_chown(Mount *m, pid_t *_pid) {
+        int r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
+        if (r < 0)
+                goto fail;
+
+        /* We have to resolve the user names out-of-process, hence
+         * let's fork here. It's messy, but well, what can we do? */
+
+        pid_t pid;
+        r = unit_fork_helper_process(UNIT(m), "(sd-chown)", &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                uid_t uid = UID_INVALID;
+                gid_t gid = GID_INVALID;
+
+                /* Child */
+
+                if (!isempty(m->set_user)) {
+                        const char *user = m->set_user;
+
+                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(m), r, "Failed to resolve user %s: %m", user);
+                                _exit(EXIT_USER);
+                        }
+                }
+
+                if (!isempty(m->set_group)) {
+                        const char *group = m->set_group;
+
+                        r = get_group_creds(&group, &gid, 0);
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(m), r, "Failed to resolve group %s: %m", group);
+                                _exit(EXIT_GROUP);
+                        }
+                }
+
+                if (chown(m->where, uid, gid) == -1) {
+                        log_unit_warning_errno(UNIT(m), errno, "Failed to chown("UID_FMT", "GID_FMT"): %m", uid, gid);
+                        _exit(EXIT_CHOWN);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = unit_watch_pid(UNIT(m), pid, true);
+        if (r < 0)
+                goto fail;
+
+        *_pid = pid;
+        return 0;
+
+fail:
+        m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
+        return r;
+}
+
+static void mount_enter_chowning(Mount *m, MountResult f, MountState state) {
+        assert(m);
+        assert(!isempty(m->set_user) || !isempty(m->set_group));
+
+        if (m->result == MOUNT_SUCCESS)
+                m->result = f;
+
+        mount_unwatch_control_pid(m);
+        m->control_command_id = MOUNT_EXEC_CHOWN;
+        m->control_command = NULL;
+
+        int r = mount_chown(m, &m->control_pid);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to fork 'start-chown' task: %m");
+                mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
+                return;
+        }
+
+        mount_set_state(m, state);
 }
 
 static int state_to_kill_operation(MountState state) {
@@ -1157,7 +1264,7 @@ static int mount_start(Unit *u) {
                 return -EAGAIN;
 
         /* Already on it! */
-        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
+        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE, MOUNT_CHOWNING))
                 return 0;
 
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
@@ -1187,8 +1294,10 @@ static int mount_stop(Unit *u) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
+        case MOUNT_CHOWNING:
         case MOUNT_REMOUNTING:
-                /* If we are still waiting for /bin/mount, we go directly into kill mode. */
+        case MOUNT_REMOUNT_CHOWNING:
+                /* If we are still waiting for /bin/mount or (sd-chown), we go directly into kill mode. */
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 return 0;
 
@@ -1375,7 +1484,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached();
 
-        if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
+        if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNT_CHOWNING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
                 mount_set_reload_result(m, f);
         else if (m->result == MOUNT_SUCCESS)
                 m->result = f;
@@ -1412,10 +1521,22 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_MOUNTING_DONE:
+                if (!isempty(m->set_user) || !isempty(m->set_group)) {
+                        mount_enter_chowning(m, f, MOUNT_CHOWNING);
+                        break;
+                }
+                _fallthrough_;
+        case MOUNT_CHOWNING:
                 mount_enter_mounted(m, f);
                 break;
 
         case MOUNT_REMOUNTING:
+                if (!isempty(m->set_user) || !isempty(m->set_group)) {
+                        mount_enter_chowning(m, f, MOUNT_REMOUNT_CHOWNING);
+                        break;
+                }
+                _fallthrough_;
+        case MOUNT_REMOUNT_CHOWNING:
         case MOUNT_REMOUNTING_SIGTERM:
         case MOUNT_REMOUNTING_SIGKILL:
                 mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
@@ -1472,11 +1593,13 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
+        case MOUNT_CHOWNING:
                 log_unit_warning(UNIT(m), "Mounting timed out. Terminating.");
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_REMOUNTING:
+        case MOUNT_REMOUNT_CHOWNING:
                 log_unit_warning(UNIT(m), "Remounting timed out. Terminating remount process.");
                 mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, MOUNT_SUCCESS);
@@ -2183,6 +2306,7 @@ static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_MOUNT]   = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
         [MOUNT_EXEC_REMOUNT] = "ExecRemount",
+        [MOUNT_EXEC_CHOWN]   = "ExecChown",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);

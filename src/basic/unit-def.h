@@ -90,8 +90,10 @@ typedef enum MountState {
         MOUNT_DEAD,
         MOUNT_MOUNTING,               /* /usr/bin/mount is running, but the mount is not done yet. */
         MOUNT_MOUNTING_DONE,          /* /usr/bin/mount is running, and the mount is done. */
+        MOUNT_CHOWNING,
         MOUNT_MOUNTED,
         MOUNT_REMOUNTING,
+        MOUNT_REMOUNT_CHOWNING,
         MOUNT_UNMOUNTING,
         MOUNT_REMOUNTING_SIGTERM,
         MOUNT_REMOUNTING_SIGKILL,
