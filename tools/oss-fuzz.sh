@@ -10,7 +10,7 @@ export CXX=${CXX:-clang++}
 clang_version="$($CC --version | sed -nr 's/.*version ([^ ]+?) .*/\1/p' | sed -r 's/-$//')"
 
 SANITIZER=${SANITIZER:-address -fsanitize-address-use-after-scope}
-flags="-O1 -fno-omit-frame-pointer -gline-tables-only -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize=$SANITIZER"
+flags="-O1 -fno-omit-frame-pointer -g -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize=$SANITIZER"
 
 clang_lib="/usr/lib64/clang/${clang_version}/lib/linux"
 [ -d "$clang_lib" ] || clang_lib="/usr/lib/clang/${clang_version}/lib/linux"
