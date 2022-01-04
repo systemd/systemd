@@ -12,7 +12,7 @@ Description=Home Area Manager
 Documentation=man:systemd-homed.service(8)
 Documentation=man:org.freedesktop.home1(5)
 
-After=home.mount
+After=home.mount dbus.service
 
 [Service]
 BusName=org.freedesktop.home1
