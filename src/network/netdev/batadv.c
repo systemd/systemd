@@ -190,9 +190,9 @@ static int netdev_batadv_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_string(m, IFLA_BATADV_ALGO_NAME, batadv_routing_algorithm_kernel_to_string(b->routing_algorithm));
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_BATADV_ALGO_NAME attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 const NetDevVTable batadv_vtable = {

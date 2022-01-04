@@ -39,19 +39,19 @@ static int netdev_ipoib_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (ipoib->pkey > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_PKEY, ipoib->pkey);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_PKEY attribute: %m");
+                        return r;
         }
 
         if (ipoib->mode >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_MODE, ipoib->mode);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_MODE attribute: %m");
+                        return r;
         }
 
         if (ipoib->umcast >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_UMCAST, ipoib->umcast);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_UMCAST attribute: %m");
+                        return r;
         }
 
         return 0;
