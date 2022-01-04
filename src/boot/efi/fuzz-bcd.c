@@ -21,7 +21,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(p);
 
         char16_t *title = get_bcd_title(p, size);
-        if (title)
-                (void) char16_strlen(title);
+        assert_se(!title || char16_strlen(title) >= 0);
         return 0;
 }
