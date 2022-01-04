@@ -478,9 +478,68 @@ finalize:
         return 0;
 }
 
+static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        int r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        if (r < 0)
+                return r;
+
+        struct hw_addr_data hw_addr;
+        r = netdev_generate_hw_addr(netdev, link, netdev->ifname, &netdev->hw_addr, &hw_addr);
+        if (r < 0)
+                return r;
+
+        if (hw_addr.length > 0) {
+                log_netdev_debug(netdev, "Using MAC address: %s", HW_ADDR_TO_STR(&hw_addr));
+                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
+                if (r < 0)
+                        return r;
+        }
+
+        if (netdev->mtu != 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        if (NETDEV_VTABLE(netdev)->fill_message_create) {
+                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return r;
+
+                r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        struct hw_addr_data hw_addr;
         int r;
 
         assert(netdev);
@@ -500,73 +559,24 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+        r = netdev_create_message(netdev, link, m);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
-
-        r = netdev_generate_hw_addr(netdev, link, netdev->ifname, &netdev->hw_addr, &hw_addr);
-        if (r < 0)
-                return r;
-
-        if (hw_addr.length > 0) {
-                log_netdev_debug(netdev, "Using MAC address: %s", HW_ADDR_TO_STR(&hw_addr));
-                r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
-        }
-
-        if (netdev->mtu != 0) {
-                r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
-        }
-
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_LINK, link->ifindex);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
-        }
-
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-        if (NETDEV_VTABLE(netdev)->fill_message_create) {
-                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-                r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
-
-                r = sd_netlink_message_close_container(m);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
-        } else {
-                r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
-        }
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
         if (link) {
                 r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
                                        link_netlink_destroy_callback, link);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
                 link_ref(link);
         } else {
                 r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
                                        netdev_destroy_callback, netdev);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
                 netdev_ref(netdev);
         }
