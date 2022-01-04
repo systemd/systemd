@@ -398,7 +398,7 @@ int logind_show_shutdown(void) {
 
         log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
                  action,
-                 FORMAT_TIMESTAMP_STYLE(arg_when, arg_timestamp_style));
+                 FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
 
         return 0;
 #else
