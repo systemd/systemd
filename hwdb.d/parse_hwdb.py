@@ -212,21 +212,23 @@ def check_matches(groups):
 
     # This is a partial check. The other cases could be also done, but those
     # two are most commonly wrong.
-    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
-                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
+    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
+                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8) + Optional(':')) + '*',
     }
 
     for match in matches:
         prefix, rest = match.split(':', maxsplit=1)
         gr = grammars.get(prefix)
         if gr:
+            # we check this first to provide an easy error message
+            if rest[-1] not in '*:':
+                error('pattern {} does not end with "*" or ":"', match)
+
             try:
                 gr.parseString(rest)
             except ParseBaseException as e:
                 error('Pattern {!r} is invalid: {}', rest, e)
                 continue
-            if rest[-1] not in '*:':
-                error('pattern {} does not end with "*" or ":"', match)
 
     matches.sort()
     prev = None
