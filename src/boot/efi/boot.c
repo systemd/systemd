@@ -1700,8 +1700,10 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        /* no entry found */
-        config->idx_default = IDX_INVALID;
+        /* If no configured entry to select from was found, enable the menu. */
+        config->idx_default = 0;
+        if (config->timeout_sec == 0)
+                config->timeout_sec = 10;
 }
 
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
@@ -2358,6 +2360,16 @@ static void config_load_all_entries(
                                       L"auto-reboot-to-firmware-setup",
                                       L"Reboot Into Firmware Interface",
                                       reboot_into_firmware);
+
+        if (config->entry_count == 0)
+                return
+
+        config_write_entries_to_variable(config);
+
+        config_title_generate(config);
+
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2407,20 +2419,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (config.entry_count == 0) {
                 log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
                 goto out;
-        }
-
-        config_write_entries_to_variable(&config);
-
-        config_title_generate(&config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(&config);
-
-        /* if no configured entry to select from was found, enable the menu */
-        if (config.idx_default == IDX_INVALID) {
-                config.idx_default = 0;
-                if (config.timeout_sec == 0)
-                        config.timeout_sec = 10;
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
