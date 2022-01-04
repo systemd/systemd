@@ -1933,7 +1933,7 @@ static BOOLEAN config_entry_add_loader_auto(
 
 static void config_entry_add_osx(Config *config) {
         EFI_STATUS err;
-        UINTN handle_count = 0;
+        UINTN n_handles = 0;
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
 
         assert(config);
@@ -1941,21 +1941,25 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
-        if (!EFI_ERROR(err)) {
-                for (UINTN i = 0; i < handle_count; i++) {
-                        EFI_FILE *root;
-                        BOOLEAN found;
+        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (EFI_ERROR(err))
+                return;
 
-                        root = LibOpenRoot(handles[i]);
-                        if (!root)
-                                continue;
-                        found = config_entry_add_loader_auto(config, handles[i], root, NULL, L"auto-osx", 'a', L"macOS",
-                                                             L"\\System\\Library\\CoreServices\\boot.efi");
-                        root->Close(root);
-                        if (found)
-                                break;
-                }
+        for (UINTN i = 0; i < n_handles; i++) {
+                _cleanup_(file_handle_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
+                if (!root)
+                        continue;
+
+                if (config_entry_add_loader_auto(
+                                config,
+                                handles[i],
+                                root,
+                                NULL,
+                                L"auto-osx",
+                                'a',
+                                L"macOS",
+                                L"\\System\\Library\\CoreServices\\boot.efi"))
+                        break;
         }
 }
 
