@@ -44,10 +44,9 @@ static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
 
         assert(v);
 
-        if (!v->ifname_peer) {
-                log_netdev_warning(netdev, "VxCan NetDev without peer name configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (!v->ifname_peer)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "VxCan NetDev without peer name configured in %s. Ignoring", filename);
 
         return 0;
 }
