@@ -364,7 +364,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr "Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
+msgstr ""
+"Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
@@ -430,7 +431,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
+msgstr ""
+"Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -495,7 +497,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
+msgstr ""
+"Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
