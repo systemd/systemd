@@ -540,7 +540,7 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
 
                 r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
                 if (r < 0)
-                        return r;
+                        return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)

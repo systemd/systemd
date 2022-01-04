@@ -51,7 +51,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->vni <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
+                        return r;
         }
 
         if (in_addr_is_set(v->group_family, &v->group)) {
@@ -60,19 +60,19 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->group.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
+                        return r;
         } else if (in_addr_is_set(v->remote_family, &v->remote)) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->remote.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
+                        return r;
         }
 
         r = vxlan_get_local_address(v, link, &local_family, &local);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not find local address: %m");
+                return r;
 
         if (in_addr_is_set(local_family, &local)) {
                 if (local_family == AF_INET)
@@ -80,84 +80,84 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &local.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link ? link->ifindex : 0);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
+                return r;
 
         if (v->inherit) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_TTL_INHERIT);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL_INHERIT attribute: %m");
+                        return r;
         } else {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
+                        return r;
         }
 
         if (v->tos != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LEARNING attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_RSC attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_PROXY, v->arp_proxy);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PROXY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_L2MISS, v->l2miss);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L2MISS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_L3MISS, v->l3miss);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_L3MISS attribute: %m");
+                return r;
 
         if (v->fdb_ageing != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
+                        return r;
         }
 
         if (v->max_fdb != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LIMIT, v->max_fdb);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LIMIT attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_CSUM attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_TX attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_REMCSUM_TX, v->remote_csum_tx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_REMCSUM_TX attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_REMCSUM_RX, v->remote_csum_rx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_REMCSUM_RX attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, IFLA_VXLAN_PORT, htobe16(v->dest_port));
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT attribute: %m");
+                return r;
 
         if (v->port_range.low != 0 || v->port_range.high != 0) {
                 struct ifla_vxlan_port_range port_range;
@@ -167,32 +167,32 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
                 r = sd_netlink_message_append_data(m, IFLA_VXLAN_PORT_RANGE, &port_range, sizeof(port_range));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT_RANGE attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LABEL, htobe32(v->flow_label));
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LABEL attribute: %m");
+                return r;
 
         if (v->group_policy) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GBP);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
+                        return r;
         }
 
         if (v->generic_protocol_extension) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GPE attribute: %m");
+                        return r;
         }
 
         if (v->df != _NETDEV_VXLAN_DF_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_DF, v->df);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_DF attribute: %m");
+                        return r;
         }
 
-        return r;
+        return 0;
 }
 
 int config_parse_vxlan_address(

@@ -24,12 +24,12 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
         r = sd_netlink_message_open_container(m, VETH_INFO_PEER);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append VETH_INFO_PEER attribute: %m");
+                return r;
 
         if (v->ifname_peer) {
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Failed to add netlink interface name: %m");
+                        return r;
         }
 
         r = netdev_generate_hw_addr(netdev, NULL, v->ifname_peer, &v->hw_addr_peer, &hw_addr);
@@ -40,20 +40,20 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 log_netdev_debug(netdev, "Using MAC address for peer: %s", HW_ADDR_TO_STR(&hw_addr));
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
+                        return r;
         }
 
         if (netdev->mtu != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 static int netdev_veth_verify(NetDev *netdev, const char *filename) {

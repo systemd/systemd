@@ -33,40 +33,40 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
 
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_MACADDR_MODE, MACVLAN_MACADDR_SET);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MACADDR_MODE attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_open_container(req, IFLA_MACVLAN_MACADDR_DATA);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not open IFLA_MACVLAN_MACADDR_DATA container: %m");
+                        return r;
 
                 SET_FOREACH(mac_addr, m->match_source_mac) {
                         r = sd_netlink_message_append_ether_addr(req, IFLA_MACVLAN_MACADDR, mac_addr);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MACADDR attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not close IFLA_MACVLAN_MACADDR_DATA container: %m");
+                        return r;
         }
 
         if (m->mode != _NETDEV_MACVLAN_MODE_INVALID) {
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_MODE, m->mode);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MODE attribute: %m");
+                        return r;
         }
 
         /* set the nopromisc flag if Promiscuous= of the link is explicitly set to false */
         if (m->mode == NETDEV_MACVLAN_MODE_PASSTHRU && link->network->promiscuous == 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_MACVLAN_FLAGS, MACVLAN_FLAG_NOPROMISC);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_FLAGS attribute: %m");
+                        return r;
         }
 
         if (m->bc_queue_length != UINT32_MAX) {
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_BC_QUEUE_LEN, m->bc_queue_length);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_BC_QUEUE_LEN attribute: %m");
+                        return r;
         }
 
         return 0;

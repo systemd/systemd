@@ -39,7 +39,7 @@ static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (v->id <= GENEVE_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_ID, v->id);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_ID attribute: %m");
+                        return r;
         }
 
         if (in_addr_is_set(v->remote_family, &v->remote)) {
@@ -48,51 +48,51 @@ static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_GENEVE_REMOTE6, &v->remote.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_REMOTE/IFLA_GENEVE_REMOTE6 attribute: %m");
+                        return r;
         }
 
         if (v->inherit) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL_INHERIT, 1);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL_INHERIT attribute: %m");
+                        return r;
         } else {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TOS, v->tos);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TOS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_CSUM, v->udpcsum);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_CSUM attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_TX attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_RX attribute: %m");
+                return r;
 
         if (v->dest_port != DEFAULT_GENEVE_DESTINATION_PORT) {
                 r = sd_netlink_message_append_u16(m, IFLA_GENEVE_PORT, htobe16(v->dest_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_PORT attribute: %m");
+                        return r;
         }
 
         if (v->flow_label > 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_LABEL, htobe32(v->flow_label));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_LABEL attribute: %m");
+                        return r;
         }
 
         if (v->geneve_df != _NETDEV_GENEVE_DF_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_DF, v->geneve_df);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_DF attribute: %m");
+                        return r;
         }
 
         return 0;
