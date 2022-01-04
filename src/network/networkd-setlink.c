@@ -476,7 +476,7 @@ static int link_configure(
         case SET_LINK_IPOIB:
                 r = ipoib_set_netlink_message(link, req);
                 if (r < 0)
-                        return r;
+                        return log_link_debug_errno(link, r, "Could not create netlink message: %m");
                 break;
         case SET_LINK_MASTER:
                 r = sd_netlink_message_append_u32(req, IFLA_MASTER, PTR_TO_UINT32(userdata));
