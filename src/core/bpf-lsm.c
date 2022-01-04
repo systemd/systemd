@@ -64,10 +64,10 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
 
         /* TODO Maybe choose a number based on runtime information? */
         r = sym_bpf_map__resize(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
-        if (r != 0)
-                return log_error_errno(r,
-                                "Failed to resize BPF map '%s': %m",
-                                sym_bpf_map__name(obj->maps.cgroup_hash));
+        assert(r <= 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resize BPF map '%s': %m",
+                                       sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
         inner_map_fd = sym_bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(uint32_t), sizeof(uint32_t), 128, 0);
@@ -75,11 +75,13 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
                 return log_error_errno(errno, "Failed to create BPF map: %m");
 
         r = sym_bpf_map__set_inner_map_fd(obj->maps.cgroup_hash, inner_map_fd);
+        assert(r <= 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to set inner map fd: %m");
 
         r = restrict_fs_bpf__load(obj);
-        if (r)
+        assert(r <= 0);
+        if (r < 0)
                 return log_error_errno(r, "Failed to load BPF object");
 
         *ret_obj = TAKE_PTR(obj);
@@ -99,34 +101,27 @@ static int mac_bpf_use(void) {
 
         r = read_one_line_file("/sys/kernel/security/lsm", &lsm_list);
         if (r < 0) {
-               if (errno != ENOENT)
-                       log_debug_errno(r, "Failed to read /sys/kernel/security/lsm, ignoring: %m");
-
+               if (r != -ENOENT)
+                       log_notice_errno(r, "Failed to read /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
                return 0;
         }
 
-        const char *p = lsm_list;
-
-        for (;;) {
+        for (const char *p = lsm_list;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, ",", 0);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse /sys/kernel/security/lsm, ignoring: %m");
+                        log_notice_errno(r, "Failed to parse /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
                         return 0;
                 }
 
-                if (streq(word, "bpf")) {
-                        cached_use = 1;
-                        break;
-                }
+                if (streq(word, "bpf"))
+                        return cached_use = 1;
         }
-
-        return cached_use;
 }
 
 int lsm_bpf_supported(void) {
@@ -181,7 +176,7 @@ int lsm_bpf_supported(void) {
 }
 
 int lsm_bpf_setup(Manager *m) {
-        struct restrict_fs_bpf *obj = NULL;
+        struct restrict_fs_bpf *obj;
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
         int r;
 
@@ -207,7 +202,6 @@ int lsm_bpf_setup(Manager *m) {
 }
 
 int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
-        int inner_map_fd = -1, outer_map_fd = -1;
         uint32_t dummy_value = 1, zero = 0;
         const char *fs;
         const statfs_f_type_t *magic;
@@ -216,7 +210,7 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
         assert(filesystems);
         assert(u);
 
-        inner_map_fd = sym_bpf_create_map(
+        int inner_map_fd = sym_bpf_create_map(
                         BPF_MAP_TYPE_HASH,
                         sizeof(uint32_t),
                         sizeof(uint32_t),
@@ -225,7 +219,7 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
         if (inner_map_fd < 0)
                 return log_unit_error_errno(u, errno, "Failed to create inner LSM map: %m");
 
-        outer_map_fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
+        int outer_map_fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
         if (outer_map_fd < 0)
                 return log_unit_error_errno(u, errno, "Failed to get BPF map fd: %m");
 
@@ -266,8 +260,6 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
 }
 
 int lsm_bpf_cleanup(const Unit *u) {
-        int fd = -1;
-
         assert(u);
         assert(u->manager);
 
@@ -277,7 +269,7 @@ int lsm_bpf_cleanup(const Unit *u) {
         if (!u->manager->restrict_fs)
                 return 0;
 
-        fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
+        int fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
         if (fd < 0)
                 return log_unit_error_errno(u, errno, "Failed to get BPF map fd: %m");
 
@@ -350,10 +342,10 @@ int lsm_bpf_parse_filesystem(
                 }
 
                 NULSTR_FOREACH(i, set->value) {
-                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here (i.e. take
-                         * away the FILESYSTEM_PARSE_LOG flag) since any issues in the group table are our own problem,
-                         * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
-                         * about them. */
+                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here
+                         * (i.e. take away the FILESYSTEM_PARSE_LOG flag) since any issues in the group table
+                         * are our own problem, not a problem in user configuration data and we shouldn't
+                         * pretend otherwise by complaining about them. */
                         r = lsm_bpf_parse_filesystem(i, filesystems, flags &~ FILESYSTEM_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
@@ -363,16 +355,10 @@ int lsm_bpf_parse_filesystem(
                  * we want to allow it, then remove it from the list. */
                 if (!(flags & FILESYSTEM_PARSE_INVERT) == !!(flags & FILESYSTEM_PARSE_ALLOW_LIST)) {
                         r = set_put_strdup(filesystems, name);
-                        if (r < 0)
-                                switch (r) {
-                                case -ENOMEM:
-                                        return flags & FILESYSTEM_PARSE_LOG ? log_oom() : -ENOMEM;
-                                case -EEXIST:
-                                        /* Already in set, ignore */
-                                        break;
-                                default:
-                                        return r;
-                                }
+                        if (r == -ENOMEM)
+                                return flags & FILESYSTEM_PARSE_LOG ? log_oom() : -ENOMEM;
+                        if (r < 0 && r != -EEXIST)  /* When already in set, ignore */
+                                return r;
                 } else
                         free(set_remove(*filesystems, name));
         }

@@ -1237,8 +1237,6 @@ char *file_in_same_dir(const char *path, const char *filename) {
 }
 
 bool hidden_or_backup_file(const char *filename) {
-        const char *p;
-
         assert(filename);
 
         if (filename[0] == '.' ||
@@ -1248,24 +1246,25 @@ bool hidden_or_backup_file(const char *filename) {
             endswith(filename, "~"))
                 return true;
 
-        p = strrchr(filename, '.');
-        if (!p)
+        const char *dot = strrchr(filename, '.');
+        if (!dot)
                 return false;
 
-        /* Please, let's not add more entries to the list below. If external projects think it's a good idea to come up
-         * with always new suffixes and that everybody else should just adjust to that, then it really should be on
-         * them. Hence, in future, let's not add any more entries. Instead, let's ask those packages to instead adopt
-         * one of the generic suffixes/prefixes for hidden files or backups, possibly augmented with an additional
-         * string. Specifically: there's now:
+        /* Please, let's not add more entries to the list below. If external projects think it's a good idea
+         * to come up with always new suffixes and that everybody else should just adjust to that, then it
+         * really should be on them. Hence, in future, let's not add any more entries. Instead, let's ask
+         * those packages to instead adopt one of the generic suffixes/prefixes for hidden files or backups,
+         * possibly augmented with an additional string. Specifically: there's now:
          *
          *    The generic suffixes "~" and ".bak" for backup files
          *    The generic prefix "." for hidden files
          *
-         * Thus, if a new package manager "foopkg" wants its own set of ".foopkg-new", ".foopkg-old", ".foopkg-dist"
-         * or so registered, let's refuse that and ask them to use ".foopkg.new", ".foopkg.old" or ".foopkg~" instead.
+         * Thus, if a new package manager "foopkg" wants its own set of ".foopkg-new", ".foopkg-old",
+         * ".foopkg-dist" or so registered, let's refuse that and ask them to use ".foopkg.new",
+         * ".foopkg.old" or ".foopkg~" instead.
          */
 
-        return STR_IN_SET(p + 1,
+        return STR_IN_SET(dot + 1,
                           "rpmnew",
                           "rpmsave",
                           "rpmorig",
@@ -1287,15 +1286,16 @@ bool hidden_or_backup_file(const char *filename) {
 
 bool is_device_path(const char *path) {
 
-        /* Returns true on paths that likely refer to a device, either by path in sysfs or to something in /dev */
+        /* Returns true for paths that likely refer to a device, either by path in sysfs or to something in
+         * /dev. */
 
         return PATH_STARTSWITH_SET(path, "/dev/", "/sys/");
 }
 
 bool valid_device_node_path(const char *path) {
 
-        /* Some superficial checks whether the specified path is a valid device node path, all without looking at the
-         * actual device node. */
+        /* Some superficial checks whether the specified path is a valid device node path, all without
+         * looking at the actual device node. */
 
         if (!PATH_STARTSWITH_SET(path, "/dev/", "/run/systemd/inaccessible/"))
                 return false;
@@ -1309,8 +1309,8 @@ bool valid_device_node_path(const char *path) {
 bool valid_device_allow_pattern(const char *path) {
         assert(path);
 
-        /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and DeviceDeny=
-         * accept it */
+        /* Like valid_device_node_path(), but also allows full-subsystem expressions like those accepted by
+         * DeviceAllow= and DeviceDeny=. */
 
         if (STARTSWITH_SET(path, "block-", "char-"))
                 return true;
@@ -1401,8 +1401,8 @@ bool dot_or_dot_dot(const char *path) {
 
 bool empty_or_root(const char *path) {
 
-        /* For operations relative to some root directory, returns true if the specified root directory is redundant,
-         * i.e. either / or NULL or the empty string or any equivalent. */
+        /* For operations relative to some root directory, returns true if the specified root directory is
+         * redundant, i.e. either / or NULL or the empty string or any equivalent. */
 
         if (isempty(path))
                 return true;

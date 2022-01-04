@@ -185,7 +185,7 @@ took place for the current program.
 
 If you are looking for alternative implementations of this protocol (besides
 systemd's own in `sd_journal_print()`), consider
-[GLib's](https://gitlab.gnome.org/GNOME/glib/-/blob/master/glib/gmessages.c) or
+[GLib's](https://gitlab.gnome.org/GNOME/glib/-/blob/main/glib/gmessages.c) or
 [`dbus-broker`'s](https://github.com/bus1/dbus-broker/blob/main/src/util/log.c).
 
 And that's already all there is to it.
