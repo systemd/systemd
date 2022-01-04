@@ -42,6 +42,7 @@ _used_ _section_(".osrel") static const char osrel[] =
 
 enum loader_type {
         LOADER_UNDEFINED,
+        LOADER_AUTO,
         LOADER_EFI,
         LOADER_LINUX,
         LOADER_STUB,
@@ -60,7 +61,6 @@ typedef struct {
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(void);
-        BOOLEAN no_autoselect;
         BOOLEAN non_unique;
         UINTN tries_done;
         UINTN tries_left;
@@ -541,7 +541,6 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"        loader: %s\n", entry->loader);
                 ps_string(L"    devicetree: %s\n", entry->devicetree);
                 ps_string(L"       options: %s\n", entry->options);
-                  ps_bool(L"   auto-select: %s\n", !entry->no_autoselect);
                   ps_bool(L" internal call: %s\n", !!entry->call);
 
                   ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
@@ -1695,7 +1694,7 @@ static void config_default_entry_select(Config *config) {
         /* select the last suitable entry */
         i = config->entry_count;
         while (i--) {
-                if (config->entries[i]->no_autoselect)
+                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
                 return;
@@ -1808,7 +1807,6 @@ static BOOLEAN config_entry_add_call(
                 .id = xstrdup(id),
                 .title = xstrdup(title),
                 .call = call,
-                .no_autoselect = TRUE,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
@@ -1921,12 +1919,9 @@ static BOOLEAN config_entry_add_loader_auto(
                 return FALSE;
         handle->Close(handle);
 
-        entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, id, key, title, loader, NULL);
+        entry = config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
         if (!entry)
                 return FALSE;
-
-        /* do not boot right away into auto-detected entries */
-        entry->no_autoselect = TRUE;
 
         return TRUE;
 }
