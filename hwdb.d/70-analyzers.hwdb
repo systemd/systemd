@@ -12,7 +12,7 @@
 # Total Phase
 ###########################################################
 # Aarvark I2C/SPI Host Adapter
-usb:v0403pe0d0*
+usb:v0403pE0D0*
  ID_SIGNAL_ANALYZER=1
 
 # Beagle Protocol Analyzers
@@ -29,5 +29,5 @@ usb:v1679p3001*
 
 # Power Delivery Analyzers
 usb:v1679p6003*
-usb:v0483pdf11*
+usb:v0483pDF11*
  ID_SIGNAL_ANALYZER=1
