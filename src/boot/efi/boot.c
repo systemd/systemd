@@ -1492,7 +1492,6 @@ static void config_entry_add_from_file(
 
         entry->device = device;
         entry->id = xstrdup(file);
-        StrLwr(entry->id);
 
         config_add_entry(config, entry);
 
@@ -1603,13 +1602,24 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         assert(a);
         assert(b);
 
-        /* Order entries that have no tries left to the beginning of the list */
+        /* Order entries that have no tries left towards the end of the list. They have
+         * proven to be bad and should not be selected automatically. */
         if (a->tries_left != 0 && b->tries_left == 0)
-                return 1;
-        if (a->tries_left == 0 && b->tries_left != 0)
                 return -1;
+        if (a->tries_left == 0 && b->tries_left != 0)
+                return 1;
 
-        r = strverscmp_improved(a->id, b->id);
+        r = strcasecmp_ptr(a->title ?: a->id, b->title ?: b->id);
+        if (r != 0)
+                return r;
+
+        /* Sort by machine id now so that different installations don't interleave their versions. */
+        r = strcasecmp_ptr(a->machine_id, b->machine_id);
+        if (r != 0)
+                return r;
+
+        /* Reverse version comparison order so that higher versions are preferred. */
+        r = strverscmp_improved(b->version, a->version);
         if (r != 0)
                 return r;
 
@@ -1617,19 +1627,20 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
             b->tries_left == UINTN_MAX)
                 return 0;
 
-        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left last */
+        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
         if (a->tries_left > b->tries_left)
-                return 1;
-        if (a->tries_left < b->tries_left)
                 return -1;
+        if (a->tries_left < b->tries_left)
+                return 1;
 
         /* If they have the same number of tries left, then let the one win which was tried fewer times so far */
         if (a->tries_done < b->tries_done)
-                return 1;
-        if (a->tries_done > b->tries_done)
                 return -1;
+        if (a->tries_done > b->tries_done)
+                return 1;
 
-        return 0;
+        /* As a last resort, use the id (file name). */
+        return strverscmp_improved(a->id, b->id);
 }
 
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
@@ -1638,7 +1649,7 @@ static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         if (!needle)
                 return IDX_INVALID;
 
-        for (INTN i = config->entry_count - 1; i >= 0; i--)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
                         return i;
 
@@ -1673,9 +1684,8 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        /* select the last suitable entry */
-        i = config->entry_count;
-        while (i--) {
+        /* Select the first suitable entry. */
+        for (i = 0; i < config->entry_count; i++) {
                 if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
@@ -1829,8 +1839,6 @@ static ConfigEntry *config_entry_add_loader(
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
-
-        StrLwr(entry->id);
 
         config_add_entry(config, entry);
         return entry;
@@ -2326,12 +2334,14 @@ static void config_load_all_entries(
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
+        /* Add these now, so they get sorted with the rest. */
+        config_entry_add_osx(config);
+        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
+
         /* sort entries after version number */
         sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_osx(config);
-        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
