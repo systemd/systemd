@@ -21,15 +21,15 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 
         r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not set netlink flags: %m");
+                return r;
 
         r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to open IFLA_LINKINFO container: %m");
+                return r;
 
         r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not open IFLA_INFO_DATA container: %m");
+                return r;
 
         if (link->network->can_bitrate > 0) {
                 struct can_bittiming bt = {
@@ -46,7 +46,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 
                 r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
+                        return r;
         } else if (link->network->can_time_quanta_ns > 0) {
                 struct can_bittiming bt = {
                         .tq = link->network->can_time_quanta_ns,
@@ -59,7 +59,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 log_link_debug(link, "Setting time quanta = %"PRIu32" nsec", bt.tq);
                 r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
+                        return r;
         }
 
         if (link->network->can_data_bitrate > 0) {
@@ -77,7 +77,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 
                 r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
+                        return r;
         } else if (link->network->can_data_time_quanta_ns > 0) {
                 struct can_bittiming bt = {
                         .tq = link->network->can_data_time_quanta_ns,
@@ -90,7 +90,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 log_link_debug(link, "Setting data time quanta = %"PRIu32" nsec", bt.tq);
                 r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
+                        return r;
         }
 
         if (link->network->can_restart_us > 0) {
@@ -104,7 +104,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
                 r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
+                        return r;
         }
 
         if (link->network->can_control_mode_mask != 0) {
@@ -115,7 +115,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 
                 r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
+                        return r;
         }
 
         if (link->network->can_termination_set) {
@@ -123,16 +123,16 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 
                 r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION, link->network->can_termination);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_TERMINATION attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to close IFLA_INFO_DATA container: %m");
+                return r;
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to close IFLA_LINKINFO container: %m");
+                return r;
 
         return 0;
 }

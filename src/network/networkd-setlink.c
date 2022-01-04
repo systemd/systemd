@@ -432,7 +432,7 @@ static int link_configure(
         case SET_LINK_CAN:
                 r = can_set_netlink_message(link, req);
                 if (r < 0)
-                        return r;
+                        return log_link_debug_errno(link, r, "Could not create netlink message: %m");
                 break;
         case SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
