@@ -86,10 +86,68 @@ int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
         return 0;
 }
 
+static int dhcp4_pd_create_6rd_tunnel_message(
+                Link *link,
+                sd_netlink_message *m,
+                const struct in_addr *ipv4address,
+                uint8_t ipv4masklen,
+                const struct in6_addr *sixrd_prefix,
+                uint8_t sixrd_prefixlen) {
+        int r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "sit");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, ipv4address);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, 64);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, sixrd_prefix);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, sixrd_prefixlen);
+        if (r < 0)
+                return r;
+
+        struct in_addr relay_prefix = *ipv4address;
+        (void) in4_addr_mask(&relay_prefix, ipv4masklen);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_RELAY_PREFIXLEN, ipv4masklen);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint8_t ipv4masklen, sixrd_prefixlen;
-        struct in_addr ipv4address, relay_prefix;
+        struct in_addr ipv4address;
         struct in6_addr sixrd_prefix;
         int r;
 
@@ -110,58 +168,18 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
+                return log_link_debug_errno(link, r, "Failed to create netlink message: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
+        r = dhcp4_pd_create_6rd_tunnel_message(link, m,
+                                               &ipv4address, ipv4masklen,
+                                               &sixrd_prefix, sixrd_prefixlen);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IFNAME, attribute: %m");
-
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "sit");
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &ipv4address);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, 64);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
-
-        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &sixrd_prefix);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
-
-        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, sixrd_prefixlen);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
-
-        relay_prefix = ipv4address;
-        (void) in4_addr_mask(&relay_prefix, ipv4masklen);
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIX attribute: %m");
-
-        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_RELAY_PREFIXLEN, ipv4masklen);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIXLEN attribute: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
+                return log_link_debug_errno(link, r, "Failed to fill netlink message: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
 
