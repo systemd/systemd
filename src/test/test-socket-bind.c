@@ -120,14 +120,14 @@ int main(int argc, char *argv[]) {
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
 
         if (!can_memlock())
-                return log_tests_skipped("Can't use mlock(), skipping.");
+                return log_tests_skipped("Can't use mlock()");
 
         r = bpf_socket_bind_supported();
         if (r <= 0)
-                return log_tests_skipped("socket-bind is not supported, skipping.");
+                return log_tests_skipped("socket-bind is not supported");
 
         if (find_netcat_executable(&netcat_path) != 0)
-                return log_tests_skipped("Can not find netcat executable, skipping.");
+                return log_tests_skipped("Can not find netcat executable");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)

@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
         r = test_receive_device_fail();
         if (r < 0) {
                 assert_se(r == -EPERM && detect_container() > 0);
-                return log_tests_skipped("Running in container? Skipping remaining tests");
+                return log_tests_skipped("Running in container");
         }
 
         assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
