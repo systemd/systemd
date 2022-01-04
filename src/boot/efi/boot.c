@@ -2151,8 +2151,8 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
+        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device;
-        EFI_FILE *root_dir;
         EFI_STATUS err;
 
         assert(config);
