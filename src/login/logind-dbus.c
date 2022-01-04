@@ -45,6 +45,7 @@
 #include "selinux-util.h"
 #include "sleep-config.h"
 #include "special.h"
+#include "serialize.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -63,7 +64,10 @@
  */
 #define WALL_MESSAGE_MAX 4096
 
+#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
+
 static void reset_scheduled_shutdown(Manager *m);
+static int manager_setup_shutdown_timers(Manager* m);
 
 static int get_sender_session(
                 Manager *m,
@@ -2038,6 +2042,68 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
 }
 
+int manager_load_scheduled_shutdown(Manager *m) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        f = fopen(SHUTDOWN_SCHEDULE_FILE, "r");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *val, *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
+
+                l = strstrip(line);
+                if (isempty(l)) /* end marker */
+                        break;
+
+                if ((val = startswith(l, "USEC="))) {
+                        if (deserialize_usec(val, &m->scheduled_shutdown_timeout) < 0)
+                                log_notice("Failed to parse scheduled shutdown time '%s', ignoring.", val);
+                } else if ((val = startswith(l, "WARN_WALL="))) {
+                        if (safe_atou(val, &m->enable_wall_messages) < 0)
+                                log_notice("Failed to parse enable wall messages '%s', ignoring.", val);
+                } else if ((val = startswith(l, "MODE="))) {
+                        HandleAction handle = handle_action_from_string(val);
+                        if (handle == _HANDLE_ACTION_INVALID)
+                                log_notice("Failed to parse scheduled shutdown type '%s', ignoring.", val);
+                        else
+                                m->scheduled_shutdown_type = manager_item_for_handle(handle);
+                } else if ((val = startswith(l, "WALL_MESSAGE="))) {
+                        _cleanup_free_ char *unescaped = NULL;
+                        r = cunescape(val, 0, &unescaped);
+                        if (r >= 0)
+                                r = free_and_strdup(&m->wall_message, empty_to_null(unescaped));
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        if (m->scheduled_shutdown_type) {
+                r = manager_setup_shutdown_timers(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_wall_message_timer(m);
+                if (r < 0)
+                        return r;
+        } else {
+                reset_scheduled_shutdown(m);
+        }
+
+        return 0;
+}
+
 static int update_schedule_file(Manager *m) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2046,41 +2112,31 @@ static int update_schedule_file(Manager *m) {
         assert(m);
         assert(m->scheduled_shutdown_type);
 
-        r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_parents_label(SHUTDOWN_SCHEDULE_FILE, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
 
-        r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
+        r = fopen_temporary(SHUTDOWN_SCHEDULE_FILE, &f, &temp_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
 
         (void) fchmod(fileno(f), 0644);
 
-        fprintf(f,
-                "USEC="USEC_FMT"\n"
-                "WARN_WALL=%i\n"
-                "MODE=%s\n",
-                m->scheduled_shutdown_timeout,
-                m->enable_wall_messages,
-                handle_action_to_string(m->scheduled_shutdown_type->handle));
+        serialize_usec(f, "USEC", m->scheduled_shutdown_timeout);
+        serialize_item_format(f, "WARN_WALL", "%u", m->enable_wall_messages);
+        serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_type->handle));
 
         if (!isempty(m->wall_message)) {
-                _cleanup_free_ char *t = NULL;
-
-                t = cescape(m->wall_message);
-                if (!t) {
-                        r = -ENOMEM;
+                r =serialize_item_escaped(f, "WALL_MESSAGE", m->wall_message);
+                if (r < 0)
                         goto fail;
-                }
-
-                fprintf(f, "WALL_MESSAGE=%s\n", t);
         }
 
         r = fflush_and_check(f);
         if (r < 0)
                 goto fail;
 
-        if (rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
+        if (rename(temp_path, SHUTDOWN_SCHEDULE_FILE) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -2089,7 +2145,7 @@ static int update_schedule_file(Manager *m) {
 
 fail:
         (void) unlink(temp_path);
-        (void) unlink("/run/systemd/shutdown/scheduled");
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
 
         return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");
 }
@@ -2109,7 +2165,7 @@ static void reset_scheduled_shutdown(Manager *m) {
                 m->unlink_nologin = false;
         }
 
-        (void) unlink("/run/systemd/shutdown/scheduled");
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
 }
 
 static int manager_scheduled_shutdown_handler(
@@ -2210,23 +2266,11 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
 
         m->scheduled_shutdown_type = a;
         m->shutdown_dry_run = dry_run;
-
-        if (m->nologin_timeout_source) {
-                r = sd_event_source_set_time(m->nologin_timeout_source, nologin_timeout_usec(elapse));
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
-
-                r = sd_event_source_set_enabled(m->nologin_timeout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
-        } else {
-                r = sd_event_add_time(m->event, &m->nologin_timeout_source,
-                                      CLOCK_REALTIME, nologin_timeout_usec(elapse), 0, nologin_timeout_handler, m);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_add_time() failed: %m");
-        }
-
         m->scheduled_shutdown_timeout = elapse;
+
+        r = manager_setup_shutdown_timers(m);
+        if (r < 0)
+                return r;
 
         r = setup_wall_message_timer(m, message);
         if (r < 0) {
@@ -2239,6 +2283,46 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+static int manager_setup_shutdown_timers(Manager* m) {
+        int r;
+
+        if (m->scheduled_shutdown_timeout_source) {
+                r = sd_event_source_set_time(m->scheduled_shutdown_timeout_source,
+                                m->scheduled_shutdown_timeout);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
+
+                r = sd_event_source_set_enabled(m->scheduled_shutdown_timeout_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
+        } else {
+                r = sd_event_add_time(m->event, &m->scheduled_shutdown_timeout_source,
+                                      CLOCK_REALTIME, m->scheduled_shutdown_timeout, 0,
+                                      manager_scheduled_shutdown_handler, m);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_add_time() failed: %m");
+        }
+
+        if (m->nologin_timeout_source) {
+                r = sd_event_source_set_time(m->nologin_timeout_source,
+                                nologin_timeout_usec(m->scheduled_shutdown_timeout));
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
+
+                r = sd_event_source_set_enabled(m->nologin_timeout_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
+        } else {
+                r = sd_event_add_time(m->event, &m->nologin_timeout_source,
+                                      CLOCK_REALTIME, nologin_timeout_usec(m->scheduled_shutdown_timeout),
+                                      0, nologin_timeout_handler, m);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_add_time() failed: %m");
+        }
+
+        return r;
 }
 
 static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
