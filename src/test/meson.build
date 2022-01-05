@@ -552,7 +552,8 @@ tests += [
          [],
          core_includes, '', 'manual'],
 
-        [['src/test/test-watchdog.c']],
+        [['src/test/test-watchdog.c'],
+         [], [], [], '', 'unsafe'],
 
         [['src/test/test-sched-prio.c'],
          [libcore,

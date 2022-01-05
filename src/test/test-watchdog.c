@@ -9,16 +9,15 @@
 
 int main(int argc, char *argv[]) {
         usec_t t;
-        unsigned i, count;
+        unsigned i;
         int r;
-        bool slow;
 
         test_setup_logging(LOG_DEBUG);
 
-        slow = slow_tests_enabled();
+        if (!slow_tests_enabled())
+                return log_tests_skipped("slow tests are disabled");
 
-        t = slow ? 10 * USEC_PER_SEC : 1 * USEC_PER_SEC;
-        count = slow ? 5 : 3;
+        t = 10 * USEC_PER_SEC;
 
         r = watchdog_setup(t);
         if (r < 0)
@@ -26,7 +25,7 @@ int main(int argc, char *argv[]) {
         if (r == -EPERM)
                 t = 0;
 
-        for (i = 0; i < count; i++) {
+        for (i = 0; i < 5; i++) {
                 log_info("Pinging...");
                 r = watchdog_ping();
                 if (r < 0)
