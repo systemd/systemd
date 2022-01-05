@@ -26,7 +26,7 @@ teardown() {
 }
 
 run_test() {
-    since="$(date +%T)"
+    since="$(date '+%F %T')"
 
     SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
