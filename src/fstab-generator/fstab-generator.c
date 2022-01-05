@@ -775,6 +775,26 @@ static int add_sysroot_mount(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to determine if the root directory is on NFS, assuming not: %m");
 
+        if (startswith(arg_root_what, "cifs://")) {
+                log_debug("Skipping root directory handling, as root on CIFS was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "iscsi:")) {
+                log_debug("Skipping root directory handling, as root on iSCSI was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "nbd:")) {
+                log_debug("Skipping root directory handling, as root on NBD was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "live:")) {
+                log_debug("Skipping root directory handling, as root on live image was requested.");
+                return 0;
+        }
+
         if (streq(arg_root_what, "tmpfs")) {
                 /* If root=tmpfs is specified, then take this as shortcut for a writable tmpfs mount as root */
 
