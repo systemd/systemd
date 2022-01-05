@@ -122,25 +122,30 @@
     timer event may be delayed. Use <constant>0</constant> to select the default accuracy (250ms). Use 1µs for maximum
     accuracy. Consider specifying 60000000µs (1min) or larger for long-running events that may be delayed
     substantially. Picking higher accuracy values allows the system to coalesce timer events more aggressively,
-    improving power efficiency. The <parameter>handler</parameter> parameter shall reference a function to call when
-    the timer elapses. The handler function will be passed the <parameter>userdata</parameter> pointer, which may be
-    chosen freely by the caller. The handler is also passed the configured trigger time, even if it is actually called
-    slightly later, subject to the specified accuracy value, the kernel timer slack (see
-    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), and additional
-    scheduling latencies. To query the actual time the handler was called use
-    <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    improving power efficiency.</para>
 
-    <para>By default, the timer will elapse once
-    (<constant>SD_EVENT_ONESHOT</constant>), but this may be changed
-    with
+    <para>The <parameter>handler</parameter> is a function to call when the timer elapses or
+    <constant>NULL</constant>. The <parameter>userdata</parameter> pointer will be passed to the handler
+    function, and may be chosen freely by the caller. The configured trigger time is also passed to the
+    handler, even if the call actually happens slightly later, subject to the specified accuracy value, the
+    kernel timer slack (see
+    <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), and
+    additional scheduling latencies. To query the actual time the handler was called use
+    <citerefentry><refentrytitle>sd_event_now</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    handler may return negative to signal an error (see below), other return values are ignored. If
+    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
+    used.</para>
+
+    <para>By default, the timer will elapse once (<constant>SD_EVENT_ONESHOT</constant>), but this may be
+    changed with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If the handler function returns a negative error code, it will be
-    disabled after the invocation, even if the
-    <constant>SD_EVENT_ON</constant> mode was requested before. Note
-    that a timer event set to <constant>SD_EVENT_ON</constant> will
-    fire continuously unless its configured time is updated using
-    <function>sd_event_source_set_time()</function>.
-    </para>
+    If the handler function returns a negative error code, it will either be disabled after the invocation,
+    even if the <constant>SD_EVENT_ON</constant> mode was requested before, or it will cause the loop to
+    terminate, see
+    <citerefentry><refentrytitle>sd_event_source_set_exit_on_failure</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Note that a timer event set to <constant>SD_EVENT_ON</constant> will fire continuously unless its
+    configured time is updated using <function>sd_event_source_set_time()</function>.</para>
 
     <para><function>sd_event_add_time_relative()</function> is like <function>sd_event_add_time()</function>,
     but takes a relative time specification. It's relative to the current time of the event loop iteration,
