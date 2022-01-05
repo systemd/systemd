@@ -66,7 +66,7 @@ static int watchdog_set_timeout(void) {
         if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                 return -errno;
 
-        assert(sec > 0);/*  buggy driver ? */
+        assert(sec > 0); /* buggy driver ? */
         watchdog_timeout = sec * USEC_PER_SEC;
 
         return 0;
