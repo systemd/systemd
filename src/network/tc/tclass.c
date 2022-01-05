@@ -139,31 +139,31 @@ int tclass_configure(Link *link, TClass *tclass) {
 
         r = sd_rtnl_message_new_tclass(link->manager->rtnl, &req, RTM_NEWTCLASS, AF_UNSPEC, link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWTCLASS message: %m");
+                return log_link_debug_errno(link, r, "Could not create RTM_NEWTCLASS message: %m");
 
         r = sd_rtnl_message_set_tclass_parent(req, tclass->parent);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create tcm_parent message: %m");
+                return r;
 
         if (tclass->classid != TC_H_UNSPEC) {
                 r = sd_rtnl_message_set_tclass_handle(req, tclass->classid);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_string(req, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                return r;
 
         if (TCLASS_VTABLE(tclass)->fill_message) {
                 r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, req);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not fill netlink message: %m");
+                        return r;
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
         link->tc_messages++;
