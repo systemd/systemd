@@ -52,7 +52,7 @@ int link_configure_traffic_control(Link *link) {
         ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
                 r = traffic_control_configure(link, tc);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Could not create send configuration message: %m");
         }
 
         if (link->tc_messages == 0)

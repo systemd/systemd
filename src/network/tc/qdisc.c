@@ -184,16 +184,16 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
 
         r = sd_rtnl_message_new_qdisc(link->manager->rtnl, &req, RTM_NEWQDISC, qdisc->family, link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
+                return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
 
         r = sd_rtnl_message_set_qdisc_parent(req, qdisc->parent);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create tcm_parent message: %m");
+                return r;
 
         if (qdisc->handle != TC_H_UNSPEC) {
                 r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
+                        return r;
         }
 
         if (QDISC_VTABLE(qdisc)) {
@@ -204,23 +204,23 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                 } else {
                         r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                                return r;
                 }
 
                 if (QDISC_VTABLE(qdisc)->fill_message) {
                         r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not fill netlink message: %m");
+                                return r;
                 }
         } else {
                 r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                        return r;
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
         link->tc_messages++;
