@@ -3,7 +3,7 @@
 #include <getopt.h>
 
 #include "main-func.h"
-#include "util.h"
+#include "udev-util.h"
 
 static bool arg_verbose = false;
 
