@@ -1402,6 +1402,8 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (md_algorithm < 0)
                 return -EOPNOTSUPP;
 
+        initialize_libgcrypt(false);
+
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
 
         size_t hash_size = gcry_md_get_algo_dlen(md_algorithm);
