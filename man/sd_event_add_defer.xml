@@ -66,14 +66,17 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These three functions add new static event sources to an
-    event loop. The event loop object is specified in the
-    <parameter>event</parameter> parameter, the event source object is
-    returned in the <parameter>source</parameter> parameter. The event
-    sources are enabled statically and will "fire" when the event loop
-    is run and the conditions described below are met. The handler
-    function will be passed the <parameter>userdata</parameter>
-    pointer, which may be chosen freely by the caller.</para>
+    <para>These three functions add new static event sources to an event loop. The event loop object is
+    specified in the <parameter>event</parameter> parameter, the event source object is returned in the
+    <parameter>source</parameter> parameter. The event sources are enabled statically and will "fire" when
+    the event loop is run and the conditions described below are met.</para>
+
+    <para>The <parameter>handler</parameter> is a function to call or <constant>NULL</constant>. The handler
+    function will be passed the <parameter>userdata</parameter> pointer, which may be chosen freely by the
+    caller. The handler may return negative to signal an error (see below), other return values are
+    ignored. If <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
+    used.</para>
 
     <para><function>sd_event_add_defer()</function> adds a new event
     source that will be dispatched instantly, before the event loop
@@ -103,9 +106,11 @@
     (<constant>SD_EVENT_ON</constant>) or to make it fire just once
     (<constant>SD_EVENT_ONESHOT</constant>).</para>
 
-    <para>If the handler function returns a negative error code, it
-    will be disabled after the invocation, even if the
-    <constant>SD_EVENT_ON</constant> mode was requested before.</para>
+    <para>If the handler function returns a negative error code, it will either be disabled after the
+    invocation, even if the <constant>SD_EVENT_ON</constant> mode was requested before, or it will cause the
+    loop to terminate, see
+    <citerefentry><refentrytitle>sd_event_source_set_exit_on_failure</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
     <para>To destroy an event source object use
     <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
