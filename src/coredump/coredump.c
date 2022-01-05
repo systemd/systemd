@@ -701,10 +701,10 @@ static int get_mount_namespace_leader(pid_t pid, pid_t *ret) {
  * Returns a negative number on errors.
  */
 static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
-        int r = 0;
         pid_t container_pid;
         const char *proc_root_path;
         struct stat root_stat, proc_root_stat;
+        int r;
 
         /* To compare inodes of / and /proc/[pid]/root */
         if (stat("/", &root_stat) < 0)
@@ -772,6 +772,7 @@ static int submit_coredump(
         bool truncated = false;
         JsonVariant *module_json;
         int r;
+
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
