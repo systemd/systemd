@@ -422,7 +422,7 @@ static int link_configure(
 
                 r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append VLANs: %m");
+                        return log_link_debug_errno(link, r, "Could not append VLAN information to netlink message: %m");
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)

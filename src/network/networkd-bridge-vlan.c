@@ -65,11 +65,9 @@ int bridge_vlan_append_info(
         for (int k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
                 uint32_t untagged_map = br_untagged_bitmap[k];
                 uint32_t vid_map = br_vid_bitmap[k];
-                unsigned base_bit;
-                int i;
+                unsigned base_bit = k * 32;
+                int i = -1;
 
-                base_bit = k * 32;
-                i = -1;
                 done = false;
                 do {
                         int j = find_next_bit(i, vid_map);
@@ -106,14 +104,14 @@ int bridge_vlan_append_info(
 
                                         r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return r;
                                 } else {
                                         br_vlan.vid = begin;
                                         br_vlan.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
 
                                         r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return r;
 
                                         br_vlan.vid = end;
                                         br_vlan.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
@@ -121,7 +119,7 @@ int bridge_vlan_append_info(
 
                                         r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return r;
                                 }
 
                                 if (done)
