@@ -86,10 +86,68 @@ int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
         return 0;
 }
 
+static int dhcp4_pd_create_6rd_tunnel_message(
+                Link *link,
+                sd_netlink_message *m,
+                const struct in_addr *ipv4address,
+                uint8_t ipv4masklen,
+                const struct in6_addr *sixrd_prefix,
+                uint8_t sixrd_prefixlen) {
+        int r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "sit");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, ipv4address);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, 64);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, sixrd_prefix);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, sixrd_prefixlen);
+        if (r < 0)
+                return r;
+
+        struct in_addr relay_prefix = *ipv4address;
+        (void) in4_addr_mask(&relay_prefix, ipv4masklen);
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_RELAY_PREFIXLEN, ipv4masklen);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint8_t ipv4masklen, sixrd_prefixlen;
-        struct in_addr ipv4address, relay_prefix;
+        struct in_addr ipv4address;
         struct in6_addr sixrd_prefix;
         int r;
 
@@ -110,58 +168,18 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
+                return log_link_debug_errno(link, r, "Failed to create netlink message: %m");
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
+        r = dhcp4_pd_create_6rd_tunnel_message(link, m,
+                                               &ipv4address, ipv4masklen,
+                                               &sixrd_prefix, sixrd_prefixlen);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IFNAME, attribute: %m");
-
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
-
-        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "sit");
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &ipv4address);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, 64);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
-
-        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &sixrd_prefix);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
-
-        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, sixrd_prefixlen);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
-
-        relay_prefix = ipv4address;
-        (void) in4_addr_mask(&relay_prefix, ipv4masklen);
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIX attribute: %m");
-
-        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_RELAY_PREFIXLEN, ipv4masklen);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_IPTUN_6RD_RELAY_PREFIXLEN attribute: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
+                return log_link_debug_errno(link, r, "Failed to fill netlink message: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
 
@@ -198,7 +216,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+                        return r;
         }
 
         r = tunnel_get_local_address(t, link, &local);
@@ -207,46 +225,46 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &local.in);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
+                return r;
 
         if (t->fou_tunnel) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_SPORT, htobe16(t->encap_src_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_SPORT attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_DPORT, htobe16(t->fou_destination_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_DPORT attribute: %m");
+                        return r;
         }
 
         if (netdev->kind == NETDEV_KIND_SIT) {
                 if (t->sixrd_prefixlen > 0) {
                         r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &t->sixrd_prefix);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
+                                return r;
 
                         /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
                          * expecting to receive the prefixlen as a u16.
                          */
                         r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+                                return r;
                 }
 
                 if (t->isatap >= 0) {
@@ -256,11 +274,11 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
                         r = sd_netlink_message_append_u16(m, IFLA_IPTUN_FLAGS, flags);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
+                                return r;
                 }
         }
 
-        return r;
+        return 0;
 }
 
 static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -294,13 +312,13 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+                        return r;
         }
 
         if (netdev->kind == NETDEV_KIND_ERSPAN) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_ERSPAN_INDEX, t->erspan_index);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ERSPAN_INDEX attribute: %m");
+                        return r;
         }
 
         r = tunnel_get_local_address(t, link, &local);
@@ -309,23 +327,23 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 
         r = sd_netlink_message_append_in_addr(m, IFLA_GRE_LOCAL, &local.in);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TTL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_TOS, t->tos);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TOS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_PMTUDISC, t->pmtudisc);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_PMTUDISC attribute: %m");
+                return r;
 
         if (t->key != 0) {
                 ikey = okey = htobe32(t->key);
@@ -353,35 +371,35 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_IKEY, ikey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IKEY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_OKEY, okey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OKEY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, IFLA_GRE_IFLAGS, iflags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IFLAGS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, IFLA_GRE_OFLAGS, oflags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OFLAGS, attribute: %m");
+                return r;
 
         if (t->fou_tunnel) {
                 r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_TYPE attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_SPORT, htobe16(t->encap_src_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_SPORT attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_DPORT, htobe16(t->fou_destination_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_DPORT attribute: %m");
+                        return r;
         }
 
-        return r;
+        return 0;
 }
 
 static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -406,7 +424,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LINK attribute: %m");
+                        return r;
         }
 
         r = tunnel_get_local_address(t, link, &local);
@@ -415,25 +433,25 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_LOCAL, &local.in6);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_LOCAL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_GRE_REMOTE, &t->remote.in6);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TTL attribute: %m");
+                return r;
 
         if (t->ipv6_flowlabel != _NETDEV_IPV6_FLOWLABEL_INVALID) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_FLOWINFO, t->ipv6_flowlabel);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_FLOWINFO attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_FLAGS, t->flags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_FLAGS attribute: %m");
+                return r;
 
         if (t->key != 0) {
                 ikey = okey = htobe32(t->key);
@@ -453,21 +471,21 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_IKEY, ikey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IKEY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_OKEY, okey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OKEY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, IFLA_GRE_IFLAGS, iflags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_IFLAGS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, IFLA_GRE_OFLAGS, oflags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OFLAGS, attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -489,7 +507,7 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LINK attribute: %m");
+                        return r;
         }
 
         if (t->key != 0)
@@ -501,11 +519,11 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         r = sd_netlink_message_append_u32(m, IFLA_VTI_IKEY, ikey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_IKEY attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, IFLA_VTI_OKEY, okey);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_OKEY attribute: %m");
+                return r;
 
         r = tunnel_get_local_address(t, link, &local);
         if (r < 0)
@@ -513,13 +531,13 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &local);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LOCAL attribute: %m");
+                return r;
 
         r = netlink_message_append_in_addr_union(m, IFLA_VTI_REMOTE, t->family, &t->remote);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_REMOTE attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -538,7 +556,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+                        return r;
         }
 
         r = tunnel_get_local_address(t, link, &local);
@@ -547,20 +565,20 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &local.in6);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in6);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL attribute: %m");
+                return r;
 
         if (t->ipv6_flowlabel != _NETDEV_IPV6_FLOWLABEL_INVALID) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLOWINFO, t->ipv6_flowlabel);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLOWINFO attribute: %m");
+                        return r;
         }
 
         if (t->copy_dscp)
@@ -572,12 +590,12 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->encap_limit != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_LIMIT attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
+                return r;
 
         switch (t->ip6tnl_mode) {
         case NETDEV_IP6_TNL_MODE_IP6IP6:
@@ -594,9 +612,9 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PROTO attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {

@@ -617,7 +617,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                 if (route->gw_family == route->family) {
                         r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
+                                return r;
                 } else {
                         RouteVia rtvia = {
                                 .family = route->gw_family,
@@ -626,57 +626,57 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
 
                         r = sd_netlink_message_append_data(req, RTA_VIA, &rtvia, sizeof(rtvia));
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append RTA_VIA attribute: %m");
+                                return r;
                 }
         }
 
         if (route->dst_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_DST, route->family, &route->dst);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_DST attribute: %m");
+                        return r;
 
                 r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
+                        return r;
         }
 
         if (route->src_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(req, RTA_SRC, route->family, &route->src);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_SRC attribute: %m");
+                        return r;
 
                 r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set source prefix length: %m");
+                        return r;
         }
 
         if (in_addr_is_set(route->family, &route->prefsrc)) {
                 r = netlink_message_append_in_addr_union(req, RTA_PREFSRC, route->family, &route->prefsrc);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_PREFSRC attribute: %m");
+                        return r;
         }
 
         r = sd_rtnl_message_route_set_scope(req, route->scope);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set scope: %m");
+                return r;
 
         r = sd_rtnl_message_route_set_flags(req, route->flags & RTNH_F_ONLINK);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set flags: %m");
+                return r;
 
         if (route->table < 256) {
                 r = sd_rtnl_message_route_set_table(req, route->table);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set route table: %m");
+                        return r;
         } else {
                 r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set route table: %m");
+                        return r;
 
                 /* Table attribute to allow more than 256. */
                 r = sd_netlink_message_append_u32(req, RTA_TABLE, route->table);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
+                        return r;
         }
 
         if (!route_type_is_reject(route) &&
@@ -686,22 +686,22 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
 
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_OIF attribute: %m");
+                        return r;
         }
 
         if (route->nexthop_id > 0) {
                 r = sd_netlink_message_append_u32(req, RTA_NH_ID, route->nexthop_id);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_NH_ID attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_u8(req, RTA_PREF, route->pref);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append RTA_PREF attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append RTA_PRIORITY attribute: %m");
+                return r;
 
         return 0;
 }
@@ -743,7 +743,7 @@ int route_remove(Route *route) {
                                       RTM_DELROUTE, route->family,
                                       route->protocol);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_DELROUTE message: %m");
+                return log_link_error_errno(link, r, "Could not create netlink message: %m");
 
         if (route->family == AF_INET && route->nexthop_id > 0 && route->type == RTN_BLACKHOLE)
                 /* When IPv4 route has nexthop id and the nexthop type is blackhole, even though kernel
@@ -762,12 +762,12 @@ int route_remove(Route *route) {
 
         r = route_set_netlink_message(route, req, link);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not fill netlink message: %m");
 
         r = netlink_call_async(manager->rtnl, NULL, req, route_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
 
@@ -1179,7 +1179,7 @@ static int route_configure(
                                       RTM_NEWROUTE, route->family,
                                       route->protocol);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWROUTE message: %m");
+                return log_link_error_errno(link, r, "Could not create netlink message: %m");
 
         r = sd_rtnl_message_route_set_type(req, route->type);
         if (r < 0)
@@ -1187,7 +1187,7 @@ static int route_configure(
 
         r = route_set_netlink_message(route, req, link);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not fill netlink message: %m");
 
         if (route->lifetime_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, RTA_EXPIRES,

@@ -289,11 +289,11 @@ int main(int argc, char *argv[]) {
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
 
         if (!can_memlock())
-                return log_tests_skipped("Can't use mlock(), skipping.");
+                return log_tests_skipped("Can't use mlock()");
 
         r = cg_all_unified();
         if (r <= 0)
-                return log_tests_skipped("Unified hierarchy is required, skipping.");
+                return log_tests_skipped("Unified hierarchy is required");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)

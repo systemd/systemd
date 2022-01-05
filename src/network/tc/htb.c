@@ -16,31 +16,31 @@
 
 static int hierarchy_token_bucket_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         HierarchyTokenBucket *htb;
-        struct tc_htb_glob opt = {
-                .version = 3,
-        };
         int r;
 
         assert(link);
         assert(qdisc);
         assert(req);
 
-        htb = HTB(qdisc);
+        assert_se(htb = HTB(qdisc));
 
-        opt.rate2quantum = htb->rate_to_quantum;
-        opt.defcls = htb->default_class;
+        struct tc_htb_glob opt = {
+                .version = 3,
+                .rate2quantum = htb->rate_to_quantum,
+                .defcls = htb->default_class,
+        };
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "htb");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         r = sd_netlink_message_append_data(req, TCA_HTB_INIT, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_HTB_INIT attribute: %m");
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
         return 0;
 }
 
@@ -171,7 +171,6 @@ const QDiscVTable htb_vtable = {
 
 static int hierarchy_token_bucket_class_fill_message(Link *link, TClass *tclass, sd_netlink_message *req) {
         HierarchyTokenBucketClass *htb;
-        struct tc_htb_opt opt = {};
         uint32_t rtab[256], ctab[256];
         int r;
 
@@ -179,62 +178,65 @@ static int hierarchy_token_bucket_class_fill_message(Link *link, TClass *tclass,
         assert(tclass);
         assert(req);
 
-        htb = TCLASS_TO_HTB(tclass);
+        assert_se(htb = TCLASS_TO_HTB(tclass));
 
-        opt.prio = htb->priority;
-        opt.quantum = htb->quantum;
-        opt.rate.rate = (htb->rate >= (1ULL << 32)) ? ~0U : htb->rate;
-        opt.ceil.rate = (htb->ceil_rate >= (1ULL << 32)) ? ~0U : htb->ceil_rate;
-        opt.rate.overhead = htb->overhead;
-        opt.ceil.overhead = htb->overhead;
+        struct tc_htb_opt opt = {
+                .prio = htb->priority,
+                .quantum = htb->quantum,
+                .rate.rate = (htb->rate >= (1ULL << 32)) ? ~0U : htb->rate,
+                .ceil.rate = (htb->ceil_rate >= (1ULL << 32)) ? ~0U : htb->ceil_rate,
+                .rate.overhead = htb->overhead,
+                .ceil.overhead = htb->overhead,
+        };
 
         r = tc_transmit_time(htb->rate, htb->buffer, &opt.buffer);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate buffer size: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate buffer size: %m");
 
         r = tc_transmit_time(htb->ceil_rate, htb->ceil_buffer, &opt.cbuffer);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate ceil buffer size: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate ceil buffer size: %m");
 
         r = tc_fill_ratespec_and_table(&opt.rate, rtab, htb->mtu);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate rate table: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate rate table: %m");
 
         r = tc_fill_ratespec_and_table(&opt.ceil, ctab, htb->mtu);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate ceil rate table: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate ceil rate table: %m");
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "htb");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         r = sd_netlink_message_append_data(req, TCA_HTB_PARMS, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_HTB_PARMS attribute: %m");
+                return r;
 
         if (htb->rate >= (1ULL << 32)) {
                 r = sd_netlink_message_append_u64(req, TCA_HTB_RATE64, htb->rate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_HTB_RATE64 attribute: %m");
+                        return r;
         }
 
         if (htb->ceil_rate >= (1ULL << 32)) {
                 r = sd_netlink_message_append_u64(req, TCA_HTB_CEIL64, htb->ceil_rate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_HTB_CEIL64 attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_data(req, TCA_HTB_RTAB, rtab, sizeof(rtab));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_HTB_RTAB attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_data(req, TCA_HTB_CTAB, ctab, sizeof(ctab));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_HTB_CTAB attribute: %m");
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
+
         return 0;
 }
 
