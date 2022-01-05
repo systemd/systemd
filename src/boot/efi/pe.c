@@ -224,7 +224,7 @@ EFI_STATUS pe_file_locate_sections(
                 UINTN *offsets,
                 UINTN *sizes) {
         _cleanup_freepool_ struct PeSectionHeader *section_table = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
         struct DosFileHeader dos;
         struct PeFileHeader pe;
         UINTN len, section_table_len;

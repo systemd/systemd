@@ -82,7 +82,7 @@ EFI_STATUS load_drivers(
                 EFI_LOADED_IMAGE *loaded_image,
                 EFI_FILE_HANDLE root_dir) {
 
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE drivers_dir = NULL;
+        _cleanup_(file_handle_closep) EFI_FILE_HANDLE drivers_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         UINTN dirent_size = 0, n_succeeded = 0;
         EFI_STATUS err;
