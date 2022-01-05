@@ -1638,9 +1638,9 @@ static INTN config_entry_find(Config *config, const CHAR16 *needle) {
         if (!needle)
                 return -1;
 
-        for (UINTN i = 0; i < config->entry_count; i++)
+        for (INTN i = config->entry_count - 1; i >= 0; i--)
                 if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
-                        return (INTN) i;
+                        return i;
 
         return -1;
 }
