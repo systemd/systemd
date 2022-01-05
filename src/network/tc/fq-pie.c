@@ -18,21 +18,21 @@ static int fq_pie_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req
         assert(qdisc);
         assert(req);
 
-        fq_pie = FQ_PIE(qdisc);
+        assert_se(fq_pie = FQ_PIE(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "fq_pie");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (fq_pie->packet_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_PIE_LIMIT, fq_pie->packet_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_PIE_PLIMIT attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }

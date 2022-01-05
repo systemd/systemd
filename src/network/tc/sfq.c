@@ -13,20 +13,21 @@
 
 static int stochastic_fairness_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         StochasticFairnessQueueing *sfq;
-        struct tc_sfq_qopt_v1 opt = {};
         int r;
 
         assert(link);
         assert(qdisc);
         assert(req);
 
-        sfq = SFQ(qdisc);
+        assert_se(sfq = SFQ(qdisc));
 
-        opt.v0.perturb_period = sfq->perturb_period / USEC_PER_SEC;
+        const struct tc_sfq_qopt_v1 opt = {
+                .v0.perturb_period = sfq->perturb_period / USEC_PER_SEC,
+        };
 
-        r = sd_netlink_message_append_data(req, TCA_OPTIONS, &opt, sizeof(struct tc_sfq_qopt_v1));
+        r = sd_netlink_message_append_data(req, TCA_OPTIONS, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_OPTIONS attribute: %m");
+                return r;
 
         return 0;
 }

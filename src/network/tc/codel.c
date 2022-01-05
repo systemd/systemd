@@ -31,45 +31,45 @@ static int controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_me
         assert(qdisc);
         assert(req);
 
-        cd = CODEL(qdisc);
+        assert_se(cd = CODEL(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "codel");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (cd->packet_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_LIMIT, cd->packet_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_LIMIT attribute: %m");
+                        return r;
         }
 
         if (cd->interval_usec > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_INTERVAL, cd->interval_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_INTERVAL attribute: %m");
+                        return r;
         }
 
         if (cd->target_usec > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_TARGET, cd->target_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_TARGET attribute: %m");
+                        return r;
         }
 
         if (cd->ecn >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_ECN, cd->ecn);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_ECN attribute: %m");
+                        return r;
         }
 
         if (cd->ce_threshold_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_CE_THRESHOLD, cd->ce_threshold_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_CE_THRESHOLD attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }

@@ -17,7 +17,6 @@
 
 static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         uint32_t rtab[256], ptab[256];
-        struct tc_tbf_qopt opt = {};
         TokenBucketFilter *tbf;
         int r;
 
@@ -25,10 +24,13 @@ static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         assert(qdisc);
         assert(req);
 
-        tbf = TBF(qdisc);
+        assert_se(tbf = TBF(qdisc));
 
-        opt.rate.rate = tbf->rate >= (1ULL << 32) ? ~0U : tbf->rate;
-        opt.peakrate.rate = tbf->peak_rate >= (1ULL << 32) ? ~0U : tbf->peak_rate;
+        struct tc_tbf_qopt opt = {
+                .rate.rate = tbf->rate >= (1ULL << 32) ? ~0U : tbf->rate,
+                .peakrate.rate = tbf->peak_rate >= (1ULL << 32) ? ~0U : tbf->peak_rate,
+                .rate.mpu = tbf->mpu,
+        };
 
         if (tbf->limit > 0)
                 opt.limit = tbf->limit;
@@ -43,69 +45,67 @@ static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
                 opt.limit = lim;
         }
 
-        opt.rate.mpu = tbf->mpu;
-
         r = tc_fill_ratespec_and_table(&opt.rate, rtab, tbf->mtu);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate ratespec: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate ratespec: %m");
 
         r = tc_transmit_time(opt.rate.rate, tbf->burst, &opt.buffer);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to calculate buffer size: %m");
+                return log_link_debug_errno(link, r, "Failed to calculate buffer size: %m");
 
         if (opt.peakrate.rate > 0) {
                 opt.peakrate.mpu = tbf->mpu;
 
                 r = tc_fill_ratespec_and_table(&opt.peakrate, ptab, tbf->mtu);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to calculate ratespec: %m");
+                        return log_link_debug_errno(link, r, "Failed to calculate ratespec: %m");
 
                 r = tc_transmit_time(opt.peakrate.rate, tbf->mtu, &opt.mtu);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to calculate mtu size: %m");
+                        return log_link_debug_errno(link, r, "Failed to calculate mtu size: %m");
         }
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "tbf");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
-        r = sd_netlink_message_append_data(req, TCA_TBF_PARMS, &opt, sizeof(struct tc_tbf_qopt));
+        r = sd_netlink_message_append_data(req, TCA_TBF_PARMS, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_TBF_PARMS attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_data(req, TCA_TBF_BURST, &tbf->burst, sizeof(tbf->burst));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_TBF_BURST attribute: %m");
+                return r;
 
         if (tbf->rate >= (1ULL << 32)) {
                 r = sd_netlink_message_append_u64(req, TCA_TBF_RATE64, tbf->rate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_TBF_RATE64 attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_append_data(req, TCA_TBF_RTAB, rtab, sizeof(rtab));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_TBF_RTAB attribute: %m");
+                return r;
 
         if (opt.peakrate.rate > 0) {
                 if (tbf->peak_rate >= (1ULL << 32)) {
                         r = sd_netlink_message_append_u64(req, TCA_TBF_PRATE64, tbf->peak_rate);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append TCA_TBF_PRATE64 attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_append_u32(req, TCA_TBF_PBURST, tbf->mtu);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_TBF_PBURST attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_data(req, TCA_TBF_PTAB, ptab, sizeof(ptab));
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_TBF_PTAB attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }

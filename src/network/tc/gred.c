@@ -24,32 +24,31 @@ static int generic_random_early_detection_init(QDisc *qdisc) {
 
 static int generic_random_early_detection_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         GenericRandomEarlyDetection *gred;
-        struct tc_gred_sopt opt = {};
         int r;
 
         assert(link);
         assert(qdisc);
         assert(req);
 
-        gred = GRED(qdisc);
+        assert_se(gred = GRED(qdisc));
 
-        opt.DPs = gred->virtual_queues;
-        opt.def_DP = gred->default_virtual_queue;
-
-        if (gred->grio >= 0)
-                opt.grio = gred->grio;
+        const struct tc_gred_sopt opt = {
+                .DPs = gred->virtual_queues,
+                .def_DP = gred->default_virtual_queue,
+                .grio = gred->grio,
+        };
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "gred");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
-        r = sd_netlink_message_append_data(req, TCA_GRED_DPS, &opt, sizeof(struct tc_gred_sopt));
+        r = sd_netlink_message_append_data(req, TCA_GRED_DPS, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_GRED_DPS attribute: %m");
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }

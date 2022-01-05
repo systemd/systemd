@@ -39,88 +39,88 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         assert(qdisc);
         assert(req);
 
-        c = CAKE(qdisc);
+        assert_se(c = CAKE(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "cake");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (c->bandwidth > 0) {
                 r = sd_netlink_message_append_u64(req, TCA_CAKE_BASE_RATE64, c->bandwidth);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_BASE_RATE64 attribute: %m");
+                        return r;
         }
 
         if (c->autorate >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_AUTORATE, c->autorate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_AUTORATE attribute: %m");
+                        return r;
         }
 
         if (c->overhead_set) {
                 r = sd_netlink_message_append_s32(req, TCA_CAKE_OVERHEAD, c->overhead);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_OVERHEAD attribute: %m");
+                        return r;
         }
 
         if (c->mpu > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_MPU, c->mpu);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_MPU attribute: %m");
+                        return r;
         }
 
         if (c->compensation_mode >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_ATM, c->compensation_mode);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_ATM attribute: %m");
+                        return r;
         }
 
         if (c->raw > 0) {
                 /* TCA_CAKE_RAW attribute is mostly a flag, not boolean. */
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_RAW, 0);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_RAW attribute: %m");
+                        return r;
         }
 
         if (c->flow_isolation_mode >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_FLOW_MODE, c->flow_isolation_mode);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_FLOW_MODE attribute: %m");
+                        return r;
         }
 
         if (c->nat >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_NAT, c->nat);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_NAT attribute: %m");
+                        return r;
         }
 
         if (c->preset >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_DIFFSERV_MODE, c->preset);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_DIFFSERV_MODE attribute: %m");
+                        return r;
         }
 
         if (c->fwmark > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_FWMARK, c->fwmark);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_FWMARK attribute: %m");
+                        return r;
         }
 
         if (c->wash >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_WASH, c->wash);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_WASH attribute: %m");
+                        return r;
         }
 
         if (c->split_gso >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CAKE_SPLIT_GSO, c->split_gso);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CAKE_SPLIT_GSO attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }

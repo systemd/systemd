@@ -158,7 +158,7 @@ int tclass_configure(Link *link, TClass *tclass) {
         if (TCLASS_VTABLE(tclass)->fill_message) {
                 r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, req);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Could not fill netlink message: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_netlink_destroy_callback, link);

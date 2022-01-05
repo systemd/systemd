@@ -23,21 +23,21 @@ static int drr_class_fill_message(Link *link, TClass *tclass, sd_netlink_message
         assert(tclass);
         assert(req);
 
-        drr = TCLASS_TO_DRR(tclass);
+        assert_se(drr = TCLASS_TO_DRR(tclass));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "drr");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (drr->quantum > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_DRR_QUANTUM, drr->quantum);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_DRR_QUANTUM, attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
