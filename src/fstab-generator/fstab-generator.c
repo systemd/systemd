@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -691,6 +692,57 @@ static int parse_fstab(bool initrd) {
         return r;
 }
 
+static int sysroot_is_nfsroot(void) {
+        union in_addr_union u;
+        const char *sep, *a;
+        int r;
+
+        assert(arg_root_what);
+
+        /* From dracut.cmdline(7).
+         *
+         * root=[<server-ip>:]<root-dir>[:<nfs-options>]
+         * root=nfs:[<server-ip>:]<root-dir>[:<nfs-options>],
+         * root=nfs4:[<server-ip>:]<root-dir>[:<nfs-options>],
+         * root={dhcp|dhcp6}
+         *
+         * mount nfs share from <server-ip>:/<root-dir>, if no server-ip is given, use dhcp next_server.
+         * If server-ip is an IPv6 address it has to be put in brackets, e.g. [2001:DB8::1]. NFS options
+         * can be appended with the prefix ":" or "," and are separated by ",". */
+
+        if (path_equal(arg_root_what, "/dev/nfs") ||
+            STR_IN_SET(arg_root_what, "dhcp", "dhcp6") ||
+            STARTSWITH_SET(arg_root_what, "nfs:", "nfs4:"))
+                return true;
+
+        /* IPv6 address */
+        if (arg_root_what[0] == '[') {
+                sep = strchr(arg_root_what + 1, ']');
+                if (!sep)
+                        return -EINVAL;
+
+                a = strndupa(arg_root_what + 1, sep - arg_root_what - 1);
+
+                r = in_addr_from_string(AF_INET6, a, &u);
+                if (r < 0)
+                        return r;
+
+                return true;
+        }
+
+        /* IPv4 address */
+        sep = strchr(arg_root_what, ':');
+        if (sep) {
+                a = strndupa(arg_root_what, sep - arg_root_what);
+
+                if (in_addr_from_string(AF_INET, a, &u) >= 0)
+                        return true;
+        }
+
+        /* root directory without address */
+        return path_is_absolute(arg_root_what) && !path_startswith(arg_root_what, "/dev");
+}
+
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts, *fstype;
@@ -708,9 +760,12 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        if (path_equal(arg_root_what, "/dev/nfs")) {
+        r = sysroot_is_nfsroot();
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if the root directory is on NFS, assuming not: %m");
+        else if (r > 0) {
                 /* This is handled by the kernel or the initrd */
-                log_debug("Skipping root directory handling, as /dev/nfs was requested.");
+                log_debug("Skipping root directory handling, as root on NFS was requested.");
                 return 0;
         }
 
