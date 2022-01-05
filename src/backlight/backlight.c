@@ -395,8 +395,16 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a backlight or LED device: '%s:%s'", ss, sysname);
 
         r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
+        if (r < 0) {
+                bool ignore = r == -ENODEV;
+
+                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
+                 * See issue #21997. */
+                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                               "Failed to get backlight or LED device '%s:%s'%s: %m",
+                               ss, sysname, ignore ? ", ignoring" : "");
+                return ignore ? 0 : r;
+        }
 
         /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
          * with Asus mainboards that load the eeepc-wmi module. */
