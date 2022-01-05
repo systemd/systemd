@@ -312,6 +312,16 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Exit loop when the child terminates</title>
+
+      <programlisting><xi:include href="event-quick-child.c" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
