@@ -529,21 +529,17 @@ void sort_pointer_array(
                 return;
 
         for (UINTN i = 1; i < n_members; i++) {
-                BOOLEAN more = FALSE;
+                UINTN k;
+                void *entry = array[i];
 
-                for (UINTN k = 0; k < n_members - i; k++) {
-                        void *entry;
+                for (k = i; k > 0; k--) {
+                        if (compare(array[k - 1], entry) <= 0)
+                                break;
 
-                        if (compare(array[k], array[k+1]) <= 0)
-                                continue;
-
-                        entry = array[k];
-                        array[k] = array[k+1];
-                        array[k+1] = entry;
-                        more = TRUE;
+                        array[k] = array[k - 1];
                 }
-                if (!more)
-                        break;
+
+                array[k] = entry;
         }
 }
 
