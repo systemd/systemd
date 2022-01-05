@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
 
         if (!can_memlock())
-                return log_tests_skipped("Can't use mlock(), skipping.");
+                return log_tests_skipped("Can't use mlock()");
 
         r = lsm_bpf_supported();
         if (r <= 0)

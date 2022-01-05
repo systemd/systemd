@@ -39,19 +39,19 @@ static int netdev_ipoib_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (ipoib->pkey > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_PKEY, ipoib->pkey);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_PKEY attribute: %m");
+                        return r;
         }
 
         if (ipoib->mode >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_MODE, ipoib->mode);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_MODE attribute: %m");
+                        return r;
         }
 
         if (ipoib->umcast >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_UMCAST, ipoib->umcast);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPOIB_UMCAST attribute: %m");
+                        return r;
         }
 
         return 0;
@@ -66,35 +66,35 @@ int ipoib_set_netlink_message(Link *link, sd_netlink_message *m) {
 
         r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not set netlink flags: %m");
+                return r;
 
         r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to open IFLA_LINKINFO container: %m");
+                return r;
 
         r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not open IFLA_INFO_DATA container: %m");
+                return r;
 
         if (link->network->ipoib_mode >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_MODE, link->network->ipoib_mode);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_IPOIB_MODE attribute: %m");
+                        return r;
         }
 
         if (link->network->ipoib_umcast >= 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_UMCAST, link->network->ipoib_umcast);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not append IFLA_IPOIB_UMCAST attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to close IFLA_INFO_DATA container: %m");
+                return r;
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to close IFLA_LINKINFO container: %m");
+                return r;
 
         return 0;
 }

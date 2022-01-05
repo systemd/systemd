@@ -91,7 +91,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
         return 0;
 }
 
-static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
+static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t encap_type;
         L2tpTunnel *t;
@@ -99,26 +99,23 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *
 
         assert(netdev);
         assert(local_address);
-
-        t = L2TP(netdev);
-
-        assert(t);
+        assert_se(t = L2TP(netdev));
 
         r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_TUNNEL_CREATE, &m);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Failed to create generic netlink message: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_CONN_ID, t->tunnel_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_CONN_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_PEER_CONN_ID, t->peer_tunnel_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_PEER_CONN_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, L2TP_ATTR_PROTO_VERSION, 3);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_PROTO_VERSION attribute: %m");
+                return r;
 
         switch(t->l2tp_encap_type) {
         case NETDEV_L2TP_ENCAPTYPE_IP:
@@ -132,51 +129,51 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *
 
         r = sd_netlink_message_append_u16(m, L2TP_ATTR_ENCAP_TYPE, encap_type);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_ENCAP_TYPE attribute: %m");
+                return r;
 
         if (t->family == AF_INET) {
                 r = sd_netlink_message_append_in_addr(m, L2TP_ATTR_IP_SADDR, &local_address->in);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP_SADDR attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_in_addr(m, L2TP_ATTR_IP_DADDR, &t->remote.in);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP_DADDR attribute: %m");
+                        return r;
         } else {
                 r = sd_netlink_message_append_in6_addr(m, L2TP_ATTR_IP6_SADDR, &local_address->in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP6_SADDR attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_in6_addr(m, L2TP_ATTR_IP6_DADDR, &t->remote.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP6_DADDR attribute: %m");
+                        return r;
         }
 
         if (encap_type == L2TP_ENCAPTYPE_UDP) {
                 r = sd_netlink_message_append_u16(m, L2TP_ATTR_UDP_SPORT, t->l2tp_udp_sport);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_UDP_SPORT, attribute: %m");
+                        return r;
 
                 r = sd_netlink_message_append_u16(m, L2TP_ATTR_UDP_DPORT, t->l2tp_udp_dport);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_UDP_DPORT attribute: %m");
+                        return r;
 
                 if (t->udp_csum) {
                         r = sd_netlink_message_append_u8(m, L2TP_ATTR_UDP_CSUM, t->udp_csum);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_UDP_CSUM attribute: %m");
+                                return r;
                 }
 
                 if (t->udp6_csum_tx) {
                         r = sd_netlink_message_append_flag(m, L2TP_ATTR_UDP_ZERO_CSUM6_TX);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_UDP_ZERO_CSUM6_TX attribute: %m");
+                                return r;
                 }
 
                 if (t->udp6_csum_rx) {
                         r = sd_netlink_message_append_flag(m, L2TP_ATTR_UDP_ZERO_CSUM6_RX);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_UDP_ZERO_CSUM6_RX attribute: %m");
+                                return r;
                 }
         }
 
@@ -185,7 +182,7 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *
         return 0;
 }
 
-static int netdev_l2tp_fill_message_session(NetDev *netdev, L2tpSession *session, sd_netlink_message **ret) {
+static int netdev_l2tp_create_message_session(NetDev *netdev, L2tpSession *session, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t l2_spec_len;
         uint8_t l2_spec_type;
@@ -197,27 +194,27 @@ static int netdev_l2tp_fill_message_session(NetDev *netdev, L2tpSession *session
 
         r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_SESSION_CREATE, &m);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Failed to create generic netlink message: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_CONN_ID, session->tunnel->tunnel_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_CONN_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_PEER_CONN_ID, session->tunnel->peer_tunnel_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_PEER_CONN_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_SESSION_ID, session->session_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_SESSION_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u32(m, L2TP_ATTR_PEER_SESSION_ID, session->peer_session_id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_PEER_SESSION_ID attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u16(m, L2TP_ATTR_PW_TYPE, L2TP_PWTYPE_ETH);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_PW_TYPE attribute: %m");
+                return r;
 
         switch (session->l2tp_l2spec_type) {
         case NETDEV_L2TP_L2SPECTYPE_NONE:
@@ -233,15 +230,15 @@ static int netdev_l2tp_fill_message_session(NetDev *netdev, L2tpSession *session
 
         r = sd_netlink_message_append_u8(m, L2TP_ATTR_L2SPEC_TYPE, l2_spec_type);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_L2SPEC_TYPE attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(m, L2TP_ATTR_L2SPEC_LEN, l2_spec_len);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_L2SPEC_LEN attribute: %m");
+                return r;
 
         r = sd_netlink_message_append_string(m, L2TP_ATTR_IFNAME, session->name);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IFNAME attribute: %m");
+                return r;
 
         *ret = TAKE_PTR(m);
 
@@ -321,9 +318,9 @@ static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *n = NULL;
         int r;
 
-        r = netdev_l2tp_fill_message_session(netdev, session, &n);
+        r = netdev_l2tp_create_message_session(netdev, session, &n);
         if (r < 0)
-                return r;
+                return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
 
         r = netlink_call_async(netdev->manager->genl, NULL, n, l2tp_create_session_handler,
                                l2tp_session_destroy_callback, session);
@@ -371,10 +368,7 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
         int r;
 
         assert(netdev);
-
-        t = L2TP(netdev);
-
-        assert(t);
+        assert_se(t = L2TP(netdev));
 
         r = l2tp_acquire_local_address(t, link, &local_address);
         if (r < 0)
@@ -387,9 +381,9 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
                 log_netdev_debug(netdev, "Local address %s acquired.", strna(str));
         }
 
-        r = netdev_l2tp_fill_message_tunnel(netdev, &local_address, &m);
+        r = netdev_l2tp_create_message_tunnel(netdev, &local_address, &m);
         if (r < 0)
-                return r;
+                return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
 
         r = netlink_call_async(netdev->manager->genl, NULL, m, l2tp_create_tunnel_handler,
                                netdev_destroy_callback, netdev);
