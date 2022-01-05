@@ -108,7 +108,7 @@ fi
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
 [ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
-    for pref in "/efi" "/boot/efi" "/boot"; do
+    for pref in "/efi" "/boot" "/boot/efi" ; do
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
             break 2
