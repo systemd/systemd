@@ -210,7 +210,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                 if (QDISC_VTABLE(qdisc)->fill_message) {
                         r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
                         if (r < 0)
-                                return r;
+                                return log_link_error_errno(link, r, "Could not fill netlink message: %m");
                 }
         } else {
                 r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
