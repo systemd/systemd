@@ -714,6 +714,12 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
+        if (startswith(arg_root_what, "nfs:")) {
+                /* This is handled by the kernel or the initrd */
+                log_debug("Skipping root directory handling, as nfsroot was requested.");
+                return 0;
+        }
+
         if (streq(arg_root_what, "tmpfs")) {
                 /* If root=tmpfs is specified, then take this as shortcut for a writable tmpfs mount as root */
 
