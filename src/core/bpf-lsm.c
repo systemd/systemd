@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "bpf-lsm.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
@@ -127,10 +128,21 @@ static int mac_bpf_use(void) {
 int lsm_bpf_supported(void) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
-        int r;
+        int a, r;
 
         if (supported >= 0)
                 return supported;
+
+        a = uname_architecture();
+        if (a < 0) {
+                log_info_errno(a, "Can't determine CPU architecture, LSM BPF is not supported: %m");
+                return supported = 0;
+        }
+        if (a != ARCHITECTURE_X86 && a != ARCHITECTURE_X86_64) {
+                log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "LSM BPF is supported only on x86 and x86_64 architectures");
+                return supported = 0;
+        }
 
         r = dlopen_bpf();
         if (r < 0) {
