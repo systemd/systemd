@@ -853,7 +853,10 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 return;
         }
 
-        log_info_errno(r, "Failed to write entry (%zu items, %zu bytes), rotating before retrying: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+        if (r == -E2BIG)
+                log_debug("Journal file %s is full, rotating to a new file", f->file->path);
+        else
+                log_info_errno(r, "Failed to write entry (%zu items, %zu bytes), rotating before retrying: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
