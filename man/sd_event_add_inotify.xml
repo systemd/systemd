@@ -70,33 +70,40 @@
     <title>Description</title>
 
     <para><function>sd_event_add_inotify()</function> adds a new <citerefentry
-    project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> file system inode
-    event source to an event loop. The event loop object is specified in the <parameter>event</parameter> parameter,
-    the event source object is returned in the <parameter>source</parameter> parameter. The <parameter>path</parameter>
-    parameter specifies the path of the file system inode to watch. The <parameter>handler</parameter> must reference a
-    function to call when the inode changes. The handler function will be passed the <parameter>userdata</parameter>
-    pointer, which may be chosen freely by the caller. The handler also receives a pointer to a <structname>struct
-    inotify_event</structname> structure containing information about the inode event. The <parameter>mask</parameter>
-    parameter specifies which types of inode events to watch specifically. It must contain an OR-ed combination of
-    <constant>IN_ACCESS</constant>, <constant>IN_ATTRIB</constant>, <constant>IN_CLOSE_WRITE</constant>, … flags. See
-    <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> file
+    system inode event source to an event loop. The event loop object is specified in the
+    <parameter>event</parameter> parameter, the event source object is returned in the
+    <parameter>source</parameter> parameter. The <parameter>path</parameter> parameter specifies the path of
+    the file system inode to watch. The <parameter>mask</parameter> parameter specifies which types of inode
+    events to watch specifically. It must contain an OR-ed combination of <constant>IN_ACCESS</constant>,
+    <constant>IN_ATTRIB</constant>, <constant>IN_CLOSE_WRITE</constant>, … flags. See <citerefentry
+    project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     further information.</para>
+
+    <para>The <parameter>handler</parameter> must reference a function to call when the inode changes or
+    <contant>NULL</contant>. The handler function will be passed the <parameter>userdata</parameter> pointer,
+    which may be chosen freely by the caller. The handler also receives a pointer to a <structname>struct
+    inotify_event</structname> structure containing information about the inode event. The handler may return
+    negative to signal an error (see below), other return values are ignored. If
+    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
+    used.</para>
 
     <para><function>sd_event_add_inotify_fd()</function> is identical to
     <function>sd_event_add_inotify()</function>, except that it takes a file descriptor to an inode (possibly
-    an <constant>O_PATH</constant> one, but any other will do too) instead of a path in the file
-    system.</para>
+    an <constant>O_PATH</constant> one, but any other will do too) instead of a path in the file system.
+    </para>
 
     <para>If multiple event sources are installed for the same inode the backing inotify watch descriptor is
     automatically shared. The mask parameter may contain any flag defined by the inotify API, with the exception of
     <constant>IN_MASK_ADD</constant>.</para>
 
     <para>The handler is enabled continuously (<constant>SD_EVENT_ON</constant>), but this may be changed with
-    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Alternatively,
-    the <constant>IN_ONESHOT</constant> mask flag may be used to request <constant>SD_EVENT_ONESHOT</constant> mode.
-    If the handler function returns a negative error code, it will be disabled after the invocation, even if the
-    <constant>SD_EVENT_ON</constant> mode was requested before.
-    </para>
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Alternatively, the <constant>IN_ONESHOT</constant> mask flag may be used to request
+    <constant>SD_EVENT_ONESHOT</constant> mode. If the handler function returns a negative error code, it
+    will be disabled after the invocation, even if the <constant>SD_EVENT_ON</constant> mode was requested
+    before.</para>
 
     <para>As a special limitation the priority of inotify event sources may only be altered (see
     <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
