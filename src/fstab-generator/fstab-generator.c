@@ -769,6 +769,21 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
+        if (startswith(arg_root_what, "cifs://")) {
+                log_debug("Skipping root directory handling, as root on CIFS was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "iscsi:")) {
+                log_debug("Skipping root directory handling, as root on iSCSI was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "live:")) {
+                log_debug("Skipping root directory handling, as root on live image was requested.");
+                return 0;
+        }
+
         if (streq(arg_root_what, "tmpfs")) {
                 /* If root=tmpfs is specified, then take this as shortcut for a writable tmpfs mount as root */
 
