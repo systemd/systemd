@@ -142,27 +142,20 @@ static BOOLEAN line_edit(
                 UINTN y_pos) {
 
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
-        UINTN size, len, first, cursor, clear;
-        BOOLEAN exit, enter;
+        UINTN size, len, first = 0, cursor = 0, clear = 0;
 
         assert(line_out);
 
         if (!line_in)
                 line_in = L"";
 
-        size = StrLen(line_in) + 1024;
+        len = StrLen(line_in);
+        size = len + 1024;
         line = xnew(CHAR16, size);
-
-        StrCpy(line, line_in);
-        len = StrLen(line);
         print = xnew(CHAR16, x_max + 1);
+        StrCpy(line, line_in);
 
-        first = 0;
-        cursor = 0;
-        clear = 0;
-        enter = FALSE;
-        exit = FALSE;
-        while (!exit) {
+        for (;;) {
                 EFI_STATUS err;
                 UINT64 key;
                 UINTN j;
@@ -196,8 +189,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        exit = TRUE;
-                        break;
+                        return FALSE;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
@@ -324,9 +316,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (StrCmp(line, line_in) != 0)
                                 *line_out = TAKE_PTR(line);
-                        enter = TRUE;
-                        exit = TRUE;
-                        break;
+                        return TRUE;
 
                 case KEYPRESS(0, 0, CHAR_BACKSPACE):
                         if (len == 0)
@@ -373,8 +363,6 @@ static BOOLEAN line_edit(
                         continue;
                 }
         }
-
-        return enter;
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
