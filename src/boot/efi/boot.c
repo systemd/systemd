@@ -1644,12 +1644,6 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return 0;
 }
 
-static void config_sort_entries(Config *config) {
-        assert(config);
-
-        sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
-}
-
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
@@ -2345,7 +2339,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* sort entries after version number */
-        config_sort_entries(config);
+        sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
