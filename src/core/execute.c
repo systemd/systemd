@@ -1732,7 +1732,14 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 
 #if HAVE_LIBBPF
 static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
+        assert(u);
+        assert(u->manager);
+
         if (lsm_bpf_supported())
+                return false;
+
+        /* lsm_bpf_setup succeeded */
+        if (u->manager->restrict_fs)
                 return false;
 
         log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);

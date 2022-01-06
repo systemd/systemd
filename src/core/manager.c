@@ -930,11 +930,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                         return r;
 
 #if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported()) {
-                        r = lsm_bpf_setup(m);
-                        if (r < 0)
-                                return r;
-                }
+                if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported())
+                        (void) lsm_bpf_setup(m);
 #endif
         }
 
