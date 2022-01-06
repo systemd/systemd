@@ -7,7 +7,7 @@
 #include "util.h"
 
 int watchdog_set_device(const char *path);
-int watchdog_setup(usec_t timeout);
+int watchdog_setup(usec_t *timeout);
 int watchdog_ping(void);
 void watchdog_close(bool disarm);
 usec_t watchdog_runtime_wait(void);

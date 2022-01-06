@@ -326,7 +326,7 @@ static void init_watchdog(void) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m", s);
                 else
-                        (void) watchdog_setup(usec);
+                        (void) watchdog_setup(&usec);
         }
 }
 
