@@ -16,8 +16,8 @@
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
-static char *watchdog_device;
-static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
+static char *watchdog_device = NULL;
+static usec_t watchdog_timeout = 0; /* 0 → close device, USEC_INFINITY → don't change timeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
