@@ -16,8 +16,8 @@
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
-static char *watchdog_device;
-static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
+static char *watchdog_device = NULL;
+static usec_t watchdog_timeout = 0; /* 0 → close device, USEC_INFINITY → don't change timeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
@@ -54,14 +54,12 @@ static int watchdog_get_timeout(void) {
 }
 
 static int watchdog_set_timeout(void) {
-        usec_t t;
         int sec;
 
         assert(watchdog_fd >= 0);
         assert(timestamp_is_set(watchdog_timeout));
 
-        t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-        sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
+        sec = MIN(DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC), (usec_t) INT_MAX); /* Saturate */
 
         if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                 return -errno;
@@ -165,39 +163,44 @@ int watchdog_set_device(const char *path) {
         return r;
 }
 
-int watchdog_setup(usec_t timeout) {
+int watchdog_setup(usec_t *timeout) {
         usec_t previous_timeout;
         int r;
 
-        /* timeout=0 closes the device whereas passing timeout=USEC_INFINITY
-         * opens it (if needed) without configuring any particular timeout and
-         * thus reuses the programmed value (therefore it's a nop if the device
-         * is already opened).
-         */
+        /* timeout=0 closes the device whereas passing timeout=USEC_INFINITY opens it (if needed)
+         * without configuring any particular timeout and thus reuses the programmed value (therefore
+         * it's a nop if the device is already opened).
+         *
+         * The timeout argument is used for both input and output. And if the watchdog_timeout is
+         * updated, then the current timeout will be stored into the argument. */
 
-        if (timeout == 0) {
+        assert(timeout);
+
+        if (*timeout == 0) {
                 watchdog_close(true);
                 return 0;
         }
 
         /* Let's shortcut duplicated requests */
-        if (watchdog_fd >= 0 && (timeout == watchdog_timeout || timeout == USEC_INFINITY))
+        if (watchdog_fd >= 0 && (*timeout == watchdog_timeout || *timeout == USEC_INFINITY))
                 return 0;
 
-        /* Initialize the watchdog timeout with the caller value. This value is
-         * going to be updated by update_timeout() with the closest value
-         * supported by the driver */
+        /* Initialize the watchdog timeout with the caller value. This value is going to be updated by
+         * update_timeout() with the closest value supported by the driver */
         previous_timeout = watchdog_timeout;
-        watchdog_timeout = timeout;
+        watchdog_timeout = *timeout;
 
         if (watchdog_fd < 0)
-                return open_watchdog();
-
-        r = update_timeout();
-        if (r < 0)
+                r = open_watchdog();
+        else
+                r = update_timeout();
+        if (r < 0) {
                 watchdog_timeout = previous_timeout;
+                return r;
+        }
 
-        return r;
+        *timeout = watchdog_timeout;
+        return 0;
 }
 
 usec_t watchdog_runtime_wait(void) {
