@@ -54,14 +54,12 @@ static int watchdog_get_timeout(void) {
 }
 
 static int watchdog_set_timeout(void) {
-        usec_t t;
         int sec;
 
         assert(watchdog_fd >= 0);
         assert(timestamp_is_set(watchdog_timeout));
 
-        t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-        sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
+        sec = MIN(DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC), (usec_t) INT_MAX); /* Saturate */
 
         if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                 return -errno;
