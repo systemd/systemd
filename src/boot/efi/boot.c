@@ -42,6 +42,7 @@ _used_ _section_(".osrel") static const char osrel[] =
 
 enum loader_type {
         LOADER_UNDEFINED,
+        LOADER_AUTO,
         LOADER_EFI,
         LOADER_LINUX,
         LOADER_STUB,
@@ -60,7 +61,6 @@ typedef struct {
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(void);
-        BOOLEAN no_autoselect;
         BOOLEAN non_unique;
         UINTN tries_done;
         UINTN tries_left;
@@ -142,27 +142,20 @@ static BOOLEAN line_edit(
                 UINTN y_pos) {
 
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
-        UINTN size, len, first, cursor, clear;
-        BOOLEAN exit, enter;
+        UINTN size, len, first = 0, cursor = 0, clear = 0;
 
         assert(line_out);
 
         if (!line_in)
                 line_in = L"";
 
-        size = StrLen(line_in) + 1024;
+        len = StrLen(line_in);
+        size = len + 1024;
         line = xnew(CHAR16, size);
-
-        StrCpy(line, line_in);
-        len = StrLen(line);
         print = xnew(CHAR16, x_max + 1);
+        StrCpy(line, line_in);
 
-        first = 0;
-        cursor = 0;
-        clear = 0;
-        enter = FALSE;
-        exit = FALSE;
-        while (!exit) {
+        for (;;) {
                 EFI_STATUS err;
                 UINT64 key;
                 UINTN j;
@@ -196,8 +189,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        exit = TRUE;
-                        break;
+                        return FALSE;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
@@ -324,9 +316,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (StrCmp(line, line_in) != 0)
                                 *line_out = TAKE_PTR(line);
-                        enter = TRUE;
-                        exit = TRUE;
-                        break;
+                        return TRUE;
 
                 case KEYPRESS(0, 0, CHAR_BACKSPACE):
                         if (len == 0)
@@ -373,8 +363,6 @@ static BOOLEAN line_edit(
                         continue;
                 }
         }
-
-        return enter;
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
@@ -541,7 +529,6 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"        loader: %s\n", entry->loader);
                 ps_string(L"    devicetree: %s\n", entry->devicetree);
                 ps_string(L"       options: %s\n", entry->options);
-                  ps_bool(L"   auto-select: %s\n", !entry->no_autoselect);
                   ps_bool(L" internal call: %s\n", !!entry->call);
 
                   ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
@@ -1645,12 +1632,6 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return 0;
 }
 
-static void config_sort_entries(Config *config) {
-        assert(config);
-
-        sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
-}
-
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
@@ -1695,14 +1676,16 @@ static void config_default_entry_select(Config *config) {
         /* select the last suitable entry */
         i = config->entry_count;
         while (i--) {
-                if (config->entries[i]->no_autoselect)
+                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
                 return;
         }
 
-        /* no entry found */
-        config->idx_default = IDX_INVALID;
+        /* If no configured entry to select from was found, enable the menu. */
+        config->idx_default = 0;
+        if (config->timeout_sec == 0)
+                config->timeout_sec = 10;
 }
 
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
@@ -1808,7 +1791,6 @@ static BOOLEAN config_entry_add_call(
                 .id = xstrdup(id),
                 .title = xstrdup(title),
                 .call = call,
-                .no_autoselect = TRUE,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
@@ -1921,19 +1903,16 @@ static BOOLEAN config_entry_add_loader_auto(
                 return FALSE;
         handle->Close(handle);
 
-        entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, id, key, title, loader, NULL);
+        entry = config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
         if (!entry)
                 return FALSE;
-
-        /* do not boot right away into auto-detected entries */
-        entry->no_autoselect = TRUE;
 
         return TRUE;
 }
 
 static void config_entry_add_osx(Config *config) {
         EFI_STATUS err;
-        UINTN handle_count = 0;
+        UINTN n_handles = 0;
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
 
         assert(config);
@@ -1941,21 +1920,25 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
-        if (!EFI_ERROR(err)) {
-                for (UINTN i = 0; i < handle_count; i++) {
-                        EFI_FILE *root;
-                        BOOLEAN found;
+        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (EFI_ERROR(err))
+                return;
 
-                        root = LibOpenRoot(handles[i]);
-                        if (!root)
-                                continue;
-                        found = config_entry_add_loader_auto(config, handles[i], root, NULL, L"auto-osx", 'a', L"macOS",
-                                                             L"\\System\\Library\\CoreServices\\boot.efi");
-                        root->Close(root);
-                        if (found)
-                                break;
-                }
+        for (UINTN i = 0; i < n_handles; i++) {
+                _cleanup_(file_handle_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
+                if (!root)
+                        continue;
+
+                if (config_entry_add_loader_auto(
+                                config,
+                                handles[i],
+                                root,
+                                NULL,
+                                L"auto-osx",
+                                'a',
+                                L"macOS",
+                                L"\\System\\Library\\CoreServices\\boot.efi"))
+                        break;
         }
 }
 
@@ -2147,8 +2130,8 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
+        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device;
-        EFI_FILE *root_dir;
         EFI_STATUS err;
 
         assert(config);
@@ -2344,7 +2327,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* sort entries after version number */
-        config_sort_entries(config);
+        sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
@@ -2359,6 +2342,16 @@ static void config_load_all_entries(
                                       L"auto-reboot-to-firmware-setup",
                                       L"Reboot Into Firmware Interface",
                                       reboot_into_firmware);
+
+        if (config->entry_count == 0)
+                return
+
+        config_write_entries_to_variable(config);
+
+        config_title_generate(config);
+
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2408,20 +2401,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (config.entry_count == 0) {
                 log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
                 goto out;
-        }
-
-        config_write_entries_to_variable(&config);
-
-        config_title_generate(&config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(&config);
-
-        /* if no configured entry to select from was found, enable the menu */
-        if (config.idx_default == IDX_INVALID) {
-                config.idx_default = 0;
-                if (config.timeout_sec == 0)
-                        config.timeout_sec = 10;
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
