@@ -933,7 +933,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported()) {
                         r = lsm_bpf_setup(m);
                         if (r < 0)
-                                return r;
+                                log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
                 }
 #endif
         }
