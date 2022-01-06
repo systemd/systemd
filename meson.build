@@ -2149,7 +2149,7 @@ executable(
         install : true,
         install_dir : systemgeneratordir)
 
-executable(
+exe = executable(
         'systemd-fstab-generator',
         'src/fstab-generator/fstab-generator.c',
         include_directories : includes,
@@ -2157,6 +2157,13 @@ executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : systemgeneratordir)
+
+if want_tests != 'false'
+        test('test-fstab-generator',
+             test_fstab_generator_sh,
+             # https://github.com/mesonbuild/meson/issues/2681
+             args : exe.full_path())
+endif
 
 if conf.get('ENABLE_ENVIRONMENT_D') == 1
         executable(

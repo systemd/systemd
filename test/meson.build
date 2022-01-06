@@ -12,6 +12,9 @@ if install_tests
         install_subdir('test-execute',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
+        install_subdir('test-fstab-generator',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
         install_subdir('test-path',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
@@ -83,6 +86,7 @@ if install_tests
                      install_dir : testdata_dir)
 endif
 
+test_fstab_generator_sh = find_program('test-fstab-generator.sh')
 test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
 test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
 hwdb_test_sh = find_program('hwdb-test.sh')
@@ -124,6 +128,10 @@ endif
 
 if install_tests
         install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
+
+        install_data('test-fstab-generator.sh',
                      install_mode : 'rwxr-xr-x',
                      install_dir : testsdir)
 
