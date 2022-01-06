@@ -176,7 +176,7 @@ int lsm_bpf_supported(void) {
 }
 
 int lsm_bpf_setup(Manager *m) {
-        struct restrict_fs_bpf *obj;
+        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
         int r;
 
@@ -186,17 +186,16 @@ int lsm_bpf_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->restrict_fs = obj;
-
-        link = sym_bpf_program__attach_lsm(m->restrict_fs->progs.restrict_filesystems);
+        link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
         r = sym_libbpf_get_error(link);
         if (r != 0)
                 return log_error_errno(r, "Failed to link '%s' LSM BPF program: %m",
-                                       sym_bpf_program__name(m->restrict_fs->progs.restrict_filesystems));
+                                       sym_bpf_program__name(obj->progs.restrict_filesystems));
 
         log_info("LSM BPF program attached");
 
-        m->restrict_fs->links.restrict_filesystems = TAKE_PTR(link);
+        obj->links.restrict_filesystems = TAKE_PTR(link);
+        m->restrict_fs = TAKE_PTR(obj);
 
         return 0;
 }
@@ -209,6 +208,10 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
 
         assert(filesystems);
         assert(u);
+
+        if (!u->manager->restrict_fs)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Restrict filesystems BPF object is not set, BPF LSM setup has failed?");
 
         int inner_map_fd = sym_bpf_create_map(
                         BPF_MAP_TYPE_HASH,
