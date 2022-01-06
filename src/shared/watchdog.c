@@ -166,11 +166,9 @@ int watchdog_setup(usec_t timeout) {
         usec_t previous_timeout;
         int r;
 
-        /* timeout=0 closes the device whereas passing timeout=USEC_INFINITY
-         * opens it (if needed) without configuring any particular timeout and
-         * thus reuses the programmed value (therefore it's a nop if the device
-         * is already opened).
-         */
+        /* timeout=0 closes the device whereas passing timeout=USEC_INFINITY opens it (if needed)
+         * without configuring any particular timeout and thus reuses the programmed value (therefore
+         * it's a nop if the device is already opened). */
 
         if (timeout == 0) {
                 watchdog_close(true);
@@ -181,9 +179,8 @@ int watchdog_setup(usec_t timeout) {
         if (watchdog_fd >= 0 && (timeout == watchdog_timeout || timeout == USEC_INFINITY))
                 return 0;
 
-        /* Initialize the watchdog timeout with the caller value. This value is
-         * going to be updated by update_timeout() with the closest value
-         * supported by the driver */
+        /* Initialize the watchdog timeout with the caller value. This value is going to be updated by
+         * update_timeout() with the closest value supported by the driver */
         previous_timeout = watchdog_timeout;
         watchdog_timeout = timeout;
 
