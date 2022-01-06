@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
 
         slow = slow_tests_enabled();
 
-        t = slow ? 10 * USEC_PER_SEC : 1 * USEC_PER_SEC;
+        t = slow ? 10 * USEC_PER_SEC : 2 * USEC_PER_SEC;
         count = slow ? 5 : 3;
 
         r = watchdog_setup(t);
