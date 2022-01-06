@@ -27,12 +27,13 @@ int main(int argc, char *argv[]) {
                 t = 0;
 
         for (i = 0; i < count; i++) {
+                t = watchdog_runtime_wait();
+                log_info("Sleeping " USEC_FMT " microseconds...", t);
+                usleep(t);
                 log_info("Pinging...");
                 r = watchdog_ping();
                 if (r < 0)
                         log_warning_errno(r, "Failed to ping watchdog: %m");
-
-                usleep(t/2);
         }
 
         watchdog_close(true);
