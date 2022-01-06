@@ -271,36 +271,6 @@ CHANGES WITH 250:
           monotonic clock even without RTC hardware and with some robustness
           against abnormal system shutdown.
 
-        * .network files gained a new UplinkInterface in the [IPv6SendRA]
-          section, for automatically propagating DNS settings from other
-          interfaces.
-
-        * The static lease DHCP server logic in systemd-networkd may now serve
-          IP addresses outside of the configured IP pool range for the server.
-
-        * CAN support in systemd-networkd gained four new settings Loopback=,
-          OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
-          control modes. It gained a number of further settings for tweaking
-          CAN timing quanta.
-
-        * The [CAN] section in .network file gained new TimeQuantaNSec=,
-          PropagationSegment=, PhaseBufferSegment1=, PhaseBufferSegment2=,
-          SyncJumpWidth=, DataTimeQuantaNSec=, DataPropagationSegment=,
-          DataPhaseBufferSegment1=, DataPhaseBufferSegment2=, and
-          DataSyncJumpWidth= settings to control bit-timing processed by the
-          CAN interface.
-
-        * DHCPv4 client support in systemd-networkd learnt a new Label= option
-          for configuring the address label to apply to configure IPv4
-          addresses.
-
-        * The various systemd-udevd "ethtool" buffer settings now understand
-          the special value "max" to configure the buffers to the maximum the
-          hardware supports.
-
-        * systemd-udevd's .link files may now configure a large variety of
-          NIC coalescing settings, plus more hardware offload settings.
-
         * systemd-analyze verify gained support for a pair of new --image= +
           --root= switches for verifying units below a specific root
           directory/image instead of on the host.
@@ -341,39 +311,32 @@ CHANGES WITH 250:
           including the build-id and other info described on:
           https://systemd.io/COREDUMP_PACKAGE_METADATA/
 
+        * .network files gained a new UplinkInterface= in the [IPv6SendRA]
+          section, for automatically propagating DNS settings from other
+          interfaces.
+
+        * The static lease DHCP server logic in systemd-networkd may now serve
+          IP addresses outside of the configured IP pool range for the server.
+
+        * CAN support in systemd-networkd gained four new settings Loopback=,
+          OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
+          control modes. It gained a number of further settings for tweaking
+          CAN timing quanta.
+
+        * The [CAN] section in .network file gained new TimeQuantaNSec=,
+          PropagationSegment=, PhaseBufferSegment1=, PhaseBufferSegment2=,
+          SyncJumpWidth=, DataTimeQuantaNSec=, DataPropagationSegment=,
+          DataPhaseBufferSegment1=, DataPhaseBufferSegment2=, and
+          DataSyncJumpWidth= settings to control bit-timing processed by the
+          CAN interface.
+
+        * DHCPv4 client support in systemd-networkd learnt a new Label= option
+          for configuring the address label to apply to configure IPv4
+          addresses.
+
         * The [IPv6AcceptRA] section of .network files gained support for a new
           UseMTU= setting that may be used to control whether to apply the
           announced MTU settings to the local interface.
-
-        * systemd-networkd now ships with new default .network files:
-          80-container-vb.network which matches host-side network bridge device
-          created by systemd-nspawn's --network-bridge or --network-zone
-          switch, and 80-6rd-tunnel.network which matches automatically created
-          sit tunnel with 6rd prefix when the DHCP 6RD option is received.
-
-        * systemd-networkd and systemd-udevd now support IP over InfiniBand
-          interfaces. The Kind= setting in .netdev file accepts "ipoib". And
-          systemd.netdev files gained the [IPoIB] section.
-
-        * systemd-networkd and systemd-udevd now support net.ifname-policy=
-          option on the kernel command-line. This is implemented through the
-          systemd-network-generator service that automatically generates
-          appropriate .link, .network, and .netdev files.
-
-        * systemd-networkd's handling of Endpoint= resolution for WireGuard
-          interfaces has been improved.
-
-        * systemd-networkd will now automatically configure routes to addresses
-          specified in AllowedIPs=. This feature can be controlled via RouteTable=
-          and RouteMetric= settings in [WireGuard] or [WireGuardPeer] sections.
-
-        * systemd-networkd will now once again automatically generate persistent
-          MAC addresses for batadv and bridge interfaces. Users can disable this
-          by using MACAddress=none in .netdev files.
-
-        * .link files gained a new WakeOnLanPassword= setting in the [Link]
-          section that allows to specify a WoL "SecureOn" password on hardware
-          that supports this.
 
         * The [DHCPv4] section in .network file gained a new Use6RD= boolean
           setting to control whether the DHCPv4 client request and process the
@@ -401,11 +364,6 @@ CHANGES WITH 250:
           [IPv6AcceptRA] section to control when the DHCPv6 client is started
           and how the delegated prefixes are handled by the DHCPv6 client.
 
-        * The [CAKE] section of .network files gained various new settings
-          AutoRateIngress=, CompensationMode=, FlowIsolationMode=, NAT=,
-          MPUBytes=, PriorityQueueingPreset=, FirewallMark=, Wash=, SplitGSO=,
-          and UseRawPacketSize= for configuring CAKE.
-
         * The IPv6Token= section in the [Network] section is deprecated, and
           the [IPv6AcceptRA] section gained the Token= setting for its
           replacement. The [IPv6Prefix] section also gained the Token= setting.
@@ -424,6 +382,49 @@ CHANGES WITH 250:
 
         * The [DHCPServer] section of .network file gained a new Router=
           setting to specify the router address.
+
+        * The [CAKE] section of .network files gained various new settings
+          AutoRateIngress=, CompensationMode=, FlowIsolationMode=, NAT=,
+          MPUBytes=, PriorityQueueingPreset=, FirewallMark=, Wash=, SplitGSO=,
+          and UseRawPacketSize= for configuring CAKE.
+
+        * systemd-networkd now ships with new default .network files:
+          80-container-vb.network which matches host-side network bridge device
+          created by systemd-nspawn's --network-bridge or --network-zone
+          switch, and 80-6rd-tunnel.network which matches automatically created
+          sit tunnel with 6rd prefix when the DHCP 6RD option is received.
+
+        * systemd-networkd's handling of Endpoint= resolution for WireGuard
+          interfaces has been improved.
+
+        * systemd-networkd will now automatically configure routes to addresses
+          specified in AllowedIPs=. This feature can be controlled via
+          RouteTable= and RouteMetric= settings in [WireGuard] or
+          [WireGuardPeer] sections.
+
+        * systemd-networkd will now once again automatically generate persistent
+          MAC addresses for batadv and bridge interfaces. Users can disable this
+          by using MACAddress=none in .netdev files.
+
+        * systemd-networkd and systemd-udevd now support IP over InfiniBand
+          interfaces. The Kind= setting in .netdev file accepts "ipoib". And
+          systemd.netdev files gained the [IPoIB] section.
+
+        * systemd-networkd and systemd-udevd now support net.ifname-policy=
+          option on the kernel command-line. This is implemented through the
+          systemd-network-generator service that automatically generates
+          appropriate .link, .network, and .netdev files.
+
+        * The various systemd-udevd "ethtool" buffer settings now understand
+          the special value "max" to configure the buffers to the maximum the
+          hardware supports.
+
+        * systemd-udevd's .link files may now configure a large variety of
+          NIC coalescing settings, plus more hardware offload settings.
+
+        * .link files gained a new WakeOnLanPassword= setting in the [Link]
+          section that allows to specify a WoL "SecureOn" password on hardware
+          that supports this.
 
         * systemd-nspawn's --setenv= switch now supports an additional syntax:
           if only a variable name is specified (i.e. without being suffixed by
