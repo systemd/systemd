@@ -4,6 +4,7 @@ set -e
 
 TEST_DESCRIPTION="systemd-oomd Memory Pressure Test"
 IMAGE_NAME="oomd"
+TEST_NO_NSPAWN=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
