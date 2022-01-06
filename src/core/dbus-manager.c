@@ -314,7 +314,8 @@ static int property_set_watchdog(Manager *m, WatchdogType type, sd_bus_message *
         if (r < 0)
                 return r;
 
-        return manager_override_watchdog(m, type, timeout);
+        manager_override_watchdog(m, type, timeout);
+        return 0;
 }
 
 static int property_set_runtime_watchdog(

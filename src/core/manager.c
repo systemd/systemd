@@ -3239,15 +3239,15 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         m->watchdog[t] = timeout;
 }
 
-int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
+void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 
         assert(m);
 
         if (MANAGER_IS_USER(m))
-                return 0;
+                return;
 
         if (m->watchdog_overridden[t] == timeout)
-                return 0;
+                return;
 
         if (t == WATCHDOG_RUNTIME) {
                 usec_t usec = timestamp_is_set(timeout) ? timeout : m->watchdog[t];
@@ -3256,7 +3256,6 @@ int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         }
 
         m->watchdog_overridden[t] = timeout;
-        return 0;
 }
 
 int manager_reload(Manager *m) {
