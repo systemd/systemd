@@ -132,10 +132,28 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         break;
                 }
 
-                printf(" Password OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
-                break;
+                if (strv_isempty(hr->hashed_password)) {
+                        if (hr->incomplete) /* Record might be incomplete, due to privs */
+                                break;
+                        printf(" Password OK: %sno%s (none set)\n", ansi_highlight(), ansi_normal());
+                        break;
+                }
+                if (strv_contains(hr->hashed_password, "")) {
+                        printf(" Password OK: %sno%s (empty set)\n", ansi_highlight_red(), ansi_normal());
+                        break;
+                }
+                bool has_valid_passwords = false;
+                char **p;
+                STRV_FOREACH(p, hr->hashed_password)
+                        if (!hashed_password_is_locked_or_invalid(*p)) {
+                                has_valid_passwords = true;
+                                break;
+                        }
+                if (has_valid_passwords)
+                        printf(" Password OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                else
+                        printf(" Password OK: %sno%s (locked)\n", ansi_highlight(), ansi_normal());
         }
-
         if (uid_is_valid(hr->uid))
                 printf("         UID: " UID_FMT "\n", hr->uid);
         if (gid_is_valid(hr->gid)) {
