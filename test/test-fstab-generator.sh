@@ -35,6 +35,7 @@ for f in "$src"/test-*.input; do
         fi
 
         if ! diff -u "$out" "${f%.input}.expected"; then
+            echo $(grep -r . "$out")
             echo "**** Unexpected output for $f"
             exit 1
         fi
