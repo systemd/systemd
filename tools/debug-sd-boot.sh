@@ -21,7 +21,7 @@ if [[ $# -lt 2 ]]; then
     echo "    (gdb) source GDBSCRIPT"
     echo "    (gdb) target remote :1234"
     echo
-    echo "Exmaple usage:"
+    echo "Example usage:"
     echo "    mkfifo /tmp/sdboot.{in,out}"
     echo "    qemu-system-x86_64 [...] -s -serial pipe:/tmp/sdboot"
     echo "    ./tools/debug-sd-boot.sh ./build/src/boot/efi/systemd-bootx64.efi \\"

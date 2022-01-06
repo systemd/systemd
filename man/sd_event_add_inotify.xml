@@ -81,7 +81,7 @@
     further information.</para>
 
     <para>The <parameter>handler</parameter> must reference a function to call when the inode changes or
-    <contant>NULL</contant>. The handler function will be passed the <parameter>userdata</parameter> pointer,
+    <constant>NULL</constant>. The handler function will be passed the <parameter>userdata</parameter> pointer,
     which may be chosen freely by the caller. The handler also receives a pointer to a <structname>struct
     inotify_event</structname> structure containing information about the inode event. The handler may return
     negative to signal an error (see below), other return values are ignored. If
