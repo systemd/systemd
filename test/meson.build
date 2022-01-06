@@ -127,11 +127,9 @@ if install_tests
                      install_mode : 'rwxr-xr-x',
                      install_dir : testsdir)
 
-        if conf.get('ENABLE_NETWORKD') == 1
-                install_data('test-network-generator-conversion.sh',
-                             install_mode : 'rwxr-xr-x',
-                             install_dir : testsdir)
-        endif
+        install_data('test-network-generator-conversion.sh',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
 endif
 
 ############################################################
