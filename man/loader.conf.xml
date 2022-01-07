@@ -197,6 +197,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term>reboot-for-bitlocker</term>
+
+        <listitem><para>Work around BitLocker requiring a recovery key when the boot loader was
+        updated (enabled by default).</para>
+
+        <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found
+        and Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal>
+        EFI variable and restart the system. The firmware will then start Windows Boot Manager
+        directly, leaving the TPM PCRs in expected states so that Windows can unseal the encryption
+        key. This allows systemd-boot to be updated without having to provide the recovery key for
+        BitLocker drive unlocking.</para>
+
+        <para>Note that the PCRs that Windows uses can be configured with the
+        <literal>Configure TPM platform validation profile for native UEFI firmware configurations</literal>
+        group policy under <literal>Computer Configuration\Administrative Templates\Windows Components\BitLocker Drive Encryption</literal>.
+        When secure boot is enabled, changing this to PCRs <literal>0,2,7,11</literal> should be safe.
+        The TPM key protector needs to be removed and then added back for the PCRs on an already
+        encrypted drive to change. If PCR 4 is not measured, this setting can be disabled to speed
+        up booting into Windows.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>random-seed-mode</term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>with-system-token</literal> and
