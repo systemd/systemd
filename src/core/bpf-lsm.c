@@ -48,7 +48,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
         if (!link)
                 return -ENOMEM;
 
-        return 1;
+        return sym_libbpf_get_error(link) == 0;
 }
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
