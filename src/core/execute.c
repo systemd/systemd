@@ -1886,7 +1886,7 @@ static int build_environment(
          * users via PID 1, possibly dead-locking the dbus daemon. This way it will not use D-Bus to resolve names, but
          * check the database directly. */
         if (p->flags & EXEC_NSS_BYPASS_BUS) {
-                x = strdup("SYSTEMD_NSS_BYPASS_BUS=1");
+                x = strdup("SYSTEMD_NSS_DYNAMIC_BYPASS=1");
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;
