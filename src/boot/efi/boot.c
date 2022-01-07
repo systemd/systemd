@@ -42,6 +42,7 @@ _used_ _section_(".osrel") static const char osrel[] =
 
 enum loader_type {
         LOADER_UNDEFINED,
+        LOADER_AUTO,
         LOADER_EFI,
         LOADER_LINUX,
         LOADER_STUB,
@@ -60,7 +61,6 @@ typedef struct {
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(void);
-        BOOLEAN no_autoselect;
         BOOLEAN non_unique;
         UINTN tries_done;
         UINTN tries_left;
@@ -85,6 +85,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN bitlocker;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
@@ -142,27 +143,20 @@ static BOOLEAN line_edit(
                 UINTN y_pos) {
 
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
-        UINTN size, len, first, cursor, clear;
-        BOOLEAN exit, enter;
+        UINTN size, len, first = 0, cursor = 0, clear = 0;
 
         assert(line_out);
 
         if (!line_in)
                 line_in = L"";
 
-        size = StrLen(line_in) + 1024;
+        len = StrLen(line_in);
+        size = len + 1024;
         line = xnew(CHAR16, size);
-
-        StrCpy(line, line_in);
-        len = StrLen(line);
         print = xnew(CHAR16, x_max + 1);
+        StrCpy(line, line_in);
 
-        first = 0;
-        cursor = 0;
-        clear = 0;
-        enter = FALSE;
-        exit = FALSE;
-        while (!exit) {
+        for (;;) {
                 EFI_STATUS err;
                 UINT64 key;
                 UINTN j;
@@ -196,8 +190,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        exit = TRUE;
-                        break;
+                        return FALSE;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
@@ -324,9 +317,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (StrCmp(line, line_in) != 0)
                                 *line_out = TAKE_PTR(line);
-                        enter = TRUE;
-                        exit = TRUE;
-                        break;
+                        return TRUE;
 
                 case KEYPRESS(0, 0, CHAR_BACKSPACE):
                         if (len == 0)
@@ -373,8 +364,6 @@ static BOOLEAN line_edit(
                         continue;
                 }
         }
-
-        return enter;
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
@@ -473,6 +462,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"        OS indications: %lu\n",     get_os_indications_supported());
             Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
+          ps_bool(L"                   TPM: %s\n",      tpm_present());
             Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
         Print(L"\n--- Press any key to continue. ---\n\n");
@@ -507,6 +497,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
+          ps_bool(L"             bitlocker: %s\n", config->bitlocker);
         ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
         switch (config->console_mode) {
@@ -541,7 +532,6 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"        loader: %s\n", entry->loader);
                 ps_string(L"    devicetree: %s\n", entry->devicetree);
                 ps_string(L"       options: %s\n", entry->options);
-                  ps_bool(L"   auto-select: %s\n", !entry->no_autoselect);
                   ps_bool(L" internal call: %s\n", !!entry->call);
 
                   ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
@@ -1154,6 +1144,13 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"bitlocker", key) == 0) {
+                        err = parse_boolean(value, &config->bitlocker);
+                        if (EFI_ERROR(err))
+                                log_error_stall(L"Error parsing 'bitlocker' config option: %a", value);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
                         if (strcmpa((CHAR8 *)"auto", value) == 0)
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1524,6 +1521,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
+                .bitlocker = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1645,12 +1643,6 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return 0;
 }
 
-static void config_sort_entries(Config *config) {
-        assert(config);
-
-        sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
-}
-
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         assert(config);
 
@@ -1695,14 +1687,16 @@ static void config_default_entry_select(Config *config) {
         /* select the last suitable entry */
         i = config->entry_count;
         while (i--) {
-                if (config->entries[i]->no_autoselect)
+                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
                 return;
         }
 
-        /* no entry found */
-        config->idx_default = IDX_INVALID;
+        /* If no configured entry to select from was found, enable the menu. */
+        config->idx_default = 0;
+        if (config->timeout_sec == 0)
+                config->timeout_sec = 10;
 }
 
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
@@ -1808,7 +1802,6 @@ static BOOLEAN config_entry_add_call(
                 .id = xstrdup(id),
                 .title = xstrdup(title),
                 .call = call,
-                .no_autoselect = TRUE,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
@@ -1877,7 +1870,7 @@ static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
         return CompareMem(content, magic, sizeof(magic)) == 0;
 }
 
-static BOOLEAN config_entry_add_loader_auto(
+static ConfigEntry *config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1888,7 +1881,6 @@ static BOOLEAN config_entry_add_loader_auto(
                 const CHAR16 *loader) {
 
         EFI_FILE_HANDLE handle;
-        ConfigEntry *entry;
         EFI_STATUS err;
 
         assert(config);
@@ -1899,7 +1891,7 @@ static BOOLEAN config_entry_add_loader_auto(
         assert(loader || loaded_image_path);
 
         if (!config->auto_entries)
-                return FALSE;
+                return NULL;
 
         if (loaded_image_path) {
                 loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
@@ -1912,28 +1904,21 @@ static BOOLEAN config_entry_add_loader_auto(
                 if (StriCmp(loader, loaded_image_path) == 0 ||
                     is_sd_boot(root_dir, loader) ||
                     is_sd_boot(root_dir, L"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME L".EFI"))
-                        return FALSE;
+                        return NULL;
         }
 
         /* check existence */
         err = root_dir->Open(root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
-                return FALSE;
+                return NULL;
         handle->Close(handle);
 
-        entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, id, key, title, loader, NULL);
-        if (!entry)
-                return FALSE;
-
-        /* do not boot right away into auto-detected entries */
-        entry->no_autoselect = TRUE;
-
-        return TRUE;
+        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
 }
 
 static void config_entry_add_osx(Config *config) {
         EFI_STATUS err;
-        UINTN handle_count = 0;
+        UINTN n_handles = 0;
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
 
         assert(config);
@@ -1941,22 +1926,102 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
-        if (!EFI_ERROR(err)) {
-                for (UINTN i = 0; i < handle_count; i++) {
-                        EFI_FILE *root;
-                        BOOLEAN found;
+        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (EFI_ERROR(err))
+                return;
 
-                        root = LibOpenRoot(handles[i]);
-                        if (!root)
-                                continue;
-                        found = config_entry_add_loader_auto(config, handles[i], root, NULL, L"auto-osx", 'a', L"macOS",
-                                                             L"\\System\\Library\\CoreServices\\boot.efi");
-                        root->Close(root);
-                        if (found)
-                                break;
+        for (UINTN i = 0; i < n_handles; i++) {
+                _cleanup_(file_handle_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
+                if (!root)
+                        continue;
+
+                if (config_entry_add_loader_auto(
+                                config,
+                                handles[i],
+                                root,
+                                NULL,
+                                L"auto-osx",
+                                'a',
+                                L"macOS",
+                                L"\\System\\Library\\CoreServices\\boot.efi"))
+                        break;
+        }
+}
+
+static EFI_STATUS boot_windows_bitlocker(void) {
+        _cleanup_freepool_ EFI_HANDLE *handles = NULL;
+        UINTN n_handles;
+        EFI_STATUS err;
+
+        /* BitLocker key cannot be sealed without a TPM presetn. */
+        if (!tpm_present())
+                return EFI_NOT_FOUND;
+
+        err = BS->LocateHandleBuffer(ByProtocol, &BlockIoProtocol, NULL, &n_handles, &handles);
+        if (EFI_ERROR(err))
+                return err;
+
+        /* Look for BitLocker magic string on all block drives. */
+        BOOLEAN found = FALSE;
+        for (UINTN i = 0; i < n_handles; i++) {
+                EFI_BLOCK_IO *block_io;
+                err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
+                if (EFI_ERROR(err) || block_io->Media->BlockSize < 512)
+                        continue;
+
+                CHAR8 buf[block_io->Media->BlockSize];
+                block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
+                if (EFI_ERROR(err))
+                        continue;
+
+                if (CompareMem(buf + 3, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
+                        found = TRUE;
+                        break;
                 }
         }
+
+        if (!found)
+                return EFI_NOT_FOUND;
+
+        _cleanup_freepool_ UINT16 *boot_order = NULL;
+        UINTN boot_order_size;
+
+        /* There can be gaps in Boot#### entries. Instead of iterating over the full
+         * EFI var list or UINT16 namespace, just look for Windows Boot Manager in BootOrder. */
+        err = efivar_get_raw(EFI_GLOBAL_GUID, L"BootOrder", (CHAR8 **) &boot_order, &boot_order_size);
+        if (EFI_ERROR(err) || boot_order_size % sizeof(UINT16) != 0)
+                return err;
+
+        for (UINTN i = 0; i < boot_order_size / sizeof(UINT16); i++) {
+                _cleanup_freepool_ CHAR8 *buf = NULL;
+                CHAR16 name[sizeof(L"Boot0000")];
+                UINTN buf_size;
+
+                SPrint(name, sizeof(name), L"Boot%04x", boot_order[i]);
+                err = efivar_get_raw(EFI_GLOBAL_GUID, name, &buf, &buf_size);
+                if (EFI_ERROR(err))
+                        continue;
+
+                /* Boot#### are EFI_LOAD_OPTION. But we really are only interested
+                 * for the description, which is at this offset. */
+                UINTN offset = sizeof(UINT32) + sizeof(UINT16);
+                if (buf_size < offset + sizeof(CHAR16))
+                        continue;
+
+                if (streq((CHAR16 *) (buf + offset), L"Windows Boot Manager")) {
+                        err = efivar_set_raw(
+                                EFI_GLOBAL_GUID,
+                                L"BootNext",
+                                boot_order + i,
+                                sizeof(boot_order[i]),
+                                EFI_VARIABLE_NON_VOLATILE);
+                        if (EFI_ERROR(err))
+                                return err;
+                        return RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
+                }
+        }
+
+        return EFI_NOT_FOUND;
 }
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
@@ -1978,9 +2043,12 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (!EFI_ERROR(err))
                 title = get_bcd_title((UINT8 *) bcd, len);
 
-        config_entry_add_loader_auto(config, device, root_dir, NULL,
-                                     L"auto-windows", 'w', title ?: L"Windows Boot Manager",
-                                     L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
+                                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",
+                                                      L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+
+        if (config->bitlocker)
+                e->call = boot_windows_bitlocker;
 #endif
 }
 
@@ -2147,8 +2215,8 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
+        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device;
-        EFI_FILE *root_dir;
         EFI_STATUS err;
 
         assert(config);
@@ -2176,6 +2244,10 @@ static EFI_STATUS image_start(
 
         assert(config);
         assert(entry);
+
+        /* If this loader entry has a special way to boot, try that first. */
+        if (entry->call)
+                (void) entry->call();
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
@@ -2260,7 +2332,7 @@ static void config_write_entries_to_variable(Config *config) {
 static void save_selected_entry(const Config *config, const ConfigEntry *entry) {
         assert(config);
         assert(entry);
-        assert(!entry->call);
+        assert(entry->loader || !entry->call);
 
         /* Always export the selected boot entry to the system in a volatile var. */
         (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
@@ -2344,7 +2416,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* sort entries after version number */
-        config_sort_entries(config);
+        sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
@@ -2359,6 +2431,16 @@ static void config_load_all_entries(
                                       L"auto-reboot-to-firmware-setup",
                                       L"Reboot Into Firmware Interface",
                                       reboot_into_firmware);
+
+        if (config->entry_count == 0)
+                return
+
+        config_write_entries_to_variable(config);
+
+        config_title_generate(config);
+
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2410,20 +2492,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 goto out;
         }
 
-        config_write_entries_to_variable(&config);
-
-        config_title_generate(&config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(&config);
-
-        /* if no configured entry to select from was found, enable the menu */
-        if (config.idx_default == IDX_INVALID) {
-                config.idx_default = 0;
-                if (config.timeout_sec == 0)
-                        config.timeout_sec = 10;
-        }
-
         /* select entry or show menu when key is pressed or timeout is set */
         if (config.force_menu || config.timeout_sec > 0)
                 menu = TRUE;
@@ -2452,8 +2520,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 break;
                 }
 
-                /* run special entry like "reboot" */
-                if (entry->call) {
+                /* Run special entry like "reboot" now. Those that have a loader
+                 * will be handled by image_start() instead. */
+                if (entry->call && !entry->loader) {
                         entry->call();
                         continue;
                 }
