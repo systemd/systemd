@@ -85,6 +85,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN reboot_for_bitlocker;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
@@ -496,6 +497,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
+          ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
         ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
         switch (config->console_mode) {
@@ -1142,6 +1144,13 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"reboot-for-bitlocker", key) == 0) {
+                        err = parse_boolean(value, &config->reboot_for_bitlocker);
+                        if (EFI_ERROR(err))
+                                log_error_stall(L"Error parsing 'reboot-for-bitlocker' config option: %a", value);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
                         if (strcmpa((CHAR8 *)"auto", value) == 0)
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1511,6 +1520,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
+                .reboot_for_bitlocker = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1868,7 +1878,7 @@ static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
         return CompareMem(content, magic, sizeof(magic)) == 0;
 }
 
-static BOOLEAN config_entry_add_loader_auto(
+static ConfigEntry *config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1879,7 +1889,6 @@ static BOOLEAN config_entry_add_loader_auto(
                 const CHAR16 *loader) {
 
         EFI_FILE_HANDLE handle;
-        ConfigEntry *entry;
         EFI_STATUS err;
 
         assert(config);
@@ -1890,7 +1899,7 @@ static BOOLEAN config_entry_add_loader_auto(
         assert(loader || loaded_image_path);
 
         if (!config->auto_entries)
-                return FALSE;
+                return NULL;
 
         if (loaded_image_path) {
                 loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
@@ -1903,20 +1912,16 @@ static BOOLEAN config_entry_add_loader_auto(
                 if (StriCmp(loader, loaded_image_path) == 0 ||
                     is_sd_boot(root_dir, loader) ||
                     is_sd_boot(root_dir, L"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME L".EFI"))
-                        return FALSE;
+                        return NULL;
         }
 
         /* check existence */
         err = root_dir->Open(root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
-                return FALSE;
+                return NULL;
         handle->Close(handle);
 
-        entry = config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
-        if (!entry)
-                return FALSE;
-
-        return TRUE;
+        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
 }
 
 static void config_entry_add_osx(Config *config) {
@@ -1951,6 +1956,83 @@ static void config_entry_add_osx(Config *config) {
         }
 }
 
+static EFI_STATUS boot_windows_bitlocker(void) {
+        _cleanup_freepool_ EFI_HANDLE *handles = NULL;
+        UINTN n_handles;
+        EFI_STATUS err;
+
+        /* BitLocker key cannot be sealed without a TPM present. */
+        if (!tpm_present())
+                return EFI_NOT_FOUND;
+
+        err = BS->LocateHandleBuffer(ByProtocol, &BlockIoProtocol, NULL, &n_handles, &handles);
+        if (EFI_ERROR(err))
+                return err;
+
+        /* Look for BitLocker magic string on all block drives. */
+        BOOLEAN found = FALSE;
+        for (UINTN i = 0; i < n_handles; i++) {
+                EFI_BLOCK_IO *block_io;
+                err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
+                if (EFI_ERROR(err) || block_io->Media->BlockSize < 512)
+                        continue;
+
+                CHAR8 buf[block_io->Media->BlockSize];
+                block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
+                if (EFI_ERROR(err))
+                        continue;
+
+                if (CompareMem(buf + 3, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
+                        found = TRUE;
+                        break;
+                }
+        }
+
+        /* If no BitLocker drive was found, we can just chainload bootmgfw.efi directly. */
+        if (!found)
+                return EFI_NOT_FOUND;
+
+        _cleanup_freepool_ UINT16 *boot_order = NULL;
+        UINTN boot_order_size;
+
+        /* There can be gaps in Boot#### entries. Instead of iterating over the full
+         * EFI var list or UINT16 namespace, just look for "Windows Boot Manager" in BootOrder. */
+        err = efivar_get_raw(EFI_GLOBAL_GUID, L"BootOrder", (CHAR8 **) &boot_order, &boot_order_size);
+        if (EFI_ERROR(err) || boot_order_size % sizeof(UINT16) != 0)
+                return err;
+
+        for (UINTN i = 0; i < boot_order_size / sizeof(UINT16); i++) {
+                _cleanup_freepool_ CHAR8 *buf = NULL;
+                CHAR16 name[sizeof(L"Boot0000")];
+                UINTN buf_size;
+
+                SPrint(name, sizeof(name), L"Boot%04x", boot_order[i]);
+                err = efivar_get_raw(EFI_GLOBAL_GUID, name, &buf, &buf_size);
+                if (EFI_ERROR(err))
+                        continue;
+
+                /* Boot#### are EFI_LOAD_OPTION. But we really are only interested
+                 * for the description, which is at this offset. */
+                UINTN offset = sizeof(UINT32) + sizeof(UINT16);
+                if (buf_size < offset + sizeof(CHAR16))
+                        continue;
+
+                if (streq((CHAR16 *) (buf + offset), L"Windows Boot Manager")) {
+                        err = efivar_set_raw(
+                                EFI_GLOBAL_GUID,
+                                L"BootNext",
+                                boot_order + i,
+                                sizeof(boot_order[i]),
+                                EFI_VARIABLE_NON_VOLATILE);
+                        if (EFI_ERROR(err))
+                                return err;
+                        return RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
+                }
+        }
+
+        return EFI_NOT_FOUND;
+}
+
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_freepool_ CHAR8 *bcd = NULL;
@@ -1970,9 +2052,12 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (!EFI_ERROR(err))
                 title = get_bcd_title((UINT8 *) bcd, len);
 
-        config_entry_add_loader_auto(config, device, root_dir, NULL,
-                                     L"auto-windows", 'w', title ?: L"Windows Boot Manager",
-                                     L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
+                                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",
+                                                      L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+
+        if (config->reboot_for_bitlocker)
+                e->call = boot_windows_bitlocker;
 #endif
 }
 
@@ -2169,6 +2254,10 @@ static EFI_STATUS image_start(
         assert(config);
         assert(entry);
 
+        /* If this loader entry has a special way to boot, try that first. */
+        if (entry->call)
+                (void) entry->call();
+
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
@@ -2252,7 +2341,7 @@ static void config_write_entries_to_variable(Config *config) {
 static void save_selected_entry(const Config *config, const ConfigEntry *entry) {
         assert(config);
         assert(entry);
-        assert(!entry->call);
+        assert(entry->loader || !entry->call);
 
         /* Always export the selected boot entry to the system in a volatile var. */
         (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
@@ -2442,8 +2531,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 break;
                 }
 
-                /* run special entry like "reboot" */
-                if (entry->call) {
+                /* Run special entry like "reboot" now. Those that have a loader
+                 * will be handled by image_start() instead. */
+                if (entry->call && !entry->loader) {
                         entry->call();
                         continue;
                 }
