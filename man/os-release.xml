@@ -35,7 +35,7 @@
     <filename>/usr/lib/os-release</filename> files contain operating
     system identification data.</para>
 
-    <para>The basic file format of <filename>os-release</filename> is a newline-separated list of
+    <para>The format of <filename>os-release</filename> is a newline-separated list of
     environment-like shell-compatible variable assignments. It is possible to source the configuration from
     Bourne shell scripts, however, beyond mere variable assignments, no shell features are supported (this
     means variable expansion is explicitly not supported), allowing applications to read the file without
@@ -44,8 +44,8 @@
     0–9. (Assignments that do not include these special characters may be enclosed in quotes too, but this is
     optional.) Shell special characters ("$", quotes, backslash, backtick) must be escaped with backslashes,
     following shell style. All strings should be in UTF-8 encoding, and non-printable characters should not
-    be used. It is not supported to concatenate multiple individually quoted strings. Lines beginning with
-    "#" shall be ignored as comments. Blank lines are permitted and ignored.</para>
+    be used. Concatenation of multiple individually quoted strings is not supported. Lines beginning with "#"
+    are treated as comments. Blank lines are permitted and ignored.</para>
 
     <para>The file <filename>/etc/os-release</filename> takes
     precedence over <filename>/usr/lib/os-release</filename>.

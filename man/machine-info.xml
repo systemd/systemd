@@ -29,13 +29,13 @@
     <para>The <filename>/etc/machine-info</filename> file contains
     machine metadata.</para>
 
-    <para>The basic file format of <filename>machine-info</filename>
-    is a newline-separated list of environment-like shell-compatible
-    variable assignments. It is possible to source the configuration
-    from shell scripts, however, beyond mere variable assignments no
-    shell features are supported, allowing applications to read the
-    file without implementing a shell compatible execution
-    engine.</para>
+    <para>The format of <filename>machine-info</filename> is a newline-separated list of environment-like
+    shell-compatible variable assignments, ignoring comments and empty lines. It is possible to source the
+    configuration from shell scripts, however, beyond mere variable assignments no shell features are
+    supported, allowing applications to read the file without implementing a shell compatible execution
+    engine. See
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    detailed description of the format.</para>
 
     <para><filename>/etc/machine-info</filename> contains metadata about the machine that is set by the user
     or administrator. The settings configured here have the highest precedence. When not set, appropriate

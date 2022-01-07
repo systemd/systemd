@@ -32,13 +32,13 @@
     You can safely mask this file if you want to avoid this kind of initialization.
     </para>
 
-    <para>The basic file format of the
-    <filename>vconsole.conf</filename> is a newline-separated list of
-    environment-like shell-compatible variable assignments. It is
-    possible to source the configuration from shell scripts, however,
-    beyond mere variable assignments no shell features are supported,
-    allowing applications to read the file without implementing a
-    shell compatible execution engine.</para>
+    <para>The format of <filename>vconsole.conf</filename> is a newline-separated list of environment-like
+    shell-compatible variable assignments, ignoring comments and empty lines. It is possible to source the
+    configuration from shell scripts, however, beyond mere variable assignments no shell features are
+    supported, allowing applications to read the file without implementing a shell compatible execution
+    engine. See
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    detailed description of the format.</para>
 
     <para>Note that the kernel command line options
     <varname>vconsole.keymap=</varname>,
