@@ -45,10 +45,11 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
         assert(prog);
 
         link = sym_bpf_program__attach_lsm(prog);
-        if (!link)
-                return -ENOMEM;
 
-        return 1;
+        /* If bpf_program__attach_lsm fails the resulting value stores libbpf error code instead of memory
+         * pointer. That is the case when the helper is called on architectures where BPF trampoline (hence
+         * BPF_LSM_MAC attach type) is not supported. */
+        return sym_libbpf_get_error(link) == 0;
 }
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
