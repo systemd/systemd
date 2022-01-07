@@ -22,7 +22,8 @@ fi
 
 rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
-echo "DefaultMemoryPressureDurationSec=2s" >>/etc/systemd/oomd.conf
+mkdir -p /etc/systemd/oomd.conf.d/
+echo -e "[OOM]\nDefaultMemoryPressureDurationSec=2s" >/etc/systemd/oomd.conf.d/99-pressure-duration.conf
 
 mkdir -p /etc/systemd/system/systemd-oomd.service.d/
 echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >/etc/systemd/system/systemd-oomd.service.d/debug.conf
