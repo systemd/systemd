@@ -53,6 +53,7 @@ static char *arg_xbootldr_path = NULL;
 static bool arg_print_esp_path = false;
 static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
+static bool arg_entry_from_loader = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
 static int arg_make_machine_id_directory = 0;
@@ -1242,18 +1243,19 @@ static int help(int argc, char *argv[], void *userdata) {
                "  is-installed        Test whether systemd-boot is installed in the ESP\n"
                "  random-seed         Initialize random seed in ESP and EFI variables\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help            Show this help\n"
-               "     --version         Print version\n"
-               "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH  Path to the $BOOT partition\n"
-               "  -p --print-esp-path  Print path to the EFI System Partition\n"
-               "  -x --print-boot-path Print path to the $BOOT partition\n"
-               "     --no-variables    Don't touch EFI variables\n"
-               "     --no-pager        Do not pipe output into a pager\n"
-               "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
-               "                       variables cannot be written\n"
+               "  -h --help               Show this help\n"
+               "     --version            Print version\n"
+               "     --esp-path=PATH      Path to the EFI System Partition (ESP)\n"
+               "     --boot-path=PATH     Path to the $BOOT partition\n"
+               "  -p --print-esp-path     Print path to the EFI System Partition\n"
+               "  -x --print-boot-path    Print path to the $BOOT partition\n"
+               "     --no-variables       Don't touch EFI variables\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --graceful           Don't fail when the ESP cannot be found or EFI\n"
+               "                          variables cannot be written\n"
                "     --make-machine-id-directory=yes|no|auto\n"
-               "                       Create $BOOT/$MACHINE_ID\n"
+               "                          Create $BOOT/$MACHINE_ID\n"
+               "     --entry-from-loader  Show all the boot entries returned by loader\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1274,6 +1276,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
                 ARG_MAKE_MACHINE_ID_DIRECTORY,
+                ARG_ENTRY_FROM_LOADER,
         };
 
         static const struct option options[] = {
@@ -1289,6 +1292,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER                  },
                 { "graceful",                  no_argument,       NULL, ARG_GRACEFUL                  },
                 { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_MACHINE_ID_DIRECTORY },
+                { "entry-from-loader",         no_argument,       NULL, ARG_ENTRY_FROM_LOADER         },
                 {}
         };
 
@@ -1355,6 +1359,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         return r;
                                 arg_make_machine_id_directory = b;
                         }
+                        break;
+
+                case ARG_ENTRY_FROM_LOADER:
+                        arg_entry_from_loader = true;
                         break;
 
                 case '?':
@@ -1570,7 +1578,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else if (r < 0)
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
-                (void) boot_entries_augment_from_loader(&config, efi_entries, false);
+                (void) boot_entries_augment_from_loader(&config, efi_entries, !arg_entry_from_loader);
 
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");

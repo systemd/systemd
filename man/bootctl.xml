@@ -277,6 +277,13 @@
         Partitions, or that multiple OS instances are not possible.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--entry-from-loader</option></term>
+        <listitem><para>This option modifies the behaviour of <command>list</command>, taking in consideration
+	also the boot entries returned by the boot loader.
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
