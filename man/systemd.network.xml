@@ -4554,10 +4554,10 @@ Bridge=bridge0</programlisting>
     </example>
 
     <example>
-      <title></title>
+      <title>Bridge port with VLAN forwarding</title>
 
       <programlisting>
-# /etc/systemd/network/20-bridge-slave-interface-vlan.network
+# /etc/systemd/network/25-bridge-slave-interface-1.network
 [Match]
 Name=enp2s0
 
