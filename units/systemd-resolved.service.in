@@ -54,5 +54,5 @@ User=systemd-resolve
 {{SERVICE_WATCHDOG}}
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target
 Alias=dbus-org.freedesktop.resolve1.service
