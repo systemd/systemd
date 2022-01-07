@@ -240,7 +240,7 @@
         <listitem><para>When specified with the <command>encrypt</command> command controls the timestamp to
         embed into the encrypted credential. Defaults to the current time. Takes a timestamp specification in
         the format described in
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>When specified with the <command>decrypt</command> command controls the timestamp to use to
         validate the "not-after" timestamp that was configured with <option>--not-after=</option> during
@@ -255,7 +255,7 @@
         credential. During decryption the timestamp is checked against the current system clock, and if the
         timestamp is in the past the decryption will fail. By default no such timestamp is set. Takes a
         timestamp specification in the format described in
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -275,7 +275,7 @@
         media, encryption will fail.</para>
 
         <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
-        <option>-T</option> is a shortcut for <option>-with-key=tpm2</option>.</para>
+        <option>-T</option> is a shortcut for <option>--with-key=tpm2</option>.</para>
 
         <para>When encrypting credentials that shall be used in the initial RAM disk (initrd) where
         <filename>/var/lib/systemd/</filename> is typically not available make sure to use
