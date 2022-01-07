@@ -504,6 +504,10 @@ static inline int missing_open_tree(
 #define MOVE_MOUNT_F_EMPTY_PATH 0x00000004 /* Empty from path permitted */
 #endif
 
+#ifndef MOVE_MOUNT_T_EMPTY_PATH
+#define MOVE_MOUNT_T_EMPTY_PATH 0x00000040 /* Empty to path permitted */
+#endif
+
 static inline int missing_move_mount(
                 int from_dfd,
                 const char *from_pathname,
