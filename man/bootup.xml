@@ -106,21 +106,21 @@
  |  swap.target                       |           |    v     v                 |
  |    |                               v           |  remote-cryptsetup.target  |
  |    |  (various low-level  (various mounts and  |  remote-veritysetup.target |
- |    |   services: udevd,    fsck services...)   |             |    remote-fs.target
- |    |   tmpfiles, random            |           |             |             /
- |    |   seed, sysctl, ...)          v           |             |            /
- |    |      |                 local-fs.target    |             |           /
- |    |      |                        |           |             |          /
- \____|______|_______________   ______|___________/             |         /
-                             \ /                                |        /
-                              v                                 |       /
-                       sysinit.target                           |      /
-                              |                                 |     /
-       ______________________/|\_____________________           |    /
-      /              |        |      |               \          |   /
-      |              |        |      |               |          |  /
-      v              v        |      v               |          | /
- (various       (various      |  (various            |          |/
+ |    |   services: udevd,    fsck services...)   |             |              |
+ |    |   tmpfiles, random            |           |             |    remote-fs.target
+ |    |   seed, sysctl, ...)          v           |             |              |
+ |    |      |                 local-fs.target    |             | _____________/
+ |    |      |                        |           |             |/
+ \____|______|_______________   ______|___________/             |
+                             \ /                                |
+                              v                                 |
+                       sysinit.target                           |
+                              |                                 |
+       ______________________/|\_____________________           |
+      /              |        |      |               \          |
+      |              |        |      |               |          |
+      v              v        |      v               |          |
+ (various       (various      |  (various            |          |
   timers...)      paths...)   |   sockets...)        |          |
       |              |        |      |               |          |
       v              v        |      v               |          |
