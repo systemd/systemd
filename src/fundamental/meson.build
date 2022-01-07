@@ -8,20 +8,16 @@ fundamental_headers = files(
         'macro-fundamental.h',
         'sha256.h',
         'string-util-fundamental.h',
-        'types-fundamental.h')
-
-sources = '''
-        bootspec-fundamental.c
-        efivars-fundamental.c
-        string-util-fundamental.c
-        sha256.c
-'''.split()
+        'types-fundamental.h',
+)
 
 # for sd-boot
-fundamental_source_paths = []
-foreach source : sources
-        fundamental_source_paths += meson.current_source_dir() / source
-endforeach
+fundamental_source_paths = files(
+        'bootspec-fundamental.c',
+        'efivars-fundamental.c',
+        'sha256.c',
+        'string-util-fundamental.c',
+)
 
 # for libbasic
-fundamental_sources = files(sources) + fundamental_headers
+fundamental_sources = fundamental_source_paths + fundamental_headers
