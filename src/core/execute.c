@@ -1732,21 +1732,6 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 #endif
 
 #if HAVE_LIBBPF
-static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
-        assert(u);
-        assert(u->manager);
-
-        if (lsm_bpf_supported())
-                return false;
-
-        /* lsm_bpf_setup succeeded */
-        if (u->manager->restrict_fs)
-                return false;
-
-        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
-        return true;
-}
-
 static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
@@ -1754,8 +1739,11 @@ static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
         if (!exec_context_restrict_filesystems_set(c))
                 return 0;
 
-        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
+        if (!u->manager->restrict_fs) {
+                /* LSM BPF is unsupported or lsm_bpf_setup failed */
+                log_unit_debug(u, "LSM BPF not supported, skipping RestrictFileSystems=");
                 return 0;
+        }
 
         return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
 }
@@ -4108,13 +4096,11 @@ static int exec_child(
         }
 
 #if HAVE_LIBBPF
-        if (MANAGER_IS_SYSTEM(unit->manager) && lsm_bpf_supported()) {
-                int bpf_map_fd = -1;
-
-                bpf_map_fd = lsm_bpf_map_restrict_fs_fd(unit);
+        if (unit->manager->restrict_fs) {
+                int bpf_map_fd = lsm_bpf_map_restrict_fs_fd(unit);
                 if (bpf_map_fd < 0) {
                         *exit_status = EXIT_FDS;
-                        return log_unit_error_errno(unit, r, "Failed to get restrict filesystems BPF map fd: %m");
+                        return log_unit_error_errno(unit, bpf_map_fd, "Failed to get restrict filesystems BPF map fd: %m");
                 }
 
                 r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, bpf_map_fd, &bpf_map_fd);
