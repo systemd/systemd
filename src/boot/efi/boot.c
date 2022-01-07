@@ -461,6 +461,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"        OS indications: %lu\n",     get_os_indications_supported());
             Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
+          ps_bool(L"                   TPM: %s\n",      tpm_present());
             Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
         Print(L"\n--- Press any key to continue. ---\n\n");
