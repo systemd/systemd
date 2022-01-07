@@ -20,7 +20,7 @@ sources = '''
 # for sd-boot
 fundamental_source_paths = []
 foreach source : sources
-        fundamental_source_paths += meson.current_source_dir() / source
+        fundamental_source_paths += '../../fundamental/' + source
 endforeach
 
 # for libbasic
