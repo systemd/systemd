@@ -20,8 +20,6 @@ int prot_from_flags(int flags) _const_;
 bool in_initrd(void);
 void in_initrd_force(bool value);
 
-int on_ac_power(void);
-
 /* Note: log2(0) == log2(1) == 0 here and below. */
 
 #define CONST_LOG2ULL(x) ((x) > 1 ? (unsigned) __builtin_clzll(x) ^ 63U : 0)
