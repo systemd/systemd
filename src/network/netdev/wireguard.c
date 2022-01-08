@@ -1161,6 +1161,9 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                         continue;
 
                 LIST_FOREACH(ipmasks, ipmask, peer->ipmasks) {
+                        if (ipmask->cidr == 0)
+                                continue; /* Do NOT add AllowedIPs=0.0.0.0/0,::/0 */
+
                         _cleanup_(route_freep) Route *route = NULL;
 
                         r = route_new(&route);
