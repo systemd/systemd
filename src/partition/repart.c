@@ -111,7 +111,7 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static uint64_t logical_block_size = 512;
+static unsigned logical_block_size = 512;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1591,13 +1591,6 @@ static int context_load_partition_table(
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", node);
-
-        /* FIXME: it's probably better to take this out of its current caller
-         * and make use of the BLKSSZGET ioctl earlier instead; however it's
-         * unclear that under what circumstances we won't get an fd after
-         * find_root() and whether we should open() the node in those cases */
-        logical_block_size = fdisk_get_sector_size(c);
-        assert(logical_block_size > 0);
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
@@ -4785,6 +4778,34 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static int determine_sector_size(const char *node, unsigned *lbs) {
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        int r;
+        unsigned *ssz;
+
+        assert(node);
+        assert(lbs);
+
+        fd = open(node, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = fstat(fd, &st);
+        if (r < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return 0;
+
+        r = ioctl(fd, BLKSSZGET, ssz);
+        if (r < 0)
+                return -errno;
+
+        *lbs = *ssz;
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -4865,6 +4886,10 @@ static int run(int argc, char *argv[]) {
         r = find_root(&node, &backing_fd);
         if (r < 0)
                 return r;
+
+        r = determine_sector_size(node, &logical_block_size);
+        if (r < 0)
+                log_warning_errno(r, "Couldn't determine sector size, assuming %u-byte: %m", logical_block_size);
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
