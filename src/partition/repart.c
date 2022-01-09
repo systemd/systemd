@@ -111,7 +111,7 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static uint64_t logical_block_size = 512;
+static unsigned logical_block_size = 512;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1591,13 +1591,6 @@ static int context_load_partition_table(
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", node);
-
-        /* FIXME: it's probably better to take this out of its current caller
-         * and make use of the BLKSSZGET ioctl earlier instead; however it's
-         * unclear that under what circumstances we won't get an fd after
-         * find_root() and whether we should open() the node in those cases */
-        logical_block_size = fdisk_get_sector_size(c);
-        assert(logical_block_size > 0);
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
@@ -4458,6 +4451,7 @@ static int acquire_root_devno(
         _cleanup_close_ int fd = -1;
         struct stat st;
         int r;
+        unsigned ssz;
 
         assert(p);
         assert(ret);
@@ -4481,6 +4475,11 @@ static int acquire_root_devno(
                  * not be able to leave the image the root path constrains us to. */
                 if (root)
                         return -EPERM;
+
+                if (ioctl(fd, BLKSSZGET, &ssz) < 0)
+                        log_warning_errno(errno, "Couldn't determine sector size, assuming %u-byte: %m", logical_block_size);
+                else
+                        logical_block_size = ssz;
 
                 fd_devno = devno = st.st_rdev;
         } else if (S_ISDIR(st.st_mode)) {
