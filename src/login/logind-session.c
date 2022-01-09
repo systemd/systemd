@@ -948,61 +948,15 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         return get_tty_atime(p, atime);
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0;
-        int r;
-
-        assert(s);
-
-        /* Graphical sessions have an explicit idle hint */
-        if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
-                if (t)
-                        *t = s->idle_hint_timestamp;
-
-                return s->idle_hint;
-        }
-
-        /* For sessions with an explicitly configured tty, let's check its atime */
-        if (s->tty) {
-                r = get_tty_atime(s->tty, &atime);
-                if (r >= 0)
-                        goto found_atime;
-        }
-
-        /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
-         * the leader */
-        if (pid_is_valid(s->leader)) {
-                r = get_process_ctty_atime(s->leader, &atime);
-                if (r >= 0)
-                        goto found_atime;
-        }
-
-        if (t)
-                *t = DUAL_TIMESTAMP_NULL;
-
-        return false;
-
-found_atime:
-        if (t)
-                dual_timestamp_from_realtime(t, atime);
-
-        if (s->manager->idle_action_usec <= 0)
-                return false;
-
-        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
-}
-
-int session_set_idle_hint(Session *s, bool b) {
-        assert(s);
-
-        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
-                return -ENOTTY;
+static int set_idle_hint(Session *s, bool b) {
 
         if (s->idle_hint == b)
                 return 0;
 
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
+
+        manager_update_idle_hint(s->manager);
 
         session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
@@ -1013,6 +967,59 @@ int session_set_idle_hint(Session *s, bool b) {
         manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
         return 1;
+}
+
+int session_get_idle_hint(Session *s, dual_timestamp *since, dual_timestamp *inactive_since) {
+        usec_t atime = 0;
+        int r;
+
+        assert(s);
+
+        /* Graphical sessions are explicitly managed, just return the current state */
+        if (SESSION_TYPE_IS_GRAPHICAL(s->type))
+                goto done;
+
+        /* If IdleDelaySec= is not set or zero, then return state (always false) */
+        if (s->manager->idle_delay_usec <= 0)
+                goto done;
+
+        /* For sessions with an explicitly configured tty, let's check its atime */
+        if (s->tty) {
+                r = get_tty_atime(s->tty, &atime);
+                if (r >= 0)
+                        goto done;
+        }
+
+        /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
+         * the leader */
+        if (pid_is_valid(s->leader)) {
+                r = get_process_ctty_atime(s->leader, &atime);
+                if (r >= 0)
+                        goto done;
+        }
+
+done:
+        /* Update idle hint if we have an atime, reset otherwise. */
+        if (atime)
+                set_idle_hint(s, usec_add(atime, s->manager->idle_delay_usec) <= now(CLOCK_REALTIME));
+        else
+                set_idle_hint(s, false);
+
+        if (since)
+                *since = s->idle_hint_timestamp;
+        if (inactive_since)
+                dual_timestamp_from_realtime(inactive_since, atime);
+
+        return s->idle_hint;
+}
+
+int session_set_idle_hint(Session *s, bool b) {
+        assert(s);
+
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+                return -ENOTTY;
+
+        return set_idle_hint(s, b);
 }
 
 int session_get_locked_hint(Session *s) {

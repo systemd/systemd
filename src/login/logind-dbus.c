@@ -254,7 +254,7 @@ static int property_get_idle_hint(
         assert(reply);
         assert(m);
 
-        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, NULL) > 0);
+        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, NULL, NULL) > 0);
 }
 
 static int property_get_idle_since_hint(
@@ -273,7 +273,7 @@ static int property_get_idle_since_hint(
         assert(reply);
         assert(m);
 
-        manager_get_idle_hint(m, &t);
+        manager_get_idle_hint(m, &t, NULL);
 
         return sd_bus_message_append(reply, "t", streq(property, "IdleSinceHint") ? t.realtime : t.monotonic);
 }
@@ -3374,7 +3374,8 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("HandleLidSwitchDocked", "s", property_get_handle_action, offsetof(Manager, handle_lid_switch_docked), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HoldoffTimeoutUSec", "t", NULL, offsetof(Manager, holdoff_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleAction", "s", property_get_handle_action, offsetof(Manager, idle_action), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("IdleDelayUSec", "t", NULL, offsetof(Manager, idle_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, 0),

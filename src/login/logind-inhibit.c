@@ -185,6 +185,8 @@ int inhibitor_start(Inhibitor *i) {
 
         inhibitor_save(i);
 
+        if (i->what == INHIBIT_IDLE)
+                manager_update_idle_hint(i->manager);
         bus_manager_send_inhibited_change(i);
 
         return 0;
@@ -206,6 +208,8 @@ void inhibitor_stop(Inhibitor *i) {
 
         i->started = false;
 
+        if (i->what == INHIBIT_IDLE)
+                manager_update_idle_hint(i->manager);
         bus_manager_send_inhibited_change(i);
 }
 

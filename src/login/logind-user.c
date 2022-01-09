@@ -581,7 +581,7 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
                 dual_timestamp k;
                 int ih;
 
-                ih = session_get_idle_hint(s, &k);
+                ih = session_get_idle_hint(s, &k, NULL);
                 if (ih < 0)
                         return ih;
 
