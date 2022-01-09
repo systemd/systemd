@@ -40,7 +40,7 @@ if want_ossfuzz and want_libfuzzer
         error('only one of oss-fuzz or llvm-fuzz can be specified')
 endif
 
-skip_deps = want_ossfuzz or want_libfuzzer
+skip_deps = want_ossfuzz
 fuzzer_build = want_ossfuzz or want_libfuzzer
 
 # Create a title-less summary section early, so it ends up first in the output.
