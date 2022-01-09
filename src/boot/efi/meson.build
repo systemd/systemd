@@ -312,9 +312,10 @@ efi_headers = files(
         'shim.h',
         'splash.h',
         'util.h',
-        'xbootldr.h')
+        'xbootldr.h',
+)
 
-common_sources = [
+common_sources = files(
         'assert.c',
         'devicetree.c',
         'disk.c',
@@ -322,31 +323,34 @@ common_sources = [
         'measure.c',
         'pe.c',
         'secure-boot.c',
-        'util.c']
+        'util.c',
+)
 
-systemd_boot_sources = [
+systemd_boot_sources = files(
         'boot.c',
         'console.c',
         'drivers.c',
         'random-seed.c',
         'shim.c',
-        'xbootldr.c']
+        'xbootldr.c',
+)
 
-stub_sources = [
+stub_sources = files(
         'cpio.c',
         'initrd.c',
         'splash.c',
-        'stub.c']
+        'stub.c',
+)
 
 if efi_arch[1] in ['ia32', 'x86_64']
-        stub_sources += 'linux_x86.c'
+        stub_sources += files('linux_x86.c')
 else
-        stub_sources += 'linux.c'
+        stub_sources += files('linux.c')
 endif
 
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
-        systemd_boot_sources += 'bcd.c'
+        systemd_boot_sources += files('bcd.c')
         tests += [
                 [['src/boot/efi/test-bcd.c'],
                  [],
@@ -362,9 +366,10 @@ endif
 systemd_boot_objects = []
 stub_objects = []
 foreach file : fundamental_source_paths + common_sources + systemd_boot_sources + stub_sources
-        o_file = custom_target(file.split('/')[-1] + '.o',
+        # FIXME: replace ''.format(file) with fs.name(file) when meson_version requirement is >= 0.59.0
+        o_file = custom_target('@0@.o'.format(file).split('/')[-1],
                                input : file,
-                               output : file.split('/')[-1] + '.o',
+                               output : '@0@.o'.format(file).split('/')[-1],
                                command : [cc.cmd_array(), '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
                                depend_files : efi_headers + fundamental_headers)
         if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
