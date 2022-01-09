@@ -38,6 +38,8 @@ jobs:
   metadata:
     targets:
     - fedora-rawhide-aarch64
+    - fedora-rawhide-armhfp
     - fedora-rawhide-i386
     - fedora-rawhide-ppc64le
+    - fedora-rawhide-s390x
     - fedora-rawhide-x86_64
