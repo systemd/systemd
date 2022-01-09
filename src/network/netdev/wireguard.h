@@ -40,11 +40,6 @@ typedef struct WireguardPeer {
         sd_event_source *resolve_retry_event_source;
         sd_resolve_query *resolve_query;
 
-        uint32_t route_table;
-        uint32_t route_priority;
-        bool route_table_set;
-        bool route_priority_set;
-
         LIST_HEAD(WireguardIPmask, ipmasks);
         LIST_FIELDS(struct WireguardPeer, peers);
 } WireguardPeer;
@@ -61,10 +56,6 @@ struct Wireguard {
 
         Hashmap *peers_by_section;
         LIST_HEAD(WireguardPeer, peers);
-
-        Set *routes;
-        uint32_t route_table;
-        uint32_t route_priority;
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
@@ -78,7 +69,3 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_preshared_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_keepalive);
-CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_priority);
-CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_priority);
