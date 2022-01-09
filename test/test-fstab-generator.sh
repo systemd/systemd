@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -ex
+set -e
 
 if [[ -n "$1" ]]; then
     generator=$1
@@ -30,7 +30,9 @@ for f in "$src"/test-*.input; do
             sed -i -e 's:ExecStart=/lib/systemd/systemd-fsck:ExecStart=/usr/lib/systemd/systemd-fsck:' "$out"/systemd-fsck-root.service
         fi
 
-        if ! diff -u "$out" "${f%.input}.expected"; then
+        # We store empty files rather than symlinks, so that they don't get pruned when packaged up, so compare
+        # the list of filenames rather than their content
+        if ! diff -u <(find "$out" -printf '%P\n' | sort) <(find "${f%.input}.expected" -printf '%P\n' | sort); then
             echo "**** Unexpected output for $f"
             exit 1
         fi
