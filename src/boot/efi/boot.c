@@ -1577,7 +1577,7 @@ static void config_load_entries(
                 _cleanup_freepool_ CHAR8 *content = NULL;
 
                 err = readdir_harder(entries_dir, &f, &f_size);
-                if (f_size == 0 || EFI_ERROR(err))
+                if (EFI_ERROR(err) || !f)
                         break;
 
                 if (f->FileName[0] == '.')
@@ -2019,7 +2019,7 @@ static void config_entry_add_linux(
                 CHAR8 *key, *value;
 
                 err = readdir_harder(linux_dir, &f, &f_size);
-                if (f_size == 0 || EFI_ERROR(err))
+                if (EFI_ERROR(err) || !f)
                         break;
 
                 if (f->FileName[0] == '.')

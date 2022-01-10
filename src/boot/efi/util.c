@@ -592,7 +592,12 @@ EFI_STATUS readdir_harder(
          * the specified buffer needs to be freed by caller, after final use. */
 
         if (!*buffer) {
-                sz = offsetof(EFI_FILE_INFO, FileName) /* + 256 */;
+                /* Some broken firmware violates the EFI spec by still advancing the readdir
+                 * position when returning EFI_BUFFER_TOO_SMALL, effectively skipping over any files when
+                 * the buffer was too small. Therefore, start with a buffer that should handle FAT32 max
+                 * file name length.
+                 * As a side effect, most readdir_harder() calls will now be slightly faster. */
+                sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(CHAR16);
                 *buffer = xallocate_pool(sz);
                 *buffer_size = sz;
         } else
