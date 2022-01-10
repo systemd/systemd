@@ -502,7 +502,7 @@ static int xdg_autostart_generate_desktop_condition(
 }
 
 int xdg_autostart_service_generate_unit(
-                XdgAutostartService *service,
+                const XdgAutostartService *service,
                 const char *dest) {
 
         _cleanup_free_ char *path_escaped = NULL, *exec_start = NULL, *unit = NULL;
