@@ -32,6 +32,7 @@ actions:
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror -Dbpf-framework=true" .packit_rpm/systemd.spec'
     - 'sed -i "1i %global want_bpf_framework 1" .packit_rpm/systemd.spec'
+    - 'sed -i "1i BuildRequires:  llvm" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
