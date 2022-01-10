@@ -26,7 +26,6 @@ typedef struct XdgAutostartService {
 
 } XdgAutostartService;
 
-
 XdgAutostartService * xdg_autostart_service_free(XdgAutostartService *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(XdgAutostartService*, xdg_autostart_service_free);
 
@@ -34,4 +33,4 @@ char *xdg_autostart_service_translate_name(const char *name);
 int xdg_autostart_format_exec_start(const char *exec, char **ret_exec_start);
 
 XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path);
-int xdg_autostart_service_generate_unit(XdgAutostartService *service, const char *dest);
+int xdg_autostart_service_generate_unit(const XdgAutostartService *service, const char *dest);
