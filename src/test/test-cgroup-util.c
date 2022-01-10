@@ -426,4 +426,13 @@ TEST(cg_get_keyed_attribute) {
         }
 }
 
+TEST(bfq_weight_conversion) {
+        assert_se(BFQ_WEIGHT(1) == 1);
+        assert_se(BFQ_WEIGHT(50) == 50);
+        assert_se(BFQ_WEIGHT(100) == 100);
+        assert_se(BFQ_WEIGHT(500) == 136);
+        assert_se(BFQ_WEIGHT(5000) == 545);
+        assert_se(BFQ_WEIGHT(10000) == 1000);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
