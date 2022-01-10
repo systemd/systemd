@@ -30,7 +30,7 @@ actions:
     #
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
-    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror -Dbpf-framework=true" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
@@ -38,6 +38,8 @@ jobs:
   metadata:
     targets:
     - fedora-rawhide-aarch64
+    - fedora-rawhide-armhfp
+    - fedora-rawhide-s390x
     - fedora-rawhide-i386
     - fedora-rawhide-ppc64le
     - fedora-rawhide-x86_64
