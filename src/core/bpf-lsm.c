@@ -167,9 +167,9 @@ int lsm_bpf_supported(void) {
         if (r < 0)
                 return supported = 0;
 
-        r = bpf_can_link_lsm_program(obj->progs.restrict_filesystems);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to link BPF program. Assuming BPF is not available: %m");
+        if (!bpf_can_link_lsm_program(obj->progs.restrict_filesystems)) {
+                log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                  "Failed to link BPF program. Assuming BPF is not available");
                 return supported = 0;
         }
 
