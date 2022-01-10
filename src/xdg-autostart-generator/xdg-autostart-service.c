@@ -485,7 +485,7 @@ static int xdg_autostart_generate_desktop_condition(
                         log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "%s not found: %m", test_binary);
                         fprintf(f, "# ExecCondition using %s skipped due to missing binary.\n", test_binary);
-                        return r;
+                        return 0;
                 }
 
                 e_autostart_condition = cescape(condition);
