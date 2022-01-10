@@ -32,12 +32,12 @@ int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *li
 }
 
 struct bpf_link *bpf_link_free(struct bpf_link *link) {
-
-        /* Avoid a useless dlopen() if link == NULL */
-        if (!link)
-                return NULL;
-
-        (void) sym_bpf_link__destroy(link);
+        /* If libbpf wasn't dlopen()ed, sym_bpf_link__destroy might be unresolved (NULL), so let's not try to
+         * call it if link is NULL. link might also be a non-null "error pointer", but such a value can only
+         * originate from a call to libbpf, but that means that libbpf is available, and we can let
+         * bpf_link__destroy() handle it. */
+        if (link)
+                (void) sym_bpf_link__destroy(link);
 
         return NULL;
 }
