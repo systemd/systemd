@@ -44,38 +44,42 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         STRV_FOREACH(path, autostart_dirs) {
                 _cleanup_closedir_ DIR *d = NULL;
 
+                log_debug("Scanning autostart directory \"%s\"…", *path);
                 d = opendir(*path);
                 if (!d) {
-                        if (errno != ENOENT)
-                                log_warning_errno(errno, "Opening %s failed, ignoring: %m", *path);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Opening %s failed, ignoring: %m", *path);
                         continue;
                 }
 
                 FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate directory %s, ignoring: %m", *path)) {
-                        _cleanup_free_ char *fpath = NULL, *name = NULL;
-                        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
                         struct stat st;
-
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
-                                log_warning_errno(errno, "stat() failed on %s/%s, ignoring: %m", *path, de->d_name);
+                                log_warning_errno(errno, "%s/%s: stat() failed, ignoring: %m", *path, de->d_name);
                                 continue;
                         }
 
-                        if (!S_ISREG(st.st_mode))
+                        if (!S_ISREG(st.st_mode)) {
+                                log_debug("%s/%s: not a regular file, ignoring.", *path, de->d_name);
                                 continue;
+                        }
 
-                        name = xdg_autostart_service_translate_name(de->d_name);
+                        _cleanup_free_ char *name = xdg_autostart_service_translate_name(de->d_name);
                         if (!name)
                                 return log_oom();
 
-                        if (hashmap_contains(all_services, name))
+                        if (hashmap_contains(all_services, name)) {
+                                log_debug("%s/%s: we have already seen \"%s\", ignoring.",
+                                          *path, de->d_name, name);
                                 continue;
+                        }
 
-                        fpath = path_join(*path, de->d_name);
+                        _cleanup_free_ char *fpath = path_join(*path, de->d_name);
                         if (!fpath)
                                 return log_oom();
 
-                        service = xdg_autostart_service_parse_desktop(fpath);
+                        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service =
+                                xdg_autostart_service_parse_desktop(fpath);
                         if (!service)
                                 return log_oom();
                         service->name = TAKE_PTR(name);
