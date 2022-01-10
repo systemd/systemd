@@ -996,18 +996,18 @@ else
         endif
         clang = find_program(clang_bin, required : bpf_framework_required)
         if not meson.is_cross_build() and clang.found()
-                llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
+                llvm_objcopy_bin = run_command(clang, '--print-prog-name', 'llvm-objcopy',
                                              check : true).stdout().strip()
         else
-                llvm_strip_bin = 'llvm-strip'
+                llvm_objcopy_bin = 'llvm-objcopy'
         endif
-        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
+        llvm_objcopy = find_program(llvm_objcopy_bin, required : bpf_framework_required)
 
         # Debian installs this in /usr/sbin/ which is not in $PATH.
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
 
-        deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
+        deps_found = libbpf.found() and clang.found() and llvm_objcopy.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
         conf.set10('BPF_FRAMEWORK', deps_found)
 endif
