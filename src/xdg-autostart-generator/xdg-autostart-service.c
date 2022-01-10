@@ -487,7 +487,7 @@ static int xdg_autostart_generate_desktop_condition(
                                        "%s: ExecCondition executable %s not found, unit will not be started automatically: %m",
                                        service->path, test_binary);
                         fprintf(f, "# ExecCondition using %s skipped due to missing binary.\n", test_binary);
-                        return r;
+                        return 0;
                 }
 
                 e_autostart_condition = cescape(condition);
