@@ -81,7 +81,7 @@ endif
 ############################################################
 
 tests += [
-        [['src/journal/test-journal-syslog.c'],
+        [files('test-journal-syslog.c'),
          [libjournal_core,
           libshared],
          [threads,
@@ -89,30 +89,30 @@ tests += [
           liblz4,
           libselinux]],
 
-        [['src/journal/test-journal-config.c'],
+        [files('test-journal-config.c'),
          [libjournal_core,
           libshared],
          [libxz,
           liblz4,
           libselinux]],
 
-        [['src/journal/test-journal.c'],
+        [files('test-journal.c'),
          [libjournal_core,
           libshared]],
 
-        [['src/journal/test-journal-stream.c'],
+        [files('test-journal-stream.c'),
          [libjournal_core,
           libshared]],
 
-         [['src/journal/test-journal-flush.c'],
+         [files('test-journal-flush.c'),
           [libjournal_core,
            libshared]],
 
-        [['src/journal/test-journal-verify.c'],
+        [files('test-journal-verify.c'),
          [libjournal_core,
           libshared]],
 
-        [['src/journal/test-journal-interleaving.c'],
+        [files('test-journal-interleaving.c'),
          [libjournal_core,
           libshared]],
 ]

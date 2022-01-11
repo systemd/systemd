@@ -352,7 +352,7 @@ endif
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
         tests += [
-                [['src/boot/efi/test-bcd.c'],
+                [files('test-bcd.c'),
                  [],
                  [libzstd],
                  [],
