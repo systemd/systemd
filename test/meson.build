@@ -166,14 +166,16 @@ endif
 if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
 
-        if git.found()
+        if git.found() and fs.exists(project_source_root / '.git')
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
                         git, '--git-dir=@0@/.git'.format(project_source_root),
-                        'ls-files', ':/test/dmidecode-dumps/*.bin')
+                        'ls-files', ':/test/dmidecode-dumps/*.bin',
+                        check: true)
         else
                 out = run_command(
-                        sh, '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root))
+                        sh, '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root),
+                        check: true)
         endif
 
         foreach p : out.stdout().split()
