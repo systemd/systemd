@@ -1187,13 +1187,8 @@ static bool should_parse_proc_cmdline(void) {
         return getpid_cached() == p;
 }
 
-void log_parse_environment(void) {
+void log_parse_environment_variables(void) {
         const char *e;
-
-        /* Do not call from library code. */
-
-        if (should_parse_proc_cmdline())
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1218,6 +1213,15 @@ void log_parse_environment(void) {
         e = getenv("SYSTEMD_LOG_TID");
         if (e && log_show_tid_from_string(e) < 0)
                 log_warning("Failed to parse log tid '%s'. Ignoring.", e);
+}
+
+void log_parse_environment(void) {
+        /* Do not call from library code. */
+
+        if (should_parse_proc_cmdline())
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+
+        log_parse_environment_variables();
 }
 
 LogTarget log_get_target(void) {

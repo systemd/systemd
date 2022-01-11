@@ -76,7 +76,7 @@ static GetentData getgrent_data = {
 
 static void setup_logging_once(void) {
         static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, log_parse_environment) == 0);
+        assert_se(pthread_once(&once, log_parse_environment_variables) == 0);
 }
 
 #define NSS_ENTRYPOINT_BEGIN                    \
