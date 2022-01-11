@@ -178,26 +178,9 @@
       <para>Returned errors may indicate the following problems:</para>
 
       <variablelist>
-        <varlistentry>
-          <term><constant>-EINVAL</constant></term>
-
-          <listitem><para>Specified type string is invalid or the message parameter is
-          <constant>NULL</constant>.</para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><constant>-ENXIO</constant></term>
-
-          <listitem><para>The message does not contain the specified type at current position.
-          </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><constant>-EBADMSG</constant></term>
-
-          <listitem><para>The message cannot be parsed.</para></listitem>
-        </varlistentry>
-
+        <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors-einval"/>
+        <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors-enxio"/>
+        <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors-ebadmsg"/>
         <varlistentry>
           <term><constant>-EBUSY</constant></term>
 
