@@ -174,7 +174,7 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
                         check: true)
         else
                 out = run_command(
-                        sh, '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root),
+                        sh, '-c', 'cd "@0@"; echo test/dmidecode-dumps/*.bin'.format(project_source_root),
                         check: true)
         endif
 
