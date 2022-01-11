@@ -1382,6 +1382,39 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
                name);
 }
 
+static int are_we_installed(void) {
+        int r;
+
+        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
+         * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
+         * loader entries directory exists. Here we opted to check whether /EFI/systemd/ is non-empty, which
+         * should be a suitable and very minimal check for a number of reasons:
+         *
+         *  → The check is architecture independent (i.e. we check if any systemd-boot loader is installed,
+         *    not a specific one.)
+         *
+         *  → It doesn't assume we are the only boot loader (i.e doesn't check if we own the main
+         *    /EFI/BOOT/BOOT*.EFI fallback binary.
+         *
+         *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
+         *    /boot/loader/entries would do). */
+
+        _cleanup_free_ char *p = path_join(arg_esp_path, "/EFI/systemd/");
+        if (!p)
+                return log_oom();
+
+        log_debug("Checking whether %s contains any files…", p);
+        r = dir_is_empty(p);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to check whether %s contains any files: %m", p);
+
+        return r == 0;
+}
+
 static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
         int r, k;
@@ -1880,41 +1913,19 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *p = NULL;
         int r;
 
-        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL);
+        r = are_we_installed();
         if (r < 0)
                 return r;
 
-        /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
-         * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
-         * loader entries directory exists. Here we opted to check whether /EFI/systemd/ is non-empty, which
-         * should be a suitable and very minimal check for a number of reasons:
-         *
-         *  → The check is architecture independent (i.e. we check if any systemd-boot loader is installed, not a
-         *    specific one.)
-         *
-         *  → It doesn't assume we are the only boot loader (i.e doesn't check if we own the main
-         *    /EFI/BOOT/BOOT*.EFI fallback binary.
-         *
-         *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
-         *    /boot/loader/entries would do). */
-
-        p = path_join(arg_esp_path, "/EFI/systemd/");
-        if (!p)
-                return log_oom();
-
-        r = dir_is_empty(p);
-        if (r > 0 || r == -ENOENT) {
+        if (r > 0) {
+                puts("yes");
+                return EXIT_SUCCESS;
+        } else {
                 puts("no");
                 return EXIT_FAILURE;
         }
-        if (r < 0)
-                return log_error_errno(r, "Failed to detect whether systemd-boot is installed: %m");
-
-        puts("yes");
-        return EXIT_SUCCESS;
 }
 
 static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_timeout_size) {
