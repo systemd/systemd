@@ -82,6 +82,7 @@ int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
 
+void log_parse_environment_variables(void);
 void log_parse_environment(void);
 
 int log_dispatch_internal(

@@ -22,7 +22,7 @@
 static JsonDispatchFlags json_dispatch_flags = 0;
 
 static void setup_logging(void) {
-        log_parse_environment();
+        log_parse_environment_variables();
 
         if (DEBUG_LOGGING)
                 json_dispatch_flags = JSON_LOG;
