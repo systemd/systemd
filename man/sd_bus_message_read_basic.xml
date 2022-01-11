@@ -199,21 +199,21 @@
       <para>Returned errors may indicate the following problems:</para>
 
       <variablelist>
-        <varlistentry>
+        <varlistentry id="errors-einval">
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>Specified type string is invalid or the message parameter is
           <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
-        <varlistentry>
+        <varlistentry id="errors-enxio">
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>The message does not contain the specified type at current position.
           </para></listitem>
         </varlistentry>
 
-        <varlistentry>
+        <varlistentry id="errors-ebadmsg">
           <term><constant>-EBADMSG</constant></term>
 
           <listitem><para>The message cannot be parsed.</para></listitem>
