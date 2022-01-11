@@ -1791,6 +1791,17 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (!install) {
+                /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
+                r = are_we_installed();
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Skipping update because sd-boot is not installed in the ESP.");
+                        return 0;
+                }
+        }
+
         r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL);
         if (r < 0)
                 return r;
