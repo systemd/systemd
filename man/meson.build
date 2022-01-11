@@ -105,7 +105,7 @@ endforeach
 
 ############################################################
 
-have_lxml = run_command(xml_helper_py).returncode() == 0
+have_lxml = run_command(xml_helper_py, check: false).returncode() == 0
 if not have_lxml
         message('python-lxml not available, not making man page indices')
 endif

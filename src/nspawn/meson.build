@@ -53,12 +53,12 @@ systemd_nspawn_sources = files('nspawn.c')
 ############################################################
 
 tests += [
-        [['src/nspawn/test-nspawn-tables.c'],
+        [files('test-nspawn-tables.c'),
          [libnspawn_core,
           libshared],
          [libseccomp]],
 
-        [['src/nspawn/test-patch-uid.c'],
+        [files('test-patch-uid.c'),
          [libnspawn_core,
           libshared],
          [libacl],
@@ -66,12 +66,12 @@ tests += [
 ]
 
 fuzzers += [
-        [['src/nspawn/fuzz-nspawn-settings.c'],
+        [files('fuzz-nspawn-settings.c'),
          [libshared,
           libnspawn_core],
          [libseccomp]],
 
-        [['src/nspawn/fuzz-nspawn-oci.c'],
+        [files('fuzz-nspawn-oci.c'),
          [libshared,
           libnspawn_core],
          [libseccomp]],

@@ -1,23 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 fuzzers += [
-        [['src/fuzz/fuzz-catalog.c']],
+        [files('fuzz-catalog.c')],
 
-        [['src/fuzz/fuzz-json.c']],
+        [files('fuzz-json.c')],
 
-        [['src/fuzz/fuzz-varlink.c']],
+        [files('fuzz-varlink.c')],
 
-        [['src/fuzz/fuzz-udev-database.c']],
+        [files('fuzz-udev-database.c')],
 
-        [['src/fuzz/fuzz-compress.c']],
+        [files('fuzz-compress.c')],
 
-        [['src/fuzz/fuzz-bus-label.c']],
+        [files('fuzz-bus-label.c')],
 
-        [['src/fuzz/fuzz-env-file.c']],
+        [files('fuzz-env-file.c')],
 
-        [['src/fuzz/fuzz-hostname-setup.c']],
+        [files('fuzz-hostname-setup.c')],
 
-        [['src/fuzz/fuzz-calendarspec.c']],
+        [files('fuzz-calendarspec.c')],
 
-        [['src/fuzz/fuzz-time-util.c']],
+        [files('fuzz-time-util.c')],
 ]
