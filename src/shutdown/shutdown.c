@@ -532,6 +532,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* We're done with the watchdog. */
+        watchdog_close(true);
         watchdog_free_device();
 
         arguments[0] = NULL;
