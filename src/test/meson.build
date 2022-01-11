@@ -653,9 +653,15 @@ tests += [
          [libsystemd],
          [threads]],
 
+        [['src/libsystemd/sd-device/test-sd-device-log.c'],
+         [libsystemd]],
+
         [['src/libudev/test-udev-device-thread.c'],
          [libudev],
          [threads]],
+
+        [['src/libudev/test-libudev-log.c'],
+         [libudev]],
 ]
 
 tests += [
