@@ -48,6 +48,7 @@ The following exceptions apply:
    - src/systemctl/systemd-sysv-install.SKELETON
    - tools/check-includes.pl
    - all examples under man/
+   - config files and examples under /network
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
