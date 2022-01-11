@@ -53,12 +53,12 @@ systemd_nspawn_sources = files('nspawn.c')
 ############################################################
 
 tests += [
-        [['src/nspawn/test-nspawn-tables.c'],
+        [files('test-nspawn-tables.c'),
          [libnspawn_core,
           libshared],
          [libseccomp]],
 
-        [['src/nspawn/test-patch-uid.c'],
+        [files('test-patch-uid.c'),
          [libnspawn_core,
           libshared],
          [libacl],

@@ -45,7 +45,7 @@ custom_target(
 ############################################################
 
 tests += [
-        [['src/libudev/test-libudev.c'],
+        [files('test-libudev.c'),
          [libshared,
           libudev_basic]],
 ]

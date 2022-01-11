@@ -3588,7 +3588,8 @@ foreach tuple : tests
         parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
-        name = sources[0].split('/')[-1].split('.')[0]
+        # FIXME: Use fs.stem() with meson >= 0.54.0
+        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
         if type.startswith('timeout=')
                 timeout = type.split('=')[1].to_int()
                 type = ''

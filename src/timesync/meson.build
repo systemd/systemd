@@ -55,7 +55,7 @@ endif
 ############################################################
 
 tests += [
-        [['src/timesync/test-timesync.c'],
+        [files('test-timesync.c'),
          [libtimesyncd_core,
           libshared],
          [libm]],

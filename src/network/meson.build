@@ -279,37 +279,37 @@ fuzzers += [
 ]
 
 tests += [
-        [['src/network/test-networkd-address.c'],
+        [files('test-networkd-address.c'),
          [libnetworkd_core,
           libsystemd_network],
          [],
          network_includes],
 
-        [['src/network/test-networkd-conf.c'],
+        [files('test-networkd-conf.c'),
          [libnetworkd_core,
           libsystemd_network],
          [],
          network_includes],
 
-        [['src/network/test-networkd-util.c'],
+        [files('test-networkd-util.c'),
          [libnetworkd_core,
           libsystemd_network],
          [],
          network_includes],
 
-        [['src/network/test-network.c'],
+        [files('test-network.c'),
          [libnetworkd_core,
           libsystemd_network],
          [threads],
          network_includes],
 
-        [['src/network/test-network-tables.c'],
+        [files('test-network-tables.c'),
          [libnetworkd_core,
           libsystemd_network],
          [threads],
          network_includes],
 
-        [['src/network/generator/test-network-generator.c',
-          'src/network/generator/network-generator.c',
-          'src/network/generator/network-generator.h']],
+        [files('generator/test-network-generator.c',
+               'generator/network-generator.c',
+               'generator/network-generator.h')],
 ]

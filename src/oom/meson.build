@@ -28,7 +28,7 @@ if conf.get('ENABLE_OOMD') == 1
 endif
 
 tests += [
-        [['src/oom/test-oomd-util.c',
-          'src/oom/oomd-util.c',
-          'src/oom/oomd-util.h']],
+        [files('test-oomd-util.c',
+               'oomd-util.c',
+               'oomd-util.h')],
 ]

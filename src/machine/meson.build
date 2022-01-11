@@ -37,7 +37,7 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 tests += [
-        [['src/machine/test-machine-tables.c'],
+        [files('test-machine-tables.c'),
          [libmachine_core,
           libshared],
          [threads]],

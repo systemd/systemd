@@ -195,28 +195,28 @@ fuzzers += [
 ]
 
 tests += [
-        [['src/udev/test-udev-event.c'],
+        [files('test-udev-event.c'),
          [libudevd_core,
           libshared],
          [threads,
           libacl]],
 
-        [['src/udev/test-udev-node.c'],
+        [files('test-udev-node.c'),
          [libudevd_core,
           libshared],
          [threads,
           libacl]],
 
-        [['src/udev/test-udev-builtin.c'],
+        [files('test-udev-builtin.c'),
          [libudevd_core,
           libshared],
          [threads,
           libacl]],
 
-        [['src/udev/test-udev-netlink.c',
-          'src/udev/udev-netlink.c',
-          'src/udev/udev-netlink.h']],
+        [files('test-udev-netlink.c',
+               'udev-netlink.c',
+               'udev-netlink.h')],
 
-        [['src/udev/fido_id/test-fido-id-desc.c',
-          'src/udev/fido_id/fido_id_desc.c']],
+        [files('fido_id/test-fido-id-desc.c',
+               'fido_id/fido_id_desc.c')],
 ]

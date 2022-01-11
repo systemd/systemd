@@ -14,8 +14,8 @@ if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples
 endif
 
 tests += [
-        [['src/coredump/test-coredump-vacuum.c',
-          'src/coredump/coredump-vacuum.c',
-          'src/coredump/coredump-vacuum.h'],
+        [files('test-coredump-vacuum.c',
+               'coredump-vacuum.c',
+               'coredump-vacuum.h'),
          [], [], [], '', 'manual'],
 ]

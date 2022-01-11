@@ -7,9 +7,9 @@ systemd_shutdown_sources = files('''
 '''.split())
 
 tests += [
-        [['src/shutdown/test-umount.c',
-          'src/shutdown/umount.c',
-          'src/shutdown/umount.h'],
+        [files('test-umount.c',
+               'umount.c',
+               'umount.h'),
          [],
          [libmount]],
 ]
