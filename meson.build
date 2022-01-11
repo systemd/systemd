@@ -3699,7 +3699,8 @@ foreach tuple : fuzzers
                 sources += 'src/fuzz/fuzz-main.c'
         endif
 
-        name = sources[0].split('/')[-1].split('.')[0]
+        # FIXME: Use fs.stem() with meson >= 0.54.0
+        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
 
         exe = executable(
                 name,

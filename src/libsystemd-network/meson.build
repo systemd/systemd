@@ -105,19 +105,19 @@ tests += [
 ]
 
 fuzzers += [
-        [['src/libsystemd-network/fuzz-dhcp6-client.c'],
+        [files('fuzz-dhcp6-client.c'),
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/fuzz-dhcp-server.c'],
+        [files('fuzz-dhcp-server.c'),
          [libsystemd_network,
           libshared]],
 
-        [['src/libsystemd-network/fuzz-lldp-rx.c'],
+        [files('fuzz-lldp-rx.c'),
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/fuzz-ndisc-rs.c'],
+        [files('fuzz-ndisc-rs.c'),
          [libshared,
           libsystemd_network]],
 ]

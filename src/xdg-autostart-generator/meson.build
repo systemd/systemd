@@ -12,7 +12,7 @@ tests += [
 ]
 
 fuzzers += [
-        [['src/xdg-autostart-generator/fuzz-xdg-desktop.c',
-          'src/xdg-autostart-generator/xdg-autostart-service.c',
-          'src/xdg-autostart-generator/xdg-autostart-service.h']],
+        [files('fuzz-xdg-desktop.c',
+               'xdg-autostart-service.c',
+               'xdg-autostart-service.h')],
 ]

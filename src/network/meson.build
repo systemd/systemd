@@ -263,14 +263,14 @@ if conf.get('ENABLE_NETWORKD') == 1
 endif
 
 fuzzers += [
-        [['src/network/fuzz-netdev-parser.c'],
+        [files('fuzz-netdev-parser.c'),
          [libnetworkd_core,
           libsystemd_network,
           networkd_link_with],
          [threads],
          network_includes],
 
-        [['src/network/fuzz-network-parser.c'],
+        [files('fuzz-network-parser.c'),
          [libnetworkd_core,
           libsystemd_network,
           networkd_link_with],

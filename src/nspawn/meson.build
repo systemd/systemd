@@ -66,12 +66,12 @@ tests += [
 ]
 
 fuzzers += [
-        [['src/nspawn/fuzz-nspawn-settings.c'],
+        [files('fuzz-nspawn-settings.c'),
          [libshared,
           libnspawn_core],
          [libseccomp]],
 
-        [['src/nspawn/fuzz-nspawn-oci.c'],
+        [files('fuzz-nspawn-oci.c'),
          [libshared,
           libnspawn_core],
          [libseccomp]],
