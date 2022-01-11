@@ -57,8 +57,11 @@ endif
 efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
-               run_command('realpath', '-e',
-                        '/usr/lib' / run_command(cc.cmd_array(), '-print-multi-os-directory').stdout().strip()).stdout().strip()]
+               run_command(
+                        'realpath', '-e',
+                        '/usr/lib' / run_command(cc.cmd_array(), '-print-multi-os-directory', check: false).stdout().strip(),
+                        check: false
+               ).stdout().strip()]
         if dir != '' and fs.is_dir(dir)
                 efi_libdir = dir
                 break
@@ -125,7 +128,7 @@ elif get_option('sbat-distro') != ''
                 value = get_option(sbatvar[0])
                 if (value == '' or value == 'auto') and not meson.is_cross_build()
                         cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
-                        value = run_command(sh, '-c', cmd).stdout().strip()
+                        value = run_command(sh, '-c', cmd, check: true).stdout().strip()
                 endif
                 if value == ''
                         error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
@@ -254,7 +257,7 @@ if efi_arch[1] == 'arm'
         efi_ldflags += ['-Wl,--no-warn-mismatch']
 endif
 
-if run_command('grep', '-q', '__CTOR_LIST__', efi_lds).returncode() == 0
+if run_command('grep', '-q', '__CTOR_LIST__', efi_lds, check: false).returncode() == 0
         # fedora has a patched gnu-efi that adds support for ELF constructors.
         # If ld is called by gcc something about these symbols breaks, resulting
         # in sd-boot freezing when gnu-efi runs the constructors. Force defining
