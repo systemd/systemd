@@ -66,10 +66,11 @@ bpf_o_unstripped_cmd += [
 ]
 
 bpf_o_cmd = [
-        llvm_strip,
-        '-g',
+        'sh',
+        '-c',
+        'exec -a llvm-strip @0@ -g $1 -o $2'.format(llvm_objcopy_bin),
+        llvm_objcopy_bin,
         '@INPUT@',
-        '-o',
         '@OUTPUT@'
 ]
 
