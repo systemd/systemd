@@ -1184,17 +1184,26 @@ static int client_parse_message(
 
                 case SD_DHCP6_OPTION_STATUS_CODE: {
                         _cleanup_free_ char *msg = NULL;
+                        bool ignore;
 
                         r = dhcp6_option_parse_status(optval, optlen, &msg);
                         if (r < 0)
                                 return r;
+                        if (r == 0)
+                                break;
 
-                        if (r > 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                                              "Received %s message with non-zero status: %s%s%s",
-                                                              dhcp6_message_type_to_string(message->type),
-                                                              strempty(msg), isempty(msg) ? "" : ": ",
-                                                              dhcp6_message_status_to_string(r));
+                        /* Those two errors are handled later in this function. */
+                        ignore = IN_SET(r, DHCP6_STATUS_NO_ADDRS_AVAIL, DHCP6_STATUS_NO_PREFIX_AVAIL);
+
+                        log_dhcp6_client(client,
+                                         "Received %s message with non-zero status%s: %s%s%s",
+                                         dhcp6_message_type_to_string(message->type),
+                                         ignore ? ", ignoring" : "",
+                                         strempty(msg), isempty(msg) ? "" : ": ",
+                                         dhcp6_message_status_to_string(r));
+
+                        if (!ignore)
+                                return -EINVAL;
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_NA: {
