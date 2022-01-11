@@ -646,8 +646,14 @@ static int dhcp6_configure(Link *link) {
 
         r = sd_dhcp6_client_set_prefix_delegation(client, link->network->dhcp6_use_pd_prefix);
         if (r < 0)
-                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to %s prefix delegation: %m",
-                                            enable_disable(link->network->dhcp6_use_pd_prefix));
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed %s to request prefix to be delegated: %m",
+                                            link->network->dhcp6_use_pd_prefix ? "" : "not ");
+
+        /* Even if UseAddress=no, we need to request IA_NA, as the dhcp6 client may be started in managed mode. */
+        r = sd_dhcp6_client_set_address_request(client, link->network->dhcp6_use_pd_prefix ? link->network->dhcp6_use_address : true);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed %sto request address: %m",
+                                            link->network->dhcp6_use_address ? "" : "not ");
 
         if (link->network->dhcp6_pd_prefix_length > 0) {
                 r = sd_dhcp6_client_set_prefix_delegation_hint(client,
