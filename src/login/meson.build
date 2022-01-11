@@ -101,12 +101,12 @@ endif
 ############################################################
 
 tests += [
-        [['src/login/test-login-shared.c']],
+        [files('test-login-shared.c')],
 
-        [['src/login/test-inhibit.c'],
+        [files('test-inhibit.c'),
          [], [], [], '', 'manual'],
 
-        [['src/login/test-login-tables.c'],
+        [files('test-login-tables.c'),
          [liblogind_core,
           libshared],
          [threads]],

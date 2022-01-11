@@ -30,7 +30,7 @@ if conf.get('ENABLE_LOCALED') == 1
 endif
 
 tests += [
-        [['src/locale/test-keymap-util.c',
-          'src/locale/keymap-util.c',
-          'src/locale/keymap-util.h']],
+        [files('test-keymap-util.c',
+               'keymap-util.c',
+               'keymap-util.h')],
 ]

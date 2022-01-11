@@ -384,7 +384,7 @@ filesystem_includes = ['linux/magic.h',
                        'linux/gfs2_ondisk.h']
 
 check_filesystems = find_program('check-filesystems.sh')
-r = run_command([check_filesystems, cpp, 'filesystems-gperf.gperf'] + filesystem_includes)
+r = run_command([check_filesystems, cpp, 'filesystems-gperf.gperf'] + filesystem_includes, check: false)
 if r.returncode() != 0
         error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
         r.stdout()
