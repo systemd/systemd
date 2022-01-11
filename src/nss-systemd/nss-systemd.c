@@ -116,14 +116,9 @@ static GetentData getsgent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
-static void setup_logging(void) {
-        /* We need a dummy function because log_parse_environment is a macro. */
-        log_parse_environment();
-}
-
 static void setup_logging_once(void) {
         static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, setup_logging) == 0);
+        assert_se(pthread_once(&once, log_parse_environment) == 0);
 }
 
 #define NSS_ENTRYPOINT_BEGIN                    \
