@@ -216,7 +216,7 @@ tests += [
 ]
 
 fuzzers += [
-        [['src/resolve/fuzz-dns-packet.c'],
+        [files('fuzz-dns-packet.c'),
          [libsystemd_resolve_core,
           libshared],
          [lib_openssl_or_gcrypt,

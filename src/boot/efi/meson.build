@@ -359,7 +359,7 @@ if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
                  'HAVE_ZSTD'],
         ]
         fuzzers += [
-                [['src/boot/efi/fuzz-bcd.c']],
+                [files('fuzz-bcd.c')],
         ]
 endif
 
