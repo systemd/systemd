@@ -35,6 +35,10 @@ echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >/etc/systemd/system/sy
 
 systemctl daemon-reload
 
+# enable the service to ensure dbus-org.freedesktop.oom1.service exists
+# and D-Bus activation works
+systemctl enable systemd-oomd.service
+
 # if oomd is already running for some reasons, then restart it to make sure the above settings to be applied
 if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
