@@ -1309,14 +1309,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
         if (r < 0)
                 return r;
 
-        for (;;) {
-                pid_t pid;
-
-                r = cg_read_pid(f, &pid);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
+        for (pid_t pid; cg_read_pid(f, &pid) > 0;) {
 
                 if (is_kernel_thread(pid) > 0)
                         continue;
