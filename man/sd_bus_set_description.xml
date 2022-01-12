@@ -141,7 +141,7 @@
     specification, informing the receiving side that the caller is prepared to wait for interactive
     authorization, which might take a considerable time to complete. If this flag is set, the user
     may be queried for passwords or confirmation via
-    <ulink url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink> or a similar
+    <ulink url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink> or a similar
     framework.</para>
 
     <para><function>sd_bus_get_allow_interactive_authorization()</function> returns true if

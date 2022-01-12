@@ -813,7 +813,7 @@ Features:
   Note that we start initrd-fs.target and initrd-cleanup.target there, so a straightforward
   ConditionPathExists= is not enough.
 
-* docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+* docs: bring https://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
 
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service

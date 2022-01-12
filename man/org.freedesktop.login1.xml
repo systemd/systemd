@@ -621,7 +621,7 @@ node /org/freedesktop/login1 {
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time. The method returns a file descriptor. The lock is released the moment this file
       descriptor and all its duplicates are closed. For more information on the inhibition logic see
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
 
@@ -644,7 +644,7 @@ node /org/freedesktop/login1 {
       that should be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
       completion of this work they should release their inhibition locks in order to not delay the operation
       any further. For more information see
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
 
