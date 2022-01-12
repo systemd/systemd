@@ -51,6 +51,8 @@ usb:v03F0p2F1DC*
  ID_AUTOSUSPEND=1
 # HP un2430 EV-DO/HSPA Mobile Broadband Module
 usb:v03F0p371DC*
+# HP hs2350 Mobile Broadband Module
+usb:v03F0p3D1DC*
 
 #########################################
 # Lenovo
