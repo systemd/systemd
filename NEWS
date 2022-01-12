@@ -10699,7 +10699,7 @@ CHANGES WITH 211:
           also supports LUKS-encrypted partitions now. With this in
           place, automatic discovery of partitions to mount following
           the Discoverable Partitions Specification
-          (https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec)
+          (https://systemd.io/DISCOVERABLE_PARTITIONS/)
           is now a lot more complete. This allows booting without
           /etc/fstab and without root= on the kernel command line on
           systems prepared appropriately.
@@ -12204,7 +12204,7 @@ CHANGES WITH 198:
           only in conjunction with Gummiboot, but could be supported
           by other boot loaders too. For details see:
 
-          https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
+          https://systemd.io/BOOT_LOADER_INTERFACE
 
         * A new generator has been added that automatically mounts the
           EFI System Partition (ESP) to /boot, if that directory
@@ -12280,7 +12280,7 @@ CHANGES WITH 198:
         * A new tool kernel-install has been added that can install
           kernel images according to the Boot Loader Specification:
 
-          https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
+          https://systemd.io/BOOT_LOADER_SPECIFICATION
 
         * Boot time console output has been improved to provide
           animated boot time output for hanging jobs.
@@ -12370,7 +12370,7 @@ CHANGES WITH 197:
           of these policies is now the default. Please see this wiki
           document for details:
 
-          https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+          https://www.freedesktop.org/software/systemd/man/systemd.net-naming-scheme.html
 
         * Auke Kok's bootchart implementation has been added to the
           systemd tree. It is an optional component that can graph the
@@ -13369,7 +13369,7 @@ CHANGES WITH 183:
 
         * A framework for implementing offline system updates is now
           integrated, for details see:
-          https://www.freedesktop.org/wiki/Software/systemd/SystemUpdates
+          https://www.freedesktop.org/software/systemd/man/systemd.offline-updates.html
 
         * A new service type Type=idle is available now which helps us
           avoiding ugly interleaving of getty output and boot status
@@ -13737,7 +13737,7 @@ CHANGES WITH 38:
         * Processes with '@' in argv[0][0] are now excluded from the
           final shut-down killing spree, following the logic explained
           in:
-          https://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
+          https://systemd.io/ROOT_STORAGE_DAEMONS/
 
         * All processes remaining in a service cgroup when we enter
           the START or START_PRE states are now killed with
