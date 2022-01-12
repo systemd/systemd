@@ -30,7 +30,11 @@ actions:
     #
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
-    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror -Dfuzz-tests=true -Db_sanitize=address,undefined" .packit_rpm/systemd.spec'
+    - 'sed -i "1i BuildRequires:  libasan" .packit_rpm/systemd.spec'
+    - 'sed -i "1i BuildRequires:  libubsan" .packit_rpm/systemd.spec'
+    - 'sed -i "s/bpf-framework=true/bpf-framework=false/" .packit_rpm/systemd.spec'
+    - 'sed -i "/meson test/s/-t [0-9][0-9]*/-t 15/" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
@@ -38,6 +42,8 @@ jobs:
   metadata:
     targets:
     - fedora-rawhide-aarch64
+    - fedora-rawhide-armhfp
     - fedora-rawhide-i386
     - fedora-rawhide-ppc64le
+    - fedora-rawhide-s390x
     - fedora-rawhide-x86_64
