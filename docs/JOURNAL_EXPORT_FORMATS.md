@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Journal Export Format
 
 _Note that this document describes the binary serialization format of journals only, as used for transfer across the network.
-For interfacing with web technologies there's the [Journal JSON Format](http://www.freedesktop.org/wiki/Software/systemd/json).
+For interfacing with web technologies there's the Journal JSON Format, described below.
 The binary format on disk is documented as the [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT/)._
 
 _Before reading on, please make sure you are aware of the [basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html), in particular realize that they may include binary non-text data (though usually don't), and the same field might have multiple values assigned within the same entry (though usually hasn't)._
@@ -116,4 +116,41 @@ CODE_FILE=<string>
 _PID=16853
 _CMDLINE=python3 -c from systemd import journal; journal.send("foo\nbar")
 _SOURCE_REALTIME_TIMESTAMP=1423944916372858
+```
+
+# Journal JSON Format
+
+_Note that this section describes the JSON serialization format of the journal only, as used for interfacing with web technologies.
+For binary transfer of journal data across the network there's the Journal Export Format described above.
+The binary format on disk is documented as [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT)._
+
+_Before reading on, please make sure you are aware of the [basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html), in particular realize that they may include binary non-text data (though usually don't), and the same field might have multiple values assigned within the same entry (though usually hasn't)._
+
+In most cases the Journal JSON serialization is the obvious mapping of the entry field names (as JSON strings) to the entry field values (also as JSON strings) encapsulated in one JSON object. However, there are a few special cases to handle:
+
+* A field that contains non-printable or non-UTF8 is serialized as a number array instead. This is necessary to handle binary data in a safe way without losing data, since JSON cannot embed binary data natively. Each byte of the binary field will be mapped to its numeric value in the range 0…255.
+* The JSON serializer can optionally skip huge (as in larger than a specific threshold) data fields from the JSON object. If that is enabled and a data field is too large, the field name is still included in the JSON object but assigned _null_.
+* Within the same entry, Journal fields may have multiple values assigned. This is not allowed in JSON. The serializer will hence create a single JSON field only for these cases, and assign it an array of values (which the can be strings, _null_ or number arrays, see above).
+* If the JSON data originates from a journal file it may include the special addressing fields `__CURSOR`, `__REALTIME_TIMESTAMP`, `__MONOTONIC_TIMESTAMP`, which contain the cursor string of this entry as string, and the realtime/monotonic timestamps of this entry as formatted numeric string of usec since the respective epoch.
+
+Here's an example, illustrating all cases mentioned above. Consider this entry:
+
+```
+MESSAGE=Hello World
+_UDEV_DEVNODE=/dev/waldo
+_UDEV_DEVLINK=/dev/alias1
+_UDEV_DEVLINK=/dev/alias2
+BINARY=this is a binary value \a
+LARGE=this is a super large value (let's pretend at least, for the sake of this example)
+```
+
+This translates into the following JSON Object:
+```json
+{
+  "MESSAGE" : "Hello World",
+  "_UDEV_DEVNODE" : "/dev/waldo",
+  "_UDEV_DEVLINK" : [ "/dev/alias1", "/dev/alias2" ],
+  "BINARY" : [ 116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 98, 105, 110, 97, 114, 121, 32, 118, 97, 108, 117, 101, 32, 7 ],
+  "LARGE" : null
+}
 ```
