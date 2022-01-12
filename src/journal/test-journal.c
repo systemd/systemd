@@ -76,17 +76,17 @@ static void test_non_empty(void) {
         assert_se(le64toh(o->entry.seqnum) == 1);
 
         assert_se(journal_file_find_data_object(f->file, test, strlen(test), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
 
         assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_next_entry_for_data(f->file, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
         assert_se(journal_file_find_data_object(f->file, "quux", 4, NULL, &p) == 0);
