@@ -101,6 +101,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [Link file format](https://www.freedesktop.org/software/systemd/man/systemd.link.html) | File format | yes | yes | no | no | - | no |
 | [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT) | File format | yes | yes | - | maybe | - | no |
 | [Journal Export Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format) | File format | yes | yes | - | yes | - | no |
+| [Journal JSON Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format) | File format | yes | yes | - | yes | - | no |
 | [Cooperation in cgroup tree](https://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups) | Treaty | yes | yes | libvirt | yes | libvirt | no |
 | [Password Agents](https://systemd.io/PASSWORD_AGENTS) | Socket+Files | yes | yes | - | yes | - | no |
 | [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
