@@ -16,7 +16,7 @@
 <policyconfig>
 
         <vendor>The systemd Project</vendor>
-        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+        <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.locale1.set-locale">
                 <description gettext-domain="systemd">Set system locale</description>

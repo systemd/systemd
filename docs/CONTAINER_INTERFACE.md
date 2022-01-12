@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # The Container Interface
 
 Also consult [Writing Virtual Machine or Container
-Managers](http://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
+Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
 
 systemd has a number of interfaces for interacting with container managers,
 when systemd is used inside of an OS container. If you work on a container
