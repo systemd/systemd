@@ -613,11 +613,12 @@ static int link_get_property(
                 sd_bus_message **reply,
                 const char *iface,
                 const char *propname) {
-        _cleanup_free_ char *path = NULL, *ifindex_str = NULL;
+
+        char ifindex_str[DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *path = NULL;
         int r;
 
-        if (asprintf(&ifindex_str, "%i", link->ifindex) < 0)
-                return -ENOMEM;
+        xsprintf(ifindex_str, "%i", link->ifindex);
 
         r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
         if (r < 0)
@@ -1219,12 +1220,10 @@ static int list_address_labels(int argc, char *argv[], void *userdata) {
 }
 
 static int open_lldp_neighbors(int ifindex, FILE **ret) {
-        _cleanup_free_ char *p = NULL;
+        char p[STRLEN("/run/systemd/netif/lldp/") + DECIMAL_STR_MAX(int)];
         FILE *f;
 
-        if (asprintf(&p, "/run/systemd/netif/lldp/%i", ifindex) < 0)
-                return -ENOMEM;
-
+        xsprintf(p, "/run/systemd/netif/lldp/%i", ifindex);
         f = fopen(p, "re");
         if (!f)
                 return -errno;
@@ -1552,7 +1551,7 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
-                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *lease_file = NULL, *activation_policy = NULL;
+                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
@@ -1602,8 +1601,8 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", info->ifindex) < 0)
-                return log_oom();
+        char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
+        xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
 
         (void) dhcp_lease_load(&lease, lease_file);
 
