@@ -2099,14 +2099,35 @@ static void chain_cache_put(
         ci->last_index = last_index;
 }
 
+static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
+        assert(i);
+
+        /* Increase or decrease the specified index, in the right direction. */
+
+        if (direction == DIRECTION_DOWN) {
+                if (*i >= n - 1)
+                        return 0;
+
+                (*i)++;
+        } else {
+                if (*i <= 0)
+                        return 0;
+
+                (*i)--;
+        }
+
+        return 1;
+}
+
 static int generic_array_get(
                 JournalFile *f,
                 uint64_t first,
                 uint64_t i,
+                direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *o;
-        uint64_t p = 0, a, t = 0;
+        Object *o, *e;
+        uint64_t p = 0, a, t = 0, k;
         int r;
         ChainCacheItem *ci;
 
@@ -2123,21 +2144,54 @@ static int generic_array_get(
         }
 
         while (a > 0) {
-                uint64_t k;
-
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
                 if (r < 0)
                         return r;
 
                 k = journal_file_entry_array_n_items(o);
-                if (i < k) {
-                        p = le64toh(o->entry_array.items[i]);
-                        goto found;
-                }
+                if (i < k)
+                        break;
 
                 i -= k;
                 t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
+        }
+
+        /* If we've found the right location, now look for the first non-corrupt entry object (in the right
+         * direction). */
+
+        while (a > 0) {
+                /* In the first iteration of the while loop, we reuse i, k and o from the previous while
+                 * loop. */
+                if (i == UINT64_MAX) {
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        if (r < 0)
+                                return r;
+
+                        k = journal_file_entry_array_n_items(o);
+                        if (k == 0)
+                                break;
+
+                        i = direction == DIRECTION_DOWN ? 0 : k - 1;
+                }
+
+                do {
+                        p = le64toh(o->entry_array.items[i]);
+
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &e);
+                        if (r >= 0)
+                                goto found;
+                        if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                                return r;
+
+                        /* OK, so this entry is borked. Most likely some entry didn't get synced to
+                        * disk properly, let's see if the next one might work for us instead. */
+                        log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
+                } while (bump_array_index(&i, direction, k) > 0);
+
+                t += k;
+                a = le64toh(o->entry_array.next_entry_array_offset);
+                i = UINT64_MAX;
         }
 
         return 0;
@@ -2146,12 +2200,8 @@ found:
         /* Let's cache this item for the next invocation */
         chain_cache_put(f->chain_cache, ci, first, a, le64toh(o->entry_array.items[0]), t, i);
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
-        if (r < 0)
-                return r;
-
         if (ret)
-                *ret = o;
+                *ret = e;
 
         if (ret_offset)
                 *ret_offset = p;
@@ -2164,16 +2214,18 @@ static int generic_array_get_plus_one(
                 uint64_t extra,
                 uint64_t first,
                 uint64_t i,
+                direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
         Object *o;
+        int r;
 
         assert(f);
 
         if (i == 0) {
-                int r;
-
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                        return generic_array_get(f, first, 0, direction, ret, ret_offset);
                 if (r < 0)
                         return r;
 
@@ -2186,7 +2238,7 @@ static int generic_array_get_plus_one(
                 return 1;
         }
 
-        return generic_array_get(f, first, i-1, ret, ret_offset);
+        return generic_array_get(f, first, i - 1, direction, ret, ret_offset);
 }
 
 enum {
@@ -2710,25 +2762,6 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         return CMP(af->current_xor_hash, bf->current_xor_hash);
 }
 
-static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
-
-        /* Increase or decrease the specified index, in the right direction. */
-
-        if (direction == DIRECTION_DOWN) {
-                if (*i >= n - 1)
-                        return 0;
-
-                (*i) ++;
-        } else {
-                if (*i <= 0)
-                        return 0;
-
-                (*i) --;
-        }
-
-        return 1;
-}
-
 static bool check_properly_ordered(uint64_t new_offset, uint64_t old_offset, direction_t direction) {
 
         /* Consider it an error if any of the two offsets is uninitialized */
@@ -2777,24 +2810,9 @@ int journal_file_next_entry(
         }
 
         /* And jump to it */
-        for (;;) {
-                r = generic_array_get(f,
-                                      le64toh(f->header->entry_array_offset),
-                                      i,
-                                      ret, &ofs);
-                if (r > 0)
-                        break;
-                if (r != -EBADMSG)
-                        return r;
-
-                /* OK, so this entry is borked. Most likely some entry didn't get synced to disk properly, let's see if
-                 * the next one might work for us instead. */
-                log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
-
-                r = bump_array_index(&i, direction, n);
-                if (r <= 0)
-                        return r;
-        }
+        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret, &ofs);
+        if (r <= 0)
+                return r;
 
         /* Ensure our array is properly ordered. */
         if (p > 0 && !check_properly_ordered(ofs, p, direction))
@@ -2830,23 +2848,14 @@ int journal_file_next_entry_for_data(
 
         i = direction == DIRECTION_DOWN ? 0 : n - 1;
 
-        for (;;) {
-                r = generic_array_get_plus_one(f,
-                                               le64toh(d->data.entry_offset),
-                                               le64toh(d->data.entry_array_offset),
-                                               i,
-                                               ret, &ofs);
-                if (r > 0)
-                        break;
-                if (r != -EBADMSG)
-                        return r;
-
-                log_debug_errno(r, "Data entry item %" PRIu64 " is bad, skipping over it.", i);
-
-                r = bump_array_index(&i, direction, n);
-                if (r <= 0)
-                        return r;
-        }
+        r = generic_array_get_plus_one(f,
+                                       le64toh(d->data.entry_offset),
+                                       le64toh(d->data.entry_array_offset),
+                                       i,
+                                       direction,
+                                       ret, &ofs);
+        if (r <= 0)
+                return r;
 
         if (ret_offset)
                 *ret_offset = ofs;
@@ -3789,7 +3798,8 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
                 r = generic_array_get_plus_one(f,
                                                le64toh(o->data.entry_offset),
                                                le64toh(o->data.entry_array_offset),
-                                               le64toh(o->data.n_entries)-1,
+                                               le64toh(o->data.n_entries) - 1,
+                                               DIRECTION_UP,
                                                &o, NULL);
                 if (r <= 0)
                         return r;
