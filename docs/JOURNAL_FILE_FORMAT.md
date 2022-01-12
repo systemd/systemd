@@ -9,9 +9,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 _Note that this document describes the binary on-disk format of journals
 only. For interfacing with web technologies there's the [Journal JSON
-Format](http://www.freedesktop.org/wiki/Software/systemd/json). For transfer
+Format](https://www.freedesktop.org/wiki/Software/systemd/json). For transfer
 of journal data across the network there's the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export)._
+Format](https://www.freedesktop.org/wiki/Software/systemd/export)._
 
 The systemd journal stores log data in a binary format with several features:
 
@@ -32,30 +32,30 @@ keep this document up-to-date and accurate.
 
 Instead of implementing your own reader or writer for journal files we ask you
 to use the [Journal's native C
-API](http://www.freedesktop.org/software/systemd/man/sd-journal.html) to access
+API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) to access
 these files. It provides you with full access to the files, and will not
 withhold any data. If you find a limitation, please ping us and we might add
 some additional interfaces for you.
 
 If you need access to the raw journal data in serialized stream form without C
 API our recommendation is to make use of the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export), which you can
+Format](https://www.freedesktop.org/wiki/Software/systemd/export), which you can
 get via "journalctl -o export" or via systemd-journal-gatewayd. The export
 format is much simpler to parse, but complete and accurate. Due to its
 stream-based nature it is not indexed.
 
 _Or, to put this in other words: this low-level document is probably not what
 you want to use as base of your project. You want our [C
-API](http://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
+API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
 And if you really don't want the C API, then you want the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export) instead! This
+Format](https://www.freedesktop.org/wiki/Software/systemd/export) instead! This
 document is primarily for your entertainment and education. Thank you!_
 
 This document assumes you have a basic understanding of the journal concepts,
 the properties of a journal entry and so on. If not, please go and read up,
 then come back! This is a good opportunity to read about the [basic properties
 of journal
-entries](http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
+entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
 in particular realize that they may include binary non-text data (though
 usually don't), and the same field might have multiple values assigned within
 the same entry.
