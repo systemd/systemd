@@ -254,6 +254,14 @@ static inline int __coverity_check_and_return__(int condition) {
 #define assert(expr) assert_message_se(expr, #expr)
 #endif
 
+/* This passes the argument through after (if asserts are enabled) checking that it is not null. */
+#define ASSERT_PTR(expr)                        \
+        ({                                      \
+                typeof(expr) _expr_ = (expr);   \
+                assert(_expr_);                 \
+                _expr_;                         \
+        })
+
 #define assert_not_reached()                                            \
         log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
 
