@@ -16,7 +16,7 @@
 <policyconfig>
 
         <vendor>The systemd Project</vendor>
-        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+        <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.login1.inhibit-block-shutdown">
                 <description gettext-domain="systemd">Allow applications to inhibit system shutdown</description>
