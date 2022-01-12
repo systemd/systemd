@@ -522,7 +522,7 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Remounting '%s' read-only with options '%s'.", m->path, strna(m->remount_options));
+                log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
 
                 /* Start the mount operation here in the child */
                 r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);

@@ -43,7 +43,7 @@
       used.</para></listitem>
 
       <listitem><para>Providing <ulink
-      url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based
+      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based
       access for users for operations such as system shutdown or sleep</para>
       </listitem>
 
@@ -92,7 +92,7 @@
     <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-display-managers">Writing Display
     Managers</ulink>.
     If you are interested in writing a desktop environment that makes use of logind, please have look at
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/writing-desktop-environments">Writing
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-desktop-environments">Writing
     Desktop Environments</ulink>.</para>
   </refsect1>
 

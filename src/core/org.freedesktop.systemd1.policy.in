@@ -16,7 +16,7 @@
 <policyconfig>
 
         <vendor>The systemd Project</vendor>
-        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+        <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.systemd1.reply-password">
                 <description gettext-domain="systemd">Send passphrase back to system</description>

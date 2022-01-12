@@ -9,9 +9,9 @@
 #    by systemd-networkd and edit it there.
 # This file should not be edited in place, because it'll be overwritten on upgrades.
 
+# Enable DHCPv4 and DHCPv6 on all ethernet links
 [Match]
-Type=wlan
-WLANInterfaceType=station
+Type=ether
 
 [Network]
 DHCP=yes

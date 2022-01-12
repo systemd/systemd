@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 title: systemd
 baseurl: "" # the subpath of your site, e.g. /blog/
-url: "http://systemd.io" # the base hostname & protocol for your site
+url: "https://systemd.io" # the base hostname & protocol for your site
 
 permalink: /:title/
 
