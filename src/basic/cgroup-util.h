@@ -181,7 +181,10 @@ int cg_read_event(const char *controller, const char *path, const char *event,
                   char **val);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
-int cg_read_subgroup(DIR *d, char **fn);
+int cg_read_subgroup_full(DIR *d, bool ignore_net_cls, char **fn);
+static inline int cg_read_subgroup(DIR *d, char **fn) {
+        return cg_read_subgroup_full(d, true, fn);
+}
 
 typedef enum CGroupFlags {
         CGROUP_SIGCONT     = 1 << 0,

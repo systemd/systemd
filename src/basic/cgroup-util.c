@@ -198,7 +198,7 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         return 0;
 }
 
-int cg_read_subgroup(DIR *d, char **fn) {
+int cg_read_subgroup_full(DIR *d, bool ignore_net_cls, char **fn) {
         assert(d);
         assert(fn);
 
@@ -210,6 +210,17 @@ int cg_read_subgroup(DIR *d, char **fn) {
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
+
+                if (ignore_net_cls) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = path_join(de->d_name, "net_cls.classid");
+                        if (!p)
+                                return -ENOMEM;
+
+                        if (faccessat(dirfd(d), p, F_OK, 0) >= 0)
+                                continue;
+                }
 
                 b = strdup(de->d_name);
                 if (!b)
