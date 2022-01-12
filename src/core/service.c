@@ -2456,6 +2456,13 @@ static int service_start(Unit *u) {
 
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
 
+        /* Make sure we don't enter a busy loop of some kind. */
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                service_enter_dead(s, SERVICE_FAILURE_START_LIMIT_HIT, false);
+                return r;
+        }
+
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -4451,22 +4458,6 @@ static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
         return NULL;
 }
 
-static int service_test_start_limit(Unit *u) {
-        Service *s = SERVICE(u);
-        int r;
-
-        assert(s);
-
-        /* Make sure we don't enter a busy loop of some kind. */
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                service_enter_dead(s, SERVICE_FAILURE_START_LIMIT_HIT, false);
-                return r;
-        }
-
-        return 0;
-}
-
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -4629,6 +4620,4 @@ const UnitVTable service_vtable = {
                 },
                 .finished_job = service_finished_job,
         },
-
-        .test_start_limit = service_test_start_limit,
 };
