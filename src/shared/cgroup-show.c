@@ -89,7 +89,6 @@ static int show_cgroup_one_by_path(
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         size_t n = 0;
-        pid_t pid;
         char *fn;
         int r;
 
@@ -102,7 +101,7 @@ static int show_cgroup_one_by_path(
         if (!f)
                 return -errno;
 
-        while ((r = cg_read_pid(f, &pid)) > 0) {
+        for (pid_t pid; cg_read_pid(f, &pid) > 0; ) {
 
                 if (!(flags & OUTPUT_KERNEL_THREADS) && is_kernel_thread(pid) > 0)
                         continue;
@@ -112,9 +111,6 @@ static int show_cgroup_one_by_path(
 
                 pids[n++] = pid;
         }
-
-        if (r < 0)
-                return r;
 
         show_pid_array(pids, n, prefix, n_columns, false, more, flags);
 
