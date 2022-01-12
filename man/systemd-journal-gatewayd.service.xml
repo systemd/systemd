@@ -212,9 +212,8 @@
         <listitem><para>Entries are formatted as JSON data structures,
         one per line
         (like <command>journalctl --output json</command>).
-        See <ulink
-        url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
-        JSON Format</ulink> for more information.</para>
+        See <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink>
+        for more information.</para>
         </listitem>
       </varlistentry>
 
@@ -233,13 +232,10 @@
       <varlistentry>
         <term><constant>application/vnd.fdo.journal</constant></term>
 
-        <listitem><para>Entries are serialized into a binary (but
-        mostly text-based) stream suitable for backups and network
-        transfer
-        (like <command>journalctl --output export</command>).
-        See <ulink
-        url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-        Export Format</ulink> for more information.</para>
+        <listitem><para>Entries are serialized into a binary (but mostly text-based) stream suitable for
+        backups and network transfer (like <command>journalctl --output export</command>).  See <ulink
+        url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
+        for more information.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -303,10 +299,8 @@
 
   <refsect1>
     <title>Examples</title>
-    <para>Retrieve events from this boot from local journal
-    in <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-    Export Format</ulink>:
+    <para>Retrieve events from this boot from local journal in
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>:
     <programlisting>curl --silent -H'Accept: application/vnd.fdo.journal' \
        'http://localhost:19531/entries?boot'</programlisting>
     </para>
