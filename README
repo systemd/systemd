@@ -1,10 +1,7 @@
 systemd System and Service Manager
 
-DETAILS:
-        http://0pointer.de/blog/projects/systemd.html
-
 WEB SITE:
-        https://www.freedesktop.org/wiki/Software/systemd
+        https://systemd.io
 
 GIT:
         git@github.com:systemd/systemd.git
@@ -18,6 +15,11 @@ IRC:
 
 BUG REPORTS:
         https://github.com/systemd/systemd/issues
+
+OLDER DOCUMENTATION:
+
+        http://0pointer.de/blog/projects/systemd.html
+        https://www.freedesktop.org/wiki/Software/systemd
 
 AUTHOR:
         Lennart Poettering
