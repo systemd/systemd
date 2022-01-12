@@ -7,11 +7,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Journal File Format
 
-_Note that this document describes the binary on-disk format of journals
-only. For interfacing with web technologies there's the [Journal JSON
-Format](https://www.freedesktop.org/wiki/Software/systemd/json). For transfer
-of journal data across the network there's the [Journal Export
-Format](https://www.freedesktop.org/wiki/Software/systemd/export)._
+_Note that this document describes the binary on-disk format of journals only.
+For interfacing with web technologies there's the [Journal JSON Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format).
+For transfer of journal data across the network there's the [Journal Export Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format)._
 
 The systemd journal stores log data in a binary format with several features:
 
@@ -39,8 +37,8 @@ some additional interfaces for you.
 
 If you need access to the raw journal data in serialized stream form without C
 API our recommendation is to make use of the [Journal Export
-Format](https://www.freedesktop.org/wiki/Software/systemd/export), which you can
-get via "journalctl -o export" or via systemd-journal-gatewayd. The export
+Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format), which you can
+get via `journalctl -o export` or via `systemd-journal-gatewayd`. The export
 format is much simpler to parse, but complete and accurate. Due to its
 stream-based nature it is not indexed.
 
@@ -48,8 +46,8 @@ _Or, to put this in other words: this low-level document is probably not what
 you want to use as base of your project. You want our [C
 API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
 And if you really don't want the C API, then you want the [Journal Export
-Format](https://www.freedesktop.org/wiki/Software/systemd/export) instead! This
-document is primarily for your entertainment and education. Thank you!_
+Format or Journal JSON Format](https://systemd.io/JOURNAL_EXPORT_FORMATS) instead!
+This document is primarily for your entertainment and education. Thank you!_
 
 This document assumes you have a basic understanding of the journal concepts,
 the properties of a journal entry and so on. If not, please go and read up,
