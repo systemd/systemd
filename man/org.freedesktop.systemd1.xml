@@ -1427,7 +1427,7 @@ node /org/freedesktop/systemd1 {
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
       passed as an empty array. See the
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
     </refsect2>
