@@ -2303,8 +2303,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 p = le64toh(o->entry.items[i].object_offset);
                 le_hash = o->entry.items[i].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
-                if (r == -EBADMSG) {
-                        log_debug("Entry item %"PRIu64" data object is bad, skipping over it.", i);
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }
                 if (r < 0)
@@ -2448,8 +2448,8 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 p = le64toh(o->entry.items[j->current_field].object_offset);
                 le_hash = o->entry.items[j->current_field].hash;
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
-                if (r == -EBADMSG) {
-                        log_debug("Entry item %"PRIu64" data object is bad, skipping over it.", j->current_field);
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
                         continue;
                 }
                 if (r < 0)
