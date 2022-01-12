@@ -33,6 +33,8 @@ actions:
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror -Dfuzz-tests=true -Db_sanitize=address,undefined" .packit_rpm/systemd.spec'
     - 'sed -i "1i BuildRequires:  libasan" .packit_rpm/systemd.spec'
     - 'sed -i "1i BuildRequires:  libubsan" .packit_rpm/systemd.spec'
+    - 'sed -i "s/bpf-framework=true/bpf-framework=false/" .packit_rpm/systemd.spec'
+    - 'sed -i "/meson test/s/-t [0-9][0-9]*/-t 15/" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
