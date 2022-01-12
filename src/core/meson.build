@@ -236,7 +236,7 @@ endif
 ############################################################
 
 fuzzers += [
-        [['src/core/fuzz-unit-file.c'],
+        [files('fuzz-unit-file.c'),
          [libcore,
           libshared],
          [libmount]],
