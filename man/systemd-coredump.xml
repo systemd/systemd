@@ -79,7 +79,7 @@
       <para>It is also possible to invoke <command>systemd-coredump</command> with
       <option>--backtrace</option> option. In this case, <command>systemd-coredump</command> expects a
       journal entry in the journal
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
+      <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
       on standard input. The entry should contain a <varname>MESSAGE=</varname> field and any additional
       metadata fields the caller deems reasonable. <command>systemd-coredump</command> will append additional
       metadata fields in the same way it does for core dumps received from the kernel. In this mode, no core
