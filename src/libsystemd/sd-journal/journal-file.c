@@ -2810,7 +2810,6 @@ int journal_file_next_entry(
 
 int journal_file_next_entry_for_data(
                 JournalFile *f,
-                Object *o, uint64_t p,
                 uint64_t data_offset,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
@@ -2820,7 +2819,6 @@ int journal_file_next_entry_for_data(
         int r;
 
         assert(f);
-        assert(p > 0 || !o);
 
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
         if (r < 0)
@@ -2830,29 +2828,7 @@ int journal_file_next_entry_for_data(
         if (n <= 0)
                 return n;
 
-        if (!o)
-                i = direction == DIRECTION_DOWN ? 0 : n - 1;
-        else {
-                if (o->object.type != OBJECT_ENTRY)
-                        return -EINVAL;
-
-                r = generic_array_bisect_plus_one(f,
-                                                  le64toh(d->data.entry_offset),
-                                                  le64toh(d->data.entry_array_offset),
-                                                  le64toh(d->data.n_entries),
-                                                  p,
-                                                  test_object_offset,
-                                                  DIRECTION_DOWN,
-                                                  NULL, NULL,
-                                                  &i);
-
-                if (r <= 0)
-                        return r;
-
-                r = bump_array_index(&i, direction, n);
-                if (r <= 0)
-                        return r;
-        }
+        i = direction == DIRECTION_DOWN ? 0 : n - 1;
 
         for (;;) {
                 r = generic_array_get_plus_one(f,
@@ -2871,12 +2847,6 @@ int journal_file_next_entry_for_data(
                 if (r <= 0)
                         return r;
         }
-
-        /* Ensure our array is properly ordered. */
-        if (p > 0 && check_properly_ordered(ofs, p, direction))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "%s data entry array not properly ordered at entry %" PRIu64,
-                                       f->path, i);
 
         if (ret_offset)
                 *ret_offset = ofs;
