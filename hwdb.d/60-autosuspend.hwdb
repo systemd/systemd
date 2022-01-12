@@ -48,6 +48,8 @@ usb:v058Fp9540*
 
 # HP lc2010 Mobile Broadband Module
 usb:v03F0p2F1DC*
+# HP un2430 EV-DO/HSPA Mobile Broadband Module
+usb:v03F0p371DC*
  ID_AUTOSUSPEND=1
 
 #########################################
