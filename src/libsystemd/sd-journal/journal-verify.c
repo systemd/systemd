@@ -137,8 +137,6 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
 }
 
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
-        uint64_t i;
-
         assert(f);
         assert(offset);
         assert(o);
@@ -275,7 +273,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_entry_n_items(o); i++) {
+                for (uint64_t i = 0; i < journal_file_entry_n_items(o); i++) {
                         if (le64toh(o->entry.items[i].object_offset) == 0 ||
                             !VALID64(le64toh(o->entry.items[i].object_offset))) {
                                 error(offset,
@@ -299,7 +297,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_hash_table_n_items(o); i++) {
+                for (uint64_t i = 0; i < journal_file_hash_table_n_items(o); i++) {
                         if (o->hash_table.items[i].head_hash_offset != 0 &&
                             !VALID64(le64toh(o->hash_table.items[i].head_hash_offset))) {
                                 error(offset,
@@ -349,7 +347,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_entry_array_n_items(o); i++)
+                for (uint64_t i = 0; i < journal_file_entry_array_n_items(o); i++)
                         if (le64toh(o->entry_array.items[i]) != 0 &&
                             !VALID64(le64toh(o->entry_array.items[i]))) {
                                 error(offset,
