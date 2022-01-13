@@ -1547,9 +1547,9 @@ Table=1234</programlisting></para>
 
           <para>For IPv4 route, defaults to <literal>host</literal> if <varname>Type=</varname> is
           <literal>local</literal> or <literal>nat</literal>, and <literal>link</literal> if
-          <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>, or
-          <literal>anycast</literal>. In other cases, defaults to <literal>global</literal>. The value
-          is not used for IPv6.</para>
+          <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>,
+          <literal>anycast</literal>, or direct <literal>unicast</literal> routes. In other cases,
+          defaults to <literal>global</literal>. The value is not used for IPv6.</para>
         </listitem>
       </varlistentry>
 
