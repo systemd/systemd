@@ -2448,7 +2448,7 @@ static void config_load_all_entries(
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
+        EFI_LOADED_IMAGE *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         CHAR16 *loaded_image_path;
