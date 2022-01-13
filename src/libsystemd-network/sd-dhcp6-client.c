@@ -1261,35 +1261,35 @@ static int client_parse_message(
                 case SD_DHCP6_OPTION_DNS_SERVERS:
                         r = dhcp6_lease_add_dns(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                log_dhcp6_client_errno(client, r, "Failed to parse DNS server option, ignoring: %m");
 
                         break;
 
                 case SD_DHCP6_OPTION_DOMAIN_LIST:
                         r = dhcp6_lease_add_domains(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                log_dhcp6_client_errno(client, r, "Failed to parse domain list option, ignoring: %m");
 
                         break;
 
                 case SD_DHCP6_OPTION_NTP_SERVER:
                         r = dhcp6_lease_add_ntp(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                log_dhcp6_client_errno(client, r, "Failed to parse NTP server option, ignoring: %m");
 
                         break;
 
                 case SD_DHCP6_OPTION_SNTP_SERVERS:
                         r = dhcp6_lease_add_sntp(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                log_dhcp6_client_errno(client, r, "Failed to parse SNTP server option, ignoring: %m");
 
                         break;
 
                 case SD_DHCP6_OPTION_CLIENT_FQDN:
                         r = dhcp6_lease_set_fqdn(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                log_dhcp6_client_errno(client, r, "Failed to parse FQDN option, ignoring: %m");
 
                         break;
 
