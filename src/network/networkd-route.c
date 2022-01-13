@@ -2846,6 +2846,12 @@ static int route_section_verify(Route *route, Network *network) {
                         route->scope = RT_SCOPE_HOST;
                 else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
                         route->scope = RT_SCOPE_LINK;
+                else if (IN_SET(route->type, RTN_UNICAST, RTN_UNSPEC) &&
+                         !route->gateway_from_dhcp_or_ra &&
+                         !in_addr_is_set(route->gw_family, &route->gw) &&
+                         ordered_set_isempty(route->multipath_routes) &&
+                         route->nexthop_id == 0)
+                        route->scope = RT_SCOPE_LINK;
         }
 
         if (route->scope != RT_SCOPE_UNIVERSE && route->family == AF_INET6) {
