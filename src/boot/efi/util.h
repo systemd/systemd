@@ -79,7 +79,7 @@ static inline void free_poolp(void *p) {
         if (!q)
                 return;
 
-        FreePool(q);
+        (void) BS->FreePool(q);
 }
 
 #define _cleanup_freepool_ _cleanup_(free_poolp)
