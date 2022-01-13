@@ -440,6 +440,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
+        assert(dir);
         assert(name);
         assert(ret);
 
