@@ -48,6 +48,7 @@ for phase in "${PHASES[@]}"; do
             apt-get -y update
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
+            pip3 install -r .github/workflows/requirements.txt --require-hashes
             ;;
         RUN|RUN_GCC|RUN_CLANG)
             if [[ "$phase" = "RUN_CLANG" ]]; then
