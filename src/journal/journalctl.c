@@ -552,8 +552,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_lines = 1000;
 
                         arg_boot = true;
-                        arg_boot_id = SD_ID128_NULL;
-                        arg_boot_offset = 0;
 
                         break;
 
