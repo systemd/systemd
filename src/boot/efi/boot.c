@@ -1978,7 +1978,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                         continue;
 
                 CHAR8 buf[block_io->Media->BlockSize];
-                block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
+                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
                 if (EFI_ERROR(err))
                         continue;
 
