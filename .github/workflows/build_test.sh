@@ -117,12 +117,21 @@ ninja --version
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
+    # meson fails with
+    #   src/boot/efi/meson.build:52: WARNING: Not using lld as efi-ld, falling back to bfd
+    #   src/boot/efi/meson.build:52:16: ERROR: Fatal warnings enabled, aborting
+    # when LINKER is set to lld so let's just not turn meson warnings into errors with lld
+    # to make sure that the build systemd can pick up the correct efi-ld linker automatically.
+    if [[ "$LINKER" != lld ]]; then
+        additional_meson_args="--fatal-meson-warnings"
+    fi
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
          CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+               -Dnobody-group=nogroup $additional_meson_args \
                -Dcryptolib="${CRYPTOLIB:?}" $args build; then
 
         cat build/meson-logs/meson-log.txt
