@@ -286,7 +286,8 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
                 hd->SignatureType = SIGNATURE_TYPE_GUID;
         }
 
-        err = BS->LocateDevicePath(&BlockIoProtocol, &partition_path, &new_device);
+        EFI_DEVICE_PATH *dp = partition_path;
+        err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
         if (EFI_ERROR(err))
                 return err;
 
