@@ -27,6 +27,13 @@ function info() {
     echo -e "\033[33;1m$1\033[0m"
 }
 
+function run_meson() {
+    if ! meson "$@"; then
+        find . -type f -name meson-log.txt -exec cat '{}' +
+        return 1
+    fi
+}
+
 set -ex
 
 MESON_ARGS=(-Dcryptolib=${CRYPTOLIB:-auto})
@@ -49,7 +56,7 @@ for phase in "${PHASES[@]}"; do
                 # The docs build is slow and is not affected by compiler/flags, so do it just once
                 MESON_ARGS+=(-Dman=true)
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
+            run_meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
@@ -64,7 +71,7 @@ for phase in "${PHASES[@]}"; do
                 # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
             fi
-            meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
+            run_meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
 
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1

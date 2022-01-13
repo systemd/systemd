@@ -125,10 +125,11 @@ for args in "${ARGS[@]}"; do
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dcryptolib="${CRYPTOLIB:?}" $args build; then
 
+        cat build/meson-logs/meson-log.txt
         fatal "meson failed with $args"
     fi
 
-    if ! meson compile -C build; then
+    if ! meson compile -C build -v; then
         fatal "'meson compile' failed with $args"
     fi
 
