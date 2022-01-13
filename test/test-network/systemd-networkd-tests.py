@@ -2542,9 +2542,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('149.10.124.48/28 proto kernel scope link src 149.10.124.58', output)
         self.assertIn('149.10.124.64 proto static scope link', output)
         self.assertIn('169.254.0.0/16 proto static scope link metric 2048', output)
-        self.assertIn('192.168.1.1 proto static initcwnd 20', output)
-        self.assertIn('192.168.1.2 proto static initrwnd 30', output)
-        self.assertIn('192.168.1.3 proto static advmss 30', output)
+        self.assertIn('192.168.1.1 proto static scope link initcwnd 20', output)
+        self.assertIn('192.168.1.2 proto static scope link initrwnd 30', output)
+        self.assertIn('192.168.1.3 proto static scope link advmss 30', output)
         self.assertIn('multicast 149.10.123.4 proto static', output)
 
         print('### ip -4 route show dev dummy98 default')
