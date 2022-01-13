@@ -105,7 +105,6 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         _cleanup_freepool_ EFI_DEVICE_PATH *dev_path = NULL;
         _cleanup_freepool_ CHAR16 *dev_path_str = NULL;
         EFI_HANDLE h;
-        EFI_FILE *root;
         _cleanup_freepool_ CHAR8 *file_buffer = NULL;
         UINTN file_size;
 
@@ -123,8 +122,10 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (EFI_ERROR(status))
                 return status;
 
-        /* No need to check return value, this already happened in efi_main() */
-        root = LibOpenRoot(h);
+        _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(h);
+        if (!root)
+                return EFI_NOT_FOUND;
+
         dev_path_str = DevicePathToStr(dp);
         if (!dev_path_str)
                 return EFI_OUT_OF_RESOURCES;
@@ -132,7 +133,6 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
         if (EFI_ERROR(status))
                 return status;
-        root->Close(root);
 
         if (shim_validate(file_buffer, file_size))
                 return EFI_SUCCESS;
