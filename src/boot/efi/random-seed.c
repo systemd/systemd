@@ -225,7 +225,7 @@ static void validate_sha256(void) {
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         _cleanup_freepool_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
         EFI_STATUS err;

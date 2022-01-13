@@ -435,8 +435,8 @@ CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
         return NULL;
 }
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
+EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
@@ -544,7 +544,7 @@ void sort_pointer_array(
 }
 
 EFI_STATUS get_file_info_harder(
-                EFI_FILE_HANDLE handle,
+                EFI_FILE *handle,
                 EFI_FILE_INFO **ret,
                 UINTN *ret_size) {
 
@@ -577,7 +577,7 @@ EFI_STATUS get_file_info_harder(
 }
 
 EFI_STATUS readdir_harder(
-                EFI_FILE_HANDLE handle,
+                EFI_FILE *handle,
                 EFI_FILE_INFO **buffer,
                 UINTN *buffer_size) {
 
@@ -700,11 +700,11 @@ CHAR16 **strv_free(CHAR16 **v) {
 }
 
 EFI_STATUS open_directory(
-                EFI_FILE_HANDLE root,
+                EFI_FILE *root,
                 const CHAR16 *path,
-                EFI_FILE_HANDLE *ret) {
+                EFI_FILE **ret) {
 
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         EFI_STATUS err;
 

@@ -316,7 +316,7 @@ EFI_STATUS pack_cpio(
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
 
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
         _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
