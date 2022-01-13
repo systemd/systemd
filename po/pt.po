@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Portuguese translation of systemd.
-# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021.
+# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-09-16 18:04+0000\n"
+"PO-Revision-Date: 2022-01-13 11:16+0000\n"
 "Last-Translator: Hugo Carvalho <hugokarvalho@hotmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/master/pt/>\n"
@@ -15,18 +15,18 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.10.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr "Enviar frase secreta de volta ao sistema"
+msgstr "Enviar a palavra-passe de volta ao sistema"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"É necessária autenticação para enviar a frase secreta informada de volta ao "
-"sistema."
+"É necessária autenticação para enviar a palavra-passe introduzida de volta "
+"ao sistema."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -44,21 +44,22 @@ msgstr "Gerir ficheiros de unidades e serviços do sistema"
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"É necessária autenticação para gerir ficheiros “unit” e “service” do sistema."
+"É necessária a autenticação para gerir o serviço do sistema ou ficheiros de "
+"unidades."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
-"Definir ou retirar definição de variáveis de ambiente de gerenciador de "
-"serviço e sistema"
+"Definir ou retirar definição de variáveis do ambiente de gestor de serviço e "
+"sistema"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"É necessária autenticação para definir ou retirar definição de variáveis de "
-"ambiente de gerenciador de serviço e sistema."
+"É necessária autenticação para definir ou retirar definição de variáveis do "
+"ambiente de gestor de serviço e sistema."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
