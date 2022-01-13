@@ -1124,7 +1124,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         return 0;
 }
 
-static int client_parse_message(
+int client_parse_message(
                 sd_dhcp6_client *client,
                 DHCP6Message *message,
                 size_t len,

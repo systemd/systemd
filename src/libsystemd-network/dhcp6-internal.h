@@ -11,6 +11,7 @@
 #include "sd-event.h"
 #include "sd-dhcp6-client.h"
 
+#include "dhcp6-protocol.h"
 #include "hashmap.h"
 #include "list.h"
 #include "macro.h"
@@ -129,6 +130,12 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
 int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
+
+int client_parse_message(
+                sd_dhcp6_client *client,
+                DHCP6Message *message,
+                size_t len,
+                sd_dhcp6_lease *lease);
 
 const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
