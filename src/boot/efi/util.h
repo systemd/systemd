@@ -71,7 +71,7 @@ CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
 CHAR16 *xstra_to_path(const CHAR8 *stra);
 CHAR16 *xstra_to_str(const CHAR8 *stra);
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
+EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
 static inline void free_poolp(void *p) {
         void *q = *(void**) p;
@@ -84,7 +84,7 @@ static inline void free_poolp(void *p) {
 
 #define _cleanup_freepool_ _cleanup_(free_poolp)
 
-static inline void file_handle_closep(EFI_FILE_HANDLE *handle) {
+static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
                 return;
 
@@ -117,9 +117,9 @@ void clear_screen(UINTN attr);
 typedef INTN (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, UINTN n_members, compare_pointer_func_t compare);
 
-EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UINTN *ret_size);
+EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *ret_size);
 
-EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
+EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
 UINTN strnlena(const CHAR8 *p, UINTN maxlen);
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz);
@@ -136,7 +136,7 @@ static inline void strv_freep(CHAR16 ***p) {
         strv_free(*p);
 }
 
-EFI_STATUS open_directory(EFI_FILE_HANDLE root_dir, const CHAR16 *path, EFI_FILE_HANDLE *ret);
+EFI_STATUS open_directory(EFI_FILE *root_dir, const CHAR16 *path, EFI_FILE **ret);
 
 /* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64bit, even on
  * 32bit archs. And gcc complains if we cast a pointer to an integer of a different size. Hence let's do the

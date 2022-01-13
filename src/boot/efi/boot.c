@@ -1309,12 +1309,9 @@ good:
         entry->next_name = xpool_print(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
 }
 
-static void config_entry_bump_counters(
-                ConfigEntry *entry,
-                EFI_FILE_HANDLE root_dir) {
-
+static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR16* old_path = NULL, *new_path = NULL;
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size;
         EFI_STATUS err;
@@ -1375,7 +1372,6 @@ static void config_entry_add_from_file(
         UINTN pos = 0;
         CHAR8 *key, *value;
         EFI_STATUS err;
-        EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR16 *initrd = NULL;
 
         assert(config);
@@ -1483,10 +1479,10 @@ static void config_entry_add_from_file(
                 return;
 
         /* check existence */
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return;
-        handle->Close(handle);
 
         /* add initrd= to options */
         if (entry->type == LOADER_LINUX && initrd) {
@@ -1571,7 +1567,7 @@ static void config_load_entries(
                 EFI_FILE *root_dir,
                 const CHAR16 *loaded_image_path) {
 
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE entries_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *entries_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         UINTN f_size = 0;
         EFI_STATUS err;
@@ -1888,9 +1884,6 @@ static ConfigEntry *config_entry_add_loader_auto(
                 const CHAR16 *title,
                 const CHAR16 *loader) {
 
-        EFI_FILE_HANDLE handle;
-        EFI_STATUS err;
-
         assert(config);
         assert(device);
         assert(root_dir);
@@ -1916,10 +1909,10 @@ static ConfigEntry *config_entry_add_loader_auto(
         }
 
         /* check existence */
-        err = root_dir->Open(root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        EFI_STATUS err = root_dir->Open(root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return NULL;
-        handle->Close(handle);
 
         return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
 }
@@ -1939,7 +1932,7 @@ static void config_entry_add_osx(Config *config) {
                 return;
 
         for (UINTN i = 0; i < n_handles; i++) {
-                _cleanup_(file_handle_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
+                _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
                 if (!root)
                         continue;
 
@@ -2066,7 +2059,7 @@ static void config_entry_add_linux(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
-        _cleanup_(file_handle_closep) EFI_FILE_HANDLE linux_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         ConfigEntry *entry;
         UINTN f_size = 0;
@@ -2224,7 +2217,7 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
-        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device;
         EFI_STATUS err;
 
@@ -2240,7 +2233,7 @@ static void config_load_xbootldr(
 }
 
 static EFI_STATUS image_start(
-                EFI_FILE_HANDLE root_dir,
+                EFI_FILE *root_dir,
                 EFI_HANDLE parent_image,
                 const Config *config,
                 const ConfigEntry *entry) {
@@ -2456,7 +2449,7 @@ static void config_load_all_entries(
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
-        _cleanup_(file_handle_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         CHAR16 *loaded_image_path;
         EFI_STATUS err;
