@@ -989,20 +989,32 @@ if want_bpf_framework == 'false'
 else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
-        clang_bin = cc.get_id() == 'clang' ? cc.cmd_array()[0] : 'clang'
-        if meson.is_cross_build() or clang_bin.contains('afl-clang') or clang_bin.contains('hfuzz-clang')
-                clang_bin = 'clang'
+        if meson.is_cross_build() or cc.get_id() != 'clang' or cc.cmd_array()[0].contains('afl-clang') or cc.cmd_array()[0].contains('hfuzz-clang')
+                r = find_program('clang', required : bpf_framework_required)
+                clang_found = r.found()
+                if clang_found
+                        if meson.version().version_compare('>= 0.55')
+                                clang = [r.full_path()]
+                        else
+                                clang = [r.path()]
+                        endif
+                endif
+                # Assume that the required flags are supported by the found clang.
+                clang_supports_flags = clang_found
+        else
+                clang_found = true
+                clang = cc.cmd_array()
+                clang_supports_flags = cc.has_argument('-Wno-compare-distinct-pointer-types')
         endif
-        clang = find_program(clang_bin, required : bpf_framework_required)
 
-        if clang.found()
+        if clang_found
                 # Check if 'clang -target bpf' is supported.
                 clang_supports_bpf = run_command(clang, '-target', 'bpf', '--print-supported-cpus', check : false).returncode() == 0
         else
                 clang_supports_bpf = false
         endif
 
-        if not meson.is_cross_build() and clang.found()
+        if not meson.is_cross_build() and clang_found
                 llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
                                              check : true).stdout().strip()
         else
@@ -1018,7 +1030,8 @@ else
                                required : bpf_framework_required,
                                version : '>= 5.6')
 
-        deps_found = libbpf.found() and clang.found() and clang_supports_bpf and llvm_strip.found() and bpftool.found()
+        deps_found = libbpf.found() and clang_found and clang_supports_bpf and clang_supports_flags and llvm_strip.found() and bpftool.found()
+
         # Can build BPF program from source code in restricted C
         conf.set10('BPF_FRAMEWORK', deps_found)
 endif
