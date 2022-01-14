@@ -43,8 +43,8 @@
 /* During the "setup" protocol phase of the stream logic let's define a different maximum line length than
  * during the actual operational phase. We want to allow users to specify very short line lengths after all,
  * but the unit name we embed in the setup protocol might be longer than that. Hence, during the setup phase
- * let's enforce a line length matching the maximum unit name length (255) */
-#define STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX (UNIT_NAME_MAX-1U)
+ * let's enforce a line length matching the maximum unit name length (4095) */
+#define STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX (UNIT_NAME_LIMIT-1U)
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
