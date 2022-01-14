@@ -7,8 +7,6 @@
 #include "macro.h"
 #include "unit-def.h"
 
-#define UNIT_NAME_MAX 256
-
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
         UNIT_NAME_TEMPLATE = 1 << 1, /* Allow foo@.service */
@@ -28,6 +26,8 @@ static inline size_t unit_name_max_length(UnitType type) {
             return UNIT_NAME_MAX_LONG;
     return UNIT_NAME_MAX_DEFAULT;
 }
+
+#define UNIT_NAME_MAX(t) unit_name_max_length(t)
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
 bool unit_prefix_is_valid(const char *p) _pure_;
