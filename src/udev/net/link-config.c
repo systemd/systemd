@@ -250,6 +250,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .txqueuelen = UINT32_MAX,
                 .coalesce.use_adaptive_rx_coalesce = -1,
                 .coalesce.use_adaptive_tx_coalesce = -1,
+                .sr_iov_num_vfs = UINT32_MAX,
         };
 
         for (i = 0; i < ELEMENTSOF(config->features); i++)
@@ -290,7 +291,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         if (r < 0)
                 return r;
 
-        r = sr_iov_drop_invalid_sections(config->sr_iov_by_section);
+        r = sr_iov_drop_invalid_sections(config->sr_iov_num_vfs, config->sr_iov_by_section);
         if (r < 0)
                 return r;
 
@@ -874,6 +875,11 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
 
         assert(link);
         assert(link->config);
+        assert(link->device);
+
+        r = sr_iov_set_num_vfs(link->device, link->config->sr_iov_num_vfs, link->config->sr_iov_by_section);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to set the number of SR-IOV virtual functions, ignoring: %m");
 
         ORDERED_HASHMAP_FOREACH(sr_iov, link->config->sr_iov_by_section) {
                 r = sr_iov_configure(link, rtnl, sr_iov);
