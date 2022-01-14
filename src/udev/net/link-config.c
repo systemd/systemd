@@ -871,6 +871,7 @@ static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
 
 static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         SRIOV *sr_iov;
+        uint32_t n;
         int r;
 
         assert(link);
@@ -881,7 +882,25 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to set the number of SR-IOV virtual functions, ignoring: %m");
 
+        if (ordered_hashmap_isempty(link->config->sr_iov_by_section))
+                return 0;
+
+        r = sr_iov_get_num_vfs(link->device, &n);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to get the number of SR-IOV virtual functions, ignoring [SR-IOV] sections: %m");
+                return 0;
+        }
+        if (n == 0) {
+                log_link_warning(link, "No SR-IOV virtual function exists, ignoring [SR-IOV] sections: %m");
+                return 0;
+        }
+
         ORDERED_HASHMAP_FOREACH(sr_iov, link->config->sr_iov_by_section) {
+                if (sr_iov->vf >= n) {
+                        log_link_warning(link, "SR-IOV virtual function %"PRIu32" does not exist, ignoring.", sr_iov->vf);
+                        continue;
+                }
+
                 r = sr_iov_configure(link, rtnl, sr_iov);
                 if (r < 0)
                         log_link_warning_errno(link, r,
