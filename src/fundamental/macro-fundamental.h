@@ -66,6 +66,14 @@
         #define free(a) FreePool(a)
 #endif
 
+/* This passes the argument through after (if asserts are enabled) checking that it is not null. */
+#define ASSERT_PTR(expr)                        \
+        ({                                      \
+                typeof(expr) _expr_ = (expr);   \
+                assert(_expr_);                 \
+                _expr_;                         \
+        })
+
 #if defined(static_assert)
 #define assert_cc(expr)                                                 \
         static_assert(expr, #expr)
