@@ -80,3 +80,13 @@ RxMaxCoalescedHighFrames=
 TxCoalesceHighSec=
 TxMaxCoalescedHighFrames=
 CoalescePacketRateSampleIntervalSec=
+[SR-IOV]
+VirtualFunction=
+MACSpoofCheck=
+VLANId=
+VLANProtocol=
+QualityOfService=
+QueryReceiveSideScaling=
+Trust=
+LinkState=
+MACAddress=

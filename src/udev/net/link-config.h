@@ -7,6 +7,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
+#include "hashmap.h"
 #include "list.h"
 #include "net-condition.h"
 #include "netif-naming-scheme.h"
@@ -75,6 +76,8 @@ struct LinkConfig {
         int tx_flow_control;
         int autoneg_flow_control;
         netdev_coalesce_param coalesce;
+
+        OrderedHashmap *sr_iov_by_section;
 
         LIST_FIELDS(LinkConfig, configs);
 };
