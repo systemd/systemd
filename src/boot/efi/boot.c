@@ -89,6 +89,7 @@ typedef struct {
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
+        BOOLEAN beep;
         INT64 console_mode;
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
@@ -497,6 +498,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
           ps_bool(L"                editor: %s\n", config->editor);
           ps_bool(L"          auto-entries: %s\n", config->auto_entries);
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
+          ps_bool(L"                  beep: %s\n", config->beep);
           ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
         ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
@@ -588,7 +590,7 @@ static BOOLEAN menu_run(
         _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
+        BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE, do_beep = config->beep;
         INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         UINTN default_efivar_saved = config->idx_default_efivar;
 
@@ -723,6 +725,11 @@ static BOOLEAN menu_run(
                         print_at(0, y_status, COLOR_NORMAL, clearline + (x_max - x));
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
+                }
+
+                if (do_beep) {
+                        beep();
+                        do_beep = FALSE;
                 }
 
                 err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : UINT64_MAX);
@@ -1142,6 +1149,12 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         if (EFI_ERROR(err))
                                 log_error_stall(L"Error parsing 'auto-firmware' config option: %a", value);
                         continue;
+                }
+
+                if (strcmpa((CHAR8 *)"beep", key) == 0) {
+                        err = parse_boolean(value, &config->beep);
+                        if (EFI_ERROR(err))
+                                log_error_stall(L"Error parsing 'beep' config option: %a", value);
                 }
 
                 if (strcmpa((CHAR8 *)"reboot-for-bitlocker", key) == 0) {

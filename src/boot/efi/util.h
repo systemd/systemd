@@ -169,3 +169,9 @@ extern UINT8 _text, _data;
 #else
 #  define debug_hook(identity)
 #endif
+
+#if defined(__i386__) || defined(__x86_64__)
+void beep(void);
+#else
+static inline void beep(void) {}
+#endif
