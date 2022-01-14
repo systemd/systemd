@@ -216,6 +216,10 @@ typedef enum CGroupIOAccountingMetric {
         _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIOAccountingMetric;
 
+typedef enum CGroupKernelJumps {
+        _CGROUP_JUMP_MAX,
+} CGroupKernelJumps;
+
 typedef struct Unit Unit;
 typedef struct Manager Manager;
 
