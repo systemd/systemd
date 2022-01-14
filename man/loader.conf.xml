@@ -197,6 +197,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term>beep</term>
+
+        <listitem><para>Beep once as soon as the boot menu is shown (default disabled). Currently,
+        only x86 is supported, where it uses the PC speaker.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Work around BitLocker requiring a recovery key when the boot loader was
