@@ -47,6 +47,7 @@ const UnitNameVTable * const unit_name_vtable[_UNIT_TYPE_MAX] = {
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         const char *e, *i, *at;
+        UnitType t;
 
         assert((flags & ~(UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) == 0);
 
@@ -56,14 +57,17 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         if (isempty(n))
                 return false;
 
-        if (strlen(n) >= UNIT_NAME_MAX)
-                return false;
-
         e = strrchr(n, '.');
         if (!e || e == n)
                 return false;
 
-        if (unit_type_from_string(e + 1) < 0)
+        t = unit_type_from_string(e + 1);
+        if (t < 0)
+                return false;
+
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (strlen(n) >= UNIT_NAME_MAX(t))
                 return false;
 
         for (i = n, at = NULL; i < e; i++) {
@@ -540,7 +544,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (!s)
                 return -ENOMEM;
 
-        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
+        if (strlen(s) >= UNIT_NAME_MAX(unit_type_from_string(suffix))) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
         /* Refuse if this for some other reason didn't result in a valid name */
@@ -574,7 +578,7 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         if (!s)
                 return -ENOMEM;
 
-        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
+        if (strlen(s) >= UNIT_NAME_MAX(unit_type_from_string(suffix))) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
         /* Refuse if this for some other reason didn't result in a valid name */

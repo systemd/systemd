@@ -7,7 +7,6 @@
 #include "macro.h"
 #include "unit-def.h"
 
-#define UNIT_NAME_MAX 256
 #define UNIT_NAME_LIMIT PATH_MAX-1
 
 typedef enum UnitNameFlags {
@@ -26,6 +25,9 @@ typedef struct UnitNameVTable {
 extern const UnitNameVTable * const unit_name_vtable[_UNIT_TYPE_MAX];
 extern const UnitNameVTable default_unit_name_vtable;
 extern const UnitNameVTable long_unit_name_vtable;
+
+#define UNIT_NAME_MAX(t) \
+        unit_name_vtable[t]->max_name
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
 bool unit_prefix_is_valid(const char *p) _pure_;
