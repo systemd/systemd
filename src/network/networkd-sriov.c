@@ -12,6 +12,8 @@
 static int sr_iov_new(SRIOV **ret) {
         SRIOV *sr_iov;
 
+        assert(ret);
+
         sr_iov = new(SRIOV, 1);
         if (!sr_iov)
                 return -ENOMEM;
