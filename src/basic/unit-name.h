@@ -2,11 +2,13 @@
 #pragma once
 
 #include <stdbool.h>
+#include <linux/limits.h>
 
 #include "macro.h"
 #include "unit-def.h"
 
 #define UNIT_NAME_MAX 256
+#define UNIT_NAME_LIMIT PATH_MAX-1
 
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
@@ -15,6 +17,15 @@ typedef enum UnitNameFlags {
         UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE,
         _UNIT_NAME_INVALID = -EINVAL,
 } UnitNameFlags;
+
+typedef struct UnitNameVTable {
+        /* Maximum length of the unit name */
+        size_t max_name;
+} UnitNameVTable;
+
+extern const UnitNameVTable * const unit_name_vtable[_UNIT_TYPE_MAX];
+extern const UnitNameVTable default_unit_name_vtable;
+extern const UnitNameVTable long_unit_name_vtable;
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
 bool unit_prefix_is_valid(const char *p) _pure_;

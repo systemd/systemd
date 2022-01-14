@@ -31,6 +31,20 @@
         VALID_CHARS_WITH_AT                     \
         "[]!-*?"
 
+const UnitNameVTable * const unit_name_vtable[_UNIT_TYPE_MAX] = {
+        [UNIT_SERVICE] = &default_unit_name_vtable,
+        [UNIT_SOCKET] = &default_unit_name_vtable,
+        [UNIT_TARGET] = &default_unit_name_vtable,
+        [UNIT_DEVICE] = &long_unit_name_vtable,
+        [UNIT_MOUNT] = &long_unit_name_vtable,
+        [UNIT_AUTOMOUNT] = &long_unit_name_vtable,
+        [UNIT_SWAP] = &long_unit_name_vtable,
+        [UNIT_TIMER] = &default_unit_name_vtable,
+        [UNIT_PATH] = &default_unit_name_vtable,
+        [UNIT_SLICE] = &default_unit_name_vtable,
+        [UNIT_SCOPE] = &default_unit_name_vtable,
+};
+
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         const char *e, *i, *at;
 
@@ -821,3 +835,11 @@ bool unit_name_prefix_equal(const char *a, const char *b) {
 
         return memcmp_nn(a, p - a, b, q - b) == 0;
 }
+
+const UnitNameVTable default_unit_name_vtable = {
+        .max_name = 256,
+};
+
+const UnitNameVTable long_unit_name_vtable = {
+        .max_name = UNIT_NAME_LIMIT,
+};
