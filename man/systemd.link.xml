@@ -946,6 +946,15 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SR-IOVVirtualFunctions=</varname></term>
+        <listitem>
+          <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
+          0…2147483647. Defaults to unset, and automatically determined from the values specified in
+          the <varname>VirtualFunction=</varname> settings in the [SR-IOV] sections.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

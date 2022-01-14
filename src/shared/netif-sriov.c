@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "netlink-util.h"
 #include "netif-sriov.h"
 #include "parse-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 static int sr_iov_new(SRIOV **ret) {
@@ -179,7 +181,100 @@ int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
         return 0;
 }
 
-static int sr_iov_section_verify(SRIOV *sr_iov) {
+int sr_iov_get_num_vfs(sd_device *device, uint32_t *ret) {
+        const char *str;
+        uint32_t n;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_sysattr_value(device, "device/sriov_numvfs", &str);
+        if (r < 0)
+                return r;
+
+        r = safe_atou32(str, &n);
+        if (r < 0)
+                return r;
+
+        *ret = n;
+        return 0;
+}
+
+int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
+        char val[DECIMAL_STR_MAX(uint32_t)];
+        const char *str;
+        int r;
+
+        assert(device);
+
+        if (num_vfs == UINT32_MAX) {
+                uint32_t current_num_vfs;
+                SRIOV *sr_iov;
+
+                /* If the number of virtual functions is not specified, then use the maximum number of VF + 1. */
+
+                num_vfs = 0;
+                ORDERED_HASHMAP_FOREACH(sr_iov, sr_iov_by_section)
+                        num_vfs = MAX(num_vfs, sr_iov->vf + 1);
+
+                if (num_vfs == 0) /* No VF is configured. */
+                        return 0;
+
+                r = sr_iov_get_num_vfs(device, &current_num_vfs);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "Failed to get the current number of SR-IOV virtual functions: %m");
+
+                /* Enough VFs already exist. */
+                if (num_vfs <= current_num_vfs)
+                        return 0;
+
+        } else if (num_vfs == 0) {
+                r = sd_device_set_sysattr_value(device, "device/sriov_numvfs", "0");
+                if (r < 0)
+                        log_device_debug_errno(device, r, "Failed to write device/sriov_numvfs sysfs attribute, ignoring: %m");
+
+                /* Gracefully handle the error in disabling VFs when the interface does not support SR-IOV. */
+                return r == -ENOENT ? 0 : r;
+        }
+
+        /* So, the interface does not have enough VFs. Before increasing the number of VFs, check the
+         * maximum allowed number of VFs from the sriov_totalvfs sysattr. Note that the sysattr
+         * currently exists only for PCI drivers. Hence, ignore -ENOENT.
+         * TODO: netdevsim provides the information in debugfs. */
+        r = sd_device_get_sysattr_value(device, "device/sriov_totalvfs", &str);
+        if (r >= 0) {
+                uint32_t max_num_vfs;
+
+                r = safe_atou32(str, &max_num_vfs);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "Failed to parse device/sriov_totalvfs sysfs attribute '%s': %m", str);
+
+                if (num_vfs > max_num_vfs)
+                        return log_device_debug_errno(device, SYNTHETIC_ERRNO(ERANGE),
+                                                      "Specified number of virtual functions is out of range. "
+                                                      "The maximum allowed value is %"PRIu32".",
+                                                      max_num_vfs);
+
+        } else if (r != -ENOENT) /* Currently, only PCI driver has the attribute. */
+                return log_device_debug_errno(device, r, "Failed to read device/sriov_totalvfs sysfs attribute: %m");
+
+        xsprintf(val, "%"PRIu32, num_vfs);
+        r = sd_device_set_sysattr_value(device, "device/sriov_numvfs", val);
+        if (r == -EBUSY) {
+                /* Some devices e.g. netdevsim refuse to set sriov_numvfs if it has non-zero value. */
+                r = sd_device_set_sysattr_value(device, "device/sriov_numvfs", "0");
+                if (r >= 0)
+                        r = sd_device_set_sysattr_value(device, "device/sriov_numvfs", val);
+        }
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to write device/sriov_numvfs sysfs attribute: %m");
+
+        log_device_debug(device, "device/sriov_numvfs sysfs attribute set to '%s'.", val);
+        return 0;
+}
+
+static int sr_iov_section_verify(uint32_t num_vfs, SRIOV *sr_iov) {
         assert(sr_iov);
 
         if (section_is_invalid(sr_iov->section))
@@ -191,10 +286,16 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
                                          "Ignoring [SR-IOV] section from line %u.",
                                          sr_iov->section->filename, sr_iov->section->line);
 
+        if (sr_iov->vf >= num_vfs)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: VirtualFunction= must be smaller than the value specified in SR-IOVVirtualFunctions=. "
+                                         "Ignoring [SR-IOV] section from line %u.",
+                                         sr_iov->section->filename, sr_iov->section->line);
+
         return 0;
 }
 
-int sr_iov_drop_invalid_sections(OrderedHashmap *sr_iov_by_section) {
+int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
         _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
         SRIOV *sr_iov;
         int r;
@@ -202,7 +303,7 @@ int sr_iov_drop_invalid_sections(OrderedHashmap *sr_iov_by_section) {
         ORDERED_HASHMAP_FOREACH(sr_iov, sr_iov_by_section) {
                 SRIOV *dup;
 
-                if (sr_iov_section_verify(sr_iov) < 0) {
+                if (sr_iov_section_verify(num_vfs, sr_iov) < 0) {
                         sr_iov_free(sr_iov);
                         continue;
                 }
@@ -483,5 +584,48 @@ int config_parse_sr_iov_mac(
         }
 
         TAKE_PTR(sr_iov);
+        return 0;
+}
+
+int config_parse_sr_iov_num_vfs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t n, *num_vfs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *num_vfs = UINT32_MAX;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (n > INT_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "The number of SR-IOV virtual functions is too large. It must be equal to "
+                           "or smaller than 2147483647. Ignoring assignment: %"PRIu32, n);
+                return 0;
+        }
+
+        *num_vfs = n;
         return 0;
 }
