@@ -36,7 +36,7 @@ case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
-        exec rm -f /lib/modules/"${KERNEL_VERSION}"/modules.{alias{,.bin},builtin.bin,dep{,.bin},devname,softdep,symbols{,.bin}}
+        exec rm -f /lib/modules/"${KERNEL_VERSION}"/modules.{alias{,.bin},builtin{,.alias}.bin,dep{,.bin},devname,softdep,symbols{,.bin}}
         ;;
     *)
         exit 0
