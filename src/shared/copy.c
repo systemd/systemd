@@ -211,29 +211,28 @@ int copy_bytes_full(
 
                         /* To see if we're in a hole, we search for the next data offset. */
                         e = lseek(fdf, c, SEEK_DATA);
-                        if (e < 0 && errno == ENXIO) {
+                        if (e < 0 && errno == ENXIO)
                                 /* If errno == ENXIO, that means we've reached the final hole of the file and
                                 * that hole isn't followed by more data. */
                                 e = lseek(fdf, 0, SEEK_END);
-                                if (e < 0)
-                                        return -errno;
-                        } else if (e < 0)
+                        if (e < 0)
                                 return -errno;
 
-                        /* If we're in a hole (current offset is not a data offset), create a hole of the same size
-                        * in the target file. */
+                        /* If we're in a hole (current offset is not a data offset), create a hole of the
+                         * same size in the target file. */
                         if (e > c && lseek(fdt, e - c, SEEK_CUR) < 0)
                                 return -errno;
 
                         c = e; /* Set c to the start of the data segment. */
 
-                        /* After copying a potential hole, find the end of the data segment by looking for the next
-                        * hole. If we get ENXIO, we're at EOF. */
+                        /* After copying a potential hole, find the end of the data segment by looking for
+                         * the next hole. If we get ENXIO, we're at EOF. */
                         e = lseek(fdf, c, SEEK_HOLE);
-                        if (e < 0 && errno == ENXIO)
-                                break;
-                        else if (e < 0)
+                        if (e < 0) {
+                                if (errno == ENXIO)
+                                        break;
                                 return -errno;
+                        }
 
                         /* SEEK_HOLE modifies the file offset so we need to move back to the initial offset. */
                         if (lseek(fdf, c, SEEK_SET) < 0)
