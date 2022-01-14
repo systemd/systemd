@@ -8,6 +8,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "ethtool-util.h"
 #include "link-config.h"
 #include "net-condition.h"
+#include "netif-sriov.h"
 #include "socket-util.h"
 %}
 struct ConfigPerfItem;
@@ -101,3 +102,12 @@ Link.RxMaxCoalescedHighFrames,             config_parse_coalesce_u32,           
 Link.TxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_high)
 Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_high)
 Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
+SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.VLANId,                             config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.QualityOfService,                   config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.VLANProtocol,                       config_parse_sr_iov_vlan_proto,        0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.MACSpoofCheck,                      config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.QueryReceiveSideScaling,            config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.Trust,                              config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.LinkState,                          config_parse_sr_iov_link_state,        0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.MACAddress,                         config_parse_sr_iov_mac,               0,                             offsetof(LinkConfig, sr_iov_by_section)
