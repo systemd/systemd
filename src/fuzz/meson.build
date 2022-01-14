@@ -20,4 +20,6 @@ fuzzers += [
         [files('fuzz-calendarspec.c')],
 
         [files('fuzz-time-util.c')],
+
+        [files('fuzz-core.c')],
 ]

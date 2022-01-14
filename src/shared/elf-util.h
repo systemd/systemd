@@ -8,6 +8,9 @@
  * untrusted and potentially malicious data do not propagate to the main caller's process.
  * If fork_disable_dump, the child process will not dump core if it crashes. */
 int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata);
+int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata);
+int dlopen_dw(void);
+int dlopen_elf(void);
 #else
 static inline int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "elfutils disabled, parsing ELF objects not supported");
