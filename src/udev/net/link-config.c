@@ -22,6 +22,7 @@
 #include "log-link.h"
 #include "memory-util.h"
 #include "net-condition.h"
+#include "netif-sriov.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -59,6 +60,8 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         free(config->alias);
         free(config->wol_password_file);
         erase_and_free(config->wol_password);
+
+        ordered_hashmap_free_with_destructor(config->sr_iov_by_section, sr_iov_free);
 
         return mfree(config);
 }
@@ -257,7 +260,9 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         STRV_MAKE_CONST(filename),
                         (const char* const*) CONF_PATHS_STRV("systemd/network"),
                         dropin_dirname,
-                        "Match\0Link\0",
+                        "Match\0"
+                        "Link\0"
+                        "SR-IOV\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
                         CONFIG_PARSE_WARN, config, NULL);
         if (r < 0)
@@ -282,6 +287,10 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                             filename);
 
         r = link_adjust_wol_options(config);
+        if (r < 0)
+                return r;
+
+        r = sr_iov_drop_invalid_sections(config->sr_iov_by_section);
         if (r < 0)
                 return r;
 
@@ -830,6 +839,53 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
+static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(rtnl);
+        assert(link->ifindex > 0);
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sr_iov_set_netlink_message(sr_iov, req);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, req, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
+        SRIOV *sr_iov;
+        int r;
+
+        assert(link);
+        assert(link->config);
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->config->sr_iov_by_section) {
+                r = sr_iov_configure(link, rtnl, sr_iov);
+                if (r < 0)
+                        log_link_warning_errno(link, r,
+                                               "Failed to configure SR-IOV virtual function %"PRIu32", ignoring: %m",
+                                               sr_iov->vf);
+        }
+
+        return 0;
+}
+
 int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
         int r;
 
@@ -858,6 +914,10 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
                 return r;
 
         r = link_apply_alternative_names(link, rtnl);
+        if (r < 0)
+                return r;
+
+        r = link_apply_sr_iov_config(link, rtnl);
         if (r < 0)
                 return r;
 
