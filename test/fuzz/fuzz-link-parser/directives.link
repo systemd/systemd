@@ -80,6 +80,7 @@ RxMaxCoalescedHighFrames=
 TxCoalesceHighSec=
 TxMaxCoalescedHighFrames=
 CoalescePacketRateSampleIntervalSec=
+SR-IOVVirtualFunctions=
 [SR-IOV]
 VirtualFunction=
 MACSpoofCheck=

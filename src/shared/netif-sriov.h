@@ -3,6 +3,8 @@
 
 #include <linux/if_link.h>
 
+#include "sd-device.h"
+
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
@@ -32,7 +34,9 @@ typedef struct SRIOV {
 
 SRIOV *sr_iov_free(SRIOV *sr_iov);
 int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req);
-int sr_iov_drop_invalid_sections(OrderedHashmap *sr_iov_by_section);
+int sr_iov_get_num_vfs(sd_device *device, uint32_t *ret);
+int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_iov_by_section);
+int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_section);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
 
@@ -41,3 +45,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_link_state);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_vlan_proto);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_mac);
+CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_num_vfs);

@@ -77,6 +77,7 @@ struct LinkConfig {
         int autoneg_flow_control;
         netdev_coalesce_param coalesce;
 
+        uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
 
         LIST_FIELDS(LinkConfig, configs);

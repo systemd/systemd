@@ -321,7 +321,7 @@ int network_verify(Network *network) {
         network_drop_invalid_route_prefixes(network);
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
-        r = sr_iov_drop_invalid_sections(network->sr_iov_by_section);
+        r = sr_iov_drop_invalid_sections(UINT32_MAX, network->sr_iov_by_section);
         if (r < 0)
                 return r;
         network_drop_invalid_static_leases(network);
