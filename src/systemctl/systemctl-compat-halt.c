@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "pretty-print.h"
@@ -144,6 +145,29 @@ int halt_parse_argv(int argc, char *argv[]) {
 int halt_main(void) {
         int r;
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int inhibit_root;
+
+        r = sd_bus_default_system(&bus);
+        /* Fallback to default if failure to acquire bus */
+        if(r <0)
+                inhibit_root = 0;
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "LegacyHaltRootInhibit",
+                        &error,
+                        'b', &inhibit_root);
+        /* Fallback to default and log if failure to retrieve configuration item */
+        if (r < 0) {
+                inhibit_root = 0;
+                log_error_errno(r, "halt_main: Failed to retrieve configuration item LegacyHaltRootInhibit");
+        }
+
         r = logind_check_inhibitors(arg_action);
         if (r < 0)
                 return r;
@@ -152,8 +176,13 @@ int halt_main(void) {
         if (arg_when > 0 && logind_schedule_shutdown() == 0)
                 return 0;
 
+        if (arg_force && geteuid() == 0) {
+                goto root_forced;
+        }
+
+
         /* No delay, or logind failed or is not at all available */
-        if (geteuid() != 0) {
+        if ((geteuid() != 0) || (geteuid() == 0 && inhibit_root > 0)) {
                 if (arg_dry_run || arg_force > 0) {
                         (void) must_be_root();
                         return -EPERM;
@@ -174,6 +203,7 @@ int halt_main(void) {
                 }
         }
 
+root_forced:
         /* In order to minimize the difference between operation with and without logind, we explicitly
          * enable non-blocking mode for this, as logind's shutdown operations are always non-blocking. */
         arg_no_block = true;

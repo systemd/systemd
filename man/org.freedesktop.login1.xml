@@ -188,6 +188,8 @@ node /org/freedesktop/login1 {
       readonly s BlockInhibited = '...';
       readonly s DelayInhibited = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LegacyHaltRootInhibit = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InhibitDelayMaxUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t UserStopDelayUSec = ...;
@@ -411,6 +413,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="BlockInhibited"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelayInhibited"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LegacyHaltRootInhibit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InhibitDelayMaxUSec"/>
 
@@ -655,6 +659,7 @@ node /org/freedesktop/login1 {
       <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
       includes: <varname>NAutoVTs</varname>, <varname>KillOnlyUsers</varname>,
       <varname>KillExcludeUsers</varname>, <varname>KillUserProcesses</varname>, <varname>IdleAction</varname>,
+      <varname>LegacyHaltRootInhibit</varname>,
       <varname>InhibitDelayMaxUSec</varname>,
       <varname>InhibitorsMax</varname>,
       <varname>UserStopDelayUSec</varname>,
