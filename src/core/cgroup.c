@@ -53,6 +53,7 @@
 #define LOG_LEVEL_CGROUP_WRITE(r, ...) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM, ##__VA_ARGS__) ? LOG_DEBUG : LOG_WARNING)
 
 static const char *cgroup_jump_versions[_CGROUP_JUMP_MAX] = {
+        "5.4", /* 795fe54c2a82 ("bfq: Add per-device weight"). */
 };
 
 uint64_t tasks_max_resolve(const TasksMax *tasks_max) {
@@ -1112,7 +1113,8 @@ static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t 
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        if (set_attribute_and_warn(u, controller, p, buf) >= 0 && io_weight != bfq_weight)
+        if (set_attribute_and_kwarn(CGROUP_JUMP_BFQ_DEVICE, u, controller, p, buf) >= 0 &&
+            io_weight != bfq_weight)
                 log_unit_debug(u, "%sIO%sWeight=%" PRIu64 " scaled to %s=%" PRIu64,
                                streq(controller, "blkio") ? "Block" : "",
                                major(dev) > 0 ? "Device" : "",

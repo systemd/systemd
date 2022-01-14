@@ -217,6 +217,7 @@ typedef enum CGroupIOAccountingMetric {
 } CGroupIOAccountingMetric;
 
 typedef enum CGroupKernelJumps {
+        CGROUP_JUMP_BFQ_DEVICE,
         _CGROUP_JUMP_MAX,
 } CGroupKernelJumps;
 
