@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/utsname.h>
 
 #include "sd-messages.h"
 
@@ -45,10 +46,15 @@
 
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
-/* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
- * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
- * out specific attributes from us. */
-#define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
+/* Returns the log level to use when cgroup attribute writes fail.
+ * We downgrade to LOG_DEBUG when the attribute is missing or we have access problems (this is supposed to be
+ * nice to container managers and kernels which want to mask out specific attributes from us). Downgrade also
+ * on optional list of errors. */
+#define LOG_LEVEL_CGROUP_WRITE(r, ...) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM, ##__VA_ARGS__) ? LOG_DEBUG : LOG_WARNING)
+
+static const char *cgroup_jump_versions[_CGROUP_JUMP_MAX] = {
+        "5.4", /* 795fe54c2a82 ("bfq: Add per-device weight"). */
+};
 
 uint64_t tasks_max_resolve(const TasksMax *tasks_max) {
         if (tasks_max->scale == 0)
@@ -112,6 +118,49 @@ static int set_attribute_and_warn(Unit *u, const char *controller, const char *a
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
                                     strna(attribute), empty_to_root(u->cgroup_path), (int) strcspn(value, NEWLINE), value);
+        return r;
+}
+
+/*
+ * Set a cgroup attribute taking into account kernel version.
+ * Failures on kernels older than @j are treated with less caution not to cause too much noise in the log.
+ */
+static int set_attribute_and_kwarn(CGroupKernelJumps j, Unit *u, const char *controller, const char *attribute, const char *value) {
+        static char release[sizeof(((struct utsname *)NULL)->release)] = {};
+        static char cgroup_jump_compare[_CGROUP_JUMP_MAX] = {};
+        static bool cgroup_jump_warned[_CGROUP_JUMP_MAX] = {};
+
+        int level;
+        int r;
+
+        r = cg_set_attribute(controller, u->cgroup_path, attribute, value);
+        if (r >= 0)
+                return r;
+
+        if (!release[0]) {
+                struct utsname uts;
+                assert_se(uname(&uts) >= 0);
+                strncpy(release, uts.release, sizeof(release));
+        }
+
+        if (!cgroup_jump_compare[j]) {
+                cgroup_jump_compare[j] = 1;
+                cgroup_jump_compare[j] |= strverscmp_improved(release, cgroup_jump_versions[j]) << 1;
+        }
+        if ((cgroup_jump_compare[j] >> 1) >= 0)
+                level = LOG_LEVEL_CGROUP_WRITE(r);
+        else {
+                /* old kernel -> tone down EINVAL to debug message */
+                level = LOG_LEVEL_CGROUP_WRITE(r, EINVAL);
+                if (!cgroup_jump_warned[j]) {
+                        log_warning("cgroup attribute '%s' not fully supported by kernel %s. "
+                                    "See debug messages for details.", strna(attribute), release);
+                        cgroup_jump_warned[j] = true;
+                }
+        }
+
+        log_unit_full_errno(u, level, r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
+                            strna(attribute), empty_to_root(u->cgroup_path), (int) strcspn(value, NEWLINE), value);
 
         return r;
 }
@@ -1047,8 +1096,8 @@ static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
                      CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
-static void set_bfq_weight(Unit *u, const char *controller, uint64_t io_weight) {
-        char buf[DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
+static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
         const char *p;
         uint64_t bfq_weight;
 
@@ -1059,11 +1108,16 @@ static void set_bfq_weight(Unit *u, const char *controller, uint64_t io_weight) 
         /* Adjust to kernel range is 1..1000, the default is 100. */
         bfq_weight = BFQ_WEIGHT(io_weight);
 
-        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        if (major(dev) > 0)
+                xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), bfq_weight);
+        else
+                xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        if (set_attribute_and_warn(u, controller, p, buf) >= 0 && io_weight != bfq_weight)
-                log_unit_debug(u, "%sIOWeight=%" PRIu64 " scaled to %s=%" PRIu64,
+        if (set_attribute_and_kwarn(CGROUP_JUMP_BFQ_DEVICE, u, controller, p, buf) >= 0 &&
+            io_weight != bfq_weight)
+                log_unit_debug(u, "%sIO%sWeight=%" PRIu64 " scaled to %s=%" PRIu64,
                                streq(controller, "blkio") ? "Block" : "",
+                               major(dev) > 0 ? "Device" : "",
                                io_weight, p, bfq_weight);
 }
 
@@ -1075,6 +1129,9 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
         r = lookup_block_device(dev_path, &dev);
         if (r < 0)
                 return;
+
+        /* BFQ per-device weights work since Linux kernel v5.4. */
+        set_bfq_weight(u, "io", dev, io_weight);
 
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
@@ -1283,7 +1340,7 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        set_bfq_weight(u, "io", weight);
+        set_bfq_weight(u, "io", makedev(0, 0), weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
@@ -1294,7 +1351,7 @@ static void set_blkio_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        set_bfq_weight(u, "blkio", weight);
+        set_bfq_weight(u, "blkio", makedev(0, 0), weight);
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
