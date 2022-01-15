@@ -1392,7 +1392,7 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
         _cleanup_free_ char *db = NULL;
         const char *value;
         size_t db_len;
-        char key;
+        char key = '\0';  /* Unnecessary initialization to appease gcc-12.0.0-0.4.fc36 */
         int r;
 
         enum {
