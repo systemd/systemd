@@ -367,6 +367,14 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
+bool dnstls_stream_has_buffered_data(DnsStream *stream) {
+        assert(stream);
+        assert(stream->encrypted);
+        assert(stream->dnstls_data.ssl);
+
+        return SSL_has_pending(stream->dnstls_data.ssl) > 0;
+}
+
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
