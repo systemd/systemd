@@ -24,12 +24,12 @@ BridgeMDB *bridge_mdb_free(BridgeMDB *mdb) {
                 hashmap_remove(mdb->network->bridge_mdb_entries_by_section, mdb->section);
         }
 
-        network_config_section_free(mdb->section);
+        config_section_free(mdb->section);
 
         return mfree(mdb);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(BridgeMDB, bridge_mdb_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(BridgeMDB, bridge_mdb_free);
 
 /* create a new MDB entry or get an existing one. */
 static int bridge_mdb_new_static(
@@ -38,7 +38,7 @@ static int bridge_mdb_new_static(
                 unsigned section_line,
                 BridgeMDB **ret) {
 
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(bridge_mdb_freep) BridgeMDB *mdb = NULL;
         int r;
 
@@ -47,7 +47,7 @@ static int bridge_mdb_new_static(
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -72,7 +72,7 @@ static int bridge_mdb_new_static(
                 .section = TAKE_PTR(n),
         };
 
-        r = hashmap_ensure_put(&network->bridge_mdb_entries_by_section, &network_config_hash_ops, mdb->section, mdb);
+        r = hashmap_ensure_put(&network->bridge_mdb_entries_by_section, &config_section_hash_ops, mdb->section, mdb);
         if (r < 0)
                 return r;
 

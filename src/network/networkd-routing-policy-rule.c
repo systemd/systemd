@@ -54,14 +54,14 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         if (rule->manager)
                 set_remove(rule->manager->rules, rule);
 
-        network_config_section_free(rule->section);
+        config_section_free(rule->section);
         free(rule->iif);
         free(rule->oif);
 
         return mfree(rule);
 }
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
 
 static int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
@@ -86,7 +86,7 @@ static int routing_policy_rule_new(RoutingPolicyRule **ret) {
 
 static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         int r;
 
         assert(network);
@@ -94,7 +94,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -113,7 +113,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         rule->source = NETWORK_CONFIG_SOURCE_STATIC;
         rule->protocol = RTPROT_STATIC;
 
-        r = hashmap_ensure_put(&network->rules_by_section, &network_config_hash_ops, rule->section, rule);
+        r = hashmap_ensure_put(&network->rules_by_section, &config_section_hash_ops, rule->section, rule);
         if (r < 0)
                 return r;
 
