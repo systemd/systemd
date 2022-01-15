@@ -757,3 +757,46 @@ __attribute__((noinline)) void debug_break(void) {
 #endif
 }
 #endif
+
+#if defined(__i386__) || defined(__x86_64__)
+static inline UINT8 inb(UINT16 port) {
+        UINT8 value;
+        asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
+        return value;
+}
+
+static inline void outb(UINT16 port, UINT8 value) {
+        asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+
+void beep(void) {
+        enum {
+                PITCH                = 500,
+                DURATION_USEC        = 100 * 1000,
+
+                PIT_FREQUENCY        = 0x1234dd,
+                SPEAKER_CONTROL_PORT = 0x61,
+                SPEAKER_ON_MASK      = 0x03,
+                TIMER_PORT_MAGIC     = 0xB6,
+                TIMER_CONTROL_PORT   = 0x43,
+                TIMER_CONTROL2_PORT  = 0x42,
+        };
+
+        /* Set frequency. */
+        UINT32 counter = PIT_FREQUENCY / PITCH;
+        outb(TIMER_CONTROL_PORT, TIMER_PORT_MAGIC);
+        outb(TIMER_CONTROL2_PORT, counter & 0xFF);
+        outb(TIMER_CONTROL2_PORT, (counter >> 8) & 0xFF);
+
+        /* Turn speaker on. */
+        UINT8 value = inb(SPEAKER_CONTROL_PORT);
+        value |= SPEAKER_ON_MASK;
+        outb(SPEAKER_CONTROL_PORT, value);
+
+        BS->Stall(DURATION_USEC);
+
+        /* Turn speaker off. */
+        value &= ~SPEAKER_ON_MASK;
+        outb(SPEAKER_CONTROL_PORT, value);
+}
+#endif
