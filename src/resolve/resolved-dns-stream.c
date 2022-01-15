@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "macro.h"
 #include "missing_network.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
@@ -18,6 +19,9 @@ static void dns_stream_stop(DnsStream *s) {
         assert(s);
 
         s->io_event_source = sd_event_source_disable_unref(s->io_event_source);
+#if ENABLE_DNS_OVER_TLS
+        s->tls_buffered_data_event_source = sd_event_source_disable_unref(s->tls_buffered_data_event_source);
+#endif
         s->timeout_event_source = sd_event_source_disable_unref(s->timeout_event_source);
         s->fd = safe_close(s->fd);
 
@@ -280,6 +284,15 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
         return dns_stream_complete(s, ETIMEDOUT);
 }
 
+#if ENABLE_DNS_OVER_TLS
+static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata);
+static int on_stream_tls_buffered_data(sd_event_source *es, void *userdata) {
+        /* Same logic as when receiving unbuffered data */
+        DnsStream *s = userdata;
+        return on_stream_io(es, s->fd, EPOLLIN, userdata);
+}
+#endif
+
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         bool progressed = false;
@@ -440,6 +453,34 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 if (r < 0)
                         log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
+
+#if ENABLE_DNS_OVER_TLS
+        if (s->encrypted) {
+                uint32_t events;
+
+                r = sd_event_source_get_io_events(s->io_event_source, &events);
+                if (r < 0)
+                        return r;
+
+                /* When using DNS-over-TLS, the underlying TLS library may read the entire TLS record
+                   and buffer it internally. If this happens, we will not receive further EPOLLIN events,
+                   and unless there's some unrelated activity on the socket, we will hang until time out.
+                   To avoid this, if there's buffered TLS data, generate a "fake" EPOLLIN event.
+                   This is hacky, but it makes this case transparent to the rest of the IO code. */
+                if (FLAGS_SET(events, EPOLLIN) != 0 && dnstls_stream_has_buffered_data(s)) {
+                        if (!s->tls_buffered_data_event_source) {
+                                r = sd_event_add_defer(s->manager->event, &s->tls_buffered_data_event_source,
+                                                       on_stream_tls_buffered_data, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = sd_event_source_set_enabled(s->tls_buffered_data_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                return r;
+                }
+        }
+#endif
 
         return 0;
 }
