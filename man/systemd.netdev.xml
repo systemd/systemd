@@ -1581,7 +1581,7 @@
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           or a number in the range 1…4294967295. When <literal>off</literal> the routes to the
           addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
-          Defaults to <literal>main</literal>. This setting will be ignored when the same setting is
+          Defaults to <literal>off</literal>. This setting will be ignored when the same setting is
           specified in the [WireGuardPeer] section.</para>
         </listitem>
       </varlistentry>
