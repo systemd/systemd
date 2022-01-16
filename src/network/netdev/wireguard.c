@@ -895,7 +895,7 @@ int config_parse_wireguard_route_table(
         assert(data);
         assert(userdata);
 
-        if (isempty(rvalue) || streq(rvalue, "off")) {
+        if (isempty(rvalue) || parse_boolean(rvalue) == 0) {
                 *table = 0; /* Disabled. */
                 return 0;
         }
@@ -947,7 +947,7 @@ int config_parse_wireguard_peer_route_table(
                 return 0;
         }
 
-        if (streq(rvalue, "off")) {
+        if (parse_boolean(rvalue) == 0) {
                 peer->route_table = 0; /* Disabled. */
                 peer->route_table_set = true;
                 TAKE_PTR(peer);
