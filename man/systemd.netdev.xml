@@ -2073,7 +2073,7 @@
       <varlistentry>
         <term><varname>HopPenalty=</varname></term>
         <listitem>
-          <para>The hop penalty setting allows to modify
+          <para>The hop penalty setting allows one to modify
           <citerefentry project='mankier'><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           preference for multihop routes vs. short routes. This integer value is applied to the
           TQ (Transmit Quality) of each forwarded OGM (Originator Message), thereby propagating the

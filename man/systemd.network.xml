@@ -362,7 +362,7 @@
       <varlistentry>
         <term><varname>Trust=</varname></term>
         <listitem>
-          <para>Takes a boolean. Allows to set trust mode of the virtual function (VF). When set, VF
+          <para>Takes a boolean. Allows one to set trust mode of the virtual function (VF). When set, VF
           users can set a specific feature which may impact security and/or performance. When unset,
           the kernel's default will be used.</para>
         </listitem>
@@ -371,7 +371,7 @@
       <varlistentry>
         <term><varname>LinkState=</varname></term>
         <listitem>
-          <para>Allows to set the link state of the virtual function (VF). Takes a boolean or a
+          <para>Allows one to set the link state of the virtual function (VF). Takes a boolean or a
           special value <literal>auto</literal>. Setting to <literal>auto</literal> means a
           reflection of the physical function (PF) link state, <literal>yes</literal> lets the VF to
           communicate with other VFs on this host even if the PF link state is down,
@@ -2038,7 +2038,7 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>FallbackLeaseLifetimeSec=</varname></term>
         <listitem>
-          <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease
+          <para>Allows one to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease
           lifetime. Takes one of <literal>forever</literal> or <literal>infinity</literal>. If
           specified, the acquired address never expires. Defaults to unset.</para>
         </listitem>
@@ -3234,7 +3234,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>SyncJumpWidth=</varname></term>
           <listitem>
             <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
-            synchronization jump width, which allow to define the CAN bit-timing in a hardware
+            synchronization jump width, which allow one to define the CAN bit-timing in a hardware
             independent format as proposed by the Bosch CAN 2.0 Specification.
             <varname>TimeQuantaNSec=</varname> takes a timespan in nanoseconds.
             <varname>PropagationSegment=</varname>, <varname>PhaseBufferSegment1=</varname>,
