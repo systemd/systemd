@@ -895,13 +895,8 @@ int config_parse_wireguard_route_table(
         assert(data);
         assert(userdata);
 
-        if (isempty(rvalue)) {
-                *table = RT_TABLE_MAIN;
-                return 0;
-        }
-
-        if (streq(rvalue, "off")) {
-                *table = 0;
+        if (isempty(rvalue) || streq(rvalue, "off")) {
+                *table = 0; /* Disabled. */
                 return 0;
         }
 
@@ -1061,7 +1056,6 @@ static void wireguard_init(NetDev *netdev) {
         assert(w);
 
         w->flags = WGDEVICE_F_REPLACE_PEERS;
-        w->route_table = RT_TABLE_MAIN;
 }
 
 static void wireguard_done(NetDev *netdev) {
