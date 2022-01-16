@@ -3876,7 +3876,7 @@ if git.found()
                         command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
                 run_target(
                         'ctags',
-                        command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+                        command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(project_source_root)] + all_files)
         endif
 endif
 
