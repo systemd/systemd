@@ -769,10 +769,11 @@ static inline void outb(UINT16 port, UINT8 value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
-void beep(void) {
+void beep(UINTN beep_count) {
         enum {
                 PITCH                = 500,
-                DURATION_USEC        = 100 * 1000,
+                BEEP_DURATION_USEC   = 100 * 1000,
+                WAIT_DURATION_USEC   = 400 * 1000,
 
                 PIT_FREQUENCY        = 0x1234dd,
                 SPEAKER_CONTROL_PORT = 0x61,
@@ -788,15 +789,22 @@ void beep(void) {
         outb(TIMER_CONTROL2_PORT, counter & 0xFF);
         outb(TIMER_CONTROL2_PORT, (counter >> 8) & 0xFF);
 
-        /* Turn speaker on. */
         UINT8 value = inb(SPEAKER_CONTROL_PORT);
-        value |= SPEAKER_ON_MASK;
-        outb(SPEAKER_CONTROL_PORT, value);
 
-        BS->Stall(DURATION_USEC);
+        while (beep_count > 0) {
+                /* Turn speaker on. */
+                value |= SPEAKER_ON_MASK;
+                outb(SPEAKER_CONTROL_PORT, value);
 
-        /* Turn speaker off. */
-        value &= ~SPEAKER_ON_MASK;
-        outb(SPEAKER_CONTROL_PORT, value);
+                BS->Stall(BEEP_DURATION_USEC);
+
+                /* Turn speaker off. */
+                value &= ~SPEAKER_ON_MASK;
+                outb(SPEAKER_CONTROL_PORT, value);
+
+                beep_count--;
+                if (beep_count > 0)
+                        BS->Stall(WAIT_DURATION_USEC);
+        }
 }
 #endif

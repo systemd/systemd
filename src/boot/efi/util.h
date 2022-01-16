@@ -171,7 +171,7 @@ extern UINT8 _text, _data;
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
-void beep(void);
+void beep(UINTN beep_count);
 #else
-static inline void beep(void) {}
+static inline void beep(UINTN beep_count) {}
 #endif
