@@ -9,6 +9,7 @@ ADDITIONAL_DEPS=(
     expect
     fdisk
     jekyll
+    libbpf-dev
     libfdisk-dev
     libfido2-dev
     libp11-kit-dev
