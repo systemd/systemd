@@ -19,9 +19,12 @@ static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifac
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_ifaces_bpf *, restrict_ifaces_bpf_free);
 
-static int prepare_restrict_ifaces_bpf(Unit* u, bool is_allow_list,
+static int prepare_restrict_ifaces_bpf(
+                Unit* u,
+                bool is_allow_list,
                 const Set *restrict_network_interfaces,
                 struct restrict_ifaces_bpf **ret_object) {
+
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char *iface;
@@ -50,9 +53,10 @@ static int prepare_restrict_ifaces_bpf(Unit* u, bool is_allow_list,
         SET_FOREACH(iface, restrict_network_interfaces) {
                 uint8_t dummy = 0;
                 int ifindex;
+
                 ifindex = rtnl_resolve_interface(&rtnl, iface);
                 if (ifindex < 0) {
-                        log_unit_warning_errno(u, ifindex, "Couldn't find index of network interface: %m. Ignoring '%s'", iface);
+                        log_unit_warning_errno(u, ifindex, "Couldn't find index of network interface '%s', ignoring: %m", iface);
                         continue;
                 }
 
