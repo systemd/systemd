@@ -962,6 +962,7 @@ manpages = [
  ['systemd-sleep.conf', '5', ['sleep.conf.d'], ''],
  ['systemd-socket-activate', '1', [], ''],
  ['systemd-socket-proxyd', '8', [], ''],
+ ['systemd-stdio-bridge', '1', [], ''],
  ['systemd-stub',
   '7',
   ['linuxaa64.efi.stub', 'linuxia32.efi.stub', 'linuxx64.efi.stub'],
