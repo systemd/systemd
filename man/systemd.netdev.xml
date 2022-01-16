@@ -1575,14 +1575,14 @@
         <term><varname>RouteTable=</varname></term>
         <listitem>
           <para>The table identifier for the routes to the addresses specified in the
-          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
-          predefined names <literal>default</literal>, <literal>main</literal>, and
-          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <varname>AllowedIPs=</varname>. Takes a negative boolean value, one of the predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, names
+          defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           or a number in the range 1…4294967295. When <literal>off</literal> the routes to the
           addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
-          Defaults to <literal>off</literal>. This setting will be ignored when the same setting is
-          specified in the [WireGuardPeer] section.</para>
+          Defaults to false. This setting will be ignored when the same setting is specified in the
+          [WireGuardPeer] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1682,9 +1682,9 @@
         <term><varname>RouteTable=</varname></term>
         <listitem>
           <para>The table identifier for the routes to the addresses specified in the
-          <varname>AllowedIPs=</varname>. Takes the special value <literal>off</literal>, one of the
-          predefined names <literal>default</literal>, <literal>main</literal>, and
-          <literal>local</literal>, names defined in <varname>RouteTable=</varname> in
+          <varname>AllowedIPs=</varname>. Takes a negative boolean value, one of the predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, names
+          defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           or a number in the range 1…4294967295. Defaults to unset, and the value specified in the
           same setting in the [WireGuard] section will be used.</para>
