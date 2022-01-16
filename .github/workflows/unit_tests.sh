@@ -17,6 +17,7 @@ ADDITIONAL_DEPS=(
     libqrencode-dev
     libssl-dev
     libtss2-dev
+    libxkbcommon-dev
     libzstd-dev
     perl
     python3-libevdev
