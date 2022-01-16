@@ -34,6 +34,7 @@ Most generic unit settings are available for transient units.
 ✓ PropagatesReloadTo=
 ✓ ReloadPropagatedFrom=
 ✓ PartOf=
+✓ Upholds=
 ✓ JoinsNamespaceOf=
 ✓ RequiresMountsFor=
 ✓ StopWhenUnneeded=
