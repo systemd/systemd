@@ -1649,6 +1649,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as PartOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as Upholds = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RequiredBy = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RequisiteOf = ['...', ...];
@@ -1656,6 +1658,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as WantedBy = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as BoundBy = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as UpheldBy = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ConsistsOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1667,13 +1671,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as After = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly as OnFailure = ['...', ...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly as OnFailureOf = ['...', ...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as OnSuccess = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as OnSuccessOf = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as OnFailure = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as OnFailureOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Triggers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1820,15 +1824,19 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property PartOf is not documented!-->
 
+    <!--property Upholds is not documented!-->
+
     <!--property RequisiteOf is not documented!-->
 
-    <!--property ConsistsOf is not documented!-->
+    <!--property UpheldBy is not documented!-->
 
-    <!--property OnFailureOf is not documented!-->
+    <!--property ConsistsOf is not documented!-->
 
     <!--property OnSuccess is not documented!-->
 
     <!--property OnSuccessOf is not documented!-->
+
+    <!--property OnFailureOf is not documented!-->
 
     <!--property ReloadPropagatedFrom is not documented!-->
 
@@ -1948,6 +1956,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PartOf"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Upholds"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RequiredBy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RequisiteOf"/>
@@ -1955,6 +1965,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="WantedBy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BoundBy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UpheldBy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConsistsOf"/>
 
@@ -1966,13 +1978,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="After"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="OnFailure"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="OnFailureOf"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="OnSuccess"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OnSuccessOf"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnFailure"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnFailureOf"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Triggers"/>
 
