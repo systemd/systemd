@@ -590,7 +590,7 @@ static BOOLEAN menu_run(
         _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE, do_beep = config->beep;
+        BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
         INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         UINTN default_efivar_saved = config->idx_default_efivar;
 
@@ -727,9 +727,10 @@ static BOOLEAN menu_run(
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
                 }
 
-                if (do_beep) {
+                /* Beep several times so that the selected entry can be distinguished. */
+                for (UINTN i = 0; config->beep && i <= idx_highlight; i++) {
                         beep();
-                        do_beep = FALSE;
+                        BS->Stall(400 * 1000);
                 }
 
                 err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : UINT64_MAX);
