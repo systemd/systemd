@@ -199,8 +199,8 @@
       <varlistentry>
         <term>beep</term>
 
-        <listitem><para>Beep once as soon as the boot menu is shown (default disabled). Currently,
-        only x86 is supported, where it uses the PC speaker.</para></listitem>
+        <listitem><para>Beep n times when the n-th entry in the boot menu is shown (default disabled).
+        Currently, only x86 is supported, where it uses the PC speaker.</para></listitem>
       </varlistentry>
 
       <varlistentry>
