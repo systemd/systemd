@@ -94,7 +94,7 @@
           <entry>A dummy device drops all packets sent to it.</entry></row>
 
           <row><entry><varname>gre</varname></entry>
-          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
+          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details. For GRE tunnel devices, names like gre0, gretap0 and erspan0 should not be used on certain platforms considering they would be created as dummy devices for compatibility reasons.</entry></row>
 
           <row><entry><varname>gretap</varname></entry>
           <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
