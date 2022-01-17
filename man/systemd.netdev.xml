@@ -94,13 +94,13 @@
           <entry>A dummy device drops all packets sent to it.</entry></row>
 
           <row><entry><varname>gre</varname></entry>
-          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
+          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details. Name <literal>gre0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>gretap</varname></entry>
-          <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
+          <entry>A Level 2 GRE tunnel over IPv4. Name <literal>gretap0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>erspan</varname></entry>
-          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch.</entry></row>
+          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch. Name <literal>erspan0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>ip6gre</varname></entry>
           <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
