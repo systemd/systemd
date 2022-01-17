@@ -33,7 +33,6 @@ jobs:
       matrix:
         distro:
           - arch
-          - debian
           - ubuntu
           - fedora
           - opensuse
