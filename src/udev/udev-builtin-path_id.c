@@ -630,7 +630,17 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "nvme")) {
-                        const char *nsid;
+                        const char *nsid, *hidden;
+
+			/*
+			 * NVMe multipath paths (created with the GENHD_FL_HIDDEN
+			 * flag) exist for kernel I/O submission, but they're
+			 * not supposed to be accessed/used by userspace tools.
+			 * Thus, ignore such devices.
+			 */
+                        if (sd_device_get_sysattr_value(dev, "hidden", &hidden) >= 0)
+                                if (!strncmp(hidden, "1", 2))
+                                        break;
 
                         if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
