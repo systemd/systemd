@@ -9,6 +9,7 @@
 {{type}}.RootHash,                         config_parse_exec_root_hash,                 0,                                  offsetof({{type}}, exec_context)
 {{type}}.RootHashSignature,                config_parse_exec_root_hash_sig,             0,                                  offsetof({{type}}, exec_context)
 {{type}}.RootVerity,                       config_parse_unit_path_printf,               true,                               offsetof({{type}}, exec_context.root_verity)
+{{type}}.ExtensionDirectories,             config_parse_namespace_path_strv,            0,                                  offsetof({{type}}, exec_context.extension_directories)
 {{type}}.ExtensionImages,                  config_parse_extension_images,               0,                                  offsetof({{type}}, exec_context)
 {{type}}.MountImages,                      config_parse_mount_images,                   0,                                  offsetof({{type}}, exec_context)
 {{type}}.User,                             config_parse_user_group_compat,              0,                                  offsetof({{type}}, exec_context.user)

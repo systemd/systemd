@@ -2682,6 +2682,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExtensionDirectories = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssba(ss)) MountImages = [...];
@@ -3827,6 +3829,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
@@ -4185,6 +4189,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>RootHashSignature</varname>
       <varname>MountImages</varname>
       <varname>ExtensionImages</varname>
+      <varname>ExtensionDirectories</varname>
       see systemd.exec(5) for their meaning.</para>
 
       <para><varname>MemoryAvailable</varname> indicates how much unused memory is available to the unit before
@@ -4558,6 +4563,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s RootHashSignaturePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5722,6 +5729,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
@@ -6343,6 +6352,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s RootHashSignaturePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7353,6 +7364,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
@@ -8101,6 +8114,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s RootHashSignaturePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9082,6 +9097,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 

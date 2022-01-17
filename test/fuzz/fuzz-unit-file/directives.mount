@@ -40,6 +40,7 @@ DynamicUser=
 Environment=
 EnvironmentFile=
 ExecPaths=
+ExtensionDirectories=
 ExtensionImages=
 FinalKillSignal=
 ForceUnmount=

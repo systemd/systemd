@@ -321,6 +321,36 @@ EOF
 systemctl start testservice-50e.service
 systemctl is-active testservice-50e.service
 
+# ExtensionDirectories will set up an overlay
+mkdir -p "${image_dir}/app0" "${image_dir}/app1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistant" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
+systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
+systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+cat >/run/systemd/system/testservice-50f.service <<EOF
+[Service]
+MountAPIVFS=yes
+TemporaryFileSystem=/run
+RootImage=${image}.raw
+ExtensionDirectories=${image_dir}/app0 ${image_dir}/app1
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
+ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+Type=oneshot
+RemainAfterExit=yes
+EOF
+systemctl start testservice-50f.service
+systemctl is-active testservice-50f.service
+umount "${image_dir}/app0"
+umount "${image_dir}/app1"
+
 echo OK >/testok
 
 exit 0

@@ -217,6 +217,7 @@ RootImage=
 RootHash=
 RootHashSignature=
 RootVerity=
+ExtensionDirectories=
 ExtensionImages=
 RuntimeMaxSec=
 SELinuxContextFromNet=

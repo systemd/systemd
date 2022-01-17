@@ -459,6 +459,34 @@
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtensionDirectories=</varname></term>
+
+        <listitem><para>This setting is similar to <varname>BindReadOnlyPaths=</varname> in that it mounts a file
+        system hierarchy from a directory, but instead of providing a destination path, an overlay will be set
+        up. This option expects a whitespace separated list of source directories.</para>
+
+        <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
+        <filename>/opt/</filename> hierarchies. The order in which the directories are listed will determine
+        the order in which the overlay is laid down: directories specified first to last will result in overlayfs
+        layers bottom to top.</para>
+
+        <para>Each directory listed in <varname>ExtensionDirectories=</varname> may be prefixed with <literal>-</literal>,
+        in which case it will be ignored when its source path does not exist. Any mounts created with this option are
+        specific to the unit, and are not visible in the host's mount table.</para>
+
+        <para>These settings may be used more than once, each usage appends to the unit's list of directories
+        paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
+        reset.</para>
+
+        <para>Each directory must contain a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
+        or the host. See:
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

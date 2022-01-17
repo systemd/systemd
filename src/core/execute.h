@@ -273,6 +273,7 @@ struct ExecContext {
         size_t n_mount_images;
         MountImage *extension_images;
         size_t n_extension_images;
+        char **extension_directories;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;

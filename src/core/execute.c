@@ -2065,6 +2065,9 @@ bool exec_needs_mount_namespace(
         if (context->n_extension_images > 0)
                 return true;
 
+        if (!strv_isempty(context->extension_directories))
+                return true;
+
         if (!IN_SET(context->mount_flags, 0, MS_SHARED))
                 return true;
 
@@ -3566,6 +3569,7 @@ static int apply_mount_namespace(
                             context->root_verity,
                             context->extension_images,
                             context->n_extension_images,
+                            context->extension_directories,
                             propagate_dir,
                             incoming_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
@@ -5244,6 +5248,7 @@ void exec_context_done(ExecContext *c) {
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
         c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+        c->extension_directories = strv_free(c->extension_directories);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -6120,6 +6125,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 strempty(o->options));
                 fprintf(f, "\n");
         }
+
+        strv_dump(f, prefix, "ExtensionDirectories", c->extension_directories);
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {
