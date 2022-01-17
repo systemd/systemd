@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <linux/limits.h>
 
 #include "macro.h"
 #include "unit-def.h"
@@ -15,6 +16,18 @@ typedef enum UnitNameFlags {
         UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE,
         _UNIT_NAME_INVALID = -EINVAL,
 } UnitNameFlags;
+
+#define UNIT_NAME_MAX_LONG    PATH_MAX-1
+#define UNIT_NAME_MAX_DEFAULT 256
+
+static inline size_t unit_name_max_length(UnitType type) {
+    assert(type != _UNIT_TYPE_INVALID && type < _UNIT_TYPE_MAX);
+    if (IN_SET(type, UNIT_DEVICE, UNIT_MOUNT, UNIT_SWAP))
+            /* We allow longer unit names for types where unit can get created because of external event
+             * outside of our control (e.g. device is connected or admin mounts a filesystem by hand). */
+            return UNIT_NAME_MAX_LONG;
+    return UNIT_NAME_MAX_DEFAULT;
+}
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
 bool unit_prefix_is_valid(const char *p) _pure_;
