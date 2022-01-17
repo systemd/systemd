@@ -31,9 +31,23 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-stdio-bridge</command> may be used as a STDIO or socket-activatable
-    proxy to a given D-Bus endpoint.</para>
+    <para><command>systemd-stdio-bridge</command> implements a proxy for a D-Bus endpoint. It expects to
+    receive an open connection to a bus when started, and will also connect to a (different) bus as a
+    client. It will then act as a server on the first connection, and forward messages between the two
+    busses. This program is suitable for socket activation: the first connection may be a pipe or a socket
+    and must be passed as either standard input, or as an open file descriptor according to the protocol
+    described in
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    second connection will be made by default to the local system bus, but this can be influenced by the
+    <option>--user</option>, <option>--system</option>, <option>--machine=</option>, and
+    <option>--bus-path=</option> options described below.</para>
 
+    <para><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry> uses
+    <command>systemd-stdio-bridge</command> to forward D-Bus connections over
+    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    or to connect to the bus of a different user, see
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -42,6 +56,10 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
       <varlistentry>
           <term><option>-p <replaceable>PATH</replaceable></option></term>
           <term><option>--bus-path=<replaceable>PATH</replaceable></option></term>
@@ -52,9 +70,6 @@
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="user-system-options.xml" xpointer="user" />
-      <xi:include href="user-system-options.xml" xpointer="system" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
     </variablelist>
   </refsect1>
 
@@ -70,7 +85,6 @@
       <citerefentry project='dbus'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='dbus'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <ulink url="https://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>

@@ -28,7 +28,7 @@ static bool arg_user = false;
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
+               "Forward messages between two D-Bus busses via a pipe or socket.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
