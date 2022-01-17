@@ -26,9 +26,8 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static bool arg_user = false;
 
 static int help(void) {
-
         printf("%s [OPTIONS...]\n\n"
-               "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
+               "Forward messages between two D-Bus busses via a pipe or socket.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
@@ -41,7 +40,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_MACHINE,
@@ -64,7 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -98,7 +96,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown option code %c", c);
                 }
-        }
 
         return 1;
 }
@@ -125,7 +122,7 @@ static int run(int argc, char *argv[]) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Illegal number of file descriptors passed.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "More than one file descriptor was passed.");
 
         is_unix =
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
