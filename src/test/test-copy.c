@@ -333,7 +333,7 @@ TEST_RET(copy_holes) {
         assert_se(fd >= 0);
 
         fd_copy = mkostemp_safe(fn_copy);
-        assert_se(fd >= 0);
+        assert_se(fd_copy >= 0);
 
         r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
         if (ERRNO_IS_NOT_SUPPORTED(r))
