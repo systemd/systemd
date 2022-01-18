@@ -12,20 +12,17 @@ union GptHeaderBuffer {
         uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
 };
 
-static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
-        EFI_DEVICE_PATH *parent;
-        UINTN len;
-
+static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
         assert(path);
         assert(node);
 
-        len = (UINT8*) NextDevicePathNode(node) - (UINT8*) path;
-        parent = (EFI_DEVICE_PATH*) xallocate_pool(len + sizeof(EFI_DEVICE_PATH));
+        UINTN len = (UINT8 *) node - (UINT8 *) path;
+        EFI_DEVICE_PATH *chopped = xallocate_pool(len + END_DEVICE_PATH_LENGTH);
 
-        CopyMem(parent, path, len);
-        CopyMem((UINT8*) parent + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
+        CopyMem(chopped, path, len);
+        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((UINT8 *) chopped + len));
 
-        return parent;
+        return chopped;
 }
 
 static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
@@ -183,13 +180,14 @@ static EFI_STATUS find_device(
                 EFI_BLOCK_IO *block_io;
                 EFI_DEVICE_PATH *p;
 
-                /* First, Let's look for the SCSI/SATA/USB/… device path node, i.e. one above the media
-                 * devices */
-                if (DevicePathType(node) != MESSAGING_DEVICE_PATH)
+                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
                         continue;
 
-                /* Determine the device path one level up */
-                disk_path = p = path_parent(partition_path, node);
+                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
+                        continue;
+
+                /* Chop off the partition part, leaving us with the path to the disk itself. */
+                disk_path = p = path_chop(partition_path, node);
                 if (!disk_path)
                         continue;
 
