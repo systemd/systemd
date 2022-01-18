@@ -759,8 +759,7 @@ int boot_entries_load_config_auto(
 
 int boot_entries_augment_from_loader(
                 BootConfig *config,
-                char **found_by_loader,
-                bool only_auto) {
+                char **found_by_loader) {
 
         static const char *const title_table[] = {
                 /* Pretty names for a few well-known automatically discovered entries. */
@@ -785,7 +784,12 @@ int boot_entries_augment_from_loader(
                 if (boot_config_has_entry(config, *i))
                         continue;
 
-                if (only_auto && !startswith(*i, "auto-"))
+                /*
+                 * consider the 'auto-' entries only, because the others
+                 * ones are detected scanning the 'esp' and 'xbootldr'
+                 * directories by boot_entries_load_config()
+                 */
+                if (!startswith(*i, "auto-"))
                         continue;
 
                 c = strdup(*i);
