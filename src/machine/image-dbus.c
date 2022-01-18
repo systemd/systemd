@@ -43,11 +43,17 @@ int bus_image_method_remove(
         if (m->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
+        const char *details[] = {
+                "image", image->name,
+                "verb", "remove",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -108,11 +114,18 @@ int bus_image_method_rename(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
+        const char *details[] = {
+                "image", image->name,
+                "verb", "rename",
+                "new_name", new_name,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -155,11 +168,18 @@ int bus_image_method_clone(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
+        const char *details[] = {
+                "image", image->name,
+                "verb", "clone",
+                "new_name", new_name,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -207,7 +227,8 @@ int bus_image_method_mark_read_only(
 
         Image *image = userdata;
         Manager *m = image->userdata;
-        int r, read_only;
+        bool read_only;
+        int r;
 
         assert(message);
 
@@ -215,11 +236,18 @@ int bus_image_method_mark_read_only(
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "image", image->name,
+                "verb", "mark_read_only",
+                "read_only", (read_only?"1":"0"),
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
@@ -254,11 +282,17 @@ int bus_image_method_set_limit(
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
+        const char *details[] = {
+                "machine", image->name,
+                "verb", "set_limit",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->polkit_registry,
