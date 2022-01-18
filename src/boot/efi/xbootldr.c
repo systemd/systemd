@@ -12,20 +12,17 @@ union GptHeaderBuffer {
         uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
 };
 
-static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
-        EFI_DEVICE_PATH *parent;
-        UINTN len;
-
+static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
         assert(path);
         assert(node);
 
-        len = (UINT8*) NextDevicePathNode(node) - (UINT8*) path;
-        parent = (EFI_DEVICE_PATH*) xallocate_pool(len + sizeof(EFI_DEVICE_PATH));
+        UINTN len = (UINT8 *) node - (UINT8 *) path;
+        EFI_DEVICE_PATH *chopped = xallocate_pool(len + END_DEVICE_PATH_LENGTH);
 
-        CopyMem(parent, path, len);
-        CopyMem((UINT8*) parent + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
+        CopyMem(chopped, path, len);
+        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((UINT8 *) chopped + len));
 
-        return parent;
+        return chopped;
 }
 
 static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
@@ -75,10 +72,7 @@ static EFI_STATUS try_gpt(
                 EFI_BLOCK_IO *block_io,
                 EFI_LBA lba,
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
-                UINT32 *ret_part_number,
-                UINT64 *ret_part_start,
-                UINT64 *ret_part_size,
-                EFI_GUID *ret_part_uuid) {
+                HARDDRIVE_DEVICE_PATH *ret_hd) {
 
         _cleanup_freepool_ EFI_PARTITION_ENTRY *entries = NULL;
         union GptHeaderBuffer gpt;
@@ -87,10 +81,7 @@ static EFI_STATUS try_gpt(
         UINTN size;
 
         assert(block_io);
-        assert(ret_part_number);
-        assert(ret_part_start);
-        assert(ret_part_size);
-        assert(ret_part_uuid);
+        assert(ret_hd);
 
         /* Read the GPT header */
         err = block_io->ReadBlocks(
@@ -142,10 +133,12 @@ static EFI_STATUS try_gpt(
                 if (end < start) /* Bogus? */
                         continue;
 
-                *ret_part_number = i + 1;
-                *ret_part_start = start;
-                *ret_part_size = end - start + 1;
-                CopyMem(ret_part_uuid, &entry->UniquePartitionGUID, sizeof(*ret_part_uuid));
+                ret_hd->PartitionNumber = i + 1;
+                ret_hd->PartitionStart = start;
+                ret_hd->PartitionSize = end - start + 1;
+                ret_hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
+                ret_hd->SignatureType = SIGNATURE_TYPE_GUID;
+                CopyMem(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
 
                 return EFI_SUCCESS;
         }
@@ -155,95 +148,88 @@ static EFI_STATUS try_gpt(
         return EFI_NOT_FOUND;
 }
 
-static EFI_STATUS find_device(
-                EFI_HANDLE *device,
-                EFI_DEVICE_PATH **ret_device_path,
-                UINT32 *ret_part_number,
-                UINT64 *ret_part_start,
-                UINT64 *ret_part_size,
-                EFI_GUID *ret_part_uuid) {
-
-        EFI_DEVICE_PATH *partition_path;
+static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_path) {
         EFI_STATUS err;
 
         assert(device);
         assert(ret_device_path);
-        assert(ret_part_number);
-        assert(ret_part_start);
-        assert(ret_part_size);
-        assert(ret_part_uuid);
 
-        partition_path = DevicePathFromHandle(device);
+        EFI_DEVICE_PATH *partition_path = DevicePathFromHandle(device);
         if (!partition_path)
                 return EFI_NOT_FOUND;
 
+        /* Find the (last) partition node itself. */
+        EFI_DEVICE_PATH *part_node = NULL;
         for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                _cleanup_freepool_ EFI_DEVICE_PATH *disk_path = NULL;
-                EFI_HANDLE disk_handle;
-                EFI_BLOCK_IO *block_io;
-                EFI_DEVICE_PATH *p;
-
-                /* First, Let's look for the SCSI/SATA/USB/… device path node, i.e. one above the media
-                 * devices */
-                if (DevicePathType(node) != MESSAGING_DEVICE_PATH)
+                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
                         continue;
 
-                /* Determine the device path one level up */
-                disk_path = p = path_parent(partition_path, node);
-                if (!disk_path)
+                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
-                if (EFI_ERROR(err))
+                part_node = node;
+        }
+
+        if (!part_node)
+                return EFI_NOT_FOUND;
+
+        /* Chop off the partition part, leaving us with the full path to the disk itself. */
+        EFI_DEVICE_PATH *p;
+        _cleanup_freepool_ EFI_DEVICE_PATH *disk_path = p = path_chop(partition_path, part_node);
+
+        EFI_HANDLE disk_handle;
+        EFI_BLOCK_IO *block_io;
+        err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
+        if (EFI_ERROR(err))
+                return err;
+
+        err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
+        if (EFI_ERROR(err))
+                return err;
+
+        /* Filter out some block devices early. (We only care about block devices that aren't
+         * partitions themselves — we look for GPT partition tables to parse after all —, and only
+         * those which contain a medium and have at least 2 blocks.) */
+        if (block_io->Media->LogicalPartition ||
+            !block_io->Media->MediaPresent ||
+            block_io->Media->LastBlock <= 1)
+                return EFI_NOT_FOUND;
+
+        /* Try several copies of the GPT header, in case one is corrupted */
+        EFI_LBA backup_lba = 0;
+        HARDDRIVE_DEVICE_PATH hd = *((HARDDRIVE_DEVICE_PATH *) part_node);
+        for (UINTN nr = 0; nr < 3; nr++) {
+                EFI_LBA lba;
+
+                /* Read the first copy at LBA 1 and then try the backup GPT header pointed
+                 * to by the first header if that one was corrupted. As a last resort,
+                 * try the very last LBA of this block device. */
+                if (nr == 0)
+                        lba = 1;
+                else if (nr == 1 && backup_lba != 0)
+                        lba = backup_lba;
+                else if (nr == 2 && backup_lba != block_io->Media->LastBlock)
+                        lba = block_io->Media->LastBlock;
+                else
                         continue;
 
-                err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
-                if (EFI_ERROR(err))
-                        continue;
-
-                /* Filter out some block devices early. (We only care about block devices that aren't
-                 * partitions themselves — we look for GPT partition tables to parse after all —, and only
-                 * those which contain a medium and have at least 2 blocks.) */
-                if (block_io->Media->LogicalPartition ||
-                    !block_io->Media->MediaPresent ||
-                    block_io->Media->LastBlock <= 1)
-                        continue;
-
-                /* Try several copies of the GPT header, in case one is corrupted */
-                EFI_LBA backup_lba = 0;
-                for (UINTN nr = 0; nr < 3; nr++) {
-                        EFI_LBA lba;
-
-                        /* Read the first copy at LBA 1 and then try the backup GPT header pointed
-                         * to by the first header if that one was corrupted. As a last resort,
-                         * try the very last LBA of this block device. */
-                        if (nr == 0)
-                                lba = 1;
-                        else if (nr == 1 && backup_lba != 0)
-                                lba = backup_lba;
-                        else if (nr == 2 && backup_lba != block_io->Media->LastBlock)
-                                lba = block_io->Media->LastBlock;
-                        else
-                                continue;
-
-                        err = try_gpt(
-                                block_io, lba,
-                                nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
-                                ret_part_number,
-                                ret_part_start,
-                                ret_part_size,
-                                ret_part_uuid);
-                        if (!EFI_ERROR(err)) {
-                                *ret_device_path = DuplicateDevicePath(partition_path);
-                                if (!*ret_device_path)
-                                        return EFI_OUT_OF_RESOURCES;
-                                return EFI_SUCCESS;
-                        }
-
+                err = try_gpt(
+                        block_io, lba,
+                        nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
+                        &hd);
+                if (EFI_ERROR(err)) {
                         /* GPT was valid but no XBOOT loader partition found. */
                         if (err == EFI_NOT_FOUND)
                                 break;
+                        /* Bad GPT, try next one. */
+                        continue;
                 }
+
+                /* Patch in the data we found */
+                EFI_DEVICE_PATH *xboot_path = ASSERT_PTR(DuplicateDevicePath(partition_path));
+                CopyMem((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
+                *ret_device_path = xboot_path;
+                return EFI_SUCCESS;
         }
 
         /* No xbootloader partition found */
@@ -252,39 +238,17 @@ static EFI_STATUS find_device(
 
 EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
         _cleanup_freepool_ EFI_DEVICE_PATH *partition_path = NULL;
-        UINT32 part_number = UINT32_MAX;
-        UINT64 part_start = UINT64_MAX, part_size = UINT64_MAX;
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
-        EFI_GUID part_uuid;
         EFI_STATUS err;
 
         assert(device);
         assert(ret_device);
         assert(ret_root_dir);
 
-        err = find_device(device, &partition_path, &part_number, &part_start, &part_size, &part_uuid);
+        err = find_device(device, &partition_path);
         if (EFI_ERROR(err))
                 return err;
-
-        /* Patch in the data we found */
-        for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                HARDDRIVE_DEVICE_PATH *hd;
-
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
-                        continue;
-
-                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
-                        continue;
-
-                hd = (HARDDRIVE_DEVICE_PATH*) node;
-                hd->PartitionNumber = part_number;
-                hd->PartitionStart = part_start;
-                hd->PartitionSize = part_size;
-                CopyMem(hd->Signature, &part_uuid, sizeof(hd->Signature));
-                hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
-                hd->SignatureType = SIGNATURE_TYPE_GUID;
-        }
 
         EFI_DEVICE_PATH *dp = partition_path;
         err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
