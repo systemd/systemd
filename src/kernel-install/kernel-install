@@ -80,6 +80,9 @@ fi
 KERNEL_VERSION="$1"
 shift
 
+layout=
+initrd_generator=
+
 if [ -r "/etc/kernel/install.conf" ]; then
     . /etc/kernel/install.conf
 elif [ -r "/usr/lib/kernel/install.conf" ]; then
@@ -123,12 +126,12 @@ if [ -z "$layout" ]; then
     fi
 fi
 
-
 ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
+export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
 
 [ "$layout" = "bls" ]
 MAKE_ENTRY_DIR_ABS=$?
