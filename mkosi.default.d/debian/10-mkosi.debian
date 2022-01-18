@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=debian
-Release=unstable
+Release=testing
 
 [Packages]
 BuildPackages=
