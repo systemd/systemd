@@ -57,7 +57,7 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
                 if (*i == '@' && !at)
                         at = i;
 
-                if (!strchr("@" VALID_CHARS, *i))
+                if (!strchr(VALID_CHARS_WITH_AT, *i))
                         return false;
         }
 
