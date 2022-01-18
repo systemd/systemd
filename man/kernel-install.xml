@@ -171,10 +171,14 @@
     <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the root directory (mount point, usually) of the hierarchy
     where boot-loader entries, kernel images, and associated resources should be placed. Can be overridden by setting <varname>BOOT_ROOT=</varname>.</para>
 
-    <para><varname>KERNEL_INSTALL_LAYOUT=bls|other|...</varname> specifies the installation layout.
+    <para><varname>KERNEL_INSTALL_LAYOUT=bls|other|...</varname> is set for the plugins to specify the installation layout.
     Defaults to <option>bls</option> if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename> exists, or <option>other</option> otherwise.
     Additional layout names may be defined by convention. If a plugin uses a special layout,
     it's encouraged to declare its own layout name and configure <varname>layout=</varname> in <filename>install.conf</filename> upon initial installation.</para>
+
+    <para><varname>KERNEL_INSTALL_INITRD_GENERATOR=...</varname> is set for plugins to select the initrd generator.
+    This should be configured as <varname>initrd_generator=</varname> in <filename>install.conf</filename>.
+    </para>
 
     <variablelist>
       <varlistentry>
