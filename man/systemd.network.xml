@@ -1274,7 +1274,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>Table=</varname></term>
         <listitem>
-          <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
+          <para>Specifies the routing table identifier to look up if the rule selector matches. Takes
           one of predefined names <literal>default</literal>, <literal>main</literal>, and
           <literal>local</literal>, and names defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
