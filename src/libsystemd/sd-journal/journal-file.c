@@ -3274,7 +3274,7 @@ int journal_file_open(
         r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
         if (r < 0) {
                 if (r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring.");
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
                 f->keyed_hash = true;
         } else
                 f->keyed_hash = r;
