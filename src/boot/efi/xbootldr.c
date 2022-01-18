@@ -72,10 +72,7 @@ static EFI_STATUS try_gpt(
                 EFI_BLOCK_IO *block_io,
                 EFI_LBA lba,
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
-                UINT32 *ret_part_number,
-                UINT64 *ret_part_start,
-                UINT64 *ret_part_size,
-                EFI_GUID *ret_part_uuid) {
+                HARDDRIVE_DEVICE_PATH *ret_hd) {
 
         _cleanup_freepool_ EFI_PARTITION_ENTRY *entries = NULL;
         union GptHeaderBuffer gpt;
@@ -84,10 +81,7 @@ static EFI_STATUS try_gpt(
         UINTN size;
 
         assert(block_io);
-        assert(ret_part_number);
-        assert(ret_part_start);
-        assert(ret_part_size);
-        assert(ret_part_uuid);
+        assert(ret_hd);
 
         /* Read the GPT header */
         err = block_io->ReadBlocks(
@@ -139,10 +133,12 @@ static EFI_STATUS try_gpt(
                 if (end < start) /* Bogus? */
                         continue;
 
-                *ret_part_number = i + 1;
-                *ret_part_start = start;
-                *ret_part_size = end - start + 1;
-                CopyMem(ret_part_uuid, &entry->UniquePartitionGUID, sizeof(*ret_part_uuid));
+                ret_hd->PartitionNumber = i + 1;
+                ret_hd->PartitionStart = start;
+                ret_hd->PartitionSize = end - start + 1;
+                ret_hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
+                ret_hd->SignatureType = SIGNATURE_TYPE_GUID;
+                CopyMem(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
 
                 return EFI_SUCCESS;
         }
@@ -152,22 +148,11 @@ static EFI_STATUS try_gpt(
         return EFI_NOT_FOUND;
 }
 
-static EFI_STATUS find_device(
-                EFI_HANDLE *device,
-                EFI_DEVICE_PATH **ret_device_path,
-                UINT32 *ret_part_number,
-                UINT64 *ret_part_start,
-                UINT64 *ret_part_size,
-                EFI_GUID *ret_part_uuid) {
-
+static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_path) {
         EFI_STATUS err;
 
         assert(device);
         assert(ret_device_path);
-        assert(ret_part_number);
-        assert(ret_part_start);
-        assert(ret_part_size);
-        assert(ret_part_uuid);
 
         EFI_DEVICE_PATH *partition_path = DevicePathFromHandle(device);
         if (!partition_path)
@@ -212,6 +197,7 @@ static EFI_STATUS find_device(
 
         /* Try several copies of the GPT header, in case one is corrupted */
         EFI_LBA backup_lba = 0;
+        HARDDRIVE_DEVICE_PATH hd = *((HARDDRIVE_DEVICE_PATH *) part_node);
         for (UINTN nr = 0; nr < 3; nr++) {
                 EFI_LBA lba;
 
@@ -230,20 +216,20 @@ static EFI_STATUS find_device(
                 err = try_gpt(
                         block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
-                        ret_part_number,
-                        ret_part_start,
-                        ret_part_size,
-                        ret_part_uuid);
-                if (!EFI_ERROR(err)) {
-                        *ret_device_path = DuplicateDevicePath(partition_path);
-                        if (!*ret_device_path)
-                                return EFI_OUT_OF_RESOURCES;
-                        return EFI_SUCCESS;
+                        &hd);
+                if (EFI_ERROR(err)) {
+                        /* GPT was valid but no XBOOT loader partition found. */
+                        if (err == EFI_NOT_FOUND)
+                                break;
+                        /* Bad GPT, try next one. */
+                        continue;
                 }
 
-                /* GPT was valid but no XBOOT loader partition found. */
-                if (err == EFI_NOT_FOUND)
-                        break;
+                /* Patch in the data we found */
+                EFI_DEVICE_PATH *xboot_path = ASSERT_PTR(DuplicateDevicePath(partition_path));
+                CopyMem((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
+                *ret_device_path = xboot_path;
+                return EFI_SUCCESS;
         }
 
         /* No xbootloader partition found */
@@ -252,39 +238,17 @@ static EFI_STATUS find_device(
 
 EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
         _cleanup_freepool_ EFI_DEVICE_PATH *partition_path = NULL;
-        UINT32 part_number = UINT32_MAX;
-        UINT64 part_start = UINT64_MAX, part_size = UINT64_MAX;
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
-        EFI_GUID part_uuid;
         EFI_STATUS err;
 
         assert(device);
         assert(ret_device);
         assert(ret_root_dir);
 
-        err = find_device(device, &partition_path, &part_number, &part_start, &part_size, &part_uuid);
+        err = find_device(device, &partition_path);
         if (EFI_ERROR(err))
                 return err;
-
-        /* Patch in the data we found */
-        for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                HARDDRIVE_DEVICE_PATH *hd;
-
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
-                        continue;
-
-                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
-                        continue;
-
-                hd = (HARDDRIVE_DEVICE_PATH*) node;
-                hd->PartitionNumber = part_number;
-                hd->PartitionStart = part_start;
-                hd->PartitionSize = part_size;
-                CopyMem(hd->Signature, &part_uuid, sizeof(hd->Signature));
-                hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
-                hd->SignatureType = SIGNATURE_TYPE_GUID;
-        }
 
         EFI_DEVICE_PATH *dp = partition_path;
         err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
