@@ -160,7 +160,6 @@ static EFI_STATUS find_device(
                 UINT64 *ret_part_size,
                 EFI_GUID *ret_part_uuid) {
 
-        EFI_DEVICE_PATH *partition_path;
         EFI_STATUS err;
 
         assert(device);
@@ -170,78 +169,81 @@ static EFI_STATUS find_device(
         assert(ret_part_size);
         assert(ret_part_uuid);
 
-        partition_path = DevicePathFromHandle(device);
+        EFI_DEVICE_PATH *partition_path = DevicePathFromHandle(device);
         if (!partition_path)
                 return EFI_NOT_FOUND;
 
+        /* Find the (last) partition node itself. */
+        EFI_DEVICE_PATH *part_node = NULL;
         for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                _cleanup_freepool_ EFI_DEVICE_PATH *disk_path = NULL;
-                EFI_HANDLE disk_handle;
-                EFI_BLOCK_IO *block_io;
-                EFI_DEVICE_PATH *p;
-
                 if (DevicePathType(node) != MEDIA_DEVICE_PATH)
                         continue;
 
                 if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                /* Chop off the partition part, leaving us with the path to the disk itself. */
-                disk_path = p = path_chop(partition_path, node);
-                if (!disk_path)
+                part_node = node;
+        }
+
+        if (!part_node)
+                return EFI_NOT_FOUND;
+
+        /* Chop off the partition part, leaving us with the full path to the disk itself. */
+        _cleanup_freepool_ EFI_DEVICE_PATH *disk_path = NULL;
+        EFI_DEVICE_PATH *p = disk_path = path_chop(partition_path, part_node);
+
+        EFI_HANDLE disk_handle;
+        EFI_BLOCK_IO *block_io;
+        err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
+        if (EFI_ERROR(err))
+                return err;
+
+        err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
+        if (EFI_ERROR(err))
+                return err;
+
+        /* Filter out some block devices early. (We only care about block devices that aren't
+         * partitions themselves — we look for GPT partition tables to parse after all —, and only
+         * those which contain a medium and have at least 2 blocks.) */
+        if (block_io->Media->LogicalPartition ||
+            !block_io->Media->MediaPresent ||
+            block_io->Media->LastBlock <= 1)
+                return EFI_NOT_FOUND;
+
+        /* Try several copies of the GPT header, in case one is corrupted */
+        EFI_LBA backup_lba = 0;
+        for (UINTN nr = 0; nr < 3; nr++) {
+                EFI_LBA lba;
+
+                /* Read the first copy at LBA 1 and then try the backup GPT header pointed
+                 * to by the first header if that one was corrupted. As a last resort,
+                 * try the very last LBA of this block device. */
+                if (nr == 0)
+                        lba = 1;
+                else if (nr == 1 && backup_lba != 0)
+                        lba = backup_lba;
+                else if (nr == 2 && backup_lba != block_io->Media->LastBlock)
+                        lba = block_io->Media->LastBlock;
+                else
                         continue;
 
-                err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
-                if (EFI_ERROR(err))
-                        continue;
-
-                err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
-                if (EFI_ERROR(err))
-                        continue;
-
-                /* Filter out some block devices early. (We only care about block devices that aren't
-                 * partitions themselves — we look for GPT partition tables to parse after all —, and only
-                 * those which contain a medium and have at least 2 blocks.) */
-                if (block_io->Media->LogicalPartition ||
-                    !block_io->Media->MediaPresent ||
-                    block_io->Media->LastBlock <= 1)
-                        continue;
-
-                /* Try several copies of the GPT header, in case one is corrupted */
-                EFI_LBA backup_lba = 0;
-                for (UINTN nr = 0; nr < 3; nr++) {
-                        EFI_LBA lba;
-
-                        /* Read the first copy at LBA 1 and then try the backup GPT header pointed
-                         * to by the first header if that one was corrupted. As a last resort,
-                         * try the very last LBA of this block device. */
-                        if (nr == 0)
-                                lba = 1;
-                        else if (nr == 1 && backup_lba != 0)
-                                lba = backup_lba;
-                        else if (nr == 2 && backup_lba != block_io->Media->LastBlock)
-                                lba = block_io->Media->LastBlock;
-                        else
-                                continue;
-
-                        err = try_gpt(
-                                block_io, lba,
-                                nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
-                                ret_part_number,
-                                ret_part_start,
-                                ret_part_size,
-                                ret_part_uuid);
-                        if (!EFI_ERROR(err)) {
-                                *ret_device_path = DuplicateDevicePath(partition_path);
-                                if (!*ret_device_path)
-                                        return EFI_OUT_OF_RESOURCES;
-                                return EFI_SUCCESS;
-                        }
-
-                        /* GPT was valid but no XBOOT loader partition found. */
-                        if (err == EFI_NOT_FOUND)
-                                break;
+                err = try_gpt(
+                        block_io, lba,
+                        nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
+                        ret_part_number,
+                        ret_part_start,
+                        ret_part_size,
+                        ret_part_uuid);
+                if (!EFI_ERROR(err)) {
+                        *ret_device_path = DuplicateDevicePath(partition_path);
+                        if (!*ret_device_path)
+                                return EFI_OUT_OF_RESOURCES;
+                        return EFI_SUCCESS;
                 }
+
+                /* GPT was valid but no XBOOT loader partition found. */
+                if (err == EFI_NOT_FOUND)
+                        break;
         }
 
         /* No xbootloader partition found */
