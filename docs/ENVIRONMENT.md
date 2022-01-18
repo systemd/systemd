@@ -209,6 +209,10 @@ All tools:
   prefixed with `:` in which case the kernel command line option takes
   precedence, if it is specified as well.
 
+* '$SYSTEMD_UDEVD_USE_RTNL=' — takes a boolean value. If enabled (by default),
+  several properties of network interfaces are obtained through the RTNL netlink
+  socket, instead of reading files in sysfs.
+
 `nss-systemd`:
 
 * `$SYSTEMD_NSS_BYPASS_SYNTHETIC=1` — if set, `nss-systemd` won't synthesize
