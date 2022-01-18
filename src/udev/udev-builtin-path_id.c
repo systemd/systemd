@@ -643,7 +643,12 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "nvme")) {
-                        const char *nsid;
+                        const char *nsid, *hidden;
+
+                        if (sd_device_get_sysattr_value(dev, "hidden", &hidden) >= 0)
+                                /* NVMe multipath path (GENHD_FL_HIDDEN); ignore */
+                                if (!strncmp(hidden, "1", 2))
+                                        break;
 
                         if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
