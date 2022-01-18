@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-private.h"
+#include "device-util.h"
+#include "env-util.h"
 #include "hexdecoct.h"
 #include "netlink-util.h"
 #include "strv.h"
@@ -315,6 +317,12 @@ int device_get_sysattr_value_maybe_from_netlink(
         r = device_get_cached_sysattr_value(device, sysattr, ret_value);
         if (r != -ESTALE)
                 return r;
+
+        r = getenv_bool("SYSTEMD_UDEVD_USE_RTNL");
+        if (r < 0 && r != -ENXIO)
+                log_device_debug_errno(device, r, "Failed to parse $SYSTEMD_UDEVD_USE_RTNL environment variable, ignoring: %m");
+        if (r == 0)
+                return sd_device_get_sysattr_value(device, sysattr, ret_value);
 
         r = link_info_get(rtnl, ifindex, &info);
         if (r < 0)
