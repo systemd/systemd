@@ -110,7 +110,7 @@ static int set_interface_name(struct introspect *intro, const char *interface_na
         return free_and_strdup(&intro->interface_name, interface_name);
 }
 
-int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix) {
+int introspect_write_child_nodes(struct introspect *i, OrderedSet *s, const char *prefix) {
         char *node;
 
         assert(i);
@@ -118,7 +118,7 @@ int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefi
 
         assert_se(set_interface_name(i, NULL) >= 0);
 
-        while ((node = set_steal_first(s))) {
+        while ((node = ordered_set_steal_first(s))) {
                 const char *e;
 
                 e = object_path_startswith(node, prefix);
