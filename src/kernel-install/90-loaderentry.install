@@ -40,6 +40,8 @@ fi
 
 case "$COMMAND" in
     remove)
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing $BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION*.conf"
         exec rm -f \
             "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf" \
             "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
