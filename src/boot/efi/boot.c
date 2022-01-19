@@ -61,7 +61,6 @@ typedef struct {
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(void);
-        BOOLEAN non_unique;
         UINTN tries_done;
         UINTN tries_left;
         CHAR16 *path;
@@ -1717,88 +1716,84 @@ static void config_default_entry_select(Config *config) {
                 config->timeout_sec = 10;
 }
 
-static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
-        BOOLEAN non_unique = FALSE;
+static BOOLEAN entries_unique(ConfigEntry **entries, BOOLEAN *unique, UINTN entry_count) {
+        BOOLEAN is_unique = TRUE;
 
         assert(entries);
+        assert(unique);
 
         for (UINTN i = 0; i < entry_count; i++)
-                entries[i]->non_unique = FALSE;
-
-        for (UINTN i = 0; i < entry_count; i++)
-                for (UINTN k = 0; k < entry_count; k++) {
-                        if (i == k)
-                                continue;
+                for (UINTN k = i + 1; k < entry_count; k++) {
                         if (StrCmp(entries[i]->title_show, entries[k]->title_show) != 0)
                                 continue;
 
-                        non_unique = entries[i]->non_unique = entries[k]->non_unique = TRUE;
+                        is_unique = unique[i] = unique[k] = FALSE;
                 }
 
-        return non_unique;
+        return is_unique;
 }
 
 /* generate a unique title, avoiding non-distinguishable menu entries */
 static void config_title_generate(Config *config) {
         assert(config);
 
+        BOOLEAN unique[config->entry_count];
+
         /* set title */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                FreePool(config->entries[i]->title_show);
-                config->entries[i]->title_show = xstrdup(
-                                config->entries[i]->title ?: config->entries[i]->id);
+                assert(!config->entries[i]->title_show);
+                unique[i] = TRUE;
+                config->entries[i]->title_show = xstrdup(config->entries[i]->title ?: config->entries[i]->id);
         }
 
-        if (!find_nonunique(config->entries, config->entry_count))
+        if (entries_unique(config->entries, unique, config->entry_count))
                 return;
 
         /* add version to non-unique titles */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                CHAR16 *s;
-
-                if (!config->entries[i]->non_unique)
+                if (unique[i])
                         continue;
+
+                unique[i] = TRUE;
+
                 if (!config->entries[i]->version)
                         continue;
 
-                s = xpool_print(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->version);
-                FreePool(config->entries[i]->title_show);
-                config->entries[i]->title_show = s;
+                _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
+                config->entries[i]->title_show = xpool_print(L"%s (%s)", t, config->entries[i]->version);
         }
 
-        if (!find_nonunique(config->entries, config->entry_count))
+        if (entries_unique(config->entries, unique, config->entry_count))
                 return;
 
         /* add machine-id to non-unique titles */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                CHAR16 *s;
-                _cleanup_freepool_ CHAR16 *m = NULL;
-
-                if (!config->entries[i]->non_unique)
+                if (unique[i])
                         continue;
+
+                unique[i] = TRUE;
+
                 if (!config->entries[i]->machine_id)
                         continue;
 
-                m = xstrdup(config->entries[i]->machine_id);
-                m[8] = '\0';
-                s = xpool_print(L"%s (%s)", config->entries[i]->title_show, m);
-                FreePool(config->entries[i]->title_show);
-                config->entries[i]->title_show = s;
+                _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
+                config->entries[i]->title_show = xpool_print(
+                        L"%s (%.*s)",
+                        t,
+                        StrnLen(config->entries[i]->machine_id, 8),
+                        config->entries[i]->machine_id);
         }
 
-        if (!find_nonunique(config->entries, config->entry_count))
+        if (entries_unique(config->entries, unique, config->entry_count))
                 return;
 
         /* add file name to non-unique titles */
         for (UINTN i = 0; i < config->entry_count; i++) {
-                CHAR16 *s;
-
-                if (!config->entries[i]->non_unique)
+                if (unique[i])
                         continue;
-                s = xpool_print(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->id);
-                FreePool(config->entries[i]->title_show);
-                config->entries[i]->title_show = s;
-                config->entries[i]->non_unique = FALSE;
+
+                _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
+                config->entries[i]->title_show = xpool_print(L"%s (%s)", t, config->entries[i]->id);
         }
 }
 
