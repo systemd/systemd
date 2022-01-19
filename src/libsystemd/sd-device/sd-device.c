@@ -152,7 +152,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         if (verify) {
                 r = chase_symlinks(_syspath, NULL, 0, &syspath, NULL);
                 if (r == -ENOENT)
-                        return -ENODEV; /* the device does not exist (any more?) */
+                         /* the device does not exist (any more?) */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "sd-device: Failed to chase symlinks in \"%s\".", _syspath);
                 if (r < 0)
                         return log_debug_errno(r, "sd-device: Failed to get target of '%s': %m", _syspath);
 
@@ -173,7 +175,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
                         new_syspath = path_join("/sys", p);
                         if (!new_syspath)
-                                return -ENOMEM;
+                                return log_oom_debug();
 
                         free_and_replace(syspath, new_syspath);
                         path_simplify(syspath);
@@ -187,30 +189,31 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         if (access(path, F_OK) < 0) {
                                 if (errno == ENOENT)
                                         /* this is not a valid device */
-                                        return -ENODEV;
+                                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                               "sd-device: the uevent file \"%s\" does not exist.", path);
 
                                 return log_debug_errno(errno, "sd-device: cannot access uevent file for %s: %m", syspath);
                         }
                 } else {
                         /* everything else just needs to be a directory */
                         if (!is_dir(syspath, false))
-                                return -ENODEV;
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "sd-device: the syspath \"%s\" is not a directory.", syspath);
                 }
         } else {
                 syspath = strdup(_syspath);
                 if (!syspath)
-                        return -ENOMEM;
+                        return log_oom_debug();
         }
 
         devpath = syspath + STRLEN("/sys");
 
         if (devpath[0] != '/')
-                /* '/sys' alone is not a valid device path */
-                return -ENODEV;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "sd-device: \"/sys\" alone is not a valid device path.");
 
         r = device_add_property_internal(device, "DEVPATH", devpath);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "sd-device: Failed to add \"DEVPATH\" property for device \"%s\": %m", syspath);
 
         free_and_replace(device->syspath, syspath);
         device->devpath = devpath;
