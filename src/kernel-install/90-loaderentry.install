@@ -83,27 +83,27 @@ if ! [ -d "$ENTRY_DIR_ABS" ]; then
 fi
 
 install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
-    echo "Could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+    echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
     exit 1
 }
 
 shift "$INITRD_OPTIONS_SHIFT"
 for initrd; do
     [ -f "$initrd" ] || {
-        echo "Initrd '$initrd' not a file." >&2
+        echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
 
     initrd_basename="${initrd##*/}"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
     install -g root -o root -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
-        echo "Could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
+        echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
         exit 1
     }
 done
 
 mkdir -p "${LOADER_ENTRY%/*}" || {
-    echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
+    echo "Error: could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
     exit 1
 }
 
@@ -121,7 +121,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     [ $# -eq 0 ] && [ -f "$ENTRY_DIR_ABS/initrd" ] && echo "initrd     $ENTRY_DIR/initrd"
     :
 } >"$LOADER_ENTRY" || {
-    echo "Could not create loader entry '$LOADER_ENTRY'." >&2
+    echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
 exit 0
