@@ -3534,9 +3534,9 @@ int verity_dissect_and_mount(
         /* If we got os-release values from the caller, then we need to match them with the image's
          * extension-release.d/ content. Return -EINVAL if there's any mismatch.
          * First, check the distro ID. If that matches, then check the new SYSEXT_LEVEL value if
-         * available, or else fallback to VERSION_ID. */
-        if (required_host_os_release_id &&
-            (required_host_os_release_version_id || required_host_os_release_sysext_level)) {
+         * available, or else fallback to VERSION_ID. If neither is present (eg: rolling release),
+         * then a simple match on the ID will be performed. */
+        if (required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
 
                 r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
