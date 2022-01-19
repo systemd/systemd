@@ -14,6 +14,7 @@ EOF
     cat >>/etc/udev/udev.conf <<EOF
 event_timeout=10
 timeout_signal=SIGABRT
+udev_log=debug
 EOF
 
     systemctl restart systemd-udevd.service
