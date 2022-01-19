@@ -984,7 +984,7 @@ bpf_framework_required = want_bpf_framework == 'true'
 libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
-if want_bpf_framework == 'false'
+if want_bpf_framework == 'false' or not libbpf.found()
         conf.set10('BPF_FRAMEWORK', 0)
 else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
@@ -1030,7 +1030,7 @@ else
                                required : bpf_framework_required,
                                version : '>= 5.6')
 
-        deps_found = libbpf.found() and clang_found and clang_supports_bpf and clang_supports_flags and llvm_strip.found() and bpftool.found()
+        deps_found = clang_found and clang_supports_bpf and clang_supports_flags and llvm_strip.found() and bpftool.found()
 
         # Can build BPF program from source code in restricted C
         conf.set10('BPF_FRAMEWORK', deps_found)
