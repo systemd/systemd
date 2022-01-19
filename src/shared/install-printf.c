@@ -14,11 +14,9 @@
 #include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         _cleanup_free_ char *prefix = NULL;
         int r;
-
-        assert(i);
 
         r = unit_name_to_prefix_and_instance(i->name, &prefix);
         if (r < 0)
@@ -38,10 +36,8 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
 }
 
 static int specifier_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         char *ans;
-
-        assert(i);
 
         if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance)
                 return unit_name_replace_instance(i->name, i->default_instance, ret);
@@ -54,19 +50,15 @@ static int specifier_name(char specifier, const void *data, const char *root, co
 }
 
 static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
-
-        assert(i);
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
 
         return unit_name_to_prefix(i->name, ret);
 }
 
 static int specifier_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         char *instance;
         int r;
-
-        assert(i);
 
         r = unit_name_to_instance(i->name, &instance);
         if (r < 0)
@@ -86,6 +78,8 @@ static int specifier_last_component(char specifier, const void *data, const char
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
+
+        assert(ret);
 
         r = specifier_prefix(specifier, data, root, userdata, &prefix);
         if (r < 0)

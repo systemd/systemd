@@ -13,27 +13,21 @@
 #include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
-
-        assert(u);
+        const Unit *u = ASSERT_PTR(userdata);
 
         return unit_name_to_prefix_and_instance(u->id, ret);
 }
 
 static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
-
-        assert(u);
+        const Unit *u = ASSERT_PTR(userdata);
 
         return unit_name_to_prefix(u->id, ret);
 }
 
 static int specifier_prefix_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *p = NULL;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
-
-        assert(u);
 
         r = unit_name_to_prefix(u->id, &p);
         if (r < 0)
@@ -43,20 +37,16 @@ static int specifier_prefix_unescaped(char specifier, const void *data, const ch
 }
 
 static int specifier_instance_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
-
-        assert(u);
+        const Unit *u = ASSERT_PTR(userdata);
 
         return unit_name_unescape(strempty(u->instance), ret);
 }
 
 static int specifier_last_component(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
-
-        assert(u);
 
         r = unit_name_to_prefix(u->id, &prefix);
         if (r < 0)
@@ -82,9 +72,7 @@ static int specifier_last_component_unescaped(char specifier, const void *data, 
 }
 
 static int specifier_filename(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
-
-        assert(u);
+        const Unit *u = ASSERT_PTR(userdata);
 
         if (u->instance)
                 return unit_name_path_unescape(u->instance, ret);
@@ -97,10 +85,8 @@ static void bad_specifier(const Unit *u, char specifier) {
 }
 
 static int specifier_cgroup(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char *n;
-
-        assert(u);
 
         bad_specifier(u, specifier);
 
@@ -116,10 +102,8 @@ static int specifier_cgroup(char specifier, const void *data, const char *root, 
 }
 
 static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char *n;
-
-        assert(u);
 
         bad_specifier(u, specifier);
 
@@ -132,10 +116,8 @@ static int specifier_cgroup_root(char specifier, const void *data, const char *r
 }
 
 static int specifier_cgroup_slice(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata, *slice;
+        const Unit *u = ASSERT_PTR(userdata), *slice;
         char *n;
-
-        assert(u);
 
         bad_specifier(u, specifier);
 
@@ -155,10 +137,8 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
 }
 
 static int specifier_special_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char *n = NULL;
-
-        assert(u);
 
         n = strdup(u->manager->prefix[PTR_TO_UINT(data)]);
         if (!n)
@@ -169,7 +149,6 @@ static int specifier_special_directory(char specifier, const void *data, const c
 }
 
 int unit_name_printf(const Unit *u, const char* format, char **ret) {
-
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
          * safe for inclusion in unit names):
