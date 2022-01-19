@@ -29,7 +29,7 @@ typedef enum RADVPrefixDelegation {
 
 typedef struct Prefix {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         struct in6_addr prefix;
         uint8_t prefixlen;
@@ -46,7 +46,7 @@ typedef struct Prefix {
 
 typedef struct RoutePrefix {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         struct in6_addr prefix;
         uint8_t prefixlen;
