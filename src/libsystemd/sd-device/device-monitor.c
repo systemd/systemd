@@ -461,8 +461,14 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "sd-device-monitor: Unicast netlink message ignored.");
 
-        } else if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL) {
-                if (snl.nl.nl_pid > 0)
+        } else {
+                if ((snl.nl.nl_groups & m->snl.nl.nl_groups) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Received message for unexpected broadcast group (%"PRIu32").",
+                                               snl.nl.nl_groups);
+
+                if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL &&
+                    snl.nl.nl_pid > 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
         }
@@ -478,6 +484,10 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                                        "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
 
         if (streq(buf.raw, "libudev")) {
+                if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Received kernel multicast message in udev uevent format.");
+
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
@@ -495,6 +505,10 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 is_initialized = true;
 
         } else {
+                if (snl.nl.nl_groups != MONITOR_GROUP_KERNEL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Received unicast or non-kernel multicast message in kernel uevent format.");
+
                 /* kernel message with header */
                 bufpos = strlen(buf.raw) + 1;
                 if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
