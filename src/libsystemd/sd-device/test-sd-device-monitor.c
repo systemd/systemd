@@ -9,10 +9,12 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "id128-util.h"
 #include "macro.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
+#include "udev-util.h"
 #include "virt.h"
 
 static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
@@ -24,11 +26,10 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
         return sd_event_exit(sd_device_monitor_get_event(m), 100);
 }
 
-static int test_receive_device_fail(void) {
+static void test_receive_device_fail(void) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
         const char *syspath;
-        int r;
 
         log_info("/* %s */", __func__);
 
@@ -47,14 +48,8 @@ static int test_receive_device_fail(void) {
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
         assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_client), "receiver") >= 0);
 
-        /* Do not use assert_se() here. */
-        r = device_monitor_send_device(monitor_server, monitor_client, loopback);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send loopback device: %m");
-
+        assert_se(device_monitor_send_device(monitor_server, monitor_client, loopback) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
-
-        return 0;
 }
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
@@ -290,6 +285,78 @@ static void test_device_copy_properties(sd_device *device) {
         test_send_receive_one(copy, false, false, false);
 }
 
+static int test_device_monitor_netlink_group_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
+        MonitorNetlinkGroup group = PTR_TO_INT(userdata);
+        const char *s;
+
+        assert(d);
+        assert(IN_SET(group, MONITOR_GROUP_UDEV, MONITOR_GROUP_KERNEL));
+
+        assert_se(sd_device_get_syspath(d, &s) >= 0);
+        if (!streq(s, "/sys/devices/virtual/mem/null"))
+                return 0;
+
+        device_seal(d);
+
+        log_device_uevent(d,
+                          group == MONITOR_GROUP_KERNEL ?
+                          "Received kernel uevent message" :
+                          "Received udev uevent message");
+
+        assert_se(sd_device_get_is_initialized(d) == (group == MONITOR_GROUP_UDEV));
+
+        if (group == MONITOR_GROUP_KERNEL)
+                /* kernel message should be received earlier. */
+                return 0;
+
+        return sd_event_exit(sd_device_monitor_get_event(m), 100);
+}
+
+static void setup_monitor(MonitorNetlinkGroup group, sd_event *event, sd_device_monitor **ret) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;;
+
+        assert(event);
+        assert(ret);
+
+        assert_se(device_monitor_new_full(&m, group, -1) >= 0);
+        assert_se(sd_device_monitor_attach_event(m, event) >= 0);
+        assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(m, "mem", NULL) >= 0);
+        assert_se(sd_device_monitor_start(m, test_device_monitor_netlink_group_handler, INT_TO_PTR(group)) >= 0);
+
+        *ret = TAKE_PTR(m);
+}
+
+static void test_device_monitor_netlink_group(void) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_kernel = NULL, *monitor_udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        sd_id128_t uuid = SD_ID128_NULL;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        if (access("/run/udev/control", F_OK) < 0)
+                return (void) log_tests_skipped("systemd-udevd is not running");
+
+        assert_se(sd_event_default(&event) >= 0);
+
+        setup_monitor(MONITOR_GROUP_KERNEL, event, &monitor_kernel);
+        setup_monitor(MONITOR_GROUP_UDEV, event, &monitor_udev);
+
+        assert_se(sd_device_new_from_syspath(&dev, "/sys/devices/virtual/mem/null") >= 0);
+
+        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
+        if (r == -EINVAL)
+                r = sd_device_trigger(dev, SD_DEVICE_CHANGE);
+        assert_se(r >= 0);
+
+        log_device_debug(dev, "Triggered change uevent%s%s.",
+                         sd_id128_is_null(uuid) ? "" : " with UUID=",
+                         sd_id128_is_null(uuid) ? "" : id128_to_uuid_string(uuid, (char[ID128_UUID_STRING_MAX]){}));
+
+        assert_se(sd_event_loop(event) == 100);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL, *sda = NULL;
         int r;
@@ -299,11 +366,10 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        r = test_receive_device_fail();
-        if (r < 0) {
-                assert_se(r == -EPERM && detect_container() > 0);
+        if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("Running in container");
-        }
+
+        test_receive_device_fail();
 
         assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
         assert_se(device_add_property(loopback, "ACTION", "add") >= 0);
@@ -342,6 +408,7 @@ int main(int argc, char *argv[]) {
         test_send_receive_one(sda,  true,  true,  true);
 
         test_parent_filter(sda);
+        test_device_monitor_netlink_group();
 
         return 0;
 }
