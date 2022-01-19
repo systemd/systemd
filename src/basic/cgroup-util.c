@@ -1942,9 +1942,9 @@ int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
         CGroupMask mask;
         int r;
 
-        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
-         * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz
-         * pseudo-controllers. */
+        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense
+         * of and that are actually accessible. Only covers real controllers, i.e. not the
+         * CGROUP_CONTROLLER_BPF_xyz pseudo-controllers. */
 
         r = cg_all_unified();
         if (r < 0)
@@ -1971,12 +1971,10 @@ int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
                 mask &= CGROUP_MASK_V2;
 
         } else {
-                CGroupController c;
-
                 /* In the legacy hierarchy, we check which hierarchies are accessible. */
 
                 mask = 0;
-                for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                         CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                         const char *n;
 

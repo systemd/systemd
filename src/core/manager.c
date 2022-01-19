@@ -902,16 +902,12 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(test_run_flags, MANAGER_TEST_RUN_MINIMAL)) {
-                m->cgroup_root = strdup("");
-                if (!m->cgroup_root)
-                        return -ENOMEM;
-        } else {
-                r = manager_setup_signals(m);
-                if (r < 0)
-                        return r;
+        r = manager_setup_cgroup(m);
+        if (r < 0)
+                return r;
 
-                r = manager_setup_cgroup(m);
+        if (!FLAGS_SET(test_run_flags, MANAGER_TEST_RUN_MINIMAL)) {
+                r = manager_setup_signals(m);
                 if (r < 0)
                         return r;
 

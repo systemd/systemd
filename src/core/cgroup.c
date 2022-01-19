@@ -1872,7 +1872,8 @@ CGroupMask unit_get_target_mask(Unit *u) {
 
         own_mask = unit_get_own_mask(u);
 
-        if (own_mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
+        if (!MANAGER_IS_TEST_RUN(u->manager) &&
+            own_mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
                 emit_bpf_firewall_warning(u);
 
         mask = own_mask | unit_get_members_mask(u) | unit_get_siblings_mask(u);
@@ -3290,28 +3291,21 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         return 0;
 }
 
-int manager_setup_cgroup(Manager *m) {
-        _cleanup_free_ char *path = NULL;
-        const char *scope_path;
-        int r, all_unified;
-        CGroupMask mask;
-        char *e;
-
+static int manager_setup_cgroup_root(Manager *m) {
         assert(m);
 
-        /* 1. Determine hierarchy */
-        m->cgroup_root = mfree(m->cgroup_root);
+        _cleanup_free_ char *path = NULL;
+        int r;
+
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
         /* Chop off the init scope, if we are already located in it */
-        e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        char *e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
 
-        /* LEGACY: Also chop off the system slice if we are in
-         * it. This is to support live upgrades from older systemd
-         * versions where PID 1 was moved there. Also see
-         * cg_get_root_path(). */
+        /* LEGACY: Also chop off the system slice if we are in it. This is to support live upgrades from
+         * older systemd versions where PID 1 was moved there. Also see cg_get_root_path(). */
         if (!e && MANAGER_IS_SYSTEM(m)) {
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
                 if (!e)
@@ -3320,11 +3314,11 @@ int manager_setup_cgroup(Manager *m) {
         if (e)
                 *e = 0;
 
-        /* And make sure to store away the root value without trailing slash, even for the root dir, so that we can
-         * easily prepend it everywhere. */
+        /* And make sure to store away the root value without trailing slash, even for the root dir, so that
+         * we can easily prepend it everywhere. */
         delete_trailing_chars(m->cgroup_root, "/");
 
-        /* 2. Show data */
+        /* Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
         if (r < 0)
                 return log_error_errno(r, "Cannot find cgroup mount point: %m");
@@ -3333,7 +3327,7 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
 
-        all_unified = cg_all_unified();
+        int all_unified = cg_all_unified();
         if (all_unified < 0)
                 return log_error_errno(all_unified, "Couldn't determine whether we are in all unified mode: %m");
         if (all_unified > 0)
@@ -3346,9 +3340,19 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
                 else
                         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
+
+                /* Always enable hierarchical support if it exists... */
+                (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
         }
 
-        /* 3. Allocate cgroup empty defer event source */
+        return 0;
+}
+
+static int manager_setup_cgroup_empty_event_source(Manager *m) {
+        assert(m);
+
+        int r;
+
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
         r = sd_event_add_defer(m->event, &m->cgroup_empty_event_source, on_cgroup_empty_event, m);
         if (r < 0)
@@ -3366,8 +3370,14 @@ int manager_setup_cgroup(Manager *m) {
                 return log_error_errno(r, "Failed to disable cgroup empty event source: %m");
 
         (void) sd_event_source_set_description(m->cgroup_empty_event_source, "cgroup-empty");
+        return 0;
+}
 
-        /* 4. Install notifier inotify object, or agent */
+static int manager_setup_cgroup_location_and_empty_notifications(Manager *m) {
+        assert(m);
+
+        int r;
+
         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
 
                 /* In the unified hierarchy we can get cgroup empty notifications via inotify. */
@@ -3392,10 +3402,10 @@ int manager_setup_cgroup(Manager *m) {
 
                 (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_host_root_cgroup(m) && !MANAGER_IS_TEST_RUN(m)) {
+        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_host_root_cgroup(m)) {
 
-                /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
-                 * since it does not generate events when control groups with children run empty. */
+                /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really
+                 * reliable, since it does not generate events when control groups with children run empty. */
 
                 r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUPS_AGENT_PATH);
                 if (r < 0)
@@ -3406,34 +3416,71 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Release agent already installed.");
         }
 
-        /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
-        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        /* Make sure we are in the special "init.scope" unit in the root slice. */
+        const char *scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
         r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
-        if (r >= 0) {
-                /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
-                r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
-                if (r < 0)
-                        log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
-
-                /* 6. And pin it, so that it cannot be unmounted */
-                safe_close(m->pin_cgroupfs_fd);
-                m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-                if (m->pin_cgroupfs_fd < 0)
-                        return log_error_errno(errno, "Failed to open pin file: %m");
-
-        } else if (!MANAGER_IS_TEST_RUN(m))
+        if (r < 0)
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
-        /* 7. Always enable hierarchical support if it exists... */
-        if (!all_unified && !MANAGER_IS_TEST_RUN(m))
-                (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
+        /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
+        r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+        if (r < 0)
+                log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
-        /* 8. Figure out which controllers are supported */
+        /* And pin it, so that it cannot be unmounted */
+        _cleanup_free_ char *path = NULL;
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
+        if (r < 0)
+                return log_error_errno(r, "Cannot find cgroup mount point: %m");
+
+        safe_close(m->pin_cgroupfs_fd);
+        m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+        if (m->pin_cgroupfs_fd < 0)
+                return log_error_errno(errno, "Failed to open pin file: %m");
+
+        return 0;
+}
+
+int manager_setup_cgroup(Manager *m) {
+        CGroupMask mask;
+        int r;
+
+        assert(m);
+
+        /* 1. Determine hierarchy */
+        m->cgroup_root = mfree(m->cgroup_root);
+
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL)) {
+                m->cgroup_root = strdup("");
+                if (!m->cgroup_root)
+                        return -ENOMEM;
+        } else {
+                /* 2. Detect and log our cgroup root */
+                r = manager_setup_cgroup_root(m);
+                if (r < 0)
+                        return r;
+
+                /* 3. Allocate cgroup empty defer event source */
+                r = manager_setup_cgroup_empty_event_source(m);
+                if (r < 0)
+                        return r;
+        }
+
+        if (MANAGER_IS_TEST_RUN(m))
+                return 0;
+
+        /* 4. Install notifier inotify object or agent, make sure we are in the special "init.scope" unit in the root slice. */
+        r = manager_setup_cgroup_location_and_empty_notifications(m);
+        if (r < 0)
+                return r;
+
+        /* 5. Figure out which controllers are supported. */
         r = cg_mask_supported_subtree(m->cgroup_root, &m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
-        /* 9. Figure out which bpf-based pseudo-controllers are supported */
+        /* 6. Figure out which bpf-based pseudo-controllers are supported */
         r = cg_bpf_mask_supported(&mask);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported bpf-based pseudo-controllers: %m");
