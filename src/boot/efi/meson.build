@@ -210,7 +210,17 @@ if get_option('b_lto')
 endif
 
 foreach arg : get_option('c_args')
-        if arg in ['-Werror', '-g', '-ggdb', '-O1', '-O2', '-O3', '-Og', '-Os', '-DNDEBUG', '-flto', '-fno-lto']
+        if arg in [
+                '-DNDEBUG',
+                '-fno-lto',
+                '-g', '-ggdb',
+                '-O1', '-O2', '-O3', '-Og', '-Os',
+                '-Werror',
+           ] or arg.split('=')[0] in [
+                '-ffile-prefix-map',
+                '-flto',
+           ]
+
                 message('Using "@0@" from c_args for EFI compiler'.format(arg))
                 efi_cflags += arg
         endif
