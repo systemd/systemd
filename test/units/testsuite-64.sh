@@ -32,6 +32,9 @@ helper_check_device_symlinks() {(
             return 1
         fi
 
+        # For debugging issue #21819
+        SYSTEMD_LOG_LEVEL=debug udevadm info "$link"
+
         # Check if the symlink points to the correct device in /dev
         dev="/dev/$(udevadm info -q name "$link")"
         if [[ "$target" != "$dev" ]]; then
