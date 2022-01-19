@@ -206,6 +206,9 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         else if (r < 0)
                 return r;
 
+        if (set_isempty(pids_killed))
+                log_debug("Nothing killed when attempting to kill %s", path);
+
         r = increment_oomd_xattr(path, "user.oomd_kill", set_size(pids_killed));
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
@@ -231,8 +234,6 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r == 0)
-                        continue; /* We didn't find anything to kill */
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -245,7 +246,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return 1;
+                return r;
         }
 
         return ret;
@@ -271,8 +272,6 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r == 0)
-                        continue; /* We didn't find anything to kill */
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -285,7 +284,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return 1;
+                return r;
         }
 
         return ret;
