@@ -15,8 +15,8 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
 ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
 EOF
 
-udevadm control --reload
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+udevadm control --reload --log-level=debug
+SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --uuid --settle --action add /dev/null
 
 test -f /run/udev/tags/added/c1:3
 test ! -f /run/udev/tags/changed/c1:3
@@ -25,7 +25,7 @@ udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*'
 udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*' && { echo 'unexpected TAGS='; exit 1; }
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*' && { echo 'unexpected CURRENT_TAGS='; exit 1; }
 
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action change /dev/null
+SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --uuid --settle --action change /dev/null
 
 test -f /run/udev/tags/added/c1:3
 test -f /run/udev/tags/changed/c1:3
@@ -34,7 +34,7 @@ udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*' && { echo 'unexpe
 udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*'
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*'
 
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --uuid --settle --action add /dev/null
 
 test -f /run/udev/tags/added/c1:3
 test -f /run/udev/tags/changed/c1:3
@@ -44,6 +44,6 @@ udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*'
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*' && { echo 'unexpected CURRENT_TAGS='; exit 1; }
 
 rm /run/udev/rules.d/50-testsuite.rules
-udevadm control --reload
+udevadm control --reload --log-level=info
 
 exit 0

@@ -11,8 +11,11 @@ setup() {
 ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", OPTIONS="log_level=debug"
 ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", PROGRAM=="/bin/sleep 60"
 EOF
-    echo "event_timeout=10" >>/etc/udev/udev.conf
-    echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
+    cat >>/etc/udev/udev.conf <<EOF
+event_timeout=10
+timeout_signal=SIGABRT
+udev_log=debug
+EOF
 
     systemctl restart systemd-udevd.service
 }
@@ -28,7 +31,7 @@ teardown() {
 run_test() {
     since="$(date '+%F %T')"
 
-    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --uuid --settle --action add /dev/null
 
     for _ in {1..20}; do
         if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
