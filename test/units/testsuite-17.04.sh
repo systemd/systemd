@@ -3,6 +3,9 @@
 set -ex
 set -o pipefail
 
+# Wait for all previously triggered events being processed.
+udevadm settle
+
 mkdir -p /run/udev/rules.d/
 
 test ! -f /run/udev/tags/added/c1:3
