@@ -196,7 +196,14 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
         else
                 r = cg_kill(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
-        if (r < 0)
+
+        /* The cgroup could have been cleaned up after we have sent SIGKILL to all of the processes, but before
+         * we could do one last iteration of cgroup.procs to check. Or the service unit could have exited and
+         * was removed between picking candidates and coming into this function. In either case, let's log
+         * about it let the caller decide what to do once they know how many PIDs were killed. */
+        if (IN_SET(r, -ENOENT, -ENODEV))
+                log_debug_errno(r, "Error when sending SIGKILL to processes in cgroup path %s, ignoring: %m", path);
+        else if (r < 0)
                 return r;
 
         r = increment_oomd_xattr(path, "user.oomd_kill", set_size(pids_killed));
