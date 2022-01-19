@@ -5501,20 +5501,18 @@ static int exec_context_named_iofds(
         return targets == 0 ? 0 : -ENOENT;
 }
 
-static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l) {
-        char **i, **r = NULL;
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
+        _cleanup_strv_free_ char **v = NULL;
+        char **i;
+        int r;
 
         assert(c);
-        assert(l);
+        assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                char *fn;
-                int k;
-                bool ignore = false;
-                char **p;
                 _cleanup_globfree_ glob_t pglob = {};
-
-                fn = *i;
+                bool ignore = false;
+                char *fn = *i;
 
                 if (fn[0] == '-') {
                         ignore = true;
@@ -5524,33 +5522,30 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 if (!path_is_absolute(fn)) {
                         if (ignore)
                                 continue;
-
-                        strv_free(r);
                         return -EINVAL;
                 }
 
                 /* Filename supports globbing, take all matching files */
-                k = safe_glob(fn, 0, &pglob);
-                if (k < 0) {
+                r = safe_glob(fn, 0, &pglob);
+                if (r < 0) {
                         if (ignore)
                                 continue;
-
-                        strv_free(r);
-                        return k;
+                        return r;
                 }
 
                 /* When we don't match anything, -ENOENT should be returned */
                 assert(pglob.gl_pathc > 0);
 
                 for (unsigned n = 0; n < pglob.gl_pathc; n++) {
-                        k = load_env_file(NULL, pglob.gl_pathv[n], &p);
-                        if (k < 0) {
+                        _cleanup_strv_free_ char **p = NULL;
+
+                        r = load_env_file(NULL, pglob.gl_pathv[n], &p);
+                        if (r < 0) {
                                 if (ignore)
                                         continue;
-
-                                strv_free(r);
-                                return k;
+                                return r;
                         }
+
                         /* Log invalid environment variables with filename */
                         if (p) {
                                 InvalidEnvInfo info = {
@@ -5561,23 +5556,19 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                                 p = strv_env_clean_with_callback(p, invalid_env, &info);
                         }
 
-                        if (!r)
-                                r = p;
+                        if (!v)
+                                v = TAKE_PTR(p);
                         else {
-                                char **m;
-
-                                m = strv_env_merge(r, p);
-                                strv_free(r);
-                                strv_free(p);
+                                char **m = strv_env_merge(v, p);
                                 if (!m)
                                         return -ENOMEM;
 
-                                r = m;
+                                strv_free_and_replace(v, m);
                         }
                 }
         }
 
-        *l = r;
+        *ret = TAKE_PTR(v);
 
         return 0;
 }
