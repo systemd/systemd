@@ -73,7 +73,7 @@ else
 fi
 
 if [ $# -lt 1 ]; then
-    echo "Not enough arguments" >&2
+    echo "Error: not enough arguments" >&2
     exit 1
 fi
 
@@ -150,12 +150,12 @@ IFS="
 case "$COMMAND" in
     add)
         if [ $# -lt 1 ]; then
-            echo "Command 'add' requires a kernel image" >&2
+            echo "Error: command 'add' requires a kernel image" >&2
             exit 1
         fi
 
         if ! [ -f "$1" ]; then
-            echo "Kernel image argument $1 not a file" >&2
+            echo "Error: kernel image argument $1 not a file" >&2
             exit 1
         fi
 
@@ -165,9 +165,9 @@ case "$COMMAND" in
             # to serve as the indication to use or to not use the BLS
             if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
                 echo "+mkdir -v -p $ENTRY_DIR_ABS"
-                mkdir -v -p "$ENTRY_DIR_ABS"
+                mkdir -v -p "$ENTRY_DIR_ABS" || exit 1
             else
-                mkdir -p "$ENTRY_DIR_ABS"
+                mkdir -p "$ENTRY_DIR_ABS" || exit 1
             fi
         fi
 
@@ -196,7 +196,7 @@ case "$COMMAND" in
         ;;
 
     *)
-        echo "Unknown command '$COMMAND'" >&2
+        echo "Error: unknown command '$COMMAND'" >&2
         exit 1
         ;;
 esac
