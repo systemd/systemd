@@ -5496,20 +5496,18 @@ static int exec_context_named_iofds(
         return targets == 0 ? 0 : -ENOENT;
 }
 
-static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l) {
-        char **i, **r = NULL;
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
+        _cleanup_strv_free_ char **r = NULL;
+        char **i;
 
         assert(c);
-        assert(l);
+        assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                char *fn;
-                int k;
-                bool ignore = false;
-                char **p;
+                char *fn = *i;
                 _cleanup_globfree_ glob_t pglob = {};
-
-                fn = *i;
+                bool ignore = false;
+                int k;
 
                 if (fn[0] == '-') {
                         ignore = true;
@@ -5519,8 +5517,6 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 if (!path_is_absolute(fn)) {
                         if (ignore)
                                 continue;
-
-                        strv_free(r);
                         return -EINVAL;
                 }
 
@@ -5529,8 +5525,6 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 if (k < 0) {
                         if (ignore)
                                 continue;
-
-                        strv_free(r);
                         return k;
                 }
 
@@ -5538,14 +5532,15 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 assert(pglob.gl_pathc > 0);
 
                 for (unsigned n = 0; n < pglob.gl_pathc; n++) {
+                        _cleanup_strv_free_ char **p = NULL;
+
                         k = load_env_file(NULL, pglob.gl_pathv[n], &p);
                         if (k < 0) {
                                 if (ignore)
                                         continue;
-
-                                strv_free(r);
                                 return k;
                         }
+
                         /* Log invalid environment variables with filename */
                         if (p) {
                                 InvalidEnvInfo info = {
@@ -5557,22 +5552,18 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                         }
 
                         if (!r)
-                                r = p;
+                                r = TAKE_PTR(p);
                         else {
-                                char **m;
-
-                                m = strv_env_merge(r, p);
-                                strv_free(r);
-                                strv_free(p);
+                                char **m = strv_env_merge(r, p);
                                 if (!m)
                                         return -ENOMEM;
 
-                                r = m;
+                                strv_free_and_replace(r, m);
                         }
                 }
         }
 
-        *l = r;
+        *ret = TAKE_PTR(r);
 
         return 0;
 }

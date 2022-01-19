@@ -769,6 +769,70 @@ TEST(config_parse_pass_environ) {
         assert_se(streq(passenv[0], "normal_name"));
 }
 
+TEST(config_parse_unit_env_file) {
+        /* int config_parse_unit_env_file(
+                 const char *unit,
+                 const char *filename,
+                 unsigned line,
+                 const char *section,
+                 unsigned section_line,
+                 const char *lvalue,
+                 int ltype,
+                 const char *rvalue,
+                 void *data,
+                 void *userdata) */
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *u;
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "foobar.service") == 0);
+
+        r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
+                                      "EnvironmentFile", 0, "not-absolute",
+                                       &files, u);
+        assert_se(r == 0);
+        assert_se(strv_length(files) == 0);
+
+        r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
+                                      "EnvironmentFile", 0, "/absolute1",
+                                       &files, u);
+        assert_se(r == 0);
+        assert_se(strv_length(files) == 1);
+
+        r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
+                                      "EnvironmentFile", 0, "/absolute2",
+                                       &files, u);
+        assert_se(r == 0);
+        assert_se(strv_length(files) == 2);
+        assert_se(streq(files[0], "/absolute1"));
+        assert_se(streq(files[1], "/absolute2"));
+
+        r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
+                                       "EnvironmentFile", 0, "",
+                                       &files, u);
+        assert_se(r == 0);
+        assert_se(strv_isempty(files));
+
+        r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
+                                       "EnvironmentFile", 0, "/path/%n.conf",
+                                       &files, u);
+        assert_se(r == 0);
+        assert_se(strv_length(files) == 1);
+        assert_se(streq(files[0], "/path/foobar.service.conf"));
+}
+
 TEST(unit_dump_config_items) {
         unit_dump_config_items(stdout);
 }
