@@ -384,6 +384,10 @@ testcase_btrfs_basic() {
         /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
     )
 
+    # To make btrfs module loaded, and make btrfs-control and related devices processed by udevd.
+    btrfs filesystem show
+    udevadm settle
+
     ls -l "${devices[@]}"
 
     echo "Single device: default settings"
