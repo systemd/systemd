@@ -180,6 +180,10 @@
     This should be configured as <varname>initrd_generator=</varname> in <filename>install.conf</filename>.
     </para>
 
+    <para><varname>KERNEL_INSTALL_STAGING_AREA=...</varname> is set for plugins to a path to a directory.
+    Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
+    on the file name and extension.</para>
+
     <variablelist>
       <varlistentry>
         <term>bls</term>

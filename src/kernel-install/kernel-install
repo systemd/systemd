@@ -128,10 +128,20 @@ fi
 
 ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 
+# Provide a directory where to store generated initrds
+cleanup() {
+    [ -n "$KERNEL_INSTALL_STAGING_AREA" ] && rm -rf "$KERNEL_INSTALL_STAGING_AREA"
+}
+
+trap cleanup EXIT
+
+KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t -p /tmp kernel-install.staging.XXXXXXX)"
+
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
+export KERNEL_INSTALL_STAGING_AREA
 
 [ "$layout" = "bls" ]
 MAKE_ENTRY_DIR_ABS=$?
