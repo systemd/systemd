@@ -455,7 +455,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
                 if (EFI_ERROR(err))
                         return err;
 
-                size = info->FileSize+1;
+                size = info->FileSize;
         }
 
         if (off > 0) {
@@ -464,12 +464,16 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
                         return err;
         }
 
-        buf = xallocate_pool(size + 1);
+        /* Allocate some extra bytes to guarantee the result is NUL-terminated for CHAR8 and CHAR16 strings. */
+        UINTN extra = size % sizeof(CHAR16) + sizeof(CHAR16);
+
+        buf = xallocate_pool(size + extra);
         err = handle->Read(handle, &size, buf);
         if (EFI_ERROR(err))
                 return err;
 
-        buf[size] = '\0';
+        /* Note that handle->Read() changes size to reflect the actualy bytes read. */
+        ZeroMem(buf + size, extra);
 
         *ret = TAKE_PTR(buf);
         if (ret_size)
