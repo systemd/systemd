@@ -9,7 +9,6 @@
 #include "bus-slot.h"
 #include "bus-type.h"
 #include "missing_capability.h"
-#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -99,7 +98,7 @@ static int add_enumerated_to_set(
                 sd_bus *bus,
                 const char *prefix,
                 struct node_enumerator *first,
-                Set *s,
+                OrderedSet *s,
                 sd_bus_error *error) {
 
         struct node_enumerator *c;
@@ -146,7 +145,7 @@ static int add_enumerated_to_set(
                                 continue;
                         }
 
-                        r = set_consume(s, *k);
+                        r = ordered_set_consume(s, *k);
                         if (r == -EEXIST)
                                 r = 0;
                 }
@@ -171,7 +170,7 @@ static int add_subtree_to_set(
                 const char *prefix,
                 struct node *n,
                 unsigned flags,
-                Set *s,
+                OrderedSet *s,
                 sd_bus_error *error) {
 
         struct node *i;
@@ -198,7 +197,7 @@ static int add_subtree_to_set(
                 if (!t)
                         return -ENOMEM;
 
-                r = set_consume(s, t);
+                r = ordered_set_consume(s, t);
                 if (r < 0 && r != -EEXIST)
                         return r;
 
@@ -220,10 +219,10 @@ static int get_child_nodes(
                 const char *prefix,
                 struct node *n,
                 unsigned flags,
-                Set **_s,
+                OrderedSet **_s,
                 sd_bus_error *error) {
 
-        Set *s = NULL;
+        OrderedSet *s = NULL;
         int r;
 
         assert(bus);
@@ -231,13 +230,13 @@ static int get_child_nodes(
         assert(n);
         assert(_s);
 
-        s = set_new(&string_hash_ops);
+        s = ordered_set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
         r = add_subtree_to_set(bus, prefix, n, flags, s, error);
         if (r < 0) {
-                set_free_free(s);
+                ordered_set_free_free(s);
                 return r;
         }
 
@@ -937,7 +936,7 @@ int introspect_path(
                 char **ret,
                 sd_bus_error *error) {
 
-        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_(introspect_free) struct introspect intro = {};
         struct node_vtable *c;
         bool empty;
@@ -963,7 +962,7 @@ int introspect_path(
         if (r < 0)
                 return r;
 
-        empty = set_isempty(s);
+        empty = ordered_set_isempty(s);
 
         LIST_FOREACH(vtables, c, n->vtables) {
                 if (require_fallback && !c->is_fallback)
@@ -1233,7 +1232,7 @@ static int process_get_managed_objects(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
         char *path;
         int r;
 
@@ -1263,7 +1262,7 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(path, s) {
+        ORDERED_SET_FOREACH(path, s) {
                 r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);
@@ -2352,7 +2351,7 @@ _public_ int sd_bus_emit_properties_changed(
 static int object_added_append_all_prefix(
                 sd_bus *bus,
                 sd_bus_message *m,
-                Set *s,
+                OrderedSet *s,
                 const char *prefix,
                 const char *path,
                 bool require_fallback) {
@@ -2392,10 +2391,10 @@ static int object_added_append_all_prefix(
                          * skip it on any of its parents. The child vtables
                          * always fully override any conflicting vtables of
                          * any parent node. */
-                        if (set_get(s, c->interface))
+                        if (ordered_set_get(s, c->interface))
                                 continue;
 
-                        r = set_put(s, c->interface);
+                        r = ordered_set_put(s, c->interface);
                         if (r < 0)
                                 return r;
 
@@ -2441,7 +2440,7 @@ static int object_added_append_all_prefix(
 }
 
 static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2465,7 +2464,7 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
          * a parent that were overwritten by a child.
          */
 
-        s = set_new(&string_hash_ops);
+        s = ordered_set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
@@ -2572,7 +2571,7 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
 static int object_removed_append_all_prefix(
                 sd_bus *bus,
                 sd_bus_message *m,
-                Set *s,
+                OrderedSet *s,
                 const char *prefix,
                 const char *path,
                 bool require_fallback) {
@@ -2605,7 +2604,7 @@ static int object_removed_append_all_prefix(
                  * skip it on any of its parents. The child vtables
                  * always fully override any conflicting vtables of
                  * any parent node. */
-                if (set_get(s, c->interface))
+                if (ordered_set_get(s, c->interface))
                         continue;
 
                 r = node_vtable_get_userdata(bus, path, c, &u, &error);
@@ -2616,7 +2615,7 @@ static int object_removed_append_all_prefix(
                 if (r == 0)
                         continue;
 
-                r = set_put(s, c->interface);
+                r = ordered_set_put(s, c->interface);
                 if (r < 0)
                         return r;
 
@@ -2631,7 +2630,7 @@ static int object_removed_append_all_prefix(
 }
 
 static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2642,7 +2641,7 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
 
         /* see sd_bus_emit_object_added() for details */
 
-        s = set_new(&string_hash_ops);
+        s = ordered_set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
