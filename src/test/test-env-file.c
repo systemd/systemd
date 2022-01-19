@@ -13,11 +13,11 @@
         "a=a\n"                                 \
         "b=b\\\n"                               \
         "c\n"                                   \
-        "d=d\\\n"                               \
-        "e\\\n"                                 \
-        "f\n"                                   \
+        "d= d\\\n"                              \
+        "e  \\\n"                               \
+        "f  \n"                                 \
         "g=g\\ \n"                              \
-        "h=h\n"                                 \
+        "h= ąęół\\ śćńźżµ \n"                   \
         "i=i\\"
 
 #define env_file_2                              \
@@ -26,21 +26,33 @@
 #define env_file_3 \
         "#SPAMD_ARGS=\"-d --socketpath=/var/lib/bulwark/spamd \\\n" \
         "#--nouser-config                                     \\\n" \
-        "normal=line"
+        "normal=line                                          \\\n" \
+        ";normal=ignored                                      \\\n" \
+        "normal_ignored                                       \\\n" \
+        "normal ignored                                       \\\n"
 
-#define env_file_4 \
-       "# Generated\n" \
-       "\n" \
-       "HWMON_MODULES=\"coretemp f71882fg\"\n" \
-       "\n" \
-       "# For compatibility reasons\n" \
-       "\n" \
-       "MODULE_0=coretemp\n" \
-       "MODULE_1=f71882fg"
+#define env_file_4                              \
+        "# Generated\n"                         \
+        "\n"                                    \
+        "HWMON_MODULES=\"coretemp f71882fg\"\n" \
+        "\n"                                    \
+        "# For compatibility reasons\n"         \
+        "\n"                                    \
+        "MODULE_0=coretemp\n"                   \
+        "MODULE_1=f71882fg"
 
 #define env_file_5                              \
-        "a=\n"                                 \
+        "a=\n"                                  \
         "b="
+
+#define env_file_6                              \
+        "a=\\ \\n \\t \\x \\y \\' \n"           \
+        "b= \\$'                  \n"           \
+        "c= ' \\n\\t\\$\\`\\\\\n"               \
+        "'   \n"                                \
+        "d= \" \\n\\t\\$\\`\\\\\n"              \
+        "\"   \n"
+
 
 TEST(load_env_file_1) {
         _cleanup_strv_free_ char **data = NULL;
@@ -57,9 +69,9 @@ TEST(load_env_file_1) {
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(streq(data[1], "b=bc"));
-        assert_se(streq(data[2], "d=def"));
+        assert_se(streq(data[2], "d=de  f"));
         assert_se(streq(data[3], "g=g "));
-        assert_se(streq(data[4], "h=h"));
+        assert_se(streq(data[4], "h=ąęół śćńźżµ"));
         assert_se(streq(data[5], "i=i"));
         assert_se(data[6] == NULL);
 }
@@ -131,6 +143,26 @@ TEST(load_env_file_5) {
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));
         assert_se(data[2] == NULL);
+}
+
+TEST(load_env_file_6) {
+        _cleanup_strv_free_ char **data = NULL;
+        int r;
+
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name);
+        assert_se(fd >= 0);
+        assert_se(write(fd, env_file_6, strlen(env_file_6)) == strlen(env_file_6));
+
+        r = load_env_file(NULL, name, &data);
+        assert_se(r == 0);
+        assert_se(streq(data[0], "a= n t x y '"));
+        assert_se(streq(data[1], "b=$'"));
+        assert_se(streq(data[2], "c= \\n\\t\\$\\`\\\\\n"));
+        assert_se(streq(data[3], "d= \\n\\t$`\\\n"));
+        assert_se(data[4] == NULL);
 }
 
 TEST(write_and_load_env_file) {
