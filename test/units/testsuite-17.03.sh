@@ -13,6 +13,7 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", PROGRAM=="/bin/sleep 60"
 EOF
     echo "event_timeout=10" >>/etc/udev/udev.conf
     echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
+    echo "udev_log=debug" >> /etc/udev/udev.conf
 
     systemctl restart systemd-udevd.service
 }
