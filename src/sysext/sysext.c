@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/loop.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -529,7 +530,11 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (verity_settings.data_path)
                                 flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
 
-                        r = loop_device_make_by_path(img->path, O_RDONLY, 0, &d);
+                        r = loop_device_make_by_path(
+                                        img->path,
+                                        O_RDONLY,
+                                        FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                        &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
