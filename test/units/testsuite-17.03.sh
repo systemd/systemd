@@ -29,7 +29,7 @@ teardown() {
 run_test() {
     since="$(date '+%F %T')"
 
-    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --uuid --settle --action add /dev/null
 
     for _ in {1..20}; do
         if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
