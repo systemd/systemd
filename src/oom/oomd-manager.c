@@ -364,7 +364,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
                 else {
-                        if (selected)
+                        if (selected && r > 0)
                                 log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
                                            "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
@@ -475,9 +475,13 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         if (r < 0)
                                 log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
                         else {
-                                /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
+                                /* Don't act on all the high pressure cgroups at once; return as soon as we kill one.
+                                 * If r == 0 then it means there were not eligible candidates, the candidate cgroup
+                                 * disappeared, or the candidate cgroup has no processes by the time we tried to kill
+                                 * it. In either case, go through the event loop again and select a new candidate if
+                                 * pressure is still high. */
                                 m->mem_pressure_post_action_delay_start = usec_now;
-                                if (selected)
+                                if (selected && r > 0)
                                         log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
                                                    selected, t->path,
