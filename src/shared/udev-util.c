@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -337,6 +338,7 @@ bool device_for_action(sd_device *dev, sd_device_action_t a) {
 
 void log_device_uevent(sd_device *device, const char *str) {
         sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
+        sd_id128_t event_id = SD_ID128_NULL;
         uint64_t seqnum = 0;
 
         if (!DEBUG_LOGGING)
@@ -344,9 +346,12 @@ void log_device_uevent(sd_device *device, const char *str) {
 
         (void) sd_device_get_seqnum(device, &seqnum);
         (void) sd_device_get_action(device, &action);
-        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s)",
+        (void) sd_device_get_trigger_uuid(device, &event_id);
+        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s%s%s)",
                          strempty(str), isempty(str) ? "" : " ",
-                         seqnum, strna(device_action_to_string(action)));
+                         seqnum, strna(device_action_to_string(action)),
+                         sd_id128_is_null(event_id) ? "" : ", UUID=",
+                         sd_id128_is_null(event_id) ? "" : id128_to_uuid_string(event_id, (char[ID128_UUID_STRING_MAX]){}));
 }
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
