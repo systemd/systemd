@@ -10,6 +10,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "macro.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "util.h"
@@ -24,11 +25,10 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
         return sd_event_exit(sd_device_monitor_get_event(m), 100);
 }
 
-static int test_receive_device_fail(void) {
+static void test_receive_device_fail(void) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
         const char *syspath;
-        int r;
 
         log_info("/* %s */", __func__);
 
@@ -47,14 +47,8 @@ static int test_receive_device_fail(void) {
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
         assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_client), "receiver") >= 0);
 
-        /* Do not use assert_se() here. */
-        r = device_monitor_send_device(monitor_server, monitor_client, loopback);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send loopback device: %m");
-
+        assert_se(device_monitor_send_device(monitor_server, monitor_client, loopback) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
-
-        return 0;
 }
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
@@ -299,11 +293,10 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        r = test_receive_device_fail();
-        if (r < 0) {
-                assert_se(r == -EPERM && detect_container() > 0);
+        if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("Running in container");
-        }
+
+        test_receive_device_fail();
 
         assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
         assert_se(device_add_property(loopback, "ACTION", "add") >= 0);
