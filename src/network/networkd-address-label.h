@@ -13,7 +13,7 @@ typedef struct Request Request;
 
 typedef struct AddressLabel {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
         uint32_t label;
         struct in6_addr prefix;

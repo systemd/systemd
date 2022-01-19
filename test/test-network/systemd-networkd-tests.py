@@ -176,7 +176,7 @@ def expectedFailureIfAlternativeNameIsNotAvailable():
         call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
         rc = call('ip link prop add dev dummy98 altname hogehogehogehogehoge', stderr=subprocess.DEVNULL)
         if rc == 0:
-            rc = call('ip link show dev hogehogehogehogehoge', stderr=subprocess.DEVNULL)
+            rc = call('ip link show dev hogehogehogehogehoge', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if rc == 0:
                 supported = True
 
@@ -2065,7 +2065,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-route-vrf.network',
         '25-gateway-static.network',
         '25-gateway-next-static.network',
-        '25-sriov.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         '25-test1.network',
@@ -3450,32 +3449,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc fq_pie 3a: root')
         self.assertRegex(output, 'limit 200000p')
 
-    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
-    def test_sriov(self):
-        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
-        call('modprobe netdevsim', stderr=subprocess.DEVNULL)
-        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
-            f.write('99 1')
-
-        call('udevadm settle')
-        call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
-        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
-            f.write('3')
-
-        copy_unit_to_networkd_unit_path('25-sriov.network')
-        start_networkd()
-        self.wait_online(['eni99np1:routable'])
-
-        output = check_output('ip link show dev eni99np1')
-        print(output)
-        self.assertRegex(output,
-                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
-                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
-                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
-        )
-
-        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
-
     def test_wait_online_ipv4(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-with-ipv6-prefix.network', 'dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
         start_networkd()
@@ -3998,6 +3971,133 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         output = check_output('ip rule list table 100')
         print(output)
         self.assertIn('from all to 8.8.8.8 lookup 100', output)
+
+class NetworkdSRIOVTests(unittest.TestCase, Utilities):
+    units = [
+        '25-sriov-udev.network',
+        '25-sriov.link',
+        '25-sriov.network',
+    ]
+
+    def setUp(self):
+        stop_networkd(show_logs=False)
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+
+    def tearDown(self):
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+
+    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
+    def test_sriov(self):
+        call('modprobe netdevsim', stderr=subprocess.DEVNULL)
+
+        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+            f.write('99 1')
+
+        call('udevadm settle')
+        call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
+        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+            f.write('3')
+
+        copy_unit_to_networkd_unit_path('25-sriov.network')
+        start_networkd()
+        self.wait_online(['eni99np1:routable'])
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
+        )
+
+    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
+    def test_sriov_udev(self):
+        call('modprobe netdevsim', stderr=subprocess.DEVNULL)
+
+        copy_unit_to_networkd_unit_path('25-sriov.link', '25-sriov-udev.network')
+        call('udevadm control --reload')
+
+        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+            f.write('99 1')
+
+        start_networkd()
+        self.wait_online(['eni99np1:routable'])
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
+        )
+        self.assertNotIn('vf 3', output)
+        self.assertNotIn('vf 4', output)
+
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+            f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
+
+        call('udevadm control --reload')
+        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off\n *'
+                         'vf 3'
+        )
+        self.assertNotIn('vf 4', output)
+
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+            f.write('[Link]\nSR-IOVVirtualFunctions=\n')
+
+        call('udevadm control --reload')
+        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off\n *'
+                         'vf 3'
+        )
+        self.assertNotIn('vf 4', output)
+
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+            f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
+
+        call('udevadm control --reload')
+        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off'
+        )
+        self.assertNotIn('vf 2', output)
+        self.assertNotIn('vf 3', output)
+        self.assertNotIn('vf 4', output)
+
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+            f.write('[Link]\nSR-IOVVirtualFunctions=\n')
+
+        call('udevadm control --reload')
+        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
+        )
+        self.assertNotIn('vf 3', output)
+        self.assertNotIn('vf 4', output)
 
 class NetworkdLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']

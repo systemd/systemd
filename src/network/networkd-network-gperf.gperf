@@ -73,15 +73,15 @@ Link.Unmanaged,                              config_parse_bool,                 
 Link.ActivationPolicy,                       config_parse_activation_policy,                           0,                             offsetof(Network, activation_policy)
 Link.RequiredForOnline,                      config_parse_required_for_online,                         0,                             0
 Link.RequiredFamilyForOnline,                config_parse_required_family_for_online,                  0,                             offsetof(Network, required_family_for_online)
-SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             0
-SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             0
-SR-IOV.QualityOfService,                     config_parse_sr_iov_uint32,                               0,                             0
-SR-IOV.VLANProtocol,                         config_parse_sr_iov_vlan_proto,                           0,                             0
-SR-IOV.MACSpoofCheck,                        config_parse_sr_iov_boolean,                              0,                             0
-SR-IOV.QueryReceiveSideScaling,              config_parse_sr_iov_boolean,                              0,                             0
-SR-IOV.Trust,                                config_parse_sr_iov_boolean,                              0,                             0
-SR-IOV.LinkState,                            config_parse_sr_iov_link_state,                           0,                             0
-SR-IOV.MACAddress,                           config_parse_sr_iov_mac,                                  0,                             0
+SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.QualityOfService,                     config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.VLANProtocol,                         config_parse_sr_iov_vlan_proto,                           0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.MACSpoofCheck,                        config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.QueryReceiveSideScaling,              config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.Trust,                                config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.LinkState,                            config_parse_sr_iov_link_state,                           0,                             offsetof(Network, sr_iov_by_section)
+SR-IOV.MACAddress,                           config_parse_sr_iov_mac,                                  0,                             offsetof(Network, sr_iov_by_section)
 Network.Description,                         config_parse_string,                                      0,                             offsetof(Network, description)
 Network.KeepMaster,                          config_parse_bool,                                        0,                             offsetof(Network, keep_master)
 Network.BatmanAdvanced,                      config_parse_ifname,                                      0,                             offsetof(Network, batadv_name)

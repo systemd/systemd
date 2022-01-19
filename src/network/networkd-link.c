@@ -2549,6 +2549,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
+        else
+                log_link_debug(link, "Found driver: %s", strna(link->driver));
 
         if (streq_ptr(link->driver, "dsa")) {
                 uint32_t dsa_master_ifindex;

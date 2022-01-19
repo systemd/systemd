@@ -22,7 +22,7 @@ typedef struct NextHop {
         Network *network;
         Manager *manager;
         Link *link;
-        NetworkConfigSection *section;
+        ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 
