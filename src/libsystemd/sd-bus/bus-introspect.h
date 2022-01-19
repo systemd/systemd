@@ -5,7 +5,7 @@
 
 #include "sd-bus.h"
 
-#include "set.h"
+#include "ordered-set.h"
 
 struct introspect {
         FILE *f;
@@ -17,7 +17,7 @@ struct introspect {
 
 int introspect_begin(struct introspect *i, bool trusted);
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager);
-int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix);
+int introspect_write_child_nodes(struct introspect *i, OrderedSet *s, const char *prefix);
 int introspect_write_interface(
                 struct introspect *i,
                 const char *interface_name,
