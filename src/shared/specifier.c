@@ -35,7 +35,6 @@
 int specifier_printf(const char *text, size_t max_length, const Specifier table[], const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *result = NULL;
         bool percent = false;
-        const char *f;
         size_t l;
         char *t;
         int r;
@@ -48,8 +47,10 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                 return -ENOMEM;
         t = result;
 
-        for (f = text; *f != '\0'; f++, l--) {
+        for (const char *f = text; *f != '\0'; f++, l--) {
                 if (percent) {
+                        percent = false;
+
                         if (*f == '%')
                                 *(t++) = '%';
                         else {
@@ -66,6 +67,8 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         r = i->lookup(i->specifier, i->data, root, userdata, &w);
                                         if (r < 0)
                                                 return r;
+                                        if (isempty(w))
+                                                continue;
 
                                         j = t - result;
                                         k = strlen(w);
@@ -82,8 +85,6 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         *(t++) = *f;
                                 }
                         }
-
-                        percent = false;
                 } else if (*f == '%')
                         percent = true;
                 else
@@ -108,11 +109,13 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
 /* Generic handler for simple string replacements */
 
 int specifier_string(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        char *n;
+        char *n = NULL;
 
-        n = strdup(strempty(data));
-        if (!n)
-                return -ENOMEM;
+        if (!isempty(data)) {
+                n = strdup(data);
+                if (!n)
+                        return -ENOMEM;
+        }
 
         *ret = n;
         return 0;
@@ -186,10 +189,8 @@ int specifier_short_host_name(char specifier, const void *data, const char *root
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
-        int r;
 
-        r = uname(&uts);
-        if (r < 0)
+        if (uname(&uts) < 0)
                 return -errno;
 
         n = strdup(uts.release);
@@ -211,47 +212,31 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
         return 0;
 }
 
-static int specifier_os_release_common(const char *field, const char *root, char **ret) {
-        char *t = NULL;
-        int r;
-
-        r = parse_os_release(root, field, &t);
-        if (r < 0)
-                return r;
-        if (!t) {
-                /* fields in /etc/os-release might quite possibly be missing, even if everything is entirely
-                 * valid otherwise. Let's hence return "" in that case. */
-                t = strdup("");
-                if (!t)
-                        return -ENOMEM;
-        }
-
-        *ret = t;
-        return 0;
-}
+/* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
+ * otherwise. We'll return an empty value or NULL in that case from the functions below. */
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("ID", root, ret);
+        return parse_os_release(root, "ID", ret);
 }
 
 int specifier_os_version_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("VERSION_ID", root, ret);
+        return parse_os_release(root, "VERSION_ID", ret);
 }
 
 int specifier_os_build_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("BUILD_ID", root, ret);
+        return parse_os_release(root, "BUILD_ID", ret);
 }
 
 int specifier_os_variant_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("VARIANT_ID", root, ret);
+        return parse_os_release(root, "VARIANT_ID", ret);
 }
 
 int specifier_os_image_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("IMAGE_ID", root, ret);
+        return parse_os_release(root, "IMAGE_ID", ret);
 }
 
 int specifier_os_image_version(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        return specifier_os_release_common("IMAGE_VERSION", root, ret);
+        return parse_os_release(root, "IMAGE_VERSION", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -291,7 +276,6 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
 }
 
 int specifier_user_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-
         if (asprintf(ret, UID_FMT, getuid()) < 0)
                 return -ENOMEM;
 
