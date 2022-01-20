@@ -60,6 +60,10 @@ static inline int dns_name_is_valid_ldh(const char *s) {
         return 1;
 }
 
+static inline bool dns_name_is_empty(const char *s) {
+        return isempty(s) || streq(s, ".");
+}
+
 void dns_name_hash_func(const char *s, struct siphash *state);
 int dns_name_compare_func(const char *a, const char *b);
 extern const struct hash_ops dns_name_hash_ops;
