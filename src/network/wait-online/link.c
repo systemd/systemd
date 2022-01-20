@@ -97,7 +97,7 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 int link_update_monitor(Link *l) {
-        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *required_family = NULL,
+        _cleanup_free_ char *required_operstate = NULL, *required_family = NULL,
                 *ipv4_address_state = NULL, *ipv6_address_state = NULL, *state = NULL;
         int r, ret = 0;
 
@@ -123,18 +123,9 @@ int link_update_monitor(Link *l) {
                                                    "Failed to parse required operational state, ignoring: %m");
         }
 
-        r = sd_network_link_get_operational_state(l->ifindex, &operstate);
+        r = network_link_get_operational_state(l->ifindex, &l->operational_state);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
-        else {
-                LinkOperationalState s;
-
-                s = link_operstate_from_string(operstate);
-                if (s < 0)
-                        ret = log_link_debug_errno(l, s, "Failed to parse operational state, ignoring: %m");
-                else
-                        l->operational_state = s;
-        }
 
         r = sd_network_link_get_required_family_for_online(l->ifindex, &required_family);
         if (r < 0)
