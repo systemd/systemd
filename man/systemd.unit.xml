@@ -2098,6 +2098,16 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <xi:include href="standard-specifiers.xml" xpointer="V"/>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <row>
+            <entry><literal>%y</literal></entry>
+            <entry>The path to the fragment</entry>
+            <entry>This is the path where the main part of the unit file is located. For linked unit files, the real path outside of the unit search directories is used. For units that don't have a fragment file, this specifier will raise an error.</entry>
+          </row>
+          <row>
+            <entry><literal>%Y</literal></entry>
+            <entry>The directory of the fragment</entry>
+            <entry>This is the directory part of <literal>%y</literal>.</entry>
+          </row>
           <xi:include href="standard-specifiers.xml" xpointer="percent"/>
         </tbody>
       </tgroup>

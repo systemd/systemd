@@ -18,6 +18,7 @@
 #include "id128-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -119,6 +120,27 @@ int specifier_string(char specifier, const void *data, const char *root, const v
 
         *ret = n;
         return 0;
+}
+
+int specifier_real_path(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const char *path = data;
+
+        if (!path)
+                return -ENOENT;
+
+        return chase_symlinks(path, root, 0, ret, NULL);
+}
+
+int specifier_real_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        r = specifier_real_path(specifier, data, root, userdata, &path);
+        if (r < 0)
+                return r;
+
+        assert(path);
+        return path_extract_directory(path, ret);
 }
 
 int specifier_machine_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {

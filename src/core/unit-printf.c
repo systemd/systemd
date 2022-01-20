@@ -219,6 +219,8 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 { 'P', specifier_prefix_unescaped,         NULL },
 
                 { 'f', specifier_filename,                 NULL },
+                { 'y', specifier_real_path,                u->fragment_path },
+                { 'Y', specifier_real_directory,           u->fragment_path },
 
                 { 'c', specifier_cgroup,                   NULL },
                 { 'r', specifier_cgroup_slice,             NULL },
