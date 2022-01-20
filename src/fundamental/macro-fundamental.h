@@ -281,8 +281,10 @@
 
 #define mfree(memory)                           \
         ({                                      \
+                /* Workaround for false-positive use-after-free warning by GCC-12 */ \
+                _unused_ typeof(memory) _m_;    \
                 free(memory);                   \
-                (typeof(memory)) NULL;          \
+                (typeof(_m_)) NULL;             \
         })
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
