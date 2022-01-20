@@ -70,4 +70,9 @@ id-input:modalias:input:b0005v046DpB00De0700*
 
 # Logitech MX Keys
 id-input:modalias:input:b0003v046Dp408Ae0111*
- ID_INPUT_MOUSE=0 
+ ID_INPUT_MOUSE=0
+
+# CH Products Pro Pedals
+id-input:modalias:input:b0003v068Ep00F2e0100*
+ ID_INPUT_ACCELEROMETER=0
+ ID_INPUT_JOYSTICK=1
