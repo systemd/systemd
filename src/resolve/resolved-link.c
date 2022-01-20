@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "log-link.h"
 #include "mkdir.h"
+#include "netif-util.h"
 #include "parse-util.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
@@ -699,9 +700,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                         return false;
         }
 
-        /* Check kernel operstate
-         * https://www.kernel.org/doc/Documentation/networking/operstates.txt */
-        if (!IN_SET(l->operstate, IF_OPER_UNKNOWN, IF_OPER_UP))
+        if (!netif_has_carrier(l->operstate, l->flags))
                 return false;
 
         (void) sd_network_link_get_operational_state(l->ifindex, &state);
