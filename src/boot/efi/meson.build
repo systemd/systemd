@@ -401,7 +401,6 @@ systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(efi_arch[0])
 stub_elf_name = 'linux@0@.elf.stub'.format(efi_arch[0])
 stub_efi_name = 'linux@0@.efi.stub'.format(efi_arch[0])
 
-efi_stubs = []
 foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, false],
                  [stub_elf_name, stub_efi_name, stub_objects, true]]
         so = custom_target(
@@ -419,7 +418,7 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                 install : tuple[3],
                 install_dir : bootlibdir)
 
-        stub = custom_target(
+        custom_target(
                 tuple[1],
                 input : so,
                 output : tuple[1],
@@ -439,14 +438,4 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                            '@INPUT@', '@OUTPUT@'],
                 install : true,
                 install_dir : bootlibdir)
-
-        efi_stubs += [[so, stub]]
 endforeach
-
-############################################################
-
-test_efi_disk_img = custom_target(
-        'test-efi-disk.img',
-        input : [efi_stubs[0][0], efi_stubs[1][1]],
-        output : 'test-efi-disk.img',
-        command : [test_efi_create_disk_sh, '@OUTPUT@','@INPUT@', splash_bmp])
