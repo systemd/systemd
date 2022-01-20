@@ -56,6 +56,7 @@ TEST(specifier_printf) {
         static const Specifier table[] = {
                 { 'X', specifier_string,         (char*) "AAAA" },
                 { 'Y', specifier_string,         (char*) "BBBB" },
+                { 'e', specifier_string,         NULL           },
                 COMMON_SYSTEM_SPECIFIERS,
                 {}
         };
@@ -63,21 +64,21 @@ TEST(specifier_printf) {
         _cleanup_free_ char *w = NULL;
         int r;
 
-        r = specifier_printf("xxx a=%X b=%Y yyy", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf("xxx a=%X b=%Y e=%e yyy", SIZE_MAX, table, NULL, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
 
         puts(w);
-        assert_se(streq(w, "xxx a=AAAA b=BBBB yyy"));
+        assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
 
         free(w);
-        r = specifier_printf("machine=%m, boot=%b, host=%H, version=%v, arch=%a", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf("machine=%m, boot=%b, host=%H, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
         puts(w);
 
         w = mfree(w);
-        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W", SIZE_MAX, table, NULL, NULL, &w);
+        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W, empty=%e%e%e", SIZE_MAX, table, NULL, NULL, &w);
         if (w)
                 puts(w);
 }
