@@ -35,7 +35,6 @@
 int specifier_printf(const char *text, size_t max_length, const Specifier table[], const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *result = NULL;
         bool percent = false;
-        const char *f;
         size_t l;
         char *t;
         int r;
@@ -48,8 +47,10 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                 return -ENOMEM;
         t = result;
 
-        for (f = text; *f != '\0'; f++, l--) {
+        for (const char *f = text; *f != '\0'; f++, l--) {
                 if (percent) {
+                        percent = false;
+
                         if (*f == '%')
                                 *(t++) = '%';
                         else {
@@ -66,6 +67,8 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         r = i->lookup(i->specifier, i->data, root, userdata, &w);
                                         if (r < 0)
                                                 return r;
+                                        if (isempty(w))
+                                                continue;
 
                                         j = t - result;
                                         k = strlen(w);
@@ -82,8 +85,6 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         *(t++) = *f;
                                 }
                         }
-
-                        percent = false;
                 } else if (*f == '%')
                         percent = true;
                 else
@@ -108,11 +109,13 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
 /* Generic handler for simple string replacements */
 
 int specifier_string(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        char *n;
+        char *n = NULL;
 
-        n = strdup(strempty(data));
-        if (!n)
-                return -ENOMEM;
+        if (!isempty(data)) {
+                n = strdup(data);
+                if (!n)
+                        return -ENOMEM;
+        }
 
         *ret = n;
         return 0;
@@ -186,10 +189,8 @@ int specifier_short_host_name(char specifier, const void *data, const char *root
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
-        int r;
 
-        r = uname(&uts);
-        if (r < 0)
+        if (uname(&uts) < 0)
                 return -errno;
 
         n = strdup(uts.release);
@@ -212,22 +213,10 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
 }
 
 static int specifier_os_release_common(const char *field, const char *root, char **ret) {
-        char *t = NULL;
-        int r;
+        /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely
+         * valid otherwise. We'll might return an empty value or NULL in that case. */
 
-        r = parse_os_release(root, field, &t);
-        if (r < 0)
-                return r;
-        if (!t) {
-                /* fields in /etc/os-release might quite possibly be missing, even if everything is entirely
-                 * valid otherwise. Let's hence return "" in that case. */
-                t = strdup("");
-                if (!t)
-                        return -ENOMEM;
-        }
-
-        *ret = t;
-        return 0;
+        return parse_os_release(root, field, ret);
 }
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
