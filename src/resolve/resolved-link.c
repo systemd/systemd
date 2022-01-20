@@ -689,16 +689,15 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
          * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
          * least one routable address. */
 
-        if (l->flags & (IFF_LOOPBACK|IFF_DORMANT))
+        if ((l->flags & (IFF_LOOPBACK | IFF_DORMANT)) != 0)
                 return false;
 
-        if ((l->flags & (IFF_UP|IFF_LOWER_UP)) != (IFF_UP|IFF_LOWER_UP))
+        if (!FLAGS_SET(l->flags, IFF_UP | IFF_LOWER_UP))
                 return false;
 
-        if (local_multicast) {
-                if ((l->flags & IFF_MULTICAST) != IFF_MULTICAST)
-                        return false;
-        }
+        if (local_multicast &&
+            !FLAGS_SET(l->flags, IFF_MULTICAST))
+                return false;
 
         if (!netif_has_carrier(l->operstate, l->flags))
                 return false;
