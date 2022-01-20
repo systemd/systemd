@@ -433,6 +433,9 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r != 0)
                 return r;
 
+        if (dns_name_is_empty(hostname))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Empty hostname");
+
         r = dns_name_is_valid(hostname);
         if (r < 0)
                 return r;
@@ -739,6 +742,9 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         if (ifindex < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
+        if (dns_name_is_empty(name))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Empty name");
 
         r = dns_name_is_valid(name);
         if (r < 0)
