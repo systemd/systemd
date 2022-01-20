@@ -50,6 +50,7 @@ ExecStartPost=
 ExecStartPre=
 ExecStopPost=
 ExecStopPre=
+ExtensionDirectories=
 ExtensionImages=
 FileDescriptorName=
 FinalKillSignal=
