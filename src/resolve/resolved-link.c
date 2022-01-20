@@ -133,7 +133,7 @@ void link_allocate_scopes(Link *l) {
 
                         r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to allocate DNS scope: %m");
+                                log_link_warning_errno(l, r, "Failed to allocate DNS scope, ignoring: %m");
                 }
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
@@ -144,7 +144,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to allocate LLMNR IPv4 scope: %m");
+                                log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv4 scope, ignoring: %m");
                 }
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
@@ -156,7 +156,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to allocate LLMNR IPv6 scope: %m");
+                                log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv6 scope, ignoring: %m");
                 }
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
@@ -167,7 +167,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->mdns_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to allocate mDNS IPv4 scope: %m");
+                                log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
                 }
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
@@ -178,7 +178,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->mdns_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to allocate mDNS IPv6 scope: %m");
+                                log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
                 }
         } else
                 l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);
@@ -198,13 +198,13 @@ void link_add_rrs(Link *l, bool force_remove) {
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv4 DNS-SD services: %m");
+                                log_link_warning_errno(l, r, "Failed to add IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
                         r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv6 DNS-SD services: %m");
+                                log_link_warning_errno(l, r, "Failed to add IPv6 DNS-SD services, ignoring: %m");
                 }
 
         } else {
@@ -212,13 +212,13 @@ void link_add_rrs(Link *l, bool force_remove) {
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to remove IPv4 DNS-SD services: %m");
+                                log_link_warning_errno(l, r, "Failed to remove IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
                         r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to remove IPv6 DNS-SD services: %m");
+                                log_link_warning_errno(l, r, "Failed to remove IPv6 DNS-SD services, ignoring: %m");
                 }
         }
 }
@@ -386,7 +386,10 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 
 #if ! ENABLE_DNS_OVER_TLS
         if (mode != DNS_OVER_TLS_NO)
-                log_warning("DNS-over-TLS option for the link cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                log_link_warning(l,
+                                 "DNS-over-TLS option for the link cannot be enabled or set to opportunistic "
+                                 "when systemd-resolved is built without DNS-over-TLS support. "
+                                 "Turning off DNS-over-TLS support.");
         return;
 #endif
 
@@ -421,7 +424,10 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
 #if !HAVE_OPENSSL_OR_GCRYPT
         if (IN_SET(mode, DNSSEC_YES, DNSSEC_ALLOW_DOWNGRADE))
-                log_warning("DNSSEC option for the link cannot be enabled or set to allow-downgrade when systemd-resolved is built without a cryptographic library. Turning off DNSSEC support.");
+                log_link_warning(l,
+                                 "DNSSEC option for the link cannot be enabled or set to allow-downgrade "
+                                 "when systemd-resolved is built without a cryptographic library. "
+                                 "Turning off DNSSEC support.");
         return;
 #endif
 
@@ -737,7 +743,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to DNS server %s for interface %s.", strna(dns_server_string_full(s)), l->ifname);
+                log_link_debug(l, "Switching to DNS server %s.", strna(dns_server_string_full(s)));
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
@@ -929,11 +935,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, true);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add A record to LLMNR zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add A record to LLMNR zone, ignoring: %m");
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, false);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv4 PTR record to LLMNR zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add IPv4 PTR record to LLMNR zone, ignoring: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv4_scope)
@@ -982,11 +988,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->mdns_ipv4_scope->zone, a->link->mdns_ipv4_scope, a->mdns_address_rr, true);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add A record to MDNS zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add A record to MDNS zone, ignoring: %m");
 
                         r = dns_zone_put(&a->link->mdns_ipv4_scope->zone, a->link->mdns_ipv4_scope, a->mdns_ptr_rr, false);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv4 PTR record to MDNS zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add IPv4 PTR record to MDNS zone, ignoring: %m");
                 } else {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv4_scope)
@@ -1039,11 +1045,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_address_rr, true);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add AAAA record to LLMNR zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add AAAA record to LLMNR zone, ignoring: %m");
 
                         r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_ptr_rr, false);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add IPv6 PTR record to LLMNR zone, ignoring: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv6_scope)
@@ -1093,11 +1099,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->mdns_ipv6_scope->zone, a->link->mdns_ipv6_scope, a->mdns_address_rr, true);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add AAAA record to MDNS zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add AAAA record to MDNS zone, ignoring: %m");
 
                         r = dns_zone_put(&a->link->mdns_ipv6_scope->zone, a->link->mdns_ipv6_scope, a->mdns_ptr_rr, false);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add IPv6 PTR record to MDNS zone: %m");
+                                log_link_warning_errno(a->link, r, "Failed to add IPv6 PTR record to MDNS zone, ignoring: %m");
                 } else {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv6_scope)
@@ -1116,7 +1122,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         return;
 
 fail:
-        log_debug_errno(r, "Failed to update address RRs: %m");
+        log_link_debug_errno(a->link, r, "Failed to update address RRs, ignoring: %m");
 }
 
 int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
@@ -1288,7 +1294,7 @@ fail:
         if (temp_path)
                 (void) unlink(temp_path);
 
-        return log_error_errno(r, "Failed to save link data %s: %m", l->state_file);
+        return log_link_error_errno(l, r, "Failed to save link data %s: %m", l->state_file);
 }
 
 int link_load_user(Link *l) {
@@ -1358,7 +1364,7 @@ int link_load_user(Link *l) {
 
                 r = link_update_dns_server_one(l, word);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to load DNS server '%s', ignoring: %m", word);
+                        log_link_debug_errno(l, r, "Failed to load DNS server '%s', ignoring: %m", word);
                         continue;
                 }
         }
@@ -1379,7 +1385,7 @@ int link_load_user(Link *l) {
 
                 r = link_update_search_domain_one(l, n, is_route);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to load search domain '%s', ignoring: %m", word);
+                        log_link_debug_errno(l, r, "Failed to load search domain '%s', ignoring: %m", word);
                         continue;
                 }
         }
@@ -1403,7 +1409,7 @@ int link_load_user(Link *l) {
         return 0;
 
 fail:
-        return log_error_errno(r, "Failed to load link data %s: %m", l->state_file);
+        return log_link_error_errno(l, r, "Failed to load link data %s: %m", l->state_file);
 }
 
 void link_remove_user(Link *l) {
