@@ -616,6 +616,10 @@ static void link_read_settings(Link *l) {
 
         l->is_managed = true;
 
+        r = network_link_get_operational_state(l->ifindex, &l->networkd_operstate);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read networkd's link operational state, ignoring: %m");
+
         r = link_update_dns_servers(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNS servers for the interface, ignoring: %m");
@@ -678,7 +682,6 @@ int link_update(Link *l) {
 }
 
 bool link_relevant(Link *l, int family, bool local_multicast) {
-        _cleanup_free_ char *state = NULL;
         LinkAddress *a;
 
         assert(l);
@@ -702,8 +705,8 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
         if (!netif_has_carrier(l->operstate, l->flags))
                 return false;
 
-        (void) sd_network_link_get_operational_state(l->ifindex, &state);
-        if (state && !STR_IN_SET(state, "unknown", "degraded", "degraded-carrier", "routable"))
+        if (l->is_managed &&
+            !IN_SET(l->networkd_operstate, LINK_OPERSTATE_DEGRADED_CARRIER, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_ROUTABLE))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
