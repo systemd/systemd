@@ -237,7 +237,11 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &l->mtu);
         (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
-        if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
+        if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0 &&
+            !streq_ptr(l->ifname, n)) {
+                if (l->ifname)
+                        log_link_debug(l, "Interface name change detected: %s -> %s", l->ifname, n);
+
                 r = free_and_strdup(&l->ifname, n);
                 if (r < 0)
                         return r;
