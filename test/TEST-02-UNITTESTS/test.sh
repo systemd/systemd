@@ -5,6 +5,7 @@ set -e
 TEST_DESCRIPTION="Run unit tests under containers"
 RUN_IN_UNPRIVILEGED_CONTAINER=yes
 TEST_NO_NSPAWN=yes
+QEMU_TIMEOUT=infinity
 
 # embed some newlines in the kernel command line to stress our test suite
 KERNEL_APPEND="
