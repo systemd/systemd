@@ -247,9 +247,6 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
                         return r;
         }
 
-        link_allocate_scopes(l);
-        link_add_rrs(l, false);
-
         return 0;
 }
 
