@@ -5,6 +5,13 @@ set -o pipefail
 
 : >/failed
 
+if [[ -x /usr/lib/systemd/tests/test-sd-device-monitor ]]; then
+    SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/tests/test-sd-device-monitor && ret=0 || ret=$?
+    if [[ $ret -ne 0 && $ret != 77 ]]; then
+        return $ret
+    fi
+fi
+
 udevadm settle
 
 for t in "${0%.sh}".*.sh; do
