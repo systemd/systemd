@@ -599,10 +599,8 @@ env = find_program('env')
 perl = find_program('perl', required : false)
 rsync = find_program('rsync', required : false)
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
-test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
 
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
-splash_bmp = files('test/splash.bmp')
 
 # If -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
