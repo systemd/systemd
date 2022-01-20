@@ -19,6 +19,7 @@
 
 #include "ether-addr-util.h"
 #include "log-link.h"
+#include "netif-util.h"
 #include "network-util.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
@@ -212,7 +213,10 @@ void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_bond_master);
 
-bool link_has_carrier(Link *link);
+static inline bool link_has_carrier(Link *link) {
+        assert(link);
+        return netif_has_carrier(link->kernel_operstate, link->flags);
+}
 
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);

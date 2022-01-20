@@ -1802,21 +1802,6 @@ static int link_admin_state_down(Link *link) {
         return 0;
 }
 
-bool link_has_carrier(Link *link) {
-        /* see Documentation/networking/operstates.txt in the kernel sources */
-
-        if (link->kernel_operstate == IF_OPER_UP)
-                return true;
-
-        if (link->kernel_operstate == IF_OPER_UNKNOWN)
-                /* operstate may not be implemented, so fall back to flags */
-                if (FLAGS_SET(link->flags, IFF_LOWER_UP | IFF_RUNNING) &&
-                    !FLAGS_SET(link->flags, IFF_DORMANT))
-                        return true;
-
-        return false;
-}
-
 static bool link_is_enslaved(Link *link) {
         if (link->flags & IFF_SLAVE)
                 return true;

@@ -9,6 +9,7 @@
 
 #include "ether-addr-util.h"
 
+bool netif_has_carrier(uint8_t operstate, unsigned flags);
 int net_get_type_string(sd_device *device, uint16_t iftype, char **ret);
 const char *net_get_persistent_name(sd_device *device);
 int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *ret);
