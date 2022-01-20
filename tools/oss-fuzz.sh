@@ -73,6 +73,11 @@ done
 zip -jqr "$OUT/fuzz-bcd_seed_corpus.zip" "$bcd"
 rm -rf "$bcd"
 
+hosts=$(mktemp)
+wget -O "$hosts" https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+zip -jq "$OUT/fuzz-etc-hosts_seed_corpus.zip" "$hosts"
+rm -rf "$hosts"
+
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.
 for d in "$(dirname "$0")/../test/fuzz/fuzz-"*; do

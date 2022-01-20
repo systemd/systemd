@@ -221,4 +221,11 @@ fuzzers += [
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
+        [files('fuzz-etc-hosts.c',
+          'resolved-etc-hosts.c',
+          'resolved-etc-hosts.h'),
+         [libsystemd_resolve_core,
+          libshared],
+         [lib_openssl_or_gcrypt,
+          libm]],
 ]
