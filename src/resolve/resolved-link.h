@@ -6,6 +6,7 @@
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
+#include "network-util.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 
@@ -68,6 +69,7 @@ struct Link {
         DnsScope *mdns_ipv6_scope;
 
         struct stat networkd_state_file_stat;
+        LinkOperationalState networkd_operstate;
         bool is_managed;
 
         char *ifname;
