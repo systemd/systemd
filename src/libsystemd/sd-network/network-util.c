@@ -135,3 +135,23 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
 
         return 0;
 }
+
+int network_link_get_operational_state(int ifindex, LinkOperationalState *ret) {
+        _cleanup_free_ char *str = NULL;
+        LinkOperationalState s;
+        int r;
+
+        assert(ifindex > 0);
+        assert(ret);
+
+        r = sd_network_link_get_operational_state(ifindex, &str);
+        if (r < 0)
+                return r;
+
+        s = link_operstate_from_string(str);
+        if (s < 0)
+                return s;
+
+        *ret = s;
+        return 0;
+}

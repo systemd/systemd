@@ -83,3 +83,4 @@ typedef struct LinkOperationalStateRange {
                                                                    LINK_OPERSTATE_ROUTABLE }
 
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out);
+int network_link_get_operational_state(int ifindex, LinkOperationalState *ret);
