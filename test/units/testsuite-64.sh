@@ -33,7 +33,7 @@ helper_check_device_symlinks() {(
         fi
 
         # Check if the symlink points to the correct device in /dev
-        dev="/dev/$(udevadm info -q name "$link")"
+        dev="/dev/$(SYSTEMD_LOG_LEVEL=debug udevadm info -q name "$link")"
         if [[ "$target" != "$dev" ]]; then
             echo >&2 "ERROR: symlink '$link' points to '$target' but '$dev' was expected"
             return 1
@@ -383,6 +383,10 @@ testcase_btrfs_basic() {
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
     )
+
+    # To make btrfs module loaded, and make btrfs-control and related devices processed by udevd.
+    btrfs filesystem show
+    udevadm settle
 
     ls -l "${devices[@]}"
 
