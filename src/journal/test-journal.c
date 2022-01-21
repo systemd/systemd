@@ -250,6 +250,22 @@ static int intro(void) {
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+
+        test_non_empty();
+        test_empty();
+#if HAVE_COMPRESSION
+        test_min_compress_size();
+#endif
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+
+        test_non_empty();
+        test_empty();
+#if HAVE_COMPRESSION
+        test_min_compress_size();
+#endif
+
         return EXIT_SUCCESS;
 }
 

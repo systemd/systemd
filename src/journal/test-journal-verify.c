@@ -56,7 +56,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run_test(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
@@ -140,4 +140,12 @@ int main(int argc, char *argv[]) {
         assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         return 0;
+}
+
+int main(int argc, char *argv[]) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        run_test(argc, argv);
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        run_test(argc, argv);
 }

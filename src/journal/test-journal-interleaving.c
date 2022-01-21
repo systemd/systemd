@@ -206,7 +206,7 @@ TEST(skip) {
         test_skip_one(setup_interleaved);
 }
 
-TEST(sequence_numbers) {
+static void test_sequence_numbers(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-seq-XXXXXX";
         ManagedJournalFile *one, *two;
@@ -297,6 +297,12 @@ static int intro(void) {
                 return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = saved_argc > 1;
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_sequence_numbers();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_sequence_numbers();
 
         return EXIT_SUCCESS;
 }
