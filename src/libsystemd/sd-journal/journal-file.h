@@ -225,6 +225,16 @@ int journal_file_data_payload(
                 void **ret_data,
                 size_t *ret_size);
 
+static inline size_t journal_file_data_payload_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, data.compact.payload)
+                        : offsetof(Object, data.regular.payload);
+}
+
+static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
+}
+
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
 static inline uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) {

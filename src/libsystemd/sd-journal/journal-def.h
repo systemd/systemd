@@ -66,8 +66,17 @@ struct ObjectHeader {
         le64_t entry_offset; /* the first array entry we store inline */ \
         le64_t entry_array_offset;                                      \
         le64_t n_entries;                                               \
-        uint8_t payload[];                                              \
-        }
+        union {                                                         \
+                struct {                                                \
+                        uint8_t payload[0];                             \
+                } regular;                                              \
+                struct {                                                \
+                        le32_t tail_entry_array_offset;                 \
+                        le32_t tail_entry_array_n_entries;              \
+                        uint8_t payload[0];                             \
+                } compact;                                              \
+        };                                                              \
+}
 
 struct DataObject DataObject__contents;
 struct DataObject__packed DataObject__contents _packed_;
@@ -223,12 +232,15 @@ enum {
         /* Added in 246 */                              \
         le64_t data_hash_chain_depth;                   \
         le64_t field_hash_chain_depth;                  \
+        /* Added in 252 */                              \
+        le32_t tail_entry_array_offset;                 \
+        le32_t tail_entry_array_n_entries;              \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 256);
+assert_cc(sizeof(struct Header) == 264);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
