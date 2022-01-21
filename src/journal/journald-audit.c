@@ -399,7 +399,7 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
 
         z = n;
 
-        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, ELEMENTSOF(iovec));
+        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
 
         server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, LOG_NOTICE, 0);
 
