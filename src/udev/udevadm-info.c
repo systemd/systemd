@@ -47,6 +47,8 @@ static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 
 static bool skip_attribute(const char *name) {
+        assert(name);
+
         /* Those are either displayed separately or should not be shown at all. */
         return STR_IN_SET(name,
                           "uevent",
@@ -66,6 +68,9 @@ typedef struct SysAttr {
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 
 static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
+        assert(a);
+        assert(b);
+
         return strcmp(a->name, b->name);
 }
 
@@ -74,6 +79,8 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
         const char *name, *value;
         size_t n_items = 0;
         int r;
+
+        assert(device);
 
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
@@ -139,6 +146,8 @@ static int print_device_chain(sd_device *device) {
         sd_device *child, *parent;
         int r;
 
+        assert(device);
+
         printf("\n"
                "Udevadm info starts with the device specified by the devpath and then\n"
                "walks up the chain of parent devices. It prints for every device\n"
@@ -163,6 +172,8 @@ static int print_device_chain(sd_device *device) {
 static int print_record(sd_device *device) {
         const char *str, *val;
         int i;
+
+        assert(device);
 
         (void) sd_device_get_devpath(device, &str);
         printf("P: %s\n", str);
@@ -189,6 +200,8 @@ static int print_record(sd_device *device) {
 
 static int stat_device(const char *name, bool export, const char *prefix) {
         struct stat statbuf;
+
+        assert(name);
 
         if (stat(name, &statbuf) != 0)
                 return -errno;
@@ -229,10 +242,10 @@ static int export_devices(void) {
 }
 
 static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
+        assert(dir);
+
         if (depth <= 0)
                 return;
-
-        assert(dir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
@@ -389,10 +402,10 @@ static int query_device(QueryType query, sd_device* device) {
 
         case QUERY_ALL:
                 return print_record(device);
-        }
 
-        assert_not_reached();
-        return 0;
+        default:
+                assert_not_reached();
+        }
 }
 
 static int help(void) {
