@@ -261,34 +261,22 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
  * entries for devices in /run/udev/data (such as "b8:16"), and removes
  * all files except those that haven't been deleted in /run/udev/data
  * (i.e. they were skipped during db cleanup because of the db_persist flag).
- * Returns true if the directory is empty after cleanup.
  */
-static bool cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
-        unsigned int kept = 0;
-
+static void cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
         assert(dir);
         assert(datadir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
-                struct stat data_stats, link_stats;
-
                 if (dot_or_dot_dot(dent->d_name))
                         continue;
-                if (fstatat(dirfd(dir), dent->d_name, &link_stats, AT_SYMLINK_NOFOLLOW) < 0) {
-                        if (errno != ENOENT)
-                                kept++;
+
+                if (faccessat(dirfd(datadir), dent->d_name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        /* The corresponding udev database file still exists.
+                         * Assuming the parsistent flag is set for the database. */
                         continue;
-                }
 
-                if (fstatat(dirfd(datadir), dent->d_name, &data_stats, 0) < 0)
-                        (void) unlinkat(dirfd(dir), dent->d_name,
-                                        S_ISDIR(link_stats.st_mode) ? AT_REMOVEDIR : 0);
-                else
-                        /* The entry still exists under /run/udev/data */
-                        kept++;
+                (void) unlinkat(dirfd(dir), dent->d_name, 0);
         }
-
-        return kept == 0;
 }
 
 static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
@@ -306,8 +294,10 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
                         _cleanup_closedir_ DIR *dir2 = NULL;
 
                         dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2 && cleanup_dir_after_db_cleanup(dir2, datadir))
-                                (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
+                        if (dir2)
+                                cleanup_dir_after_db_cleanup(dir2, datadir);
+
+                        (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
                         (void) unlinkat(dirfd(dir), dent->d_name, 0);
         }
