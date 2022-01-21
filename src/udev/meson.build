@@ -152,7 +152,7 @@ foreach prog : udev_progs
                 install : true,
                 install_dir : udevlibexecdir)
 
-        udev_prog_paths += {name : exe.full_path()}
+        udev_prog_paths += {name : exe}
 endforeach
 
 if install_sysconfdir_samples
