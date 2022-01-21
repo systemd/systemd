@@ -195,7 +195,7 @@ efi_cflags += cc.get_supported_arguments({
 if get_option('werror')
         efi_cflags += ['-Werror']
 endif
-if get_option('debug')
+if get_option('debug') and get_option('mode') == 'developer'
         efi_cflags += ['-ggdb', '-DEFI_DEBUG']
 endif
 if get_option('optimization') != '0'
@@ -213,13 +213,15 @@ foreach arg : get_option('c_args')
         if arg in [
                 '-DNDEBUG',
                 '-fno-lto',
-                '-g', '-ggdb',
                 '-O1', '-O2', '-O3', '-Og', '-Os',
                 '-Werror',
            ] or arg.split('=')[0] in [
                 '-ffile-prefix-map',
                 '-flto',
-           ]
+           ] or (get_option('mode') == 'developer' and arg in [
+                '-DEFI_DEBUG',
+                '-g', '-ggdb',
+           ])
 
                 message('Using "@0@" from c_args for EFI compiler'.format(arg))
                 efi_cflags += arg
