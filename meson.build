@@ -1765,6 +1765,7 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 tests = []
 fuzzers = []
+catalogs = []
 
 ############################################################
 
@@ -2072,7 +2073,8 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                         test('dlopen-nss_' + module,
                              test_dlopen,
                              # path to dlopen must include a slash
-                             args : nss.full_path())
+                             args : nss.full_path(),
+                             depends : nss)
                 endif
         endif
 endforeach
@@ -2186,7 +2188,8 @@ if want_tests != 'false'
         test('test-fstab-generator',
              test_fstab_generator_sh,
              # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path())
+             args : exe.full_path(),
+             depends : exe)
 endif
 
 if conf.get('ENABLE_ENVIRONMENT_D') == 1
@@ -2337,7 +2340,8 @@ if conf.get('ENABLE_LOGIND') == 1
                         test('dlopen-pam_systemd',
                              test_dlopen,
                              # path to dlopen must include a slash
-                             args : pam_systemd.full_path())
+                             args : pam_systemd.full_path(),
+                             depends : pam_systemd)
                 endif
         endif
 
@@ -2676,7 +2680,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
-        executable(
+        exe = executable(
                 'systemd-sysv-generator',
                 'src/sysv-generator/sysv-generator.c',
                 include_directories : includes,
@@ -2684,6 +2688,13 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        sysv_generator_test_py = find_program('test/sysv-generator-test.py')
+        if want_tests != 'false'
+                test('sysv-generator-test',
+                     sysv_generator_test_py,
+                     depends : exe)
+        endif
 
         executable(
                 'systemd-rc-local-generator',
@@ -3568,7 +3579,8 @@ if want_tests != 'false'
         test('test-network-generator-conversion',
              test_network_generator_conversion_sh,
              # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path())
+             args : exe.full_path(),
+             depends : exe)
 endif
 
 executable(
@@ -3582,13 +3594,14 @@ executable(
 
 ############################################################
 
-custom_target(
+runtest_env = custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
         command : [sh, '-c',
                    '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
                            project_source_root / 'test',
                            project_build_root / 'catalog')],
+        depends : catalogs,
         build_by_default : true)
 
 test_cflags = ['-DTEST_CODE=1']
@@ -3631,7 +3644,8 @@ foreach tuple : tests
                         build_by_default : want_tests != 'false',
                         install_rpath : rootlibexecdir,
                         install : install_tests,
-                        install_dir : testsdir / type)
+                        install_dir : testsdir / type,
+                        link_depends : runtest_env)
 
                 if type == 'manual'
                         message('@0@ is a manual test'.format(name))
@@ -3824,7 +3838,8 @@ foreach exec : public_programs
         if want_tests != 'false'
                 test('check-help-' + name,
                      check_help,
-                     args : exec.full_path())
+                     args : exec.full_path(),
+                     depends: exec)
         endif
 endforeach
 
