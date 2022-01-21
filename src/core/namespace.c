@@ -2157,7 +2157,10 @@ int setup_namespace(
                                 goto finish;
                 }
 
-                if (ns_info->protect_hostname) {
+                /* If proc is mounted with subset=pid then neither of the two
+                 * paths will exist, i.e. they are implicitly protected by the
+                 * mount option. */
+                if (ns_info->protect_hostname && !ns_info->proc_subset == PROC_SUBSET_PID) {
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/hostname",
                                 .mode = READONLY,
