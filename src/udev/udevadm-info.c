@@ -266,7 +266,8 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
 static bool cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
         unsigned int kept = 0;
 
-        assert(dir && datadir);
+        assert(dir);
+        assert(datadir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat data_stats, link_stats;
@@ -291,8 +292,8 @@ static bool cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
 }
 
 static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
-
-        assert(dir && datadir);
+        assert(dir);
+        assert(datadir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
