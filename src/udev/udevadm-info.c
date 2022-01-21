@@ -313,7 +313,7 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
 }
 
 static void cleanup_db(void) {
-        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
+        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL;
 
         dir1 = opendir("/run/udev/data");
         if (dir1)
@@ -331,9 +331,8 @@ static void cleanup_db(void) {
         if (dir4)
                 cleanup_dir(dir4, 0, 2);
 
-        dir5 = opendir("/run/udev/watch");
-        if (dir5)
-                cleanup_dir_after_db_cleanup(dir5, dir1);
+        /* Do not remove /run/udev/watch. It will be handled by udevd well on restart.
+         * And should not be removed by external program when udevd is running. */
 }
 
 static int query_device(QueryType query, sd_device* device) {
