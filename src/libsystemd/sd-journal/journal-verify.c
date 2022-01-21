@@ -170,16 +170,16 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (le64toh(o->object.size) - offsetof(Object, data.payload) <= 0) {
+                if (le64toh(o->object.size) - journal_file_data_payload_offset(f) <= 0) {
                         error(offset, "Bad object size (<= %zu): %"PRIu64,
-                              offsetof(Object, data.payload),
+                              journal_file_data_payload_offset(f),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
                 h1 = le64toh(o->data.hash);
-                r = hash_payload(f, o, offset, o->data.payload,
-                                 le64toh(o->object.size) - offsetof(Object, data.payload),
+                r = hash_payload(f, o, offset, journal_file_data_payload_field(f, o),
+                                 le64toh(o->object.size) - journal_file_data_payload_offset(f),
                                  &h2);
                 if (r < 0)
                         return r;

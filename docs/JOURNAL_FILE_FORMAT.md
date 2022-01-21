@@ -177,6 +177,9 @@ _packed_ struct Header {
         /* Added in 246 */
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
+        /* Added in 252 */
+        le32_t tail_entry_array_offset;                 \
+        le32_t tail_entry_array_n_entries;              \
 };
 ```
 
@@ -231,6 +234,8 @@ became too frequent.
 Similar, **field_hash_chain_depth** is a counter of the deepest chain in the
 field hash table, minus one.
 
+**tail_entry_array_offset** and **tail_entry_array_n_entries** allow immediate
+access to the last entry array in the global entry array chain.
 
 ## Extensibility
 
@@ -397,7 +402,16 @@ _packed_ struct DataObject {
         le64_t entry_offset; /* the first array entry we store inline */
         le64_t entry_array_offset;
         le64_t n_entries;
-        uint8_t payload[];
+        union {                                                         \
+                struct {                                                \
+                        uint8_t payload[] ;                             \
+                } regular;                                              \
+                struct {                                                \
+                        le32_t tail_entry_array_offset;                 \
+                        le32_t tail_entry_array_n_entries;              \
+                        uint8_t payload[];                              \
+                } compact;                                              \
+        };                                                              \
 };
 ```
 
@@ -430,6 +444,9 @@ OBJECT_COMPRESSED_XZ/OBJECT_COMPRESSED_LZ4/OBJECT_COMPRESSED_ZSTD is set in the
 `ObjectHeader`, in which case the payload is compressed with the indicated
 compression algorithm.
 
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, Two extra fields are stored to
+allow immediate access to the tail entry array in the DATA object's entry array
+chain.
 
 ## Field Objects
 
