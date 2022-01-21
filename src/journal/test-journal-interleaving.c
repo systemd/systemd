@@ -210,7 +210,7 @@ TEST(skip) {
         test_skip_one(setup_interleaved);
 }
 
-TEST(sequence_numbers) {
+static void test_sequence_numbers_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-seq-XXXXXX";
         ManagedJournalFile *one, *two;
@@ -293,6 +293,14 @@ TEST(sequence_numbers) {
 
                 assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
+}
+
+TEST(sequence_numbers) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_sequence_numbers_one();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_sequence_numbers_one();
 }
 
 static int intro(void) {
