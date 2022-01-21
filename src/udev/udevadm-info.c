@@ -224,12 +224,14 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
         if (depth <= 0)
                 return;
 
+        assert(dir);
+
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
 
-                if (dent->d_name[0] == '.')
+                if (dot_or_dot_dot(dent->d_name))
                         continue;
-                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
+                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
                 if ((stats.st_mode & mask) != 0)
                         continue;
