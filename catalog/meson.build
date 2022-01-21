@@ -19,7 +19,7 @@ support_url = get_option('support-url')
 support_sed = 's~%SUPPORT_URL%~@0@~'.format(support_url)
 
 foreach file : in_files
-        custom_target(
+        catalogs += custom_target(
                 file,
                 input : file + '.in',
                 output: file,

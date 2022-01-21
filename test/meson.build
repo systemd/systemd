@@ -116,16 +116,6 @@ endif
 
 ############################################################
 
-if conf.get('HAVE_SYSV_COMPAT') == 1
-        sysv_generator_test_py = find_program('sysv-generator-test.py')
-        if want_tests != 'false'
-                test('sysv-generator-test',
-                     sysv_generator_test_py)
-        endif
-endif
-
-############################################################
-
 if install_tests
         install_data('run-unit-tests.py',
                      install_mode : 'rwxr-xr-x',
@@ -184,9 +174,10 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
 
                 test(name,
                      udev_dmi_memory_id_test,
-                     args : [udev_prog_paths['dmi_memory_id'],
+                     args : [udev_prog_paths['dmi_memory_id'].full_path(),
                              source,
-                             source + '.txt'])
+                             source + '.txt'],
+                     depends : udev_prog_paths['dmi_memory_id'])
         endforeach
 endif
 
