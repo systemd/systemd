@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if.h>
 #include <linux/if_arp.h>
 
 #include "arphrd-util.h"
@@ -10,6 +11,20 @@
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "strv.h"
+
+bool netif_has_carrier(uint8_t operstate, unsigned flags) {
+        /* see Documentation/networking/operstates.txt in the kernel sources */
+
+        if (operstate == IF_OPER_UP)
+                return true;
+
+        if (operstate != IF_OPER_UNKNOWN)
+                return false;
+
+        /* operstate may not be implemented, so fall back to flags */
+        return FLAGS_SET(flags, IFF_LOWER_UP | IFF_RUNNING) &&
+                !FLAGS_SET(flags, IFF_DORMANT);
+}
 
 int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         const char *t;
