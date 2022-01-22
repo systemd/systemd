@@ -58,6 +58,8 @@ node /org/freedesktop/hostname1 {
                   in  b interactive);
       GetProductUUID(in  b interactive,
                      out ay uuid);
+      GetHardwareSerial(in  b interactive,
+                        out s serial);
       Describe(out s json);
     properties:
       readonly s Hostname = '...';
@@ -93,6 +95,8 @@ node /org/freedesktop/hostname1 {
 };
     </programlisting>
 
+    <!--method GetHardwareSerial is not documented!-->
+
     <!--property HardwareVendor is not documented!-->
 
     <!--property HardwareModel is not documented!-->
@@ -118,6 +122,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLocation()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
 
