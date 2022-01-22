@@ -153,6 +153,13 @@
         <listitem><para>Specifies the hardware model. If set, the hardware model set in DMI or hwdb
         are ignored.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>HARDWARE_SERIAL=</varname></term>
+
+        <listitem><para>Specifies the hardware serial number. If set, the hardware serial number set in
+        DMI is ignored.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
