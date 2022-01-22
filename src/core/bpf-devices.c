@@ -192,7 +192,7 @@ int bpf_devices_cgroup_init(
         if (policy == CGROUP_DEVICE_POLICY_AUTO && !allow_list)
                 return 0;
 
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, &prog);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, "sd_devices", &prog);
         if (r < 0)
                 return log_error_errno(r, "Loading device control BPF program failed: %m");
 
@@ -306,7 +306,7 @@ int bpf_devices_supported(void) {
                 return supported = 0;
         }
 
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, &program);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, NULL, &program);
         if (r < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
                 return supported = 0;
