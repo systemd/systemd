@@ -26,7 +26,7 @@ typedef enum DHCPRawOption {
 
 typedef struct DHCPClientId {
         size_t length;
-        void *data;
+        uint8_t *data;
 } DHCPClientId;
 
 typedef struct DHCPLease {
