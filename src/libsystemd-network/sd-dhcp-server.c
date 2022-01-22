@@ -1536,18 +1536,13 @@ int sd_dhcp_server_set_static_lease(
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         /* Static lease with an empty or omitted address is a valid entry,
-        * the server removes any static lease with the specified mac address. */
+         * the server removes any static lease with the specified mac address. */
         if (!address || address->s_addr == 0) {
-                _cleanup_free_ void *data = NULL;
                 DHCPClientId c;
-
-                data = memdup(client_id, client_id_size);
-                if (!data)
-                        return -ENOMEM;
 
                 c = (DHCPClientId) {
                         .length = client_id_size,
-                        .data = data,
+                        .data = client_id,
                 };
 
                 dhcp_lease_free(hashmap_remove(server->static_leases_by_client_id, &c));
