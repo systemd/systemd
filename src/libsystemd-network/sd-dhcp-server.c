@@ -482,14 +482,14 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid), type, ARPHRD_ETHER,
+                              be32toh(req->message->xid), type,
+                              req->message->htype, req->message->hlen, req->message->chaddr,
                               req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
         packet->dhcp.flags = req->message->flags;
         packet->dhcp.giaddr = req->message->giaddr;
-        memcpy(&packet->dhcp.chaddr, &req->message->chaddr, ETH_ALEN);
 
         *_optoffset = optoffset;
         *ret = TAKE_PTR(packet);
@@ -621,7 +621,7 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              DHCP_FORCERENEW, ARPHRD_ETHER,
+                              DHCP_FORCERENEW, ARPHRD_ETHER, ETH_ALEN, chaddr,
                               DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
@@ -630,8 +630,6 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
                                &optoffset, 0, SD_DHCP_OPTION_END, 0, NULL);
         if (r < 0)
                 return r;
-
-        memcpy(&packet->dhcp.chaddr, chaddr, ETH_ALEN);
 
         return dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
                                     &packet->dhcp,
