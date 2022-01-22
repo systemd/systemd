@@ -23,7 +23,6 @@ test_append_files() {
         generate_module_dependencies
         inst_binary mksquashfs
         inst_binary unsquashfs
-        install_verity_minimal
     )
 }
 
