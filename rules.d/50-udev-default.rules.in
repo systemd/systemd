@@ -105,7 +105,10 @@ SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
 
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK += "ptp_hyperv"
 
-SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_name}"
-SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_version}"
+SUBSYSTEM!="dmi", GOTO="dmi_end"
+ENV{ID_VENDOR}="$attr{sys_vendor}"
+ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="|product_name", ENV{ID_MODEL}="$attr{product_name}"
+ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_MODEL}="$attr{product_version}"
+LABEL="dmi_end"
 
 LABEL="default_end"
