@@ -162,7 +162,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
                 if (r < 0)
                         return log_error_errno(r, "Failed to convert program to string");
 
-                r = bpf_program_new(test_suite[i].prog_type, &prog);
+                r = bpf_program_new(test_suite[i].prog_type, "sd_trivial", &prog);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create program '%s'", str);
 
