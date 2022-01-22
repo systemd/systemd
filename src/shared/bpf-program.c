@@ -55,6 +55,7 @@ BPFProgram *bpf_program_free(BPFProgram *p) {
         (void) bpf_program_cgroup_detach(p);
 
         safe_close(p->kernel_fd);
+        free(p->prog_name);
         free(p->instructions);
         free(p->attached_path);
 
@@ -78,8 +79,18 @@ static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, u
         return RET_NERRNO(bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr)));
 }
 
-int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
+int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret) {
         _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
+        _cleanup_free_ char *name = NULL;
+
+        if (prog_name) {
+                if (strlen(prog_name) >= BPF_OBJ_NAME_LEN)
+                        return -ENAMETOOLONG;
+
+                name = strdup(prog_name);
+                if (!name)
+                        return -ENOMEM;
+        }
 
         p = new(BPFProgram, 1);
         if (!p)
@@ -88,6 +99,7 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         *p = (BPFProgram) {
                 .prog_type = prog_type,
                 .kernel_fd = -1,
+                .prog_name = TAKE_PTR(name),
         };
 
         *ret = TAKE_PTR(p);
@@ -165,6 +177,8 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
         attr.log_buf = PTR_TO_UINT64(log_buf);
         attr.log_level = !!log_buf;
         attr.log_size = log_size;
+        if (p->prog_name)
+                strncpy(attr.prog_name, p->prog_name, BPF_OBJ_NAME_LEN - 1);
 
         p->kernel_fd = bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
