@@ -10,21 +10,44 @@
 
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
+#include "memory-util.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint16_t arp_type, size_t optlen,
-                      size_t *optoffset) {
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint8_t type,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                size_t optlen,
+                size_t *optoffset) {
+
         size_t offset = 0;
         int r;
 
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
-        assert(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND));
+        assert(chaddr || hlen == 0);
 
         message->op = op;
         message->htype = arp_type;
-        message->hlen = (arp_type == ARPHRD_ETHER) ? ETHER_ADDR_LEN : 0;
+
+        /* RFC2131 section 4.1.1:
+           The client MUST include its hardware address in the ’chaddr’ field, if
+           necessary for delivery of DHCP reply messages.
+
+           RFC 4390 section 2.1:
+           A DHCP client, when working over an IPoIB interface, MUST follow the
+           following rules:
+           "htype" (hardware address type) MUST be 32 [ARPPARAM].
+           "hlen" (hardware address length) MUST be 0.
+           "chaddr" (client hardware address) field MUST be zeroed.
+         */
+        message->hlen = (arp_type == ARPHRD_INFINIBAND) ? 0 : hlen;
+        memcpy_safe(message->chaddr, chaddr, message->hlen);
+
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 

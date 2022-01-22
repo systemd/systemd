@@ -53,8 +53,8 @@ typedef int (*dhcp_option_callback_t)(uint8_t code, uint8_t len,
 int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **error_message);
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint16_t arp_type, size_t optlen,
-                      size_t *optoffset);
+                      uint8_t type, uint16_t arp_type, uint8_t hlen, const uint8_t *chaddr,
+                      size_t optlen, size_t *optoffset);
 
 uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 

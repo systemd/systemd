@@ -832,7 +832,8 @@ static int client_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid, type,
-                              client->arp_type, optlen, &optoffset);
+                              client->arp_type, client->mac_addr_len, client->mac_addr,
+                              optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -861,15 +862,6 @@ static int client_message_init(
            needs to be configurable */
         if (client->request_broadcast || client->arp_type != ARPHRD_ETHER)
                 packet->dhcp.flags = htobe16(0x8000);
-
-        /* RFC2131 section 4.1.1:
-           The client MUST include its hardware address in the ’chaddr’ field, if
-           necessary for delivery of DHCP reply messages.  Non-Ethernet
-           interfaces will leave 'chaddr' empty and use the client identifier
-           instead (eg, RFC 4390 section 2.1).
-         */
-        if (client->arp_type == ARPHRD_ETHER)
-                memcpy(&packet->dhcp.chaddr, &client->mac_addr, ETH_ALEN);
 
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (client->client_id_len == 0) {
