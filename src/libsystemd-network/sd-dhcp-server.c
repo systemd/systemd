@@ -667,8 +667,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                         if (!data)
                                 return -ENOMEM;
 
-                        free(req->client_id.data);
-                        req->client_id.data = data;
+                        free_and_replace(req->client_id.data, data);
                         req->client_id.length = len;
                 }
 
