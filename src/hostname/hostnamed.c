@@ -725,16 +725,18 @@ static int property_get_chassis(
                 sd_bus_error *error) {
 
         Context *c = userdata;
-        const char *name;
+        _cleanup_free_ char *dmi_chassis = NULL;
+        const char *name = NULL;
 
         context_read_machine_info(c);
 
-        if (isempty(c->data[PROP_CHASSIS]))
-                name = fallback_chassis();
-        else
+        if (isempty(c->data[PROP_CHASSIS])) {
+                if (get_dmi_data("ID_CHASSIS", NULL, &dmi_chassis) <= 0)
+                        name = fallback_chassis();
+        } else
                 name = c->data[PROP_CHASSIS];
 
-        return sd_bus_message_append(reply, "s", name);
+        return sd_bus_message_append(reply, "s", name ?: dmi_chassis);
 }
 
 static int property_get_uname_field(
