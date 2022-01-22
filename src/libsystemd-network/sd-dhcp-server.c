@@ -706,14 +706,14 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
         /* set client id based on MAC address if client did not send an explicit
            one */
         if (!req->client_id.data) {
-                void *data;
+                uint8_t *data;
 
-                data = malloc0(ETH_ALEN + 1);
+                data = new0(uint8_t, ETH_ALEN + 1);
                 if (!data)
                         return -ENOMEM;
 
-                ((uint8_t*) data)[0] = 0x01;
-                memcpy((uint8_t*) data + 1, &message->chaddr, ETH_ALEN);
+                data[0] = 0x01;
+                memcpy(data + 1, message->chaddr, ETH_ALEN);
 
                 req->client_id.length = ETH_ALEN + 1;
                 req->client_id.data = data;
