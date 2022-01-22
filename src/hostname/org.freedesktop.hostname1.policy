@@ -57,4 +57,24 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.hostname1.get-hardware-serial">
+                <description gettext-domain="systemd">Get hardware serial number</description>
+                <message gettext-domain="systemd">Authentication is required to get hardware serial number.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.hostname1.get-description">
+                <description gettext-domain="systemd">Get system description</description>
+                <message gettext-domain="systemd">Authentication is required to get system description.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>
