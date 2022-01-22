@@ -13,18 +13,37 @@
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint16_t arp_type, size_t optlen,
-                      size_t *optoffset) {
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint8_t type,
+                uint16_t arp_type,
+                const uint8_t *chaddr,
+                size_t optlen,
+                size_t *optoffset) {
+
         size_t offset = 0;
         int r;
 
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
-        assert(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND));
+        assert(chaddr || arp_type != ARPHRD_ETHER);
 
         message->op = op;
         message->htype = arp_type;
-        message->hlen = (arp_type == ARPHRD_ETHER) ? ETHER_ADDR_LEN : 0;
+
+        /* RFC2132 section 4.1.1:
+           The client MUST include its hardware address in the ’chaddr’ field, if
+           necessary for delivery of DHCP reply messages.  Non-Ethernet
+           interfaces will leave 'chaddr' empty and use the client identifier
+           instead (eg, RFC 4390 section 2.1).
+         */
+        if (arp_type == ARPHRD_ETHER) {
+                message->hlen = ETH_ALEN;
+                memcpy(message->chaddr, chaddr, ETH_ALEN);
+        } else
+                message->hlen = 0;
+
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
