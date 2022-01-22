@@ -37,7 +37,7 @@ jobs:
   trigger: pull_request
   metadata:
     targets:
-    - fedora-35-aarch64
+    - fedora-rawhide-aarch64
     - fedora-35-i386
-    - fedora-35-ppc64le
-    - fedora-35-x86_64
+    - fedora-rawhide-ppc64le
+    - fedora-rawhide-x86_64
