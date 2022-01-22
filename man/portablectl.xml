@@ -365,8 +365,9 @@
         The image(s) must contain an <filename>extension-release</filename> file with metadata that matches
         what is defined in the <filename>os-release</filename> of <replaceable>IMAGE</replaceable>. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        For more information on portable services with extensions, see the <literal>Extension Images</literal>
-        paragraph on <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.
+        Images can be block images, btrfs subvolumes or directories. For more information on portable
+        services with extensions, see the <literal>Extension Images</literal> paragraph on
+        <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.
         </para>
 
         <para>Note that the same extensions have to be specified, in the same order, when attaching
