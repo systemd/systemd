@@ -43,7 +43,7 @@
 
 /* Properties we cache are indexed by an enum, to make invalidation easy and systematic (as we can iterate
  * through them all, and they are uniformly strings). */
-enum {
+typedef enum {
         /* Read from /etc/hostname */
         PROP_STATIC_HOSTNAME,
 
@@ -53,6 +53,9 @@ enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
+        PROP_HW_VENDOR,
+        PROP_HW_MODEL,
+        PROP_HW_SERIAL,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -60,7 +63,7 @@ enum {
         PROP_OS_HOME_URL,
         _PROP_MAX,
         _PROP_INVALID = -EINVAL,
-};
+} HostProperty;
 
 typedef struct Context {
         char *data[_PROP_MAX];
@@ -133,7 +136,10 @@ static void context_read_machine_info(Context *c) {
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
-                           "LOCATION", &c->data[PROP_LOCATION]);
+                           "LOCATION", &c->data[PROP_LOCATION],
+                           "HARDWARE_VENDOR", &c->data[PROP_HW_VENDOR],
+                           "HARDWARE_MODEL", &c->data[PROP_HW_MODEL],
+                           "HARDWARE_SERIAL", &c->data[PROP_HW_SERIAL]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
 
@@ -164,6 +170,45 @@ static void context_read_os_release(Context *c) {
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
         c->etc_os_release_stat = current_stat;
+}
+
+static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *b = NULL;
+        const char *s = NULL;
+        int r;
+
+        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
+
+        if (database_key)
+                (void) sd_device_get_property_value(device, database_key, &s);
+        if (!s && regular_key)
+                (void) sd_device_get_property_value(device, regular_key, &s);
+
+        if (s) {
+                b = strdup(s);
+                if (!b)
+                        return -ENOMEM;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(b);
+
+        return !!s;
+}
+
+static int get_hardware_vendor(char **ret) {
+        return get_dmi_data("ID_VENDOR_FROM_DATABASE", "ID_VENDOR", ret);
+}
+
+static int get_hardware_model(char **ret) {
+        return get_dmi_data("ID_MODEL_FROM_DATABASE", "ID_MODEL", ret);
+}
+
+static int get_hardware_serial(char **ret) {
+        return get_dmi_data(NULL, "ID_SERIAL", ret);
 }
 
 static const char* valid_chassis(const char *chassis) {
@@ -318,15 +363,31 @@ try_devicetree:
         return chassis;
 }
 
-static char* context_fallback_icon_name(Context *c) {
-        const char *chassis;
+static char* context_get_chassis(Context *c) {
+        const char *fallback;
+        char *dmi;
 
         assert(c);
 
         if (!isempty(c->data[PROP_CHASSIS]))
-                return strjoin("computer-", c->data[PROP_CHASSIS]);
+                return strdup(c->data[PROP_CHASSIS]);
 
-        chassis = fallback_chassis();
+        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) >= 0)
+                return dmi;
+
+        fallback = fallback_chassis();
+        if (fallback)
+                return strdup(fallback);
+
+        return NULL;
+}
+
+static char* context_fallback_icon_name(Context *c) {
+        _cleanup_free_ char *chassis = NULL;
+
+        assert(c);
+
+        chassis = context_get_chassis(c);
         if (chassis)
                 return strjoin("computer-", chassis);
 
@@ -418,85 +479,25 @@ static int context_write_data_static_hostname(Context *c) {
         return 0;
 }
 
-static int context_write_data_machine_info(Context *c) {
-        _cleanup_(unset_statp) struct stat *s = NULL;
-        static const char * const name[_PROP_MAX] = {
-                [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
-                [PROP_ICON_NAME] = "ICON_NAME",
-                [PROP_CHASSIS] = "CHASSIS",
-                [PROP_DEPLOYMENT] = "DEPLOYMENT",
-                [PROP_LOCATION] = "LOCATION",
-        };
-        _cleanup_strv_free_ char **l = NULL;
-        int r;
+static int property_get_hardware_property(
+                sd_bus_message *reply,
+                Context *c,
+                HostProperty prop,
+                int (*getter)(char **)) {
 
+        _cleanup_free_ char *from_dmi = NULL;
+
+        assert(reply);
         assert(c);
+        assert(IN_SET(prop, PROP_HW_VENDOR, PROP_HW_MODEL, PROP_HW_SERIAL));
+        assert(getter);
 
-        /* Make sure that if we fail here, we invalidate the cached information, since it was updated
-         * already, even if we can't make it hit the disk. */
-        s = &c->etc_machine_info_stat;
+        context_read_machine_info(c);
 
-        r = load_env_file(NULL, "/etc/machine-info", &l);
-        if (r < 0 && r != -ENOENT)
-                return r;
+        if (isempty(c->data[prop]))
+                (void) getter(&from_dmi);
 
-        for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
-                assert(name[p]);
-
-                r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
-                if (r < 0)
-                        return r;
-        }
-
-        if (strv_isempty(l)) {
-                if (unlink("/etc/machine-info") < 0 && errno != ENOENT)
-                        return -errno;
-
-                TAKE_PTR(s);
-                return 0;
-        }
-
-        r = write_env_file_label("/etc/machine-info", l);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(s);
-        return 0;
-}
-
-static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *b = NULL;
-        const char *s = NULL;
-        int r;
-
-        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
-
-        if (database_key)
-                (void) sd_device_get_property_value(device, database_key, &s);
-        if (!s && regular_key)
-                (void) sd_device_get_property_value(device, regular_key, &s);
-
-        if (s) {
-                b = strdup(s);
-                if (!b)
-                        return -ENOMEM;
-        }
-
-        if (ret)
-                *ret = TAKE_PTR(b);
-
-        return !!s;
-}
-
-static int get_hardware_vendor(char **ret) {
-        return get_dmi_data("ID_VENDOR_FROM_DATABASE", "ID_VENDOR", ret);
-}
-
-static int get_hardware_model(char **ret) {
-        return get_dmi_data("ID_MODEL_FROM_DATABASE", "ID_MODEL", ret);
+        return sd_bus_message_append(reply, "s", from_dmi ?: c->data[prop]);
 }
 
 static int property_get_hardware_vendor(
@@ -508,10 +509,7 @@ static int property_get_hardware_vendor(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *vendor = NULL;
-
-        (void) get_hardware_vendor(&vendor);
-        return sd_bus_message_append(reply, "s", vendor);
+        return property_get_hardware_property(reply, userdata, PROP_HW_VENDOR, get_hardware_vendor);
 }
 
 static int property_get_hardware_model(
@@ -523,10 +521,19 @@ static int property_get_hardware_model(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *model = NULL;
+        return property_get_hardware_property(reply, userdata, PROP_HW_MODEL, get_hardware_model);
+}
 
-        (void) get_hardware_model(&model);
-        return sd_bus_message_append(reply, "s", model);
+static int property_get_hardware_serial(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HW_SERIAL, get_hardware_serial);
 }
 
 static int property_get_hostname(
@@ -724,19 +731,14 @@ static int property_get_chassis(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *chassis = NULL;
         Context *c = userdata;
-        _cleanup_free_ char *dmi_chassis = NULL;
-        const char *name = NULL;
 
         context_read_machine_info(c);
 
-        if (isempty(c->data[PROP_CHASSIS])) {
-                if (get_dmi_data("ID_CHASSIS", NULL, &dmi_chassis) <= 0)
-                        name = fallback_chassis();
-        } else
-                name = c->data[PROP_CHASSIS];
+        chassis = context_get_chassis(c);
 
-        return sd_bus_message_append(reply, "s", name ?: dmi_chassis);
+        return sd_bus_message_append(reply, "s", chassis);
 }
 
 static int property_get_uname_field(
@@ -1022,11 +1024,11 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
 }
 
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL, *vendor = NULL, *model = NULL;
+        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
+                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
-        const char *chassis = NULL;
         Context *c = userdata;
         bool privileged;
         struct utsname u;
@@ -1073,13 +1075,16 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (isempty(c->data[PROP_ICON_NAME]))
                 in = context_fallback_icon_name(c);
 
-        if (isempty(c->data[PROP_CHASSIS]))
-                chassis = fallback_chassis();
+        chassis = context_get_chassis(c);
 
         assert_se(uname(&u) >= 0);
 
-        (void) get_hardware_vendor(&vendor);
-        (void) get_hardware_model(&model);
+        if (isempty(c->data[PROP_HW_VENDOR]))
+                (void) get_hardware_vendor(&vendor);
+        if (isempty(c->data[PROP_HW_MODEL]))
+                (void) get_hardware_model(&model);
+        if (isempty(c->data[PROP_HW_SERIAL]))
+                (void) get_hardware_model(&serial);
 
         if (privileged) /* The product UUID is only available to privileged clients */
                 id128_get_product(&product_uuid);
@@ -1091,7 +1096,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("DefaultHostname", JSON_BUILD_STRING(dhn)),
                                        JSON_BUILD_PAIR("HostnameSource", JSON_BUILD_STRING(hostname_source_to_string(c->hostname_source))),
                                        JSON_BUILD_PAIR("IconName", JSON_BUILD_STRING(in ?: c->data[PROP_ICON_NAME])),
-                                       JSON_BUILD_PAIR("Chassis", JSON_BUILD_STRING(chassis ?: c->data[PROP_CHASSIS])),
+                                       JSON_BUILD_PAIR("Chassis", JSON_BUILD_STRING(chassis)),
                                        JSON_BUILD_PAIR("Deployment", JSON_BUILD_STRING(c->data[PROP_DEPLOYMENT])),
                                        JSON_BUILD_PAIR("Location", JSON_BUILD_STRING(c->data[PROP_LOCATION])),
                                        JSON_BUILD_PAIR("KernelName", JSON_BUILD_STRING(u.sysname)),
@@ -1100,8 +1105,9 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("OperatingSystemPrettyName", JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemCPEName", JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemHomeURL", JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
-                                       JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor)),
-                                       JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model)),
+                                       JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HW_VENDOR])),
+                                       JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HW_MODEL])),
+                                       JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial ?: c->data[PROP_HW_SERIAL])),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
 
@@ -1142,6 +1148,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareSerial", "s", property_get_hardware_serial, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("SetHostname",
                                  "sb",
