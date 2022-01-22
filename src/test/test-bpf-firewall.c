@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, "sd_trivial", &p);
         assert_se(r == 0);
 
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
