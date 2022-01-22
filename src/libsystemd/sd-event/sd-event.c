@@ -2095,7 +2095,7 @@ _public_ int sd_event_add_inotify(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        sd_event_source *s = NULL; /* avoid false maybe-uninitialized warning */
         int fd, r;
 
         assert_return(path, -EINVAL);
