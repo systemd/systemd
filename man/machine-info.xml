@@ -139,6 +139,20 @@
         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         will be used.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>VENDOR=</varname></term>
+
+        <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI
+        or hwdb will be used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MODEL=</varname></term>
+
+        <listitem><para>Specifies the hardware model. If unspecified, the hardware model set in DMI or
+        hwdb will be used.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
