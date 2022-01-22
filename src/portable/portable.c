@@ -253,6 +253,7 @@ static int extract_now(
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
+                        _cleanup_(mac_selinux_freep) char *con = NULL;
                         _cleanup_close_ int fd = -1;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
@@ -274,16 +275,16 @@ static int extract_now(
                                 continue;
                         }
 
-                        if (socket_fd >= 0) {
-                                _cleanup_(mac_selinux_freep) char *con = NULL;
 #if HAVE_SELINUX
-                                /* The units will be copied on the host's filesystem, so if they had a SELinux label
-                                 * we have to preserve it. Copy it out so that it can be applied later. */
+                        /* The units will be copied on the host's filesystem, so if they had a SELinux label
+                         * we have to preserve it. Copy it out so that it can be applied later. */
 
-                                r = fgetfilecon_raw(fd, &con);
-                                if (r < 0 && errno != ENODATA)
-                                        log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+                        r = fgetfilecon_raw(fd, &con);
+                        if (r < 0 && errno != ENODATA)
+                                log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
 #endif
+
+                        if (socket_fd >= 0) {
                                 struct iovec iov[] = {
                                         IOVEC_MAKE_STRING(de->d_name),
                                         IOVEC_MAKE((char *)"\0", sizeof(char)),
@@ -295,7 +296,7 @@ static int extract_now(
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
                         }
 
-                        m = portable_metadata_new(de->d_name, NULL, NULL, fd);
+                        m = portable_metadata_new(de->d_name, where, con, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -1;
@@ -336,10 +337,16 @@ static int portable_extract_by_path(
 
         r = loop_device_make_by_path(path, O_RDONLY, LO_FLAGS_PARTSCAN, &d);
         if (r == -EISDIR) {
+                _cleanup_free_ char *image_name = NULL;
+
                 /* We can't turn this into a loop-back block device, and this returns EISDIR? Then this is a directory
                  * tree and not a raw device. It's easy then. */
 
-                r = extract_now(path, matches, NULL, path_is_extension, -1, &os_release, &unit_files);
+                r = path_extract_filename(path, &image_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
+
+                r = extract_now(path, matches, image_name, path_is_extension, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
@@ -872,6 +879,10 @@ static const char *root_setting_from_image(ImageType type) {
         return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=";
 }
 
+static const char *extension_setting_from_image(ImageType type) {
+        return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "ExtensionDirectories=" : "ExtensionImages=";
+}
+
 static int make_marker_text(const char *image_path, OrderedHashmap *extension_images, char **ret_text) {
         _cleanup_free_ char *text = NULL, *escaped_image_path = NULL;
         Image *ext;
@@ -918,7 +929,6 @@ static int install_chroot_dropin(
                 size_t *n_changes) {
 
         _cleanup_free_ char *text = NULL, *dropin = NULL;
-        Image *ext;
         int r;
 
         assert(image_path);
@@ -936,6 +946,7 @@ static int install_chroot_dropin(
         if (endswith(m->name, ".service")) {
                 const char *os_release_source, *root_type;
                 _cleanup_free_ char *base_name = NULL;
+                Image *ext;
 
                 root_type = root_setting_from_image(type);
 
@@ -962,7 +973,7 @@ static int install_chroot_dropin(
 
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images)
-                                if (!strextend(&text, "ExtensionImages=", ext->path, "\n"))
+                                if (!strextend(&text, extension_setting_from_image(ext->type), ext->path, "\n"))
                                         return -ENOMEM;
         }
 
