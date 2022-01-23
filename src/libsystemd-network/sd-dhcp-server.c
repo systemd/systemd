@@ -591,11 +591,7 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
-        r = dhcp_server_send_packet(server, req, packet, type, offset);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_server_send_packet(server, req, packet, type, offset);
 }
 
 static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
@@ -637,13 +633,9 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
 
         memcpy(&packet->dhcp.chaddr, chaddr, ETH_ALEN);
 
-        r = dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
-                                 &packet->dhcp,
-                                 sizeof(DHCPMessage) + optoffset);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
+                                    &packet->dhcp,
+                                    sizeof(DHCPMessage) + optoffset);
 }
 
 static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
@@ -868,12 +860,11 @@ static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
+        HASHMAP_FOREACH(lease, server->bound_leases_by_client_id)
                 if (lease->expiration < time_now) {
                         log_dhcp_server(server, "CLEAN (0x%x)", be32toh(lease->address));
                         dhcp_lease_free(lease);
                 }
-        }
 
         return 0;
 }
@@ -1222,7 +1213,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         if ((size_t) len < sizeof(DHCPMessage))
                 return 0;
 
-        CMSG_FOREACH(cmsg, &msg) {
+        CMSG_FOREACH(cmsg, &msg)
                 if (cmsg->cmsg_level == IPPROTO_IP &&
                     cmsg->cmsg_type == IP_PKTINFO &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct in_pktinfo))) {
@@ -1235,7 +1226,6 @@ static int server_receive_message(sd_event_source *s, int fd,
 
                         break;
                 }
-        }
 
         if (sd_dhcp_server_is_in_relay_mode(server)) {
                 r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
