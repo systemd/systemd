@@ -14,6 +14,7 @@ TEST_NO_NSPAWN=1
 # Save only journals of failing test cases by default (to conserve space)
 TEST_SAVE_JOURNAL="${TEST_SAVE_JOURNAL:-fail}"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-600}"
+TEST_SAVE_JOURNAL=yes
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
@@ -157,7 +158,8 @@ test_run() {
 
     [[ ${#failed[@]} -eq 0 ]] || return 1
 
-    return 0
+    echo "Test passed, but simulating fail to get journals"
+    return 2
 }
 
 testcase_megasas2_basic() {
