@@ -394,7 +394,18 @@ int dns_synthesize_answer(
 
                 name = dns_resource_key_name(key);
 
-                if (is_localhost(name)) {
+                if (dns_name_is_empty(name)) {
+                        /* Do nothing. */
+
+                } else if (dns_name_endswith(name, "0.in-addr.arpa") > 0 ||
+                           dns_name_equal(name, "255.255.255.255.in-addr.arpa") > 0 ||
+                           dns_name_equal(name, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0 ||
+                           dns_name_endswith(name, "invalid") > 0) {
+
+                        nxdomain = true;
+                        continue;
+
+                } else if (is_localhost(name)) {
 
                         r = synthesize_localhost_rr(m, key, ifindex, &answer);
                         if (r < 0)
