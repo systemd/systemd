@@ -3,6 +3,9 @@
 set -ex
 set -o pipefail
 
+# Wait for all previously triggered events being processed.
+udevadm settle
+
 mkdir -p /run/udev/rules.d/
 
 rm -f /run/udev/rules.d/50-testsuite.rules
