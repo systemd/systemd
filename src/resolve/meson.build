@@ -70,7 +70,6 @@ systemd_resolved_sources = files('''
         resolved-socket-graveyard.h
         resolved-varlink.c
         resolved-varlink.h
-        resolved.c
 '''.split())
 
 resolvectl_sources = files('''
@@ -200,6 +199,14 @@ tests += [
          [lib_openssl_or_gcrypt,
           libm]],
 
+        [files('test-resolved-stream.c')
+         + basic_dns_sources + systemd_resolved_sources,
+         [libshared],
+         [lib_openssl_or_gcrypt,
+          libm]
+         + systemd_resolved_dependencies,
+         resolve_includes],
+
         [files('test-dnssec.c'),
          [libsystemd_resolve_core,
           libshared],
@@ -229,3 +236,5 @@ fuzzers += [
          [lib_openssl_or_gcrypt,
           libm]],
 ]
+
+systemd_resolved_sources += files('resolved.c')
