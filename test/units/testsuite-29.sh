@@ -103,7 +103,8 @@ portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/mi
 
 # portablectl also works with directory paths rather than images
 
-mkdir /tmp/rootdir /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
+mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
+mount /usr/share/app0.raw /tmp/app0
 mount /usr/share/app1.raw /tmp/app1
 mount /usr/share/minimal_0.raw /tmp/rootdir
 
@@ -124,7 +125,16 @@ systemctl is-active app1.service
 portablectl detach --now --runtime overlay app1
 
 umount /tmp/overlay
+
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+
+systemctl is-active app0.service
+systemctl is-active app1.service
+
+portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+
 umount /tmp/rootdir
+umount /tmp/app0
 umount /tmp/app1
 
 echo OK >/testok
