@@ -10,7 +10,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 <!-- **NOTE:** Do not submit bug reports about anything but the two most recently released *major* systemd versions upstream! -->
 <!--           If there have been multiple stable releases for that major version, please consider updating to a recent one before reporting an issue. -->
 <!--           When using a distro package, please make sure that the version reported is meaningful for upstream. -->
-<!-- See https://github.com/systemd/systemd-stable/releases for the list of most recent releases. -->
+<!-- See https://github.com/systemd/systemd-stable/tags for the list of most recent releases. -->
 <!-- For older version please use distribution trackers (see https://systemd.io/CONTRIBUTING#filing-issues). -->
 
 **Used distribution**
