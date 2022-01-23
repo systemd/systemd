@@ -303,9 +303,6 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (p.ifindex < 0)
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
-        if (dns_name_is_empty(p.name))
-                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("name"));
-
         r = dns_name_is_valid(p.name);
         if (r < 0)
                 return r;
