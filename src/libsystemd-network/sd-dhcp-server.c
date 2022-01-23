@@ -724,6 +724,9 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
 
         req->message = message;
 
+        if (message->hlen > sizeof(message->chaddr))
+                return -EBADMSG;
+
         /* set client id based on MAC address if client did not send an explicit one */
         if (!req->client_id.data) {
                 uint8_t *data;
@@ -741,9 +744,6 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
                 req->client_id.length = message->hlen + 1;
                 req->client_id.data = data;
         }
-
-        if (message->hlen > sizeof(message->chaddr))
-                return -EBADMSG;
 
         if (message->hlen == 0 || memeqzero(message->chaddr, message->hlen)) {
                 /* See RFC2131 section 4.1.1.
