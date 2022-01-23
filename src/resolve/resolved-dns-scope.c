@@ -613,6 +613,10 @@ DnsScopeMatch dns_scope_good_domain(
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, false, false) & flags) == 0)
                 return DNS_SCOPE_NO;
 
+        /* Never resolve empty name. */
+        if (dns_name_is_empty(domain))
+                return DNS_SCOPE_NO;
+
         /* Never resolve any loopback hostname or IP address via DNS, LLMNR or mDNS. Instead, always rely on
          * synthesized RRs for these. */
         if (is_localhost(domain) ||
