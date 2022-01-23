@@ -18,5 +18,4 @@ for t in "${0%.sh}".*.sh; do
     echo "Running $t"; ./"$t"
 done
 
-touch /testok
-rm /failed
+echo "Test passed, but simulating fail to get journals"
