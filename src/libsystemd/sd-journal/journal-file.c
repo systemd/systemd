@@ -618,10 +618,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                le64toh(o->data.n_entries),
                                                offset);
 
-                if (le64toh(o->object.size) <= offsetof(DataObject, payload))
+                if (le64toh(o->object.size) <= offsetof(Object, data.payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad object size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(DataObject, payload),
+                                               offsetof(Object, data.payload),
                                                le64toh(o->object.size),
                                                offset);
 
@@ -640,10 +640,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 break;
 
         case OBJECT_FIELD:
-                if (le64toh(o->object.size) <= offsetof(FieldObject, payload))
+                if (le64toh(o->object.size) <= offsetof(Object, field.payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad field size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(FieldObject, payload),
+                                               offsetof(Object, field.payload),
                                                le64toh(o->object.size),
                                                offset);
 
@@ -660,18 +660,18 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(EntryObject, items) ||
-                    (sz - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
+                if (sz < offsetof(Object, entry.items) ||
+                    (sz - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(EntryObject, items),
+                                               offsetof(Object, entry.items),
                                                sz,
                                                offset);
 
-                if ((sz - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                if ((sz - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
-                                               (sz - offsetof(EntryObject, items)) / sizeof(EntryItem),
+                                               (sz - offsetof(Object, entry.items)) / sizeof(EntryItem),
                                                offset);
 
                 if (le64toh(o->entry.seqnum) <= 0)
@@ -700,9 +700,9 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(HashTableObject, items) ||
-                    (sz - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (sz - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
+                if (sz < offsetof(Object, hash_table.items) ||
+                    (sz - offsetof(Object, hash_table.items)) % sizeof(HashItem) != 0 ||
+                    (sz - offsetof(Object, hash_table.items)) / sizeof(HashItem) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid %s hash table size: %" PRIu64 ": %" PRIu64,
                                                o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
@@ -716,9 +716,9 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(EntryArrayObject, items) ||
-                    (sz - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (sz - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                if (sz < offsetof(Object, entry_array.items) ||
+                    (sz - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
+                    (sz - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
                                                sz,
