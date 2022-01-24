@@ -730,6 +730,7 @@ static int manager_setup_prefix(Manager *m) {
 
 static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
+        m->unit_withdrawal_map = hashmap_free(m->unit_withdrawal_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
         m->unit_path_cache = set_free(m->unit_path_cache);
         m->unit_cache_timestamp_hash = 0;
@@ -1705,7 +1706,7 @@ static void manager_preset_all(Manager *m) {
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
-        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0, NULL, NULL);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -1997,6 +1998,21 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         assert(name);
 
         return hashmap_get(m->units, name);
+}
+
+const char *manager_lookup_unit_label_path(Manager *m, const char *name) {
+        assert(m);
+        assert(name);
+
+        const char *path;
+
+        path = hashmap_get(m->unit_id_map, name);
+        /* Don't read the SELinux label of /dev/null, as that really makes no sense.
+         * Instead try withdrawal path */
+        if (!path || null_or_empty_path(path) > 0)
+                return hashmap_get(m->unit_withdrawal_map, name);
+
+        return path;
 }
 
 static int manager_dispatch_target_deps_queue(Manager *m) {
