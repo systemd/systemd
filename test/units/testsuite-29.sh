@@ -84,20 +84,28 @@ portablectl list | grep -q -F "No images."
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
 
 systemctl is-active app0.service
+status="$(portablectl is-attached --extension app0 minimal_0)"
+[[ "${status}" == "running-runtime" ]]
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
 systemctl is-active app0.service
+status="$(portablectl is-attached --extension app0 minimal_1)"
+[[ "${status}" == "running-runtime" ]]
 
 portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
 systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "running-runtime" ]]
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1 minimal_1)"
+[[ "${status}" == "running-runtime" ]]
 
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
