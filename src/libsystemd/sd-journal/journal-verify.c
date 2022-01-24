@@ -169,9 +169,9 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0) {
+                if (le64toh(o->object.size) - offsetof(Object, data.payload) <= 0) {
                         error(offset, "Bad object size (<= %zu): %"PRIu64,
-                              offsetof(DataObject, payload),
+                              offsetof(Object, data.payload),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
@@ -207,10 +207,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 uint64_t h1, h2;
                 int r;
 
-                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
+                if (le64toh(o->object.size) - offsetof(Object, field.payload) <= 0) {
                         error(offset,
                               "Bad field size (<= %zu): %"PRIu64,
-                              offsetof(FieldObject, payload),
+                              offsetof(Object, field.payload),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
@@ -239,18 +239,18 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         }
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0) {
                         error(offset,
                               "Bad entry size (<= %zu): %"PRIu64,
-                              offsetof(EntryObject, items),
+                              offsetof(Object, entry.items),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0) {
                         error(offset,
                               "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem));
+                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem));
                         return -EBADMSG;
                 }
 
@@ -290,8 +290,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
-                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, hash_table.items)) % sizeof(HashItem) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem) <= 0) {
                         error(offset,
                               "Invalid %s size: %"PRIu64,
                               journal_object_type_to_string(o->object.type),
@@ -334,8 +334,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
 
         case OBJECT_ENTRY_ARRAY:
-                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0) {
                         error(offset,
                               "Invalid object entry array size: %"PRIu64,
                               le64toh(o->object.size));
@@ -842,21 +842,21 @@ static int verify_hash_table(
                 return -EBADMSG;
         }
 
-        if (header_offset != p + offsetof(HashTableObject, items)) {
+        if (header_offset != p + offsetof(Object, hash_table.items)) {
                 error(p,
                       "Header offset for %s invalid (%" PRIu64 " != %" PRIu64 ")",
                       journal_object_type_to_string(o->object.type),
                       header_offset,
-                      p + offsetof(HashTableObject, items));
+                      p + offsetof(Object, hash_table.items));
                 return -EBADMSG;
         }
 
-        if (header_size != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+        if (header_size != le64toh(o->object.size) - offsetof(Object, hash_table.items)) {
                 error(p,
                       "Header size for %s invalid (%" PRIu64 " != %" PRIu64 ")",
                       journal_object_type_to_string(o->object.type),
                       header_size,
-                      le64toh(o->object.size) - offsetof(HashTableObject, items));
+                      le64toh(o->object.size) - offsetof(Object, hash_table.items));
                 return -EBADMSG;
         }
 
