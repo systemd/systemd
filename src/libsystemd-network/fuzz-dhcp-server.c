@@ -31,6 +31,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(duped = memdup(data, size));
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);
