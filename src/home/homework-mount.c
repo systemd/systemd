@@ -209,6 +209,12 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
         if (r < 0)
                 return log_oom();
 
+        /* Map HOME_UID_RANGE_MAX ids upwards of UID_NOBODY to let unprivileged
+         * users run containers and other shenanigans. */
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY + 1, UID_NOBODY + 1, HOME_UID_RANGE_MAX);
+        if (r < 0)
+                return log_oom();
+
         /* Leave everything else unmapped, starting from UID_NOBODY itself. Specifically, this means the
          * whole space outside of 16bit remains unmapped */
 
