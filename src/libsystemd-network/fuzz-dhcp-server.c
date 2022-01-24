@@ -21,11 +21,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = {.s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         static const uint8_t chaddr[] = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
+        _cleanup_free_ uint8_t *duped = NULL;
         uint8_t *client_id;
         DHCPLease *lease;
 
         if (size < sizeof(DHCPMessage))
                 return 0;
+
+        assert_se(duped = memdup(data, size));
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
@@ -51,7 +54,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease) >= 0);
         lease->server = server;
 
-        (void) dhcp_server_handle_message(server, (DHCPMessage*)data, size);
+        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size);
 
         return 0;
 }
