@@ -1662,6 +1662,7 @@ not_found:
 static int portable_get_state_internal(
                 sd_bus *bus,
                 const char *name_or_path,
+                char **extension_image_paths,
                 PortableFlags flags,
                 PortableState *ret,
                 sd_bus_error *error) {
@@ -1706,7 +1707,7 @@ static int portable_get_state_internal(
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, NULL, NULL);
+                r = test_chroot_dropin(d, where, de->d_name, name_or_path, extension_image_paths, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1739,6 +1740,7 @@ static int portable_get_state_internal(
 int portable_get_state(
                 sd_bus *bus,
                 const char *name_or_path,
+                char **extension_image_paths,
                 PortableFlags flags,
                 PortableState *ret,
                 sd_bus_error *error) {
@@ -1752,12 +1754,12 @@ int portable_get_state(
         /* We look for matching units twice: once in the regular directories, and once in the runtime directories — but
          * the latter only if we didn't find anything in the former. */
 
-        r = portable_get_state_internal(bus, name_or_path, flags & ~PORTABLE_RUNTIME, &state, error);
+        r = portable_get_state_internal(bus, name_or_path, extension_image_paths, flags & ~PORTABLE_RUNTIME, &state, error);
         if (r < 0)
                 return r;
 
         if (state == PORTABLE_DETACHED) {
-                r = portable_get_state_internal(bus, name_or_path, flags | PORTABLE_RUNTIME, &state, error);
+                r = portable_get_state_internal(bus, name_or_path, extension_image_paths, flags | PORTABLE_RUNTIME, &state, error);
                 if (r < 0)
                         return r;
         }

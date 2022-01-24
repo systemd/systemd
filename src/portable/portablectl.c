@@ -1034,11 +1034,11 @@ static int set_limit(int argc, char *argv[], void *userdata) {
 }
 
 static int is_image_attached(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
-        const char *state;
+        const char *state, *method;
         int r;
 
         r = determine_image(argv[1], true, &image);
@@ -1049,9 +1049,29 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_portable_mgr, "GetImageState", &error, &reply, "s", image);
+        method = strv_isempty(arg_extension_images) ? "GetImageState" : "GetImageStateWithExtensions";
+
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
         if (r < 0)
-                return log_error_errno(r, "Failed to get image state: %s", bus_error_message(&error, r));
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", image);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = attach_extensions_to_message(m, arg_extension_images);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(arg_extension_images)) {
+                r = sd_bus_message_append(m, "t", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &state);
         if (r < 0)
