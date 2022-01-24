@@ -2,12 +2,12 @@ systemd System and Service Manager
 
 CHANGES WITH 251:
         * Incompatibility and Regression note:
-          In v250, the feature that automatically configuring routes to
-          addresses specified in AllowedIPs= was added and enabled by default.
-          However, this feature causes network connectivity issues on many
-          existing setups. Hence, this is disabled by default since v250.3. The
-          feature can be still used by explicitly configuring RouteTable=
-          setting in .netdev files.
+          In v250, the feature that automatically configures routes to addresses
+          specified in AllowedIPs= was added and enabled by default. However,
+          this feature causes network connectivity issues on many existing
+          setups. Hence, this is disabled by default since v250.3. The feature
+          can still be used by explicitly configuring RouteTable= setting in
+          .netdev files.
 
 CHANGES WITH 250:
 
