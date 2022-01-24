@@ -70,7 +70,7 @@ int portable_extract(const char *image, char **matches, char **extension_image_p
 int portable_attach(sd_bus *bus, const char *name_or_path, char **matches, const char *profile, char **extension_images, PortableFlags flags, PortableChange **changes, size_t *n_changes, sd_bus_error *error);
 int portable_detach(sd_bus *bus, const char *name_or_path, char **extension_image_paths, PortableFlags flags, PortableChange **changes, size_t *n_changes, sd_bus_error *error);
 
-int portable_get_state(sd_bus *bus, const char *name_or_path, PortableFlags flags, PortableState *ret, sd_bus_error *error);
+int portable_get_state(sd_bus *bus, const char *name_or_path, char **extension_image_paths, PortableFlags flags, PortableState *ret, sd_bus_error *error);
 
 int portable_get_profiles(char ***ret);
 
