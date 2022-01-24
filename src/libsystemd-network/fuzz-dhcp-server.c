@@ -44,7 +44,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         lease->address = htobe32(UINT32_C(10) << 24 | UINT32_C(2));
         lease->gateway = htobe32(UINT32_C(10) << 24 | UINT32_C(1));
         lease->expiration = UINT64_MAX;
-        memcpy(lease->chaddr, chaddr, 16);
+        lease->htype = ARPHRD_ETHER;
+        lease->hlen = ETH_ALEN;
+        memcpy(lease->chaddr, chaddr, ETH_ALEN);
         assert_se(hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease) >= 0);
         assert_se(hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease) >= 0);
         lease->server = server;
