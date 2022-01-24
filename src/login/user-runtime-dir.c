@@ -80,7 +80,9 @@ static int user_mkdir_runtime_path(
                          uid, gid, runtime_dir_size, runtime_dir_inodes,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
-                (void) mkdir_label(runtime_path, 0700);
+                r = mkdir_label(runtime_path, 0700);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to create %s: %m", runtime_path);
 
                 r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
                 if (r < 0) {
