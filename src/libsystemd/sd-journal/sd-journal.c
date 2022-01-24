@@ -1218,6 +1218,12 @@ static bool file_type_wanted(int flags, const char *filename) {
         if (!endswith(filename, ".journal") && !endswith(filename, ".journal~"))
                 return false;
 
+        if (flags & SD_JOURNAL_CORRUPTED_ONLY && endswith(filename, ".journal"))
+                return false;
+
+        if (flags & SD_JOURNAL_NON_CORRUPTED_ONLY && endswith(filename, ".journal~"))
+                return false;
+
         /* no flags set → every type is OK */
         if (!(flags & (SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)))
                 return true;
