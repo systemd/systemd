@@ -169,6 +169,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 r = portable_get_state(
                                 sd_bus_message_get_bus(message),
                                 image->path,
+                                NULL,
                                 0,
                                 &state,
                                 &error_state);
@@ -225,6 +226,7 @@ static int method_get_image_metadata(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **extension_images = NULL;
         const char *name_or_path;
         PortableState state;
         int r;
@@ -235,9 +237,28 @@ static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
+        if (sd_bus_message_is_method_call(message, NULL, "GetImageStateWithExtensions")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+
+                /* No flags are supported by this method for now. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
+        }
+
         r = portable_get_state(
                         sd_bus_message_get_bus(message),
                         name_or_path,
+                        extension_images,
                         0,
                         &state,
                         error);
@@ -425,6 +446,13 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetImageState",
                                 SD_BUS_ARGS("s", image),
+                                SD_BUS_RESULT("s", state),
+                                method_get_image_state,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetImageStateWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "t", flags),
                                 SD_BUS_RESULT("s", state),
                                 method_get_image_state,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
