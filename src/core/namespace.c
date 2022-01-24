@@ -1682,7 +1682,14 @@ static size_t namespace_calculate_mounts(
                 ns_info->private_ipc; /* /dev/mqueue */
 }
 
-static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
+/* Walk all mount entries and dropping any unused mounts. This affects all
+ * mounts:
+ * - that are implicitly protected by a path that has been rendered inaccessible
+ * - whose immediate parent requests the same protection mode as the mount itself
+ * - that are outside of the relevant root directory
+ * - which are duplicates
+ */
+static void drop_unused_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
         assert(root_directory);
         assert(n_mounts);
         assert(mounts || *n_mounts == 0);
@@ -1788,7 +1795,7 @@ static int apply_mounts(
                 if (!again)
                         break;
 
-                normalize_mounts(root, mounts, n_mounts);
+                drop_unused_mounts(root, mounts, n_mounts);
         }
 
         /* Now that all filesystems have been set up, but before the
@@ -2263,14 +2270,19 @@ int setup_namespace(
                                 goto finish;
                 }
 
+                /* Note, if proc is mounted with subset=pid then neither of the
+                 * two paths will exist, i.e. they are implicitly protected by
+                 * the mount option. */
                 if (ns_info->protect_hostname) {
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/hostname",
                                 .mode = READONLY,
+                                .ignore = ignore_protect_proc,
                         };
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                                .ignore = ignore_protect_proc,
                         };
                 }
 
@@ -2351,7 +2363,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                normalize_mounts(root, mounts, &n_mounts);
+                drop_unused_mounts(root, mounts, &n_mounts);
         }
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
