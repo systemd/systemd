@@ -599,7 +599,7 @@ int udev_node_apply_permissions(
 
         const char *devnode, *subsystem, *id = NULL;
         bool apply_mode, apply_uid, apply_gid;
-        _cleanup_close_ int node_fd = -1;
+        _cleanup_close_ int node_fd = -1, label_fd = -1;
         struct stat stats;
         dev_t devnum;
         int r;
@@ -673,24 +673,27 @@ int udev_node_apply_permissions(
                                          gid_is_valid(gid) ? gid : stats.st_gid,
                                          mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
 
+                /* fsetxattr will not work when a fd is opened with O_PATH, so re-open with O_PATH excluded */
+                label_fd = fd_reopen(node_fd, O_RDWR|O_CLOEXEC);
+
                 /* apply SECLABEL{$module}=$label */
                 ORDERED_HASHMAP_FOREACH_KEY(label, name, seclabel_list) {
                         int q;
 
-                        if (streq(name, "selinux")) {
+                        if (streq(name, "selinux") && label_fd >= 0) {
                                 selinux = true;
 
-                                q = mac_selinux_apply_fd(node_fd, devnode, label);
+                                q = mac_selinux_apply_fd(label_fd, devnode, label);
                                 if (q < 0)
                                         log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
                                                               "SECLABEL: failed to set SELinux label '%s': %m", label);
                                 else
                                         log_device_debug(dev, "SECLABEL: set SELinux label '%s'", label);
 
-                        } else if (streq(name, "smack")) {
+                        } else if (streq(name, "smack") && label_fd >= 0) {
                                 smack = true;
 
-                                q = mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, label);
+                                q = mac_smack_apply_fd(label_fd, SMACK_ATTR_ACCESS, label);
                                 if (q < 0)
                                         log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
                                                               "SECLABEL: failed to set SMACK label '%s': %m", label);
@@ -702,10 +705,10 @@ int udev_node_apply_permissions(
                 }
 
                 /* set the defaults */
-                if (!selinux)
-                        (void) mac_selinux_fix_fd(node_fd, devnode, LABEL_IGNORE_ENOENT);
-                if (!smack)
-                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
+                if (!selinux && label_fd >= 0)
+                        (void) mac_selinux_fix_fd(label_fd, devnode, LABEL_IGNORE_ENOENT);
+                if (!smack && label_fd >= 0)
+                        (void) mac_smack_apply_fd(label_fd, SMACK_ATTR_ACCESS, NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */
