@@ -102,6 +102,10 @@ portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.ra
 
 systemctl is-active app1.service
 
+portablectl inspect --cat --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1 | grep -F "MARKER=2"
+portablectl inspect --cat --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1 | grep -F "PORTABLE_PREFIXES=app1"
+portablectl inspect --cat --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1 | grep -F "ExecStart=/opt/script1.sh"
+
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
