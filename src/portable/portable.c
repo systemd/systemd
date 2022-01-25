@@ -533,13 +533,14 @@ static int extract_image_and_extensions(
                 bool validate_sysext,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
+                OrderedHashmap **ret_extension_releases,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
                 sd_bus_error *error) {
 
         _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         Image *ext;
@@ -560,6 +561,12 @@ static int extract_image_and_extensions(
                 extension_images = ordered_hashmap_new(&image_hash_ops);
                 if (!extension_images)
                         return -ENOMEM;
+
+                if (ret_extension_releases) {
+                        extension_releases = ordered_hashmap_new(&portable_metadata_hash_ops);
+                        if (!extension_releases)
+                                return -ENOMEM;
+                }
 
                 STRV_FOREACH(p, extension_image_paths) {
                         _cleanup_(image_unrefp) Image *new = NULL;
@@ -600,6 +607,7 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_close_ int extension_release_fd = -1;
                 _cleanup_fclose_ FILE *f = NULL;
 
                 r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, matches, &extension_release_meta, &extra_unit_files, error);
@@ -610,10 +618,15 @@ static int extract_image_and_extensions(
                 if (r < 0)
                         return r;
 
-                if (!validate_sysext)
+                if (!validate_sysext && !ret_extension_releases)
                         continue;
 
-                r = take_fdopen_unlocked(&extension_release_meta->fd, "r", &f);
+                /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
+                extension_release_fd = fd_reopen(extension_release_meta->fd, O_CLOEXEC);
+                if (extension_release_fd < 0)
+                        return extension_release_fd;
+
+                r = take_fdopen_unlocked(&extension_release_fd, "r", &f);
                 if (r < 0)
                         return r;
 
@@ -621,15 +634,28 @@ static int extract_image_and_extensions(
                 if (r < 0)
                         return r;
 
-                r = extension_release_validate(ext->path, id, version_id, sysext_level, extension_release);
-                if (r == 0)
-                        return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", ext->path);
+                if (validate_sysext) {
+                        r = extension_release_validate(ext->path, id, version_id, sysext_level, extension_release);
+                        if (r == 0)
+                                return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", ext->path);
+                }
+
+                if (ret_extension_releases) {
+                        r = ordered_hashmap_put(extension_releases, ext->name, extension_release_meta);
+                        if (r < 0)
+                                return r;
+                        TAKE_PTR(extension_release_meta);
+                }
         }
 
-        *ret_image = TAKE_PTR(image);
-        *ret_extension_images = TAKE_PTR(extension_images);
+        if (ret_image)
+                *ret_image = TAKE_PTR(image);
+        if (ret_extension_images)
+                *ret_extension_images = TAKE_PTR(extension_images);
+        if (ret_extension_releases)
+                *ret_extension_releases = TAKE_PTR(extension_releases);
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
         if (ret_unit_files)
@@ -643,24 +669,29 @@ int portable_extract(
                 char **matches,
                 char **extension_image_paths,
                 PortableMetadata **ret_os_release,
+                OrderedHashmap **ret_extension_releases,
                 Hashmap **ret_unit_files,
                 sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
 
-        r = extract_image_and_extensions(name_or_path,
-                                         matches,
-                                         extension_image_paths,
-                                         /* validate_sysext= */ false,
-                                         &image,
-                                         &extension_images,
-                                         &os_release,
-                                         &unit_files,
-                                         error);
+        assert(name_or_path);
+
+        r = extract_image_and_extensions(
+                        name_or_path,
+                        matches,
+                        extension_image_paths,
+                        /* validate_sysext= */ false,
+                        &image,
+                        &extension_images,
+                        &extension_releases,
+                        &os_release,
+                        &unit_files,
+                        error);
         if (r < 0)
                 return r;
 
@@ -677,8 +708,12 @@ int portable_extract(
                                          isempty(extensions) ? "" : extensions);
         }
 
-        *ret_os_release = TAKE_PTR(os_release);
-        *ret_unit_files = TAKE_PTR(unit_files);
+        if (ret_os_release)
+                *ret_os_release = TAKE_PTR(os_release);
+        if (ret_extension_releases)
+                *ret_extension_releases = TAKE_PTR(extension_releases);
+        if (ret_unit_files)
+                *ret_unit_files = TAKE_PTR(unit_files);
 
         return 0;
 }
@@ -1225,15 +1260,17 @@ int portable_attach(
         PortableMetadata *item;
         int r;
 
-        r = extract_image_and_extensions(name_or_path,
-                                         matches,
-                                         extension_image_paths,
-                                         /* validate_sysext= */ true,
-                                         &image,
-                                         &extension_images,
-                                         /* os_release= */ NULL,
-                                         &unit_files,
-                                         error);
+        r = extract_image_and_extensions(
+                        name_or_path,
+                        matches,
+                        extension_image_paths,
+                        /* validate_sysext= */ true,
+                        &image,
+                        &extension_images,
+                        /* extension_releases= */ NULL,
+                        /* os_release= */ NULL,
+                        &unit_files,
+                        error);
         if (r < 0)
                 return r;
 

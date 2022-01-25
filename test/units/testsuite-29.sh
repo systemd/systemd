@@ -80,6 +80,9 @@ systemctl is-active app1.service
 portablectl "${ARGS[@]}"  reattach --now --runtime --extension ${app1} ${root} app1
 
 systemctl is-active app1.service
+portablectl inspect --cat --extension ${app1} ${root} app1 | grep -F "MARKER=1"
+portablectl inspect --cat --extension ${app1} ${root} app1 | grep -F "Extension Release: /usr/share/app1.raw"
+portablectl inspect --cat --extension ${app1} ${root} app1 | grep -F "ExecStart=/opt/script1.sh"
 
 portablectl detach --now --runtime --extension ${app1} ${root} app1
 
