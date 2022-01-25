@@ -512,6 +512,7 @@ static int extract_image_and_extensions(
                 bool validate_sysext,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
+                OrderedHashmap **ret_extension_releases,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
                 char ***ret_valid_prefixes,
@@ -519,7 +520,7 @@ static int extract_image_and_extensions(
 
         _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -539,6 +540,12 @@ static int extract_image_and_extensions(
                 extension_images = ordered_hashmap_new(&image_hash_ops);
                 if (!extension_images)
                         return -ENOMEM;
+
+                if (ret_extension_releases) {
+                        extension_releases = ordered_hashmap_new(&portable_metadata_hash_ops);
+                        if (!extension_releases)
+                                return -ENOMEM;
+                }
 
                 STRV_FOREACH(p, extension_image_paths) {
                         _cleanup_(image_unrefp) Image *new = NULL;
@@ -588,6 +595,7 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_close_ int extension_release_fd = -1;
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
@@ -599,10 +607,15 @@ static int extract_image_and_extensions(
                 if (r < 0)
                         return r;
 
-                if (!validate_sysext && !ret_valid_prefixes)
+                if (!validate_sysext && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
 
-                r = take_fdopen_unlocked(&extension_release_meta->fd, "r", &f);
+                /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
+                extension_release_fd = fd_reopen(extension_release_meta->fd, O_CLOEXEC);
+                if (extension_release_fd < 0)
+                        return extension_release_fd;
+
+                r = take_fdopen_unlocked(&extension_release_fd, "r", &f);
                 if (r < 0)
                         return r;
 
@@ -630,6 +643,13 @@ static int extract_image_and_extensions(
                         if (r < 0)
                                 return r;
                 }
+
+                if (ret_extension_releases) {
+                        r = ordered_hashmap_put(extension_releases, ext->name, extension_release_meta);
+                        if (r < 0)
+                                return r;
+                        TAKE_PTR(extension_release_meta);
+                }
         }
 
         strv_sort(valid_prefixes);
@@ -638,6 +658,8 @@ static int extract_image_and_extensions(
                 *ret_image = TAKE_PTR(image);
         if (ret_extension_images)
                 *ret_extension_images = TAKE_PTR(extension_images);
+        if (ret_extension_releases)
+                *ret_extension_releases = TAKE_PTR(extension_releases);
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
         if (ret_unit_files)
@@ -653,12 +675,13 @@ int portable_extract(
                 char **matches,
                 char **extension_image_paths,
                 PortableMetadata **ret_os_release,
+                OrderedHashmap **ret_extension_releases,
                 Hashmap **ret_unit_files,
                 char ***ret_valid_prefixes,
                 sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -673,6 +696,7 @@ int portable_extract(
                         /* validate_sysext= */ false,
                         &image,
                         &extension_images,
+                        &extension_releases,
                         &os_release,
                         &unit_files,
                         ret_valid_prefixes ? &valid_prefixes : NULL,
@@ -695,6 +719,8 @@ int portable_extract(
 
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
+        if (ret_extension_releases)
+                *ret_extension_releases = TAKE_PTR(extension_releases);
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
         if (ret_valid_prefixes)
@@ -1272,6 +1298,7 @@ int portable_attach(
                         /* validate_sysext= */ true,
                         &image,
                         &extension_images,
+                        /* extension_releases= */ NULL,
                         /* os_release= */ NULL,
                         &unit_files,
                         &valid_prefixes,
