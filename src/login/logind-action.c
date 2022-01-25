@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -11,29 +13,119 @@
 #include "logind-dbus.h"
 #include "logind-session-dbus.h"
 #include "process-util.h"
-#include "sleep-config.h"
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
 
-const char* manager_target_for_action(HandleAction handle) {
-        static const char * const target_table[_HANDLE_ACTION_MAX] = {
-                [HANDLE_POWEROFF] = SPECIAL_POWEROFF_TARGET,
-                [HANDLE_REBOOT] = SPECIAL_REBOOT_TARGET,
-                [HANDLE_HALT] = SPECIAL_HALT_TARGET,
-                [HANDLE_KEXEC] = SPECIAL_KEXEC_TARGET,
-                [HANDLE_SUSPEND] = SPECIAL_SUSPEND_TARGET,
-                [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
-                [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET,
-                [HANDLE_SUSPEND_THEN_HIBERNATE] = SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
-                [HANDLE_FACTORY_RESET] = SPECIAL_FACTORY_RESET_TARGET,
-        };
+static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
+        [HANDLE_POWEROFF] = {
+                SPECIAL_POWEROFF_TARGET,
+                INHIBIT_SHUTDOWN,
+                "org.freedesktop.login1.power-off",
+                "org.freedesktop.login1.power-off-multiple-sessions",
+                "org.freedesktop.login1.power-off-ignore-inhibit",
+                _SLEEP_OPERATION_INVALID,
+                SD_MESSAGE_SHUTDOWN_STR,
+                "System is powering down",
+                "power-off",
+                },
+        [HANDLE_REBOOT] = {
+                SPECIAL_REBOOT_TARGET,
+                INHIBIT_SHUTDOWN,
+                "org.freedesktop.login1.reboot",
+                "org.freedesktop.login1.reboot-multiple-sessions",
+                "org.freedesktop.login1.reboot-ignore-inhibit",
+                _SLEEP_OPERATION_INVALID,
+                SD_MESSAGE_SHUTDOWN_STR,
+                "System is rebooting",
+                "reboot",
+                },
+        [HANDLE_HALT]  = {
+                SPECIAL_HALT_TARGET,
+                INHIBIT_SHUTDOWN,
+                "org.freedesktop.login1.halt",
+                "org.freedesktop.login1.halt-multiple-sessions",
+                "org.freedesktop.login1.halt-ignore-inhibit",
+                _SLEEP_OPERATION_INVALID,
+                SD_MESSAGE_SHUTDOWN_STR,
+                "System is halting",
+                "halt",
+                },
+        [HANDLE_KEXEC]  = {
+                SPECIAL_KEXEC_TARGET,
+                INHIBIT_SHUTDOWN,
+                "org.freedesktop.login1.reboot",
+                "org.freedesktop.login1.reboot-multiple-sessions",
+                "org.freedesktop.login1.reboot-ignore-inhibit",
+                _SLEEP_OPERATION_INVALID,
+                SD_MESSAGE_SHUTDOWN_STR,
+                "System is rebooting with kexec",
+                "kexec",
+                },
+        [HANDLE_SUSPEND]  = {
+                SPECIAL_SUSPEND_TARGET,
+                INHIBIT_SLEEP,
+                "org.freedesktop.login1.suspend",
+                "org.freedesktop.login1.suspend-multiple-sessions",
+                "org.freedesktop.login1.suspend-ignore-inhibit",
+                SLEEP_SUSPEND,
+                },
+        [HANDLE_HIBERNATE]  = {
+                SPECIAL_HIBERNATE_TARGET,
+                INHIBIT_SLEEP,
+                "org.freedesktop.login1.hibernate",
+                "org.freedesktop.login1.hibernate-multiple-sessions",
+                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                SLEEP_HIBERNATE,
+                },
+        [HANDLE_HYBRID_SLEEP]  = {
+                SPECIAL_HYBRID_SLEEP_TARGET,
+                INHIBIT_SLEEP,
+                "org.freedesktop.login1.hibernate",
+                "org.freedesktop.login1.hibernate-multiple-sessions",
+                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                SLEEP_HYBRID_SLEEP,
+                },
+        [HANDLE_SUSPEND_THEN_HIBERNATE]  = {
+                SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
+                INHIBIT_SLEEP,
+                "org.freedesktop.login1.hibernate",
+                "org.freedesktop.login1.hibernate-multiple-sessions",
+                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                SLEEP_SUSPEND_THEN_HIBERNATE,
+                },
+        [HANDLE_FACTORY_RESET]  = {
+                SPECIAL_FACTORY_RESET_TARGET,
+                _INHIBIT_WHAT_INVALID,
+                NULL,
+                NULL,
+                NULL,
+                _SLEEP_OPERATION_INVALID,
+                SD_MESSAGE_FACTORY_RESET_STR,
+                "System is performing factory reset",
+                NULL
+                },
+};
 
+const char* manager_target_for_action(HandleAction handle) {
         assert(handle >= 0);
-        if (handle < (ssize_t) ELEMENTSOF(target_table))
-                return target_table[handle];
-        return NULL;
+        assert(handle < (ssize_t) ELEMENTSOF(action_table));
+
+        return action_table[handle].target;
+}
+
+const ActionTableItem* manager_item_for_handle(HandleAction handle) {
+        assert(handle >= 0);
+        assert(handle < (ssize_t) ELEMENTSOF(action_table));
+
+        return &action_table[handle];
+}
+
+HandleAction manager_handle_for_item(const ActionTableItem* a) {
+        if (a && a < action_table + ELEMENTSOF(action_table))
+                return a - action_table;
+        return _HANDLE_ACTION_INVALID;
 }
 
 int manager_handle_action(
@@ -59,7 +151,6 @@ int manager_handle_action(
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
         bool supported;
-        const char *target;
         int r;
 
         assert(m);
@@ -129,17 +220,13 @@ int manager_handle_action(
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                          "Requested %s operation not supported, ignoring.", handle_action_to_string(handle));
 
-        if (m->action_what > 0)
+        if (m->delayed_action)
                 return log_debug_errno(SYNTHETIC_ERRNO(EALREADY),
                                        "Action already in progress (%s), ignoring requested %s operation.",
-                                       inhibit_what_to_string(m->action_what),
+                                       inhibit_what_to_string(m->delayed_action->inhibit_what),
                                        handle_action_to_string(handle));
 
-        assert_se(target = manager_target_for_action(handle));
-
-        inhibit_operation = IN_SET(handle, HANDLE_SUSPEND, HANDLE_HIBERNATE,
-                                           HANDLE_HYBRID_SLEEP,
-                                           HANDLE_SUSPEND_THEN_HIBERNATE) ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
+        inhibit_operation = manager_item_for_handle(handle)->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
@@ -162,7 +249,7 @@ int manager_handle_action(
 
         log_info("%s", message_table[handle]);
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, target, inhibit_operation, &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, manager_item_for_handle(handle), &error);
         if (r < 0)
                 return log_error_errno(r, "Failed to execute %s operation: %s",
                                        handle_action_to_string(handle),
