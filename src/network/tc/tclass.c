@@ -8,6 +8,7 @@
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -94,6 +95,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
 
         tclass->network = network;
         tclass->section = TAKE_PTR(n);
+        tclass->source = NETWORK_CONFIG_SOURCE_STATIC;
 
         r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, tclass->section, tclass);
         if (r < 0)
@@ -182,6 +184,35 @@ static int tclass_add(Link *link, TClass *tclass) {
         return 0;
 }
 
+static int tclass_dup(const TClass *src, TClass **ret) {
+        _cleanup_(tclass_freep) TClass *dst = NULL;
+
+        assert(src);
+        assert(ret);
+
+        if (TCLASS_VTABLE(src))
+                dst = memdup(src, TCLASS_VTABLE(src)->object_size);
+        else
+                dst = newdup(TClass, src, 1);
+        if (!dst)
+                return -ENOMEM;
+
+        /* clear all pointers */
+        dst->network = NULL;
+        dst->section = NULL;
+        dst->link = NULL;
+        dst->tca_kind = NULL;
+
+        if (src->tca_kind) {
+                dst->tca_kind = strdup(src->tca_kind);
+                if (!dst->tca_kind)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(dst);
+        return 0;
+}
+
 static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
         _cleanup_free_ char *state = NULL;
 
@@ -235,6 +266,8 @@ int tclass_configure(Link *link, TClass *tclass) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
 
+        log_tclass_debug(tclass, link, "Configuring");
+
         r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWTCLASS,
                                                 link->ifindex, tclass->classid, tclass->parent);
         if (r < 0)
@@ -255,9 +288,50 @@ int tclass_configure(Link *link, TClass *tclass) {
                 return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
-        link->tc_messages++;
 
+        tclass_enter_configuring(tclass);
         return 0;
+}
+
+int tclass_is_ready_to_configure(Link *link, TClass *tclass) {
+        assert(link);
+        assert(tclass);
+
+        return true;
+}
+
+int link_request_tclass(Link *link, TClass *tclass) {
+        TClass *existing;
+        int r;
+
+        assert(link);
+        assert(tclass);
+
+        if (tclass_get(link, tclass, &existing) < 0) {
+                _cleanup_(tclass_freep) TClass *tmp = NULL;
+
+                r = tclass_dup(tclass, &tmp);
+                if (r < 0)
+                        return log_oom();
+
+                r = tclass_add(link, tmp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to store TClass: %m");
+
+                existing = TAKE_PTR(tmp);
+        } else
+                existing->source = tclass->source;
+
+        log_tclass_debug(existing, link, "Requesting");
+        r = link_queue_request(link, REQUEST_TYPE_TRAFFIC_CONTROL, TC(existing), false,
+                               &link->tc_messages, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request TClass: %m");
+        if (r == 0)
+                return 0;
+
+        tclass_enter_requesting(existing);
+        return 1;
 }
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {

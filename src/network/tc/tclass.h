@@ -65,6 +65,8 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
 void tclass_hash_func(const TClass *tclass, struct siphash *state);
 int tclass_compare_func(const TClass *a, const TClass *b);
 
+int link_request_tclass(Link *link, TClass *tclass);
+int tclass_is_ready_to_configure(Link *link, TClass *tclass);
 int tclass_configure(Link *link, TClass *tclass);
 int tclass_section_verify(TClass *tclass);
 

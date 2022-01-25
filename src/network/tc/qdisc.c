@@ -8,6 +8,7 @@
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "qdisc.h"
 #include "set.h"
@@ -123,6 +124,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
 
         qdisc->network = network;
         qdisc->section = TAKE_PTR(n);
+        qdisc->source = NETWORK_CONFIG_SOURCE_STATIC;
 
         r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, qdisc->section, TC(qdisc));
         if (r < 0)
@@ -211,6 +213,35 @@ static int qdisc_add(Link *link, QDisc *qdisc) {
         return 0;
 }
 
+static int qdisc_dup(const QDisc *src, QDisc **ret) {
+        _cleanup_(qdisc_freep) QDisc *dst = NULL;
+
+        assert(src);
+        assert(ret);
+
+        if (QDISC_VTABLE(src))
+                dst = memdup(src, QDISC_VTABLE(src)->object_size);
+        else
+                dst = newdup(QDisc, src, 1);
+        if (!dst)
+                return -ENOMEM;
+
+        /* clear all pointers */
+        dst->network = NULL;
+        dst->section = NULL;
+        dst->link = NULL;
+        dst->tca_kind = NULL;
+
+        if (src->tca_kind) {
+                dst->tca_kind = strdup(src->tca_kind);
+                if (!dst->tca_kind)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(dst);
+        return 0;
+}
+
 static void log_qdisc_debug(QDisc *qdisc, Link *link, const char *str) {
         _cleanup_free_ char *state = NULL;
 
@@ -264,6 +295,8 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
 
+        log_qdisc_debug(qdisc, link, "Configuring");
+
         r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWQDISC,
                                                 link->ifindex, qdisc->handle, qdisc->parent);
         if (r < 0)
@@ -284,9 +317,50 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                 return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
-        link->tc_messages++;
 
+        qdisc_enter_configuring(qdisc);
         return 0;
+}
+
+int qdisc_is_ready_to_configure(Link *link, QDisc *qdisc) {
+        assert(link);
+        assert(qdisc);
+
+        return true;
+}
+
+int link_request_qdisc(Link *link, QDisc *qdisc) {
+        QDisc *existing;
+        int r;
+
+        assert(link);
+        assert(qdisc);
+
+        if (qdisc_get(link, qdisc, &existing) < 0) {
+                _cleanup_(qdisc_freep) QDisc *tmp = NULL;
+
+                r = qdisc_dup(qdisc, &tmp);
+                if (r < 0)
+                        return log_oom();
+
+                r = qdisc_add(link, tmp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to store QDisc: %m");
+
+                existing = TAKE_PTR(tmp);
+        } else
+                existing->source = qdisc->source;
+
+        log_qdisc_debug(existing, link, "Requesting");
+        r = link_queue_request(link, REQUEST_TYPE_TRAFFIC_CONTROL, TC(existing), false,
+                               &link->tc_messages, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request QDisc: %m");
+        if (r == 0)
+                return 0;
+
+        qdisc_enter_requesting(existing);
+        return 1;
 }
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
