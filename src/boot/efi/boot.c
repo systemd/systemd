@@ -466,7 +466,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
           ps_bool(L"                   TPM: %s\n",      tpm_present());
             Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
-        Print(L"\n--- Press any key to continue. ---\n\n");
+        Print(L"\n─── Press any key to continue. ───\n\n");
         console_key_read(&key, UINT64_MAX);
 
         switch (config->timeout_sec_config) {
@@ -517,7 +517,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
             Print(L"console-mode (EFI var): %ld\n", config->console_mode_efivar);
 
-        Print(L"\n--- Press any key to continue. ---\n\n");
+        Print(L"\n─── Press any key to continue. ───\n\n");
         console_key_read(&key, UINT64_MAX);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
@@ -543,7 +543,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                     Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
 
-                Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+                Print(L"\n─── Press any key to continue, ESC or q to quit. ───\n\n");
                 console_key_read(&key, UINT64_MAX);
                 if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q') || key == KEYPRESS(0, 0, 'Q'))
                         break;
@@ -587,7 +587,7 @@ static BOOLEAN menu_run(
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
         _cleanup_(strv_freep) CHAR16 **lines = NULL;
-        _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
+        _cleanup_freepool_ CHAR16 *clearline = NULL, *separator = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
@@ -608,12 +608,11 @@ static BOOLEAN menu_run(
                 log_error_stall(L"Error switching console mode: %r", err);
         }
 
+        UINTN line_width = 0, entry_padding = 3;
         while (!exit) {
                 UINT64 key;
 
                 if (new_mode) {
-                        UINTN line_width = 0, entry_padding = 3;
-
                         console_query_mode(&x_max, &y_max);
 
                         /* account for padding+status */
@@ -632,6 +631,7 @@ static BOOLEAN menu_run(
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
+                        line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
                                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
@@ -644,10 +644,11 @@ static BOOLEAN menu_run(
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
+                        separator = mfree(separator);
 
                         /* menu entries title lines */
                         lines = xnew(CHAR16*, config->entry_count + 1);
@@ -671,9 +672,13 @@ static BOOLEAN menu_run(
                         lines[config->entry_count] = NULL;
 
                         clearline = xnew(CHAR16, x_max + 1);
-                        for (UINTN i = 0; i < x_max; i++)
+                        separator = xnew(CHAR16, x_max + 1);
+                        for (UINTN i = 0; i < x_max; i++) {
                                 clearline[i] = ' ';
+                                separator[i] = L'─';
+                        }
                         clearline[x_max] = 0;
+                        separator[x_max] = 0;
 
                         new_mode = FALSE;
                         clear = TRUE;
@@ -693,16 +698,16 @@ static BOOLEAN menu_run(
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 (CHAR16*) L"=>");
+                                                 (CHAR16*) L"►");
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if (idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"►");
                         if (idx_highlight == config->idx_default_efivar)
-                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"►");
                         highlight = FALSE;
                 }
 
@@ -713,18 +718,18 @@ static BOOLEAN menu_run(
 
                 /* print status at last line of screen */
                 if (status) {
-                        UINTN len;
-                        UINTN x;
-
-                        /* center line */
-                        len = StrLen(status);
-                        if (len < x_max)
-                                x = (x_max - len) / 2;
-                        else
-                                x = 0;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + (x_max - x));
+                        UINTN len = StrnLen(status, x_max);
+                        UINTN x = (x_max - len) / 2;
+                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
+
+                        len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
+                        x = (x_max - len) / 2;
+                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                } else {
+                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
+                        print_at(0, y_status, COLOR_NORMAL, clearline + 1);
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -745,11 +750,7 @@ static BOOLEAN menu_run(
                         timeout_remain = 0;
 
                 /* clear status after keystroke */
-                if (status) {
-                        FreePool(status);
-                        status = NULL;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1);
-                }
+                status = mfree(status);
 
                 idx_highlight_prev = idx_highlight;
 
