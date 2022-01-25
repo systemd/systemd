@@ -213,8 +213,8 @@ int start_special(int argc, char *argv[], void *userdata) {
                         r = logind_reboot(a);
                         if (r >= 0)
                                 return r;
-                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                                /* Requested operation is not supported or already in progress */
+                        if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                                /* Requested operation requires auth, is not supported or already in progress */
                                 return r;
 
                         /* On all other errors, try low-level operation. In order to minimize the difference
