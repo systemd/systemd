@@ -21,6 +21,83 @@ void traffic_control_free(TrafficControl *tc) {
         }
 }
 
+void traffic_control_hash_func(const TrafficControl *tc, struct siphash *state) {
+        assert(tc);
+        assert(state);
+
+        siphash24_compress(&tc->kind, sizeof(tc->kind), state);
+
+        switch (tc->kind) {
+        case TC_KIND_QDISC:
+                qdisc_hash_func(TC_TO_QDISC_CONST(tc), state);
+                break;
+        case TC_KIND_TCLASS:
+                tclass_hash_func(TC_TO_TCLASS_CONST(tc), state);
+                break;
+        default:
+                assert_not_reached();
+        }
+}
+
+int traffic_control_compare_func(const TrafficControl *a, const TrafficControl *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->kind, b->kind);
+        if (r != 0)
+                return r;
+
+        switch (a->kind) {
+        case TC_KIND_QDISC:
+                return qdisc_compare_func(TC_TO_QDISC_CONST(a), TC_TO_QDISC_CONST(b));
+        case TC_KIND_TCLASS:
+                return tclass_compare_func(TC_TO_TCLASS_CONST(a), TC_TO_TCLASS_CONST(b));
+        default:
+                assert_not_reached();
+        }
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        traffic_control_hash_ops,
+        TrafficControl,
+        traffic_control_hash_func,
+        traffic_control_compare_func,
+        traffic_control_free);
+
+int traffic_control_get(Link *link, const TrafficControl *in, TrafficControl **ret) {
+        TrafficControl *existing;
+
+        assert(link);
+        assert(in);
+
+        existing = set_get(link->traffic_control, in);
+        if (!existing)
+                return -ENOENT;
+
+        if (ret)
+                *ret = existing;
+        return 0;
+}
+
+int traffic_control_add(Link *link, TrafficControl *tc) {
+        int r;
+
+        assert(link);
+        assert(tc);
+
+        /* This must be called only from qdisc_add() or tclass_add(). */
+
+        r = set_ensure_put(&link->traffic_control, &traffic_control_hash_ops, tc);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EEXIST;
+
+        return 0;
+}
+
 static int traffic_control_configure(Link *link, TrafficControl *tc) {
         assert(link);
         assert(tc);
