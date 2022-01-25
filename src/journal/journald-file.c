@@ -32,7 +32,7 @@ static int journald_file_truncate(JournalFile *f) {
 
         f->header->arena_size = htole64(p - le64toh(f->header->header_size));
 
-        return 0;
+        return journal_file_fstat(f);
 }
 
 static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
