@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "macro.h"
+#include "networkd-queue.h"
 #include "qdisc.h"
 #include "tc.h"
 #include "tclass.h"
@@ -112,32 +113,85 @@ static int traffic_control_configure(Link *link, TrafficControl *tc) {
         }
 }
 
-int link_configure_traffic_control(Link *link) {
+static int link_request_traffic_control_one(Link *link, TrafficControl *tc) {
+        assert(link);
+        assert(tc);
+
+        switch (tc->kind) {
+        case TC_KIND_QDISC:
+                return link_request_qdisc(link, TC_TO_QDISC(tc));
+        case TC_KIND_TCLASS:
+                return link_request_tclass(link, TC_TO_TCLASS(tc));
+        default:
+                assert_not_reached();
+        }
+}
+
+int link_request_traffic_control(Link *link) {
         TrafficControl *tc;
         int r;
 
         assert(link);
         assert(link->network);
 
-        if (link->tc_messages != 0) {
-                log_link_debug(link, "Traffic control is configuring.");
-                return 0;
-        }
-
         link->tc_configured = false;
 
         ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
-                r = traffic_control_configure(link, tc);
+                r = link_request_traffic_control_one(link, tc);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not create send configuration message: %m");
+                        return r;
         }
 
-        if (link->tc_messages == 0)
+        if (link->tc_messages == 0) {
                 link->tc_configured = true;
-        else
-                log_link_debug(link, "Configuring traffic control");
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting traffic control");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
+}
+
+static int traffic_control_is_ready_to_configure(Link *link, TrafficControl *tc) {
+        assert(link);
+        assert(tc);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        switch(tc->kind) {
+        case TC_KIND_QDISC:
+                return qdisc_is_ready_to_configure(link, TC_TO_QDISC(tc));
+        case TC_KIND_TCLASS:
+                return tclass_is_ready_to_configure(link, TC_TO_TCLASS(tc));
+        default:
+                assert_not_reached();
+        }
+}
+
+int request_process_traffic_control(Request *req) {
+        TrafficControl *tc;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->traffic_control);
+        assert(req->type == REQUEST_TYPE_TRAFFIC_CONTROL);
+
+        link = ASSERT_PTR(req->link);
+        tc = ASSERT_PTR(req->traffic_control);
+
+        r = traffic_control_is_ready_to_configure(link, tc);
+        if (r <= 0) {
+                return r;
+        }
+
+        r = traffic_control_configure(link, tc);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact) {
