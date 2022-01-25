@@ -2828,19 +2828,16 @@ int journal_file_next_entry(
 
 int journal_file_next_entry_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
         uint64_t i, n, ofs;
-        Object *d;
         int r;
 
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         n = le64toh(READ_NOW(d->data.n_entries));
         if (n <= 0)
@@ -2865,19 +2862,14 @@ int journal_file_next_entry_for_data(
 
 int journal_file_move_to_entry_by_offset_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t p,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        int r;
-        Object *d;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,
@@ -2892,17 +2884,24 @@ int journal_file_move_to_entry_by_offset_for_data(
 
 int journal_file_move_to_entry_by_monotonic_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 sd_id128_t boot_id,
                 uint64_t monotonic,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *o, *d;
+        Object *o;
         int r;
-        uint64_t b, z;
+        uint64_t b, z, entry_offset, entry_array_offset, n_entries;
 
         assert(f);
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
+
+        /* Save all the required data before the data object gets invalidated. */
+        entry_offset = le64toh(READ_NOW(d->data.entry_offset));
+        entry_array_offset = le64toh(READ_NOW(d->data.entry_array_offset));
+        n_entries = le64toh(READ_NOW(d->data.n_entries));
 
         /* First, seek by time */
         r = find_data_object_by_boot_id(f, boot_id, &o, &b);
@@ -2925,27 +2924,23 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         /* And now, continue seeking until we find an entry that
          * exists in both bisection arrays */
 
+        r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
+        if (r < 0)
+                return r;
+
         for (;;) {
                 Object *qo;
                 uint64_t p, q;
 
-                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-                if (r < 0)
-                        return r;
-
                 r = generic_array_bisect_plus_one(f,
-                                                  le64toh(d->data.entry_offset),
-                                                  le64toh(d->data.entry_array_offset),
-                                                  le64toh(d->data.n_entries),
+                                                  entry_offset,
+                                                  entry_array_offset,
+                                                  n_entries,
                                                   z,
                                                   test_object_offset,
                                                   direction,
                                                   NULL, &p, NULL);
                 if (r <= 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
-                if (r < 0)
                         return r;
 
                 r = generic_array_bisect_plus_one(f,
@@ -2975,19 +2970,14 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
 int journal_file_move_to_entry_by_seqnum_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t seqnum,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *d;
-        int r;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3002,19 +2992,14 @@ int journal_file_move_to_entry_by_seqnum_for_data(
 
 int journal_file_move_to_entry_by_realtime_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t realtime,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *d;
-        int r;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,

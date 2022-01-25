@@ -501,7 +501,8 @@ static int next_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                uint64_t dp, hash;
+                Object *d;
+                uint64_t hash;
 
                 /* If the keyed hash logic is used, we need to calculate the hash fresh per file. Otherwise
                  * we can use what we pre-calculated. */
@@ -510,11 +511,11 @@ static int next_for_match(
                 else
                         hash = m->hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, NULL);
                 if (r <= 0)
                         return r;
 
-                return journal_file_move_to_entry_by_offset_for_data(f, dp, after_offset, direction, ret, offset);
+                return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, offset);
 
         } else if (m->type == MATCH_OR_TERM) {
                 Match *i;
@@ -597,6 +598,7 @@ static int find_location_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
+                Object *d;
                 uint64_t dp, hash;
 
                 if (JOURNAL_HEADER_KEYED_HASH(f->header))
@@ -604,27 +606,32 @@ static int find_location_for_match(
                 else
                         hash = m->hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, &dp);
                 if (r <= 0)
                         return r;
 
                 /* FIXME: missing: find by monotonic */
 
                 if (j->current_location.type == LOCATION_HEAD)
-                        return journal_file_next_entry_for_data(f, dp, DIRECTION_DOWN, ret, offset);
+                        return journal_file_next_entry_for_data(f, d, DIRECTION_DOWN, ret, offset);
                 if (j->current_location.type == LOCATION_TAIL)
-                        return journal_file_next_entry_for_data(f, dp, DIRECTION_UP, ret, offset);
+                        return journal_file_next_entry_for_data(f, d, DIRECTION_UP, ret, offset);
                 if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                        return journal_file_move_to_entry_by_seqnum_for_data(f, dp, j->current_location.seqnum, direction, ret, offset);
+                        return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
-                        r = journal_file_move_to_entry_by_monotonic_for_data(f, dp, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
+                        r = journal_file_move_to_entry_by_monotonic_for_data(f, d, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
                         if (r != -ENOENT)
+                                return r;
+
+                        /* The data object might have been invalidated. */
+                        r = journal_file_move_to_object(f, OBJECT_DATA, dp, &d);
+                        if (r < 0)
                                 return r;
                 }
                 if (j->current_location.realtime_set)
-                        return journal_file_move_to_entry_by_realtime_for_data(f, dp, j->current_location.realtime, direction, ret, offset);
+                        return journal_file_move_to_entry_by_realtime_for_data(f, d, j->current_location.realtime, direction, ret, offset);
 
-                return journal_file_next_entry_for_data(f, dp, direction, ret, offset);
+                return journal_file_next_entry_for_data(f, d, direction, ret, offset);
 
         } else if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
