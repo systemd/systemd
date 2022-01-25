@@ -37,8 +37,11 @@ typedef enum QDiscKind {
 typedef struct QDisc {
         TrafficControl meta;
 
-        ConfigSection *section;
+        Link *link;
         Network *network;
+        ConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         uint32_t handle;
         uint32_t parent;
@@ -73,11 +76,18 @@ extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
 /* For casting the various qdisc kinds into a qdisc */
 #define QDISC(q) (&(q)->meta)
 
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(QDisc, qdisc);
+
 QDisc* qdisc_free(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
+void qdisc_hash_func(const QDisc *qdic, struct siphash *state);
+int qdisc_compare_func(const QDisc *a, const QDisc *b);
+
 int qdisc_configure(Link *link, QDisc *qdisc);
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
+
+int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(QDisc, qdisc_free);
 

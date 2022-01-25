@@ -16,12 +16,18 @@ typedef struct TrafficControl {
 } TrafficControl;
 
 /* For casting a tc into the various tc kinds */
-#define DEFINE_TC_CAST(UPPERCASE, MixedCase)                           \
-        static inline MixedCase* TC_TO_##UPPERCASE(TrafficControl *tc) {                    \
-                if (_unlikely_(!tc || tc->kind != TC_KIND_##UPPERCASE))  \
-                        return NULL;                                      \
-                                                                          \
-                return (MixedCase*) tc;                                    \
+#define DEFINE_TC_CAST(UPPERCASE, MixedCase)                            \
+        static inline MixedCase* TC_TO_##UPPERCASE(TrafficControl *tc) { \
+                if (_unlikely_(!tc || tc->kind != TC_KIND_##UPPERCASE)) \
+                        return NULL;                                    \
+                                                                        \
+                return (MixedCase*) tc;                                 \
+        }                                                               \
+        static inline const MixedCase* TC_TO_##UPPERCASE##_CONST(const TrafficControl *tc) { \
+                if (_unlikely_(!tc || tc->kind != TC_KIND_##UPPERCASE)) \
+                        return NULL;                                    \
+                                                                        \
+                return (const MixedCase*) tc;                           \
         }
 
 /* For casting the various tc kinds into a tc */
@@ -30,3 +36,9 @@ typedef struct TrafficControl {
 void traffic_control_free(TrafficControl *tc);
 int link_configure_traffic_control(Link *link);
 void network_drop_invalid_traffic_control(Network *network);
+
+void traffic_control_hash_func(const TrafficControl *tc, struct siphash *state);
+int traffic_control_compare_func(const TrafficControl *a, const TrafficControl *b);
+
+int traffic_control_get(Link *link, const TrafficControl *in, TrafficControl **ret);
+int traffic_control_add(Link *link, TrafficControl *tc);
