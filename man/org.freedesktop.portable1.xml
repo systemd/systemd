@@ -193,7 +193,15 @@ node /org/freedesktop/portable1 {
       This method is a superset of <function>GetImageMetadata()</function> with the addition of
       a list of extensions as input parameter, which were overlaid on top of the main
       image via <function>AttachImageWithExtensions()</function>.
-      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+      The <varname>flag</varname> parameter can be used to request that, before the units, the path of
+      each extension and an array of bytes with the content of the respective extension-release file
+      are sent. One such structure will be sent for each extension named in the input arguments. The
+      flag value to enable this functionality is defined as follows:</para>
+
+      <programlisting>
+#define PORTABLE_INSPECT_EXTENSION_RELEASES  (UINT64_C(1) &lt;&lt; 1)
+      </programlisting>
+
 
       <para><function>GetImageState()</function> retrieves the image state as one of the following
       strings:
