@@ -50,7 +50,6 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
 
                 *qdisc = (QDisc) {
                         .meta.kind = TC_KIND_QDISC,
-                        .family = AF_UNSPEC,
                         .parent = TC_H_ROOT,
                         .kind = kind,
                 };
@@ -60,7 +59,6 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
                         return -ENOMEM;
 
                 qdisc->meta.kind = TC_KIND_QDISC,
-                qdisc->family = AF_UNSPEC;
                 qdisc->parent = TC_H_ROOT;
                 qdisc->kind = kind;
 
@@ -115,7 +113,6 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
                 return r;
 
         if (q) {
-                qdisc->family = q->family;
                 qdisc->handle = q->handle;
                 qdisc->parent = q->parent;
                 qdisc->tca_kind = TAKE_PTR(q->tca_kind);
@@ -182,7 +179,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
 
-        r = sd_rtnl_message_new_qdisc(link->manager->rtnl, &req, RTM_NEWQDISC, qdisc->family, link->ifindex);
+        r = sd_rtnl_message_new_qdisc(link->manager->rtnl, &req, RTM_NEWQDISC, AF_UNSPEC, link->ifindex);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
 

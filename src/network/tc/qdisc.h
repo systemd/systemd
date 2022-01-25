@@ -40,7 +40,6 @@ typedef struct QDisc {
         ConfigSection *section;
         Network *network;
 
-        int family;
         uint32_t handle;
         uint32_t parent;
 
