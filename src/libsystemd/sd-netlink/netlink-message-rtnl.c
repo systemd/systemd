@@ -1072,6 +1072,48 @@ int sd_rtnl_message_new_traffic_control(
         return 0;
 }
 
+int sd_rtnl_message_traffic_control_get_ifindex(sd_netlink_message *m, int *ret) {
+        struct tcmsg *tcm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        *ret = tcm->tcm_ifindex;
+
+        return 0;
+}
+
+int sd_rtnl_message_traffic_control_get_handle(sd_netlink_message *m, uint32_t *ret) {
+        struct tcmsg *tcm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        *ret = tcm->tcm_handle;
+
+        return 0;
+}
+
+int sd_rtnl_message_traffic_control_get_parent(sd_netlink_message *m, uint32_t *ret) {
+        struct tcmsg *tcm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        *ret = tcm->tcm_parent;
+
+        return 0;
+}
+
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex) {
         struct br_port_msg *bpm;
         int r;
