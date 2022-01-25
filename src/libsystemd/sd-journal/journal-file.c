@@ -1786,12 +1786,20 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         /* Link up the items */
         n = journal_file_entry_n_items(o);
         for (uint64_t i = 0; i < n; i++) {
-                r = journal_file_link_entry_item(f, o, offset, i);
-                if (r < 0)
-                        return r;
+                int k;
+
+                /* If we fail to link an entry item because we can't allocate a new entry array, don't fail
+                 * immediately but try to link the other entry items since it might still be possible to link
+                 * those if they don't require a new entry array to be allocated. */
+
+                k = journal_file_link_entry_item(f, o, offset, i);
+                if (k == -E2BIG)
+                        r = k;
+                else if (k < 0)
+                        return k;
         }
 
-        return 0;
+        return r;
 }
 
 static int journal_file_append_entry_internal(
