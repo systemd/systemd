@@ -429,6 +429,17 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
         }
 }
 
+static BOOLEAN unicode_supported(void) {
+        static INTN cache = -1;
+
+        if (cache < 0)
+                /* Basic unicode box drawing support is mandated by the spec, but it does
+                 * not hurt to make sure it works. */
+                cache = !EFI_ERROR(ST->ConOut->TestString(ST->ConOut, (CHAR16 *) L"─"));
+
+        return cache;
+}
+
 static void ps_string(const CHAR16 *fmt, const void *value) {
         assert(fmt);
         if (value)
@@ -444,7 +455,11 @@ static BOOLEAN ps_continue(void) {
         UINT64 key;
         EFI_STATUS err;
 
-        Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+        if (unicode_supported())
+                Print(L"\n─── Press any key to continue, ESC or q to quit. ───\n\n");
+        else
+                Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+
         err = console_key_read(&key, UINT64_MAX);
         return !EFI_ERROR(err) && !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
 }
@@ -600,7 +615,7 @@ static BOOLEAN menu_run(
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
         _cleanup_(strv_freep) CHAR16 **lines = NULL;
-        _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
+        _cleanup_freepool_ CHAR16 *clearline = NULL, *separator = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
@@ -621,12 +636,11 @@ static BOOLEAN menu_run(
                 log_error_stall(L"Error switching console mode: %r", err);
         }
 
+        UINTN line_width = 0, entry_padding = 3;
         while (!exit) {
                 UINT64 key;
 
                 if (new_mode) {
-                        UINTN line_width = 0, entry_padding = 3;
-
                         console_query_mode(&x_max, &y_max);
 
                         /* account for padding+status */
@@ -645,6 +659,7 @@ static BOOLEAN menu_run(
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
+                        line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
                                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
@@ -657,10 +672,11 @@ static BOOLEAN menu_run(
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
+                        separator = mfree(separator);
 
                         /* menu entries title lines */
                         lines = xnew(CHAR16*, config->entry_count + 1);
@@ -684,9 +700,13 @@ static BOOLEAN menu_run(
                         lines[config->entry_count] = NULL;
 
                         clearline = xnew(CHAR16, x_max + 1);
-                        for (UINTN i = 0; i < x_max; i++)
+                        separator = xnew(CHAR16, x_max + 1);
+                        for (UINTN i = 0; i < x_max; i++) {
                                 clearline[i] = ' ';
+                                separator[i] = unicode_supported() ? L'─' : L'-';
+                        }
                         clearline[x_max] = 0;
+                        separator[x_max] = 0;
 
                         new_mode = FALSE;
                         clear = TRUE;
@@ -706,16 +726,16 @@ static BOOLEAN menu_run(
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 (CHAR16*) L"=>");
+                                                 (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if (idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         if (idx_highlight == config->idx_default_efivar)
-                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         highlight = FALSE;
                 }
 
@@ -724,20 +744,24 @@ static BOOLEAN menu_run(
                         status = xpool_print(L"Boot in %u s.", timeout_remain);
                 }
 
-                /* print status at last line of screen */
                 if (status) {
-                        UINTN len;
-                        UINTN x;
-
-                        /* center line */
-                        len = StrLen(status);
-                        if (len < x_max)
-                                x = (x_max - len) / 2;
-                        else
-                                x = 0;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + (x_max - x));
+                        /* If we draw the last char of the last line, the screen will scroll and break our
+                         * input. Therefore, draw one less character then we could for the status message.
+                         * Note that the same does not apply for the separator line as it will never be drawn
+                         * on the last line. */
+                        UINTN len = StrnLen(status, x_max - 1);
+                        UINTN x = (x_max - len) / 2;
+                        status[len] = '\0';
+                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
+
+                        len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
+                        x = (x_max - len) / 2;
+                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                } else {
+                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
+                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -768,11 +792,7 @@ static BOOLEAN menu_run(
                 timeout_remain = 0;
 
                 /* clear status after keystroke */
-                if (status) {
-                        FreePool(status);
-                        status = NULL;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1);
-                }
+                status = mfree(status);
 
                 idx_highlight_prev = idx_highlight;
 
