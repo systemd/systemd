@@ -1117,7 +1117,7 @@ static int link_configure(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = link_configure_traffic_control(link);
+        r = link_request_traffic_control(link);
         if (r < 0)
                 return r;
 
