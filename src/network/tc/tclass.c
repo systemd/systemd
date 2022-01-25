@@ -145,11 +145,9 @@ int tclass_configure(Link *link, TClass *tclass) {
         if (r < 0)
                 return r;
 
-        if (tclass->classid != TC_H_UNSPEC) {
-                r = sd_rtnl_message_set_tclass_handle(req, tclass->classid);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_rtnl_message_set_tclass_handle(req, tclass->classid);
+        if (r < 0)
+                return r;
 
         r = sd_netlink_message_append_string(req, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
         if (r < 0)

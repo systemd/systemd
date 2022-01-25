@@ -187,11 +187,9 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         if (r < 0)
                 return r;
 
-        if (qdisc->handle != TC_H_UNSPEC) {
-                r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
+        if (r < 0)
+                return r;
 
         if (QDISC_VTABLE(qdisc)) {
                 if (QDISC_VTABLE(qdisc)->fill_tca_kind) {
@@ -290,11 +288,9 @@ int config_parse_qdisc_parent(
                 return 0;
         }
 
-        if (streq(rvalue, "root")) {
+        if (streq(rvalue, "root"))
                 qdisc->parent = TC_H_ROOT;
-                if (qdisc->handle == 0)
-                        qdisc->handle = TC_H_UNSPEC;
-        } else if (streq(rvalue, "clsact")) {
+        else if (streq(rvalue, "clsact")) {
                 qdisc->parent = TC_H_CLSACT;
                 qdisc->handle = TC_H_MAKE(TC_H_CLSACT, 0);
         } else if (streq(rvalue, "ingress")) {
