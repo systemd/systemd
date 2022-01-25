@@ -27,11 +27,10 @@ static int journald_file_truncate(JournalFile *f) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine end of tail object: %m");
 
-        /* arena_size can't exceed the file size, ensure it's updated before truncating */
-        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
-
         if (ftruncate(f->fd, p) < 0)
-                log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+                return log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+
+        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
 
         return 0;
 }
