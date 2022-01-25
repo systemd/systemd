@@ -2530,6 +2530,26 @@ _pure_ static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle
                 return TEST_RIGHT;
 }
 
+int journal_file_move_to_entry_by_offset(
+                JournalFile *f,
+                uint64_t p,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        assert(f);
+        assert(f->header);
+
+        return generic_array_bisect(
+                        f,
+                        le64toh(f->header->entry_array_offset),
+                        le64toh(f->header->n_entries),
+                        p,
+                        test_object_offset,
+                        direction,
+                        ret, ret_offset, NULL);
+}
+
 static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         uint64_t sq;
         Object *o;
