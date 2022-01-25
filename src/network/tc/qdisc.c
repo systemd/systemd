@@ -179,17 +179,10 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
 
-        r = sd_rtnl_message_new_qdisc(link->manager->rtnl, &req, RTM_NEWQDISC, AF_UNSPEC, link->ifindex);
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWQDISC,
+                                                link->ifindex, qdisc->handle, qdisc->parent);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
-
-        r = sd_rtnl_message_set_qdisc_parent(req, qdisc->parent);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
-        if (r < 0)
-                return r;
 
         if (QDISC_VTABLE(qdisc)) {
                 if (QDISC_VTABLE(qdisc)->fill_tca_kind) {
