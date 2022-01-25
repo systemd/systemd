@@ -204,6 +204,9 @@ int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, uint32_
 
 int sd_rtnl_message_new_traffic_control(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type,
                                         int ifindex, uint32_t handle, uint32_t parent);
+int sd_rtnl_message_traffic_control_get_ifindex(sd_netlink_message *m, int *ret);
+int sd_rtnl_message_traffic_control_get_handle(sd_netlink_message *m, uint32_t *ret);
+int sd_rtnl_message_traffic_control_get_parent(sd_netlink_message *m, uint32_t *ret);
 
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex);
 
