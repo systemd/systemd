@@ -1043,88 +1043,31 @@ int sd_rtnl_message_routing_policy_rule_get_fib_src_prefixlen(sd_netlink_message
         return 0;
 }
 
-int sd_rtnl_message_new_qdisc(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex) {
+int sd_rtnl_message_new_traffic_control(
+                sd_netlink *rtnl,
+                sd_netlink_message **ret,
+                uint16_t nlmsg_type,
+                int ifindex,
+                uint32_t handle,
+                uint32_t parent) {
+
         struct tcmsg *tcm;
         int r;
 
-        assert_return(rtnl_message_type_is_qdisc(nlmsg_type), -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_NEWQDISC)
+        if (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS))
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 
         tcm = NLMSG_DATA((*ret)->hdr);
-        tcm->tcm_family = tcm_family;
-        tcm->tcm_ifindex = tcm_ifindex;
-
-        return 0;
-}
-
-int sd_rtnl_message_set_qdisc_parent(sd_netlink_message *m, uint32_t parent) {
-        struct tcmsg *tcm;
-
-        assert_return(rtnl_message_type_is_qdisc(m->hdr->nlmsg_type), -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
-        tcm->tcm_parent = parent;
-
-        return 0;
-}
-
-int sd_rtnl_message_set_qdisc_handle(sd_netlink_message *m, uint32_t handle) {
-        struct tcmsg *tcm;
-
-        assert_return(rtnl_message_type_is_qdisc(m->hdr->nlmsg_type), -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
+        tcm->tcm_ifindex = ifindex;
         tcm->tcm_handle = handle;
-
-        return 0;
-}
-
-int sd_rtnl_message_new_tclass(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex) {
-        struct tcmsg *tcm;
-        int r;
-
-        assert_return(rtnl_message_type_is_tclass(nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        r = message_new(rtnl, ret, nlmsg_type);
-        if (r < 0)
-                return r;
-
-        if (nlmsg_type == RTM_NEWTCLASS)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
-
-        tcm = NLMSG_DATA((*ret)->hdr);
-        tcm->tcm_family = tcm_family;
-        tcm->tcm_ifindex = tcm_ifindex;
-
-        return 0;
-}
-
-int sd_rtnl_message_set_tclass_parent(sd_netlink_message *m, uint32_t parent) {
-        struct tcmsg *tcm;
-
-        assert_return(rtnl_message_type_is_tclass(m->hdr->nlmsg_type), -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
         tcm->tcm_parent = parent;
-
-        return 0;
-}
-
-int sd_rtnl_message_set_tclass_handle(sd_netlink_message *m, uint32_t handle) {
-        struct tcmsg *tcm;
-
-        assert_return(rtnl_message_type_is_tclass(m->hdr->nlmsg_type), -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
-        tcm->tcm_handle = handle;
 
         return 0;
 }

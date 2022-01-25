@@ -137,17 +137,10 @@ int tclass_configure(Link *link, TClass *tclass) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
 
-        r = sd_rtnl_message_new_tclass(link->manager->rtnl, &req, RTM_NEWTCLASS, AF_UNSPEC, link->ifindex);
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWTCLASS,
+                                                link->ifindex, tclass->classid, tclass->parent);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not create RTM_NEWTCLASS message: %m");
-
-        r = sd_rtnl_message_set_tclass_parent(req, tclass->parent);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_set_tclass_handle(req, tclass->classid);
-        if (r < 0)
-                return r;
 
         r = sd_netlink_message_append_string(req, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
         if (r < 0)

@@ -202,13 +202,8 @@ int sd_rtnl_message_routing_policy_rule_get_fib_type(sd_netlink_message *m, uint
 int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, uint32_t flags);
 int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, uint32_t *flags);
 
-int sd_rtnl_message_new_qdisc(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex);
-int sd_rtnl_message_set_qdisc_parent(sd_netlink_message *m, uint32_t parent);
-int sd_rtnl_message_set_qdisc_handle(sd_netlink_message *m, uint32_t handle);
-
-int sd_rtnl_message_new_tclass(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex);
-int sd_rtnl_message_set_tclass_parent(sd_netlink_message *m, uint32_t parent);
-int sd_rtnl_message_set_tclass_handle(sd_netlink_message *m, uint32_t handle);
+int sd_rtnl_message_new_traffic_control(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type,
+                                        int ifindex, uint32_t handle, uint32_t parent);
 
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex);
 
