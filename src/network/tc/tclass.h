@@ -19,13 +19,17 @@ typedef enum TClassKind {
 typedef struct TClass {
         TrafficControl meta;
 
-        ConfigSection *section;
+        Link *link;
         Network *network;
+        ConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         uint32_t classid;
         uint32_t parent;
 
         TClassKind kind;
+        char *tca_kind;
 } TClass;
 
 typedef struct TClassVTable {
@@ -53,11 +57,18 @@ extern const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX];
 /* For casting the various tclass kinds into a tclass */
 #define TCLASS(t) (&(t)->meta)
 
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
+
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
+void tclass_hash_func(const TClass *tclass, struct siphash *state);
+int tclass_compare_func(const TClass *a, const TClass *b);
+
 int tclass_configure(Link *link, TClass *tclass);
 int tclass_section_verify(TClass *tclass);
+
+int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_free);
 

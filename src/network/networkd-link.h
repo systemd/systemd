@@ -108,6 +108,7 @@ typedef struct Link {
         Set *neighbors;
         Set *routes;
         Set *nexthops;
+        Set *traffic_control;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
