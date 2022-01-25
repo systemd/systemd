@@ -136,3 +136,56 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
 
         return r;
 }
+
+bool journal_shall_try_append_again(JournalFile *f, int r) {
+        switch (r) {
+
+        case -E2BIG:           /* Hit configured limit          */
+        case -EFBIG:           /* Hit fs limit                  */
+        case -EDQUOT:          /* Quota limit hit               */
+        case -ENOSPC:          /* Disk full                     */
+                log_debug("%s: Allocation limit reached, rotating.", f->path);
+                return true;
+
+        case -EIO:             /* I/O error of some kind (mmap) */
+                log_warning("%s: IO error, rotating.", f->path);
+                return true;
+
+        case -EHOSTDOWN:       /* Other machine                 */
+                log_info("%s: Journal file from other machine, rotating.", f->path);
+                return true;
+
+        case -EBUSY:           /* Unclean shutdown              */
+                log_info("%s: Unclean shutdown, rotating.", f->path);
+                return true;
+
+        case -EPROTONOSUPPORT: /* Unsupported feature           */
+                log_info("%s: Unsupported feature, rotating.", f->path);
+                return true;
+
+        case -EBADMSG:         /* Corrupted                     */
+        case -ENODATA:         /* Truncated                     */
+        case -ESHUTDOWN:       /* Already archived              */
+                log_warning("%s: Journal file corrupted, rotating.", f->path);
+                return true;
+
+        case -EIDRM:           /* Journal file has been deleted */
+                log_warning("%s: Journal file has been deleted, rotating.", f->path);
+                return true;
+
+        case -ETXTBSY:         /* Journal file is from the future */
+                log_warning("%s: Journal file is from the future, rotating.", f->path);
+                return true;
+
+        case -EXDEV:
+                log_debug("%s: boot ID changed, rotating.", f->path);
+                return true;
+
+        case -EAFNOSUPPORT:
+                log_warning("%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
+                return false;
+
+        default:
+                return false;
+        }
+}
