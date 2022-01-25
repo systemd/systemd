@@ -3,6 +3,8 @@
 
 #include "networkd-link.h"
 
+typedef struct Request Request;
+
 typedef enum TrafficControlKind {
         TC_KIND_QDISC,
         TC_KIND_TCLASS,
@@ -34,7 +36,6 @@ typedef struct TrafficControl {
 #define TC(tc) (&(tc)->meta)
 
 void traffic_control_free(TrafficControl *tc);
-int link_configure_traffic_control(Link *link);
 void network_drop_invalid_traffic_control(Network *network);
 
 void traffic_control_hash_func(const TrafficControl *tc, struct siphash *state);
@@ -42,3 +43,6 @@ int traffic_control_compare_func(const TrafficControl *a, const TrafficControl *
 
 int traffic_control_get(Link *link, const TrafficControl *in, TrafficControl **ret);
 int traffic_control_add(Link *link, TrafficControl *tc);
+
+int link_request_traffic_control(Link *link);
+int request_process_traffic_control(Request *req);
