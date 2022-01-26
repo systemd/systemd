@@ -92,7 +92,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         if (r < 0)
                 return r;
 
-        existing = ordered_hashmap_get(network->tc_by_section, n);
+        existing = hashmap_get(network->tc_by_section, n);
         if (existing) {
                 if (existing->kind != TC_KIND_QDISC)
                         return -EINVAL;
@@ -126,7 +126,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         qdisc->section = TAKE_PTR(n);
         qdisc->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, qdisc->section, TC(qdisc));
+        r = hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, qdisc->section, TC(qdisc));
         if (r < 0)
                 return r;
 
@@ -139,7 +139,7 @@ QDisc* qdisc_free(QDisc *qdisc) {
                 return NULL;
 
         if (qdisc->network && qdisc->section)
-                ordered_hashmap_remove(qdisc->network->tc_by_section, qdisc->section);
+                hashmap_remove(qdisc->network->tc_by_section, qdisc->section);
 
         config_section_free(qdisc->section);
 

@@ -136,7 +136,7 @@ int link_request_traffic_control(Link *link) {
 
         link->tc_configured = false;
 
-        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
+        HASHMAP_FOREACH(tc, link->network->tc_by_section) {
                 r = link_request_traffic_control_one(link, tc);
                 if (r < 0)
                         return r;
@@ -213,7 +213,7 @@ void network_drop_invalid_traffic_control(Network *network) {
 
         assert(network);
 
-        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section)
+        HASHMAP_FOREACH(tc, network->tc_by_section)
                 if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
                         traffic_control_free(tc);
 }
