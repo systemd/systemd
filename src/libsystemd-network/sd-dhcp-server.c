@@ -1097,6 +1097,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
 
                         dhcp_lease_free(hashmap_get(server->bound_leases_by_client_id, &lease->client_id));
+
+                        lease->server = server; /* This must be set just before hashmap_put(). */
+
                         r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
@@ -1105,7 +1108,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
 
-                        lease->server = server;
                         TAKE_PTR(lease);
 
                         if (server->callback)
@@ -1146,6 +1148,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                         log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
 
+                        lease->server = server; /* This must be set just before hashmap_put(). */
+
                         r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
@@ -1153,7 +1157,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
 
-                        lease->server = server;
                         TAKE_PTR(new_lease);
 
                         if (server->callback)
@@ -1597,6 +1600,8 @@ int sd_dhcp_server_set_static_lease(
         if (!lease->client_id.data)
                 return -ENOMEM;
 
+        lease->server = server; /* This must be set just before hashmap_put(). */
+
         r = hashmap_ensure_put(&server->static_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
         if (r < 0)
                 return r;
@@ -1604,7 +1609,6 @@ int sd_dhcp_server_set_static_lease(
         if (r < 0)
                 return r;
 
-        lease->server = server;
         TAKE_PTR(lease);
         return 0;
 }
