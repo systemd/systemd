@@ -1798,7 +1798,7 @@ static bool service_shall_restart(Service *s, const char **reason) {
                 return false;
 
         case SERVICE_RESTART_ALWAYS:
-                return true;
+                return s->result != SERVICE_SKIP_CONDITION;
 
         case SERVICE_RESTART_ON_SUCCESS:
                 return s->result == SERVICE_SUCCESS;
