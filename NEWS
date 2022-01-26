@@ -9,6 +9,9 @@ CHANGES WITH 251:
           can still be used by explicitly configuring RouteTable= setting in
           .netdev files.
 
+        * Services with Restart=always and a failing ExecCondition= will no longer
+          be restarted, to bring ExecCondition= in line with Condition*= settings.
+
 CHANGES WITH 250:
 
         * Support for encrypted and authenticated credentials has been added.
