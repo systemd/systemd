@@ -794,9 +794,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
 
                 e = getenv("TERM");
                 if (e) {
-                        char *n;
+                        _cleanup_free_ char *n = NULL;
 
-                        n = strjoina("TERM=", e);
+                        n = strjoin("TERM=", e);
+                        if (!n)
+                                return log_oom();
+
                         r = sd_bus_message_append(m,
                                                   "(sv)",
                                                   "Environment", "as", 1, n);
