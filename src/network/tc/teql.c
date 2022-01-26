@@ -1,34 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "macro.h"
-#include "netlink-util.h"
 #include "parse-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "teql.h"
 
-static int trivial_link_equalizer_fill_tca_kind(Link *link, QDisc *qdisc, sd_netlink_message *req) {
-        char kind[STRLEN("teql") + DECIMAL_STR_MAX(unsigned)];
+static int trivial_link_equalizer_verify(QDisc *qdisc) {
+        _cleanup_free_ char *tca_kind = NULL;
         TrivialLinkEqualizer *teql;
-        int r;
 
-        assert(link);
-        assert(qdisc);
-        assert(req);
+        teql = TEQL(ASSERT_PTR(qdisc));
 
-        teql = TEQL(qdisc);
+        if (asprintf(&tca_kind, "teql%u", teql->id) < 0)
+                return log_oom();
 
-        xsprintf(kind, "teql%u", teql->id);
-        r = sd_netlink_message_append_string(req, TCA_KIND, kind);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
-
-        return 0;
+        return free_and_replace(qdisc->tca_kind, tca_kind);
 }
 
 const QDiscVTable teql_vtable = {
         .object_size = sizeof(TrivialLinkEqualizer),
-        .fill_tca_kind = trivial_link_equalizer_fill_tca_kind,
+        .verify = trivial_link_equalizer_verify,
 };
 
 int config_parse_trivial_link_equalizer_id(

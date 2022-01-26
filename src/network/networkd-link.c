@@ -269,12 +269,10 @@ static Link *link_free(Link *link) {
         link_dns_settings_clear(link);
 
         link->routes = set_free(link->routes);
-
         link->nexthops = set_free(link->nexthops);
-
         link->neighbors = set_free(link->neighbors);
-
         link->addresses = set_free(link->addresses);
+        link->traffic_control = set_free(link->traffic_control);
 
         link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
 
@@ -1120,7 +1118,7 @@ static int link_configure(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = link_configure_traffic_control(link);
+        r = link_request_traffic_control(link);
         if (r < 0)
                 return r;
 
