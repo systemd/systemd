@@ -277,7 +277,7 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
 1. Do not drop `CAP_MKNOD` from the container. `PrivateDevices=` is a commonly
    used service setting that provides a service with its own, private, minimal
    version of `/dev/`. To set this up systemd in the container needs this
-   capability. If you take away the capability than all services that set this
+   capability. If you take away the capability, then all services that set this
    flag will cease to work. Use `BPF_PROG_TYPE_CGROUP_DEVICE` BPF programs — on
    cgroupv2 — or the `devices` controller — on cgroupv1 — to restrict what
    device nodes the container can create instead of taking away the capability

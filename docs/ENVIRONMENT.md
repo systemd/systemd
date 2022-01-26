@@ -325,7 +325,7 @@ fuzzers:
 * `$SYSTEMD_FUZZ_RUNS` — The number of times execution should be repeated in
   manual invocations.
 
-Note that is may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
+Note that it may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
 is suppressed by default.
 
 `systemd-importd`:
