@@ -32,7 +32,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
         };
 
-        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links_by_index, NULL, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
@@ -53,7 +53,7 @@ Link *link_free(Link *l) {
                 return NULL;
 
         if (l->manager) {
-                hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
+                hashmap_remove(l->manager->links_by_index, INT_TO_PTR(l->ifindex));
                 hashmap_remove(l->manager->links_by_name, l->ifname);
         }
 
