@@ -34,7 +34,7 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
 
 Again, it is essential that you stop showing the password box/notification/status icon if the `ask.xxx` file is removed or when `NotAfter=` elapses (if it is set `!= 0`)!
 
-It may happen that multiple password entries are pending at the same time. Your agent needs to be able to deal with that. Depending on your environment you may either choose to show all outstanding passwords at the same time or instead only one and as soon as the user replied to that one go on to the next one.
+It may happen that multiple password entries are pending at the same time. Your agent needs to be able to deal with that. Depending on your environment you may either choose to show all outstanding passwords at the same time or instead only one and as soon as the user has replied to that one go on to the next one.
 
 You may test this all with manually invoking the "`systemd-ask-password`" tool on the command line. Pass `--no-tty` to ensure the password is asked via the agent system. Note that only privileged users may use this tool (after all this is intended purely for system-level passwords).
 
