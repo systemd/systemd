@@ -691,7 +691,7 @@ int udev_node_apply_permissions(
                         } else if (streq(name, "smack")) {
                                 smack = true;
 
-                                q = mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, label);
+                                q = mac_smack_apply(devnode, SMACK_ATTR_ACCESS, label);
                                 if (q < 0)
                                         log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
                                                               "SECLABEL: failed to set SMACK label '%s': %m", label);
