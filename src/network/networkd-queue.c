@@ -18,7 +18,7 @@
 #include "networkd-setlink.h"
 
 static void request_free_object(RequestType type, void *object) {
-        switch(type) {
+        switch (type) {
         case REQUEST_TYPE_ACTIVATE_LINK:
                 break;
         case REQUEST_TYPE_ADDRESS:
@@ -100,7 +100,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
         siphash24_compress(&req->type, sizeof(req->type), state);
 
-        switch(req->type) {
+        switch (req->type) {
         case REQUEST_TYPE_ACTIVATE_LINK:
                 break;
         case REQUEST_TYPE_ADDRESS:
@@ -140,10 +140,9 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_hash_func(req->rule, state);
                 break;
-        case REQUEST_TYPE_SET_LINK: {
+        case REQUEST_TYPE_SET_LINK:
                 trivial_hash_func(req->set_link_operation_ptr, state);
                 break;
-        }
         case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
@@ -296,7 +295,7 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                 Request *req;
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
-                        switch(req->type) {
+                        switch (req->type) {
                         case REQUEST_TYPE_ACTIVATE_LINK:
                                 r = request_process_activation(req);
                                 break;
