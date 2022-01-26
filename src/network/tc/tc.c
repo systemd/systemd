@@ -25,7 +25,7 @@ static int traffic_control_configure(Link *link, TrafficControl *tc) {
         assert(link);
         assert(tc);
 
-        switch(tc->kind) {
+        switch (tc->kind) {
         case TC_KIND_QDISC:
                 return qdisc_configure(link, TC_TO_QDISC(tc));
         case TC_KIND_TCLASS:
@@ -66,7 +66,7 @@ int link_configure_traffic_control(Link *link) {
 static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact) {
         assert(tc);
 
-        switch(tc->kind) {
+        switch (tc->kind) {
         case TC_KIND_QDISC:
                 return qdisc_section_verify(TC_TO_QDISC(tc), qdisc_has_root, qdisc_has_clsact);
         case TC_KIND_TCLASS:
