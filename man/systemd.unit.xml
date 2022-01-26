@@ -429,11 +429,11 @@
             <entry><filename>$XDG_RUNTIME_DIR/systemd/user.control</filename></entry>
           </row>
           <row>
-            <entry><filename>/run/systemd/transient</filename></entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/transient</filename></entry>
             <entry>Dynamic configuration for transient units</entry>
           </row>
           <row>
-            <entry><filename>/run/systemd/generator.early</filename></entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.early</filename></entry>
             <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
             ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
