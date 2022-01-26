@@ -45,13 +45,29 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
          *       0: operstate is not enough
          *       1: online */
 
-        if (!l->state)
+        if (!l->state || streq(l->state, "pending"))
+                /* If no state string exists, networkd (and possibly also udevd) has not detected the
+                 * interface yet, that mean we cannot determine whether the interface is managed or
+                 * not. Hence, return negative value.
+                 * If the link is in pending state, then udevd has not processed the link, and networkd
+                 * has not tried to find .network file for the link. Hence, return negative value. */
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
-                                            "link has not yet been processed by udev");
+                                            "link has not yet been processed by udev: setup state is %s.",
+                                            strna(l->state));
 
-        if (STR_IN_SET(l->state, "configuring", "pending"))
+        if (streq(l->state, "unmanaged")) {
+                /* If the link is in unmanaged state, then ignore the interface unless the interface is
+                 * specified in '--interface/-i' option. */
+                if (!hashmap_contains(m->command_line_interfaces_by_name, l->ifname)) {
+                        log_link_debug(l, "link is not managed by networkd (yet?).");
+                        return 0;
+                }
+
+        } else if (!streq(l->state, "configured"))
+                /* If the link is in non-configured state, return negative value here. */
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
-                                            "link is being processed by networkd");
+                                            "link is being processed by networkd: setup state is %s.",
+                                            l->state);
 
         if (s.min < 0)
                 s.min = m->required_operstate.min >= 0 ? m->required_operstate.min
@@ -94,6 +110,7 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                 }
         }
 
+        log_link_debug(l, "link is confiured by networkd and online.");
         return 1;
 }
 
