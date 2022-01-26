@@ -260,6 +260,44 @@ static void log_qdisc_debug(QDisc *qdisc, Link *link, const char *str) {
                        strna(qdisc_get_tca_kind(qdisc)));
 }
 
+int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **ret) {
+        TrafficControl *tc;
+
+        assert(link);
+
+        handle = TC_H_MAJ(handle);
+
+        SET_FOREACH(tc, link->traffic_control) {
+                QDisc *qdisc;
+
+                if (tc->kind != TC_KIND_QDISC)
+                        continue;
+
+                qdisc = TC_TO_QDISC(tc);
+
+                if (qdisc->handle != handle)
+                        continue;
+
+                if (qdisc->parent != parent)
+                        continue;
+
+                if (qdisc->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                        continue;
+
+                if (!qdisc_exists(qdisc))
+                        continue;
+
+                if (kind && !streq_ptr(kind, qdisc_get_tca_kind(qdisc)))
+                        continue;
+
+                if (ret)
+                        *ret = qdisc;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -326,7 +364,10 @@ int qdisc_is_ready_to_configure(Link *link, QDisc *qdisc) {
         assert(link);
         assert(qdisc);
 
-        return true;
+        if (IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT)) /* TC_H_CLSACT == TC_H_INGRESS */
+                return true;
+
+        return link_find_tclass(link, qdisc->parent, NULL) >= 0;
 }
 
 int link_request_qdisc(Link *link, QDisc *qdisc) {

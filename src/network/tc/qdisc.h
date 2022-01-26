@@ -83,6 +83,8 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
 void qdisc_hash_func(const QDisc *qdic, struct siphash *state);
 int qdisc_compare_func(const QDisc *a, const QDisc *b);
 
+int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
+
 int link_request_qdisc(Link *link, QDisc *qdisc);
 int qdisc_is_ready_to_configure(Link *link, QDisc *qdisc);
 int qdisc_configure(Link *link, QDisc *qdisc);

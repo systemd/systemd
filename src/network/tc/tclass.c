@@ -213,6 +213,36 @@ static int tclass_dup(const TClass *src, TClass **ret) {
         return 0;
 }
 
+int link_find_tclass(Link *link, uint32_t classid, TClass **ret) {
+        TrafficControl *tc;
+
+        assert(link);
+
+        SET_FOREACH(tc, link->traffic_control) {
+                TClass *tclass;
+
+                if (tc->kind != TC_KIND_TCLASS)
+                        continue;
+
+                tclass = TC_TO_TCLASS(tc);
+
+                if (tclass->classid != classid)
+                        continue;
+
+                if (tclass->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                        continue;
+
+                if (!tclass_exists(tclass))
+                        continue;
+
+                if (ret)
+                        *ret = tclass;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
         _cleanup_free_ char *state = NULL;
 
@@ -297,7 +327,7 @@ int tclass_is_ready_to_configure(Link *link, TClass *tclass) {
         assert(link);
         assert(tclass);
 
-        return true;
+        return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
 }
 
 int link_request_tclass(Link *link, TClass *tclass) {
