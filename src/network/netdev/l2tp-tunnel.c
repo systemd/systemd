@@ -117,7 +117,7 @@ static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union
         if (r < 0)
                 return r;
 
-        switch(t->l2tp_encap_type) {
+        switch (t->l2tp_encap_type) {
         case NETDEV_L2TP_ENCAPTYPE_IP:
                 encap_type = L2TP_ENCAPTYPE_IP;
                 break;
