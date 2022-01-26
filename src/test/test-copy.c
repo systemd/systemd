@@ -327,6 +327,7 @@ TEST_RET(copy_holes) {
         char fn[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
         char fn_copy[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
         struct stat stat;
+        off_t blksz;
         int r, fd, fd_copy;
 
         fd = mkostemp_safe(fn);
@@ -340,11 +341,18 @@ TEST_RET(copy_holes) {
                 return log_tests_skipped("Filesystem doesn't support hole punching");
         assert_se(r >= 0);
 
-        /* We need to make sure to create a large enough hole and to write some data after it, otherwise
-         * filesystems (btrfs) might silently discard it. */
+        assert_se(fstat(fd, &stat) >= 0);
+        blksz = stat.st_blksize;
+        char buf[blksz];
 
-        assert_se(lseek(fd, 1024 * 1024, SEEK_CUR) >= 0);
-        assert_se(write(fd, "abc", strlen("abc")) >= 0);
+        /* We need to make sure to create hole in multiples of the block size, otherwise filesystems (btrfs)
+         * might silently truncate/extend the holes. */
+
+        assert_se(lseek(fd, blksz, SEEK_CUR) >= 0);
+        assert_se(write(fd, buf, blksz) >= 0);
+        assert_se(lseek(fd, 0, SEEK_END) == 2 * blksz);
+        /* Only ftruncate() can create holes at the end of a file. */
+        assert_se(ftruncate(fd, 3 * blksz) >= 0);
         assert_se(lseek(fd, 0, SEEK_SET) >= 0);
 
         assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_HOLES) >= 0);
@@ -352,11 +360,13 @@ TEST_RET(copy_holes) {
         /* Test that the hole starts at the beginning of the file. */
         assert_se(lseek(fd_copy, 0, SEEK_HOLE) == 0);
         /* Test that the hole has the expected size. */
-        assert_se(lseek(fd_copy, 0, SEEK_DATA) == 1024 * 1024);
+        assert_se(lseek(fd_copy, 0, SEEK_DATA) == blksz);
+        assert_se(lseek(fd_copy, blksz, SEEK_HOLE) == 2 * blksz);
+        assert_se(lseek(fd_copy, 2 * blksz, SEEK_DATA) < 0 && errno == ENXIO);
 
         /* Test that the copied file has the correct size. */
         assert_se(fstat(fd_copy, &stat) >= 0);
-        assert_se(stat.st_size == 1024 * 1024 + strlen("abc"));
+        assert_se(stat.st_size == 3 * blksz);
 
         close(fd);
         close(fd_copy);

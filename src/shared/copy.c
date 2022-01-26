@@ -107,6 +107,45 @@ static int look_for_signals(CopyFlags copy_flags) {
         return 0;
 }
 
+static int create_hole(int fd, off_t size) {
+        off_t offset;
+        off_t end;
+
+        offset = lseek(fd, 0, SEEK_CUR);
+        if (offset < 0)
+                return -errno;
+
+        end = lseek(fd, 0, SEEK_END);
+        if (end < 0)
+                return -errno;
+
+        /* If we're not at the end of the target file, punch a hole in the existing space using fallocate(). */
+
+        if (offset < end && fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, MIN(size, end - offset)) < 0)
+                return -errno;
+
+        if (end - offset >= size) {
+                /* If we've created the full hole, set the file pointer to the end of the hole we created and exit. */
+                if (lseek(fd, offset + size, SEEK_SET) < 0)
+                        return -errno;
+
+                return 0;
+        }
+
+        /* If we haven't created the full hole, use ftruncate() to grow the file (and the hole) to the
+         * required size and move the file pointer to the end of the file. */
+
+        size -= end - offset;
+
+        if (ftruncate(fd, end + size) < 0)
+                return -errno;
+
+        if (lseek(fd, 0, SEEK_END) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int copy_bytes_full(
                 int fdf, int fdt,
                 uint64_t max_bytes,
@@ -220,8 +259,11 @@ int copy_bytes_full(
 
                         /* If we're in a hole (current offset is not a data offset), create a hole of the
                          * same size in the target file. */
-                        if (e > c && lseek(fdt, e - c, SEEK_CUR) < 0)
-                                return -errno;
+                        if (e > c) {
+                                r = create_hole(fdt, e - c);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         c = e; /* Set c to the start of the data segment. */
 
