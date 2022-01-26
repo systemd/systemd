@@ -32,7 +32,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
         };
 
-        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links_by_index, NULL, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
@@ -53,7 +53,7 @@ Link *link_free(Link *l) {
                 return NULL;
 
         if (l->manager) {
-                hashmap_remove(l->manager->links, INT_TO_PTR(l->ifindex));
+                hashmap_remove(l->manager->links_by_index, INT_TO_PTR(l->ifindex));
                 hashmap_remove(l->manager->links_by_name, l->ifname);
         }
 
@@ -107,50 +107,53 @@ int link_update_monitor(Link *l) {
         r = sd_network_link_get_required_for_online(l->ifindex);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
-                                           "ignoring: %m");
-        else
-                l->required_for_online = r > 0;
+                                           "assuming yes: %m");
+        l->required_for_online = r != 0;
 
         r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
         if (r < 0)
-                ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
-        else if (isempty(required_operstate))
-                l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
-        else {
+                ret = log_link_debug_errno(l, r, "Failed to get required operational state, assuming degraded:routable: %m");
+
+        l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
+        if (!isempty(required_operstate)) {
                 r = parse_operational_state_range(required_operstate, &l->required_operstate);
                 if (r < 0)
                         ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
-                                                   "Failed to parse required operational state, ignoring: %m");
+                                                   "Failed to parse required operational state, assuming degraded:routable: %m");
         }
 
+        l->operational_state = LINK_OPERSTATE_OFF;
         r = network_link_get_operational_state(l->ifindex, &l->operational_state);
-        if (r < 0)
-                ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
+        if (r < 0) {
+                ret = log_link_debug_errno(l, r, "Failed to get operational state, assuming off: %m");
+        }
 
         r = sd_network_link_get_required_family_for_online(l->ifindex, &required_family);
         if (r < 0)
-                ret = log_link_debug_errno(l, r, "Failed to get required address family, ignoring: %m");
-        else if (isempty(required_family))
-                l->required_family = ADDRESS_FAMILY_NO;
-        else {
+                ret = log_link_debug_errno(l, r, "Failed to get required address family, assuming any: %m");
+
+        l->required_family = ADDRESS_FAMILY_NO;
+        if (!isempty(required_family)) {
                 AddressFamily f;
 
                 f = link_required_address_family_from_string(required_family);
                 if (f < 0)
-                        ret = log_link_debug_errno(l, f, "Failed to parse required address family, ignoring: %m");
+                        ret = log_link_debug_errno(l, f, "Failed to parse required address family, assuming any: %m");
                 else
                         l->required_family = f;
         }
 
         r = sd_network_link_get_ipv4_address_state(l->ifindex, &ipv4_address_state);
         if (r < 0)
-                ret = log_link_debug_errno(l, r, "Failed to get IPv4 address state, ignoring: %m");
-        else {
+                ret = log_link_debug_errno(l, r, "Failed to get IPv4 address state, assuming off: %m");
+
+        l->ipv4_address_state = LINK_ADDRESS_STATE_OFF;
+        if (!isempty(ipv4_address_state)) {
                 LinkAddressState s;
 
                 s = link_address_state_from_string(ipv4_address_state);
                 if (s < 0)
-                        ret = log_link_debug_errno(l, s, "Failed to parse IPv4 address state, ignoring: %m");
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv4 address state, assuming off: %m");
                 else
                         l->ipv4_address_state = s;
         }
@@ -158,12 +161,14 @@ int link_update_monitor(Link *l) {
         r = sd_network_link_get_ipv6_address_state(l->ifindex, &ipv6_address_state);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get IPv6 address state, ignoring: %m");
-        else {
+
+        l->ipv6_address_state = LINK_ADDRESS_STATE_OFF;
+        if (!isempty(ipv6_address_state)) {
                 LinkAddressState s;
 
                 s = link_address_state_from_string(ipv6_address_state);
                 if (s < 0)
-                        ret = log_link_debug_errno(l, s, "Failed to parse IPv6 address state, ignoring: %m");
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv6 address state, assuming off: %m");
                 else
                         l->ipv6_address_state = s;
         }
@@ -171,8 +176,8 @@ int link_update_monitor(Link *l) {
         r = sd_network_link_get_setup_state(l->ifindex, &state);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
-        else
-                free_and_replace(l->state, state);
+
+        free_and_replace(l->state, state);
 
         return ret;
 }
