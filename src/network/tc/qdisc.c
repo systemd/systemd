@@ -269,24 +269,12 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
 
-        if (QDISC_VTABLE(qdisc)) {
-                if (QDISC_VTABLE(qdisc)->fill_tca_kind) {
-                        r = QDISC_VTABLE(qdisc)->fill_tca_kind(link, qdisc, req);
-                        if (r < 0)
-                                return r;
-                } else {
-                        r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
-                        if (r < 0)
-                                return r;
-                }
+        r = sd_netlink_message_append_string(req, TCA_KIND, qdisc_get_tca_kind(qdisc));
+        if (r < 0)
+                return r;
 
-                if (QDISC_VTABLE(qdisc)->fill_message) {
-                        r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
-                        if (r < 0)
-                                return r;
-                }
-        } else {
-                r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
+        if (QDISC_VTABLE(qdisc) && QDISC_VTABLE(qdisc)->fill_message) {
+                r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
                 if (r < 0)
                         return r;
         }
