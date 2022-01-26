@@ -977,7 +977,8 @@ int sd_netlink_add_match(
                 neighbor_groups[] = { RTNLGRP_NEIGH, },
                 nexthop_groups[]  = { RTNLGRP_NEXTHOP, },
                 route_groups[]    = { RTNLGRP_IPV4_ROUTE, RTNLGRP_IPV6_ROUTE, },
-                rule_groups[]     = { RTNLGRP_IPV4_RULE, RTNLGRP_IPV6_RULE, };
+                rule_groups[]     = { RTNLGRP_IPV4_RULE, RTNLGRP_IPV6_RULE, },
+                tc_groups[]       = { RTNLGRP_TC };
         const uint32_t *groups;
         size_t n_groups;
 
@@ -1015,6 +1016,13 @@ int sd_netlink_add_match(
                 case RTM_DELNEXTHOP:
                         groups = nexthop_groups;
                         n_groups = ELEMENTSOF(nexthop_groups);
+                        break;
+                case RTM_NEWQDISC:
+                case RTM_DELQDISC:
+                case RTM_NEWTCLASS:
+                case RTM_DELTCLASS:
+                        groups = tc_groups;
+                        n_groups = ELEMENTSOF(tc_groups);
                         break;
                 default:
                         return -EOPNOTSUPP;
