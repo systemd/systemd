@@ -256,17 +256,11 @@ else
 endif
 
 if efi_arch[1] == 'arm'
-        # On arm, the compiler (correctly) gives us the following warning:
-        #    libgcc.a(_popcountsi2.o) uses 4-byte wchar_t yet the output is to
-        #    use 2-byte wchar_t; use of wchar_t values across objects may fail
-        #
-        # libgcc does not have any occurrences of wchar_t in its sources or the
-        # documentation, so it's safe to assume that we can ignore this warning.
-        #
-        # So far, this only happens with arm due to popcount even though x86 and
-        # x86_64 also have to rely on libgcc's popcount. Therefore, we only disable
-        # this for arm to make sure this doesn't mask other issues in the future.
-        efi_ldflags += ['-Wl,--no-warn-mismatch']
+        # On arm, the compiler (correctly) warns about wchar_t size mismatch. This
+        # is because libgcc is not compiled with -fshort-wchar, but it does not
+        # have any occurrences of wchar_t in its sources or the documentation, so
+        # it is safe to assume that we can ignore this warning.
+        efi_ldflags += ['-Wl,--no-wchar-size-warning']
 endif
 
 if run_command('grep', '-q', '__CTOR_LIST__', efi_lds, check: false).returncode() == 0
