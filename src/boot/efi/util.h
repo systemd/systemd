@@ -24,13 +24,6 @@
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
-#define assert_alloc_ret(p)     \
-        ({                      \
-                void *_p = (p); \
-                assert(_p);     \
-                _p;             \
-        })
-
 #define xnew_alloc(type, n, alloc)                                           \
         ({                                                                   \
                 UINTN _alloc_size;                                           \
@@ -39,11 +32,11 @@
                 (type *) alloc(_alloc_size);                                 \
         })
 
-#define xallocate_pool(size) assert_alloc_ret(AllocatePool(size))
-#define xallocate_zero_pool(size) assert_alloc_ret(AllocateZeroPool(size))
-#define xreallocate_pool(p, old_size, new_size) assert_alloc_ret(ReallocatePool((p), (old_size), (new_size)))
-#define xpool_print(fmt, ...) ((CHAR16 *) assert_alloc_ret(PoolPrint((fmt), ##__VA_ARGS__)))
-#define xstrdup(str) ((CHAR16 *) assert_alloc_ret(StrDuplicate(str)))
+#define xallocate_pool(size) ASSERT_PTR(AllocatePool(size))
+#define xallocate_zero_pool(size) ASSERT_PTR(AllocateZeroPool(size))
+#define xreallocate_pool(p, old_size, new_size) ASSERT_PTR(ReallocatePool((p), (old_size), (new_size)))
+#define xpool_print(fmt, ...) ((CHAR16 *) ASSERT_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
+#define xstrdup(str) ((CHAR16 *) ASSERT_PTR(StrDuplicate(str)))
 #define xnew(type, n) xnew_alloc(type, (n), xallocate_pool)
 #define xnew0(type, n) xnew_alloc(type, (n), xallocate_zero_pool)
 

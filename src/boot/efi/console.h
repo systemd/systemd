@@ -29,3 +29,4 @@ enum {
 EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec);
 EFI_STATUS console_set_mode(INT64 mode);
 EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max);
+EFI_STATUS query_screen_resolution(UINT32 *ret_width, UINT32 *ret_height);
