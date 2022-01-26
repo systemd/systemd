@@ -21,14 +21,15 @@ static bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* if interfaces are given on the command line, ignore all others */
-        if (m->interfaces && !hashmap_contains(m->interfaces, link->ifname))
+        if (m->command_line_interfaces_by_name &&
+            !hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
                 return true;
 
         if (!link->required_for_online)
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignore, link->ifname);
+        return strv_fnmatch(m->ignored_interfaces, link->ifname);
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
@@ -99,14 +100,14 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
 bool manager_configured(Manager *m) {
         bool one_ready = false;
         const char *ifname;
-        void *p;
         Link *l;
         int r;
 
-        if (!hashmap_isempty(m->interfaces)) {
+        if (!hashmap_isempty(m->command_line_interfaces_by_name)) {
+                LinkOperationalStateRange *range;
+
                 /* wait for all the links given on the command line to appear */
-                HASHMAP_FOREACH_KEY(p, ifname, m->interfaces) {
-                        LinkOperationalStateRange *range = p;
+                HASHMAP_FOREACH_KEY(range, ifname, m->command_line_interfaces_by_name) {
 
                         l = hashmap_get(m->links_by_name, ifname);
                         if (!l && range->min == LINK_OPERSTATE_MISSING) {
@@ -137,7 +138,7 @@ bool manager_configured(Manager *m) {
 
         /* wait for all links networkd manages to be in admin state 'configured'
          * and at least one link to gain a carrier */
-        HASHMAP_FOREACH(l, m->links) {
+        HASHMAP_FOREACH(l, m->links_by_index) {
                 if (manager_ignore_link(m, l)) {
                         log_link_debug(l, "link is ignored");
                         continue;
@@ -189,7 +190,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 return 0;
         }
 
-        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        l = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
 
         switch (type) {
 
@@ -292,7 +293,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         sd_network_monitor_flush(m->network_monitor);
 
-        HASHMAP_FOREACH(l, m->links) {
+        HASHMAP_FOREACH(l, m->links_by_index) {
                 r = link_update_monitor(l);
                 if (r < 0 && r != -ENODATA)
                         log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");
@@ -329,10 +330,14 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
+int manager_new(Manager **ret,
+                Hashmap *command_line_interfaces_by_name,
+                char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
                 AddressFamily required_family,
-                bool any, usec_t timeout) {
+                bool any,
+                usec_t timeout) {
+
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -343,8 +348,8 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 return -ENOMEM;
 
         *m = (Manager) {
-                .interfaces = interfaces,
-                .ignore = ignore,
+                .command_line_interfaces_by_name = command_line_interfaces_by_name,
+                .ignored_interfaces = ignored_interfaces,
                 .required_operstate = required_operstate,
                 .required_family = required_family,
                 .any = any,
@@ -382,7 +387,7 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        hashmap_free_with_destructor(m->links, link_free);
+        hashmap_free_with_destructor(m->links_by_index, link_free);
         hashmap_free(m->links_by_name);
 
         sd_event_source_unref(m->network_monitor_event_source);
