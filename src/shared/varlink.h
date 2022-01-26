@@ -92,6 +92,7 @@ int varlink_invokeb(Varlink *v, const char *method, ...);
 /* Enqueue method call, expect a reply now, and possibly more later, which are all delivered to the reply callback */
 int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters);
 int varlink_observeb(Varlink *v, const char *method, ...);
+int varlink_observe_complete(Varlink *v);
 
 /* Enqueue a final reply */
 int varlink_reply(Varlink *v, JsonVariant *parameters);

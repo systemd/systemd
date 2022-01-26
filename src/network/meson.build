@@ -139,6 +139,8 @@ sources = files('''
         networkd-sysctl.h
         networkd-util.c
         networkd-util.h
+        networkd-varlink.c
+        networkd-varlink.h
         networkd-wifi.c
         networkd-wifi.h
         tc/cake.c
