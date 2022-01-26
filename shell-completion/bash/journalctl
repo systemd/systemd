@@ -50,7 +50,7 @@ _journalctl() {
                       --root --case-sensitive'
         [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                       --after-cursor --cursor-file --verify-key -g --grep
-                      --vacuum-size --vacuum-time --vacuum-files --output-fields'
+                      --vacuum-size --vacuum-time --vacuum-files --vacuum-corrupted --output-fields'
     )
 
     # Use the default completion for shell redirect operators

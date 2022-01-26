@@ -129,6 +129,7 @@ static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
+static const char *arg_vacuum_corrupted = NULL;
 static char **arg_output_fields = NULL;
 #if HAVE_PCRE2
 static const char *arg_pattern = NULL;
@@ -391,6 +392,7 @@ static int help(void) {
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
                "     --vacuum-files=INT      Leave only the specified number of journal files\n"
                "     --vacuum-time=TIME      Remove journal files older than specified time\n"
+               "     --vacuum-corrupted=MODE Do not remove / only remove corrupted journal files\n"
                "     --verify                Verify journal file consistency\n"
                "     --sync                  Synchronize unwritten journal messages to disk\n"
                "     --relinquish-var        Stop logging to disk, log to temporary file system\n"
@@ -453,6 +455,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
+                ARG_VACUUM_CORRUPTED,
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
@@ -520,6 +523,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
                 { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
+                { "vacuum-corrupted",     required_argument, NULL, ARG_VACUUM_CORRUPTED     },
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
@@ -787,6 +791,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse vacuum time: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
+                        break;
+
+                case ARG_VACUUM_CORRUPTED:
+                        arg_vacuum_corrupted = optarg;
                         break;
 
 #if HAVE_GCRYPT
@@ -2368,7 +2376,7 @@ int main(int argc, char *argv[]) {
                 HASHMAP_FOREACH(d, j->directories_by_path) {
                         int q;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, arg_vacuum_corrupted, NULL, !arg_quiet);
                         if (q < 0)
                                 r = log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                 }

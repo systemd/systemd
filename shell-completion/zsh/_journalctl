@@ -63,6 +63,13 @@ _journalctl_facilities() {
   _describe 'possible values' _journalctl_facilities
 }
 
+(( $+functions[_journalctl_vacuum_corrupted] )) ||
+_journalctl_vacuum_corrupted() {
+  local -a _journalctl_vacuum_corrupted
+  _journalctl_vacuum_corrupted=(only no)
+  _describe 'possible values' _journalctl_vacuum_corrupted
+}
+
 # Build arguments for "journalctl" to be used in completion.
 # Use both --user and --system modes, they are not exclusive.
 local -a _modes; _modes=(--user --system)
@@ -139,6 +146,7 @@ _arguments -s \
     '--vacuum-files=[Leave only the specified number of journal files]:integer' \
     '--vacuum-size=[Reduce disk usage below specified size]:bytes' \
     '--vacuum-time=[Remove journal files older than specified time]:time' \
+    '--vacuum-corrupted=[Vacuuming mode for corrupted journal files]:mode:_journalctl_vacuum_corrupted' \
     '--verify-key=[Specify FSS verification key]:FSS key' \
     '--verify[Verify journal file consistency]' \
     '*::default: _journalctl_none'

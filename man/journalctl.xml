@@ -811,6 +811,8 @@
         <term><option>--vacuum-size=</option></term>
         <term><option>--vacuum-time=</option></term>
         <term><option>--vacuum-files=</option></term>
+        <term><option>--vacuum-corrupted=<constant>no</constant>|<constant>only</constant></option></term>
+
 
         <listitem><para>Removes the oldest archived journal files until the disk space they use falls below the
         specified size (specified with the usual <literal>K</literal>, <literal>M</literal>, <literal>G</literal> and
@@ -833,7 +835,18 @@
         active files are rotated first, and the requested vacuuming operation is executed right after. The rotation has
         the effect that all currently active files are archived (and potentially new, empty journal files opened as
         replacement), and hence the vacuuming operation has the greatest effect as it can take all log data written so
-        far into account.</para></listitem>
+        far into account.</para>
+
+        <para>When using any of <option>--vacuum-size=</option>, <option>--vacuum-time=</option> and
+        <option>--vacuum-files=</option>, the
+        <option>--vacuum-corrupted=<constant>no</constant>|<constant>only</constant></option> option can be used to
+        limit the vacuuming operation to journal files with the <literal>.journal</literal> or
+        <literal>.journal~</literal> suffix, respectively. Other values (e.g.
+        <option>--vacuum-corrupted=<constant>yes</constant></option>) are ignored and <command>journalctl</command>
+        will process files with both <literal>.journal</literal> and <literal>.journal~</literal> suffixes, as is
+        usual. Using <option>--vacuum-corrupted=<constant>no</constant>|<constant>only</constant></option> without
+        any of <option>--vacuum-size=</option>, <option>--vacuum-time=</option> or
+        l<option>--vacuum-files=</option> has no effect.</para></listitem>
       </varlistentry>
 
       <varlistentry>
