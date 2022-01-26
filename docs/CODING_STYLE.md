@@ -358,7 +358,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - For every function you add, think about whether it is a "logging" function or
   a "non-logging" function. "Logging" functions do (non-debug) logging on their
-  own, "non-logging" function never log on their own (except at debug level)
+  own, "non-logging" functions never log on their own (except at debug level)
   and expect their callers to log. All functions in "library" code, i.e. in
   `src/shared/` and suchlike must be "non-logging". Every time a "logging"
   function calls a "non-logging" function, it should log about the resulting

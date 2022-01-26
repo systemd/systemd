@@ -12,7 +12,7 @@ The Linux initrd mechanism (short for "initial RAM disk") refers to a small
 file system archive that is unpacked by the kernel and contains the first
 userspace code that runs. It typically finds and transitions into the actual
 root file system to use. systemd supports both initrd and initrd-less boots. If
-an initrd is used it is a good idea to pass a few bits of runtime information
+an initrd is used, it is a good idea to pass a few bits of runtime information
 from the initrd to systemd in order to avoid duplicate work and to provide
 performance data to the administrator. In this page we attempt to roughly
 describe the interfaces that exist between the initrd and systemd. These

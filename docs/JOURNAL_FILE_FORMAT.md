@@ -297,7 +297,7 @@ STATE_ARCHIVED. If a writer is asked to write to a file that is not in
 STATE_OFFLINE it should immediately rotate the file and start a new one,
 without changing the file.
 
-After and before the state field is changed `fdatasync()` should be executed on
+After and before the state field is changed, `fdatasync()` should be executed on
 the file to ensure the dirty state hits disk.
 
 

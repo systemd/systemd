@@ -356,7 +356,7 @@ but of course that's between you and those other tenants, and systemd won't
 care. Replicating the cgroup hierarchies in those unsupported controllers would
 mean replicating the full cgroup paths in them, and hence the prefixing
 `.slice` components too, otherwise the hierarchies will start being orthogonal
-after all, and that's not really desirable. On more thing: systemd will clean
+after all, and that's not really desirable. One more thing: systemd will clean
 up after you in the hierarchies it manages: if your daemon goes down, its
 cgroups will be removed too. You basically get the guarantee that you start
 with a pristine cgroup sub-tree for your service or scope whenever it is
