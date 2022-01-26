@@ -73,7 +73,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         if (r < 0)
                 return r;
 
-        existing = ordered_hashmap_get(network->tc_by_section, n);
+        existing = hashmap_get(network->tc_by_section, n);
         if (existing) {
                 TClass *t;
 
@@ -97,7 +97,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         tclass->section = TAKE_PTR(n);
         tclass->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, tclass->section, tclass);
+        r = hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, tclass->section, tclass);
         if (r < 0)
                 return r;
 
@@ -110,7 +110,7 @@ TClass* tclass_free(TClass *tclass) {
                 return NULL;
 
         if (tclass->network && tclass->section)
-                ordered_hashmap_remove(tclass->network->tc_by_section, tclass->section);
+                hashmap_remove(tclass->network->tc_by_section, tclass->section);
 
         config_section_free(tclass->section);
 
