@@ -30,19 +30,10 @@ static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
                 return NULL;
 
         if (lease->server) {
-                DHCPLease *e;
-
-                e = hashmap_get(lease->server->bound_leases_by_client_id, &lease->client_id);
-                if (e == lease) {
-                        hashmap_remove(lease->server->bound_leases_by_address, UINT32_TO_PTR(lease->address));
-                        hashmap_remove(lease->server->bound_leases_by_client_id, &lease->client_id);
-                }
-
-                e = hashmap_get(lease->server->static_leases_by_client_id, &lease->client_id);
-                if (e == lease) {
-                        hashmap_remove(lease->server->static_leases_by_address, UINT32_TO_PTR(lease->address));
-                        hashmap_remove(lease->server->static_leases_by_client_id, &lease->client_id);
-                }
+                hashmap_remove_value(lease->server->bound_leases_by_address, UINT32_TO_PTR(lease->address), lease);
+                hashmap_remove_value(lease->server->bound_leases_by_client_id, &lease->client_id, lease);
+                hashmap_remove_value(lease->server->static_leases_by_address, UINT32_TO_PTR(lease->address), lease);
+                hashmap_remove_value(lease->server->static_leases_by_client_id, &lease->client_id, lease);
         }
 
         free(lease->client_id.data);
@@ -1105,7 +1096,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                         log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
 
-                        dhcp_lease_free(hashmap_remove(server->bound_leases_by_client_id, &lease->client_id));
+                        dhcp_lease_free(hashmap_get(server->bound_leases_by_client_id, &lease->client_id));
                         r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
@@ -1585,7 +1576,7 @@ int sd_dhcp_server_set_static_lease(
                         .data = client_id,
                 };
 
-                dhcp_lease_free(hashmap_remove(server->static_leases_by_client_id, &c));
+                dhcp_lease_free(hashmap_get(server->static_leases_by_client_id, &c));
                 return 0;
         }
 
