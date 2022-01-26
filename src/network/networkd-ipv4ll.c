@@ -117,7 +117,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        switch(event) {
+        switch (event) {
                 case SD_IPV4LL_EVENT_STOP:
                         r = ipv4ll_address_lost(link);
                         if (r < 0) {

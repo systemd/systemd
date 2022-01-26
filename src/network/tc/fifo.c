@@ -18,7 +18,7 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         assert(qdisc);
         assert(req);
 
-        switch(qdisc->kind) {
+        switch (qdisc->kind) {
         case QDISC_KIND_PFIFO:
                 assert_se(fifo = PFIFO(qdisc));
                 break;
@@ -71,7 +71,7 @@ int config_parse_pfifo_size(
                 return 0;
         }
 
-        switch(qdisc->kind) {
+        switch (qdisc->kind) {
         case QDISC_KIND_PFIFO:
                 fifo = PFIFO(qdisc);
                 break;
