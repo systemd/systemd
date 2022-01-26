@@ -32,10 +32,10 @@ fi
 binary=$(realpath "${1}")
 if [[ "${1}" =~ systemd-boot([[:alnum:]]+).efi ]]; then
     target="systemd-boot"
-    symbols=$(realpath "$(dirname "${1}")/systemd_boot.so")
+    symbols=$(realpath "${1%efi}elf")
 elif [[ "${1}" =~ linux([[:alnum:]]+).efi.stub ]]; then
     target="systemd-stub"
-    symbols=$(realpath "$(dirname "${1}")/linux${BASH_REMATCH[1]}.elf.stub")
+    symbols=$(realpath "${1%efi.stub}elf.stub")
 else
     echo "Cannot detect EFI binary '${1}'."
     exit 1

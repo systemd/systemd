@@ -397,16 +397,12 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
-systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(efi_arch[0])
-stub_elf_name = 'linux@0@.elf.stub'.format(efi_arch[0])
-stub_efi_name = 'linux@0@.efi.stub'.format(efi_arch[0])
-
-foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, false],
-                 [stub_elf_name, stub_efi_name, stub_objects, true]]
-        so = custom_target(
-                tuple[0],
-                input : tuple[2],
-                output : tuple[0],
+foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
+                 ['linux@0@.@1@.stub', stub_objects, true]]
+        elf = custom_target(
+                tuple[0].format(efi_arch[0], 'elf'),
+                input : tuple[1],
+                output : tuple[0].format(efi_arch[0], 'elf'),
                 command : [cc.cmd_array(),
                            '-o', '@OUTPUT@',
                            efi_cflags,
@@ -415,13 +411,13 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                            '-lefi',
                            '-lgnuefi',
                            '-lgcc'],
-                install : tuple[3],
+                install : tuple[2],
                 install_dir : bootlibdir)
 
         custom_target(
-                tuple[1],
-                input : so,
-                output : tuple[1],
+                tuple[0].format(efi_arch[0], 'efi'),
+                input : elf,
+                output : tuple[0].format(efi_arch[0], 'efi'),
                 command : [objcopy,
                            '-j', '.bss*',
                            '-j', '.data',
