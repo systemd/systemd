@@ -238,7 +238,7 @@ static int acquire_generator_dirs(
                 char **generator_early,
                 char **generator_late) {
 
-        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *p = NULL;
         const char *prefix;
 
         assert(generator);
@@ -261,7 +261,11 @@ static int acquire_generator_dirs(
                 if (!e)
                         return -ENXIO;
 
-                prefix = strjoina(e, "/systemd");
+                p = path_join(e, "/systemd");
+                if (!p)
+                        return -ENOMEM;
+
+                prefix = p;
         }
 
         x = path_join(prefix, "generator");

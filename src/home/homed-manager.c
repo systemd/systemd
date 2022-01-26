@@ -936,6 +936,7 @@ int manager_enumerate_images(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
+        _cleanup_free_ char *b = NULL;
         const char *suffix, *busname;
         int r;
 
@@ -955,9 +956,12 @@ static int manager_connect_bus(Manager *m) {
                 return r;
 
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-        if (suffix)
-                busname = strjoina("org.freedesktop.home1.", suffix);
-        else
+        if (suffix) {
+                b = strjoin("org.freedesktop.home1.", suffix);
+                if (!b)
+                        return log_oom();
+                busname = b;
+        } else
                 busname = "org.freedesktop.home1";
 
         r = sd_bus_request_name_async(m->bus, NULL, busname, 0, NULL, NULL);
@@ -974,6 +978,7 @@ static int manager_connect_bus(Manager *m) {
 }
 
 static int manager_bind_varlink(Manager *m) {
+        _cleanup_free_ char *p = NULL;
         const char *suffix, *socket_path;
         int r;
 
@@ -999,9 +1004,12 @@ static int manager_bind_varlink(Manager *m) {
         /* To make things easier to debug, when working from a homed managed home directory, let's optionally
          * use a different varlink socket name */
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-        if (suffix)
-                socket_path = strjoina("/run/systemd/userdb/io.systemd.Home.", suffix);
-        else
+        if (suffix) {
+                p = strjoin("/run/systemd/userdb/io.systemd.Home.", suffix);
+                if (!p)
+                        return log_oom();
+                socket_path = p;
+        } else
                 socket_path = "/run/systemd/userdb/io.systemd.Home";
 
         r = varlink_server_listen_address(m->varlink_server, socket_path, 0666);
@@ -1159,9 +1167,11 @@ static int manager_listen_notify(Manager *m) {
 
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
         if (suffix) {
-                const char *unix_path;
+                _cleanup_free_ char *unix_path = NULL;
 
-                unix_path = strjoina("/run/systemd/home/notify.", suffix);
+                unix_path = strjoin("/run/systemd/home/notify.", suffix);
+                if (!unix_path)
+                        return log_oom();
                 r = sockaddr_un_set_path(&sa.un, unix_path);
                 if (r < 0)
                         return log_error_errno(r, "Socket path %s does not fit in sockaddr_un: %m", unix_path);
