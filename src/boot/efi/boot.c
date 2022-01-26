@@ -438,6 +438,7 @@ static void ps_bool(const CHAR16 *fmt, BOOLEAN value) {
 static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN x_max, y_max;
+        UINT32 screen_width = 0, screen_height = 0;
         SecureBootMode secure;
         _cleanup_freepool_ CHAR16 *device_part_uuid = NULL;
 
@@ -446,6 +447,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
+        query_screen_resolution(&screen_width, &screen_height);
 
         secure = secure_boot_mode();
         (void) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
@@ -463,7 +465,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
           ps_bool(L"                   TPM: %s\n",      tpm_present());
-            Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
+            Print(L"          console mode: %d/%d (%lux%lu @%ux%u)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max, screen_width, screen_height);
 
         Print(L"\n--- Press any key to continue. ---\n\n");
         console_key_read(&key, UINT64_MAX);
