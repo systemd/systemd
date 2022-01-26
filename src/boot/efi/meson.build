@@ -256,17 +256,11 @@ else
 endif
 
 if efi_arch[1] == 'arm'
-        # On arm, the compiler (correctly) gives us the following warning:
-        #    libgcc.a(_popcountsi2.o) uses 4-byte wchar_t yet the output is to
-        #    use 2-byte wchar_t; use of wchar_t values across objects may fail
-        #
-        # libgcc does not have any occurrences of wchar_t in its sources or the
-        # documentation, so it's safe to assume that we can ignore this warning.
-        #
-        # So far, this only happens with arm due to popcount even though x86 and
-        # x86_64 also have to rely on libgcc's popcount. Therefore, we only disable
-        # this for arm to make sure this doesn't mask other issues in the future.
-        efi_ldflags += ['-Wl,--no-warn-mismatch']
+        # On arm, the compiler (correctly) warns about wchar_t size mismatch. This
+        # is because libgcc is not compiled with -fshort-wchar, but it does not
+        # have any occurrences of wchar_t in its sources or the documentation, so
+        # it is safe to assume that we can ignore this warning.
+        efi_ldflags += ['-Wl,--no-wchar-size-warning']
 endif
 
 if run_command('grep', '-q', '__CTOR_LIST__', efi_lds, check: false).returncode() == 0
@@ -397,17 +391,12 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
-systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(efi_arch[0])
-stub_elf_name = 'linux@0@.elf.stub'.format(efi_arch[0])
-stub_efi_name = 'linux@0@.efi.stub'.format(efi_arch[0])
-
-efi_stubs = []
-foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, false],
-                 [stub_elf_name, stub_efi_name, stub_objects, true]]
-        so = custom_target(
-                tuple[0],
-                input : tuple[2],
-                output : tuple[0],
+foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
+                 ['linux@0@.@1@.stub', stub_objects, true]]
+        elf = custom_target(
+                tuple[0].format(efi_arch[0], 'elf'),
+                input : tuple[1],
+                output : tuple[0].format(efi_arch[0], 'elf'),
                 command : [cc.cmd_array(),
                            '-o', '@OUTPUT@',
                            efi_cflags,
@@ -416,13 +405,13 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                            '-lefi',
                            '-lgnuefi',
                            '-lgcc'],
-                install : tuple[3],
+                install : tuple[2],
                 install_dir : bootlibdir)
 
-        stub = custom_target(
-                tuple[1],
-                input : so,
-                output : tuple[1],
+        custom_target(
+                tuple[0].format(efi_arch[0], 'efi'),
+                input : elf,
+                output : tuple[0].format(efi_arch[0], 'efi'),
                 command : [objcopy,
                            '-j', '.bss*',
                            '-j', '.data',
@@ -439,14 +428,4 @@ foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects
                            '@INPUT@', '@OUTPUT@'],
                 install : true,
                 install_dir : bootlibdir)
-
-        efi_stubs += [[so, stub]]
 endforeach
-
-############################################################
-
-test_efi_disk_img = custom_target(
-        'test-efi-disk.img',
-        input : [efi_stubs[0][0], efi_stubs[1][1]],
-        output : 'test-efi-disk.img',
-        command : [test_efi_create_disk_sh, '@OUTPUT@','@INPUT@', splash_bmp])
