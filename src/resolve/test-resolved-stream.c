@@ -334,7 +334,7 @@ int main(int argc, char **argv) {
         test_dns_stream(false);
 #if ENABLE_DNS_OVER_TLS
         if (system("openssl version >/dev/null 2>&1") != 0)
-                log_tests_skipped("Skipping TLS test since the 'openssl' command does not seem to be available");
+                return log_tests_skipped("Skipping TLS test since the 'openssl' command does not seem to be available");
         test_dns_stream(true);
 #endif
 
