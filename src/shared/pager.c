@@ -86,6 +86,7 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
 void pager_open(PagerFlags flags) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 }, exe_name_pipe[2] = { -1, -1 };
         _cleanup_strv_free_ char **pager_args = NULL;
+        _cleanup_free_ char *l = NULL;
         const char *pager, *less_opts;
         int r;
 
@@ -131,8 +132,12 @@ void pager_open(PagerFlags flags) {
         less_opts = getenv("SYSTEMD_LESS");
         if (!less_opts)
                 less_opts = "FRSXMK";
-        if (flags & PAGER_JUMP_TO_END)
-                less_opts = strjoina(less_opts, " +G");
+        if (flags & PAGER_JUMP_TO_END) {
+                l = strjoin(less_opts, " +G");
+                if (!l)
+                        return (void) log_oom();
+                less_opts = l;
+        }
 
         /* We set SIGINT as PR_DEATHSIG signal here, to match the "K" parameter we set in $LESS, which enables SIGINT behaviour. */
         r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGINT|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pager_pid);
