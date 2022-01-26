@@ -113,6 +113,10 @@ fuzzers += [
          [libsystemd_network,
           libshared]],
 
+        [files('fuzz-dhcp-server-relay-message.c'),
+         [libsystemd_network,
+          libshared]],
+
         [files('fuzz-lldp-rx.c'),
          [libshared,
           libsystemd_network]],
