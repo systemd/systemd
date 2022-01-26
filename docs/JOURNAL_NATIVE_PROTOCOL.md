@@ -17,7 +17,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 The latter is what this document is about: if you are developing a program and
 want to pass structured log data to `journald`, it's the Journal's native
-protocol what you want to use. The systemd project provides the
+protocol that you want to use. The systemd project provides the
 [`sd_journal_print(3)`](https://www.freedesktop.org/software/systemd/man/sd_journal_print.html)
 API that implements the client side of this protocol. This document explains
 what this interface does behind the scenes, in case you'd like to implement a

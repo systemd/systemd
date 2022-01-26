@@ -241,7 +241,7 @@ about existence or non-existence of a record can be returned nor any user
 record at all. (The `service` field is defined in order to allow implementation
 of daemons that provide multiple distinct user/group services over the same
 `AF_UNIX` socket: in order to correctly determine which service a client wants
-to talk to the client needs to provide the name in each request.)
+to talk to, the client needs to provide the name in each request.)
 
 The `GetGroupRecord` method call works analogously but for groups.
 
@@ -257,7 +257,7 @@ with `more` set, so that multiple replies can be returned (since typically
 there are multiple members per group and also multiple groups a user is
 member of). As with `GetUserRecord` and `GetGroupRecord` the `service`
 parameter needs to contain the name of the service being talked to, in order to
-allow implementation of multiple service within the same IPC socket. In case no
+allow implementation of multiple services within the same IPC socket. In case no
 matching membership is known `NoRecordFound` is returned. The other two errors
 are also generated in the same cases as for `GetUserRecord` and
 `GetGroupRecord`.
@@ -270,7 +270,7 @@ before the complete list is acquired.
 Note that only the `GetMemberships` call is authoritative about memberships of
 users in groups. i.e. it should not be considered sufficient to check the
 `memberOf` field of user records and the `members` field of group records to
-acquire the full list of memberships. The full list can only bet determined by
+acquire the full list of memberships. The full list can only be determined by
 `GetMemberships`, and as mentioned requires merging of these lists of all local
 services. Result of this is that it can be one service that defines a user A,
 and another service that defines a group B, and a third service that declares

@@ -333,7 +333,7 @@ values, which is then inherited by all the user's processes, see
 [`setrlimit()`](http://man7.org/linux/man-pages/man2/setrlimit.2.html) for more
 information.
 
-`locked` → A boolean value. If true the user account is locked, the user may
+`locked` → A boolean value. If true, the user account is locked, the user may
 not log in. If this field is missing it should be assumed to be false,
 i.e. logins are permitted. This field corresponds to the `sp_expire` field of
 `struct spwd` (i.e. the `/etc/shadow` data for a user) being set to zero or
@@ -359,11 +359,11 @@ directory, also containing the `~/.identity` user record; `luks` is a per-user
 LUKS volume that is mounted as home directory, and `cifs` a home directory
 mounted from a Windows File Share. The five latter types are primarily used by
 `systemd-homed` when managing home directories, but may be used if other
-managers are used too. If this is not set `classic` is the implied default.
+managers are used too. If this is not set, `classic` is the implied default.
 
 `diskSize` → An unsigned 64bit integer, indicating the intended home directory
 disk space in bytes to assign to the user. Depending on the selected storage
-type this might be implement differently: for `luks` this is the intended size
+type this might be implemented differently: for `luks` this is the intended size
 of the file system and LUKS volume, while for the others this likely translates
 to classic file system quota settings.
 
@@ -425,7 +425,7 @@ the top-level directory of the CIFS share is used.
 
 `imagePath` → A string with an absolute file system path to the file, directory
 or block device to use for storage backing the home directory. If the `luks`
-storage is used this refers to the loopback file or block device node to store
+storage is used, this refers to the loopback file or block device node to store
 the LUKS volume on. For `fscrypt`, `directory`, `subvolume` this refers to the
 directory to bind mount as home directory on login. Not defined for `classic`
 or `cifs`.
@@ -465,7 +465,7 @@ relevant when the storage mechanism used is `luks`.
 referencing the file system UUID the home directory is located in. This is
 primarily relevant when the storage mechanism used is `luks`.
 
-`luksDiscard` → A boolean. If true and `luks` storage is used controls whether
+`luksDiscard` → A boolean. If true and `luks` storage is used, controls whether
 the loopback block devices, LUKS and the file system on top shall be used in
 `discard` mode, i.e. erased sectors should always be returned to the underlying
 storage. If false and `luks` storage is used turns this behavior off. In
@@ -579,7 +579,7 @@ against all plugged in security tokens and if there's exactly one matching
 private key found with it it is used.
 
 `fido2HmacCredential` → An array of strings, each with a Base64-encoded FIDO2
-credential ID that shell be used for authentication with FIDO2 devices that
+credential ID that shall be used for authentication with FIDO2 devices that
 implement the `hmac-secret` extension. The salt to pass to the FIDO2 device is
 found in `fido2HmacSalt`.
 
