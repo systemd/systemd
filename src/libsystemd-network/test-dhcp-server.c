@@ -58,7 +58,7 @@ static int test_basic(sd_event *event, bool bind_to_interface) {
 
         r = sd_dhcp_server_start(server);
         if (r == -EPERM)
-                return log_info_errno(r, "sd_dhcp_server_start failed: %m");
+                return r;
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_server_start(server) >= 0);
@@ -236,12 +236,12 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_new(&e) >= 0);
 
         r = test_basic(e, true);
-        if (r != 0)
-                return log_tests_skipped("cannot start dhcp server(bound to interface)");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "cannot start dhcp server(bound to interface)");
 
         r = test_basic(e, false);
-        if (r != 0)
-                return log_tests_skipped("cannot start dhcp server(non-bound to interface)");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "cannot start dhcp server(non-bound to interface)");
 
         test_message_handler();
         test_client_id_hash();
