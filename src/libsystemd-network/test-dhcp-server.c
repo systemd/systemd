@@ -20,8 +20,9 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
         assert_se(sd_dhcp_server_configure_pool(server, address, 8, 0, size) == ret);
 }
 
-static int test_basic(sd_event *event, bool bind_to_interface) {
+static int test_basic(bool bind_to_interface) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
@@ -29,6 +30,10 @@ static int test_basic(sd_event *event, bool bind_to_interface) {
                 .s_addr = htobe32(INADDR_ANY),
         };
         int r;
+
+        log_debug("/* %s(bind_to_interface=%s) */", __func__, yes_no(bind_to_interface));
+
+        assert_se(sd_event_new(&event) >= 0);
 
         /* attach to loopback interface */
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
@@ -58,7 +63,7 @@ static int test_basic(sd_event *event, bool bind_to_interface) {
 
         r = sd_dhcp_server_start(server);
         if (r == -EPERM)
-                return log_info_errno(r, "sd_dhcp_server_start failed: %m");
+                return r;
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_server_start(server) >= 0);
@@ -108,6 +113,8 @@ static void test_message_handler(void) {
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
@@ -202,6 +209,8 @@ static void test_client_id_hash(void) {
                 '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
         };
 
+        log_debug("/* %s */", __func__);
+
         a.data = (uint8_t*)strdup("abcd");
         b.data = (uint8_t*)strdup("abcd");
 
@@ -227,24 +236,61 @@ static void test_client_id_hash(void) {
         free(b.data);
 }
 
+static void test_static_lease(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+
+        log_debug("/* %s */", __func__);
+
+        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) >= 0);
+        /* Duplicated entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) == -EEXIST);
+        /* Address is conflicted. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) == -EEXIST);
+        /* Client ID is conflicted. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) == -EEXIST);
+
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Remove the previous entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Then, set a different address. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020306 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Remove again. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Try to remove non-existent entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Try to remove non-existent entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020306 }, sizeof(uint32_t)) >= 0);
+}
+
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_event_new(&e) >= 0);
+        test_client_id_hash();
+        test_static_lease();
 
-        r = test_basic(e, true);
-        if (r != 0)
-                return log_tests_skipped("cannot start dhcp server(bound to interface)");
+        r = test_basic(true);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "cannot start dhcp server(bound to interface)");
 
-        r = test_basic(e, false);
-        if (r != 0)
-                return log_tests_skipped("cannot start dhcp server(non-bound to interface)");
+        r = test_basic(false);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "cannot start dhcp server(non-bound to interface)");
 
         test_message_handler();
-        test_client_id_hash();
 
         return 0;
 }
