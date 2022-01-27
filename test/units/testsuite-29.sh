@@ -109,6 +109,19 @@ status="$(portablectl is-attached --extension app1 minimal_1)"
 
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
+# Ensure that the combination of read-only images, state directory and dynamic user works, and that
+# state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
+# after the service is attached before the file appears.
+for ((i = 0; i < 20; i++)); do
+    if grep -q -F bar /var/lib/private/app0/foo && grep -q -F baz /var/lib/private/app1/foo; then
+        break
+    fi
+
+    sleep 0.5
+done
+grep -q -F bar /var/lib/private/app0/foo
+grep -q -F baz /var/lib/private/app1/foo
+
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
