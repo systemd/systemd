@@ -1955,7 +1955,6 @@ static int invoke_main_loop(
                 Manager *m,
                 const struct rlimit *saved_rlimit_nofile,
                 const struct rlimit *saved_rlimit_memlock,
-                bool *ret_reexecute,
                 int *ret_retval,                   /* Return parameters relevant for shutting down */
                 const char **ret_shutdown_verb,    /* … */
                 FDSet **ret_fds,                   /* Return parameters for reexecuting */
@@ -1968,7 +1967,6 @@ static int invoke_main_loop(
         assert(m);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
-        assert(ret_reexecute);
         assert(ret_retval);
         assert(ret_shutdown_verb);
         assert(ret_fds);
@@ -1977,13 +1975,13 @@ static int invoke_main_loop(
         assert(ret_error_message);
 
         for (;;) {
-                r = manager_loop(m);
-                if (r < 0) {
+                int objective = manager_loop(m);
+                if (objective < 0) {
                         *ret_error_message = "Failed to run main loop";
-                        return log_emergency_errno(r, "Failed to run main loop: %m");
+                        return log_emergency_errno(objective, "Failed to run main loop: %m");
                 }
 
-                switch ((ManagerObjective) r) {
+                switch (objective) {
 
                 case MANAGER_RELOAD: {
                         LogTarget saved_log_target;
@@ -2010,17 +2008,15 @@ static int invoke_main_loop(
                         if (saved_log_target >= 0)
                                 manager_override_log_target(m, saved_log_target);
 
-                        r = manager_reload(m);
-                        if (r < 0)
+                        if (manager_reload(m) < 0)
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 m->objective = MANAGER_OK;
 
-                        break;
+                        continue;
                 }
 
                 case MANAGER_REEXECUTE:
-
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
@@ -2029,12 +2025,11 @@ static int invoke_main_loop(
 
                         log_notice("Reexecuting.");
 
-                        *ret_reexecute = true;
                         *ret_retval = EXIT_SUCCESS;
                         *ret_shutdown_verb = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
-                        return 0;
+                        return objective;
 
                 case MANAGER_SWITCH_ROOT:
                         if (!m->switch_root_init) {
@@ -2048,7 +2043,6 @@ static int invoke_main_loop(
 
                         log_notice("Switching root.");
 
-                        *ret_reexecute = true;
                         *ret_retval = EXIT_SUCCESS;
                         *ret_shutdown_verb = NULL;
 
@@ -2056,20 +2050,18 @@ static int invoke_main_loop(
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
                         *ret_switch_root_init = TAKE_PTR(m->switch_root_init);
 
-                        return 0;
+                        return objective;
 
                 case MANAGER_EXIT:
-
                         if (MANAGER_IS_USER(m)) {
                                 log_debug("Exit.");
 
-                                *ret_reexecute = false;
                                 *ret_retval = m->return_value;
                                 *ret_shutdown_verb = NULL;
                                 *ret_fds = NULL;
                                 *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
-                                return 0;
+                                return objective;
                         }
 
                         _fallthrough_;
@@ -2077,7 +2069,7 @@ static int invoke_main_loop(
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
-                        static const char * const table[_MANAGER_OBJECTIVE_MAX] = {
+                        static const char* const table[_MANAGER_OBJECTIVE_MAX] = {
                                 [MANAGER_EXIT]     = "exit",
                                 [MANAGER_REBOOT]   = "reboot",
                                 [MANAGER_POWEROFF] = "poweroff",
@@ -2087,13 +2079,12 @@ static int invoke_main_loop(
 
                         log_notice("Shutting down.");
 
-                        *ret_reexecute = false;
                         *ret_retval = m->return_value;
                         assert_se(*ret_shutdown_verb = table[m->objective]);
                         *ret_fds = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
-                        return 0;
+                        return objective;
                 }
 
                 default:
@@ -2709,15 +2700,18 @@ static int save_env(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
-                security_start_timestamp = DUAL_TIMESTAMP_NULL, security_finish_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp
+                initrd_timestamp = DUAL_TIMESTAMP_NULL,
+                userspace_timestamp = DUAL_TIMESTAMP_NULL,
+                kernel_timestamp = DUAL_TIMESTAMP_NULL,
+                security_start_timestamp = DUAL_TIMESTAMP_NULL,
+                security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0),
                 saved_rlimit_memlock = RLIMIT_MAKE_CONST(RLIM_INFINITY); /* The original rlimits we passed
                                                                           * in. Note we use different values
                                                                           * for the two that indicate whether
                                                                           * these fields are initialized! */
-        bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false, reexecute = false;
+        bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
@@ -3023,16 +3017,23 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        (void) invoke_main_loop(m,
-                                &saved_rlimit_nofile,
-                                &saved_rlimit_memlock,
-                                &reexecute,
-                                &retval,
-                                &shutdown_verb,
-                                &fds,
-                                &switch_root_dir,
-                                &switch_root_init,
-                                &error_message);
+        r = invoke_main_loop(m,
+                             &saved_rlimit_nofile,
+                             &saved_rlimit_memlock,
+                             &retval,
+                             &shutdown_verb,
+                             &fds,
+                             &switch_root_dir,
+                             &switch_root_init,
+                             &error_message);
+        assert(r < 0 || IN_SET(r, MANAGER_EXIT,          /* MANAGER_OK is not expected here. */
+                                  MANAGER_RELOAD,
+                                  MANAGER_REEXECUTE,
+                                  MANAGER_REBOOT,
+                                  MANAGER_POWEROFF,
+                                  MANAGER_HALT,
+                                  MANAGER_KEXEC,
+                                  MANAGER_SWITCH_ROOT));
 
 finish:
         pager_close();
@@ -3045,7 +3046,7 @@ finish:
 
         mac_selinux_finish();
 
-        if (reexecute)
+        if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT))
                 do_reexecute(argc, argv,
                              &saved_rlimit_nofile,
                              &saved_rlimit_memlock,
@@ -3078,7 +3079,9 @@ finish:
         __lsan_do_leak_check();
 #endif
 
-        if (shutdown_verb) {
+        /* Try to invoke the shutdown binary unless we already failed.
+         * If we failed above, we want to freeze after finishing cleanup. */
+        if (r >= 0 && shutdown_verb) {
                 r = become_shutdown(shutdown_verb, retval);
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
