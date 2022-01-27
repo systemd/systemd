@@ -316,7 +316,7 @@ static int dhcp_server_send_unicast_raw(
 
         assert(server);
         assert(server->ifindex > 0);
-        assert(server->address);
+        assert(server->address != 0);
         assert(hlen > 0);
         assert(chaddr);
         assert(packet);
@@ -429,7 +429,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 
         assert(server);
         assert(req);
-        assert(req->max_optlen);
+        assert(req->max_optlen > 0);
         assert(req->message);
         assert(optoffset <= req->max_optlen);
         assert(packet);
@@ -477,12 +477,12 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
            client, because the client may not have a correct network address
            or subnet mask, and the client may not be answering ARP requests.
          */
-        if (req->message->giaddr) {
+        if (req->message->giaddr != 0) {
                 destination = req->message->giaddr;
                 destination_port = DHCP_PORT_SERVER;
                 if (type == DHCP_NAK)
                         packet->dhcp.flags = htobe16(0x8000);
-        } else if (req->message->ciaddr && type != DHCP_NAK)
+        } else if (req->message->ciaddr != 0 && type != DHCP_NAK)
                 destination = req->message->ciaddr;
 
         bool l2_broadcast = requested_broadcast(req->message) || type == DHCP_NAK;
@@ -786,7 +786,7 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
 static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         assert(server);
 
-        if (!server->pool_size)
+        if (server->pool_size == 0)
                 return -EINVAL;
 
         if (be32toh(requested_ip) < (be32toh(server->subnet) | server->pool_offset) ||
@@ -979,7 +979,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 log_dhcp_server(server, "DISCOVER (0x%x)", be32toh(req->message->xid));
 
-                if (!server->pool_size)
+                if (server->pool_size == 0)
                         /* no pool allocated */
                         return 0;
 
@@ -1038,7 +1038,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 /* see RFC 2131, section 4.3.2 */
 
-                if (req->server_id) {
+                if (req->server_id != 0) {
                         log_dhcp_server(server, "REQUEST (selecting) (0x%x)",
                                         be32toh(req->message->xid));
 
@@ -1047,22 +1047,22 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* client did not pick us */
                                 return 0;
 
-                        if (req->message->ciaddr)
+                        if (req->message->ciaddr != 0)
                                 /* this MUST be zero */
                                 return 0;
 
-                        if (!req->requested_ip)
+                        if (req->requested_ip == 0)
                                 /* this must be filled in with the yiaddr
                                    from the chosen OFFER */
                                 return 0;
 
                         address = req->requested_ip;
-                } else if (req->requested_ip) {
+                } else if (req->requested_ip != 0) {
                         log_dhcp_server(server, "REQUEST (init-reboot) (0x%x)",
                                         be32toh(req->message->xid));
 
                         /* INIT-REBOOT */
-                        if (req->message->ciaddr)
+                        if (req->message->ciaddr != 0)
                                 /* this MUST be zero */
                                 return 0;
 
@@ -1074,7 +1074,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                         be32toh(req->message->xid));
 
                         /* REBINDING / RENEWING */
-                        if (!req->message->ciaddr)
+                        if (req->message->ciaddr == 0)
                                 /* this MUST be filled in with clients IP address */
                                 return 0;
 
