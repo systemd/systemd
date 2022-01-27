@@ -119,7 +119,6 @@ test_run() {
 
     # Execute each currently defined function starting with "testcase_"
     for testcase in "${TESTCASES[@]}"; do
-        _image_cleanup
         echo "------ $testcase: BEGIN ------"
         # Note for my future frustrated self: `fun && xxx` (as well as ||, if, while,
         # until, etc.) _DISABLES_ the `set -e` behavior in _ALL_ nested function
@@ -130,8 +129,14 @@ test_run() {
         # So, be careful when adding clean up snippets in the testcase_*() functions -
         # if the `test_run_one()` function isn't the last command, you have propagate
         # the exit code correctly (e.g. `test_run_one() || return $?`, see below).
-        ec=0
-        "$testcase" "$test_id" || ec=$?
+
+        # FIXME: temporary workaround for intermittent fails in certain tests
+        # See: https://github.com/systemd/systemd/issues/21819
+        for ((_i = 0; _i < 3; _i++)); do
+            _image_cleanup
+            ec=0
+            "$testcase" "$test_id" && break || ec=$?
+        done
         case $ec in
             0)
                 passed+=("$testcase")
@@ -166,6 +171,7 @@ testcase_megasas2_basic() {
         return 77
     fi
 
+    local i
     local qemu_opts=(
         "-device megasas-gen2,id=scsi0"
         "-device megasas-gen2,id=scsi1"
@@ -192,6 +198,9 @@ testcase_nvme_basic() {
         return 77
     fi
 
+    local i
+    local qemu_opts=()
+
     for i in {0..27}; do
         qemu_opts+=(
             "-device nvme,drive=nvme$i,serial=deadbeef$i,num_queues=8"
@@ -215,7 +224,7 @@ testcase_virtio_scsi_identically_named_partitions() {
     # and attach them to a virtio-scsi controller
     local qemu_opts=("-device virtio-scsi-pci,id=scsi0,num_queues=4")
     local diskpath="${TESTDIR:?}/namedpart0.img"
-    local lodev qemu_timeout
+    local i lodev qemu_timeout
 
     dd if=/dev/zero of="$diskpath" bs=1M count=18
     lodev="$(losetup --show -f -P "$diskpath")"
@@ -325,7 +334,7 @@ testcase_lvm_basic() {
     fi
 
     local qemu_opts=("-device ahci,id=ahci0")
-    local diskpath
+    local diskpath i
 
     # Attach 4 SATA disks to the VM (and set their model and serial fields
     # to something predictable, so we can refer to them later)
