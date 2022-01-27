@@ -137,8 +137,6 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
 }
 
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
-        uint64_t i;
-
         assert(f);
         assert(offset);
         assert(o);
@@ -169,9 +167,9 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0) {
+                if (le64toh(o->object.size) - offsetof(Object, data.payload) <= 0) {
                         error(offset, "Bad object size (<= %zu): %"PRIu64,
-                              offsetof(DataObject, payload),
+                              offsetof(Object, data.payload),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
@@ -207,10 +205,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 uint64_t h1, h2;
                 int r;
 
-                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
+                if (le64toh(o->object.size) - offsetof(Object, field.payload) <= 0) {
                         error(offset,
                               "Bad field size (<= %zu): %"PRIu64,
-                              offsetof(FieldObject, payload),
+                              offsetof(Object, field.payload),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
@@ -239,18 +237,18 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         }
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0) {
                         error(offset,
                               "Bad entry size (<= %zu): %"PRIu64,
-                              offsetof(EntryObject, items),
+                              offsetof(Object, entry.items),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0) {
                         error(offset,
                               "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem));
+                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem));
                         return -EBADMSG;
                 }
 
@@ -275,7 +273,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_entry_n_items(o); i++) {
+                for (uint64_t i = 0; i < journal_file_entry_n_items(o); i++) {
                         if (le64toh(o->entry.items[i].object_offset) == 0 ||
                             !VALID64(le64toh(o->entry.items[i].object_offset))) {
                                 error(offset,
@@ -290,8 +288,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
-                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, hash_table.items)) % sizeof(HashItem) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem) <= 0) {
                         error(offset,
                               "Invalid %s size: %"PRIu64,
                               journal_object_type_to_string(o->object.type),
@@ -299,7 +297,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_hash_table_n_items(o); i++) {
+                for (uint64_t i = 0; i < journal_file_hash_table_n_items(o); i++) {
                         if (o->hash_table.items[i].head_hash_offset != 0 &&
                             !VALID64(le64toh(o->hash_table.items[i].head_hash_offset))) {
                                 error(offset,
@@ -334,8 +332,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
 
         case OBJECT_ENTRY_ARRAY:
-                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0) {
                         error(offset,
                               "Invalid object entry array size: %"PRIu64,
                               le64toh(o->object.size));
@@ -349,7 +347,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (i = 0; i < journal_file_entry_array_n_items(o); i++)
+                for (uint64_t i = 0; i < journal_file_entry_array_n_items(o); i++)
                         if (le64toh(o->entry_array.items[i]) != 0 &&
                             !VALID64(le64toh(o->entry_array.items[i]))) {
                                 error(offset,
@@ -422,92 +420,6 @@ static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
         return 0;
 }
 
-static int entry_points_to_data(
-                JournalFile *f,
-                MMapFileDescriptor *cache_entry_fd,
-                uint64_t n_entries,
-                uint64_t entry_p,
-                uint64_t data_p) {
-
-        int r;
-        uint64_t i, n, a;
-        Object *o;
-        bool found = false;
-
-        assert(f);
-        assert(cache_entry_fd);
-
-        if (!contains_uint64(cache_entry_fd, n_entries, entry_p)) {
-                error(data_p, "Data object references invalid entry at "OFSfmt, entry_p);
-                return -EBADMSG;
-        }
-
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, entry_p, &o);
-        if (r < 0)
-                return r;
-
-        n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++)
-                if (le64toh(o->entry.items[i].object_offset) == data_p) {
-                        found = true;
-                        break;
-                }
-
-        if (!found) {
-                error(entry_p, "Data object at "OFSfmt" not referenced by linked entry", data_p);
-                return -EBADMSG;
-        }
-
-        /* Check if this entry is also in main entry array. Since the
-         * main entry array has already been verified we can rely on
-         * its consistency. */
-
-        i = 0;
-        n = le64toh(f->header->n_entries);
-        a = le64toh(f->header->entry_array_offset);
-
-        while (i < n) {
-                uint64_t m, u;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                if (r < 0)
-                        return r;
-
-                m = journal_file_entry_array_n_items(o);
-                u = MIN(n - i, m);
-
-                if (entry_p <= le64toh(o->entry_array.items[u-1])) {
-                        uint64_t x, y, z;
-
-                        x = 0;
-                        y = u;
-
-                        while (x < y) {
-                                z = (x + y) / 2;
-
-                                if (le64toh(o->entry_array.items[z]) == entry_p)
-                                        return 0;
-
-                                if (x + 1 >= y)
-                                        break;
-
-                                if (entry_p < le64toh(o->entry_array.items[z]))
-                                        y = z;
-                                else
-                                        x = z;
-                        }
-
-                        error(entry_p, "Entry object doesn't exist in main entry array");
-                        return -EBADMSG;
-                }
-
-                i += u;
-                a = le64toh(o->entry_array.next_entry_array_offset);
-        }
-
-        return 0;
-}
-
 static int verify_data(
                 JournalFile *f,
                 Object *o, uint64_t p,
@@ -538,9 +450,18 @@ static int verify_data(
         assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
-        r = entry_points_to_data(f, cache_entry_fd, n_entries, q, p);
+        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
+                error(p, "Data object references invalid entry at "OFSfmt, q);
+                return -EBADMSG;
+        }
+
+        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                error(q, "Entry object doesn't exist in the main entry array");
+                return -EBADMSG;
+        }
 
         i = 1;
         while (i < n) {
@@ -576,9 +497,18 @@ static int verify_data(
                         }
                         last = q;
 
-                        r = entry_points_to_data(f, cache_entry_fd, n_entries, q, p);
+                        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
+                                error(p, "Data object references invalid entry at "OFSfmt, q);
+                                return -EBADMSG;
+                        }
+
+                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
                         if (r < 0)
                                 return r;
+                        if (r == 0) {
+                                error(q, "Entry object doesn't exist in the main entry array");
+                                return -EBADMSG;
+                        }
 
                         /* Pointer might have moved, reposition */
                         r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
@@ -703,7 +633,8 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
 static int verify_entry(
                 JournalFile *f,
                 Object *o, uint64_t p,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data) {
+                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
+                bool last) {
 
         uint64_t i, n;
         int r;
@@ -714,11 +645,10 @@ static int verify_entry(
 
         n = journal_file_entry_n_items(o);
         for (i = 0; i < n; i++) {
-                uint64_t q, h;
+                uint64_t q;
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
-                h = le64toh(o->entry.items[i].hash);
 
                 if (!contains_uint64(cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
@@ -729,16 +659,23 @@ static int verify_entry(
                 if (r < 0)
                         return r;
 
-                if (le64toh(u->data.hash) != h) {
-                        error(p, "Hash mismatch for data object of entry");
-                        return -EBADMSG;
-                }
-
-                r = data_object_in_hash_table(f, h, q);
+                r = data_object_in_hash_table(f, le64toh(u->data.hash), q);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         error(p, "Data object missing from hash table");
+                        return -EBADMSG;
+                }
+
+                r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                /* The last entry object has a very high chance of not being referenced as journal files
+                 * almost always run out of space during linking of entry items when trying to add a new
+                 * entry array so let's not error in that scenario. */
+                if (r == 0 && !last) {
+                        error(p, "Entry object not referenced by linked data object at "OFSfmt, q);
                         return -EBADMSG;
                 }
         }
@@ -812,7 +749,7 @@ static int verify_entry_array(
                         if (r < 0)
                                 return r;
 
-                        r = verify_entry(f, o, p, cache_data_fd, n_data);
+                        r = verify_entry(f, o, p, cache_data_fd, n_data, /*last=*/ i + 1 == n);
                         if (r < 0)
                                 return r;
 
@@ -842,21 +779,21 @@ static int verify_hash_table(
                 return -EBADMSG;
         }
 
-        if (header_offset != p + offsetof(HashTableObject, items)) {
+        if (header_offset != p + offsetof(Object, hash_table.items)) {
                 error(p,
                       "Header offset for %s invalid (%" PRIu64 " != %" PRIu64 ")",
                       journal_object_type_to_string(o->object.type),
                       header_offset,
-                      p + offsetof(HashTableObject, items));
+                      p + offsetof(Object, hash_table.items));
                 return -EBADMSG;
         }
 
-        if (header_size != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+        if (header_size != le64toh(o->object.size) - offsetof(Object, hash_table.items)) {
                 error(p,
                       "Header size for %s invalid (%" PRIu64 " != %" PRIu64 ")",
                       journal_object_type_to_string(o->object.type),
                       header_size,
-                      le64toh(o->object.size) - offsetof(HashTableObject, items));
+                      le64toh(o->object.size) - offsetof(Object, hash_table.items));
                 return -EBADMSG;
         }
 
