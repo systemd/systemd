@@ -198,6 +198,17 @@ mouse:usb:v0461p4d46:name:USB Optical Mouse:*
 mouse:usb:v056ep010d:name:ELECOM TrackBall Mouse HUGE TrackBall:*
  MOUSE_DPI=500@125 *1000@125 1500@125
 
+# Elecom DEFT Pro TrackBall (M-DPT1MR)
+mouse:usb:v056ep0131:name:ELECOM TrackBall Mouse DEFT Pro TrackBall Mouse:*
+ MOUSE_DPI=*500 1000 1500
+ MOUSE_WHEEL_CLICK_ANGLE=10
+
+# Elecom Relacon (M-RT1DR)
+mouse:usb:v056ep0155:name:ELECOM ELECOM Relacon:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=*500 1000 1500
+ MOUSE_WHEEL_CLICK_ANGLE=30
+
 ##########################################
 # Fujitsu Siemens
 ##########################################
