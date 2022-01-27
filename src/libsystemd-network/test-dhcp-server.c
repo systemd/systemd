@@ -235,6 +235,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        test_client_id_hash();
+
         r = test_basic(true);
         if (r < 0)
                 return log_tests_skipped_errno(r, "cannot start dhcp server(bound to interface)");
@@ -244,7 +246,6 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped_errno(r, "cannot start dhcp server(non-bound to interface)");
 
         test_message_handler();
-        test_client_id_hash();
 
         return 0;
 }
