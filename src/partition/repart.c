@@ -111,6 +111,7 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static unsigned logical_block_size = 512;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1435,8 +1436,8 @@ static int determine_current_padding(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
 
         offset = fdisk_partition_get_end(p);
-        assert(offset < UINT64_MAX / 512);
-        offset *= 512;
+        assert(offset < UINT64_MAX / logical_block_size);
+        offset *= logical_block_size;
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
@@ -1454,8 +1455,8 @@ static int determine_current_padding(
                         continue;
 
                 start = fdisk_partition_get_start(q);
-                assert(start < UINT64_MAX / 512);
-                start *= 512;
+                assert(start < UINT64_MAX / logical_block_size);
+                start *= logical_block_size;
 
                 if (start >= offset && (next == UINT64_MAX || next > start))
                         next = start;
@@ -1467,8 +1468,8 @@ static int determine_current_padding(
                 assert(next < UINT64_MAX);
                 next++; /* The last LBA is one sector before the end */
 
-                assert(next < UINT64_MAX / 512);
-                next *= 512;
+                assert(next < UINT64_MAX / logical_block_size);
+                next *= logical_block_size;
 
                 if (offset > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
@@ -1732,12 +1733,12 @@ static int context_load_partition_table(
                 }
 
                 sz = fdisk_partition_get_size(p);
-                assert_se(sz <= UINT64_MAX/512);
-                sz *= 512;
+                assert_se(sz <= UINT64_MAX/logical_block_size);
+                sz *= logical_block_size;
 
                 start = fdisk_partition_get_start(p);
-                assert_se(start <= UINT64_MAX/512);
-                start *= 512;
+                assert_se(start <= UINT64_MAX/logical_block_size);
+                start *= logical_block_size;
 
                 partno = fdisk_partition_get_partno(p);
 
@@ -1812,26 +1813,25 @@ static int context_load_partition_table(
 
 add_initial_free_area:
         nsectors = fdisk_get_nsectors(c);
-        assert(nsectors <= UINT64_MAX/512);
-        nsectors *= 512;
+        assert(nsectors <= UINT64_MAX/logical_block_size);
+        nsectors *= logical_block_size;
 
         first_lba = fdisk_get_first_lba(c);
-        assert(first_lba <= UINT64_MAX/512);
-        first_lba *= 512;
+        assert(first_lba <= UINT64_MAX/logical_block_size);
+        first_lba *= logical_block_size;
+        first_lba = round_up_size(first_lba, 4096);
 
         last_lba = fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
         last_lba++;
-        assert(last_lba <= UINT64_MAX/512);
-        last_lba *= 512;
+        assert(last_lba <= UINT64_MAX/logical_block_size);
+        last_lba *= logical_block_size;
+        last_lba = round_down_size(last_lba, 4096);
 
         assert(last_lba >= first_lba);
 
         if (left_boundary == UINT64_MAX) {
                 /* No partitions at all? Then the whole disk is up for grabs. */
-
-                first_lba = round_up_size(first_lba, 4096);
-                last_lba = round_down_size(last_lba, 4096);
 
                 if (last_lba > first_lba) {
                         r = context_add_free_area(context, last_lba - first_lba, NULL);
@@ -1840,11 +1840,9 @@ add_initial_free_area:
                 }
         } else {
                 /* Add space left of first partition */
-                assert(left_boundary >= first_lba);
+                assert(left_boundary >= fdisk_get_first_lba(c));
 
-                first_lba = round_up_size(first_lba, 4096);
                 left_boundary = round_down_size(left_boundary, 4096);
-                last_lba = round_down_size(last_lba, 4096);
 
                 if (left_boundary > first_lba) {
                         r = context_add_free_area(context, left_boundary - first_lba, NULL);
@@ -2358,9 +2356,12 @@ static int context_discard_range(
         }
 
         if (S_ISBLK(st.st_mode)) {
+                assert(offset % logical_block_size == 0);
+                assert(size % logical_block_size == 0);
+
                 uint64_t range[2], end;
 
-                range[0] = round_up_size(offset, 512);
+                range[0] = offset;
 
                 if (offset > UINT64_MAX - size)
                         return -ERANGE;
@@ -2369,7 +2370,7 @@ static int context_discard_range(
                 if (end <= range[0])
                         return 0;
 
-                range[1] = round_down_size(end - range[0], 512);
+                range[1] = end - range[0];
                 if (range[1] <= 0)
                         return 0;
 
@@ -3307,13 +3308,13 @@ static int context_mangle_partitions(Context *context) {
 
                         if (p->new_size != p->current_size) {
                                 assert(p->new_size >= p->current_size);
-                                assert(p->new_size % 512 == 0);
+                                assert(p->new_size % logical_block_size == 0);
 
                                 r = fdisk_partition_size_explicit(p->current_partition, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                                r = fdisk_partition_set_size(p->current_partition, p->new_size / 512);
+                                r = fdisk_partition_set_size(p->current_partition, p->new_size / logical_block_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to grow partition: %m");
 
@@ -3353,8 +3354,8 @@ static int context_mangle_partitions(Context *context) {
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
 
                         assert(!p->new_partition);
-                        assert(p->offset % 512 == 0);
-                        assert(p->new_size % 512 == 0);
+                        assert(p->offset % logical_block_size == 0);
+                        assert(p->new_size % logical_block_size == 0);
                         assert(!sd_id128_is_null(p->new_uuid));
                         assert(p->new_label);
 
@@ -3378,11 +3379,11 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                        r = fdisk_partition_set_start(q, p->offset / 512);
+                        r = fdisk_partition_set_start(q, p->offset / logical_block_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to position partition: %m");
 
-                        r = fdisk_partition_set_size(q, p->new_size / 512);
+                        r = fdisk_partition_set_size(q, p->new_size / logical_block_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to grow partition: %m");
 
@@ -4473,6 +4474,12 @@ static int acquire_root_devno(
                  * not be able to leave the image the root path constrains us to. */
                 if (root)
                         return -EPERM;
+
+                unsigned ssz;
+                if (ioctl(fd, BLKSSZGET, &ssz) < 0)
+                        log_warning_errno(errno, "Couldn't determine sector size, assuming %u-byte: %m", logical_block_size);
+                else
+                        logical_block_size = ssz;
 
                 fd_devno = devno = st.st_rdev;
         } else if (S_ISDIR(st.st_mode)) {
