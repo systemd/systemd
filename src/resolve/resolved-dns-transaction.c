@@ -754,7 +754,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa, stream_timeout_usec);
+                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa,
+                                   on_stream_packet, on_stream_complete, stream_timeout_usec);
                 if (r < 0)
                         return r;
 
@@ -776,9 +777,6 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s->server = dns_server_ref(t->server);
                         t->server->stream = dns_stream_ref(s);
                 }
-
-                s->complete = on_stream_complete;
-                s->on_packet = on_stream_packet;
 
                 /* The interface index is difficult to determine if we are
                  * connecting to the local host, hence fill this in right away
