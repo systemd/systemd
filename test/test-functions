@@ -598,17 +598,21 @@ install_verity_minimal() {
         touch "$initdir/etc/machine-id" "$initdir/etc/resolv.conf"
         touch "$initdir/opt/some_file"
         echo MARKER=1 >>"$initdir/usr/lib/os-release"
-        echo "PORTABLE_PREFIXES=app0 minimal" >>"$initdir/usr/lib/os-release"
-        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >"$initdir/usr/lib/systemd/system/app0.service"
-        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-foo.service"
+        echo "PORTABLE_PREFIXES=app0 minimal minimal-app0" >>"$initdir/usr/lib/os-release"
+        cat >"$initdir/usr/lib/systemd/system/minimal-app0.service" <<EOF
+[Service]
+ExecStartPre=cat /usr/lib/os-release
+ExecStart=sleep 120
+EOF
+        cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
 
         mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw"
         veritysetup format "$oldinitdir/usr/share/minimal_0.raw" "$oldinitdir/usr/share/minimal_0.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_0.roothash"
 
         sed -i "s/MARKER=1/MARKER=2/g" "$initdir/usr/lib/os-release"
-        rm "$initdir/usr/lib/systemd/system/app0-foo.service"
-        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-bar.service"
+        rm "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
+        cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-bar.service"
 
         mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw"
         veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
