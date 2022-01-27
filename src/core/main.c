@@ -1824,7 +1824,8 @@ static void filter_args(
         }
 }
 
-static void do_reexecute(
+static int do_reexecute(
+                ManagerObjective objective,
                 int argc,
                 char* argv[],
                 const struct rlimit *saved_rlimit_nofile,
@@ -1838,6 +1839,7 @@ static void do_reexecute(
         const char **args;
         int r;
 
+        assert(IN_SET(objective, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT));
         assert(argc >= 0);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
@@ -1901,6 +1903,12 @@ static void do_reexecute(
 
                 args[0] = SYSTEMD_BINARY_PATH;
                 (void) execv(args[0], (char* const*) args);
+
+                if (objective == MANAGER_REEXECUTE) {
+                        *ret_error_message = "Failed to execute our own binary";
+                        return log_error_errno(errno, "Failed to execute our own binary %s: %m", args[0]);
+                }
+
                 log_debug_errno(errno, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
@@ -1938,17 +1946,16 @@ static void do_reexecute(
                               ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
                               "Failed to execute /sbin/init");
 
+        *ret_error_message = "Failed to execute fallback shell";
         if (r == -ENOENT) {
                 log_warning("No /sbin/init, trying fallback");
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
                 (void) execve(args[0], (char* const*) args, saved_env);
-                log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
+                return log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
         } else
-                log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
-
-        *ret_error_message = "Failed to execute fallback shell";
+                return log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
 }
 
 static int invoke_main_loop(
@@ -3047,13 +3054,14 @@ finish:
         mac_selinux_finish();
 
         if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT))
-                do_reexecute(argc, argv,
-                             &saved_rlimit_nofile,
-                             &saved_rlimit_memlock,
-                             fds,
-                             switch_root_dir,
-                             switch_root_init,
-                             &error_message); /* This only returns if reexecution failed */
+                r = do_reexecute(r,
+                                 argc, argv,
+                                 &saved_rlimit_nofile,
+                                 &saved_rlimit_memlock,
+                                 fds,
+                                 switch_root_dir,
+                                 switch_root_init,
+                                 &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
