@@ -113,11 +113,17 @@ static void test_message_handler(void) {
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
+        struct in_addr static_lease_address = {
+                .s_addr = htobe32(INADDR_LOOPBACK + 42),
+        };
+        static uint8_t static_lease_client_id[7] = {0x01, 'A', 'B', 'C', 'D', 'E', 'G' };
 
         log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
+        assert_se(sd_dhcp_server_set_static_lease(server, &static_lease_address, static_lease_client_id,
+                                                  ELEMENTSOF(static_lease_client_id)) >= 0);
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
 
@@ -187,6 +193,26 @@ static void test_message_handler(void) {
 
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+
+        /* request address reserved for static lease (unmatching client ID) */
+        test.option_client_id.id[6] = 'H';
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+
+        /* request unmatching address */
+        test.option_client_id.id[6] = 'G';
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 41);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+
+        /* request matching address */
+        test.option_client_id.id[6] = 'G';
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_ACK);
+
+        /* try again */
+        test.option_client_id.id[6] = 'G';
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == DHCP_ACK);
 }
 
 static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZE]) {
