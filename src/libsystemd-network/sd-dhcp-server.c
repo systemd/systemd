@@ -1091,9 +1091,13 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 if (address == server->address)
                         return 0;
 
-                /* verify that the requested address is from the pool, and either
-                   owned by the current client or free */
-                if (static_lease && static_lease->address == address) {
+                if (static_lease) {
+                        /* Found a static lease for the client ID. */
+
+                        if (static_lease->address != address)
+                                /* The client requested an address which is different from the static lease. Refuse. */
+                                return server_send_nak_or_ignore(server, init_reboot, req);
+
                         _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
                         usec_t time_now, expiration;
 
