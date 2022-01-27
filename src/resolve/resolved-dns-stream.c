@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "macro.h"
 #include "missing_network.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
@@ -280,12 +281,14 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
         return dns_stream_complete(s, ETIMEDOUT);
 }
 
-static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
         bool progressed = false;
         int r;
 
         assert(s);
+
+        /* This returns 1 when possible remaining stream exists, 0 on completed
+           stream or recoverable error, and negative errno on failure. */
 
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
@@ -440,6 +443,44 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 if (r < 0)
                         log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
+
+        return 1;
+}
+
+static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+        int r;
+
+        assert(s);
+
+        r = on_stream_io_impl(s, revents);
+        if (r <= 0)
+                return r;
+
+#if ENABLE_DNS_OVER_TLS
+        if (!s->encrypted)
+                return 0;
+
+        /* When using DNS-over-TLS, the underlying TLS library may read the entire TLS record
+           and buffer it internally. If this happens, we will not receive further EPOLLIN events,
+           and unless there's some unrelated activity on the socket, we will hang until time out.
+           To avoid this, if there's buffered TLS data, generate a "fake" EPOLLIN event.
+           This is hacky, but it makes this case transparent to the rest of the IO code. */
+        while (dnstls_stream_has_buffered_data(s)) {
+                uint32_t events;
+
+                /* Make sure the stream still wants to process more data... */
+                r = sd_event_source_get_io_events(s->io_event_source, &events);
+                if (r < 0)
+                        return r;
+                if (!FLAGS_SET(events, EPOLLIN))
+                        break;
+
+                r = on_stream_io_impl(s, EPOLLIN);
+                if (r <= 0)
+                        return r;
+        }
+#endif
 
         return 0;
 }
