@@ -801,6 +801,9 @@ static bool address_is_in_pool(sd_dhcp_server *server, be32_t address) {
             be32toh(address) >= (be32toh(server->subnet) | (server->pool_offset + server->pool_size)))
                 return false;
 
+        if (hashmap_contains(server->static_leases_by_address, UINT32_TO_PTR(address)))
+                return false;
+
         return true;
 }
 
