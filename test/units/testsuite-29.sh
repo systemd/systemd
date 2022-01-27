@@ -6,10 +6,13 @@ set -eux
 set -o pipefail
 
 ARGS=()
+state_directory=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running under sanitizers, we need to use a less restrictive
     # profile, otherwise LSan syscall would get blocked by seccomp
     ARGS+=(--profile=trusted)
+    # With the trusted profile DynamicUser is disabled, so the storage is not in private/
+    state_directory=/var/lib/
 fi
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
@@ -108,6 +111,12 @@ status="$(portablectl is-attached --extension app1 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+
+# Ensure that the combination of read-only images, state directory and dynamic user works, and that
+# state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
+# after the service is attached before the file appears.
+grep -q -F bar "${state_directory}/app0/foo"
+grep -q -F baz "${state_directory}/app1/foo"
 
 # portablectl also works with directory paths rather than images
 

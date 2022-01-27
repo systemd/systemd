@@ -3373,7 +3373,7 @@ static int compile_symlinks(
                                         return r;
                         }
 
-                        if (!exec_directory_is_private(context, dt))
+                        if (!exec_directory_is_private(context, dt) || exec_context_with_rootfs(context))
                                 continue;
 
                         private_path = path_join(params->prefix[dt], "private", context->directories[dt].items[i].path);
