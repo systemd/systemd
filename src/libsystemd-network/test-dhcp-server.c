@@ -31,6 +31,8 @@ static int test_basic(bool bind_to_interface) {
         };
         int r;
 
+        log_debug("/* %s(bind_to_interface=%s) */", __func__, yes_no(bind_to_interface));
+
         assert_se(sd_event_new(&event) >= 0);
 
         /* attach to loopback interface */
@@ -111,6 +113,8 @@ static void test_message_handler(void) {
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
@@ -204,6 +208,8 @@ static void test_client_id_hash(void) {
                 '0', '1', '2', '3', '4', '5', '6', '7',
                 '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
         };
+
+        log_debug("/* %s */", __func__);
 
         a.data = (uint8_t*)strdup("abcd");
         b.data = (uint8_t*)strdup("abcd");
