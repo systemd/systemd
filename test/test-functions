@@ -588,7 +588,7 @@ install_verity_minimal() {
         echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >"$initdir/usr/lib/systemd/system/app0.service"
         cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-foo.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw" -noappend
         veritysetup format "$oldinitdir/usr/share/minimal_0.raw" "$oldinitdir/usr/share/minimal_0.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_0.roothash"
 
@@ -596,7 +596,7 @@ install_verity_minimal() {
         rm "$initdir/usr/lib/systemd/system/app0-foo.service"
         cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-bar.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw" -noappend
         veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_1.roothash"
 
@@ -624,7 +624,7 @@ cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
 
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
@@ -644,7 +644,7 @@ cat /usr/lib/extension-release.d/extension-release.app1
 EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw" -noappend
     )
 }
 
