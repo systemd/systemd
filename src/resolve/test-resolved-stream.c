@@ -194,9 +194,9 @@ static const size_t MAX_RECEIVED_PACKETS = 2;
 static DnsPacket *received_packets[2] = {};
 static size_t n_received_packets = 0;
 
-static int on_stream_packet(DnsStream *stream) {
+static int on_stream_packet(DnsStream *stream, DnsPacket *p) {
         assert_se(n_received_packets < MAX_RECEIVED_PACKETS);
-        assert_se(received_packets[n_received_packets++] = dns_stream_take_read_packet(stream));
+        assert_se(received_packets[n_received_packets++] = dns_packet_ref(p));
         return 0;
 }
 

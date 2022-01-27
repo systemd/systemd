@@ -281,6 +281,22 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
         return dns_stream_complete(s, ETIMEDOUT);
 }
 
+static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
+        assert(s);
+
+        if (!s->read_packet)
+                return NULL;
+
+        if (s->n_read < sizeof(s->read_size))
+                return NULL;
+
+        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size))
+                return NULL;
+
+        s->n_read = 0;
+        return TAKE_PTR(s->read_packet);
+}
+
 static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
         bool progressed = false;
         int r;
@@ -413,9 +429,10 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
 
                         /* Are we done? If so, call the packet handler and re-enable EPOLLIN for the
                          * event source if necessary. */
-                        if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
+                        _cleanup_(dns_packet_unrefp) DnsPacket *p = dns_stream_take_read_packet(s);
+                        if (p) {
                                 assert(s->on_packet);
-                                r = s->on_packet(s);
+                                r = s->on_packet(s, p);
                                 if (r < 0)
                                         return r;
 
@@ -520,7 +537,7 @@ int dns_stream_new(
                 DnsProtocol protocol,
                 int fd,
                 const union sockaddr_union *tfo_address,
-                int (on_packet)(DnsStream*),
+                int (on_packet)(DnsStream*, DnsPacket*),
                 int (complete)(DnsStream*, int), /* optional */
                 usec_t connect_timeout_usec) {
 
@@ -602,22 +619,6 @@ int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
         dns_packet_ref(p);
 
         return dns_stream_update_io(s);
-}
-
-DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
-        assert(s);
-
-        if (!s->read_packet)
-                return NULL;
-
-        if (s->n_read < sizeof(s->read_size))
-                return NULL;
-
-        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size))
-                return NULL;
-
-        s->n_read = 0;
-        return TAKE_PTR(s->read_packet);
 }
 
 void dns_stream_detach(DnsStream *s) {
