@@ -490,17 +490,22 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                                 destination, destination_port, packet, optoffset, l2_broadcast);
 }
 
-static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
-                               uint8_t type, size_t *_optoffset,
-                               DHCPRequest *req) {
+static int server_message_init(
+                sd_dhcp_server *server,
+                DHCPPacket **ret,
+                uint8_t type,
+                size_t *ret_optoffset,
+                DHCPRequest *req) {
+
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optoffset = 0;
         int r;
 
         assert(server);
         assert(ret);
-        assert(_optoffset);
+        assert(ret_optoffset);
         assert(IN_SET(type, DHCP_OFFER, DHCP_ACK, DHCP_NAK));
+        assert(req);
 
         packet = malloc0(sizeof(DHCPPacket) + req->max_optlen);
         if (!packet)
@@ -516,7 +521,7 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         packet->dhcp.flags = req->message->flags;
         packet->dhcp.giaddr = req->message->giaddr;
 
-        *_optoffset = optoffset;
+        *ret_optoffset = optoffset;
         *ret = TAKE_PTR(packet);
 
         return 0;
