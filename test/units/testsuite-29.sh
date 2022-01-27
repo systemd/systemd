@@ -24,29 +24,29 @@ cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
-portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-foo.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
 set +o pipefail
 set +e
-systemctl is-active app0-bar.service && exit 1
+systemctl is-active minimal-app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw app0
+portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-bar.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-bar.service
 set +o pipefail
 set +e
-systemctl is-active app0-foo.service && exit 1
+systemctl is-active minimal-app0-foo.service && exit 1
 set -e
 set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 
-portablectl detach --now --runtime /usr/share/minimal_1.raw app0
+portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl list | grep -q -F "No images."
 
@@ -55,29 +55,29 @@ portablectl list | grep -q -F "No images."
 unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
 unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
 
-portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 app0
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-foo.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
 set +o pipefail
 set +e
-systemctl is-active app0-bar.service && exit 1
+systemctl is-active minimal-app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 app0
+portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-bar.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-bar.service
 set +o pipefail
 set +e
-systemctl is-active app0-foo.service && exit 1
+systemctl is-active minimal-app0-foo.service && exit 1
 set -e
 set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 
-portablectl detach --now --enable --runtime /tmp/minimal_1 app0
+portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 portablectl list | grep -q -F "No images."
 
