@@ -576,7 +576,8 @@ install_verity_minimal() {
         oldinitdir="$initdir"
         rm -rfv "$TESTDIR/minimal"
         export initdir="$TESTDIR/minimal"
-        mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt"
+        # app0 will use TemporaryFileSystem=/var/lib, app1 will need the mount point in the base image
+        mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt" "$initdir/var/lib/app1"
         setup_basic_dirs
         install_basic_tools
         # Shellcheck treats [[ -v VAR ]] as an assignment to avoid a different
@@ -633,11 +634,15 @@ EOF
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
+TemporaryFileSystem=/var/lib
+StateDirectory=app0
+RuntimeDirectory=app0
 EOF
         cat >"$initdir/opt/script0.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
+echo bar > \${STATE_DIRECTORY}/foo
 cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
@@ -656,11 +661,14 @@ EOF
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
+StateDirectory=app1
+RuntimeDirectory=app1
 EOF
         cat >"$initdir/opt/script1.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
+echo baz > \${STATE_DIRECTORY}/foo
 cat /usr/lib/extension-release.d/extension-release.app2
 EOF
         chmod +x "$initdir/opt/script1.sh"

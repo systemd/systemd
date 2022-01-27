@@ -302,7 +302,8 @@ systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.r
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
 MountAPIVFS=yes
-TemporaryFileSystem=/run
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app0
 RootImage=${image}.raw
 ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
 # Relevant only for sanitizer runs
