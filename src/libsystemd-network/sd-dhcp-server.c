@@ -165,8 +165,6 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
-        log_dhcp_server(server, "UNREF");
-
         sd_dhcp_server_stop(server);
 
         sd_event_unref(server->event);
@@ -280,8 +278,12 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
 }
 
 int sd_dhcp_server_stop(sd_dhcp_server *server) {
+        bool running;
+
         if (!server)
                 return 0;
+
+        running = sd_dhcp_server_is_running(server);
 
         server->receive_message = sd_event_source_disable_unref(server->receive_message);
         server->receive_broadcast = sd_event_source_disable_unref(server->receive_broadcast);
@@ -290,7 +292,8 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         server->fd = safe_close(server->fd);
         server->fd_broadcast = safe_close(server->fd_broadcast);
 
-        log_dhcp_server(server, "STOPPED");
+        if (running)
+                log_dhcp_server(server, "STOPPED");
 
         return 0;
 }
