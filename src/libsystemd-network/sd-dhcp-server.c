@@ -134,7 +134,7 @@ int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
 
 void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
-        assert(id->length);
+        assert(id->length > 0);
         assert(id->data);
 
         siphash24_compress(&id->length, sizeof(id->length), state);
@@ -144,8 +144,10 @@ void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
         int r;
 
-        assert(!a->length || a->data);
-        assert(!b->length || b->data);
+        assert(a->length > 0);
+        assert(a->data);
+        assert(b->length > 0);
+        assert(b->data);
 
         r = CMP(a->length, b->length);
         if (r != 0)
@@ -1579,6 +1581,7 @@ int sd_dhcp_server_set_static_lease(
 
         assert_return(server, -EINVAL);
         assert_return(client_id, -EINVAL);
+        assert_return(client_id_size > 0, -EINVAL);
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         /* Static lease with an empty or omitted address is a valid entry,
@@ -1605,8 +1608,6 @@ int sd_dhcp_server_set_static_lease(
         *lease = (DHCPLease) {
                 .address = address->s_addr,
                 .client_id.length = client_id_size,
-                .gateway = 0,
-                .expiration = 0,
         };
         lease->client_id.data = memdup(client_id, client_id_size);
         if (!lease->client_id.data)
