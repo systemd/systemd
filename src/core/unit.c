@@ -5450,7 +5450,13 @@ int unit_prepare_exec(Unit *u) {
 
         /* Prepares everything so that we can fork of a process for this unit */
 
-        (void) unit_realize_cgroup(u);
+        r = unit_realize_cgroup(u);
+        if (r < 0 && IN_SET(u->type, UNIT_MOUNT, UNIT_SWAP)) {
+                /* Realizing the cgroup failed, but as a fallback we will run mount/unmount or swapon/swapoff in "init.scope". */
+
+                (void) unit_set_cgroup_path(u, "/init.scope");
+                (void) unit_realize_cgroup(u);
+        }
 
         if (u->reset_accounting) {
                 (void) unit_reset_accounting(u);
