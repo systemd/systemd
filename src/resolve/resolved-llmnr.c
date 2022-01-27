@@ -277,13 +277,11 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         return m->llmnr_ipv6_udp_fd = TAKE_FD(s);
 }
 
-static int on_llmnr_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+static int on_llmnr_stream_packet(DnsStream *s, DnsPacket *p) {
         DnsScope *scope;
 
         assert(s);
-
-        p = dns_stream_take_read_packet(s);
+        assert(s->manager);
         assert(p);
 
         scope = manager_find_scope(s->manager, p);
