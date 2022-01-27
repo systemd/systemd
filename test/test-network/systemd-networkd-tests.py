@@ -3075,10 +3075,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
 
         always = test.startswith('always')
-        if test == 'manual':
-            initial_up = 'UP' in check_output('ip link show test1')
-        else:
-            initial_up = not test.endswith('down') # note: default is up
+        initial_up = test != 'manual' and not test.endswith('down') # note: default is up
         expect_up = initial_up
         next_up = not expect_up
 
