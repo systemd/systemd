@@ -97,7 +97,7 @@ test "$(stat -c %U:%G:%a /tmp/e/3/f1)" = "root:root:644"
 # 'C'
 #
 
-mkdir /tmp/C/{1,2,3}-origin
+mkdir /tmp/C/{0,1,2,3}-origin
 touch /tmp/C/{1,2,3}-origin/f1
 chmod 755 /tmp/C/{1,2,3}-origin/f1
 
@@ -121,3 +121,31 @@ EOF
 
 test "$(stat -c %U:%G:%a /tmp/C/3/f1)" = "root:root:644"
 test ! -e /tmp/C/4
+
+# Check that %U expands to 0, both in the path and in the argument.
+home='/tmp/C'
+systemd-tmpfiles --create - <<EOF
+C     $home/%U    - - - - $home/%U-origin
+EOF
+
+test -d "$home/0"
+
+# Check that %h expands to $home, both in the path and in the argument.
+HOME="$home" \
+systemd-tmpfiles --create - <<EOF
+C     %h/5    - - - - %h/3-origin
+EOF
+
+test -f "$home/5/f1"
+
+# Check that %h in the path is expanded, but
+# the result of this expansion is not expanded once again.
+root='/tmp/C/6'
+home='/%U'
+mkdir -p "$root/usr/share/factory$home"
+HOME="$home" \
+systemd-tmpfiles --create --root="$root" - <<EOF
+C     %h    - - - -
+EOF
+
+test -d "$root$home"
