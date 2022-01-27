@@ -791,17 +791,17 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
         return 0;
 }
 
-static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
+static bool address_is_in_pool(sd_dhcp_server *server, be32_t address) {
         assert(server);
 
         if (server->pool_size == 0)
-                return -EINVAL;
+                return false;
 
-        if (be32toh(requested_ip) < (be32toh(server->subnet) | server->pool_offset) ||
-            be32toh(requested_ip) >= (be32toh(server->subnet) | (server->pool_offset + server->pool_size)))
-                return -ERANGE;
+        if (be32toh(address) < (be32toh(server->subnet) | server->pool_offset) ||
+            be32toh(address) >= (be32toh(server->subnet) | (server->pool_offset + server->pool_size)))
+                return false;
 
-        return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
+        return true;
 }
 
 static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t size) {
@@ -1039,10 +1039,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 return 1;
 
         case DHCP_REQUEST: {
-                DHCPLease *existing_lease_by_address;
                 be32_t address;
                 bool init_reboot = false;
-                int pool_offset;
 
                 /* see RFC 2131, section 4.3.2 */
 
@@ -1093,9 +1091,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 if (address == server->address)
                         return 0;
 
-                pool_offset = get_pool_offset(server, address);
-                existing_lease_by_address = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-
                 /* verify that the requested address is from the pool, and either
                    owned by the current client or free */
                 if (static_lease && static_lease->address == address) {
@@ -1139,8 +1134,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
 
                         return DHCP_ACK;
+                }
 
-                } else if (pool_offset >= 0 && existing_lease_by_address == existing_lease) {
+                DHCPLease *existing_lease_by_address = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+                if (address_is_in_pool(server, address) && existing_lease_by_address == existing_lease) {
                         _cleanup_(dhcp_lease_freep) DHCPLease *new_lease = NULL;
                         usec_t time_now, expiration;
                         DHCPLease *lease;
