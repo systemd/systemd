@@ -615,16 +615,28 @@ static int server_send_offer_or_ack(
         return dhcp_server_send_packet(server, req, packet, type, offset);
 }
 
-static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
+static int server_send_nak_or_ignore(sd_dhcp_server *server, bool init_reboot, DHCPRequest *req) {
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t offset;
         int r;
 
+        /* When a request is refused, RFC 2131, section 4.3.2 mentioned we should send NAK when the
+         * client is in INITREBOOT. If the client is in other state, there is nothing mentioned in the
+         * RFC whether we should send NAK or not. Hence, let's silently ignore the request. */
+
+        if (!init_reboot)
+                return 0;
+
         r = server_message_init(server, &packet, DHCP_NAK, &offset, req);
         if (r < 0)
-                return r;
+                return log_dhcp_server_errno(server, r, "Failed to create NAK message: %m");
 
-        return dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
+        r = dhcp_server_send_packet(server, req, packet, DHCP_NAK, offset);
+        if (r < 0)
+                return log_dhcp_server_errno(server, r, "Could not send NAK message: %m");
+
+        log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->xid));
+        return DHCP_NAK;
 }
 
 static int server_send_forcerenew(
@@ -1176,18 +1188,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
 
                         return DHCP_ACK;
-
-                } else if (init_reboot) {
-                        r = server_send_nak(server, req);
-                        if (r < 0)
-                                /* this only fails on critical errors */
-                                return log_dhcp_server_errno(server, r, "Could not send nak: %m");
-
-                        log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->xid));
-                        return DHCP_NAK;
                 }
 
-                break;
+                return server_send_nak_or_ignore(server, init_reboot, req);
         }
 
         case DHCP_RELEASE: {
