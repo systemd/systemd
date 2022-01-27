@@ -20,8 +20,9 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
         assert_se(sd_dhcp_server_configure_pool(server, address, 8, 0, size) == ret);
 }
 
-static int test_basic(sd_event *event, bool bind_to_interface) {
+static int test_basic(bool bind_to_interface) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
@@ -29,6 +30,8 @@ static int test_basic(sd_event *event, bool bind_to_interface) {
                 .s_addr = htobe32(INADDR_ANY),
         };
         int r;
+
+        assert_se(sd_event_new(&event) >= 0);
 
         /* attach to loopback interface */
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
@@ -228,18 +231,15 @@ static void test_client_id_hash(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_event_new(&e) >= 0);
-
-        r = test_basic(e, true);
+        r = test_basic(true);
         if (r < 0)
                 return log_tests_skipped_errno(r, "cannot start dhcp server(bound to interface)");
 
-        r = test_basic(e, false);
+        r = test_basic(false);
         if (r < 0)
                 return log_tests_skipped_errno(r, "cannot start dhcp server(non-bound to interface)");
 
