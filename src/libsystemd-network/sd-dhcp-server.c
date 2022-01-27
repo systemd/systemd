@@ -1140,13 +1140,16 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         return DHCP_ACK;
                 }
 
-                DHCPLease *existing_lease_by_address = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-                if (address_is_in_pool(server, address) && existing_lease_by_address == existing_lease) {
+                if (address_is_in_pool(server, address)) {
+                        /* The requested address is in the pool. */
+
+                        if (existing_lease && existing_lease->address != address)
+                                /* We previously assigned an address, but the client requested another one. Refuse. */
+                                return server_send_nak_or_ignore(server, init_reboot, req);
+
                         _cleanup_(dhcp_lease_freep) DHCPLease *new_lease = NULL;
                         usec_t time_now, expiration;
                         DHCPLease *lease;
-
-                        /* Note that in the above condition we accept the case that both leases are NULL. */
 
                         r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
                         if (r < 0)
