@@ -1804,7 +1804,7 @@ static int apply_mounts(
          * exist, which means this will be a no-op. */
         r = create_symlinks_from_tuples(root, exec_dir_symlinks);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to set up ExecDirectories symlinks inside mount namespace: %m");
 
         /* Create a deny list we can pass to bind_mount_recursive() */
         deny_list = new(char*, (*n_mounts)+1);
