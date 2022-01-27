@@ -3053,7 +3053,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_operstate('test1', 'routable')
 
     def _test_activation_policy(self, test):
-        self.setUp()
         conffile = '25-activation-policy.network'
         if test:
             conffile = f'{conffile}.d/{test}.conf'
@@ -3088,15 +3087,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             expect_up = initial_up if always else next_up
             next_up = not next_up
 
-        self.tearDown()
-
     def test_activation_policy(self):
         for test in ['up', 'always-up', 'manual', 'always-down', 'down', '']:
             with self.subTest(test=test):
+                self.setUp()
                 self._test_activation_policy(test)
+                self.tearDown()
 
     def _test_activation_policy_required_for_online(self, policy, required):
-        self.setUp()
         conffile = '25-activation-policy.network'
         units = ['11-dummy.netdev', '12-dummy.netdev', '12-dummy.network', conffile]
         if policy:
@@ -3131,13 +3129,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         yesno = 'yes' if expected else 'no'
         self.assertRegex(output, f'Required For Online: {yesno}')
 
-        self.tearDown()
-
     def test_activation_policy_required_for_online(self):
         for policy in ['up', 'always-up', 'manual', 'always-down', 'down', 'bound', '']:
             for required in ['yes', 'no', '']:
                 with self.subTest(policy=policy, required=required):
+                    self.setUp()
                     self._test_activation_policy_required_for_online(policy, required)
+                    self.tearDown()
 
     def test_domain(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
