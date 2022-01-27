@@ -594,6 +594,21 @@ class Utilities():
     def check_link_attr(self, *args):
         self.assertEqual(read_link_attr(*args[:-1]), args[-1]);
 
+    def wait_activated(self, link, state='down', timeout=20, fail_assert=True):
+        # wait for the interface is activated.
+        invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
+        needle = f'{link}: Bringing link {state}'
+        flag = state.upper()
+        for iteration in range(timeout+1):
+            output = check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
+            if needle in output and flag in check_output(f'ip link show {link}'):
+                return True
+            if iteration < timeout:
+                time.sleep(1)
+        if fail_assert:
+            self.fail(f'Timed out waiting for {link} activated.')
+        return False
+
     def wait_operstate(self, link, operstate='degraded', setup_state='configured', setup_timeout=5, fail_assert=True):
         """Wait for the link to reach the specified operstate and/or setup state.
 
@@ -3067,6 +3082,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         expect_up = initial_up
         next_up = not expect_up
 
+        if test.endswith('down'):
+            self.wait_activated('test1')
+
         for iteration in range(4):
             with self.subTest(iteration=iteration, expect_up=expect_up):
                 operstate = 'routable' if expect_up else 'off'
@@ -3103,6 +3121,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             units += [f'{conffile}.d/required-{required}.conf']
         copy_unit_to_networkd_unit_path(*units, dropins=False)
         start_networkd()
+
+        if policy.endswith('down'):
+            self.wait_activated('test1')
 
         if policy.endswith('down') or policy == 'manual':
             self.wait_operstate('test1', 'off', setup_state='configuring')
