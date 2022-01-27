@@ -4410,25 +4410,91 @@ DHCP=yes</programlisting>
     </example>
 
     <example>
-      <title>IPv6 Prefix Delegation</title>
+      <title>IPv6 Prefix Delegation (DHCPv6 PD)</title>
 
-      <programlisting># /etc/systemd/network/55-ipv6-pd-upstream.network
+      <programlisting># /etc/systemd/network/55-dhcpv6-pd-upstream.network
 [Match]
 Name=enp1s0
 
 [Network]
-DHCP=ipv6</programlisting>
+DHCP=ipv6
 
-      <programlisting># /etc/systemd/network/56-ipv6-pd-downstream.network
+# The below setting is optional, to also assign an address in the delegated prefix
+# to the upstream interface. If not necessary, then comment out the line below and
+# the [DHCPPrefixDelegation] section.
+DHCPPrefixDelegation=yes
+
+# If the upstream network provides Router Advertisement with Managed bit set,
+# then comment out the line below and WithoutRA= setting in the [DHCPv6] section.
+IPv6AcceptRA=no
+
+[DHCPv6]
+WithoutRA=solicit
+
+[DHCPPrefixDelegation]
+UplinkInterface=:self
+SubnetId=0
+Announce=no</programlisting>
+
+      <programlisting># /etc/systemd/network/55-dhcpv6-pd-downstream.network
 [Match]
 Name=enp2s0
 
 [Network]
+DHCPPrefixDelegation=yes
 IPv6SendRA=yes
-DHCPPrefixDelegation=yes</programlisting>
+
+# It is expected that the host is acting as a router. So, usually it is not
+# necessary to receive Router Advertisement from other hosts in the downstream network.
+IPv6AcceptRA=no
+
+[DHCPPrefixDelegation]
+UplinkInterface=enp1s0
+SubnetId=1
+Announce=yes</programlisting>
 
       <para>This will enable DHCPv6-PD on the interface enp1s0 as an upstream interface where the
       DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.
+      The delegated prefixes are distributed by IPv6 Router Advertisement on the downstream network.
+      </para>
+    </example>
+
+    <example>
+      <title>IPv6 Prefix Delegation (DHCPv4 6RD)</title>
+
+      <programlisting># /etc/systemd/network/55-dhcpv4-6rd-upstream.network
+[Match]
+Name=enp1s0
+
+[Network]
+DHCP=ipv4
+
+# When DHCPv4-6RD is used, the upstream network does not support IPv6.
+# Hence, it is not necessary to wait for Router Advertisement, which is enabled by default.
+IPv6AcceptRA=no
+
+[DHCPv4]
+Use6RD=yes</programlisting>
+
+      <programlisting># /etc/systemd/network/55-dhcpv4-6rd-downstream.network
+[Match]
+Name=enp2s0
+
+[Network]
+DHCPPrefixDelegation=yes
+IPv6SendRA=yes
+
+# It is expected that the host is acting as a router. So, usually it is not
+# necessary to receive Router Advertisement from other hosts in the downstream network.
+IPv6AcceptRA=no
+
+[DHCPPrefixDelegation]
+UplinkInterface=enp1s0
+SubnetId=1
+Announce=yes</programlisting>
+
+      <para>This will enable DHCPv4-6RD on the interface enp1s0 as an upstream interface where the
+      DHCPv4 client is running and enp2s0 as a downstream interface where the prefix is delegated to.
       The delegated prefixes are distributed by IPv6 Router Advertisement on the downstream network.
       </para>
     </example>
