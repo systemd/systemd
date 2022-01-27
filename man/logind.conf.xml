@@ -172,6 +172,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LegacyHaltRootInhibit=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Configures whether or not
+        System V legacy shutdown/reboot/halt/poweroff commands executed as
+        root will honor inhibitors and send out DBus signal for poweroff events.
+        </para>
+
+        <para>The default value is no.
+        </para>
+
+        <para>When set yes, legacy halt commands can be inhibited and will emit
+        the PrepareForShutdown() signal. This can be skipped by using --force on
+        the commandline. Subsequently, when set to use, if a reboot is already
+        inhibited, an additional reboot with --force will force the reboot despite
+        the inhibitor.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>InhibitDelayMaxSec=</varname></term>
 
         <listitem><para>Specifies the maximum time a system shutdown

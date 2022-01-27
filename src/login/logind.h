@@ -114,6 +114,7 @@ struct Manager {
         HandleAction handle_lid_switch_ep;
         HandleAction handle_lid_switch_docked;
 
+        bool legacy_shutdown_inhibit_root;
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
         bool hibernate_key_ignore_inhibited;

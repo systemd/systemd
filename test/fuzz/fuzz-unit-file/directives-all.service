@@ -136,6 +136,7 @@ KeepAliveTimeSec=
 KillMode=
 KillSignal=
 LazyUnmount=
+LegacyHaltInhibitRoot=
 ListenDatagram=
 ListenFIFO=
 ListenMessageQueue=
