@@ -1366,8 +1366,8 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         return 0;
 
 on_error:
-    sd_dhcp_server_stop(server);
-    return r;
+        sd_dhcp_server_stop(server);
+        return r;
 }
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
