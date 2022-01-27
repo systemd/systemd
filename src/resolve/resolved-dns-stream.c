@@ -411,16 +411,13 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                                         s->n_read += ss;
                         }
 
-                        /* Are we done? If so, disable the event source for EPOLLIN */
+                        /* Are we done? If so, call the packet handler and re-enable EPOLLIN for the
+                         * event source if necessary. */
                         if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
-                                /* If there's a packet handler
-                                 * installed, call that. Note that
-                                 * this is optional... */
-                                if (s->on_packet) {
-                                        r = s->on_packet(s);
-                                        if (r < 0)
-                                                return r;
-                                }
+                                assert(s->on_packet);
+                                r = s->on_packet(s);
+                                if (r < 0)
+                                        return r;
 
                                 r = dns_stream_update_io(s);
                                 if (r < 0)
@@ -523,6 +520,8 @@ int dns_stream_new(
                 DnsProtocol protocol,
                 int fd,
                 const union sockaddr_union *tfo_address,
+                int (on_packet)(DnsStream*),
+                int (complete)(DnsStream*, int), /* optional */
                 usec_t connect_timeout_usec) {
 
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
@@ -535,6 +534,7 @@ int dns_stream_new(
         assert(protocol >= 0);
         assert(protocol < _DNS_PROTOCOL_MAX);
         assert(fd >= 0);
+        assert(on_packet);
 
         if (m->n_dns_streams[type] > DNS_STREAMS_MAX)
                 return -EBUSY;
@@ -576,6 +576,8 @@ int dns_stream_new(
         s->manager = m;
 
         s->fd = fd;
+        s->on_packet = on_packet;
+        s->complete = complete;
 
         if (tfo_address) {
                 s->tfo_address = *tfo_address;

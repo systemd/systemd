@@ -253,8 +253,8 @@ static void test_dns_stream(bool tls) {
 
         /* Initialize DNS stream */
         assert_se(dns_stream_new(&manager, &stream, DNS_STREAM_LOOKUP, DNS_PROTOCOL_DNS,
-                                 TAKE_FD(clientfd), NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
-        stream->on_packet = on_stream_packet;
+                                 TAKE_FD(clientfd), NULL, on_stream_packet, NULL,
+                                 DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
 #if ENABLE_DNS_OVER_TLS
         if (tls) {
                 DnsServer server = {

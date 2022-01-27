@@ -93,7 +93,16 @@ struct DnsStream {
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsStreamType type, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address, usec_t timeout);
+int dns_stream_new(
+                Manager *m,
+                DnsStream **ret,
+                DnsStreamType type,
+                DnsProtocol protocol,
+                int fd,
+                const union sockaddr_union *tfo_address,
+                int (on_packet)(DnsStream*),
+                int (complete)(DnsStream*, int), /* optional */
+                usec_t connect_timeout_usec);
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 #endif
