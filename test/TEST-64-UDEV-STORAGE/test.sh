@@ -119,7 +119,6 @@ test_run() {
 
     # Execute each currently defined function starting with "testcase_"
     for testcase in "${TESTCASES[@]}"; do
-        _image_cleanup
         echo "------ $testcase: BEGIN ------"
         # Note for my future frustrated self: `fun && xxx` (as well as ||, if, while,
         # until, etc.) _DISABLES_ the `set -e` behavior in _ALL_ nested function
@@ -130,8 +129,14 @@ test_run() {
         # So, be careful when adding clean up snippets in the testcase_*() functions -
         # if the `test_run_one()` function isn't the last command, you have propagate
         # the exit code correctly (e.g. `test_run_one() || return $?`, see below).
-        ec=0
-        "$testcase" "$test_id" || ec=$?
+
+        # FIXME: temporary workaround for intermittent fails in certain tests
+        # See: https://github.com/systemd/systemd/issues/21819
+        for ((_i = 0; _i < 3; _i++)); do
+            _image_cleanup
+            ec=0
+            "$testcase" "$test_id" && break || ec=$?
+        done
         case $ec in
             0)
                 passed+=("$testcase")
