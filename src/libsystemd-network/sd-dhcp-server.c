@@ -919,6 +919,59 @@ static int prepare_new_lease(
         return 0;
 }
 
+static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, DHCPLease *existing_lease, be32_t address) {
+        usec_t time_now, expiration;
+        int r;
+
+        assert(server);
+        assert(req);
+        assert(address != 0);
+
+        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        expiration = usec_add(req->lifetime * USEC_PER_SEC, time_now);
+
+        if (existing_lease) {
+                assert(existing_lease->server);
+                assert(existing_lease->address == address);
+                existing_lease->expiration = expiration;
+
+        } else {
+                _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
+
+                r = prepare_new_lease(&lease, address, &req->client_id,
+                                      req->message->htype, req->message->hlen,
+                                      req->message->chaddr, req->message->giaddr, expiration);
+                if (r < 0)
+                        return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
+
+                lease->server = server; /* This must be set just before hashmap_put(). */
+
+                r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
+                if (r < 0)
+                        return log_dhcp_server_errno(server, r, "Could not save lease: %m");
+
+                r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
+                if (r < 0)
+                        return log_dhcp_server_errno(server, r, "Could not save lease: %m");
+
+                TAKE_PTR(lease);
+        }
+
+        r = server_send_offer_or_ack(server, req, address, DHCP_ACK);
+        if (r < 0)
+                return log_dhcp_server_errno(server, r, "Could not send ACK: %m");
+
+        log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
+
+        if (server->callback)
+                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
+
+        return DHCP_ACK;
+}
+
 static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
         DHCPLease *lease;
         usec_t time_now;
@@ -1101,46 +1154,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* The client requested an address which is different from the static lease. Refuse. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
-                        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
-                        usec_t time_now, expiration;
-
-                        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
-                        if (r < 0)
-                                return r;
-
-                        expiration = usec_add(req->lifetime * USEC_PER_SEC, time_now);
-
-                        r = prepare_new_lease(&lease, static_lease->address, &req->client_id,
-                                              req->message->htype, req->message->hlen,
-                                              req->message->chaddr, req->message->giaddr, expiration);
-                        if (r < 0)
-                                return r;
-
-                        r = server_send_offer_or_ack(server, req, address, DHCP_ACK);
-                        if (r < 0)
-                                /* this only fails on critical errors */
-                                return log_dhcp_server_errno(server, r, "Could not send ack: %m");
-
-                        log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
-
-                        dhcp_lease_free(hashmap_get(server->bound_leases_by_client_id, &lease->client_id));
-
-                        lease->server = server; /* This must be set just before hashmap_put(). */
-
-                        r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
-                        if (r < 0)
-                                return log_dhcp_server_errno(server, r, "Could not save lease: %m");
-
-                        r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
-                        if (r < 0)
-                                return log_dhcp_server_errno(server, r, "Could not save lease: %m");
-
-                        TAKE_PTR(lease);
-
-                        if (server->callback)
-                                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
-
-                        return DHCP_ACK;
+                        return server_ack_request(server, req, existing_lease, address);
                 }
 
                 if (address_is_in_pool(server, address)) {
@@ -1150,51 +1164,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* We previously assigned an address, but the client requested another one. Refuse. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
-                        _cleanup_(dhcp_lease_freep) DHCPLease *new_lease = NULL;
-                        usec_t time_now, expiration;
-                        DHCPLease *lease;
-
-                        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
-                        if (r < 0)
-                                return r;
-
-                        expiration = usec_add(req->lifetime * USEC_PER_SEC, time_now);
-
-                        if (!existing_lease) {
-                                r = prepare_new_lease(&new_lease, address, &req->client_id,
-                                                      req->message->htype, req->message->hlen,
-                                                      req->message->chaddr, req->message->giaddr, expiration);
-                                if (r < 0)
-                                        return r;
-
-                                lease = new_lease;
-                        } else {
-                                existing_lease->expiration = expiration;
-                                lease = existing_lease;
-                        }
-
-                        r = server_send_offer_or_ack(server, req, address, DHCP_ACK);
-                        if (r < 0)
-                                /* this only fails on critical errors */
-                                return log_dhcp_server_errno(server, r, "Could not send ack: %m");
-
-                        log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
-
-                        lease->server = server; /* This must be set just before hashmap_put(). */
-
-                        r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
-                        if (r < 0)
-                                return log_dhcp_server_errno(server, r, "Could not save lease: %m");
-                        r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
-                        if (r < 0)
-                                return log_dhcp_server_errno(server, r, "Could not save lease: %m");
-
-                        TAKE_PTR(new_lease);
-
-                        if (server->callback)
-                                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
-
-                        return DHCP_ACK;
+                        return server_ack_request(server, req, existing_lease, address);
                 }
 
                 return server_send_nak_or_ignore(server, init_reboot, req);
