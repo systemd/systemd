@@ -802,6 +802,7 @@ InhibitDelayMaxSec=
 InhibitorsMax=
 Interface=
 JournalSizeMax=
+LegacyHaltInhibitRoot=
 KEYMAP=
 KEYMAP_TOGGLE=
 KeepFree=

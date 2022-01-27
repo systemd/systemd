@@ -894,6 +894,9 @@ conf.set10('GROUP_RENDER_UACCESS', group_render_mode != '0666')
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
 
+legacy_shutdown_inhibit_root = get_option('default-legacy-shutdown-inhibit-root')
+conf.set10('LEGACY_SHUTDOWN_INHIBIT_ROOT', legacy_shutdown_inhibit_root)
+
 dns_servers = get_option('dns-servers')
 conf.set_quoted('DNS_SERVERS', dns_servers)
 
@@ -3978,6 +3981,7 @@ summary({
         'default NTP servers' :             ntp_servers.split(' '),
         'default cgroup hierarchy' :        default_hierarchy,
         'default net.naming-scheme value' : default_net_naming_scheme,
+        'default LegacyHaltRootInhibit value' : legacy_shutdown_inhibit_root,
         'default KillUserProcesses value' : kill_user_processes,
         'default locale' :                  default_locale,
         'default user $PATH' :

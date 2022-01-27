@@ -294,6 +294,8 @@ option('group-render-mode', type : 'string', value : '0666',
        description : 'Access mode for devices owned by render group (e.g. /dev/dri/renderD*, /dev/kfd).')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
+option('default-legacy-shutdown-inhibit-root', type : 'boolean',
+       description : 'Inhibit root with legacy System V shutdown commands')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
 option('default-locale', type : 'string', value : '',

@@ -81,6 +81,7 @@ struct Manager {
          * the job of it */
         char *action_job;
         sd_event_source *inhibit_timeout_source;
+        bool legacy_shutdown_inhibit_root;
 
         char *scheduled_shutdown_type;
         usec_t scheduled_shutdown_timeout;
