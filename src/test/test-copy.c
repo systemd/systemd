@@ -329,6 +329,7 @@ TEST_RET(copy_holes) {
         struct stat stat;
         off_t blksz;
         int r, fd, fd_copy;
+        char *buf;
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -343,7 +344,7 @@ TEST_RET(copy_holes) {
 
         assert_se(fstat(fd, &stat) >= 0);
         blksz = stat.st_blksize;
-        char buf[blksz];
+        buf = alloca0(blksz);
 
         /* We need to make sure to create hole in multiples of the block size, otherwise filesystems (btrfs)
          * might silently truncate/extend the holes. */
