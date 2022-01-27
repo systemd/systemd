@@ -38,7 +38,7 @@
 #IdleAction=ignore
 #IdleActionSec=30min
 #RuntimeDirectorySize=10%
-#RuntimeDirectoryInodes=400k
+#RuntimeDirectoryInodesMax=400k
 #RemoveIPC=yes
 #InhibitorsMax=8192
 #SessionsMax=8192
