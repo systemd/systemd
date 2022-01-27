@@ -72,6 +72,19 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
         if (sz < MINIMUM_HOLE_SIZE)
                 return 0;
 
+        if (p == le64toh(f->header->tail_object_offset) && !f->seal) {
+                o.object.size = htole64(offset - p);
+                if (pwrite(f->fd, &o, sizeof(EntryArrayObject), p) < 0)
+                        return log_debug_errno(errno, "Failed to modify entry array object size: %m");
+
+                f->header->arena_size = htole64(ALIGN64(offset) - le64toh(f->header->header_size));
+
+                if (ftruncate(f->fd, ALIGN64(offset)) < 0)
+                        return log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+
+                return 0;
+        }
+
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
                 return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
 
