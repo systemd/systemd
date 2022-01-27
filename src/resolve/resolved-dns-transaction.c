@@ -644,14 +644,12 @@ static int on_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static int on_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+static int on_stream_packet(DnsStream *s, DnsPacket *p) {
         DnsTransaction *t;
 
         assert(s);
-
-        /* Take ownership of packet to be able to receive new packets */
-        assert_se(p = dns_stream_take_read_packet(s));
+        assert(s->manager);
+        assert(p);
 
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (t && t->stream == s) /* Validate that the stream we got this on actually is the stream the

@@ -1044,12 +1044,9 @@ static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents
         return on_dns_stub_packet_internal(s, fd, revents, l->manager, l);
 }
 
-static int on_dns_stub_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-
+static int on_dns_stub_stream_packet(DnsStream *s, DnsPacket *p) {
         assert(s);
-
-        p = dns_stream_take_read_packet(s);
+        assert(s->manager);
         assert(p);
 
         if (dns_packet_validate_query(p) > 0) {
