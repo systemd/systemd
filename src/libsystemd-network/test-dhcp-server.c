@@ -236,12 +236,51 @@ static void test_client_id_hash(void) {
         free(b.data);
 }
 
+static void test_static_lease(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+
+        log_debug("/* %s */", __func__);
+
+        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) >= 0);
+        /* Duplicated entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) == -EEXIST);
+        /* Address is conflicted. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) == -EEXIST);
+        /* Client ID is conflicted. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)) == -EEXIST);
+
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Remove the previous entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Then, set a different address. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020306 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Remove again. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Try to remove non-existent entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)) >= 0);
+        /* Try to remove non-existent entry. */
+        assert_se(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
+                                                  (uint8_t*) &(uint32_t) { 0x01020306 }, sizeof(uint32_t)) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
         test_client_id_hash();
+        test_static_lease();
 
         r = test_basic(true);
         if (r < 0)
