@@ -29,7 +29,7 @@ static void test_non_empty(void) {
         JournaldFile *f;
         struct iovec iovec;
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
-        Object *o;
+        Object *o, *d;
         uint64_t p;
         sd_id128_t fake_boot_id;
         char t[] = "/var/tmp/journal-XXXXXX";
@@ -75,21 +75,21 @@ static void test_non_empty(void) {
         assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_find_data_object(f->file, test, strlen(test), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_find_data_object(f->file, test, strlen(test), &d, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
 
-        assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), NULL, &p) == 1);
-        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_UP, &o, NULL) == 1);
+        assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), &d, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_next_entry_for_data(f->file, p, DIRECTION_DOWN, &o, NULL) == 1);
+        assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_find_data_object(f->file, "quux", 4, NULL, &p) == 0);
+        assert_se(journal_file_find_data_object(f->file, "quux", 4, &d, NULL) == 0);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 1, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
