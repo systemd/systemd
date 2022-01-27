@@ -472,7 +472,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         if (EFI_ERROR(err))
                 return err;
 
-        /* Note that handle->Read() changes size to reflect the actualy bytes read. */
+        /* Note that handle->Read() changes size to reflect the actually bytes read. */
         ZeroMem(buf + size, extra);
 
         *ret = TAKE_PTR(buf);

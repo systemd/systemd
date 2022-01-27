@@ -323,7 +323,7 @@ systemctl is-active testservice-50e.service
 
 # ExtensionDirectories will set up an overlay
 mkdir -p "${image_dir}/app0" "${image_dir}/app1"
-systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistant" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
+systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
 systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
 systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
