@@ -3101,6 +3101,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                 check_output('ip link set dev test1 down')
             expect_up = initial_up if always else next_up
             next_up = not next_up
+            if always:
+                time.sleep(1)
 
     def test_activation_policy(self):
         for test in ['up', 'always-up', 'manual', 'always-down', 'down', '']:
