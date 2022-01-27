@@ -618,10 +618,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                le64toh(o->data.n_entries),
                                                offset);
 
-                if (le64toh(o->object.size) <= offsetof(DataObject, payload))
+                if (le64toh(o->object.size) <= offsetof(Object, data.payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad object size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(DataObject, payload),
+                                               offsetof(Object, data.payload),
                                                le64toh(o->object.size),
                                                offset);
 
@@ -640,10 +640,10 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 break;
 
         case OBJECT_FIELD:
-                if (le64toh(o->object.size) <= offsetof(FieldObject, payload))
+                if (le64toh(o->object.size) <= offsetof(Object, field.payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad field size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(FieldObject, payload),
+                                               offsetof(Object, field.payload),
                                                le64toh(o->object.size),
                                                offset);
 
@@ -660,18 +660,18 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(EntryObject, items) ||
-                    (sz - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
+                if (sz < offsetof(Object, entry.items) ||
+                    (sz - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
-                                               offsetof(EntryObject, items),
+                                               offsetof(Object, entry.items),
                                                sz,
                                                offset);
 
-                if ((sz - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                if ((sz - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
-                                               (sz - offsetof(EntryObject, items)) / sizeof(EntryItem),
+                                               (sz - offsetof(Object, entry.items)) / sizeof(EntryItem),
                                                offset);
 
                 if (le64toh(o->entry.seqnum) <= 0)
@@ -700,9 +700,9 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(HashTableObject, items) ||
-                    (sz - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (sz - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
+                if (sz < offsetof(Object, hash_table.items) ||
+                    (sz - offsetof(Object, hash_table.items)) % sizeof(HashItem) != 0 ||
+                    (sz - offsetof(Object, hash_table.items)) / sizeof(HashItem) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid %s hash table size: %" PRIu64 ": %" PRIu64,
                                                o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
@@ -716,9 +716,9 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 uint64_t sz;
 
                 sz = le64toh(READ_NOW(o->object.size));
-                if (sz < offsetof(EntryArrayObject, items) ||
-                    (sz - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (sz - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                if (sz < offsetof(Object, entry_array.items) ||
+                    (sz - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
+                    (sz - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
                                                sz,
@@ -758,7 +758,6 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         uint64_t s;
 
         assert(f);
-        assert(ret);
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
@@ -813,7 +812,9 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        *ret = o;
+        if (ret)
+                *ret = o;
+
         return 0;
 }
 
@@ -823,7 +824,6 @@ int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, O
         uint64_t s;
 
         assert(f);
-        assert(ret);
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
@@ -872,7 +872,9 @@ int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, O
         if (r < 0)
                 return r;
 
-        *ret = o;
+        if (ret)
+                *ret = o;
+
         return 0;
 }
 
@@ -1453,19 +1455,11 @@ static int journal_file_append_field(
 
         hash = journal_file_hash_data(f, field, size);
 
-        r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
+        r = journal_file_find_field_object_with_hash(f, field, size, hash, ret, ret_offset);
         if (r < 0)
                 return r;
-        if (r > 0) {
-
-                if (ret)
-                        *ret = o;
-
-                if (ret_offset)
-                        *ret_offset = p;
-
+        if (r > 0)
                 return 0;
-        }
 
         osize = offsetof(Object, field.payload) + size;
         r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
@@ -1479,20 +1473,20 @@ static int journal_file_append_field(
         if (r < 0)
                 return r;
 
-        /* The linking might have altered the window, so let's
-         * refresh our pointer */
-        r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
-        if (r < 0)
-                return r;
+        /* The linking might have altered the window, so let's only pass the offset to hmac which will
+         * move to the object again if needed. */
 
 #if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD, o, p);
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD, NULL, p);
         if (r < 0)
                 return r;
 #endif
 
-        if (ret)
-                *ret = o;
+        if (ret) {
+                r = journal_file_move_to_object(f, OBJECT_FIELD, p, ret);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_offset)
                 *ret_offset = p;
@@ -1517,19 +1511,11 @@ static int journal_file_append_data(
 
         hash = journal_file_hash_data(f, data, size);
 
-        r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
+        r = journal_file_find_data_object_with_hash(f, data, size, hash, ret, ret_offset);
         if (r < 0)
                 return r;
-        if (r > 0) {
-
-                if (ret)
-                        *ret = o;
-
-                if (ret_offset)
-                        *ret_offset = p;
-
+        if (r > 0)
                 return 0;
-        }
 
         eq = memchr(data, '=', size);
         if (!eq)
@@ -1567,17 +1553,16 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
+        /* The linking might have altered the window, so let's refresh our pointer. */
+        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+        if (r < 0)
+                return r;
+
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
 #endif
-
-        /* The linking might have altered the window, so let's
-         * refresh our pointer */
-        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
-        if (r < 0)
-                return r;
 
         /* Create field object ... */
         r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
@@ -1801,12 +1786,20 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         /* Link up the items */
         n = journal_file_entry_n_items(o);
         for (uint64_t i = 0; i < n; i++) {
-                r = journal_file_link_entry_item(f, o, offset, i);
-                if (r < 0)
-                        return r;
+                int k;
+
+                /* If we fail to link an entry item because we can't allocate a new entry array, don't fail
+                 * immediately but try to link the other entry items since it might still be possible to link
+                 * those if they don't require a new entry array to be allocated. */
+
+                k = journal_file_link_entry_item(f, o, offset, i);
+                if (k == -E2BIG)
+                        r = k;
+                else if (k < 0)
+                        return k;
         }
 
-        return 0;
+        return r;
 }
 
 static int journal_file_append_entry_internal(
@@ -2126,7 +2119,7 @@ static int generic_array_get(
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *o, *e;
+        Object *o;
         uint64_t p = 0, a, t = 0, k;
         int r;
         ChainCacheItem *ci;
@@ -2178,9 +2171,16 @@ static int generic_array_get(
                 do {
                         p = le64toh(o->entry_array.items[i]);
 
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &e);
-                        if (r >= 0)
-                                goto found;
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret);
+                        if (r >= 0) {
+                                /* Let's cache this item for the next invocation */
+                                chain_cache_put(f->chain_cache, ci, first, a, le64toh(o->entry_array.items[0]), t, i);
+
+                                if (ret_offset)
+                                        *ret_offset = p;
+
+                                return 1;
+                        }
                         if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
                                 return r;
 
@@ -2195,18 +2195,6 @@ static int generic_array_get(
         }
 
         return 0;
-
-found:
-        /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, le64toh(o->entry_array.items[0]), t, i);
-
-        if (ret)
-                *ret = e;
-
-        if (ret_offset)
-                *ret_offset = p;
-
-        return 1;
 }
 
 static int generic_array_get_plus_one(
@@ -2217,20 +2205,16 @@ static int generic_array_get_plus_one(
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *o;
         int r;
 
         assert(f);
 
         if (i == 0) {
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
                         return generic_array_get(f, first, 0, direction, ret, ret_offset);
                 if (r < 0)
                         return r;
-
-                if (ret)
-                        *ret = o;
 
                 if (ret_offset)
                         *ret_offset = extra;
@@ -2260,7 +2244,7 @@ static int generic_array_bisect(
 
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
-        Object *o, *array = NULL;
+        Object *array = NULL;
         int r;
         ChainCacheItem *ci;
 
@@ -2448,12 +2432,11 @@ found:
         else
                 p = le64toh(array->entry_array.items[i]);
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
-        if (r < 0)
-                return r;
-
-        if (ret)
-                *ret = o;
+        if (ret) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_offset)
                 *ret_offset = p;
@@ -2478,7 +2461,6 @@ static int generic_array_bisect_plus_one(
 
         int r;
         bool step_back = false;
-        Object *o;
 
         assert(f);
         assert(test_object);
@@ -2521,12 +2503,11 @@ static int generic_array_bisect_plus_one(
         return r;
 
 found:
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
-        if (r < 0)
-                return r;
-
-        if (ret)
-                *ret = o;
+        if (ret) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_offset)
                 *ret_offset = extra;
@@ -2547,6 +2528,26 @@ _pure_ static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle
                 return TEST_LEFT;
         else
                 return TEST_RIGHT;
+}
+
+int journal_file_move_to_entry_by_offset(
+                JournalFile *f,
+                uint64_t p,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        assert(f);
+        assert(f->header);
+
+        return generic_array_bisect(
+                        f,
+                        le64toh(f->header->entry_array_offset),
+                        le64toh(f->header->n_entries),
+                        p,
+                        test_object_offset,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -2828,19 +2829,16 @@ int journal_file_next_entry(
 
 int journal_file_next_entry_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
         uint64_t i, n, ofs;
-        Object *d;
         int r;
 
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         n = le64toh(READ_NOW(d->data.n_entries));
         if (n <= 0)
@@ -2865,19 +2863,14 @@ int journal_file_next_entry_for_data(
 
 int journal_file_move_to_entry_by_offset_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t p,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        int r;
-        Object *d;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,
@@ -2892,17 +2885,24 @@ int journal_file_move_to_entry_by_offset_for_data(
 
 int journal_file_move_to_entry_by_monotonic_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 sd_id128_t boot_id,
                 uint64_t monotonic,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *o, *d;
+        Object *o;
         int r;
-        uint64_t b, z;
+        uint64_t b, z, entry_offset, entry_array_offset, n_entries;
 
         assert(f);
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
+
+        /* Save all the required data before the data object gets invalidated. */
+        entry_offset = le64toh(READ_NOW(d->data.entry_offset));
+        entry_array_offset = le64toh(READ_NOW(d->data.entry_array_offset));
+        n_entries = le64toh(READ_NOW(d->data.n_entries));
 
         /* First, seek by time */
         r = find_data_object_by_boot_id(f, boot_id, &o, &b);
@@ -2925,27 +2925,22 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         /* And now, continue seeking until we find an entry that
          * exists in both bisection arrays */
 
+        r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
+        if (r < 0)
+                return r;
+
         for (;;) {
-                Object *qo;
                 uint64_t p, q;
 
-                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-                if (r < 0)
-                        return r;
-
                 r = generic_array_bisect_plus_one(f,
-                                                  le64toh(d->data.entry_offset),
-                                                  le64toh(d->data.entry_array_offset),
-                                                  le64toh(d->data.n_entries),
+                                                  entry_offset,
+                                                  entry_array_offset,
+                                                  n_entries,
                                                   z,
                                                   test_object_offset,
                                                   direction,
                                                   NULL, &p, NULL);
                 if (r <= 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
-                if (r < 0)
                         return r;
 
                 r = generic_array_bisect_plus_one(f,
@@ -2955,14 +2950,18 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   p,
                                                   test_object_offset,
                                                   direction,
-                                                  &qo, &q, NULL);
+                                                  NULL, &q, NULL);
 
                 if (r <= 0)
                         return r;
 
                 if (p == q) {
-                        if (ret)
-                                *ret = qo;
+                        if (ret) {
+                                r = journal_file_move_to_object(f, OBJECT_ENTRY, q, ret);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         if (ret_offset)
                                 *ret_offset = q;
 
@@ -2975,19 +2974,14 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
 int journal_file_move_to_entry_by_seqnum_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t seqnum,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *d;
-        int r;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3002,19 +2996,14 @@ int journal_file_move_to_entry_by_seqnum_for_data(
 
 int journal_file_move_to_entry_by_realtime_for_data(
                 JournalFile *f,
-                uint64_t data_offset,
+                Object *d,
                 uint64_t realtime,
                 direction_t direction,
                 Object **ret, uint64_t *ret_offset) {
 
-        Object *d;
-        int r;
-
         assert(f);
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r < 0)
-                return r;
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3274,7 +3263,7 @@ int journal_file_open(
         r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
         if (r < 0) {
                 if (r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring.");
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
                 f->keyed_hash = true;
         } else
                 f->keyed_hash = r;
@@ -3576,20 +3565,15 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t l, h;
-                le64_t le_hash;
                 size_t t;
                 void *data;
                 Object *u;
 
                 q = le64toh(o->entry.items[i].object_offset);
-                le_hash = o->entry.items[i].hash;
 
                 r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
                 if (r < 0)
                         return r;
-
-                if (le_hash != o->data.hash)
-                        return -EBADMSG;
 
                 l = le64toh(READ_NOW(o->object.size));
                 if (l < offsetof(Object, data.payload))
