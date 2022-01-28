@@ -86,6 +86,7 @@ int mac_smack_apply(const char *path, SmackAttr attr, const char *label) {
 }
 
 int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         int r;
 
         assert(fd >= 0);
@@ -94,10 +95,12 @@ int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
         if (!mac_smack_use())
                 return 0;
 
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
         if (label)
-                r = fsetxattr(fd, smack_attr_to_string(attr), label, strlen(label), 0);
+                r = setxattr(procfs_path, smack_attr_to_string(attr), label, strlen(label), 0);
         else
-                r = fremovexattr(fd, smack_attr_to_string(attr));
+                r = removexattr(procfs_path, smack_attr_to_string(attr));
         if (r < 0)
                 return -errno;
 

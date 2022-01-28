@@ -344,12 +344,16 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
         assert(fd >= 0);
 
 #if HAVE_SELINUX
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+
         if (!mac_selinux_use())
                 return 0;
 
         assert(label);
 
-        if (fsetfilecon(fd, label) < 0)
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+        if (setfilecon(procfs_path, label) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
