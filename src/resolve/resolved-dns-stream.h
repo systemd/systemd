@@ -60,6 +60,7 @@ struct DnsStream {
         int ifindex;
         uint32_t ttl;
         bool identified;
+        bool packet_received; /* At least one packet is received. Used by LLMNR. */
 
         /* only when using TCP fast open */
         union sockaddr_union tfo_address;
