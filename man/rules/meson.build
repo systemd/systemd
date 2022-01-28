@@ -932,7 +932,7 @@ manpages = [
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
  ['systemd-networkd-wait-online.service',
   '8',
-  ['systemd-networkd-wait-online'],
+  ['systemd-networkd-wait-online', 'systemd-networkd-wait-online@.service'],
   'ENABLE_NETWORKD'],
  ['systemd-networkd.service', '8', ['systemd-networkd'], 'ENABLE_NETWORKD'],
  ['systemd-notify', '1', [], ''],
