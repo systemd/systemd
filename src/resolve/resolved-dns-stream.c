@@ -284,6 +284,13 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
         assert(s);
 
+        /* Note, dns_stream_update() should be called after this is called. When this is called, the
+         * stream may be already full and the EPOLLIN flag is dropped from the stream IO event source.
+         * Even this makes a room to read in the stream, this does not call dns_stream_update(), hence
+         * EPOLLIN flag is not set automatically. So, to read further packets from the stream,
+         * dns_stream_update() must be called explicitly. Currently, this is only called from
+         * on_stream_io_impl(), and there dns_stream_update() is called. */
+
         if (!s->read_packet)
                 return NULL;
 
