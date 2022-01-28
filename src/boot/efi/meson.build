@@ -229,6 +229,8 @@ foreach arg : get_option('c_args')
         endif
 endforeach
 
+efi_cflags += get_option('efi-cflags')
+
 efi_ldflags = [
         '-fuse-ld=' + efi_ld,
         '-L', efi_libdir,
