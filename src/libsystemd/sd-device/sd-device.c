@@ -188,8 +188,11 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         path = strjoina(syspath, "/uevent");
                         if (access(path, F_OK) < 0) {
                                 if (errno == ENOENT)
-                                        /* this is not a valid device */
-                                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                        /* This is not a valid device.
+                                         * Note, this condition is quite often satisfied when
+                                         * enumerating devices or finding a parent device.
+                                         * Hence, use log_trace_errno() here. */
+                                        return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
                                                                "sd-device: the uevent file \"%s\" does not exist.", path);
 
                                 return log_debug_errno(errno, "sd-device: cannot access uevent file for %s: %m", syspath);
