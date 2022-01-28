@@ -306,7 +306,7 @@ int bpf_devices_supported(void) {
                 return supported = 0;
         }
 
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, NULL, &program);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, "sd_devices", &program);
         if (r < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
                 return supported = 0;
