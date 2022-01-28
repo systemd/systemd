@@ -273,9 +273,11 @@ int log_emergency_level(void);
         })
 
 #if LOG_TRACE
-#  define log_trace(...) log_debug(__VA_ARGS__)
+#  define log_trace(...)          log_debug(__VA_ARGS__)
+#  define log_trace_errno(...)    log_debug_errno(__VA_ARGS__)
 #else
-#  define log_trace(...) do {} while (0)
+#  define log_trace(...)          do {} while (0)
+#  define log_trace_errno(e, ...) (-ERRNO_VALUE(e))
 #endif
 
 /* Structured logging */
