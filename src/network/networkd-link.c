@@ -1026,8 +1026,7 @@ static Link *link_drop(Link *link) {
         hashmap_remove(link->manager->links_by_name, link->ifname);
 
         /* bonding master and its slaves have the same hardware address. */
-        if (hashmap_get(link->manager->links_by_hw_addr, &link->hw_addr) == link)
-                hashmap_remove(link->manager->links_by_hw_addr, &link->hw_addr);
+        hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
@@ -2148,8 +2147,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 log_link_debug(link, "Hardware address is changed: %s → %s",
                                HW_ADDR_TO_STR(&link->hw_addr), HW_ADDR_TO_STR(&addr));
 
-                if (hashmap_get(link->manager->links_by_hw_addr, &link->hw_addr) == link)
-                        hashmap_remove(link->manager->links_by_hw_addr, &link->hw_addr);
+                hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
         }
 
         link->hw_addr = addr;
