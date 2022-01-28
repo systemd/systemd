@@ -95,9 +95,9 @@ int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
                 return 0;
 
         if (label)
-                r = fsetxattr(fd, smack_attr_to_string(attr), label, strlen(label), 0);
+                r = setxattr(FORMAT_PROC_FD_PATH(fd), smack_attr_to_string(attr), label, strlen(label), 0);
         else
-                r = fremovexattr(fd, smack_attr_to_string(attr));
+                r = removexattr(FORMAT_PROC_FD_PATH(fd), smack_attr_to_string(attr));
         if (r < 0)
                 return -errno;
 

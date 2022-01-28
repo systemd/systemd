@@ -346,7 +346,7 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
 
         assert(label);
 
-        if (fsetfilecon(fd, label) < 0)
+        if (setfilecon(FORMAT_PROC_FD_PATH(fd), label) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
