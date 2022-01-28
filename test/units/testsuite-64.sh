@@ -390,10 +390,6 @@ testcase_btrfs_basic() {
     uuid="deadbeef-dead-dead-beef-000000000000"
     label="btrfs_root"
     mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
-    # We need to do some active waiting anyway, as it may take kernel a bit
-    # to trigger the newly created btrfs
-    helper_wait_for_dev "/dev/disk/by-uuid/$uuid"
-    helper_wait_for_dev "/dev/disk/by-label/$label"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -413,8 +409,6 @@ name="diskpart4", size=85M
 EOF
     udevadm settle
     mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
-    helper_wait_for_dev "/dev/disk/by-uuid/$uuid"
-    helper_wait_for_dev "/dev/disk/by-label/$label"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -426,8 +420,6 @@ EOF
     uuid="deadbeef-dead-dead-beef-000000000002"
     label="btrfs_mdisk"
     mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
-    helper_wait_for_dev "/dev/disk/by-uuid/$uuid"
-    helper_wait_for_dev "/dev/disk/by-label/$label"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -465,8 +457,6 @@ EOF
     ls -l /dev/mapper/encbtrfs{0..3}
     # Create a multi-device btrfs filesystem on the LUKS devices
     mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
-    helper_wait_for_dev "/dev/disk/by-uuid/$uuid"
-    helper_wait_for_dev "/dev/disk/by-label/$label"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -493,8 +483,6 @@ EOF
     # Start the corresponding mount unit and check if the btrfs device was reconstructed
     # correctly
     systemctl start "${mpoint##*/}.mount"
-    helper_wait_for_dev "/dev/disk/by-uuid/$uuid"
-    helper_wait_for_dev "/dev/disk/by-label/$label"
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
     test -e "/dev/disk/by-label/$label"
