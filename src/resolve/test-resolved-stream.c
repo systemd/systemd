@@ -130,7 +130,7 @@ static void *tls_dns_server(void *p) {
         assert_se(in_addr_to_string(SERVER_ADDRESS.sin_family,
                                     &(union in_addr_union){.in = SERVER_ADDRESS.sin_addr},
                                     &ip_str) >= 0);
-        asprintf(&bind_str, "%s:%d", ip_str, be16toh(SERVER_ADDRESS.sin_port));
+        assert_se(asprintf(&bind_str, "%s:%d", ip_str, be16toh(SERVER_ADDRESS.sin_port)) >= 0);
 
         /* We will hook one of the socketpair ends to OpenSSL's TLS server
          * stdin/stdout, so we will be able to read and write plaintext
