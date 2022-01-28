@@ -105,6 +105,10 @@ tests += [
 ]
 
 fuzzers += [
+        [files('fuzz-dhcp-client.c'),
+         [libshared,
+          libsystemd_network]],
+
         [files('fuzz-dhcp6-client.c'),
          [libshared,
           libsystemd_network]],
