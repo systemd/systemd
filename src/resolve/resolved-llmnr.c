@@ -294,7 +294,6 @@ static int on_llmnr_stream_packet(DnsStream *s, DnsPacket *p) {
         } else
                 log_debug("Invalid LLMNR TCP packet, ignoring.");
 
-        dns_stream_unref(s);
         return 0;
 }
 
@@ -311,8 +310,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
                 return -errno;
         }
 
-        /* We don't configure a "complete" handler here, we rely on the default handler than simply drops the
-         * reference to the stream, thus freeing it */
+        /* We don't configure a "complete" handler here, we rely on the default handler, thus freeing it */
         r = dns_stream_new(m, &stream, DNS_STREAM_LLMNR_RECV, DNS_PROTOCOL_LLMNR, cfd, NULL,
                            on_llmnr_stream_packet, NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC);
         if (r < 0) {
