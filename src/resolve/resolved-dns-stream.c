@@ -446,17 +446,25 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                                 r = dns_stream_update_io(s);
                                 if (r < 0)
                                         return dns_stream_complete(s, -r);
+
+                                s->packet_received = true;
                         }
                 }
         }
 
-        /* Call "complete" callback if finished reading and writing one packet, and there's nothing else left
-         * to write. */
-        if (s->type == DNS_STREAM_LLMNR_SEND &&
-            (s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
-            ordered_set_isempty(s->write_queue) &&
-            (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
-                return dns_stream_complete(s, 0);
+        if (s->type == DNS_STREAM_LLMNR_SEND && s->packet_received) {
+                uint32_t events;
+
+                /* Complete the stream if finished reading and writing one packet, and there's nothing
+                 * else left to write. */
+
+                r = sd_event_source_get_io_events(s->io_event_source, &events);
+                if (r < 0)
+                        return r;
+
+                if (!FLAGS_SET(events, EPOLLOUT))
+                        return dns_stream_complete(s, 0);
+        }
 
         /* If we did something, let's restart the timeout event source */
         if (progressed && s->timeout_event_source) {
