@@ -141,7 +141,7 @@ static int load_install_machine_id_and_layout(void) {
 
         if (isempty(s)) {
                 r = sd_id128_get_machine(&arg_machine_id);
-                if (r < 0)
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM))
                         return log_error_errno(r, "Failed to get machine-id: %m");
         } else {
                 r = sd_id128_from_string(s, &arg_machine_id);
@@ -170,7 +170,7 @@ static int settle_install_machine_id(void) {
 
         bool layout_non_bls = arg_install_layout && !streq(arg_install_layout, "bls");
         if (arg_make_machine_id_directory < 0) {
-                if (layout_non_bls)
+                if (layout_non_bls || sd_id128_is_null(arg_machine_id))
                         arg_make_machine_id_directory = 0;
                 else {
                         r = path_is_temporary_fs("/etc/machine-id");
@@ -179,6 +179,10 @@ static int settle_install_machine_id(void) {
                         arg_make_machine_id_directory = r == 0;
                 }
         }
+
+        if (arg_make_machine_id_directory > 0 && sd_id128_is_null(arg_machine_id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Machine ID not found, but bls directory creation was requested.");
 
         if (arg_make_machine_id_directory > 0 && layout_non_bls)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -982,9 +986,8 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
 static int remove_machine_id_directory(const char *root) {
         assert(root);
         assert(arg_make_machine_id_directory >= 0);
-        assert(!sd_id128_is_null(arg_machine_id));
 
-        if (!arg_make_machine_id_directory)
+        if (!arg_make_machine_id_directory || sd_id128_is_null(arg_machine_id))
                 return 0;
 
         return rmdir_one(root, SD_ID128_TO_STRING(arg_machine_id));
