@@ -119,9 +119,11 @@ static int create_hole(int fd, off_t size) {
         if (end < 0)
                 return -errno;
 
-        /* If we're not at the end of the target file, punch a hole in the existing space using fallocate(). */
+        /* If we're not at the end of the target file, try to punch a hole in the existing space using fallocate(). */
 
-        if (offset < end && fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, MIN(size, end - offset)) < 0)
+        if (offset < end &&
+            fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, MIN(size, end - offset)) < 0 &&
+            !ERRNO_IS_NOT_SUPPORTED(errno))
                 return -errno;
 
         if (end - offset >= size) {
