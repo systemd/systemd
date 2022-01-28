@@ -181,7 +181,7 @@ efi_cflags = cc.get_supported_arguments(
         '-DGNU_EFI_USE_MS_ABI',
         '-include', efi_config_h,
         '-include', version_h,
-]
+] + get_option('efi-cflags')
 
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
