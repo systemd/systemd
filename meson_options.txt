@@ -422,6 +422,8 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnu-efi support for sd-boot')
+option('efi-cflags', type : 'array',
+       description : 'additional flags for EFI compiler')
 # Note that LLD does not support PE/COFF relocations
 # https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
 option('efi-ld', type : 'combo', choices : ['auto', 'bfd', 'gold'],
