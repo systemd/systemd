@@ -319,6 +319,9 @@ static int dhcp_server_send_unicast_raw(
 
         memcpy(link.ll.sll_addr, chaddr, hlen);
 
+        if (len > UINT16_MAX)
+                return -EOVERFLOW;
+
         dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
                                       packet->dhcp.yiaddr,
                                       DHCP_PORT_CLIENT, len, -1);
