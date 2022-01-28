@@ -6,10 +6,13 @@ set -eux
 set -o pipefail
 
 ARGS=()
+state_directory=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running under sanitizers, we need to use a less restrictive
     # profile, otherwise LSan syscall would get blocked by seccomp
     ARGS+=(--profile=trusted)
+    # With the trusted profile DynamicUser is disabled, so the storage is not in private/
+    state_directory=/var/lib/
 fi
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
@@ -24,29 +27,29 @@ cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
-portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-foo.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
 set +o pipefail
 set +e
-systemctl is-active app0-bar.service && exit 1
+systemctl is-active minimal-app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw app0
+portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-bar.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-bar.service
 set +o pipefail
 set +e
-systemctl is-active app0-foo.service && exit 1
+systemctl is-active minimal-app0-foo.service && exit 1
 set -e
 set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 
-portablectl detach --now --runtime /usr/share/minimal_1.raw app0
+portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl list | grep -q -F "No images."
 
@@ -55,29 +58,29 @@ portablectl list | grep -q -F "No images."
 unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
 unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
 
-portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 app0
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-foo.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
 set +o pipefail
 set +e
-systemctl is-active app0-bar.service && exit 1
+systemctl is-active minimal-app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 app0
+portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
-systemctl is-active app0.service
-systemctl is-active app0-bar.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-bar.service
 set +o pipefail
 set +e
-systemctl is-active app0-foo.service && exit 1
+systemctl is-active minimal-app0-foo.service && exit 1
 set -e
 set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 
-portablectl detach --now --enable --runtime /tmp/minimal_1 app0
+portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 portablectl list | grep -q -F "No images."
 
@@ -108,6 +111,12 @@ status="$(portablectl is-attached --extension app1 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+
+# Ensure that the combination of read-only images, state directory and dynamic user works, and that
+# state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
+# after the service is attached before the file appears.
+grep -q -F bar "${state_directory}/app0/foo"
+grep -q -F baz "${state_directory}/app1/foo"
 
 # portablectl also works with directory paths rather than images
 
