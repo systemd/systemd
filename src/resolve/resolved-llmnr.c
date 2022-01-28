@@ -277,13 +277,11 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         return m->llmnr_ipv6_udp_fd = TAKE_FD(s);
 }
 
-static int on_llmnr_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+static int on_llmnr_stream_packet(DnsStream *s, DnsPacket *p) {
         DnsScope *scope;
 
         assert(s);
-
-        p = dns_stream_take_read_packet(s);
+        assert(s->manager);
         assert(p);
 
         scope = manager_find_scope(s->manager, p);
@@ -296,7 +294,6 @@ static int on_llmnr_stream_packet(DnsStream *s) {
         } else
                 log_debug("Invalid LLMNR TCP packet, ignoring.");
 
-        dns_stream_unref(s);
         return 0;
 }
 
@@ -313,15 +310,14 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_STREAM_LLMNR_RECV, DNS_PROTOCOL_LLMNR, cfd, NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC);
+        /* We don't configure a "complete" handler here, we rely on the default handler, thus freeing it */
+        r = dns_stream_new(m, &stream, DNS_STREAM_LLMNR_RECV, DNS_PROTOCOL_LLMNR, cfd, NULL,
+                           on_llmnr_stream_packet, NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
         }
 
-        stream->on_packet = on_llmnr_stream_packet;
-        /* We don't configure a "complete" handler here, we rely on the default handler than simply drops the
-         * reference to the stream, thus freeing it */
         return 0;
 }
 
