@@ -18,12 +18,14 @@
 
   <refnamediv>
     <refname>systemd-networkd-wait-online.service</refname>
+    <refname>systemd-networkd-wait-online@.service</refname>
     <refname>systemd-networkd-wait-online</refname>
     <refpurpose>Wait for network to come online</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-networkd-wait-online.service</filename></para>
+    <para><filename>systemd-networkd-wait-online@.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
   </refsynopsisdiv>
 
@@ -38,6 +40,17 @@
     to be fully configured or failed, and for at least one link to be online. Here, online means that
     the link's operational state is equal or higher than <literal>degraded</literal>. The threshold
     can be configured by <option>--operational-state=</option> option.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online.service</filename> invokes
+    <command>systemd-networkd-wait-online</command> without any options. Thus, it waits for all managed
+    interfaces to be configured or failed, and for at least one to be online.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online@.service</filename> takes an interface
+    name, and invokes <command>systemd-networkd-wait-online</command> with <option>-i</option> and the
+    specified interface name. Thus, wait for the specified interface to be configured and online. For
+    example, <filename>systemd-networkd-wait-online@eth0.service</filename> waits for
+    <filename>eth0</filename> to be configured by <command>systemd-networkd</command> and online.
+    </para>
   </refsect1>
 
   <refsect1>
