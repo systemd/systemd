@@ -803,7 +803,7 @@ TEST(config_parse_unit_env_file) {
                                       "EnvironmentFile", 0, "not-absolute",
                                        &files, u);
         assert_se(r == 0);
-        assert_se(strv_length(files) == 0);
+        assert_se(strv_isempty(files));
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "/absolute1",
