@@ -35,7 +35,7 @@ else
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
         libcap-dev libmount-dev libkmod-dev \
-        pkg-config wget python3-jinja2
+        pkg-config wget python3-jinja2 zipmerge
 
     # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
     # is hidden. It isn't linked against efi. It doesn't
@@ -98,3 +98,15 @@ wget -O "$OUT/fuzz-json.dict" https://raw.githubusercontent.com/rc0r/afl-fuzz/ma
 find "$build" -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} "$OUT" \;
 find src -type f -name "fuzz-*.dict" -exec cp {} "$OUT" \;
 cp src/fuzz/*.options "$OUT"
+
+if [[ "$MERGE_WITH_OSS_FUZZ_CORPORA" == "yes" ]]; then
+    for f in "$OUT/"fuzz-*; do
+        [[ -x "$f" ]] || continue
+        fuzzer=$(basename "$f")
+        t=$(mktemp)
+        if wget -O "$t" "https://storage.googleapis.com/systemd-backup.clusterfuzz-external.appspot.com/corpus/libFuzzer/systemd_${fuzzer}/public.zip"; then
+            zipmerge "$OUT/${fuzzer}_seed_corpus.zip" "$t"
+        fi
+        rm -rf "$t"
+    done
+fi
