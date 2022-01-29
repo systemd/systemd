@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-error.h"
 #include "bus-map-properties.h"
 #include "bus-wait-for-units.h"
 #include "hashmap.h"
@@ -288,19 +289,22 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return 0;
 }
 
-static int on_get_all_properties(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int on_get_all_properties(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         WaitForItem *item = userdata;
+        const sd_bus_error *e;
         int r;
 
         assert(item);
 
-        if (sd_bus_error_is_set(error)) {
+        e = sd_bus_message_get_error(m);
+        if (e) {
                 BusWaitForUnits *d = item->parent;
 
                 d->has_failed = true;
 
-                log_debug_errno(sd_bus_error_get_errno(error), "GetAll() failed for %s: %s",
-                                item->bus_path, error->message);
+                r = sd_bus_error_get_errno(e);
+                log_debug_errno(r, "GetAll() failed for %s: %s",
+                                item->bus_path, bus_error_message(e, r));
 
                 call_unit_callback_and_wait(d, item, false);
                 bus_wait_for_units_check_ready(d);
