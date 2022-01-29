@@ -149,4 +149,5 @@ _arguments -s \
     '--vacuum-corrupted=[Vacuuming mode for corrupted journal files]:mode:_journalctl_vacuum_corrupted' \
     '--verify-key=[Specify FSS verification key]:FSS key' \
     '--verify[Verify journal file consistency]' \
+    '--verify-and-rename[Verify journal and rename corrupted files]' \
     '*::default: _journalctl_none'

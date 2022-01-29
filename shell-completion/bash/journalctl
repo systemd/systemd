@@ -40,7 +40,7 @@ _journalctl() {
         [STANDALONE]='-a --all --full --system --user
                       --disk-usage -f --follow --header
                       -h --help -l --local -m --merge --no-pager
-                      --no-tail -q --quiet --setup-keys --verify
+                      --no-tail -q --quiet --setup-keys --verify --verify-and-rename
                       --version --list-catalog --update-catalog --list-boots
                       --show-cursor --dmesg -k --pager-end -e -r --reverse
                       --utc -x --catalog --no-full --force --dump-catalog

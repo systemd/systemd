@@ -931,6 +931,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--verify-and-rename</option></term>
+
+        <listitem><para>Like <option>--verify</option> but all corrupted
+        journal files found will be renamed using the
+        <literal>.journal~</literal> suffix. The operation is considered
+        successful even when corrupted files are found, provided they
+        are renamed successfully.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--verify-key=</option></term>
 
         <listitem><para>Specifies the FSS verification key to use for
