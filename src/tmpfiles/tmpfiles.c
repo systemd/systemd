@@ -3314,12 +3314,6 @@ static int parse_line(
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for symlink targets.");
                 }
-
-                if (!i.argument) {
-                        i.argument = path_join("/usr/share/factory", i.path);
-                        if (!i.argument)
-                                return log_oom();
-                }
                 break;
 
         case WRITE_FILE:
@@ -3428,6 +3422,14 @@ static int parse_line(
         }
 
         switch (i.type) {
+        case CREATE_SYMLINK:
+                if (!i.argument) {
+                        i.argument = path_join("/usr/share/factory", i.path);
+                        if (!i.argument)
+                                return log_oom();
+                }
+                break;
+
         case COPY_FILES:
                 if (!i.argument) {
                         i.argument = path_join("/usr/share/factory", i.path);
