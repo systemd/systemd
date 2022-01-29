@@ -3462,8 +3462,12 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
-                        log_unit_error(u, "Unexpected error response from GetNameOwner(): %s", e->message);
+                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner")) {
+                        r = sd_bus_error_get_errno(e);
+                        log_unit_error_errno(u, r,
+                                             "Unexpected error response from GetNameOwner(): %s",
+                                             bus_error_message(e, r));
+                }
 
                 new_owner = NULL;
         } else {
