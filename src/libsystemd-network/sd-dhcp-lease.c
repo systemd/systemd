@@ -905,7 +905,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                       pos = next_chunk;
         }
 
-        *domains = TAKE_PTR(names);
+        strv_free_and_replace(*domains, names);
 
         return cnt;
 }
