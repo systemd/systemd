@@ -494,7 +494,7 @@ static int lease_parse_routes(
                 r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
                 if (r < 0) {
                         log_debug("Failed to determine destination prefix length from class based IP, ignoring");
-                        continue;
+                        return -EINVAL;
                 }
 
                 assert_se(lease_parse_be32(option, 4, &addr.s_addr) >= 0);
