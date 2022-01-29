@@ -80,7 +80,7 @@ rm -rf "$hosts"
 
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.
-for d in "$(dirname "$0")/../test/fuzz/fuzz-"*; do
+for d in test/fuzz/fuzz-*; do
     zip -jqr "$OUT/$(basename "$d")_seed_corpus.zip" "$d"
 done
 
