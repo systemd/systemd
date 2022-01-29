@@ -358,15 +358,19 @@ static void user_start_service(User *u) {
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(user_record_unrefp) UserRecord *ur = userdata;
+        const sd_bus_error *e;
+        int r;
 
         assert(m);
         assert(ur);
 
-        if (sd_bus_message_is_method_error(m, NULL)) {
-                log_warning_errno(sd_bus_message_get_errno(m),
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r,
                                   "Failed to update slice of %s, ignoring: %s",
                                   ur->user_name,
-                                  sd_bus_message_get_error(m)->message);
+                                  bus_error_message(e, r));
 
                 return 0;
         }
