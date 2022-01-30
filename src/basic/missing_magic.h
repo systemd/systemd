@@ -38,9 +38,14 @@
 #define XFS_SB_MAGIC 0x58465342
 #endif
 
-/* Not exposed yet. Defined at fs/cifs/cifsglob.h */
-#ifndef CIFS_MAGIC_NUMBER
-#define CIFS_MAGIC_NUMBER 0xFF534D42
+/* dea2903719283c156b53741126228c4a1b40440f (5.17) */
+#ifndef CIFS_SUPER_MAGIC
+#define CIFS_SUPER_MAGIC 0xFF534D42
+#endif
+
+/* dea2903719283c156b53741126228c4a1b40440f (5.17) */
+#ifndef SMB2_SUPER_MAGIC
+#define SMB2_SUPER_MAGIC 0xFE534D42
 #endif
 
 /* 257f871993474e2bde6c497b54022c362cf398e1 (4.5) */
