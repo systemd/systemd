@@ -592,6 +592,24 @@ evdev:name:MSFT0001:02 04F3:304B Touchpad:dmi:*svnLENOVO:*pvrLenovoLegionY9000X2
  EVDEV_ABS_36=::30
 
 #########################################
+# Microsoft
+#########################################
+
+# Surface Laptop 2 (13")
+evdev:name:Microsoft Surface 045E:0933 Touchpad:dmi:*svnMicrosoftCorporation:*pnSurfaceLaptop2**
+ EVDEV_ABS_00=::38
+ EVDEV_ABS_01=::38
+ EVDEV_ABS_35=::38
+ EVDEV_ABS_36=::38
+
+# Surface Laptop 3 (15")
+evdev:name:Microsoft Surface 045E:09AF Touchpad:dmi:*svnMicrosoftCorporation:*pnSurfaceLaptop3**
+ EVDEV_ABS_00=::39
+ EVDEV_ABS_01=::37
+ EVDEV_ABS_35=::39
+ EVDEV_ABS_36=::37
+
+#########################################
 # NEWYES
 #########################################
 
