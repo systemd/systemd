@@ -223,14 +223,6 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-bool dnstls_stream_has_buffered_data(DnsStream *stream) {
-        assert(stream);
-        assert(stream->encrypted);
-        assert(stream->dnstls_data.session);
-
-        return gnutls_record_check_pending(stream->dnstls_data.session) > 0;
-}
-
 void dnstls_server_free(DnsServer *server) {
         assert(server);
 
