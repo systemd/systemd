@@ -492,10 +492,8 @@ static int lease_parse_routes(
 
                 route->option = SD_DHCP_OPTION_STATIC_ROUTE;
                 r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
-                if (r < 0) {
-                        log_debug("Failed to determine destination prefix length from class based IP, ignoring");
-                        continue;
-                }
+                if (r < 0)
+                        return -EINVAL;
 
                 assert_se(lease_parse_be32(option, 4, &addr.s_addr) >= 0);
                 route->dst_addr = inet_makeaddr(inet_netof(addr), 0);
@@ -907,7 +905,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                       pos = next_chunk;
         }
 
-        *domains = TAKE_PTR(names);
+        strv_free_and_replace(*domains, names);
 
         return cnt;
 }
