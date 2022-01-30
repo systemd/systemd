@@ -88,6 +88,10 @@ struct Manager {
         Hashmap *wiphy_by_index;
         Hashmap *wiphy_by_name;
 
+        /* ModemManager support */
+        Hashmap *bearers_by_path;
+        Hashmap *bearers_by_name;
+
         /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
