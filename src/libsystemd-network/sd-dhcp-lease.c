@@ -1121,6 +1121,18 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         return 0;
 }
 
+static char **private_options_free(char **options) {
+        if (!options)
+                return NULL;
+
+        for (unsigned i = 0; i < SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1; i++)
+                free(options[i]);
+
+        return mfree(options);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
+
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
@@ -1143,8 +1155,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *vendor_specific_hex = NULL,
                 *lifetime = NULL,
                 *t1 = NULL,
-                *t2 = NULL,
-                *options[SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1] = {};
+                *t2 = NULL;
+        _cleanup_(private_options_freep) char **options = NULL;
 
         int r, i;
 
@@ -1154,6 +1166,10 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         r = dhcp_lease_new(&lease);
         if (r < 0)
                 return r;
+
+        options = new0(char*, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
+        if (!options)
+                return -ENOMEM;
 
         r = parse_env_file(NULL, lease_file,
                            "ADDRESS", &address,
