@@ -664,6 +664,24 @@ evdev:name:ALPS0001:00 0911:5288 Touchpad:dmi:*svnStarLabs:pnLite:*
  EVDEV_ABS_01=51:950:15
  EVDEV_ABS_35=55:1750:16
  EVDEV_ABS_36=51:950:15
+ 
+#########################################
+# Surface
+#########################################
+
+# Surface Laptop 2
+evdev:name:Microsoft Surface 045E:0933 Touchpad:dmi:*svnMicrosoftCorporation:*pnSurfaceLaptop2**
+ EVDEV_ABS_00=::38
+ EVDEV_ABS_01=::38
+ EVDEV_ABS_35=::38
+ EVDEV_ABS_36=::38
+
+# Surface Laptop 3
+evdev:name:Microsoft Surface 045E:09AF Touchpad:dmi:*svnMicrosoftCorporation:*pnSurfaceLaptop3**
+ EVDEV_ABS_00=::39
+ EVDEV_ABS_01=::37
+ EVDEV_ABS_35=::39
+ EVDEV_ABS_36=::37
 
 #########################################
 # System76
