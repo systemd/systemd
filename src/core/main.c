@@ -2726,7 +2726,7 @@ int main(int argc, char *argv[]) {
         Manager *m = NULL;
         FDSet *fds = NULL;
 
-        assert(argc > 0 && !isempty(argv[0]));
+        assert_se(argc > 0 && !isempty(argv[0]));
 
         /* SysV compatibility: redirect init → telinit */
         redirect_telinit(argc, argv);
