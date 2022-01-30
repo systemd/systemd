@@ -361,7 +361,15 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         if (r <= 0) {
                 error = SSL_get_error(stream->dnstls_data.ssl, r);
                 if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
-                        stream->dnstls_events = error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
+                        /* If we receive SSL_ERROR_WANT_READ here, there are two possible scenarios:
+                           * OpenSSL needs to renegotiate (so we want to get an EPOLLIN event), or
+                           * There is no more application data is available, so we can just return
+                           And apparently there's no nice way to distinguish between the two.
+                           To handle this, never set EPOLLIN and just continue as usual.
+                           If OpenSSL really wants to read due to renegotiation, it will tell us
+                           again on SSL_write (at which point we will request EPOLLIN force a read);
+                           or we will just eventually read data anyway while we wait for a packet */
+                        stream->dnstls_events = error == SSL_ERROR_WANT_READ ? 0 : EPOLLOUT;
                         ss = -EAGAIN;
                 } else if (error == SSL_ERROR_ZERO_RETURN) {
                         stream->dnstls_events = 0;
@@ -383,14 +391,6 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
                 return r;
 
         return ss;
-}
-
-bool dnstls_stream_has_buffered_data(DnsStream *stream) {
-        assert(stream);
-        assert(stream->encrypted);
-        assert(stream->dnstls_data.ssl);
-
-        return SSL_has_pending(stream->dnstls_data.ssl) > 0;
 }
 
 void dnstls_server_free(DnsServer *server) {
