@@ -57,6 +57,7 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -521,6 +522,9 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
+
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer is not applied.", __func__);
 
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
@@ -1205,6 +1209,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_request_static_configs(link);
+        if (r < 0)
+                return r;
+
+        r = link_apply_bearer(link);
         if (r < 0)
                 return r;
 
