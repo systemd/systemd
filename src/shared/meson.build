@@ -45,6 +45,8 @@ shared_sources = files(
         'bus-message-util.h',
         'bus-object.c',
         'bus-object.h',
+        'bus-parse-xml.c',
+        'bus-parse-xml.h',
         'bus-polkit.c',
         'bus-polkit.h',
         'bus-print-properties.c',
