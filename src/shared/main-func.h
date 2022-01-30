@@ -15,7 +15,7 @@
 #define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
-                assert(argc > 0 && !isempty(argv[0]));                  \
+                assert_se(argc > 0 && !isempty(argv[0]));               \
                 save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \
