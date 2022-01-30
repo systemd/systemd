@@ -2,10 +2,12 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <net/if.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -13,6 +15,7 @@
 
 #include "fd-util.h"
 #include "log.h"
+#include "macro.h"
 #include "process-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
@@ -327,6 +330,24 @@ static void test_dns_stream(bool tls) {
         log_info("test-resolved-stream: Finished %s test", tls ? "TLS" : "TCP");
 }
 
+static void try_isolate_network(void) {
+        _cleanup_close_ int socket_fd = -1;
+
+        if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
+                log_warning("test-resolved-stream: Can't create user and network ns, running on host");
+                return;
+        }
+
+        /* Bring up the loopback interfaceon the newly created network namespace */
+        struct ifreq req = { .ifr_ifindex = 1 };
+        assert_se((socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
+        assert_se(ioctl(socket_fd,SIOCGIFNAME,&req) >= 0);
+        assert_se(ioctl(socket_fd, SIOCGIFFLAGS, &req) >= 0);
+        assert_se(FLAGS_SET(req.ifr_flags, IFF_LOOPBACK));
+        req.ifr_flags |= IFF_UP;
+        assert_se(ioctl(socket_fd, SIOCSIFFLAGS, &req) >= 0);
+}
+
 int main(int argc, char **argv) {
         SERVER_ADDRESS = (struct sockaddr_in) {
                 .sin_family = AF_INET,
@@ -335,6 +356,8 @@ int main(int argc, char **argv) {
         };
 
         test_setup_logging(LOG_DEBUG);
+
+        try_isolate_network();
 
         test_dns_stream(false);
 #if ENABLE_DNS_OVER_TLS
