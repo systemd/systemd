@@ -3,7 +3,6 @@
 
 #if ENABLE_DNS_OVER_TLS
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <sys/uio.h>
 
@@ -30,7 +29,6 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents);
 int dnstls_stream_shutdown(DnsStream *stream, int error);
 ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t iovcnt);
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count);
-bool dnstls_stream_has_buffered_data(DnsStream *stream);
 
 void dnstls_server_free(DnsServer *server);
 
