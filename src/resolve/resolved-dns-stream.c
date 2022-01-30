@@ -279,7 +279,7 @@ static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
          * Even this makes a room to read in the stream, this does not call dns_stream_update(), hence
          * EPOLLIN flag is not set automatically. So, to read further packets from the stream,
          * dns_stream_update() must be called explicitly. Currently, this is only called from
-         * on_stream_io_impl(), and there dns_stream_update() is called. */
+         * on_stream_io(), and there dns_stream_update() is called. */
 
         if (!s->read_packet)
                 return NULL;
@@ -294,14 +294,12 @@ static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
         return TAKE_PTR(s->read_packet);
 }
 
-static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
+static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         bool progressed = false;
         int r;
 
         assert(s);
-
-        /* This returns 1 when possible remaining stream exists, 0 on completed
-           stream or recoverable error, and negative errno on failure. */
 
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
@@ -354,9 +352,9 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                 }
         }
 
-        if ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
-            (!s->read_packet ||
-             s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
+        while ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
+               (!s->read_packet ||
+                s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
 
                 if (s->n_read < sizeof(s->read_size)) {
                         ssize_t ss;
@@ -365,6 +363,7 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                         if (ss < 0) {
                                 if (!ERRNO_IS_TRANSIENT(ss))
                                         return dns_stream_complete(s, -ss);
+                                break;
                         } else if (ss == 0)
                                 return dns_stream_complete(s, ECONNRESET);
                         else {
@@ -418,6 +417,7 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                                 if (ss < 0) {
                                         if (!ERRNO_IS_TRANSIENT(ss))
                                                 return dns_stream_complete(s, -ss);
+                                        break;
                                 } else if (ss == 0)
                                         return dns_stream_complete(s, ECONNRESET);
                                 else
@@ -438,6 +438,10 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                                         return dns_stream_complete(s, -r);
 
                                 s->packet_received = true;
+
+                                /* If we just disabled the read event, stop reading */
+                                if (!FLAGS_SET(s->requested_events, EPOLLIN))
+                                        break;
                         }
                 }
         }
@@ -454,41 +458,6 @@ static int on_stream_io_impl(DnsStream *s, uint32_t revents) {
                 if (r < 0)
                         log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
-
-        return 1;
-}
-
-static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
-        int r;
-
-        assert(s);
-
-        r = on_stream_io_impl(s, revents);
-        if (r <= 0)
-                return r;
-
-#if ENABLE_DNS_OVER_TLS
-        if (!s->encrypted)
-                return 0;
-
-        /* When using DNS-over-TLS, the underlying TLS library may read the entire TLS record
-           and buffer it internally. If this happens, we will not receive further EPOLLIN events,
-           and unless there's some unrelated activity on the socket, we will hang until time out.
-           To avoid this, if there's buffered TLS data, generate a "fake" EPOLLIN event.
-           This is hacky, but it makes this case transparent to the rest of the IO code. */
-        while (dnstls_stream_has_buffered_data(s)) {
-                uint32_t events;
-
-                /* Make sure the stream still wants to process more data... */
-                if (!FLAGS_SET(s->requested_events, EPOLLIN))
-                        break;
-
-                r = on_stream_io_impl(s, EPOLLIN);
-                if (r <= 0)
-                        return r;
-        }
-#endif
 
         return 0;
 }
