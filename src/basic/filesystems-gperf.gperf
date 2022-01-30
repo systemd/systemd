@@ -40,7 +40,7 @@ ceph,            {CEPH_SUPER_MAGIC}
 cgroup2,         {CGROUP2_SUPER_MAGIC}
 # note that the cgroupfs magic got reassigned from cpuset
 cgroup,          {CGROUP_SUPER_MAGIC}
-cifs,            {CIFS_MAGIC_NUMBER}
+cifs,            {CIFS_SUPER_MAGIC, SMB2_SUPER_MAGIC}
 coda,            {CODA_SUPER_MAGIC}
 configfs,        {CONFIGFS_MAGIC}
 cramfs,          {CRAMFS_MAGIC}
@@ -109,7 +109,7 @@ selinuxfs,       {SELINUX_MAGIC}
 shiftfs,         {SHIFTFS_MAGIC}
 smackfs,         {SMACK_MAGIC}
 # smb3 is an alias for cifs
-smb3,            {CIFS_MAGIC_NUMBER}
+smb3,            {CIFS_SUPER_MAGIC}
 # smbfs was removed from the kernel in 2010, the magic remains
 smbfs,           {SMB_SUPER_MAGIC}
 sockfs,          {SOCKFS_MAGIC}
