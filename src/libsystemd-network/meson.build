@@ -121,6 +121,10 @@ fuzzers += [
          [libsystemd_network,
           libshared]],
 
+        [files('fuzz-lease-load.c'),
+         [libshared,
+          libsystemd_network]],
+
         [files('fuzz-lldp-rx.c'),
          [libshared,
           libsystemd_network]],
