@@ -468,41 +468,48 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
 }
 
 static int lease_parse_routes(
-                const uint8_t *option, size_t len,
-                struct sd_dhcp_route **routes, size_t *routes_size) {
+                const uint8_t *option,
+                size_t len,
+                struct sd_dhcp_route **routes,
+                size_t *routes_size) {
 
-        struct in_addr addr;
+        int r;
 
         assert(option || len <= 0);
         assert(routes);
         assert(routes_size);
 
-        if (len <= 0)
-                return 0;
-
         if (len % 8 != 0)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(*routes, *routes_size + (len / 8)))
-                return -ENOMEM;
-
         while (len >= 8) {
-                struct sd_dhcp_route *route = *routes + *routes_size;
-                int r;
+                struct in_addr dst, gw;
+                uint8_t prefixlen;
 
-                route->option = SD_DHCP_OPTION_STATIC_ROUTE;
-                r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
-                if (r < 0)
-                        return -EINVAL;
-
-                assert_se(lease_parse_be32(option, 4, &addr.s_addr) >= 0);
-                route->dst_addr = inet_makeaddr(inet_netof(addr), 0);
+                assert_se(lease_parse_be32(option, 4, &dst.s_addr) >= 0);
                 option += 4;
 
-                assert_se(lease_parse_be32(option, 4, &route->gw_addr.s_addr) >= 0);
+                assert_se(lease_parse_be32(option, 4, &gw.s_addr) >= 0);
                 option += 4;
 
                 len -= 8;
+
+                r = in4_addr_default_prefixlen(&dst, &prefixlen);
+                if (r < 0)
+                        return -EINVAL;
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                if (!GREEDY_REALLOC(*routes, *routes_size + 1))
+                        return -ENOMEM;
+
+                (*routes)[*routes_size] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                        .option = SD_DHCP_OPTION_STATIC_ROUTE,
+                };
+
                 (*routes_size)++;
         }
 
