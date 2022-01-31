@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/uio.h>
 
 typedef struct DnsServer DnsServer;
 typedef struct DnsStream DnsStream;
@@ -27,7 +28,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server);
 void dnstls_stream_free(DnsStream *stream);
 int dnstls_stream_on_io(DnsStream *stream, uint32_t revents);
 int dnstls_stream_shutdown(DnsStream *stream, int error);
-ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count);
+ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t iovcnt);
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count);
 bool dnstls_stream_has_buffered_data(DnsStream *stream);
 

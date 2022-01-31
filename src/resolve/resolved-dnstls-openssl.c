@@ -292,14 +292,9 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         return 0;
 }
 
-ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
+static ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
         int error, r;
         ssize_t ss;
-
-        assert(stream);
-        assert(stream->encrypted);
-        assert(stream->dnstls_data.ssl);
-        assert(buf);
 
         ERR_clear_error();
         ss = r = SSL_write(stream->dnstls_data.ssl, buf, count);
@@ -327,6 +322,29 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
                 return r;
 
         return ss;
+}
+
+ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t iovcnt) {
+        _cleanup_free_ char *buf = NULL;
+        size_t count;
+
+        assert(stream);
+        assert(stream->encrypted);
+        assert(stream->dnstls_data.ssl);
+        assert(iov);
+        assert(IOVEC_TOTAL_SIZE(iov, iovcnt) > 0);
+
+        if (iovcnt == 1)
+                return dnstls_stream_write(stream, iov[0].iov_base, iov[0].iov_len);
+
+        /* As of now, OpenSSL can not accumulate multiple writes, so join into a
+           single buffer. Suboptimal, but better than multiple SSL_write calls. */
+        count = IOVEC_TOTAL_SIZE(iov, iovcnt);
+        buf = new(char, count);
+        for (size_t i = 0, pos = 0; i < iovcnt; pos += iov[i].iov_len, i++)
+                memcpy(buf + pos, iov[i].iov_base, iov[i].iov_len);
+
+        return dnstls_stream_write(stream, buf, count);
 }
 
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
