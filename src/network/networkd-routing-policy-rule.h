@@ -71,7 +71,7 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
 static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
         return manager_drop_routing_policy_rules_internal(m, true, NULL);
 }
-static inline int link_drop_routing_policy_rules(Link *link) {
+static inline int link_drop_managed_routing_policy_rules(Link *link) {
         assert(link);
         return manager_drop_routing_policy_rules_internal(link->manager, false, link);
 }

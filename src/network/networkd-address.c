@@ -891,22 +891,19 @@ int link_drop_foreign_addresses(Link *link) {
         return r;
 }
 
-int link_drop_addresses(Link *link) {
+int link_drop_managed_addresses(Link *link) {
         Address *address;
         int k, r = 0;
 
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                /* Ignore addresses not assigned yet or already removing. */
-                if (!address_exists(address))
+                /* Do not touch addresses managed by kernel or other tools. */
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
-                /* Do not drop IPv6LL addresses assigned by the kernel here. They will be dropped in
-                 * link_drop_ipv6ll_addresses() if IPv6LL addressing is disabled. */
-                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
-                    address->family == AF_INET6 &&
-                    in6_addr_is_link_local(&address->in_addr.in6))
+                /* Ignore addresses not assigned yet or already removing. */
+                if (!address_exists(address))
                         continue;
 
                 k = address_remove(address);

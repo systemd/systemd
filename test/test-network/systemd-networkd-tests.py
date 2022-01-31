@@ -3893,7 +3893,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'NO-CARRIER')
         self.assertNotRegex(output, '192.168.0.15/24')
-        self.assertNotRegex(output, '192.168.0.16/24')
+        self.assertRegex(output, '192.168.0.16/24') # foreign address is kept
 
         print('### ip -6 route list table all dev bridge99')
         output = check_output('ip -6 route list table all dev bridge99')

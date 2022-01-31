@@ -82,7 +82,7 @@ int route_remove(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
 
-int link_drop_routes(Link *link);
+int link_drop_managed_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 void link_foreignize_routes(Link *link);
 

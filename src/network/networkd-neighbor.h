@@ -34,7 +34,7 @@ int neighbor_compare_func(const Neighbor *a, const Neighbor *b);
 
 void network_drop_invalid_neighbors(Network *network);
 
-int link_drop_neighbors(Link *link);
+int link_drop_managed_neighbors(Link *link);
 int link_drop_foreign_neighbors(Link *link);
 void link_foreignize_neighbors(Link *link);
 

@@ -44,7 +44,7 @@ int nexthop_compare_func(const NextHop *a, const NextHop *b);
 
 void network_drop_invalid_nexthops(Network *network);
 
-int link_drop_nexthops(Link *link);
+int link_drop_managed_nexthops(Link *link);
 int link_drop_foreign_nexthops(Link *link);
 void link_foreignize_nexthops(Link *link);
 

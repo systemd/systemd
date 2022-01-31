@@ -788,8 +788,8 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* When 'foreign' is true, do not remove routes we configured. */
-                if (foreign && route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* When 'foreign' is true, mark only foreign routes, and vice versa. */
+                if (foreign != (route->source == NETWORK_CONFIG_SOURCE_FOREIGN))
                         continue;
 
                 /* Do not touch dynamic routes. They will removed by dhcp_pd_prefix_lost() */
@@ -834,7 +834,7 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
         }
 }
 
-static int manager_drop_routes(Manager *manager) {
+static int manager_drop_marked_routes(Manager *manager) {
         Route *route;
         int k, r = 0;
 
@@ -955,14 +955,14 @@ int link_drop_foreign_routes(Link *link) {
 
         manager_mark_routes(link->manager, /* foreign = */ true, NULL);
 
-        k = manager_drop_routes(link->manager);
+        k = manager_drop_marked_routes(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
         return r;
 }
 
-int link_drop_routes(Link *link) {
+int link_drop_managed_routes(Link *link) {
         Route *route;
         int k, r = 0;
 
@@ -971,6 +971,10 @@ int link_drop_routes(Link *link) {
         SET_FOREACH(route, link->routes) {
                 /* do not touch routes managed by the kernel */
                 if (route_by_kernel(route))
+                        continue;
+
+                /* Do not touch routes managed by kernel or other tools. */
+                if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
                 if (!route_exists(route))
@@ -983,7 +987,7 @@ int link_drop_routes(Link *link) {
 
         manager_mark_routes(link->manager, /* foreign = */ false, link);
 
-        k = manager_drop_routes(link->manager);
+        k = manager_drop_marked_routes(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 

@@ -613,8 +613,8 @@ static void manager_mark_nexthops(Manager *manager, bool foreign, const Link *ex
                 if (nexthop->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* When 'foreign' is true, do not remove nexthops we configured. */
-                if (foreign && nexthop->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* When 'foreign' is true, mark only foreign nexthops, and vice versa. */
+                if (foreign != (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN))
                         continue;
 
                 /* Ignore nexthops not assigned yet or already removed. */
@@ -641,7 +641,7 @@ static void manager_mark_nexthops(Manager *manager, bool foreign, const Link *ex
         }
 }
 
-static int manager_drop_nexthops(Manager *manager) {
+static int manager_drop_marked_nexthops(Manager *manager) {
         NextHop *nexthop;
         int k, r = 0;
 
@@ -704,14 +704,14 @@ int link_drop_foreign_nexthops(Link *link) {
 
         manager_mark_nexthops(link->manager, /* foreign = */ true, NULL);
 
-        k = manager_drop_nexthops(link->manager);
+        k = manager_drop_marked_nexthops(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
         return r;
 }
 
-int link_drop_nexthops(Link *link) {
+int link_drop_managed_nexthops(Link *link) {
         NextHop *nexthop;
         int k, r = 0;
 
@@ -721,6 +721,10 @@ int link_drop_nexthops(Link *link) {
         SET_FOREACH(nexthop, link->nexthops) {
                 /* do not touch nexthop created by the kernel */
                 if (nexthop->protocol == RTPROT_KERNEL)
+                        continue;
+
+                /* Do not touch addresses managed by kernel or other tools. */
+                if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
                 /* Ignore nexthops not assigned yet or already removing. */
@@ -734,7 +738,7 @@ int link_drop_nexthops(Link *link) {
 
         manager_mark_nexthops(link->manager, /* foreign = */ false, link);
 
-        k = manager_drop_nexthops(link->manager);
+        k = manager_drop_marked_nexthops(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
 
