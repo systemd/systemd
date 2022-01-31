@@ -26,9 +26,9 @@ test_append_files() {
     # prevent shutdown in test suite, the expect script does that manually.
     rm "${workspace:?}/usr/lib/systemd/tests/testdata/units/end.service"
     inst /usr/bin/screen
-    echo "PS1='screen\$WINDOW # '" >"$workspace/etc/bash.bashrc"
+    echo "PS1='screen\$WINDOW # '" >>"$workspace/root/.bashrc"
     echo 'startup_message off' >"$workspace/etc/screenrc"
-    echo 'bell_msg ""' >>"$1/etc/screenrc"
+    echo 'bell_msg ""' >>"$workspace/etc/screenrc"
 }
 
 do_test "$@"
