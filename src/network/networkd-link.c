@@ -1273,17 +1273,28 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         assert(link);
 
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return 0;
+
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
                 return r;
 
+        if (link->state != LINK_STATE_UNMANAGED && !network)
+                /* If link is in initialized state, then link->network is also NULL. */
+                force = true;
+
         if (link->network == network && !force)
                 return 0;
 
-        if (network)
-                log_link_info(link, "Reconfiguring with %s.", network->filename);
-        else
-                log_link_info(link, "Unmanaging interface.");
+        if (network) {
+                if (link->state == LINK_STATE_INITIALIZED)
+                        log_link_info(link, "Configuring with %s.", network->filename);
+                else
+                        log_link_info(link, "Reconfiguring with %s.", network->filename);
+        } else
+                log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
+                              "Unmanaging interface.");
 
         /* Dropping old .network file */
         r = link_stop_engines(link, false);
@@ -1423,11 +1434,9 @@ int link_reconfigure_after_sleep(Link *link) {
 }
 
 static int link_initialized_and_synced(Link *link) {
-        Network *network;
         int r;
 
         assert(link);
-        assert(link->ifname);
         assert(link->manager);
 
         if (link->manager->test_mode) {
@@ -1436,7 +1445,7 @@ static int link_initialized_and_synced(Link *link) {
                 return 0;
         }
 
-        /* We may get called either from the asynchronous netlink callback,
+        /* This may get called either from the asynchronous netlink callback,
          * or directly from link_check_initialized() if running in a container. */
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
                 return 0;
@@ -1452,32 +1461,7 @@ static int link_initialized_and_synced(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!link->network) {
-                r = link_get_network(link, &network);
-                if (r == -ENOENT) {
-                        link_set_state(link, LINK_STATE_UNMANAGED);
-                        return 0;
-                }
-                if (r < 0)
-                        return r;
-
-                if (link->flags & IFF_LOOPBACK) {
-                        if (network->link_local != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
-
-                        if (network->dhcp != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring DHCP clients for loopback link");
-
-                        if (network->dhcp_server)
-                                log_link_debug(link, "Ignoring DHCP server for loopback link");
-                }
-
-                link->network = network_ref(network);
-                link_update_operstate(link, false);
-                link_dirty(link);
-        }
-
-        return link_configure(link);
+        return link_reconfigure_impl(link, /* force = */ false);
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
