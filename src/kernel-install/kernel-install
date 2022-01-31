@@ -73,12 +73,15 @@ else
 fi
 
 if [ $# -lt 1 ]; then
-    echo "Not enough arguments" >&2
+    echo "Error: not enough arguments" >&2
     exit 1
 fi
 
 KERNEL_VERSION="$1"
 shift
+
+layout=
+initrd_generator=
 
 if [ -r "/etc/kernel/install.conf" ]; then
     . /etc/kernel/install.conf
@@ -123,12 +126,22 @@ if [ -z "$layout" ]; then
     fi
 fi
 
-
 ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+# Provide a directory where to store generated initrds
+cleanup() {
+    [ -n "$KERNEL_INSTALL_STAGING_AREA" ] && rm -rf "$KERNEL_INSTALL_STAGING_AREA"
+}
+
+trap cleanup EXIT
+
+KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t -p /tmp kernel-install.staging.XXXXXXX)"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
+export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
+export KERNEL_INSTALL_STAGING_AREA
 
 [ "$layout" = "bls" ]
 MAKE_ENTRY_DIR_ABS=$?
@@ -147,12 +160,12 @@ IFS="
 case "$COMMAND" in
     add)
         if [ $# -lt 1 ]; then
-            echo "Command 'add' requires a kernel image" >&2
+            echo "Error: command 'add' requires a kernel image" >&2
             exit 1
         fi
 
         if ! [ -f "$1" ]; then
-            echo "Kernel image argument $1 not a file" >&2
+            echo "Error: kernel image argument $1 not a file" >&2
             exit 1
         fi
 
@@ -162,9 +175,9 @@ case "$COMMAND" in
             # to serve as the indication to use or to not use the BLS
             if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
                 echo "+mkdir -v -p $ENTRY_DIR_ABS"
-                mkdir -v -p "$ENTRY_DIR_ABS"
+                mkdir -v -p "$ENTRY_DIR_ABS" || exit 1
             else
-                mkdir -p "$ENTRY_DIR_ABS"
+                mkdir -p "$ENTRY_DIR_ABS" || exit 1
             fi
         fi
 
@@ -193,7 +206,7 @@ case "$COMMAND" in
         ;;
 
     *)
-        echo "Unknown command '$COMMAND'" >&2
+        echo "Error: unknown command '$COMMAND'" >&2
         exit 1
         ;;
 esac
