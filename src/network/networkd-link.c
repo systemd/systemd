@@ -1157,11 +1157,14 @@ static int link_configure(Link *link) {
 
 static int link_get_network(Link *link, Network **ret) {
         Network *network;
+        Bearer *b = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(ret);
+
+        (void) link_get_bearer(link, &b);
 
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
@@ -1178,7 +1181,8 @@ static int link_get_network(Link *link, Network **ret) {
                                 link->alternative_names,
                                 link->wlan_iftype,
                                 link->ssid,
-                                &link->bssid);
+                                &link->bssid,
+                                b ? b->apn : NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1209,7 +1213,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_impl(Link *link, bool force) {
+int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
         NetDev *netdev = NULL;
         int r;
