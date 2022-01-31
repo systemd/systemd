@@ -9,6 +9,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-route.h"
@@ -38,6 +39,8 @@ static void request_free_object(RequestType type, void *object) {
                 break;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 free(object);
+                break;
+        case REQUEST_TYPE_NDISC:
                 break;
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_free(object);
@@ -119,6 +122,9 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 in6_addr_hash_func(req->ipv6_proxy_ndp, state);
                 break;
+        case REQUEST_TYPE_NDISC:
+                /* This type does not have an object. */
+                break;
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_hash_func(req->neighbor, state);
                 break;
@@ -177,6 +183,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return 0;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 return in6_addr_compare_func(a->ipv6_proxy_ndp, b->ipv6_proxy_ndp);
+        case REQUEST_TYPE_NDISC:
+                return 0;
         case REQUEST_TYPE_NEIGHBOR:
                 return neighbor_compare_func(a->neighbor, b->neighbor);
         case REQUEST_TYPE_NEXTHOP:
@@ -224,6 +232,7 @@ int link_queue_request(
                       REQUEST_TYPE_DHCP_SERVER,
                       REQUEST_TYPE_DHCP4_CLIENT,
                       REQUEST_TYPE_DHCP6_CLIENT,
+                      REQUEST_TYPE_NDISC,
                       REQUEST_TYPE_RADV,
                       REQUEST_TYPE_SET_LINK,
                       REQUEST_TYPE_UP_DOWN) ||
@@ -232,6 +241,7 @@ int link_queue_request(
                       REQUEST_TYPE_DHCP_SERVER,
                       REQUEST_TYPE_DHCP4_CLIENT,
                       REQUEST_TYPE_DHCP6_CLIENT,
+                      REQUEST_TYPE_NDISC,
                       REQUEST_TYPE_RADV) ||
                netlink_handler);
 
@@ -313,6 +323,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_IPV6_PROXY_NDP:
                                 r = request_process_ipv6_proxy_ndp_address(req);
+                                break;
+                        case REQUEST_TYPE_NDISC:
+                                r = request_process_ndisc(req);
                                 break;
                         case REQUEST_TYPE_NEIGHBOR:
                                 r = request_process_neighbor(req);

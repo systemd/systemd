@@ -34,6 +34,12 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
+        if (link->hw_addr.length != ETH_ALEN && !streq_ptr(link->kind, "wwan"))
+                /* Currently, only interfaces whose MAC address length is ETH_ALEN are supported.
+                 * Note, wwan interfaces may be assigned MAC address slightly later.
+                 * Hence, let's wait for a while.*/
+                return false;
+
         if (!link->network)
                 return false;
 
@@ -1055,7 +1061,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
         }
 }
 
-int ndisc_configure(Link *link) {
+static int ndisc_configure(Link *link) {
         int r;
 
         assert(link);
@@ -1090,6 +1096,8 @@ int ndisc_configure(Link *link) {
 }
 
 int ndisc_start(Link *link) {
+        int r;
+
         assert(link);
 
         if (!link->ndisc || !link->dhcp6_client)
@@ -1103,7 +1111,60 @@ int ndisc_start(Link *link) {
 
         log_link_debug(link, "Discovering IPv6 routers");
 
-        return sd_ndisc_start(link->ndisc);
+        r = sd_ndisc_start(link->ndisc);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int request_process_ndisc(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NDISC);
+
+        link = ASSERT_PTR(req->link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
+                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
+                return 0;
+
+        r = ndisc_configure(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure IPv6 Router Discovery: %m");
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
+
+        log_link_debug(link, "IPv6 Router Discovery is configured%s.",
+                       r > 0 ? " and started" : "");
+
+        return 1;
+}
+
+int link_request_ndisc(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_ipv6_accept_ra_enabled(link))
+                return 0;
+
+        if (link->ndisc)
+                return 0;
+
+        r = link_queue_request(link, REQUEST_TYPE_NDISC, NULL, false, NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Discovery: %m");
+
+        log_link_debug(link, "Requested configuring of the IPv6 Router Discovery.");
+        return 0;
 }
 
 void ndisc_vacuum(Link *link) {
