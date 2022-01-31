@@ -210,22 +210,10 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
         assert(iov);
 
 #if ENABLE_DNS_OVER_TLS
-        if (s->encrypted && !(flags & DNS_STREAM_WRITE_TLS_DATA)) {
-                ssize_t ss;
-                size_t i;
-
-                m = 0;
-                for (i = 0; i < iovcnt; i++) {
-                        ss = dnstls_stream_write(s, iov[i].iov_base, iov[i].iov_len);
-                        if (ss < 0)
-                                return ss;
-
-                        m += ss;
-                        if (ss != (ssize_t) iov[i].iov_len)
-                                continue;
-                }
-        } else
+        if (s->encrypted && !(flags & DNS_STREAM_WRITE_TLS_DATA))
+                return dnstls_stream_writev(s, iov, iovcnt);
 #endif
+
         if (s->tfo_salen > 0) {
                 struct msghdr hdr = {
                         .msg_iov = (struct iovec*) iov,

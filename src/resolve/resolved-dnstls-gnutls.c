@@ -6,6 +6,7 @@
 
 #include <gnutls/socket.h>
 
+#include "io-util.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
@@ -13,7 +14,7 @@
 #define TLS_PROTOCOL_PRIORITY "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gnutls_session_t, gnutls_deinit, NULL);
 
-static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
+static ssize_t dnstls_stream_vec_push(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
         int r;
 
         assert(p);
@@ -81,7 +82,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
         gnutls_transport_set_ptr2(gs, (gnutls_transport_ptr_t) (long) stream->fd, stream);
-        gnutls_transport_set_vec_push_function(gs, &dnstls_stream_writev);
+        gnutls_transport_set_vec_push_function(gs, &dnstls_stream_vec_push);
 
         stream->encrypted = true;
         stream->dnstls_data.handshake = gnutls_handshake(gs);
@@ -163,15 +164,26 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         return 0;
 }
 
-ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
+ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t iovcnt) {
         ssize_t ss;
 
         assert(stream);
         assert(stream->encrypted);
         assert(stream->dnstls_data.session);
-        assert(buf);
+        assert(iov);
+        assert(IOVEC_TOTAL_SIZE(iov, iovcnt) > 0);
 
-        ss = gnutls_record_send(stream->dnstls_data.session, buf, count);
+        gnutls_record_cork(stream->dnstls_data.session);
+
+        for (size_t i = 0; i < iovcnt; i++) {
+                ss = gnutls_record_send(
+                        stream->dnstls_data.session,
+                        iov[i].iov_base, iov[i].iov_len);
+                if (ss < 0)
+                        break;
+        }
+
+        ss = gnutls_record_uncork(stream->dnstls_data.session, 0);
         if (ss < 0)
                 switch(ss) {
                 case GNUTLS_E_INTERRUPTED:
