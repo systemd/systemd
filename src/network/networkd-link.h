@@ -103,6 +103,7 @@ typedef struct Link {
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
         unsigned create_stacked_netdev_after_configured_messages;
+        unsigned bearer_messages;
 
         Set *addresses;
         Set *neighbors;
@@ -136,6 +137,7 @@ typedef struct Link {
         bool master_set:1;
         bool stacked_netdevs_created:1;
         bool stacked_netdevs_after_configured_created:1;
+        bool bearer_configured:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -230,6 +232,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
+int link_reconfigure_impl(Link *link, bool force);
 int link_reconfigure(Link *link, bool force);
 int link_reconfigure_after_sleep(Link *link);
 

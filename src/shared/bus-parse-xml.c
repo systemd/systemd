@@ -3,7 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "busctl-introspect.h"
+#include "bus-parse-xml.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "util.h"
