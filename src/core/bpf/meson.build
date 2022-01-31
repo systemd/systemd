@@ -65,13 +65,23 @@ bpf_o_unstripped_cmd += [
         '@OUTPUT@'
 ]
 
-bpf_o_cmd = [
-        llvm_strip,
-        '-g',
-        '@INPUT@',
-        '-o',
-        '@OUTPUT@'
-]
+if bpftool_strip
+        bpf_o_cmd = [
+                bpftool,
+                'g',
+                'o',
+                '@OUTPUT@',
+                '@INPUT@'
+        ]
+else
+        bpf_o_cmd = [
+                llvm_strip,
+                '-g',
+                '@INPUT@',
+                '-o',
+                '@OUTPUT@'
+        ]
+endif
 
 skel_h_cmd = [
         bpftool,
