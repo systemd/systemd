@@ -894,24 +894,6 @@ static int link_new_bound_to_list(Link *link) {
         return 0;
 }
 
-static int link_new_carrier_maps(Link *link) {
-        int r;
-
-        r = link_new_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        r = link_new_bound_to_list(link);
-        if (r < 0)
-                return r;
-
-        return link_handle_bound_to_list(link);
-}
-
 static void link_free_bound_to_list(Link *link) {
         bool updated = false;
         Link *bound_to;
@@ -1119,6 +1101,10 @@ static int link_configure(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
+        r = link_new_bound_to_list(link);
+        if (r < 0)
+                return r;
+
         r = link_configure_traffic_control(link);
         if (r < 0)
                 return r;
@@ -1325,7 +1311,12 @@ static int link_reconfigure_impl(Link *link, bool force) {
                         return r;
         }
 
-        link_free_carrier_maps(link);
+        /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
+         * bound_by map. Otherwise, if a link enters unmanaged state below, then its carrier state will
+         * not propagated to other interfaces anymore. Moreover, it is not necessary to recreate the
+         * map here, as it depends on .network files assigned to other links. */
+        link_free_bound_to_list(link);
+
         link_free_engines(link);
         link->network = network_unref(link->network);
 
@@ -1338,10 +1329,6 @@ static int link_reconfigure_impl(Link *link, bool force) {
         link->network = network_ref(network);
         link_update_operstate(link, true);
         link_dirty(link);
-
-        r = link_new_carrier_maps(link);
-        if (r < 0)
-                return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
         link->activated = false;
@@ -1495,10 +1482,6 @@ static int link_initialized_and_synced(Link *link) {
                 link_update_operstate(link, false);
                 link_dirty(link);
         }
-
-        r = link_new_bound_to_list(link);
-        if (r < 0)
-                return r;
 
         return link_configure(link);
 }
