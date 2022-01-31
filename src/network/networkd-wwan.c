@@ -441,6 +441,12 @@ int bearer_update_link(Bearer *b) {
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
+        r = link_reconfigure_impl(link, /* force = */ false);
+        if (r < 0)
+                link_enter_failed(link);
+        if (r != 0)
+                return r;
+
         r = link_apply_bearer_impl(link, b);
         if (r < 0)
                 link_enter_failed(link);
