@@ -988,7 +988,7 @@ else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
         if meson.is_cross_build() or cc.get_id() != 'clang' or cc.cmd_array()[0].contains('afl-clang') or cc.cmd_array()[0].contains('hfuzz-clang')
-                r = find_program('clang', required : bpf_framework_required)
+                r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
                         if meson.version().version_compare('>= 0.55')
@@ -1018,7 +1018,7 @@ else
         else
                 llvm_strip_bin = 'llvm-strip'
         endif
-        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
+        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required, version : '>= 10.0.0')
 
         # Debian installs this in /usr/sbin/ which is not in $PATH.
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
