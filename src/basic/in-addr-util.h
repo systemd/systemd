@@ -49,6 +49,7 @@ bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a);
 
 bool in4_addr_is_localhost(const struct in_addr *a);
 int in_addr_is_localhost(int family, const union in_addr_union *u);
+int in_addr_is_localhost_one(int family, const union in_addr_union *u);
 
 bool in4_addr_is_local_multicast(const struct in_addr *a);
 bool in4_addr_is_non_local(const struct in_addr *a);
