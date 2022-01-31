@@ -110,7 +110,7 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                 }
         }
 
-        log_link_debug(l, "link is confiured by networkd and online.");
+        log_link_debug(l, "link is configured by networkd and online.");
         return 1;
 }
 
