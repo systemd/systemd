@@ -1200,7 +1200,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = ndisc_configure(link);
+        r = link_request_ndisc(link);
         if (r < 0)
                 return r;
 
