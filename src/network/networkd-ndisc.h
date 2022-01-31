@@ -6,6 +6,7 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,
@@ -43,10 +44,12 @@ bool link_ipv6_accept_ra_enabled(Link *link);
 
 void network_adjust_ipv6_accept_ra(Network *network);
 
-int ndisc_configure(Link *link);
 int ndisc_start(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
+
+int request_process_ndisc(Request *req);
+int link_request_ndisc(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_use_domains);
