@@ -711,6 +711,11 @@ int request_process_dhcp6_client(Request *req) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
+        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) ||
+            hw_addr_is_null(&link->hw_addr))
+                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
+                return 0;
+
         r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
         if (r <= 0)
                 return r;

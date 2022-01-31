@@ -61,6 +61,13 @@ bool link_dhcp_enabled(Link *link, int family) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
+        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) &&
+            !streq_ptr(link->kind, "wwan"))
+                /* Currently, only interfaces whose MAC address length is ETH_ALEN or INFINIBAND_ALEN
+                 * are supported. Note, wwan interfaces may be assigned MAC address slightly later.
+                 * Hence, let's wait for a while.*/
+                return false;
+
         if (!link->network)
                 return false;
 
