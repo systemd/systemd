@@ -263,7 +263,7 @@ static int run(int argc, char *argv[]) {
                  * ourselves the mode and owner should be correct anyway. */
                 r = fchmod_and_chown(seed_fd, 0600, 0, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to adjust seed file ownership and access mode.");
+                        return log_error_errno(r, "Failed to adjust seed file ownership and access mode: %m");
 
                 /* Let's make this whole job asynchronous, i.e. let's make ourselves a barrier for
                  * proper initialization of the random pool. */
