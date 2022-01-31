@@ -132,12 +132,16 @@ int ipv4acd_configure(Address *address) {
         int r;
 
         assert(address);
-        assert(address->link);
+
+        link = ASSERT_PTR(address->link);
 
         if (address->family != AF_INET)
                 return 0;
 
         if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
+                return 0;
+
+        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
                 return 0;
 
         /* Currently, only static and DHCP4 addresses are supported. */
@@ -147,8 +151,6 @@ int ipv4acd_configure(Address *address) {
                 address_enter_probing(address);
                 return 0;
         }
-
-        link = address->link;
 
         log_link_debug(link, "Configuring IPv4ACD for address "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
