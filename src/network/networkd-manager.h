@@ -82,6 +82,10 @@ struct Manager {
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
 
+        /* ModemManager support */
+        Hashmap *bearers_by_path;
+        Hashmap *bearers_by_name;
+
         /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
