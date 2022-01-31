@@ -431,6 +431,12 @@ int bearer_update_link(Bearer *b) {
         if (link_get_by_name(b->manager, b->name, &link) < 0)
                 return 0;
 
+        r = link_reconfigure_impl(link, /* force = */ false);
+        if (r < 0)
+                link_enter_failed(link);
+        if (r != 0) /* r > 0 means interface is reconfigured. */
+                return r;
+
         r = link_apply_bearer_impl(link, b);
         if (r < 0)
                 link_enter_failed(link);
@@ -442,6 +448,7 @@ void bearer_drop(Bearer *b) {
         assert(b);
 
         b->connected = false;
+        b->apn = mfree(b->apn);
 
         (void) bearer_update_link(b);
 
