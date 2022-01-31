@@ -1163,6 +1163,17 @@ install_systemd() {
         mkdir -p "$initdir/etc/systemd/system/service.d/"
         echo -e "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/gcov-override.conf"
     fi
+
+    # If we're built with -Dportabled=false, tests with systemd-analyze
+    # --profile will fail. Since we need just the profile (text) files, let's
+    # copy them into the image if they don't exist there.
+    local portable_dir="${initdir:?}${ROOTLIBDIR:?}/portable"
+    if [[ ! -d "$portable_dir/profile/strict" ]]; then
+        dinfo "Couldn't find portable profiles in the test image"
+        dinfo "Copying them directly from the source tree"
+        mkdir -p "$portable_dir"
+        cp -frv "${SOURCE_DIR:?}/src/portable/profile" "$portable_dir"
+    fi
 }
 
 get_ldpath() {
