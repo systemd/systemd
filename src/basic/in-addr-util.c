@@ -121,6 +121,19 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+int in_addr_is_localhost_one(int family, const union in_addr_union *u) {
+        assert(u);
+
+        if (family == AF_INET)
+                /* 127.0.0.1 */
+                return be32toh(u->in.s_addr) == UINT32_C(0x7F000001);
+
+        if (family == AF_INET6)
+                return IN6_IS_ADDR_LOOPBACK(&u->in6); /* lgtm [cpp/potentially-dangerous-function] */
+
+        return -EAFNOSUPPORT;
+}
+
 bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a) {
         return a->s6_addr32[0] == 0 &&
                 a->s6_addr32[1] == 0 &&

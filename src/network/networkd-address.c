@@ -854,6 +854,10 @@ int link_drop_foreign_addresses(Link *link) {
                 if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
+                /* Do not remove localhost address (127.0.0.1 and ::1) */
+                if (link->flags & IFF_LOOPBACK && in_addr_is_localhost_one(address->family, &address->in_addr) > 0)
+                        continue;
+
                 /* Ignore addresses we configured. */
                 if (address->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
