@@ -1012,14 +1012,6 @@ else
                 clang_supports_bpf = false
         endif
 
-        if not meson.is_cross_build() and clang_found
-                llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
-                                             check : true).stdout().strip()
-        else
-                llvm_strip_bin = 'llvm-strip'
-        endif
-        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
-
         # Debian installs this in /usr/sbin/ which is not in $PATH.
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         # We use 'bpftool gen' subcommand, it was added by 985ead416df39d6fe8e89580cc1db6aa273e0175 (v5.6).
@@ -1028,7 +1020,20 @@ else
                                required : bpf_framework_required,
                                version : '>= 5.6')
 
-        deps_found = clang_found and clang_supports_bpf and clang_supports_flags and llvm_strip.found() and bpftool.found()
+        if bpftool.found() and bpftool.version().version_compare('>= 5.13')
+                bpftool_strip = true
+        else
+                bpftool_strip = false
+                if not meson.is_cross_build() and clang_found
+                        llvm_strip_bin = run_command(clang, '--print-prog-name', 'llvm-strip',
+                                                     check : true).stdout().strip()
+                else
+                        llvm_strip_bin = 'llvm-strip'
+                endif
+                llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required)
+        endif
+
+        deps_found = clang_found and clang_supports_bpf and clang_supports_flags and (bpftool_strip or llvm_strip.found()) and bpftool.found()
 
         # Can build BPF program from source code in restricted C
         conf.set10('BPF_FRAMEWORK', deps_found)
