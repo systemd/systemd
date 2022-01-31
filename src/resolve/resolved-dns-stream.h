@@ -61,6 +61,7 @@ struct DnsStream {
         uint32_t ttl;
         bool identified;
         bool packet_received; /* At least one packet is received. Used by LLMNR. */
+        uint32_t requested_events;
 
         /* only when using TCP fast open */
         union sockaddr_union tfo_address;
@@ -68,7 +69,7 @@ struct DnsStream {
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsStreamData dnstls_data;
-        int dnstls_events;
+        uint32_t dnstls_events;
 #endif
 
         sd_event_source *io_event_source;
