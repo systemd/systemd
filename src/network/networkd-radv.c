@@ -57,6 +57,9 @@ bool link_radv_enabled(Link *link) {
         if (!link_may_have_ipv6ll(link))
                 return false;
 
+        if (link->hw_addr.length != ETH_ALEN)
+                return false;
+
         return link->network->router_prefix_delegation;
 }
 
@@ -545,6 +548,9 @@ static int radv_is_ready_to_configure(Link *link) {
                 return false;
 
         if (in6_addr_is_null(&link->ipv6ll_address))
+                return false;
+
+        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
                 return false;
 
         if (link->network->router_emit_dns && !link->network->router_dns) {
