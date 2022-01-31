@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
 
 #include "sd-ndisc.h"
 
@@ -32,6 +33,9 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (link->iftype == ARPHRD_CAN)
                 return false;
 
         if (link->hw_addr.length != ETH_ALEN && !streq_ptr(link->kind, "wwan"))
