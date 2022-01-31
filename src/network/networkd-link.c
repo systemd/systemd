@@ -430,6 +430,8 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
 
+        ndisc_flush(link);
+
         k = sd_radv_stop(link->radv);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
@@ -1093,8 +1095,6 @@ static int link_drop_managed_config(Link *link) {
         k = link_drop_managed_routing_policy_rules(link);
         if (k < 0 && r >= 0)
                 r = k;
-
-        ndisc_flush(link);
 
         return r;
 }
