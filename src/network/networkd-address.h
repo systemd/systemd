@@ -74,7 +74,7 @@ void address_set_broadcast(Address *a);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
-int link_drop_addresses(Link *link);
+int link_drop_managed_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
 void link_foreignize_addresses(Link *link);

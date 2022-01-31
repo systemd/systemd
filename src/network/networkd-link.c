@@ -57,6 +57,7 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -430,6 +431,8 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
 
+        ndisc_flush(link);
+
         k = sd_radv_stop(link->radv);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
@@ -519,6 +522,9 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
+
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer is not applied.", __func__);
 
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
@@ -1070,31 +1076,29 @@ static int link_drop_foreign_config(Link *link) {
         return r;
 }
 
-static int link_drop_config(Link *link) {
+static int link_drop_managed_config(Link *link) {
         int k, r;
 
         assert(link);
         assert(link->manager);
 
-        r = link_drop_routes(link);
+        r = link_drop_managed_routes(link);
 
-        k = link_drop_nexthops(link);
+        k = link_drop_managed_nexthops(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_addresses(link);
+        k = link_drop_managed_addresses(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_neighbors(link);
+        k = link_drop_managed_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_routing_policy_rules(link);
+        k = link_drop_managed_routing_policy_rules(link);
         if (k < 0 && r >= 0)
                 r = k;
-
-        ndisc_flush(link);
 
         return r;
 }
@@ -1228,6 +1232,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_apply_bearer(link);
+        if (r < 0)
+                return r;
+
         if (!link_has_carrier(link))
                 return 0;
 
@@ -1236,11 +1244,14 @@ static int link_configure(Link *link) {
 
 static int link_get_network(Link *link, Network **ret) {
         Network *network;
+        Bearer *b = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(ret);
+
+        (void) link_get_bearer(link, &b);
 
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
@@ -1256,7 +1267,8 @@ static int link_get_network(Link *link, Network **ret) {
                                 link->alternative_names,
                                 link->wlan_iftype,
                                 link->ssid,
-                                &link->bssid);
+                                &link->bssid,
+                                b ? b->apn : NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1287,23 +1299,34 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_impl(Link *link, bool force) {
+int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
         int r;
 
         assert(link);
 
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return 0;
+
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
                 return r;
 
+        if (link->state != LINK_STATE_UNMANAGED && !network)
+                /* If link is in initialized state, then link->network is also NULL. */
+                force = true;
+
         if (link->network == network && !force)
                 return 0;
 
-        if (network)
-                log_link_info(link, "Reconfiguring with %s.", network->filename);
-        else
-                log_link_info(link, "Unmanaging interface.");
+        if (network) {
+                if (link->state == LINK_STATE_INITIALIZED)
+                        log_link_info(link, "Configuring with %s.", network->filename);
+                else
+                        log_link_info(link, "Reconfiguring with %s.", network->filename);
+        } else
+                log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
+                              "Unmanaging interface.");
 
         /* Dropping old .network file */
         r = link_stop_engines(link, false);
@@ -1318,7 +1341,9 @@ static int link_reconfigure_impl(Link *link, bool force) {
                  * link_drop_foreign_config() in link_configure(). */
                 link_foreignize_config(link);
         else {
-                r = link_drop_config(link);
+                /* Remove all managed configs. Note, foreign configs are removed in later by
+                 * link_configure() -> link_drop_foreign_config() if the link is managed by us. */
+                r = link_drop_managed_config(link);
                 if (r < 0)
                         return r;
         }
@@ -1440,11 +1465,7 @@ int link_reconfigure_after_sleep(Link *link) {
 }
 
 static int link_initialized_and_synced(Link *link) {
-        Network *network;
-        int r;
-
         assert(link);
-        assert(link->ifname);
         assert(link->manager);
 
         if (link->manager->test_mode) {
@@ -1453,52 +1474,14 @@ static int link_initialized_and_synced(Link *link) {
                 return 0;
         }
 
-        /* We may get called either from the asynchronous netlink callback,
+        /* This may get called either from the asynchronous netlink callback,
          * or directly from link_check_initialized() if running in a container. */
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
-                return 0;
-
-        log_link_debug(link, "Link state is up-to-date");
-        link_set_state(link, LINK_STATE_INITIALIZED);
-
-        r = link_new_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        if (!link->network) {
-                r = link_get_network(link, &network);
-                if (r == -ENOENT) {
-                        link_set_state(link, LINK_STATE_UNMANAGED);
-                        return 0;
-                }
-                if (r < 0)
-                        return r;
-
-                if (link->flags & IFF_LOOPBACK) {
-                        if (network->link_local != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
-
-                        if (network->dhcp != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring DHCP clients for loopback link");
-
-                        if (network->dhcp_server)
-                                log_link_debug(link, "Ignoring DHCP server for loopback link");
-                }
-
-                link->network = network_ref(network);
-                link_update_operstate(link, false);
-                link_dirty(link);
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
+                log_link_debug(link, "Link state is up-to-date");
+                link_set_state(link, LINK_STATE_INITIALIZED);
         }
 
-        r = link_new_bound_to_list(link);
-        if (r < 0)
-                return r;
-
-        return link_configure(link);
+        return link_reconfigure_impl(link, /* force = */ false);
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1706,7 +1689,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (r < 0)
                 ret = r;
 
-        r = link_drop_config(link);
+        r = link_drop_managed_config(link);
         if (r < 0 && ret >= 0)
                 ret = r;
 
