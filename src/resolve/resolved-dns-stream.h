@@ -60,6 +60,7 @@ struct DnsStream {
         int ifindex;
         uint32_t ttl;
         bool identified;
+        bool packet_received; /* At least one packet is received. Used by LLMNR. */
 
         /* only when using TCP fast open */
         union sockaddr_union tfo_address;
@@ -78,7 +79,7 @@ struct DnsStream {
         size_t n_written, n_read;
         OrderedSet *write_queue;
 
-        int (*on_packet)(DnsStream *s);
+        int (*on_packet)(DnsStream *s, DnsPacket *p);
         int (*complete)(DnsStream *s, int error);
 
         LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
@@ -93,7 +94,16 @@ struct DnsStream {
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsStreamType type, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address, usec_t timeout);
+int dns_stream_new(
+                Manager *m,
+                DnsStream **ret,
+                DnsStreamType type,
+                DnsProtocol protocol,
+                int fd,
+                const union sockaddr_union *tfo_address,
+                int (on_packet)(DnsStream*, DnsPacket*),
+                int (complete)(DnsStream*, int), /* optional */
+                usec_t connect_timeout_usec);
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 #endif
@@ -113,7 +123,5 @@ static inline bool DNS_STREAM_QUEUED(DnsStream *s) {
 
         return !!s->write_packet;
 }
-
-DnsPacket *dns_stream_take_read_packet(DnsStream *s);
 
 void dns_stream_detach(DnsStream *s);

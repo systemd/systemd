@@ -1044,12 +1044,9 @@ static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents
         return on_dns_stub_packet_internal(s, fd, revents, l->manager, l);
 }
 
-static int on_dns_stub_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-
+static int on_dns_stub_stream_packet(DnsStream *s, DnsPacket *p) {
         assert(s);
-
-        p = dns_stream_take_read_packet(s);
+        assert(s->manager);
         assert(p);
 
         if (dns_packet_validate_query(p) > 0) {
@@ -1074,15 +1071,14 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL, DNS_STREAM_STUB_TIMEOUT_USEC);
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL,
+                           on_dns_stub_stream_packet, dns_stub_stream_complete, DNS_STREAM_STUB_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
         }
 
         stream->stub_listener_extra = l;
-        stream->on_packet = on_dns_stub_stream_packet;
-        stream->complete = dns_stub_stream_complete;
 
         /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
 
