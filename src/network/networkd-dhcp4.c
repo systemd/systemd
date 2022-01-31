@@ -23,6 +23,7 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "networkd-wwan.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -1572,6 +1573,9 @@ int dhcp4_start(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
+        if (link_dhcp_enabled_by_bearer(link, AF_INET) == 0)
+                return 0;
+
         if (!link_has_carrier(link))
                 return 0;
 
@@ -1605,6 +1609,11 @@ int request_process_dhcp4_client(Request *req) {
         link = req->link;
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) ||
+            hw_addr_is_null(&link->hw_addr))
+                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
                 return 0;
 
         r = dhcp4_configure_duid(link);

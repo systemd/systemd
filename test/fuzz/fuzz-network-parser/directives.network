@@ -30,6 +30,7 @@ KernelCommandLine=
 Host=
 MACAddress=
 PermanentMACAddress=
+APN=
 [Link]
 ActivationPolicy=
 RequiredForOnline=
