@@ -4058,6 +4058,10 @@ static int exec_child(
         assert(params);
         assert(exit_status);
 
+        /* Explicitly test for CVE-2021-4034 inspired invocations */
+        assert(command->path);
+        assert(!strv_isempty(command->argv));
+
         rename_process_from_path(command->path);
 
         /* We reset exactly these signals, since they are the only ones we set to SIG_IGN in the main

@@ -449,7 +449,16 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
+        /* Refuse invalid fds, regardless if fexecve() use is enabled or not */
+        if (executable_fd < 0)
+                return -EBADF;
+
+        /* Block any attempts on exploiting Linux' liberal argv[] handling, i.e. CVE-2021-4034 and suchlike */
+        if (isempty(executable) || strv_isempty(argv))
+                return -EINVAL;
+
 #if ENABLE_FEXECVE
+
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
         if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
