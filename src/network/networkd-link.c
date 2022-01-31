@@ -1070,27 +1070,27 @@ static int link_drop_foreign_config(Link *link) {
         return r;
 }
 
-static int link_drop_config(Link *link) {
+static int link_drop_managed_config(Link *link) {
         int k, r;
 
         assert(link);
         assert(link->manager);
 
-        r = link_drop_routes(link);
+        r = link_drop_managed_routes(link);
 
-        k = link_drop_nexthops(link);
+        k = link_drop_managed_nexthops(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_addresses(link);
+        k = link_drop_managed_addresses(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_neighbors(link);
+        k = link_drop_managed_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_routing_policy_rules(link);
+        k = link_drop_managed_routing_policy_rules(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -1318,7 +1318,9 @@ static int link_reconfigure_impl(Link *link, bool force) {
                  * link_drop_foreign_config() in link_configure(). */
                 link_foreignize_config(link);
         else {
-                r = link_drop_config(link);
+                /* Remove all managed configs. Note, foreign configs are removed in later by
+                 * link_configure() -> link_drop_foreign_config() if the link is managed by us. */
+                r = link_drop_managed_config(link);
                 if (r < 0)
                         return r;
         }
@@ -1706,7 +1708,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (r < 0)
                 ret = r;
 
-        r = link_drop_config(link);
+        r = link_drop_managed_config(link);
         if (r < 0 && ret >= 0)
                 ret = r;
 
