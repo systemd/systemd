@@ -653,8 +653,8 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
                 if (rule->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* When 'foreign' is true, do not remove rules we configured. */
-                if (foreign && rule->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* When 'foreign' is true, mark only foreign rules, and vice versa. */
+                if (foreign != (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN))
                         continue;
 
                 /* Ignore rules not assigned yet or already removing. */
