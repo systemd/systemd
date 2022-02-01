@@ -58,12 +58,21 @@ void network_adjust_dhcp_server(Network *network) {
                 ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
                         if (section_is_invalid(address->section))
                                 continue;
-                        if (address->family == AF_INET &&
-                            !in4_addr_is_localhost(&address->in_addr.in) &&
-                            in4_addr_is_null(&address->in_addr_peer.in)) {
-                                have = true;
-                                break;
-                        }
+
+                        if (address->family != AF_INET)
+                                continue;
+
+                        if (in4_addr_is_localhost(&address->in_addr.in))
+                                continue;
+
+                        if (in4_addr_is_link_local(&address->in_addr.in))
+                                continue;
+
+                        if (in4_addr_is_set(&address->in_addr_peer.in))
+                                continue;
+
+                        have = true;
+                        break;
                 }
                 if (!have) {
                         log_warning("%s: DHCPServer= is enabled, but no static address configured. "
@@ -129,6 +138,8 @@ static int link_find_dhcp_server_address(Link *link, Address **ret) {
                 if (address->family != AF_INET)
                         continue;
                 if (in4_addr_is_localhost(&address->in_addr.in))
+                        continue;
+                if (in4_addr_is_link_local(&address->in_addr.in))
                         continue;
                 if (in4_addr_is_set(&address->in_addr_peer.in))
                         continue;
