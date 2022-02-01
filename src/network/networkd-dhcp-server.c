@@ -634,6 +634,12 @@ int config_parse_dhcp_server_emit(
         assert(emit);
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                emit->addresses = mfree(emit->addresses);
+                emit->n_addresses = 0;
+                return 0;
+        }
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;

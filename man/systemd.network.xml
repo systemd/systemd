@@ -2561,17 +2561,21 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         handed out to clients shall contain DNS server information. Defaults to <literal>yes</literal>.
         The DNS servers to pass to clients may be configured with the <varname>DNS=</varname> option,
         which takes a list of IPv4 addresses, or special value <literal>_server_address</literal> which
-        will be converted to the address used by the DHCP server. If the <varname>EmitDNS=</varname>
-        option is enabled but no servers configured, the servers are automatically propagated from an
-        "uplink" interface that has appropriate servers set. The "uplink" interface is determined by
-        the default route of the system with the highest priority. Note that this information is
-        acquired at the time the lease is handed out, and does not take uplink interfaces into account
-        that acquire DNS server information at a later point. If no suitable uplink interface is found
-        the DNS server data from <filename>/etc/resolv.conf</filename> is used. Also, note that the
-        leases are not refreshed if the uplink network configuration changes. To ensure clients
-        regularly acquire the most current uplink DNS server information, it is thus advisable to
-        shorten the DHCP lease time via <varname>MaxLeaseTimeSec=</varname> described above.
-        </para></listitem>
+        will be converted to the address used by the DHCP server.</para>
+
+        <para>If the <varname>EmitDNS=</varname> option is enabled but no servers configured, the
+        servers are automatically propagated from an "uplink" interface that has appropriate servers
+        set. The "uplink" interface is determined by the default route of the system with the highest
+        priority. Note that this information is acquired at the time the lease is handed out, and does
+        not take uplink interfaces into account that acquire DNS server information at a later point.
+        If no suitable uplink interface is found the DNS server data from
+        <filename>/etc/resolv.conf</filename> is used. Also, note that the leases are not refreshed if
+        the uplink network configuration changes. To ensure clients regularly acquire the most current
+        uplink DNS server information, it is thus advisable to shorten the DHCP lease time via
+        <varname>MaxLeaseTimeSec=</varname> described above.</para>
+
+        <para>This setting can be specified multiple times. If an empty string is specified, then all
+        DNS servers specified earlier are cleared.</para></listitem>
       </varlistentry>
 
       <varlistentry>
