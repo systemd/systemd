@@ -1433,8 +1433,7 @@ int sd_dhcp_server_set_servers(
                         return -ENOMEM;
         }
 
-        free(server->servers[what].addr);
-        server->servers[what].addr = c;
+        free_and_replace(server->servers[what].addr, c);
         server->servers[what].size = n_addresses;
         return 1;
 }
