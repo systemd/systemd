@@ -77,7 +77,7 @@ Tunnel.InputKey,                          config_parse_tunnel_key,              
 Tunnel.OutputKey,                         config_parse_tunnel_key,                   0,                             offsetof(Tunnel, okey)
 Tunnel.DiscoverPathMTU,                   config_parse_bool,                         0,                             offsetof(Tunnel, pmtudisc)
 Tunnel.Mode,                              config_parse_ip6tnl_mode,                  0,                             offsetof(Tunnel, ip6tnl_mode)
-Tunnel.IPv6FlowLabel,                     config_parse_ipv6_flowlabel,               0,                             offsetof(Tunnel, ipv6_flowlabel)
+Tunnel.IPv6FlowLabel,                     config_parse_ipv6_flowlabel,               0,                             0
 Tunnel.CopyDSCP,                          config_parse_bool,                         0,                             offsetof(Tunnel, copy_dscp)
 Tunnel.EncapsulationLimit,                config_parse_encap_limit,                  0,                             offsetof(Tunnel, encap_limit)
 Tunnel.Independent,                       config_parse_bool,                         0,                             offsetof(Tunnel, independent)
