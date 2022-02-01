@@ -170,7 +170,7 @@ CHANGES WITH 250:
           ProtectKernelLogs=yes can now be used.
 
         * The default maximum numbers of inodes have been raised from 64k to 1M
-          for /dev, and from 400k to 1M for /tmp.
+          for /dev/, and from 400k to 1M for /tmp/.
 
         * The per-user service manager learnt support for communicating with
           systemd-oomd to acquire OOM kill information.
@@ -326,7 +326,7 @@ CHANGES WITH 250:
           non-essential output. It's honored by the "dot", "syscall-filter",
           "filesystems" commands.
 
-        * systemd-analyze security gained a --profile option that can be used
+        * systemd-analyze security gained a --profile= option that can be used
           to take into account a portable profile when analyzing portable
           services, since a lot of the security-related settings are enabled
           through them.
