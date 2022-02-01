@@ -226,7 +226,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 }
 
                 /* Patch in the data we found */
-                EFI_DEVICE_PATH *xboot_path = ASSERT_PTR(DuplicateDevicePath(partition_path));
+                EFI_DEVICE_PATH *xboot_path = ASSERT_SE_PTR(DuplicateDevicePath(partition_path));
                 CopyMem((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
                 *ret_device_path = xboot_path;
                 return EFI_SUCCESS;
