@@ -4,6 +4,10 @@
 #include "service.h"
 #include "tests.h"
 
+static char *runtime_dir = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
+
 #define EXEC_START_ABSOLUTE \
         "ExecStart 0 /bin/sh \"sh\" \"-e\" \"-x\" \"-c\" \"systemctl --state=failed --no-legend --no-pager >/failed ; systemctl daemon-reload ; echo OK >/testok\""
 #define EXEC_START_RELATIVE \
@@ -48,15 +52,12 @@ TEST(deserialize_exec_command) {
         test_deserialize_exec_command_one(m, "control-command", "ExecWhat 11 /a/b c d e", -EINVAL);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
+static int intro(void) {
+        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        ({
-                if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
-                        return log_tests_skipped("cgroupfs not available");
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+        return EXIT_SUCCESS;
+}
 
-                assert_se(runtime_dir = setup_fake_runtime_dir());
-        }),
-
-        /* no outro */);
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);

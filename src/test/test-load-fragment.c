@@ -30,6 +30,10 @@
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */
 #define CGROUP_LIMIT_DUMMY      3
 
+static char *runtime_dir = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
+
 TEST_RET(unit_file_get_set) {
         int r;
         Hashmap *h;
@@ -958,15 +962,12 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
+static int intro(void) {
+        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        ({
-                if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
-                        return log_tests_skipped("cgroupfs not available");
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+        return EXIT_SUCCESS;
+}
 
-                assert_se(runtime_dir = setup_fake_runtime_dir());
-        }),
-
-        /* no outro */);
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

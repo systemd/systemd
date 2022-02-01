@@ -118,10 +118,11 @@ TEST(sleep) {
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
-        ({
-                if (getuid() != 0)
-                        log_warning("This program is unlikely to work for unprivileged users");
-        }),
-        /* no outro */);
+static int intro(void) {
+        if (getuid() != 0)
+                log_warning("This program is unlikely to work for unprivileged users");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);

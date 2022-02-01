@@ -529,10 +529,10 @@ TEST(table) {
                                 "5min              5min              \n"));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
-        ({
-                assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
-                assert_se(setenv("COLUMNS", "40", 1) >= 0);
-        }),
-        /* no outro */);
+static int intro(void) {
+        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
+        assert_se(setenv("COLUMNS", "40", 1) >= 0);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);
