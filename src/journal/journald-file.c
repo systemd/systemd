@@ -23,7 +23,7 @@ static int journald_file_truncate(JournalFile *f) {
         int r;
 
         /* truncate excess from the end of archives */
-        r = journal_file_tail_end(f, &p);
+        r = journal_file_tail_end_by_pread(f, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine end of tail object: %m");
 
