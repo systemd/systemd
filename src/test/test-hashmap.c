@@ -158,7 +158,15 @@ TEST(hashmap_put_strdup_null) {
 /* This variable allows us to assert that the tests from different compilation units were actually run. */
 int n_extern_tests_run = 0;
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
-        assert_se(n_extern_tests_run == 0),
-        assert_se(n_extern_tests_run == 2)); /* Ensure hashmap and ordered_hashmap were tested. */
+static int intro(void) {
+        assert_se(n_extern_tests_run == 0);
+        return EXIT_SUCCESS;
+}
+
+static int outro(void) {
+        /* Ensure hashmap and ordered_hashmap were tested. */
+        assert_se(n_extern_tests_run == 2);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, outro);

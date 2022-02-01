@@ -236,4 +236,9 @@ TEST(dir_is_empty) {
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, log_show_color(true), /* no outro */);
+static int intro(void) {
+        log_show_color(true);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

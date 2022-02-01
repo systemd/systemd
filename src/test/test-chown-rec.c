@@ -149,10 +149,11 @@ TEST(chown_recursive) {
         assert_se(!has_xattr(p));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
-        ({
-                if (geteuid() != 0)
-                        return log_tests_skipped("not running as root");
-        }),
-        /* no outro */);
+static int intro(void) {
+        if (geteuid() != 0)
+                return log_tests_skipped("not running as root");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);
