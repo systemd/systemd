@@ -45,7 +45,7 @@ static int journald_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint
                 return 0;
 
         for (uint64_t q = p; q != 0; q = le64toh(o.entry_array.next_entry_array_offset)) {
-                r = journal_file_read_object(f, OBJECT_ENTRY_ARRAY, q, &o);
+                r = journal_file_read_object_header(f, OBJECT_ENTRY_ARRAY, q, &o);
                 if (r < 0)
                         return r;
 
@@ -119,7 +119,7 @@ static int journald_file_punch_holes(JournalFile *f) {
                         for (uint64_t q = le64toh(items[j].head_hash_offset); q != 0;
                              q = le64toh(o.data.next_hash_offset)) {
 
-                                r = journal_file_read_object(f, OBJECT_DATA, q, &o);
+                                r = journal_file_read_object_header(f, OBJECT_DATA, q, &o);
                                 if (r < 0) {
                                         log_debug_errno(r, "Invalid data object: %m, ignoring");
                                         break;
