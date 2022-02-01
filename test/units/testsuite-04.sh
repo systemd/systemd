@@ -119,6 +119,26 @@ systemctl start silent-success
 journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
+# Test proper handling of .journal~ files
+MACHINE_ID=$(cat /etc/machine-id)
+for _ in {0..4}; do
+    dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
+    journalctl --rotate
+    journalctl --sync
+done
+sed -i 's/MESSAGE/XXXXXXX/' /var/log/journal/"$MACHINE_ID"/system\@*.journal
+journalctl --verify-and-rename
+for _ in {0..4}; do
+    dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
+    journalctl --rotate
+    journalctl --sync
+done
+journalctl --vacuum-files=1 --vacuum-corrupted=only
+journalctl --vacuum-files=1 --vacuum-corrupted=no
+[[ $((ls /var/log/journal/"$MACHINE_ID"/*journal | wc -l))" -eq 1 ]]
+[[ $((ls /var/log/journal/"$MACHINE_ID"/*journal~ | wc -l))" -eq 1 ]]
+
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 

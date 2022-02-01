@@ -40,7 +40,7 @@ _journalctl() {
         [STANDALONE]='-a --all --full --system --user
                       --disk-usage -f --follow --header
                       -h --help -l --local -m --merge --no-pager
-                      --no-tail -q --quiet --setup-keys --verify
+                      --no-tail -q --quiet --setup-keys --verify --verify-and-rename
                       --version --list-catalog --update-catalog --list-boots
                       --show-cursor --dmesg -k --pager-end -e -r --reverse
                       --utc -x --catalog --no-full --force --dump-catalog
@@ -50,7 +50,7 @@ _journalctl() {
                       --root --case-sensitive'
         [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                       --after-cursor --cursor-file --verify-key -g --grep
-                      --vacuum-size --vacuum-time --vacuum-files --output-fields'
+                      --vacuum-size --vacuum-time --vacuum-files --vacuum-corrupted --output-fields'
     )
 
     # Use the default completion for shell redirect operators
