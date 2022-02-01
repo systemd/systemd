@@ -76,6 +76,13 @@
                 _expr_;                         \
         })
 
+#define ASSERT_SE_PTR(expr)                     \
+        ({                                      \
+                typeof(expr) _expr_ = (expr);   \
+                assert_se(_expr_);              \
+                _expr_;                         \
+        })
+
 #if defined(static_assert)
 #define assert_cc(expr)                                                 \
         static_assert(expr, #expr)
