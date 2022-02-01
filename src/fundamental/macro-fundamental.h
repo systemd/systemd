@@ -53,14 +53,16 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
+        void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
+
         #ifdef NDEBUG
                 #define assert(expr)
                 #define assert_not_reached() __builtin_unreachable()
         #else
-                void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
         #endif
+        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
 
         #define memcpy(a, b, c) CopyMem((a), (b), (c))
         #define free(a) FreePool(a)
