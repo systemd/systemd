@@ -679,7 +679,7 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
                 server_space_usage_message(s, storage);
 
         r = journal_directory_vacuum(storage->path, storage->space.limit,
-                                     storage->metrics.n_max_files, s->max_retention_usec,
+                                     storage->metrics.n_max_files, s->max_retention_usec, NULL,
                                      &s->oldest_file_usec, verbose);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
