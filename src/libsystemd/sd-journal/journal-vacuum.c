@@ -119,6 +119,7 @@ int journal_directory_vacuum(
                 uint64_t max_use,
                 uint64_t n_max_files,
                 usec_t max_retention_usec,
+                const char *vacuum_corrupted,
                 usec_t *oldest_usec,
                 bool verbose) {
 
@@ -161,6 +162,10 @@ int journal_directory_vacuum(
                 q = strlen(de->d_name);
 
                 if (endswith(de->d_name, ".journal")) {
+                        if (vacuum_corrupted != NULL && streq(vacuum_corrupted, "only")) {
+                            log_debug("Not vacuuming non-corrupted file %s.", de->d_name);
+                            continue;
+                        }
 
                         /* Vacuum archived files. Active files are
                          * left around */
@@ -197,6 +202,10 @@ int journal_directory_vacuum(
                         have_seqnum = true;
 
                 } else if (endswith(de->d_name, ".journal~")) {
+                        if (vacuum_corrupted != NULL && streq(vacuum_corrupted, "no")) {
+                            log_debug("Not vacuuming possibly corrupted file %s.", de->d_name);
+                            continue;
+                        }
                         unsigned long long tmp;
 
                         /* seqnum_id won't be initialised before use below, so set to 0 */
