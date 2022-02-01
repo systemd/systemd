@@ -1458,12 +1458,16 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                                                   "_services._dns-sd._udp.local");
                 if (!rr)
                         return log_oom();
+
                 rr->ptr.name = strdup(service_type);
+                if (!rr->ptr.name)
+                        return log_oom();
+
                 rr->ttl = MDNS_DEFAULT_TTL;
 
                 r = dns_zone_put(&scope->zone, scope, rr, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone: %m");
+                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone, ignoring: %m");
 
                 r = dns_answer_add(answer, rr, 0, 0, NULL);
                 if (r < 0)
