@@ -809,15 +809,12 @@ int config_parse_tunnel_key(
                 void *data,
                 void *userdata) {
 
+        uint32_t *dest = ASSERT_PTR(data), k;
         union in_addr_union buffer;
-        Tunnel *t = userdata;
-        uint32_t k;
         int r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = in_addr_from_string(AF_INET, rvalue, &buffer);
         if (r < 0) {
@@ -830,13 +827,7 @@ int config_parse_tunnel_key(
         } else
                 k = be32toh(buffer.in.s_addr);
 
-        if (streq(lvalue, "Key"))
-                t->key = k;
-        else if (streq(lvalue, "InputKey"))
-                t->ikey = k;
-        else
-                t->okey = k;
-
+        *dest = k;
         return 0;
 }
 
