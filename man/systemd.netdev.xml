@@ -1150,6 +1150,15 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
+        <term><varname>External=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, then the tunnel is externally controlled, which is
+          also known as collect metadata mode, and most settings below like <varname>Local=</varname>
+          or <varname>Remote=</varname> are ignored. This implies <varname>Independent=</varname>.
+          Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
           <para>A static local address for tunneled packets. It must be an address on another interface

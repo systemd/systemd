@@ -95,6 +95,7 @@ IPv6RapidDeploymentPrefix=
 ERSPANIndex=
 SerializeTunneledPackets=
 ISATAP=
+External=
 [VXLAN]
 UDP6ZeroChecksumRx=
 ARPProxy=
