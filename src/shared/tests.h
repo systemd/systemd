@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "macro.h"
+#include "static-destruct.h"
 #include "util.h"
 
 static inline bool manager_errno_skip_test(int r) {
@@ -109,15 +110,27 @@ static inline int run_test_table(void) {
         return r;
 }
 
+static inline int test_nop(void) {
+        return EXIT_SUCCESS;
+}
+
 #define DEFINE_CUSTOM_TEST_MAIN(log_level, intro, outro) \
         int main(int argc, char *argv[]) {               \
-                int _r = EXIT_SUCCESS;                   \
+                int _r, _q;                              \
                 test_setup_logging(log_level);           \
                 save_argc_argv(argc, argv);              \
-                intro;                                   \
-                _r = run_test_table();                   \
-                outro;                                   \
-                return _r;                               \
+                _r = intro();                            \
+                if (_r == EXIT_SUCCESS)                  \
+                        _r = run_test_table();           \
+                _q = outro();                            \
+                static_destruct();                       \
+                if (_r < 0)                              \
+                        return EXIT_FAILURE;             \
+                if (_r != EXIT_SUCCESS)                  \
+                        return _r;                       \
+                if (_q < 0)                              \
+                        return EXIT_FAILURE;             \
+                return _q;                               \
         }
 
-#define DEFINE_TEST_MAIN(log_level) DEFINE_CUSTOM_TEST_MAIN(log_level, , )
+#define DEFINE_TEST_MAIN(log_level) DEFINE_CUSTOM_TEST_MAIN(log_level, test_nop, test_nop)

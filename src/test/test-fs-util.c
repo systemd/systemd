@@ -968,4 +968,9 @@ TEST(open_mkdir_at) {
         assert_se(subsubdir_fd >= 0);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, arg_test_dir = argv[1], /* no outro */);
+static int intro(void) {
+        arg_test_dir = saved_argv[1];
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

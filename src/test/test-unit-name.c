@@ -23,6 +23,10 @@
 #include "user-util.h"
 #include "util.h"
 
+static char *runtime_dir = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
+
 static void test_unit_name_is_valid_one(const char *name, UnitNameFlags flags, bool expected) {
         log_info("%s ( %s%s%s ): %s",
                  name,
@@ -844,15 +848,12 @@ TEST(unit_name_prefix_equal) {
         assert_se(!unit_name_prefix_equal("a", "a"));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
+static int intro(void) {
+        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        ({
-                if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
-                        return log_tests_skipped("cgroupfs not available");
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+        return EXIT_SUCCESS;
+}
 
-                assert_se(runtime_dir = setup_fake_runtime_dir());
-        }),
-
-        /* no outro */);
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

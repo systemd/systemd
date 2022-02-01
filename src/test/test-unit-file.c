@@ -102,4 +102,9 @@ TEST(runlevel_to_target) {
         assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, log_show_color(true), /* no outro */);
+static int intro(void) {
+        log_show_color(true);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);
