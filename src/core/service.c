@@ -624,6 +624,9 @@ static int service_verify(Service *s) {
         if (s->runtime_max_usec == USEC_INFINITY && s->runtime_rand_extra_usec != 0)
                 log_unit_warning(UNIT(s), "Service has RuntimeRandomizedExtraSec= setting, but no RuntimeMaxSec=. Ignoring.");
 
+        if (s->exit_type == SERVICE_EXIT_CGROUP && cg_unified() < CGROUP_UNIFIED_SYSTEMD)
+                log_unit_warning(UNIT(s), "Service has ExitType=cgroup set, but we are running with legacy cgroups v1, which might not work correctly. Continuing.");
+
         return 0;
 }
 
