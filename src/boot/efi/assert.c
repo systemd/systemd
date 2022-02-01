@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#ifndef NDEBUG
-
 #include <efi.h>
 #include <efilib.h>
+
 #include "util.h"
 
 void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
@@ -11,5 +10,3 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
 }
-
-#endif
