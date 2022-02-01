@@ -10,36 +10,36 @@
 
 static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        char *text;
+        const char *text;
         int r;
 
         assert(m);
         assert(ret);
 
         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &text)) > 0) {
-                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+                _cleanup_free_ char *n = NULL;
+                const char *sep;
 
-                char *sep = strchr(text, '=');
+                sep = strchr(text, '=');
                 if (!sep)
                         return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                                "Invalid environment block");
 
-                *sep++ = '\0';
+                n = strndup(text, sep - text);
+                if (!n)
+                        return log_oom();
 
-                r = json_build(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR(text, JSON_BUILD_STRING(sep))));
-                if (r < 0)
-                        return r;
+                sep++;
 
-                r = json_variant_merge(&v, w);
+                r = json_variant_set_field_string(&v, n, sep);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to set JSON field '%s' to '%s': %m", n, sep);
         }
         if (r < 0)
                 return bus_log_parse_error(r);
 
         *ret = TAKE_PTR(v);
-
-        return r;
+        return 0;
 }
 
 static int print_variable(const char *s) {
@@ -82,13 +82,12 @@ int show_environment(int argc, char *argv[], void *userdata) {
 
         if (OUTPUT_MODE_IS_JSON(arg_output)) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                JsonFormatFlags flags = output_mode_to_json_format_flags(arg_output);
 
                 r = json_transform_message(reply, &v);
                 if (r < 0)
                         return r;
 
-                json_variant_dump(v, flags, stdout, NULL);
+                json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, NULL);
         } else {
                 while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
                         r = print_variable(text);
