@@ -67,7 +67,8 @@ int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);
 int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
 int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
-int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes);
+int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
+int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
 int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
@@ -82,7 +83,6 @@ int sd_dhcp_lease_get_6rd(
 int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination);
 int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length);
 int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway);
-int sd_dhcp_route_get_option(sd_dhcp_route *route);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_lease, sd_dhcp_lease_unref);
 
