@@ -886,6 +886,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     links_remove_earlier = [
+        'xfrm98',
         'xfrm99',
     ]
 
@@ -1797,20 +1798,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
     def test_xfrm(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', 'xfrm.network',
-                                        '25-xfrm.netdev', 'netdev-link-local-addressing-yes.network')
+                                        '25-xfrm.netdev', '25-xfrm-independent.netdev',
+                                        'netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['xfrm99:degraded', 'dummy98:degraded'])
+        self.wait_online(['dummy98:degraded', 'xfrm98:degraded', 'xfrm99:degraded'])
 
-        output = check_output('ip link show dev xfrm99')
+        output = check_output('ip -d link show dev xfrm98')
         print(output)
+        self.assertIn('xfrm98@dummy98:', output)
+        self.assertIn('xfrm if_id 0x98 ', output)
 
-    @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
-    def test_xfrm_independent(self):
-        copy_unit_to_networkd_unit_path('25-xfrm-independent.netdev', 'netdev-link-local-addressing-yes.network')
-        start_networkd()
-
-        self.wait_online(['xfrm99:degraded'])
+        output = check_output('ip -d link show dev xfrm99')
+        print(output)
+        self.assertIn('xfrm99@lo:', output)
+        self.assertIn('xfrm if_id 0x99 ', output)
 
     @expectedFailureIfModuleIsNotAvailable('fou')
     def test_fou(self):
