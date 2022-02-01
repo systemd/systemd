@@ -1343,7 +1343,9 @@ static int setup_pam(
                 ret = 0;
 
         child_finish:
-                pam_end(handle, pam_code | flags);
+                /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
+                 * know about this. See pam_end(3) */
+                (void) pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
                 _exit(ret);
         }
 
@@ -1378,7 +1380,7 @@ fail:
                 if (close_session)
                         pam_code = pam_close_session(handle, flags);
 
-                pam_end(handle, pam_code | flags);
+                (void) pam_end(handle, pam_code | flags);
         }
 
         strv_free(e);
