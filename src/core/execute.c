@@ -1172,7 +1172,7 @@ static int setup_pam(
                 uid_t uid,
                 gid_t gid,
                 const char *tty,
-                char ***env,
+                char ***env, /* updated on success */
                 const int fds[], size_t n_fds) {
 
 #if HAVE_PAM
