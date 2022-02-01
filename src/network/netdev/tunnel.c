@@ -885,31 +885,33 @@ int config_parse_encap_limit(
                 void *data,
                 void *userdata) {
 
-        Tunnel *t = userdata;
-        int k = 0;
-        int r;
+        Tunnel *t = ASSERT_PTR(userdata);
+        int k, r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
 
-        if (streq(rvalue, "none"))
+        if (streq(rvalue, "none")) {
                 t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
-        else {
-                r = safe_atoi(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (k > 255 || k < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid Tunnel Encapsulation value, ignoring: %d", k);
-                else {
-                        t->encap_limit = k;
-                        t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
-                }
+                t->encap_limit = 0;
+                return 0;
         }
 
+        r = safe_atoi(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Tunnel Encapsulation Limit option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (k > 255 || k < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid Tunnel Encapsulation value, ignoring assignment: %d", k);
+                return 0;
+        }
+
+        t->encap_limit = k;
+        t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
         return 0;
 }
 

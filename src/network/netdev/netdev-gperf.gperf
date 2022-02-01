@@ -79,7 +79,7 @@ Tunnel.DiscoverPathMTU,                   config_parse_bool,                    
 Tunnel.Mode,                              config_parse_ip6tnl_mode,                  0,                             offsetof(Tunnel, ip6tnl_mode)
 Tunnel.IPv6FlowLabel,                     config_parse_ipv6_flowlabel,               0,                             0
 Tunnel.CopyDSCP,                          config_parse_bool,                         0,                             offsetof(Tunnel, copy_dscp)
-Tunnel.EncapsulationLimit,                config_parse_encap_limit,                  0,                             offsetof(Tunnel, encap_limit)
+Tunnel.EncapsulationLimit,                config_parse_encap_limit,                  0,                             0
 Tunnel.Independent,                       config_parse_bool,                         0,                             offsetof(Tunnel, independent)
 Tunnel.AssignToLoopback,                  config_parse_bool,                         0,                             offsetof(Tunnel, assign_to_loopback)
 Tunnel.AllowLocalRemote,                  config_parse_tristate,                     0,                             offsetof(Tunnel, allow_localremote)
