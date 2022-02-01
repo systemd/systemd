@@ -91,8 +91,7 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
-int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
-        Object tail;
+int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset) {
         uint64_t p;
         int r;
 
@@ -100,10 +99,14 @@ int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
         assert(f->header);
         assert(ret_offset);
 
+        /* Same as journal_file_tail_end_by_mmap() below, but operates with pread() to avoid the mmap cache
+         * (and thus is thread safe) */
+
         p = le64toh(f->header->tail_object_offset);
         if (p == 0)
                 p = le64toh(f->header->header_size);
         else {
+                Object tail;
                 uint64_t sz;
 
                 r = journal_file_read_object_header(f, OBJECT_UNUSED, p, &tail);
@@ -111,6 +114,43 @@ int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
                         return r;
 
                 sz = le64toh(tail.object.size);
+                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
+                        return -EBADMSG;
+
+                sz = ALIGN64(sz);
+                if (p > UINT64_MAX - sz)
+                        return -EBADMSG;
+
+                p += sz;
+        }
+
+        *ret_offset = p;
+
+        return 0;
+}
+
+int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset) {
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(ret_offset);
+
+        /* Same as journal_file_tail_end_by_pread() above, but operates with the usual mmap logic */
+
+        p = le64toh(f->header->tail_object_offset);
+        if (p == 0)
+                p = le64toh(f->header->header_size);
+        else {
+                Object *tail;
+                uint64_t sz;
+
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
+                if (r < 0)
+                        return r;
+
+                sz = le64toh(READ_NOW(tail->object.size));
                 if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
                         return -EBADMSG;
 
@@ -941,7 +981,7 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_tail_end(f, &p);
+        r = journal_file_tail_end_by_mmap(f, &p);
         if (r < 0)
                 return r;
 
