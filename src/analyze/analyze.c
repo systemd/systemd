@@ -2771,7 +2771,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security right now.");
+                                       "Option --json= is only supported for security and inspect-elf right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
