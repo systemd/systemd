@@ -32,6 +32,8 @@
     <refname>SD_JOURNAL_OS_ROOT</refname>
     <refname>SD_JOURNAL_ALL_NAMESPACES</refname>
     <refname>SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE</refname>
+    <refname>SD_JOURNAL_CORRUPTED_ONLY</refname>
+    <refname>SD_JOURNAL_NON_CORRUPTED_ONLY</refname>
     <refpurpose>Open the system journal for reading</refpurpose>
   </refnamediv>
 
@@ -109,7 +111,12 @@
     files of the current user to be opened. If neither
     <constant>SD_JOURNAL_SYSTEM</constant> nor
     <constant>SD_JOURNAL_CURRENT_USER</constant> are specified, all
-    journal file types will be opened.</para>
+    journal file types will be opened.
+    <constant>SD_JOURNAL_CORRUPTED_ONLY</constant> and
+    <constant>SD_JOURNAL_NON_CORRUPTED_ONLY</constant> will cause
+    files with the <literal>.journal</literal> and
+    <literal>.journal~</literal> suffixes, respectively, to be
+    skipped.</para>
 
     <para><function>sd_journal_open_namespace()</function> is similar to
     <function>sd_journal_open()</function> but takes an additional <parameter>namespace</parameter> parameter

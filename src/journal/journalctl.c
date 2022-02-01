@@ -129,6 +129,8 @@ static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
+static const char *arg_vacuum_corrupted = NULL;
+static bool arg_rename_corrupted = false;
 static char **arg_output_fields = NULL;
 #if HAVE_PCRE2
 static const char *arg_pattern = NULL;
@@ -391,7 +393,9 @@ static int help(void) {
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
                "     --vacuum-files=INT      Leave only the specified number of journal files\n"
                "     --vacuum-time=TIME      Remove journal files older than specified time\n"
+               "     --vacuum-corrupted=MODE Do not remove / only remove corrupted journal files\n"
                "     --verify                Verify journal file consistency\n"
+               "     --verify-and-rename     Verify journal and rename corrupted files\n"
                "     --sync                  Synchronize unwritten journal messages to disk\n"
                "     --relinquish-var        Stop logging to disk, log to temporary file system\n"
                "     --smart-relinquish-var  Similar, but NOP if log directory is on root mount\n"
@@ -433,6 +437,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FILE,
                 ARG_INTERVAL,
                 ARG_VERIFY,
+                ARG_VERIFY_AND_RENAME,
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
                 ARG_AFTER_CURSOR,
@@ -453,6 +458,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
+                ARG_VACUUM_CORRUPTED,
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
@@ -493,6 +499,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setup-keys",           no_argument,       NULL, ARG_SETUP_KEYS           },
                 { "interval",             required_argument, NULL, ARG_INTERVAL             },
                 { "verify",               no_argument,       NULL, ARG_VERIFY               },
+                { "verify-and-rename",    no_argument,       NULL, ARG_VERIFY_AND_RENAME    },
                 { "verify-key",           required_argument, NULL, ARG_VERIFY_KEY           },
                 { "disk-usage",           no_argument,       NULL, ARG_DISK_USAGE           },
                 { "cursor",               required_argument, NULL, 'c'                      },
@@ -520,6 +527,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
                 { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
+                { "vacuum-corrupted",     required_argument, NULL, ARG_VACUUM_CORRUPTED     },
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
@@ -761,6 +769,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_VERIFY;
                         break;
 
+                case ARG_VERIFY_AND_RENAME:
+                        arg_rename_corrupted = true;
+                        arg_action = ACTION_VERIFY;
+                        break;
+
                 case ARG_DISK_USAGE:
                         arg_action = ACTION_DISK_USAGE;
                         break;
@@ -787,6 +800,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse vacuum time: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
+                        break;
+
+                case ARG_VACUUM_CORRUPTED:
+                        arg_vacuum_corrupted = optarg;
                         break;
 
 #if HAVE_GCRYPT
@@ -1997,7 +2014,7 @@ static int setup_keys(void) {
 #endif
 }
 
-static int verify(sd_journal *j) {
+static int verify(sd_journal *j, bool rename_corrupted) {
         int r = 0;
         JournalFile *f;
 
@@ -2018,9 +2035,16 @@ static int verify(sd_journal *j) {
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
-                else if (k < 0)
+                else if (k < 0) {
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
-                else {
+                        if (rename_corrupted) {
+                            r = journal_file_dispose(AT_FDCWD, f->path);
+                            if (r < 0)
+                                log_warning_errno(k, "Failed to rename corrupted journal file %s: %m", f->path);
+                            else
+                                log_info("Successfully renamed corrupted journal file to %s~.", f->path);
+                        }
+                } else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
                         log_info("PASS: %s", f->path);
 
@@ -2335,7 +2359,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         case ACTION_VERIFY:
-                r = verify(j);
+                r = verify(j, arg_rename_corrupted);
                 goto finish;
 
         case ACTION_DISK_USAGE: {
@@ -2368,7 +2392,7 @@ int main(int argc, char *argv[]) {
                 HASHMAP_FOREACH(d, j->directories_by_path) {
                         int q;
 
-                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, arg_vacuum_corrupted, NULL, !arg_quiet);
                         if (q < 0)
                                 r = log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                 }
