@@ -4235,6 +4235,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         'dhcp-client-static-lease.network',
         'dhcp-client-timezone-router.network',
         'dhcp-server.network',
+        'dhcp-server-downstream.network',
         'dhcp-server-static-lease.network',
         'dhcp-server-timezone-router.network',
         'dhcp-server-uplink.network',
@@ -4250,7 +4251,19 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network',
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertIn('Gateway: 192.168.5.3', output)
+        self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
+        self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
+
+    def test_dhcp_server_with_uplink(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server-downstream.network',
                                         '12-dummy.netdev', 'dhcp-server-uplink.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
