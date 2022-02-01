@@ -21,6 +21,7 @@ typedef struct NetMatch {
         char **wlan_iftype;
         char **ssid;
         Set *bssid;
+        char **apn;
 } NetMatch;
 
 void net_match_clear(NetMatch *match);
@@ -37,7 +38,8 @@ int net_match_config(
                 char * const *alternative_names,
                 enum nl80211_iftype wlan_iftype,
                 const char *ssid,
-                const struct ether_addr *bssid);
+                const struct ether_addr *bssid,
+                const char *apn);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_net_condition);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);

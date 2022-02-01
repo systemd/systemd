@@ -141,6 +141,10 @@ sources = files('''
         networkd-util.h
         networkd-wifi.c
         networkd-wifi.h
+        networkd-wwan-bus.c
+        networkd-wwan-bus.h
+        networkd-wwan.c
+        networkd-wwan.h
         tc/cake.c
         tc/cake.h
         tc/codel.c
