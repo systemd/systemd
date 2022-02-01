@@ -716,11 +716,20 @@ foreach scheme: get_option('extra-net-naming-schemes').split(',')
                 name = scheme.split('=')[0]
                 value = scheme.split('=')[1]
                 NAME = name.underscorify().to_upper()
-                VALUE = []
+                ENABLED_SCHEMAS = []
+                DISABLED_SCHEMAS = []
                 foreach field: value.split('+')
-                        VALUE += 'NAMING_' + field.underscorify().to_upper()
+                        if field.startswith('-')
+                                DISABLED_SCHEMAS += 'NAMING_' + field.substring(1).underscorify().to_upper()
+                        else
+                                ENABLED_SCHEMAS += 'NAMING_' + field.underscorify().to_upper()
+                        endif
                 endforeach
-                extra_net_naming_schemes += 'NAMING_@0@ = @1@,'.format(NAME, '|'.join(VALUE))
+                extra_net_naming_schemes += 'NAMING_@0@ = @1@'.format(NAME, '|'.join(ENABLED_SCHEMAS))
+                foreach disabled: DISABLED_SCHEMAS
+                        extra_net_naming_schemes += ' & ~@0@'.format(disabled)
+                endforeach
+                extra_net_naming_schemes += ','
                 extra_net_naming_map += '{ "@0@", NAMING_@1@ },'.format(name, NAME)
         endif
 endforeach
