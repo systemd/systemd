@@ -650,11 +650,21 @@ int config_parse_dhcp_server_emit(
                 if (r == 0)
                         return 0;
 
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s= address '%s', ignoring: %m", lvalue, w);
-                        continue;
+                if (streq(w, "_server_address"))
+                        a = IN_ADDR_NULL; /* null address will be converted to the server address. */
+                else {
+                        r = in_addr_from_string(AF_INET, w, &a);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Failed to parse %s= address '%s', ignoring: %m", lvalue, w);
+                                continue;
+                        }
+
+                        if (in4_addr_is_null(&a.in)) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Found a null address in %s=, ignoring.", lvalue);
+                                continue;
+                        }
                 }
 
                 if (!GREEDY_REALLOC(emit->addresses, emit->n_addresses + 1))
