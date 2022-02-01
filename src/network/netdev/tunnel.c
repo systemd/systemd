@@ -213,6 +213,15 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         assert(t);
 
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
+
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
@@ -308,6 +317,15 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         }
 
         assert(t);
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -420,6 +438,15 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -553,6 +580,32 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         assert(t);
 
+        switch (t->ip6tnl_mode) {
+        case NETDEV_IP6_TNL_MODE_IP6IP6:
+                proto = IPPROTO_IPV6;
+                break;
+        case NETDEV_IP6_TNL_MODE_IPIP6:
+                proto = IPPROTO_IPIP;
+                break;
+        case NETDEV_IP6_TNL_MODE_ANYIP6:
+        default:
+                proto = 0;
+                break;
+        }
+
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
+        if (r < 0)
+                return r;
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
+
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
@@ -597,23 +650,6 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return r;
         }
 
-        switch (t->ip6tnl_mode) {
-        case NETDEV_IP6_TNL_MODE_IP6IP6:
-                proto = IPPROTO_IPV6;
-                break;
-        case NETDEV_IP6_TNL_MODE_IPIP6:
-                proto = IPPROTO_IPIP;
-                break;
-        case NETDEV_IP6_TNL_MODE_ANYIP6:
-        default:
-                proto = 0;
-                break;
-        }
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
@@ -640,6 +676,23 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
+        if (netdev->kind == NETDEV_KIND_IP6TNL &&
+            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "ip6tnl without mode configured in %s. Ignoring", filename);
+
+        if (t->external) {
+                if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_VTI6))
+                        log_netdev_debug(netdev, "vti/vti6 tunnel do not support external mode, ignoring.");
+                else {
+                        /* tunnel with external mode does not require underlying interface. */
+                        t->independent = true;
+
+                        /* tunnel with external mode does not require any settings checked below. */
+                        return 0;
+                }
+        }
+
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE) &&
             !IN_SET(t->family, AF_UNSPEC, AF_INET))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -659,11 +712,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
             (t->family != AF_INET6 || !in_addr_is_set(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "ip6gretap tunnel without a remote IPv6 address configured in %s. Ignoring", filename);
-
-        if (netdev->kind == NETDEV_KIND_IP6TNL &&
-            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "ip6tnl without mode configured in %s. Ignoring", filename);
 
         if (t->fou_tunnel && t->fou_destination_port <= 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
