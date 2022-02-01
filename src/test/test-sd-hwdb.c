@@ -52,12 +52,15 @@ TEST(basic_enumerate) {
         assert_se(len1 == len2);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
-        ({
-                _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-                int r = sd_hwdb_new(&hwdb);
-                if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
-                        return log_tests_skipped_errno(r, "cannot open hwdb");
-        }),
-        /* no outro */);
+static int intro(void) {
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        int r;
+
+        r = sd_hwdb_new(&hwdb);
+        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+                return log_tests_skipped_errno(r, "cannot open hwdb");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);

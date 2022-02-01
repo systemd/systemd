@@ -421,25 +421,27 @@ TEST_BARRIER(barrier_pending_exit,
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
-        ({
-                if (!slow_tests_enabled())
-                        return log_tests_skipped("slow tests are disabled");
 
-                /*
-                * This test uses real-time alarms and sleeps to test for CPU races
-                * explicitly. This is highly fragile if your system is under load. We
-                * already increased the BASE_TIME value to make the tests more robust,
-                * but that just makes the test take significantly longer. Given the recent
-                * issues when running the test in a virtualized environments, limit it
-                * to bare metal machines only, to minimize false-positives in CIs.
-                */
-                int v = detect_virtualization();
-                if (IN_SET(v, -EPERM, -EACCES))
-                        return log_tests_skipped("Cannot detect virtualization");
+static int intro(void) {
+        if (!slow_tests_enabled())
+                return log_tests_skipped("slow tests are disabled");
 
-                if (v != VIRTUALIZATION_NONE)
-                        return log_tests_skipped("This test requires a baremetal machine");
-        }),
-        /* no outro */);
+        /*
+         * This test uses real-time alarms and sleeps to test for CPU races explicitly. This is highly
+         * fragile if your system is under load. We already increased the BASE_TIME value to make the tests
+         * more robust, but that just makes the test take significantly longer. Given the recent issues when
+         * running the test in a virtualized environments, limit it to bare metal machines only, to minimize
+         * false-positives in CIs.
+         */
+
+        int v = detect_virtualization();
+        if (IN_SET(v, -EPERM, -EACCES))
+                return log_tests_skipped("Cannot detect virtualization");
+
+        if (v != VIRTUALIZATION_NONE)
+                return log_tests_skipped("This test requires a baremetal machine");
+
+        return EXIT_SUCCESS;
+ }
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

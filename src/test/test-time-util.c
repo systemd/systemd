@@ -588,7 +588,7 @@ TEST(map_clock_usec) {
         }
 }
 
-static void setup_test(void) {
+static int intro(void) {
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"
                  "boottime=" USEC_FMT "\n",
@@ -603,6 +603,8 @@ static void setup_test(void) {
         uintmax_t x = TIME_T_MAX;
         x++;
         assert_se((time_t) x < 0);
+
+        return EXIT_SUCCESS;
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, setup_test(), /* no outro */);
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

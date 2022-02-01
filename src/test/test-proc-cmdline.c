@@ -247,10 +247,11 @@ TEST(proc_cmdline_key_startswith) {
         assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_INFO,
-        ({
-                if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
-                        return log_tests_skipped("can't read /proc/cmdline");
-        }),
-        /* no outro */);
+static int intro(void) {
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return log_tests_skipped("can't read /proc/cmdline");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

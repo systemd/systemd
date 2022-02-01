@@ -294,17 +294,19 @@ TEST(fd_is_mount_point) {
         assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
-        ({
-                /* let's move into our own mount namespace with all propagation from the host turned off, so
-                 * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
-                if (unshare(CLONE_NEWNS) < 0) {
-                        if (!ERRNO_IS_PRIVILEGE(errno))
-                                return log_error_errno(errno, "Failed to detach mount namespace: %m");
+static int intro(void) {
+        /* let's move into our own mount namespace with all propagation from the host turned off, so
+         * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
 
-                        log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
-                } else
-                        assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
-        }),
-        /* no outro */);
+        if (unshare(CLONE_NEWNS) < 0) {
+                if (!ERRNO_IS_PRIVILEGE(errno))
+                        return log_error_errno(errno, "Failed to detach mount namespace: %m");
+
+                log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
+        } else
+                assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);

@@ -11,8 +11,11 @@
 #include "special.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
-static char root[] = "/tmp/rootXXXXXX";
+static char *root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(root, rm_rf_physical_and_freep);
 
 TEST(basic_mask_and_enable) {
         const char *p;
@@ -1239,10 +1242,10 @@ TEST(verify_alias) {
         verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
 }
 
-static void setup_root(void) {
+static int intro(void) {
         const char *p;
 
-        assert_se(mkdtemp(root));
+        assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/");
         assert_se(mkdir_p(p, 0755) >= 0);
@@ -1264,6 +1267,9 @@ static void setup_root(void) {
 
         p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+
+        return EXIT_SUCCESS;
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, setup_root(), assert_se(rm_rf(root, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0));
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);

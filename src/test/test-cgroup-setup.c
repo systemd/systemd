@@ -64,10 +64,11 @@ TEST(is_wanted) {
         test_is_wanted_print_one(false);
 }
 
-DEFINE_CUSTOM_TEST_MAIN(
-        LOG_DEBUG,
-        ({
-                if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
-                        return log_tests_skipped("can't read /proc/cmdline");
-        }),
-        /* no outro */);
+static int intro(void) {
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return log_tests_skipped("can't read /proc/cmdline");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);
