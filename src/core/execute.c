@@ -1183,10 +1183,11 @@ static int setup_pam(
         };
 
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
+        _cleanup_strv_free_ char **e = NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
-        char **nv, **e = NULL;
+        char **nv;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
         int flags = 0;
@@ -1383,9 +1384,7 @@ fail:
                 (void) pam_end(handle, pam_code | flags);
         }
 
-        strv_free(e);
         closelog();
-
         return r;
 #else
         return 0;
