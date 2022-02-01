@@ -468,41 +468,48 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
 }
 
 static int lease_parse_routes(
-                const uint8_t *option, size_t len,
-                struct sd_dhcp_route **routes, size_t *routes_size) {
+                const uint8_t *option,
+                size_t len,
+                struct sd_dhcp_route **routes,
+                size_t *routes_size) {
 
-        struct in_addr addr;
+        int r;
 
         assert(option || len <= 0);
         assert(routes);
         assert(routes_size);
 
-        if (len <= 0)
-                return 0;
-
         if (len % 8 != 0)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(*routes, *routes_size + (len / 8)))
-                return -ENOMEM;
-
         while (len >= 8) {
-                struct sd_dhcp_route *route = *routes + *routes_size;
-                int r;
+                struct in_addr dst, gw;
+                uint8_t prefixlen;
 
-                route->option = SD_DHCP_OPTION_STATIC_ROUTE;
-                r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
-                if (r < 0)
-                        return -EINVAL;
-
-                assert_se(lease_parse_be32(option, 4, &addr.s_addr) >= 0);
-                route->dst_addr = inet_makeaddr(inet_netof(addr), 0);
+                assert_se(lease_parse_be32(option, 4, &dst.s_addr) >= 0);
                 option += 4;
 
-                assert_se(lease_parse_be32(option, 4, &route->gw_addr.s_addr) >= 0);
+                assert_se(lease_parse_be32(option, 4, &gw.s_addr) >= 0);
                 option += 4;
 
                 len -= 8;
+
+                r = in4_addr_default_prefixlen(&dst, &prefixlen);
+                if (r < 0)
+                        return -EINVAL;
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                if (!GREEDY_REALLOC(*routes, *routes_size + 1))
+                        return -ENOMEM;
+
+                (*routes)[*routes_size] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                        .option = SD_DHCP_OPTION_STATIC_ROUTE,
+                };
+
                 (*routes_size)++;
         }
 
@@ -1114,6 +1121,18 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         return 0;
 }
 
+static char **private_options_free(char **options) {
+        if (!options)
+                return NULL;
+
+        for (unsigned i = 0; i < SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1; i++)
+                free(options[i]);
+
+        return mfree(options);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
+
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
@@ -1136,8 +1155,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *vendor_specific_hex = NULL,
                 *lifetime = NULL,
                 *t1 = NULL,
-                *t2 = NULL,
-                *options[SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1] = {};
+                *t2 = NULL;
+        _cleanup_(private_options_freep) char **options = NULL;
 
         int r, i;
 
@@ -1147,6 +1166,10 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         r = dhcp_lease_new(&lease);
         if (r < 0)
                 return r;
+
+        options = new0(char*, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
+        if (!options)
+                return -ENOMEM;
 
         r = parse_env_file(NULL, lease_file,
                            "ADDRESS", &address,
