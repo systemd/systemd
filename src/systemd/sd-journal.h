@@ -71,6 +71,8 @@ enum {
         SD_JOURNAL_OS_ROOT                   = 1 << 4,
         SD_JOURNAL_ALL_NAMESPACES            = 1 << 5, /* Show all namespaces, not just the default or specified one */
         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE = 1 << 6, /* Show default namespace in addition to specified one */
+        SD_JOURNAL_CORRUPTED_ONLY            = 1 << 7, /* Only include files with the .journal~ suffix */
+        SD_JOURNAL_NON_CORRUPTED_ONLY        = 1 << 8, /* Do not include files with the .journal~ suffix */
 
         SD_JOURNAL_SYSTEM_ONLY _sd_deprecated_ = SD_JOURNAL_SYSTEM /* old name */
 };
