@@ -2010,6 +2010,24 @@ import_initdir() {
     export initdir
 }
 
+get_cgroup_hierarchy() {
+    case "$(stat -c '%T' -f /sys/fs/cgroup)" in
+        cgroup2fs)
+            echo "unified"
+            ;;
+        tmpfs)
+            if [[ -d /sys/fs/cgroup/unified && "$(stat -c '%T' -f /sys/fs/cgroup/unified)" == cgroup2fs ]]; then
+                echo "hybrid"
+            else
+                echo "legacy"
+            fi
+            ;;
+        *)
+            dfatal "Failed to determine host's cgroup hierarchy"
+            exit 1
+    esac
+}
+
 ## @brief Converts numeric logging level to the first letter of level name.
 #
 # @param lvl Numeric logging level in range from 1 to 6.
