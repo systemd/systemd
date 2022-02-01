@@ -1258,8 +1258,7 @@ static int setup_pam(
                 goto fail;
         }
 
-        /* Block SIGTERM, so that we know that it won't get lost in
-         * the child */
+        /* Block SIGTERM, so that we know that it won't get lost in the child */
 
         assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
 
@@ -1271,18 +1270,16 @@ static int setup_pam(
         if (r == 0) {
                 int sig, ret = EXIT_PAM;
 
-                /* The child's job is to reset the PAM session on
-                 * termination */
+                /* The child's job is to reset the PAM session on termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
                 (void) close_many(fds, n_fds);
 
-                /* Drop privileges - we don't need any to pam_close_session
-                 * and this will make PR_SET_PDEATHSIG work in most cases.
-                 * If this fails, ignore the error - but expect sd-pam threads
-                 * to fail to exit normally */
+                /* Drop privileges - we don't need any to pam_close_session and this will make
+                 * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
+                 * threads to fail to exit normally */
 
                 r = maybe_setgroups(0, NULL);
                 if (r < 0)
@@ -1294,20 +1291,16 @@ static int setup_pam(
 
                 (void) ignore_signals(SIGPIPE);
 
-                /* Wait until our parent died. This will only work if
-                 * the above setresuid() succeeds, otherwise the kernel
-                 * will not allow unprivileged parents kill their privileged
-                 * children this way. We rely on the control groups kill logic
-                 * to do the rest for us. */
+                /* Wait until our parent died. This will only work if the above setresuid() succeeds,
+                 * otherwise the kernel will not allow unprivileged parents kill their privileged children
+                 * this way. We rely on the control groups kill logic to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         goto child_finish;
 
-                /* Tell the parent that our setup is done. This is especially
-                 * important regarding dropping privileges. Otherwise, unit
-                 * setup might race against our setresuid(2) call.
+                /* Tell the parent that our setup is done. This is especially important regarding dropping
+                 * privileges. Otherwise, unit setup might race against our setresuid(2) call.
                  *
-                 * If the parent aborted, we'll detect this below, hence ignore
-                 * return failure here. */
+                 * If the parent aborted, we'll detect this below, hence ignore return failure here. */
                 (void) barrier_place(&barrier);
 
                 /* Check if our parent process might already have died? */
@@ -1352,19 +1345,19 @@ static int setup_pam(
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
-        /* If the child was forked off successfully it will do all the
-         * cleanups, so forget about the handle here. */
+        /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
+         * here. */
         handle = NULL;
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
 
-        /* We close the log explicitly here, since the PAM modules
-         * might have opened it, but we don't want this fd around. */
+        /* We close the log explicitly here, since the PAM modules might have opened it, but we don't want
+         * this fd around. */
         closelog();
 
-        /* Synchronously wait for the child to initialize. We don't care for
-         * errors as we cannot recover. However, warn loudly if it happens. */
+        /* Synchronously wait for the child to initialize. We don't care for errors as we cannot
+         * recover. However, warn loudly if it happens. */
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
