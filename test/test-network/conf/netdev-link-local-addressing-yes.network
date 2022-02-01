@@ -15,7 +15,7 @@ Name=geneve99
 Name=ifb99
 Name=ipiptun99
 Name=nlmon99
-Name=xfrm99
+Name=xfrm98 xfrm99
 Name=vxlan98
 Name=hogehogehogehogehogehoge
 

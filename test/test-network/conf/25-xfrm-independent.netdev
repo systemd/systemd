@@ -3,4 +3,5 @@ Kind=xfrm
 Name=xfrm99
 
 [Xfrm]
+InterfaceId=0x99
 Independent=yes

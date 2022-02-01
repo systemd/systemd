@@ -1,3 +1,6 @@
 [NetDev]
 Kind=xfrm
-Name=xfrm99
+Name=xfrm98
+
+[Xfrm]
+InterfaceId=0x98
