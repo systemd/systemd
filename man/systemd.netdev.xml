@@ -1994,7 +1994,7 @@
         <term><varname>InterfaceId=</varname></term>
         <listitem>
           <para>Sets the ID/key of the xfrm interface which needs to be associated with a SA/policy.
-          Can be decimal or hexadecimal, valid range is 0-0xffffffff, defaults to 0.</para>
+          Can be decimal or hexadecimal, valid range is 1-0xffffffff. This is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
