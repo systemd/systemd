@@ -402,12 +402,6 @@ static int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to configure address pool for DHCPv4 server instance: %m");
 
-        /* TODO:
-        r = sd_dhcp_server_set_router(link->dhcp_server, &main_address->in_addr.in);
-        if (r < 0)
-                return r;
-        */
-
         if (link->network->dhcp_server_max_lease_time_usec > 0) {
                 r = sd_dhcp_server_set_max_lease_time(link->dhcp_server,
                                                       DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
