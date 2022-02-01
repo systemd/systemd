@@ -402,12 +402,6 @@ static int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to configure address pool for DHCPv4 server instance: %m");
 
-        /* TODO:
-        r = sd_dhcp_server_set_router(link->dhcp_server, &main_address->in_addr.in);
-        if (r < 0)
-                return r;
-        */
-
         if (link->network->dhcp_server_max_lease_time_usec > 0) {
                 r = sd_dhcp_server_set_max_lease_time(link->dhcp_server,
                                                       DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
@@ -656,18 +650,24 @@ int config_parse_dhcp_server_emit(
                 if (r == 0)
                         return 0;
 
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s= address '%s', ignoring: %m", lvalue, w);
-                        continue;
+                if (streq(w, "_server_address"))
+                        a = IN_ADDR_NULL; /* null address will be converted to the server address. */
+                else {
+                        r = in_addr_from_string(AF_INET, w, &a);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Failed to parse %s= address '%s', ignoring: %m", lvalue, w);
+                                continue;
+                        }
+
+                        if (in4_addr_is_null(&a.in))
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Found a null address in %s=, ignoring.", lvalue);
                 }
 
-                struct in_addr *m = reallocarray(emit->addresses, emit->n_addresses + 1, sizeof(struct in_addr));
-                if (!m)
+                if (!GREEDY_REALLOC(emit->addresses, emit->n_addresses + 1))
                         return log_oom();
 
-                emit->addresses = m;
                 emit->addresses[emit->n_addresses++] = a.in;
         }
 }
