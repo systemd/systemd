@@ -587,15 +587,15 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->allow_localremote >= 0)
                 SET_FLAG(t->flags, IP6_TNL_F_ALLOW_LOCAL_REMOTE, t->allow_localremote);
 
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
+        if (r < 0)
+                return r;
+
         if (t->encap_limit != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
                 if (r < 0)
                         return r;
         }
-
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
-        if (r < 0)
-                return r;
 
         switch (t->ip6tnl_mode) {
         case NETDEV_IP6_TNL_MODE_IP6IP6:
