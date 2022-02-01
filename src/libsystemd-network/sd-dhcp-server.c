@@ -1276,6 +1276,18 @@ static int server_receive_message(sd_event_source *s, int fd,
         return 0;
 }
 
+static void dhcp_server_update_lease_servers(sd_dhcp_server *server) {
+        assert(server);
+        assert(server->address != 0);
+
+        /* Convert null address -> server address */
+
+        for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++)
+                for (size_t i = 0; i < server->servers[k].size; i++)
+                        if (in4_addr_is_null(&server->servers[k].addr[i]))
+                                server->servers[k].addr[i].s_addr = server->address;
+}
+
 int sd_dhcp_server_start(sd_dhcp_server *server) {
         int r;
 
@@ -1289,6 +1301,8 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(server->fd_raw < 0, -EBUSY);
         assert_return(server->fd < 0, -EBUSY);
         assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
+
+        dhcp_server_update_lease_servers(server);
 
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (r < 0) {
@@ -1419,6 +1433,7 @@ int sd_dhcp_server_set_servers(
         struct in_addr *c = NULL;
 
         assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
         assert_return(addresses || n_addresses == 0, -EINVAL);
         assert_return(what >= 0, -EINVAL);
         assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
