@@ -369,6 +369,10 @@ mouse:usb:v046dpc07e:name:Logitech Gaming Mouse G402:*
 mouse:usb:v046dpc083:name:Logitech G403 Prodigy Gaming Mouse:*
  MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
 
+# Logitech G203
+mouse:usb:v046dpc084:name:Logitech G203 Gaming Mouse:*
+ MOUSE_DPI=400@1000
+
 # Logitech G403 Hero
 mouse:usb:v046dpc08f:name:Logitech G403 HERO Gaming Mouse:*
  MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
