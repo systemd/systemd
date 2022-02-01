@@ -657,11 +657,9 @@ int config_parse_dhcp_server_emit(
                         continue;
                 }
 
-                struct in_addr *m = reallocarray(emit->addresses, emit->n_addresses + 1, sizeof(struct in_addr));
-                if (!m)
+                if (!GREEDY_REALLOC(emit->addresses, emit->n_addresses + 1))
                         return log_oom();
 
-                emit->addresses = m;
                 emit->addresses[emit->n_addresses++] = a.in;
         }
 }
