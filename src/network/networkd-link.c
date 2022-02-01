@@ -930,13 +930,6 @@ static void link_free_bound_by_list(Link *link) {
                 link_dirty(link);
 }
 
-static void link_free_carrier_maps(Link *link) {
-        assert(link);
-
-        link_free_bound_to_list(link);
-        link_free_bound_by_list(link);
-}
-
 static int link_append_to_master(Link *link) {
         Link *master;
         int r;
@@ -996,7 +989,8 @@ static Link *link_drop(Link *link) {
 
         link_drop_requests(link);
 
-        link_free_carrier_maps(link);
+        link_free_bound_to_list(link);
+        link_free_bound_by_list(link);
 
         link_drop_from_master(link);
 
