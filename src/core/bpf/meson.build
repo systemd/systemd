@@ -68,8 +68,8 @@ bpf_o_unstripped_cmd += [
 if bpftool_strip
         bpf_o_cmd = [
                 bpftool,
-                'g',
-                'o',
+                'gen',
+                'object',
                 '@OUTPUT@',
                 '@INPUT@'
         ]
@@ -85,7 +85,7 @@ endif
 
 skel_h_cmd = [
         bpftool,
-        'g',
-        's',
+        'gen',
+        'skeleton',
         '@INPUT@'
 ]
