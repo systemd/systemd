@@ -843,32 +843,33 @@ int config_parse_ipv6_flowlabel(
                 void *data,
                 void *userdata) {
 
-        IPv6FlowLabel *ipv6_flowlabel = data;
-        Tunnel *t = userdata;
-        int k = 0;
-        int r;
+        Tunnel *t = ASSERT_PTR(userdata);
+        int k, r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
-        assert(ipv6_flowlabel);
 
         if (streq(rvalue, "inherit")) {
-                *ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
+                t->ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
                 t->flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
-        } else {
-                r = config_parse_int(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
-                if (r < 0)
-                        return r;
-
-                if (k > 0xFFFFF)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
-                else {
-                        *ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
-                        t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
-                }
+                return 0;
         }
 
+        r = safe_atoi(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (k > 0xFFFFF) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        t->ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
+        t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
         return 0;
 }
 
