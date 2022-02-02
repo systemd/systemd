@@ -382,7 +382,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case ARG_NAME: {
                         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-                        r = find_device(optarg, "/dev/", &dev);
+                        r = find_device(optarg, "/dev", &dev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
 
