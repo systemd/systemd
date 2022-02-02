@@ -3,6 +3,15 @@
 set -ex
 set -o pipefail
 
+function trigger_and_settle() {
+    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action "$1" /dev/null
+    # This is a workaround for that --settle does not work correctly on Ubuntu ppc64le CI.
+    if [[ "$(uname -m)" == "ppc64le" ]]; then
+        sleep 1
+        udevadm settle
+    fi
+}
+
 mkdir -p /run/udev/rules.d/
 
 test ! -f /run/udev/tags/added/c1:3
@@ -15,8 +24,7 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
 ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
 EOF
 
-udevadm control --reload
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+trigger_and_settle add
 
 test -f /run/udev/tags/added/c1:3
 test ! -f /run/udev/tags/changed/c1:3
@@ -25,7 +33,7 @@ udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*'
 udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*' && { echo 'unexpected TAGS='; exit 1; }
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*' && { echo 'unexpected CURRENT_TAGS='; exit 1; }
 
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action change /dev/null
+trigger_and_settle change
 
 test -f /run/udev/tags/added/c1:3
 test -f /run/udev/tags/changed/c1:3
@@ -34,7 +42,7 @@ udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*' && { echo 'unexpe
 udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*'
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*'
 
-SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
+trigger_and_settle add
 
 test -f /run/udev/tags/added/c1:3
 test -f /run/udev/tags/changed/c1:3
