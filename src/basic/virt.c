@@ -333,20 +333,13 @@ static int detect_vm_xen_dom0(void) {
 static int detect_vm_xen(void) {
         int r;
 
-        /* The presence of /proc/xen indicates some form of a Xen domain */
+        /* The presence of /proc/xen indicates some form of a Xen domain
+           The check for Dom0 is handled outside this function */
         if (access("/proc/xen", F_OK) < 0) {
                 log_debug("Virtualization XEN not found, /proc/xen does not exist");
                 return VIRTUALIZATION_NONE;
         }
         log_debug("Virtualization XEN found (/proc/xen exists)");
-
-        /* Ignore the Xen hypervisor if we are in Dom0 */
-        r = detect_vm_xen_dom0();
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return VIRTUALIZATION_NONE;
-
         return VIRTUALIZATION_XEN;
 }
 
@@ -434,7 +427,7 @@ static int detect_vm_zvm(void) {
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         bool other = false;
-        int r, dmi;
+        int r, dmi, xen_dom0 = 0;
 
         if (cached_found >= 0)
                 return cached_found;
@@ -472,8 +465,18 @@ int detect_vm(void) {
                 return r;
         if (r == VIRTUALIZATION_VM_OTHER)
                 other = true;
-        else if (r != VIRTUALIZATION_NONE)
-                goto finish;
+        else if (r != VIRTUALIZATION_NONE) {
+                 /* If we are Dom0, then we expect to not report as a VM. However, as we might be nested
+                  * inside another hypervisor which can be detected via the CPUID check, wait to report this
+                  * until after the CPUID check. */
+                xen_dom0 = detect_vm_xen_dom0();
+                if (xen_dom0 < 0)
+                        return r;
+                else if (xen_dom0 > 0)
+                        r = VIRTUALIZATION_NONE;
+                else
+                        goto finish;
+        }
 
         /* Detect from CPUID */
         r = detect_vm_cpuid();
@@ -482,6 +485,10 @@ int detect_vm(void) {
         if (r == VIRTUALIZATION_VM_OTHER)
                 other = true;
         else if (r != VIRTUALIZATION_NONE)
+                goto finish;
+
+        /* If we are in Dom0 which is not nested inside another hypervisor, finish as VIRTUALIZATION_NONE */
+        if (xen_dom0 > 0)
                 goto finish;
 
         /* Now, let's get back to DMI */
