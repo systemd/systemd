@@ -162,7 +162,7 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t ui
 
         assert(_mkdirat != mkdirat);
 
-        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags, _mkdirat);
+        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags | MKDIR_FOLLOW_SYMLINK, _mkdirat);
         if (r < 0)
                 return r;
 
