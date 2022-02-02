@@ -7,9 +7,9 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "journald-file.h"
 #include "journal-verify.h"
 #include "log.h"
+#include "managed-journal-file.h"
 #include "mmap-cache.h"
 #include "rm-rf.h"
 #include "terminal-util.h"
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
         char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
-        JournaldFile *df;
+        ManagedJournalFile *df;
         const char *verification_key = argv[1];
         usec_t from = 0, to = 0, total = 0;
         struct stat st;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        /* journald_file_open requires a valid machine id */
+        /* managed_journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journald_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, NULL, &df) == 0);
+        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, NULL, &df) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
                 free(test);
         }
 
-        (void) journald_file_close(df);
+        (void) managed_journal_file_close(df);
 
         log_info("Verifying...");
 

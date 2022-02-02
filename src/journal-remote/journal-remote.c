@@ -14,11 +14,11 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "journald-file.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
 #include "journald-native.h"
 #include "macro.h"
+#include "managed-journal-file.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "socket-util.h"
@@ -61,7 +61,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 assert_not_reached();
         }
 
-        r = journald_file_open_reliably(filename,
+        r = managed_journal_file_open_reliably(filename,
                                         O_RDWR|O_CREAT, 0640,
                                         s->compress, UINT64_MAX, s->seal,
                                         &w->metrics,
