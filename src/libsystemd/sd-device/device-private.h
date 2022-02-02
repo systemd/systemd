@@ -53,7 +53,6 @@ int device_rename(sd_device *device, const char *name);
 int device_shallow_clone(sd_device *old_device, sd_device **new_device);
 int device_clone_with_db(sd_device *old_device, sd_device **new_device);
 int device_copy_properties(sd_device *device_dst, sd_device *device_src);
-int device_new_from_synthetic_event(sd_device **new_device, const char *syspath, const char *action);
 
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
 int device_update_db(sd_device *device);
@@ -64,6 +63,9 @@ static inline int device_read_db(sd_device *device) {
         return device_read_db_internal(device, false);
 }
 
+int device_read_uevent_file(sd_device *device);
+
+int device_set_action(sd_device *device, sd_device_action_t a);
 sd_device_action_t device_action_from_string(const char *s) _pure_;
 const char *device_action_to_string(sd_device_action_t a) _const_;
 void dump_device_action_table(void);
