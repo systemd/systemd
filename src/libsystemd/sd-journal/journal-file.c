@@ -91,8 +91,7 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
-int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
-        Object tail;
+int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset) {
         uint64_t p;
         int r;
 
@@ -100,17 +99,58 @@ int journal_file_tail_end(JournalFile *f, uint64_t *ret_offset) {
         assert(f->header);
         assert(ret_offset);
 
+        /* Same as journal_file_tail_end_by_mmap() below, but operates with pread() to avoid the mmap cache
+         * (and thus is thread safe) */
+
         p = le64toh(f->header->tail_object_offset);
         if (p == 0)
                 p = le64toh(f->header->header_size);
         else {
+                Object tail;
                 uint64_t sz;
 
-                r = journal_file_read_object(f, OBJECT_UNUSED, p, &tail);
+                r = journal_file_read_object_header(f, OBJECT_UNUSED, p, &tail);
                 if (r < 0)
                         return r;
 
                 sz = le64toh(tail.object.size);
+                if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
+                        return -EBADMSG;
+
+                sz = ALIGN64(sz);
+                if (p > UINT64_MAX - sz)
+                        return -EBADMSG;
+
+                p += sz;
+        }
+
+        *ret_offset = p;
+
+        return 0;
+}
+
+int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset) {
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(f->header);
+        assert(ret_offset);
+
+        /* Same as journal_file_tail_end_by_pread() above, but operates with the usual mmap logic */
+
+        p = le64toh(f->header->tail_object_offset);
+        if (p == 0)
+                p = le64toh(f->header->header_size);
+        else {
+                Object *tail;
+                uint64_t sz;
+
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
+                if (r < 0)
+                        return r;
+
+                sz = le64toh(READ_NOW(tail->object.size));
                 if (sz > UINT64_MAX - sizeof(uint64_t) + 1)
                         return -EBADMSG;
 
@@ -818,10 +858,11 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         return 0;
 }
 
-int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
-        int r;
-        Object o;
+int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
         uint64_t s;
+        ssize_t n;
+        Object o;
+        int r;
 
         assert(f);
 
@@ -838,17 +879,22 @@ int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, O
                                        offset);
 
         /* This will likely read too much data but it avoids having to call pread() twice. */
-        r = pread(f->fd, &o, sizeof(Object), offset);
-        if (r < 0)
-                return r;
+        n = pread(f->fd, &o, sizeof(o), offset);
+        if (n < 0)
+                return log_debug_errno(errno, "Failed to read journal file at offset: %" PRIu64,
+                                       offset);
+
+        if ((size_t) n < sizeof(o.object))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to read short object at offset: %" PRIu64,
+                                       offset);
 
         s = le64toh(o.object.size);
-
         if (s == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to read uninitialized object: %" PRIu64,
                                        offset);
-        if (s < sizeof(ObjectHeader))
+        if (s < sizeof(o.object))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to read overly short object: %" PRIu64,
                                        offset);
@@ -861,6 +907,11 @@ int journal_file_read_object(JournalFile *f, ObjectType type, uint64_t offset, O
         if (s < minimum_header_size(&o))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to read truncated object: %" PRIu64,
+                                       offset);
+
+        if ((size_t) n < minimum_header_size(&o))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Short read while reading object: %" PRIu64,
                                        offset);
 
         if (type > OBJECT_UNUSED && o.object.type != type)
@@ -930,7 +981,7 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_tail_end(f, &p);
+        r = journal_file_tail_end_by_mmap(f, &p);
         if (r < 0)
                 return r;
 
