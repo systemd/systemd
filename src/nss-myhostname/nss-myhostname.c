@@ -5,6 +5,9 @@
 #include <netdb.h>
 #include <nss.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <pthread.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -13,7 +16,9 @@
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
-#include "string-util.h"
+#include "stat-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
@@ -23,8 +28,76 @@
 #define LOCALADDRESS_IPV4 (htobe32(0x7F000002))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
 
+static struct {
+        int status;             /* r < 0: error, r == 0: domain not found, r > 0; domain found  */
+        char *domain;
+} rc;
+
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
 NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
+
+/* This is borrowed and simplified from resolved-resolve-conf.c(manager_read_resolv_conf) */
+static void read_resolv_conf(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
+        unsigned n = 0;
+        int r;
+
+        /* Reads the system /etc/resolv.conf, if it exists */
+        f = fopen("/etc/resolv.conf", "re");
+        if (!f) {
+                if (errno == ENOENT) {
+                        r = 0;
+                } else
+                        r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                goto done;
+        }
+
+        if (fstat(fileno(f), &st) < 0) {
+                r = log_error_errno(errno, "Failed to stat open file: %m");
+                goto done;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *a;
+                char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read /etc/resolv.conf: %m");
+                        goto done;
+                }
+                if (r == 0)
+                        break;
+                n++;
+
+                l = strstrip(line);
+                if (IN_SET(*l, '#', ';', 0))
+                        continue;
+
+                a = first_word(l, "domain");
+                if (!a) /* We treat "domain" lines, and "search" lines as equivalent, and add both to our list. */
+                        a = first_word(l, "search");
+                if (a) {
+                        r = extract_first_word(&a, &rc.domain, NULL, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse search domain string '%s', ignoring.", a);
+                        if (r > 0)
+                            break; /* Only want the first domain */
+                }
+
+        }
+done:
+        rc.status = r;
+        return;
+}
+
+static void read_resolv_conf_once(void) {
+        static pthread_once_t once = PTHREAD_ONCE_INIT;
+        pthread_once(&once, read_resolv_conf);
+}
+
 
 enum nss_status _nss_myhostname_gethostbyname4_r(
                 const char *name,
@@ -485,16 +558,25 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
 found:
         if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
-                if (!hn) {
-                        UNPROTECT_ERRNO;
-                        *errnop = ENOMEM;
-                        *h_errnop = NO_RECOVERY;
-                        return NSS_STATUS_TRYAGAIN;
-                }
+                if (!hn)
+                        goto try_again;
 
-                if (!canonical)
+                if (!canonical) {
+                        if (strchr(hn, '.') == NULL) {
+                                read_resolv_conf_once();
+                                if (rc.domain && (*rc.domain != '\0')) {
+                                        int hn_len;
+                                        hn_len = strlen(hn);
+                                        hn = realloc(hn, hn_len + strlen(rc.domain) + 2);
+                                        if (!hn)
+                                                goto try_again;
+                                        char *p = hn + hn_len;
+                                        *p++ = '.';
+                                        strcpy(p, rc.domain);
+                                }
+                        }
                         canonical = hn;
-                else
+                } else
                         additional = hn;
         }
 
@@ -509,6 +591,11 @@ found:
                         errnop, h_errnop,
                         ttlp,
                         NULL);
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = ENOMEM;
+        *h_errnop = NO_RECOVERY;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(myhostname);
