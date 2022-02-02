@@ -20,6 +20,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static int here = 0, here2 = 0, here3 = 0;
 static void *ignore_stdout_args[] = { &here, &here2, &here3 };
@@ -54,9 +55,7 @@ static const gather_stdout_callback_t ignore_stdout[] = {
 };
 
 static void test_execute_directory_one(bool gather_stdout) {
-        char template_lo[] = "/tmp/test-exec-util.lo.XXXXXXX";
-        char template_hi[] = "/tmp/test-exec-util.hi.XXXXXXX";
-        const char * dirs[] = {template_hi, template_lo, NULL};
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_lo = NULL, *tmp_hi = NULL;
         const char *name, *name2, *name3,
                 *overridden, *override,
                 *masked, *mask,
@@ -65,20 +64,22 @@ static void test_execute_directory_one(bool gather_stdout) {
 
         log_info("/* %s (%s) */", __func__, gather_stdout ? "gathering stdout" : "asynchronous");
 
-        assert_se(mkdtemp(template_lo));
-        assert_se(mkdtemp(template_hi));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.lo.XXXXXXX", &tmp_lo) >= 0);
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.hi.XXXXXXX", &tmp_hi) >= 0);
 
-        name = strjoina(template_lo, "/script");
-        name2 = strjoina(template_hi, "/script2");
-        name3 = strjoina(template_lo, "/useless");
-        overridden = strjoina(template_lo, "/overridden");
-        override = strjoina(template_hi, "/overridden");
-        masked = strjoina(template_lo, "/masked");
-        mask = strjoina(template_hi, "/masked");
-        masked2 = strjoina(template_lo, "/masked2");
-        mask2 = strjoina(template_hi, "/masked2");
-        masked2e = strjoina(template_lo, "/masked2e");
-        mask2e = strjoina(template_hi, "/masked2e");
+        const char * dirs[] = { tmp_hi, tmp_lo, NULL };
+
+        name = strjoina(tmp_lo, "/script");
+        name2 = strjoina(tmp_hi, "/script2");
+        name3 = strjoina(tmp_lo, "/useless");
+        overridden = strjoina(tmp_lo, "/overridden");
+        override = strjoina(tmp_hi, "/overridden");
+        masked = strjoina(tmp_lo, "/masked");
+        mask = strjoina(tmp_hi, "/masked");
+        masked2 = strjoina(tmp_lo, "/masked2");
+        mask2 = strjoina(tmp_hi, "/masked2");
+        masked2e = strjoina(tmp_lo, "/masked2e");
+        mask2e = strjoina(tmp_hi, "/masked2e");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
@@ -123,16 +124,13 @@ static void test_execute_directory_one(bool gather_stdout) {
         else
                 execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(chdir(template_lo) == 0);
+        assert_se(chdir(tmp_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        assert_se(chdir(template_hi) == 0);
+        assert_se(chdir(tmp_hi) == 0);
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
-
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 TEST(execute_directory) {
@@ -141,28 +139,28 @@ TEST(execute_directory) {
 }
 
 TEST(execution_order) {
-        char template_lo[] = "/tmp/test-exec-util-lo.XXXXXXX";
-        char template_hi[] = "/tmp/test-exec-util-hi.XXXXXXX";
-        const char *dirs[] = {template_hi, template_lo, NULL};
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_lo = NULL, *tmp_hi = NULL;
         const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
         const char *output, *t;
         _cleanup_free_ char *contents = NULL;
 
-        assert_se(mkdtemp(template_lo));
-        assert_se(mkdtemp(template_hi));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util-lo.XXXXXXX", &tmp_lo) >= 0);
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util-hi.XXXXXXX", &tmp_hi) >= 0);
 
-        output = strjoina(template_hi, "/output");
+        const char *dirs[] = { tmp_hi, tmp_lo, NULL };
+
+        output = strjoina(tmp_hi, "/output");
 
         log_info("/* %s >>%s */", __func__, output);
 
         /* write files in "random" order */
-        name2 = strjoina(template_lo, "/90-bar");
-        name = strjoina(template_hi, "/80-foo");
-        name3 = strjoina(template_lo, "/last");
-        overridden = strjoina(template_lo, "/30-override");
-        override = strjoina(template_hi, "/30-override");
-        masked = strjoina(template_lo, "/10-masked");
-        mask = strjoina(template_hi, "/10-masked");
+        name2 = strjoina(tmp_lo, "/90-bar");
+        name = strjoina(tmp_hi, "/80-foo");
+        name3 = strjoina(tmp_lo, "/last");
+        overridden = strjoina(tmp_lo, "/30-override");
+        override = strjoina(tmp_hi, "/30-override");
+        masked = strjoina(tmp_lo, "/10-masked");
+        mask = strjoina(tmp_hi, "/10-masked");
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
         assert_se(write_string_file(name, t, WRITE_STRING_FILE_CREATE) == 0);
@@ -198,9 +196,6 @@ TEST(execution_order) {
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
-
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static int gather_stdout_one(int fd, void *arg) {
@@ -243,8 +238,7 @@ const gather_stdout_callback_t gather_stdouts[] = {
 };
 
 TEST(stdout_gathering) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX";
-        const char *dirs[] = {template, NULL};
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3;
         int r;
 
@@ -253,12 +247,14 @@ TEST(stdout_gathering) {
 
         void* args[] = {&tmp, &tmp, &output};
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho a\necho b\necho c\n",
@@ -287,9 +283,9 @@ TEST(stdout_gathering) {
 }
 
 TEST(environment_gathering) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
-        const char *dirs[] = {template, NULL};
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3, *old;
+        char **p;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
@@ -297,12 +293,14 @@ TEST(environment_gathering) {
 
         void* const args[] = { &tmp, &tmp, &env };
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\n"
@@ -378,17 +376,18 @@ TEST(environment_gathering) {
 }
 
 TEST(error_catching) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX";
-        const char *dirs[] = {template, NULL};
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3;
         int r;
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho a\necho b\necho c\n",
