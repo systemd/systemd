@@ -110,27 +110,28 @@ static inline int run_test_table(void) {
         return r;
 }
 
-static inline int test_nop(void) {
-        return EXIT_SUCCESS;
-}
-
-#define DEFINE_CUSTOM_TEST_MAIN(log_level, intro, outro) \
-        int main(int argc, char *argv[]) {               \
-                int _r, _q;                              \
-                test_setup_logging(log_level);           \
-                save_argc_argv(argc, argv);              \
-                _r = intro();                            \
-                if (_r == EXIT_SUCCESS)                  \
-                        _r = run_test_table();           \
-                _q = outro();                            \
-                static_destruct();                       \
-                if (_r < 0)                              \
-                        return EXIT_FAILURE;             \
-                if (_r != EXIT_SUCCESS)                  \
-                        return _r;                       \
-                if (_q < 0)                              \
-                        return EXIT_FAILURE;             \
-                return _q;                               \
+#define DEFINE_TEST_MAIN_FULL(log_level, intro, outro)    \
+        int main(int argc, char *argv[]) {                \
+                int (*_intro)(void) = intro;              \
+                int (*_outro)(void) = outro;              \
+                int _r, _q;                               \
+                test_setup_logging(log_level);            \
+                save_argc_argv(argc, argv);               \
+                _r = _intro ? _intro() : EXIT_SUCCESS;    \
+                if (_r == EXIT_SUCCESS)                   \
+                        _r = run_test_table();            \
+                _q = _outro ? _outro() : EXIT_SUCCESS;    \
+                static_destruct();                        \
+                if (_r < 0)                               \
+                        return EXIT_FAILURE;              \
+                if (_r != EXIT_SUCCESS)                   \
+                        return _r;                        \
+                if (_q < 0)                               \
+                        return EXIT_FAILURE;              \
+                return _q;                                \
         }
 
-#define DEFINE_TEST_MAIN(log_level) DEFINE_CUSTOM_TEST_MAIN(log_level, test_nop, test_nop)
+#define DEFINE_TEST_MAIN_WITH_INTRO(log_level, intro)   \
+        DEFINE_TEST_MAIN_FULL(log_level, intro, NULL)
+#define DEFINE_TEST_MAIN(log_level)                     \
+        DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)

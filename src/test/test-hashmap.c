@@ -169,4 +169,4 @@ static int outro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, outro);
+DEFINE_TEST_MAIN_FULL(LOG_INFO, intro, outro);
