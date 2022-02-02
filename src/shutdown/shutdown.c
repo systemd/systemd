@@ -531,10 +531,6 @@ int main(int argc, char *argv[]) {
                           need_md_detach ? " MD devices," : "");
         }
 
-        /* We're done with the watchdog. */
-        watchdog_close(true);
-        watchdog_free_device();
-
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
