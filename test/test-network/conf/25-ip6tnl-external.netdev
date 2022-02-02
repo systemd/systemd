@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [NetDev]
-Name=ip6tnl99
+Name=ip6tnl-external
 Kind=ip6tnl
 
 [Tunnel]
 Mode=ip6ip6
-Local=2a00:ffde:4567:edde::4987
-Remote=2001:473:fece:cafe::5179
+External=yes
