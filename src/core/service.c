@@ -1482,36 +1482,27 @@ static int service_create_monitor_md_env(Job *j, char **ret) {
                 if (!env_source)
                         continue;
 
-                if (first) {
-                        /* Add the environment variable name first. */
-                        r = strextendf(&var, "MONITOR_METADATA=");
-                        if (r < 0)
-                                return r;
+                /* Add the environment variable name first. */
+                if (first && !strextend(&var, "MONITOR_METADATA="))
+                        return -ENOMEM;
 
-                }
-
-                r = strextendf(&var, "%sSERVICE_RESULT=%s",
-                               !first ? list_delim : "", service_result_to_string(env_source->result));
-                if (r < 0)
-                        return r;
+                if (!strextend(&var, !first ? list_delim : "", "SERVICE_RESULT=", service_result_to_string(env_source->result)))
+                        return -ENOMEM;
 
                 first = false;
 
                 if (env_source->main_exec_status.pid > 0 &&
                     dual_timestamp_is_set(&env_source->main_exec_status.exit_timestamp)) {
-                        r = strextendf(&var, ",EXIT_CODE=%s",
-                                       sigchld_code_to_string(env_source->main_exec_status.code));
-                        if (r < 0)
-                                return r;
+                        if (!strextend(&var, ",EXIT_CODE=", sigchld_code_to_string(env_source->main_exec_status.code)))
+                                return -ENOMEM;
 
-                        if (env_source->main_exec_status.code == CLD_EXITED)
+                        if (env_source->main_exec_status.code == CLD_EXITED) {
                                 r = strextendf(&var, ",EXIT_STATUS=%i",
                                                env_source->main_exec_status.status);
-                        else
-                                r = strextendf(&var, ",EXIT_STATUS=%s",
-                                               signal_to_string(env_source->main_exec_status.status));
-                        if (r < 0)
-                                return r;
+                                if (r < 0)
+                                        return r;
+                        } else if (!strextend(&var, ",EXIT_STATUS=", signal_to_string(env_source->main_exec_status.status)))
+                                return -ENOMEM;
                 }
 
                 if (!sd_id128_is_null(UNIT(env_source)->invocation_id)) {
@@ -1521,9 +1512,8 @@ static int service_create_monitor_md_env(Job *j, char **ret) {
                                 return r;
                 }
 
-                r = strextendf(&var, ",UNIT=%s", UNIT(env_source)->id);
-                if (r < 0)
-                        return r;
+                if (!strextend(&var, ",UNIT=", UNIT(env_source)->id))
+                        return -ENOMEM;
         }
 
         *ret = TAKE_PTR(var);
