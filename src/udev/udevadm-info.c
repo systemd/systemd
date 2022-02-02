@@ -16,6 +16,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "sort-util.h"
 #include "static-destruct.h"
@@ -117,8 +118,8 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                         if (len > 0)
                                 continue;
 
-                } else if (r == -EPERM)
-                        value = "(write-only)";
+                } else if (ERRNO_IS_PRIVILEGE(r))
+                        value = "(not readable)";
                 else
                         continue;
 
