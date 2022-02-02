@@ -5,6 +5,7 @@
 
 #include "chattr-util.h"
 #include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
@@ -91,8 +92,14 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
                 return 0;
         }
 
-        if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0)
+        if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        log_debug("Hole punching not supported by backing file system, skipping.");
+                        return -EOPNOTSUPP; /* Make recognizable */
+                }
+
                 return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
+        }
 
         return 0;
 }
@@ -135,8 +142,12 @@ static int managed_journal_file_punch_holes(JournalFile *f) {
                                 if (le64toh(o.data.n_entries) == 0)
                                         continue;
 
-                                (void) managed_journal_file_entry_array_punch_hole(
-                                        f, le64toh(o.data.entry_array_offset), le64toh(o.data.n_entries) - 1);
+                                r = managed_journal_file_entry_array_punch_hole(
+                                                f, le64toh(o.data.entry_array_offset), le64toh(o.data.n_entries) - 1);
+                                if (r == -EOPNOTSUPP)
+                                        return -EOPNOTSUPP;
+
+                                /* Ignore other errors */
                         }
                 }
         }
