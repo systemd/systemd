@@ -184,16 +184,11 @@ static int device_set_devgid(sd_device *device, const char *gid) {
         return 0;
 }
 
-static int device_set_action(sd_device *device, const char *action) {
-        sd_device_action_t a;
+int device_set_action(sd_device *device, sd_device_action_t a) {
         int r;
 
         assert(device);
-        assert(action);
-
-        a = device_action_from_string(action);
-        if (a < 0)
-                return a;
+        assert(a >= 0 && a < _SD_DEVICE_ACTION_MAX);
 
         r = device_add_property_internal(device, "ACTION", device_action_to_string(a));
         if (r < 0)
@@ -202,6 +197,19 @@ static int device_set_action(sd_device *device, const char *action) {
         device->action = a;
 
         return 0;
+}
+
+static int device_set_action_from_string(sd_device *device, const char *action) {
+        sd_device_action_t a;
+
+        assert(device);
+        assert(action);
+
+        a = device_action_from_string(action);
+        if (a < 0)
+                return a;
+
+        return device_set_action(device, a);
 }
 
 static int device_set_seqnum(sd_device *device, const char *str) {
@@ -307,7 +315,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devgid to '%s': %m", value);
         } else if (streq(key, "ACTION")) {
-                r = device_set_action(device, value);
+                r = device_set_action_from_string(device, value);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set action to '%s': %m", value);
         } else if (streq(key, "SEQNUM")) {
@@ -866,7 +874,7 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
         if (r < 0)
                 return r;
 
-        r = device_set_action(ret, action);
+        r = device_set_action_from_string(ret, action);
         if (r < 0)
                 return r;
 
