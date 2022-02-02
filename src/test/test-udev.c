@@ -25,6 +25,35 @@
 #include "udev-event.h"
 #include "version.h"
 
+static int device_new_from_synthetic_event(sd_device **ret, const char *syspath, const char *action) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        sd_device_action_t a;
+        int r;
+
+        assert(ret);
+        assert(syspath);
+        assert(action);
+
+        a = device_action_from_string(action);
+        if (a < 0)
+                return a;
+
+        r = sd_device_new_from_syspath(&dev, syspath);
+        if (r < 0)
+                return r;
+
+        r = device_read_uevent_file(dev);
+        if (r < 0)
+                return r;
+
+        r = device_set_action(dev, a);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(dev);
+        return 0;
+}
+
 static int fake_filesystems(void) {
         static const struct fakefs {
                 const char *src;
