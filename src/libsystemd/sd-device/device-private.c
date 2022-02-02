@@ -858,31 +858,6 @@ int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
         return 0;
 }
 
-int device_new_from_synthetic_event(sd_device **new_device, const char *syspath, const char *action) {
-        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
-        int r;
-
-        assert(new_device);
-        assert(syspath);
-        assert(action);
-
-        r = sd_device_new_from_syspath(&ret, syspath);
-        if (r < 0)
-                return r;
-
-        r = device_read_uevent_file(ret);
-        if (r < 0)
-                return r;
-
-        r = device_set_action_from_string(ret, action);
-        if (r < 0)
-                return r;
-
-        *new_device = TAKE_PTR(ret);
-
-        return 0;
-}
-
 int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
         const char *property, *value;
         int r;
