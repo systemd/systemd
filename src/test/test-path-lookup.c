@@ -9,30 +9,28 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_paths_one(UnitFileScope scope) {
-        char template[] = "/tmp/test-path-lookup.XXXXXXX";
-
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp_without_env = {};
         _cleanup_(lookup_paths_free) LookupPaths lp_with_env = {};
         char *systemd_unit_path;
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
         assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
         assert_se(lookup_paths_init(&lp_without_env, scope, 0, NULL) >= 0);
         assert_se(!strv_isempty(lp_without_env.search_path));
         lookup_paths_log(&lp_without_env);
 
-        systemd_unit_path = strjoina(template, "/systemd-unit-path");
+        systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
         assert_se(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1) == 0);
         assert_se(lookup_paths_init(&lp_with_env, scope, 0, NULL) == 0);
         assert_se(strv_length(lp_with_env.search_path) == 1);
         assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
         lookup_paths_log(&lp_with_env);
         assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
-
-        assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 TEST(paths) {
@@ -73,8 +71,7 @@ TEST(user_and_global_paths) {
 }
 
 static void test_generator_binary_paths_one(UnitFileScope scope) {
-        char template[] = "/tmp/test-path-lookup.XXXXXXX";
-
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_strv_free_ char **gp_without_env = NULL;
         _cleanup_strv_free_ char **env_gp_without_env = NULL;
         _cleanup_strv_free_ char **gp_with_env = NULL;
@@ -83,7 +80,7 @@ static void test_generator_binary_paths_one(UnitFileScope scope) {
         char *systemd_env_generator_path = NULL;
         char **dir;
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
         assert_se(unsetenv("SYSTEMD_GENERATOR_PATH") == 0);
         assert_se(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH") == 0);
@@ -102,8 +99,8 @@ static void test_generator_binary_paths_one(UnitFileScope scope) {
         assert_se(!strv_isempty(gp_without_env));
         assert_se(!strv_isempty(env_gp_without_env));
 
-        systemd_generator_path = strjoina(template, "/systemd-generator-path");
-        systemd_env_generator_path = strjoina(template, "/systemd-environment-generator-path");
+        systemd_generator_path = strjoina(tmp, "/systemd-generator-path");
+        systemd_env_generator_path = strjoina(tmp, "/systemd-environment-generator-path");
         assert_se(setenv("SYSTEMD_GENERATOR_PATH", systemd_generator_path, 1) == 0);
         assert_se(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1) == 0);
 
