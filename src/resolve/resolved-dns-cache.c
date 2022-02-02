@@ -442,8 +442,9 @@ static int dns_cache_put_positive(
          * RRs are still valid, hence find the lowest here */
         min_ttl = MIN(dns_answer_min_ttl(answer), rr->ttl);
 
-        /* New TTL is 0? Delete this specific entry... */
-        if (min_ttl <= 0) {
+        /* New TTL is 0? Delete this specific entry...
+         * In RFC6762 10.1 for Good Bye packet TTL is 1 */
+        if (min_ttl <= 1) {
                 r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
                           r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
