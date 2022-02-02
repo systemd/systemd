@@ -63,4 +63,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_DEBUG, intro, test_nop);
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
