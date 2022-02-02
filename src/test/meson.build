@@ -195,6 +195,8 @@ tests += [
 
         [['src/test/test-json.c']],
 
+        [['src/test/test-mkdir.c']],
+
         [['src/test/test-modhex.c']],
 
         [['src/test/test-libmount.c'],
