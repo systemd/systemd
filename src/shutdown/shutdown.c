@@ -531,8 +531,9 @@ int main(int argc, char *argv[]) {
                           need_md_detach ? " MD devices," : "");
         }
 
-        /* We're done with the watchdog. */
-        watchdog_close(true);
+        /* We're done with the watchdog. Note that the watchdog is explicitly not
+         * stopped here. It remains active to guard against any issues during the
+         * rest of the shutdown sequence. */
         watchdog_free_device();
 
         arguments[0] = NULL;
