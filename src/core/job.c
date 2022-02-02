@@ -99,12 +99,8 @@ Job* job_free(Job *j) {
         assert(!j->subject_list);
         assert(!j->object_list);
 
-        do {
-                Unit *tu = NULL;
-
-                LIST_FOREACH(triggered_by, tu, j->triggered_by)
-                        LIST_REMOVE(triggered_by, j->triggered_by, tu);
-        } while (!LIST_IS_EMPTY(j->triggered_by));
+        while (!LIST_IS_EMPTY(j->triggered_by))
+                LIST_POP(triggered_by, j->triggered_by);
 
         job_unlink(j);
 
