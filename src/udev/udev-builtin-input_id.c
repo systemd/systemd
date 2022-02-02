@@ -111,20 +111,20 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
         else
                 log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
 
-        if (test) {
-                /* printf pattern with the right unsigned long number of hex chars */
-                xsprintf(text, "  bit %%4u: %%0%zulX\n",
-                         2 * sizeof(unsigned long));
+        if (test && DEBUG_LOGGING) {
                 log_device_debug(pdev, "%s decoded bit map:", attr);
+
                 val = bitmask_size / sizeof (unsigned long);
-                /* skip over leading zeros */
+                /* skip trailing zeros */
                 while (bitmask[val-1] == 0 && val > 0)
                         --val;
-                for (unsigned long j = 0; j < val; j++) {
-                        DISABLE_WARNING_FORMAT_NONLITERAL;
-                        log_device_debug(pdev, text, j * BITS_PER_LONG, bitmask[j]);
-                        REENABLE_WARNING;
-                }
+
+                /* IN_SET() cannot be used in assert_cc(). */
+                assert_cc(sizeof(unsigned long) == 4 || sizeof(unsigned long) == 8);
+                for (unsigned long j = 0; j < val; j++)
+                        log_device_debug(pdev,
+                                         sizeof(unsigned long) == 4 ? "  bit %4lu: %08lX\n" : "  bit %4lu: %016lX\n",
+                                         j * BITS_PER_LONG, bitmask[j]);
         }
 }
 
