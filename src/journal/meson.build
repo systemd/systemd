@@ -7,8 +7,6 @@ sources = files('''
         journald-console.h
         journald-context.c
         journald-context.h
-        journald-file.c
-        journald-file.h
         journald-kmsg.c
         journald-kmsg.h
         journald-native.c
@@ -23,6 +21,8 @@ sources = files('''
         journald-syslog.h
         journald-wall.c
         journald-wall.h
+        managed-journal-file.c
+        managed-journal-file.h
 '''.split())
 
 sources += custom_target(

@@ -7,9 +7,9 @@
 
 #include "alloc-util.h"
 #include "chattr-util.h"
-#include "journald-file.h"
 #include "journal-internal.h"
 #include "macro.h"
+#include "managed-journal-file.h"
 #include "path-util.h"
 #include "string-util.h"
 
@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
-        JournaldFile *new_journal = NULL;
+        ManagedJournalFile *new_journal = NULL;
         sd_journal *j = NULL;
         unsigned n = 0;
         int r;
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 
         fn = path_join(dn, "test.journal");
 
-        r = journald_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, m, NULL, NULL, &new_journal);
+        r = managed_journal_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, m, NULL, NULL, &new_journal);
         assert_se(r >= 0);
 
         if (argc > 1)
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 
         sd_journal_close(j);
 
-        (void) journald_file_close(new_journal);
+        (void) managed_journal_file_close(new_journal);
 
         unlink(fn);
         assert_se(rmdir(dn) == 0);

@@ -3,8 +3,8 @@
 #include "alloc-util.h"
 #include "journal-remote.h"
 
-static int do_rotate(JournaldFile **f, MMapCache *m, bool compress, bool seal) {
-        int r = journald_file_rotate(f, m, compress, UINT64_MAX, seal, NULL);
+static int do_rotate(ManagedJournalFile **f, MMapCache *m, bool compress, bool seal) {
+        int r = managed_journal_file_rotate(f, m, compress, UINT64_MAX, seal, NULL);
         if (r < 0) {
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->file->path);
@@ -40,7 +40,7 @@ static Writer* writer_free(Writer *w) {
 
         if (w->journal) {
                 log_debug("Closing journal file %s.", w->journal->file->path);
-                journald_file_close(w->journal);
+                managed_journal_file_close(w->journal);
         }
 
         if (w->server && w->hashmap_key)
