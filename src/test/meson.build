@@ -193,6 +193,8 @@ tests += [
 
         [files('test-macro.c')],
 
+        [files('test-mkdir.c')],
+
         [files('test-json.c')],
 
         [files('test-modhex.c')],
