@@ -73,9 +73,15 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
                 return 0;
 
         if (p == le64toh(f->header->tail_object_offset) && !f->seal) {
+                ssize_t n;
+
                 o.object.size = htole64(offset - p);
-                if (pwrite(f->fd, &o, sizeof(EntryArrayObject), p) < 0)
+
+                n = pwrite(f->fd, &o, sizeof(EntryArrayObject), p);
+                if (n < 0)
                         return log_debug_errno(errno, "Failed to modify entry array object size: %m");
+                if ((size_t) n != sizeof(EntryArrayObject))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short pwrite() while modifying entry array object size.");
 
                 f->header->arena_size = htole64(ALIGN64(offset) - le64toh(f->header->header_size));
 
@@ -106,9 +112,10 @@ static int managed_journal_file_punch_holes(JournalFile *f) {
         sz = le64toh(f->header->data_hash_table_size);
 
         for (uint64_t i = p; i < p + sz && n > 0; i += n) {
-                n = pread(f->fd, items, MIN(sizeof(items), p + sz - i), i);
+                size_t m = MIN(sizeof(items), p + sz - i);
+                n = pread(f->fd, items, m, i);
                 if (n < 0)
-                        return n;
+                        return log_debug_errno(errno, "Failed to read hash table items: %m");
 
                 /* Let's ignore any partial hash items by rounding down to the nearest multiple of HashItem. */
                 n -= n % sizeof(HashItem);
