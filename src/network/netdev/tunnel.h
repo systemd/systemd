@@ -55,6 +55,7 @@ typedef struct Tunnel {
         bool independent;
         bool fou_tunnel;
         bool assign_to_loopback;
+        bool external; /* a.k.a collect metadata mode */
 
         uint16_t encap_src_port;
         uint16_t fou_destination_port;
