@@ -2799,15 +2799,6 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(job),
                                  method_start_unit,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("StartUnitWithFlags",
-                                 "sst",
-                                 SD_BUS_PARAM(name)
-                                 SD_BUS_PARAM(mode)
-                                 SD_BUS_PARAM(flags),
-                                 "o",
-                                 SD_BUS_PARAM(job),
-                                 method_start_unit,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("StartUnitReplace",
                                  "sss",
                                  SD_BUS_PARAM(old_unit)
