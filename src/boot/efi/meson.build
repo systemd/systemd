@@ -10,6 +10,12 @@ if not get_option('efi') or get_option('gnu-efi') == 'false'
         subdir_done()
 endif
 
+efi_arch = host_machine.cpu_family()
+if efi_arch == 'x86' and '-m64' in get_option('efi-cflags')
+        efi_arch = 'x86_64'
+elif efi_arch == 'x86_64' and '-m32' in get_option('efi-cflags')
+        efi_arch = 'x86'
+endif
 efi_arch = {
         # host_cc_arch: [efi_arch (see Table 3-2 in UEFI spec), gnu_efi_inc_arch]
         'x86':     ['ia32', 'ia32'],
@@ -17,10 +23,13 @@ efi_arch = {
         'arm':     ['arm', 'arm'],
         'aarch64': ['aa64', 'aarch64'],
         'riscv64': ['riscv64', 'riscv64'],
-}.get(host_machine.cpu_family(), [])
+}.get(efi_arch, [])
 
 efi_incdir = get_option('efi-includedir')
-if efi_arch.length() > 0 and not cc.has_header('@0@/@1@/efibind.h'.format(efi_incdir, efi_arch[1]))
+if efi_arch.length() > 0 and not cc.has_header(
+                '@0@/@1@/efibind.h'.format(efi_incdir, efi_arch[1]),
+                args: get_option('efi-cflags'))
+
         efi_arch = []
 endif
 
@@ -33,7 +42,7 @@ if efi_arch.length() == 0
 endif
 
 if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
-                args: ['-nostdlib', '-ffreestanding', '-fshort-wchar'],
+                args: ['-nostdlib', '-ffreestanding', '-fshort-wchar'] + get_option('efi-cflags'),
                 include_directories: include_directories(efi_incdir, efi_incdir / efi_arch[1]))
 
         if get_option('gnu-efi') == 'true'
@@ -54,14 +63,19 @@ if efi_ld == 'auto'
         endif
 endif
 
+efi_multilib = run_command(
+        cc.cmd_array(), '-print-multi-os-directory', get_option('efi-cflags'),
+        check: false
+).stdout().strip()
+efi_multilib = run_command(
+        'realpath', '-e', '/usr/lib' / efi_multilib,
+        check: false
+).stdout().strip()
+
 efi_libdir = ''
 foreach dir : [get_option('efi-libdir'),
                '/usr/lib/gnuefi' / efi_arch[0],
-               run_command(
-                        'realpath', '-e',
-                        '/usr/lib' / run_command(cc.cmd_array(), '-print-multi-os-directory', check: false).stdout().strip(),
-                        check: false
-               ).stdout().strip()]
+               efi_multilib]
         if dir != '' and fs.is_dir(dir)
                 efi_libdir = dir
                 break
