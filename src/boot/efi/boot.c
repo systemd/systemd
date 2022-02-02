@@ -44,8 +44,8 @@ enum loader_type {
         LOADER_UNDEFINED,
         LOADER_AUTO,
         LOADER_EFI,
-        LOADER_LINUX,
-        LOADER_STUB,
+        LOADER_LINUX,         /* Boot loader spec type #1 entries */
+        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
 };
 
 typedef struct {
@@ -856,13 +856,13 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
-                            LOADER_EFI, LOADER_LINUX, LOADER_STUB))
+                            LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX))
                                 break;
 
-                        /* The stub will not accept command line options when secure boot is enabled
-                         * unless there is none embedded in the image. Do not try to pretend we
-                         * can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_STUB &&
+                        /* Unified kernels that are signed as a whole will not accept command line options
+                         * when secure boot is enabled unless there is none embedded in the image. Do not try
+                         * to pretend we can edit it to only have it be ignored. */
+                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
                             config->entries[idx_highlight]->options)
                                 break;
@@ -2196,7 +2196,7 @@ static void config_entry_add_linux(
                 entry = config_entry_add_loader(
                                 config,
                                 device,
-                                LOADER_STUB,
+                                LOADER_UNIFIED_LINUX,
                                 f->FileName,
                                 /* key= */ 'l',
                                 good_name,
