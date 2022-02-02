@@ -595,7 +595,7 @@
 
     <refsect2><title>udevadm test
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Simulate a udev event run for the given device, and print debug output.</para>
       <variablelist>
@@ -631,7 +631,7 @@
     <refsect2><title>udevadm test-builtin
       <arg choice="opt"><replaceable>options</replaceable></arg>
       <arg><replaceable>command</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
       for device <replaceable>DEVPATH</replaceable>, and print debug

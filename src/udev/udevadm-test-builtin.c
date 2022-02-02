@@ -66,7 +66,7 @@ static int parse_argv(int argc, char *argv[]) {
         arg_syspath = argv[optind++];
         if (!arg_syspath)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "syspath missing.");
+                                       "device is missing.");
 
         return 1;
 }
