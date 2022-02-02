@@ -213,6 +213,15 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         assert(t);
 
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
+
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
@@ -308,6 +317,15 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         }
 
         assert(t);
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -420,6 +438,15 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
                 t = IP6GRETAP(netdev);
 
         assert(t);
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_GRE_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -553,6 +580,32 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         assert(t);
 
+        switch (t->ip6tnl_mode) {
+        case NETDEV_IP6_TNL_MODE_IP6IP6:
+                proto = IPPROTO_IPV6;
+                break;
+        case NETDEV_IP6_TNL_MODE_IPIP6:
+                proto = IPPROTO_IPIP;
+                break;
+        case NETDEV_IP6_TNL_MODE_ANYIP6:
+        default:
+                proto = 0;
+                break;
+        }
+
+        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
+        if (r < 0)
+                return r;
+
+        if (t->external) {
+                r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
+                if (r < 0)
+                        return r;
+
+                /* If external mode is enabled, then the following settings should not be appended. */
+                return 0;
+        }
+
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
                 if (r < 0)
@@ -587,32 +640,15 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->allow_localremote >= 0)
                 SET_FLAG(t->flags, IP6_TNL_F_ALLOW_LOCAL_REMOTE, t->allow_localremote);
 
+        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
+        if (r < 0)
+                return r;
+
         if (t->encap_limit != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
                 if (r < 0)
                         return r;
         }
-
-        r = sd_netlink_message_append_u32(m, IFLA_IPTUN_FLAGS, t->flags);
-        if (r < 0)
-                return r;
-
-        switch (t->ip6tnl_mode) {
-        case NETDEV_IP6_TNL_MODE_IP6IP6:
-                proto = IPPROTO_IPV6;
-                break;
-        case NETDEV_IP6_TNL_MODE_IPIP6:
-                proto = IPPROTO_IPIP;
-                break;
-        case NETDEV_IP6_TNL_MODE_ANYIP6:
-        default:
-                proto = 0;
-                break;
-        }
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
-        if (r < 0)
-                return r;
 
         return 0;
 }
@@ -640,6 +676,23 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
+        if (netdev->kind == NETDEV_KIND_IP6TNL &&
+            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "ip6tnl without mode configured in %s. Ignoring", filename);
+
+        if (t->external) {
+                if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_VTI6))
+                        log_netdev_debug(netdev, "vti/vti6 tunnel do not support external mode, ignoring.");
+                else {
+                        /* tunnel with external mode does not require underlying interface. */
+                        t->independent = true;
+
+                        /* tunnel with external mode does not require any settings checked below. */
+                        return 0;
+                }
+        }
+
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE) &&
             !IN_SET(t->family, AF_UNSPEC, AF_INET))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -659,11 +712,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
             (t->family != AF_INET6 || !in_addr_is_set(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "ip6gretap tunnel without a remote IPv6 address configured in %s. Ignoring", filename);
-
-        if (netdev->kind == NETDEV_KIND_IP6TNL &&
-            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "ip6tnl without mode configured in %s. Ignoring", filename);
 
         if (t->fou_tunnel && t->fou_destination_port <= 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -809,15 +857,12 @@ int config_parse_tunnel_key(
                 void *data,
                 void *userdata) {
 
+        uint32_t *dest = ASSERT_PTR(data), k;
         union in_addr_union buffer;
-        Tunnel *t = userdata;
-        uint32_t k;
         int r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = in_addr_from_string(AF_INET, rvalue, &buffer);
         if (r < 0) {
@@ -830,13 +875,7 @@ int config_parse_tunnel_key(
         } else
                 k = be32toh(buffer.in.s_addr);
 
-        if (streq(lvalue, "Key"))
-                t->key = k;
-        else if (streq(lvalue, "InputKey"))
-                t->ikey = k;
-        else
-                t->okey = k;
-
+        *dest = k;
         return 0;
 }
 
@@ -852,32 +891,33 @@ int config_parse_ipv6_flowlabel(
                 void *data,
                 void *userdata) {
 
-        IPv6FlowLabel *ipv6_flowlabel = data;
-        Tunnel *t = userdata;
-        int k = 0;
-        int r;
+        Tunnel *t = ASSERT_PTR(userdata);
+        int k, r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
-        assert(ipv6_flowlabel);
 
         if (streq(rvalue, "inherit")) {
-                *ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
+                t->ipv6_flowlabel = IP6_FLOWINFO_FLOWLABEL;
                 t->flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
-        } else {
-                r = config_parse_int(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
-                if (r < 0)
-                        return r;
-
-                if (k > 0xFFFFF)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse IPv6 flowlabel option, ignoring: %s", rvalue);
-                else {
-                        *ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
-                        t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
-                }
+                return 0;
         }
 
+        r = safe_atoi(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (k > 0xFFFFF) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        t->ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
+        t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
         return 0;
 }
 
@@ -893,31 +933,33 @@ int config_parse_encap_limit(
                 void *data,
                 void *userdata) {
 
-        Tunnel *t = userdata;
-        int k = 0;
-        int r;
+        Tunnel *t = ASSERT_PTR(userdata);
+        int k, r;
 
         assert(filename);
-        assert(lvalue);
         assert(rvalue);
 
-        if (streq(rvalue, "none"))
+        if (streq(rvalue, "none")) {
                 t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
-        else {
-                r = safe_atoi(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (k > 255 || k < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid Tunnel Encapsulation value, ignoring: %d", k);
-                else {
-                        t->encap_limit = k;
-                        t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
-                }
+                t->encap_limit = 0;
+                return 0;
         }
 
+        r = safe_atoi(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Tunnel Encapsulation Limit option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (k > 255 || k < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid Tunnel Encapsulation value, ignoring assignment: %d", k);
+                return 0;
+        }
+
+        t->encap_limit = k;
+        t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
         return 0;
 }
 
