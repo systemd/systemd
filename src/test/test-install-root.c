@@ -1272,4 +1272,4 @@ static int intro(void) {
 }
 
 
-DEFINE_CUSTOM_TEST_MAIN(LOG_INFO, intro, test_nop);
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
