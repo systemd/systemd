@@ -42,7 +42,7 @@ int mkdir_safe_internal(
         if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks_and_stat(path, NULL, CHASE_NONEXISTENT, &p, &st, NULL);
+                r = chase_symlinks_and_stat(path, NULL, 0, &p, &st, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -162,7 +162,7 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t ui
 
         assert(_mkdirat != mkdirat);
 
-        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags, _mkdirat);
+        r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags | MKDIR_FOLLOW_SYMLINK, _mkdirat);
         if (r < 0)
                 return r;
 
