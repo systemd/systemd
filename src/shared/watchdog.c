@@ -133,6 +133,8 @@ static int open_watchdog(void) {
         fn = !watchdog_device || path_equal(watchdog_device, "/dev/watchdog") ?
                 "/dev/watchdog0" : watchdog_device;
 
+        watchdog_set_device(fn);
+
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
