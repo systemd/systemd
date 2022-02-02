@@ -709,6 +709,10 @@ int address_remove(Address *address) {
         link_ref(link);
 
         address_enter_removing(address);
+
+        /* The operational state is determined by address state and carrier state. Hence, if we remove
+         * an address, the operational state may be changed. */
+        link_update_operstate(link, true);
         return 0;
 }
 
