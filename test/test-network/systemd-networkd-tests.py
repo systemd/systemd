@@ -64,7 +64,7 @@ def call(*command, **kwargs):
 
 def run(*command, **kwargs):
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, universal_newlines=True, **kwargs)
+    return subprocess.run(command, universal_newlines=True, check=False, **kwargs)
 
 def is_module_available(module_name):
     lsmod_output = check_output('lsmod')
