@@ -33,7 +33,7 @@
     and hence the systemd control group hierarchy.</para>
 
     <para>The module also applies various resource management and runtime parameters to the new session, as
-    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Record</ulink> of the user, when
+    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink> of the user, when
     one is defined.</para>
 
     <para>On login, this module — in conjunction with <filename>systemd-logind.service</filename> — ensures the
@@ -318,7 +318,8 @@ account   sufficient pam_unix.so
 account   required   pam_permit.so
 
 -password sufficient pam_systemd_home.so
-password  sufficient pam_unix.so sha512 shadow try_first_pass try_authtok
+password  sufficient pam_unix.so sha512 shadow try_first_pass use_authtok
+
 password  required   pam_deny.so
 
 -session  optional   pam_keyinit.so revoke

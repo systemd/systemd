@@ -10,6 +10,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -23,6 +24,7 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_multiple = false;
 static bool arg_no_output = false;
 static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
+static bool arg_newline = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
@@ -44,11 +46,17 @@ static int help(void) {
                "                      Credential name for LoadCredential=/SetCredential=\n"
                "                      credentials\n"
                "     --timeout=SEC    Timeout in seconds\n"
-               "     --echo           Do not mask input (useful for usernames)\n"
+               "     --echo=yes|no|masked\n"
+               "                      Control whether to show password while typing (echo)\n"
+               "  -e --echo           Equivalent to --echo=yes\n"
+               "     --emoji=yes|no|auto\n"
+               "                      Show a lock and key emoji\n"
                "     --no-tty         Ask question via agent even on TTY\n"
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
                "     --no-output      Do not print password to standard output\n"
+               "  -n                  Do not suffix password written to standard output with\n"
+               "                      newline\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -63,7 +71,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ICON = 0x100,
                 ARG_TIMEOUT,
-                ARG_ECHO,
+                ARG_EMOJI,
                 ARG_NO_TTY,
                 ARG_ACCEPT_CACHED,
                 ARG_MULTIPLE,
@@ -79,7 +87,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",       no_argument,       NULL, ARG_VERSION       },
                 { "icon",          required_argument, NULL, ARG_ICON          },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
-                { "echo",          no_argument,       NULL, ARG_ECHO          },
+                { "echo",          optional_argument, NULL, 'e'               },
+                { "emoji",         required_argument, NULL, ARG_EMOJI         },
                 { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
                 { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
@@ -90,12 +99,15 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        const char *emoji = NULL;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        /* Note the asymmetry: the long option --echo= allows an optional argument, the short option does
+         * not. */
+        while ((c = getopt_long(argc, argv, "+hen", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -110,14 +122,34 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEOUT:
-                        if (parse_sec(optarg, &arg_timeout) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --timeout parameter %s",
-                                                       optarg);
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", optarg);
+
                         break;
 
-                case ARG_ECHO:
-                        arg_flags |= ASK_PASSWORD_ECHO;
+                case 'e':
+                        if (!optarg) {
+                                /* Short option -e is used, or no argument to long option --echo= */
+                                arg_flags |= ASK_PASSWORD_ECHO;
+                                arg_flags &= ~ASK_PASSWORD_SILENT;
+                        } else if (isempty(optarg) || streq(optarg, "masked"))
+                                /* Empty argument or explicit string "masked" for default behaviour. */
+                                arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
+                        else {
+                                bool b;
+
+                                r = parse_boolean_argument("--echo=", optarg, &b);
+                                if (r < 0)
+                                        return r;
+
+                                SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, b);
+                                SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, !b);
+                        }
+                        break;
+
+                case ARG_EMOJI:
+                        emoji = optarg;
                         break;
 
                 case ARG_NO_TTY:
@@ -148,15 +180,39 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_credential_name = optarg;
                         break;
 
+                case 'n':
+                        arg_newline = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
+
+        if (isempty(emoji) || streq(emoji, "auto"))
+                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO));
+        else {
+                bool b;
+
+                r = parse_boolean_argument("--emoji=", emoji, &b);
+                if (r < 0)
+                         return r;
+
+                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !b);
+        }
 
         if (argc > optind) {
                 arg_message = strv_join(argv + optind, " ");
+                if (!arg_message)
+                        return log_oom();
+        } else if (FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO)) {
+                /* By default ask_password_auto() will query with the string "Password: ", which is not right
+                 * when full echo is on, since then it's unlikely a password. Let's hence default to a less
+                 * confusing string in that case. */
+
+                arg_message = strdup("Input:");
                 if (!arg_message)
                         return log_oom();
         }
@@ -188,8 +244,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to query password: %m");
 
         STRV_FOREACH(p, l) {
-                if (!arg_no_output)
-                        puts(*p);
+                if (!arg_no_output) {
+                        if (arg_newline)
+                                puts(*p);
+                        else
+                                fputs(*p, stdout);
+                }
+
+                fflush(stdout);
 
                 if (!arg_multiple)
                         break;

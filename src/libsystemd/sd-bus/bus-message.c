@@ -117,7 +117,6 @@ static void message_reset_containers(sd_bus_message *m) {
                 message_free_last_container(m);
 
         m->containers = mfree(m->containers);
-        m->containers_allocated = 0;
         m->root_container.index = 0;
 }
 
@@ -1289,7 +1288,7 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
         if (!c->need_offsets)
                 return 0;
 
-        if (!GREEDY_REALLOC(c->offsets, c->offsets_allocated, c->n_offsets + 1))
+        if (!GREEDY_REALLOC(c->offsets, c->n_offsets + 1))
                 return -ENOMEM;
 
         c->offsets[c->n_offsets++] = offset;
@@ -2031,7 +2030,7 @@ _public_ int sd_bus_message_open_container(
         assert_return(!m->poisoned, -ESTALE);
 
         /* Make sure we have space for one more container */
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1)) {
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1)) {
                 m->poisoned = true;
                 return -ENOMEM;
         }
@@ -2276,7 +2275,7 @@ _public_ int sd_bus_message_close_container(sd_bus_message *m) {
         else if (IN_SET(c->enclosing, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY))
                 r = bus_message_close_struct(m, c, true);
         else
-                assert_not_reached("Unknown container type");
+                assert_not_reached();
 
         free(c->signature);
         free(c->offsets);
@@ -3248,7 +3247,7 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
         } else if (c->enclosing == SD_BUS_TYPE_VARIANT)
                 goto end;
         else
-                assert_not_reached("Unknown container type");
+                assert_not_reached();
 
         return 0;
 
@@ -3461,7 +3460,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         }
 
                         default:
-                                assert_not_reached("unexpected type");
+                                assert_not_reached();
                         }
                 }
 
@@ -3576,7 +3575,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         }
 
                         default:
-                                assert_not_reached("Unknown basic type...");
+                                assert_not_reached();
                         }
                 }
         }
@@ -4111,7 +4110,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         if (m->n_containers >= BUS_CONTAINER_DEPTH)
                 return -EBADMSG;
 
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1))
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1))
                 return -ENOMEM;
 
         if (message_end_of_signature(m))
@@ -4637,7 +4636,7 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                 if (r < 0)
                         return r;
 
-                types = strndupa(c->signature + c->index, l);
+                types = strndupa_safe(c->signature + c->index, l);
         }
 
         switch (*types) {

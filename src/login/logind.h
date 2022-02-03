@@ -68,21 +68,17 @@ struct Manager {
         usec_t inhibit_delay_max;
         usec_t user_stop_delay;
 
-        /* If an action is currently being executed or is delayed,
-         * this is != 0 and encodes what is being done */
-        InhibitWhat action_what;
-
-        /* If a shutdown/suspend was delayed due to a inhibitor this
-           contains the unit name we are supposed to start after the
+        /* If a shutdown/suspend was delayed due to an inhibitor this
+           contains the action we are supposed to start after the
            delay is over */
-        const char *action_unit;
+        const ActionTableItem *delayed_action;
 
         /* If a shutdown/suspend is currently executed, then this is
          * the job of it */
         char *action_job;
         sd_event_source *inhibit_timeout_source;
 
-        char *scheduled_shutdown_type;
+        const ActionTableItem *scheduled_shutdown_type;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;
@@ -102,12 +98,17 @@ struct Manager {
         HandleAction idle_action;
 
         HandleAction handle_power_key;
+        HandleAction handle_power_key_long_press;
+        HandleAction handle_reboot_key;
+        HandleAction handle_reboot_key_long_press;
         HandleAction handle_suspend_key;
+        HandleAction handle_suspend_key_long_press;
         HandleAction handle_hibernate_key;
+        HandleAction handle_hibernate_key_long_press;
+
         HandleAction handle_lid_switch;
         HandleAction handle_lid_switch_ep;
         HandleAction handle_lid_switch_docked;
-        HandleAction handle_reboot_key;
 
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
@@ -121,6 +122,11 @@ struct Manager {
 
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
+
+        sd_event_source *power_key_long_press_event_source;
+        sd_event_source *reboot_key_long_press_event_source;
+        sd_event_source *suspend_key_long_press_event_source;
+        sd_event_source *hibernate_key_long_press_event_source;
 
         uint64_t runtime_dir_size;
         uint64_t runtime_dir_inodes;

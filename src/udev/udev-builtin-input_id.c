@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <linux/limits.h>
 
@@ -35,7 +34,7 @@ struct range {
         unsigned end;
 };
 
-/* key code ranges above BTN_MISC (start is inclusive, stop is exclusive)*/
+/* key code ranges above BTN_MISC (start is inclusive, stop is exclusive) */
 static const struct range high_key_blocks[] = {
         { KEY_OK, BTN_DPAD_UP },
         { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }
@@ -83,6 +82,7 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
         unsigned i;
         char* word;
         unsigned long val;
+        int r;
 
         if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
                 v = "";
@@ -92,35 +92,39 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
 
         memzero(bitmask, bitmask_size);
         i = 0;
-        while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul(word+1, NULL, 16);
-                if (i < bitmask_size / sizeof(unsigned long))
+        while ((word = strrchr(text, ' '))) {
+                r = safe_atolu_full(word+1, 16, &val);
+                if (r < 0)
+                        log_device_debug_errno(pdev, r, "Ignoring %s block which failed to parse: %m", attr);
+                else if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
                         log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
-                ++i;
+                i++;
         }
-        val = strtoul (text, NULL, 16);
-        if (i < bitmask_size / sizeof(unsigned long))
+        r = safe_atolu_full(text, 16, &val);
+        if (r < 0)
+                log_device_debug_errno(pdev, r, "Ignoring %s block which failed to parse: %m", attr);
+        else if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
                 log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
 
-        if (test) {
-                /* printf pattern with the right unsigned long number of hex chars */
-                xsprintf(text, "  bit %%4u: %%0%zulX\n",
-                         2 * sizeof(unsigned long));
+        if (test && DEBUG_LOGGING) {
                 log_device_debug(pdev, "%s decoded bit map:", attr);
+
                 val = bitmask_size / sizeof (unsigned long);
-                /* skip over leading zeros */
+                /* skip trailing zeros */
                 while (bitmask[val-1] == 0 && val > 0)
                         --val;
-                for (i = 0; i < val; ++i) {
-                        DISABLE_WARNING_FORMAT_NONLITERAL;
-                        log_device_debug(pdev, text, i * BITS_PER_LONG, bitmask[i]);
-                        REENABLE_WARNING;
-                }
+
+                /* IN_SET() cannot be used in assert_cc(). */
+                assert_cc(sizeof(unsigned long) == 4 || sizeof(unsigned long) == 8);
+                for (unsigned long j = 0; j < val; j++)
+                        log_device_debug(pdev,
+                                         sizeof(unsigned long) == 4 ? "  bit %4lu: %08lX\n" : "  bit %4lu: %016lX\n",
+                                         j * BITS_PER_LONG, bitmask[j]);
         }
 }
 
@@ -149,7 +153,6 @@ static bool test_pointers(sd_device *dev,
                           const unsigned long* bitmask_rel,
                           const unsigned long* bitmask_props,
                           bool test) {
-        int button, axis;
         bool has_abs_coordinates = false;
         bool has_rel_coordinates = false;
         bool has_mt_coordinates = false;
@@ -189,7 +192,7 @@ static bool test_pointers(sd_device *dev,
         has_stylus = test_bit(BTN_STYLUS, bitmask_key);
         has_pen = test_bit(BTN_TOOL_PEN, bitmask_key);
         finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
-        for (button = BTN_MOUSE; button < BTN_JOYSTICK && !has_mouse_button; button++)
+        for (int button = BTN_MOUSE; button < BTN_JOYSTICK && !has_mouse_button; button++)
                 has_mouse_button = test_bit(button, bitmask_key);
         has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
         has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
@@ -210,14 +213,14 @@ static bool test_pointers(sd_device *dev,
          * Catz Mad Catz M.M.O.TE). Skip those.
          */
         if (!test_bit(BTN_JOYSTICK - 1, bitmask_key)) {
-                for (button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
+                for (int button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-                for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
+                for (int button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-                for (button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
+                for (int button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
         }
-        for (axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
+        for (int axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
                 has_joystick_axes_or_buttons = test_bit(axis, bitmask_abs);
 
         if (has_abs_coordinates) {
@@ -281,10 +284,8 @@ static bool test_key(sd_device *dev,
                      const unsigned long* bitmask_ev,
                      const unsigned long* bitmask_key,
                      bool test) {
-        unsigned i;
-        unsigned long found;
-        unsigned long mask;
-        bool ret = false;
+
+        bool found = false;
 
         /* do we have any KEY_* capability? */
         if (!test_bit(EV_KEY, bitmask_ev)) {
@@ -293,42 +294,35 @@ static bool test_key(sd_device *dev,
         }
 
         /* only consider KEY_* here, not BTN_* */
-        found = 0;
-        for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
-                found |= bitmask_key[i];
-                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
+        for (size_t i = 0; i < BTN_MISC/BITS_PER_LONG && !found; i++) {
+                if (bitmask_key[i])
+                        found = true;
+
+                log_device_debug(dev, "test_key: checking bit block %zu for any keys; found=%s",
+                                 i * BITS_PER_LONG, yes_no(found));
         }
         /* If there are no keys in the lower block, check the higher blocks */
-        if (!found) {
-                unsigned block;
-                for (block = 0; block < (sizeof(high_key_blocks) / sizeof(struct range)); ++block) {
-                        for (i = high_key_blocks[block].start; i < high_key_blocks[block].end; ++i) {
-                                if (test_bit(i, bitmask_key)) {
-                                        log_device_debug(dev, "test_key: Found key %x in high block", i);
-                                        found = 1;
-                                        break;
-                                }
+        for (size_t block = 0; block < sizeof(high_key_blocks) / sizeof(struct range) && !found; block++)
+                for (unsigned i = high_key_blocks[block].start; i < high_key_blocks[block].end && !found; i++)
+                        if (test_bit(i, bitmask_key)) {
+                                log_device_debug(dev, "test_key: Found key %x in high block", i);
+                                found = true;
                         }
-                }
-        }
 
-        if (found > 0) {
+        if (found)
                 udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
-                ret = true;
-        }
 
         /* the first 32 bits are ESC, numbers, and Q to D; if we have all of
          * those, consider it a full keyboard; do not test KEY_RESERVED, though */
-        mask = 0xFFFFFFFE;
-        if (FLAGS_SET(bitmask_key[0], mask)) {
+        if (FLAGS_SET(bitmask_key[0], 0xFFFFFFFE)) {
                 udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
-                ret = true;
+                return true;
         }
 
-        return ret;
+        return found;
 }
 
-static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         sd_device *pdev;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];

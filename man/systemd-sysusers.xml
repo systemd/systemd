@@ -83,7 +83,7 @@
 
       <varlistentry>
         <term><option>--replace=<replaceable>PATH</replaceable></option></term>
-        <listitem><para>When this option is given, one ore more positional arguments
+        <listitem><para>When this option is given, one or more positional arguments
         must be specified. All configuration files found in the directories listed in
         <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         will be read, and the configuration given on the command line will be
@@ -113,6 +113,12 @@
           configuration line as arguments.</para>
         </example>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Process the configuration and figure out what entries would be created, but don't
+        actually write anything.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -161,7 +167,7 @@
       <varlistentry>
         <term><literal>passwd.shell.<replaceable>user</replaceable></literal></term>
 
-        <listitem><para>Specifies the shell binary to use for the the specified account when creating it.</para></listitem>
+        <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -172,7 +178,7 @@
     for the first time it is possible to configure the root user's password to be <literal>systemd</literal>
     like this:</para>
 
-    <para><programlisting># systemd-nspawn --image=… --set-credential=password.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
+    <para><programlisting># systemd-nspawn --image=… --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
 
     <para>Note again that the data specified in these credentials is consulted only when creating an account
     for the first time, it may not be used for changing the password or shell of an account that already

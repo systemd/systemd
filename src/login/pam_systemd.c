@@ -141,7 +141,7 @@ static int acquire_user_record(
                 if (!ur)
                         return pam_log_oom(handle);
 
-                r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET);
+                r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to load user record: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -199,35 +199,60 @@ static bool display_is_local(const char *display) {
                 display[1] <= '9';
 }
 
-static int socket_from_display(const char *display, char **path) {
+static int socket_from_display(const char *display) {
+        _cleanup_free_ char *f = NULL;
         size_t k;
-        char *f, *c;
+        char *c;
+        union sockaddr_union sa;
+        socklen_t sa_len;
+        _cleanup_close_ int fd = -1;
+        int r;
 
         assert(display);
-        assert(path);
 
         if (!display_is_local(display))
                 return -EINVAL;
 
         k = strspn(display+1, "0123456789");
 
-        f = new(char, STRLEN("/tmp/.X11-unix/X") + k + 1);
+        /* Try abstract socket first. */
+        f = new(char, STRLEN("@/tmp/.X11-unix/X") + k + 1);
         if (!f)
                 return -ENOMEM;
 
-        c = stpcpy(f, "/tmp/.X11-unix/X");
+        c = stpcpy(f, "@/tmp/.X11-unix/X");
         memcpy(c, display+1, k);
         c[k] = 0;
 
-        *path = f;
+        r = sockaddr_un_set_path(&sa.un, f);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
-        return 0;
+        fd = RET_NERRNO(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        if (fd < 0)
+                return fd;
+
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        if (r >= 0)
+                return TAKE_FD(fd);
+        if (r != -ECONNREFUSED)
+                return r;
+
+        /* Try also non-abstract socket. */
+        r = sockaddr_un_set_path(&sa.un, f + 1);
+        if (r < 0)
+                return r;
+        sa_len = r;
+
+        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        if (r >= 0)
+                return TAKE_FD(fd);
+        return r;
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        union sockaddr_union sa;
-        socklen_t sa_len;
-        _cleanup_free_ char *p = NULL, *sys_path = NULL, *tty = NULL;
+        _cleanup_free_ char *sys_path = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
         int v, r;
@@ -242,20 +267,9 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
          * the seat and the virtual terminal. Sounds ugly, is only
          * semi-ugly. */
 
-        r = socket_from_display(display, &p);
-        if (r < 0)
-                return r;
-        r = sockaddr_un_set_path(&sa.un, p);
-        if (r < 0)
-                return r;
-        sa_len = r;
-
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        fd = socket_from_display(display);
         if (fd < 0)
-                return -errno;
-
-        if (connect(fd, &sa.sa, sa_len) < 0)
-                return -errno;
+                return fd;
 
         r = getpeercred(fd, &ucred);
         if (r < 0)
@@ -705,7 +719,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
          * "systemd-user" we simply set XDG_RUNTIME_DIR and
          * leave. */
 
-        (void) pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        r = pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM service: %s", pam_strerror(handle, r));
+                return r;
+        }
         if (streq_ptr(service, "systemd-user")) {
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
@@ -719,10 +737,26 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* Otherwise, we ask logind to create a session for us */
 
-        (void) pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        (void) pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        (void) pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        (void) pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+        r = pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM XDISPLAY: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_item(handle, PAM_TTY, (const void**) &tty);
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM TTY: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM RUSER: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM RHOST: %s", pam_strerror(handle, r));
+                return r;
+        }
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
@@ -789,11 +823,31 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 
-        (void) pam_get_data(handle, "systemd.memory_max", (const void **)&memory_max);
-        (void) pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
-        (void) pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
-        (void) pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
-        (void) pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
+        r = pam_get_data(handle, "systemd.memory_max", (const void **)&memory_max);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.memory_max data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.tasks_max data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.cpu_weight data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.io_weight data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        r = pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.runtime_max_sec data: %s", pam_strerror(handle, r));
+                return r;
+        }
 
         /* Talk to logind over the message bus */
 
@@ -996,7 +1050,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
-        (void) pam_get_data(handle, "systemd.existing", &existing);
+        r = pam_get_data(handle, "systemd.existing", &existing);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.existing data: %s", pam_strerror(handle, r));
+                return r;
+        }
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {

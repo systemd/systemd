@@ -94,7 +94,9 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
         DnsZoneItem *i;
 
         assert(z);
-        assert(rr);
+
+        if (!rr)
+                return;
 
         i = dns_zone_get(z, rr);
         if (i)
@@ -500,7 +502,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
-        dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
+        (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */
         if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)

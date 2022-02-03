@@ -9,9 +9,10 @@
 
 #include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
-#include "network-util.h"
+#include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "udev-util.h"
 #include "virt.h"
@@ -109,19 +110,17 @@ int dhcp_identifier_set_duid_ll(struct duid *duid, const uint8_t *addr, size_t a
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         sd_id128_t machine_id;
         uint64_t hash;
-        int r;
 
         assert(duid);
         assert(len);
 
-        r = sd_id128_get_machine(&machine_id);
-        if (r < 0) {
-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-                machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
-#else
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        int r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
                 return r;
+#else
+        machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
 #endif
-        }
 
         unaligned_write_be16(&duid->type, DUID_TYPE_EN);
         unaligned_write_be32(&duid->en.pen, SYSTEMD_PEN);
@@ -160,37 +159,39 @@ int dhcp_identifier_set_iaid(
                 const uint8_t *mac,
                 size_t mac_len,
                 bool legacy_unstable_byteorder,
+                bool use_mac,
                 void *_id) {
+
         /* name is a pointer to memory in the sd_device struct, so must
          * have the same scope */
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *name = NULL;
-        uint64_t id;
         uint32_t id32;
+        uint64_t id;
+        int r;
 
-        if (detect_container() <= 0) {
-                /* not in a container, udev will be around */
-                char ifindex_str[1 + DECIMAL_STR_MAX(int)];
-                int r;
+        if (path_is_read_only_fs("/sys") <= 0 && !use_mac) {
+                /* udev should be around */
 
-                xsprintf(ifindex_str, "n%d", ifindex);
-                if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
-                        r = sd_device_get_is_initialized(device);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                /* not yet ready */
-                                return -EBUSY;
+                r = sd_device_new_from_ifindex(&device, ifindex);
+                if (r < 0)
+                        return r;
 
-                        r = device_is_renaming(device);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                /* device is under renaming */
-                                return -EBUSY;
+                r = sd_device_get_is_initialized(device);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* not yet ready */
+                        return -EBUSY;
 
-                        name = net_get_name_persistent(device);
-                }
+                r = device_is_renaming(device);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        /* device is under renaming */
+                        return -EBUSY;
+
+                name = net_get_persistent_name(device);
         }
 
         if (name)
@@ -204,7 +205,7 @@ int dhcp_identifier_set_iaid(
         if (legacy_unstable_byteorder)
                 /* for historical reasons (a bug), the bits were swapped and thus
                  * the result was endianness dependent. Preserve that behavior. */
-                id32 = __bswap_32(id32);
+                id32 = bswap_32(id32);
         else
                 /* the fixed behavior returns a stable byte order. Since LE is expected
                  * to be more common, swap the bytes on LE to give the same as legacy

@@ -13,7 +13,7 @@
 #include "generator.h"
 #include "log.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "special.h"
 #include "specifier.h"
@@ -63,7 +63,7 @@ int generator_add_symlink(const char *dir, const char *dst, const char *dep_type
         from = path_is_absolute(src) ? src : strjoina("../", src);
         to = strjoina(dir, "/", dst, ".", dep_type, "/", basename(src));
 
-        mkdir_parents_label(to, 0755);
+        (void) mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)
                 if (errno != EEXIST)
                         return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
@@ -185,7 +185,7 @@ int generator_write_fsck_deps(
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
                 (void) mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
+                if (symlink(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
@@ -503,6 +503,9 @@ int generator_hook_up_growfs(
         const char *unit_file;
         int r;
 
+        assert(dir);
+        assert(where);
+
         escaped = cescape(where);
         if (!escaped)
                 return log_oom();
@@ -534,9 +537,10 @@ int generator_hook_up_growfs(
                 "BindsTo=%%i.mount\n"
                 "Conflicts=shutdown.target\n"
                 "After=%%i.mount\n"
-                "Before=shutdown.target %s\n",
+                "Before=shutdown.target%s%s\n",
                 program_invocation_short_name,
-                target);
+                target ? " " : "",
+                strempty(target));
 
         if (empty_or_root(where)) /* Make sure the root fs is actually writable before we resize it */
                 fprintf(f,
@@ -557,7 +561,7 @@ int generator_hook_up_growfs(
 int generator_enable_remount_fs_service(const char *dir) {
         /* Pull in systemd-remount-fs.service */
         return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
-                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
+                                     SYSTEM_DATA_UNIT_DIR "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
 int generator_write_blockdev_dependency(

@@ -1,12 +1,11 @@
 #!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Verify tmpfiles can run in a root directory under a path prefix that contains
 # directories owned by unprivileged users, for example when a root file system
 # is mounted in a regular user's home directory.
 #
 # https://github.com/systemd/systemd/pull/11820
-#
-
 set -eux
 set -o pipefail
 

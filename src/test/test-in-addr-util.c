@@ -3,9 +3,9 @@
 #include <fnmatch.h>
 #include <netinet/in.h>
 
-#include "log.h"
-#include "strv.h"
 #include "in-addr-util.h"
+#include "strv.h"
+#include "tests.h"
 
 static void test_in_addr_prefix_from_string_one(
                 const char *p,
@@ -57,9 +57,7 @@ static void test_in_addr_prefix_from_string_one(
         }
 }
 
-static void test_in_addr_prefix_from_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_prefix_from_string) {
         test_in_addr_prefix_from_string_one("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/8", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
@@ -116,9 +114,7 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
         assert_se(in_addr_equal(family, &u1, &u2) > 0);
 }
 
-static void test_in_addr_prefix_to_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_prefix_to_string) {
         test_in_addr_prefix_to_string_valid(AF_INET, "0.0.0.0/32");
         test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/0");
         test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/24");
@@ -137,11 +133,9 @@ static void test_in_addr_prefix_to_string(void) {
         test_in_addr_prefix_to_string_unoptimized(AF_INET6, "fd00:1111::0000:2222:3333:4444:0001/64");
 }
 
-static void test_in_addr_random_prefix(void) {
+TEST(in_addr_random_prefix) {
         _cleanup_free_ char *str = NULL;
         union in_addr_union a;
-
-        log_info("/* %s */", __func__);
 
         assert_se(in_addr_from_string(AF_INET, "192.168.10.1", &a) >= 0);
 
@@ -183,10 +177,8 @@ static void test_in_addr_random_prefix(void) {
         str = mfree(str);
 }
 
-static void test_in_addr_is_null(void) {
+TEST(in_addr_is_null) {
         union in_addr_union i = {};
-
-        log_info("/* %s */", __func__);
 
         assert_se(in_addr_is_null(AF_INET, &i) == true);
         assert_se(in_addr_is_null(AF_INET6, &i) == true);
@@ -207,9 +199,7 @@ static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigne
         assert_se(in_addr_prefix_intersect(f, &ua, apl, &ub, bpl) == result);
 }
 
-static void test_in_addr_prefix_intersect(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_prefix_intersect) {
         test_in_addr_prefix_intersect_one(AF_INET, "255.255.255.255", 32, "255.255.255.254", 32, 0);
         test_in_addr_prefix_intersect_one(AF_INET, "255.255.255.255", 0, "255.255.255.255", 32, 1);
         test_in_addr_prefix_intersect_one(AF_INET, "0.0.0.0", 0, "47.11.8.15", 32, 1);
@@ -238,7 +228,7 @@ static void test_in_addr_prefix_intersect(void) {
 static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigned pl, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
-        log_info("/* %s(%s, prefixlen=%u) */", __func__, before, pl);
+        log_debug("/* %s(%s, prefixlen=%u) */", __func__, before, pl);
 
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
@@ -251,7 +241,7 @@ static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigne
         }
 }
 
-static void test_in_addr_prefix_next(void) {
+TEST(in_addr_prefix_next) {
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 24, "192.168.1.0");
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 16, "192.169.0.0");
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 20, "192.168.16.0");
@@ -276,7 +266,7 @@ static void test_in_addr_prefix_next(void) {
 static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned pl, uint64_t nth, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
-        log_info("/* %s(%s, prefixlen=%u, nth=%"PRIu64") */", __func__, before, pl, nth);
+        log_debug("/* %s(%s, prefixlen=%u, nth=%"PRIu64") */", __func__, before, pl, nth);
 
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
@@ -289,7 +279,7 @@ static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned
         }
 }
 
-static void test_in_addr_prefix_nth(void) {
+TEST(in_addr_prefix_nth) {
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.0", 24, 0, "192.168.0.0");
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.123", 24, 0, "192.168.0.0");
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.123", 24, 1, "192.168.1.0");
@@ -323,7 +313,7 @@ static void test_in_addr_prefix_range_one(
 
         union in_addr_union a, s, e;
 
-        log_info("/* %s(%s, prefixlen=%u) */", __func__, in, prefixlen);
+        log_debug("/* %s(%s, prefixlen=%u) */", __func__, in, prefixlen);
 
         assert_se(in_addr_from_string(family, in, &a) >= 0);
         assert_se((in_addr_prefix_range(family, &a, prefixlen, &s, &e) >= 0) == !!expected_start);
@@ -342,7 +332,7 @@ static void test_in_addr_prefix_range_one(
         }
 }
 
-static void test_in_addr_prefix_range(void) {
+TEST(in_addr_prefix_range) {
         test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 24, "192.168.123.0", "192.168.124.0");
         test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 16, "192.168.0.0", "192.169.0.0");
 
@@ -365,9 +355,7 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
         assert_se(streq(addr, r));
 }
 
-static void test_in_addr_to_string(void) {
-        log_info("/* %s */", __func__);
-
+TEST(in_addr_to_string) {
         test_in_addr_to_string_one(AF_INET, "192.168.0.1");
         test_in_addr_to_string_one(AF_INET, "10.11.12.13");
         test_in_addr_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
@@ -375,16 +363,4 @@ static void test_in_addr_to_string(void) {
         test_in_addr_to_string_one(AF_INET6, "fe80::");
 }
 
-int main(int argc, char *argv[]) {
-        test_in_addr_prefix_from_string();
-        test_in_addr_random_prefix();
-        test_in_addr_prefix_to_string();
-        test_in_addr_is_null();
-        test_in_addr_prefix_intersect();
-        test_in_addr_prefix_next();
-        test_in_addr_prefix_nth();
-        test_in_addr_prefix_range();
-        test_in_addr_to_string();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

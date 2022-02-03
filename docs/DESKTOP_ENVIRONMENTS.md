@@ -2,6 +2,7 @@
 title: Desktop Environment Integration
 category: Concepts
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Desktop Environments
@@ -96,13 +97,13 @@ to create appropriate units for the autostart directory
 (`systemd-xdg-autostart-generator`).
 Desktop Environments can opt-in to using this by starting
 `xdg-desktop-autostart.target`. The systemd generator correctly handles
-`OnlyShowIn=` and `NotShowin=`. It also handles the KDE and GNOME specific
-`X-KDE-autostart-condition=` and `AutostartCondition=` by using desktop
-environment provided binaries in an `ExecCondition=` line.
+`OnlyShowIn=` and `NotShowIn=`. It also handles the KDE and GNOME specific
+`X-KDE-autostart-condition=` and `AutostartCondition=` by using desktop-environment-provided
+binaries in an `ExecCondition=` line.
 
 However, this generator is somewhat limited in what it supports. For example,
 all generated units will have `After=graphical-session.target` set on them,
-it may therefore not be useful to start session services.
+and therefore may not be useful to start session services.
 
 Desktop files can be marked to be explicitly excluded from the generator using the line
 `X-systemd-skip=true`. This should be set if an application provides its own

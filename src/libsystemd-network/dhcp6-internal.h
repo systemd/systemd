@@ -11,10 +11,11 @@
 #include "sd-event.h"
 #include "sd-dhcp6-client.h"
 
+#include "dhcp6-protocol.h"
 #include "hashmap.h"
 #include "list.h"
-#include "log-link.h"
 #include "macro.h"
+#include "network-common.h"
 #include "sparse-endian.h"
 
 typedef struct sd_dhcp6_option {
@@ -91,6 +92,9 @@ typedef struct DHCP6IA {
         LIST_HEAD(DHCP6Address, addresses);
 } DHCP6IA;
 
+typedef struct sd_dhcp6_client sd_dhcp6_client;
+
+bool dhcp6_option_can_request(uint16_t option);
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
@@ -99,33 +103,54 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options);
-int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
-                       size_t *optlen, uint8_t **optvalue);
-int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
-int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code);
-int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count,
-                                size_t *allocated);
-int dhcp6_option_parse_domainname_list(const uint8_t *optval, uint16_t optlen,
-                                       char ***str_arr);
-int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char **str);
+
+int dhcp6_option_parse(
+                const uint8_t *buf,
+                size_t buflen,
+                size_t *offset,
+                uint16_t *ret_option_code,
+                size_t *ret_option_data_len,
+                const uint8_t **ret_option_data);
+int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message);
+int dhcp6_option_parse_ia(
+                sd_dhcp6_client *client,
+                be32_t iaid,
+                uint16_t option_code,
+                size_t option_data_len,
+                const uint8_t *option_data,
+                DHCP6IA *ret);
+int dhcp6_option_parse_addresses(
+                const uint8_t *optval,
+                size_t optlen,
+                struct in6_addr **addrs,
+                size_t *count);
+int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, char ***ret);
+int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **ret);
 
 int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
+
+int client_parse_message(
+                sd_dhcp6_client *client,
+                DHCP6Message *message,
+                size_t len,
+                sd_dhcp6_lease *lease);
 
 const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(int s) _const_;
 int dhcp6_message_status_from_string(const char *s) _pure_;
 
+void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
+
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \
                 "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
+                sd_dhcp6_client, client,                        \
                 error, fmt, ##__VA_ARGS__)
 #define log_dhcp6_client(client, fmt, ...)                      \
         log_interface_prefix_full_errno_zerook(                 \
                 "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
+                sd_dhcp6_client, client,                        \
                 0, fmt, ##__VA_ARGS__)

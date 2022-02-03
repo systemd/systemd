@@ -56,6 +56,7 @@ static size_t arg_rows_max = SIZE_MAX;
 static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
+static bool arg_all = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
@@ -125,7 +126,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal files: %m");
         } else {
-                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+                r = sd_journal_open(&j, arg_all ? 0 : SD_JOURNAL_LOCAL_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal: %m");
         }
@@ -150,7 +151,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-static int help(void) {
+static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -184,6 +185,7 @@ static int help(void) {
                "     --file=PATH               Use journal file\n"
                "  -D --directory=DIR           Use journal files from directory\n\n"
                "  -q --quiet                   Do not show info messages and privilege warning\n"
+               "     --all                     Look at all journal files instead of local ones\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -203,6 +205,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_DEBUGGER,
                 ARG_FILE,
+                ARG_ALL,
         };
 
         int c, r;
@@ -223,6 +226,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",              required_argument, NULL, 'U'           },
                 { "quiet",              no_argument,       NULL, 'q'           },
                 { "json",               required_argument, NULL, ARG_JSON      },
+                { "all",                no_argument,       NULL, ARG_ALL       },
                 {}
         };
 
@@ -232,7 +236,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        return help();
+                        return verb_help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();
@@ -327,11 +331,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_ALL:
+                        arg_all = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
@@ -555,6 +563,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         assert(file);
         assert(j);
 
+        (void) sd_journal_set_data_threshold(j, 0);
+
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
@@ -645,15 +655,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 usec_t u;
 
                 r = safe_atou64(timestamp, &u);
-                if (r >= 0) {
-                        char absolute[FORMAT_TIMESTAMP_MAX], relative[FORMAT_TIMESPAN_MAX];
+                if (r >= 0)
+                        fprintf(file, "     Timestamp: %s (%s)\n",
+                                FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
 
-                        fprintf(file,
-                                "     Timestamp: %s (%s)\n",
-                                format_timestamp(absolute, sizeof(absolute), u),
-                                format_timestamp_relative(relative, sizeof(relative), u));
-
-                } else
+                else
                         fprintf(file, "     Timestamp: %s\n", timestamp);
         }
 
@@ -697,7 +703,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (filename) {
                 const char *state = NULL, *color = NULL;
                 uint64_t size = UINT64_MAX;
-                char buf[FORMAT_BYTES_MAX];
 
                 analyze_coredump_file(filename, &state, &color, &size);
 
@@ -712,9 +717,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         ansi_normal());
 
                 if (size != UINT64_MAX)
-                        fprintf(file,
-                                "     Disk Size: %s\n",
-                                format_bytes(buf, sizeof(buf), size));
+                        fprintf(file, "     Disk Size: %s\n", FORMAT_BYTES(size));
+
         } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else
@@ -820,7 +824,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
 
                 (void) table_set_empty_string(t, "-");
         } else
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
         if ((arg_rows_max == 1 && arg_reverse) || (verb_is_info && argc == 1)) {
@@ -1186,6 +1190,10 @@ static int check_units_active(void) {
                 return false;
 
         r = sd_bus_default_system(&bus);
+        if (r == -ENOENT) {
+                log_debug("D-Bus is not running, skipping active unit check");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire bus: %m");
 
@@ -1242,6 +1250,7 @@ static int coredumpctl_main(int argc, char *argv[]) {
                 { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
                 { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
                 { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
+                { "help",  VERB_ANY, 1,        0,            verb_help },
                 {}
         };
 

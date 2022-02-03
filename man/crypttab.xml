@@ -515,10 +515,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>headless=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to false. If true, never query interactively
+        for the password/PIN. Useful for headless systems.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>verify</option></term>
 
         <listitem><para>If the encryption password is read from console, it has to be entered twice to
         prevent typos.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>password-echo=yes|no|masked</option></term>
+
+        <listitem><para>Controls whether to echo passwords or security token PINs
+        that are read from console. Takes a boolean or the special string <literal>masked</literal>.
+        The default is <option>password-echo=masked</option>.</para>
+
+        <para>If enabled, the typed characters are echoed literally. If disabled,
+        the typed characters are not echoed in any form, the user will not get
+        feedback on their input. If set to <literal>masked</literal>, an asterisk
+        (<literal>*</literal>) is echoed for each character typed. Regardless of
+        which mode is chosen, if the user hits the tabulator key (<literal>↹</literal>)
+        at any time, or the backspace key (<literal>⌫</literal>) before any other
+        data has been entered, then echo is turned off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -606,7 +629,7 @@
         <term><option>fido2-rp=</option></term>
 
         <listitem><para>Takes a string, configuring the FIDO2 Relying Party (rp) for the FIDO2 unlock
-        operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the the LUKS2
+        operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
         JSON token header contains a different value. It should normally not be necessary to override
         this.</para></listitem>
       </varlistentry>
@@ -645,13 +668,25 @@
       <varlistentry>
         <term><option>tpm2-pcrs=</option></term>
 
-        <listitem><para>Takes a comma separated list of numeric TPM2 PCR (i.e. "Platform Configuration
-        Register") indexes to bind the TPM2 volume unlocking to. This option is only useful when TPM2
-        enrollment metadata is not available in the LUKS2 JSON token header already, the way
+        <listitem><para>Takes a <literal>+</literal> separated list of numeric TPM2 PCR (i.e. "Platform
+        Configuration Register") indexes to bind the TPM2 volume unlocking to. This option is only useful
+        when TPM2 enrollment metadata is not available in the LUKS2 JSON token header already, the way
         <command>systemd-cryptenroll</command> writes it there. If not used (and no metadata in the LUKS2
         JSON token header defines it), defaults to a list of a single entry: PCR 7. Assign an empty string to
         encode a policy that binds the key to no PCRs, making the key accessible to local programs regardless
         of the current PCR state.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>token-timeout=</option></term>
+
+        <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,
+        PKCS#11, TPM2) to show up. Takes a time value in seconds (but other time units may be specified too,
+        see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for supported formats). Defaults to 30s. Once the specified timeout elapsed authentication via
+        password is attempted. Note that this timeout applies to waiting for the security device to show up —
+        it does not apply to the PIN prompt for the device (should one be needed) or similar. Pass 0 to turn
+        off the time-out and wait forever.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -666,13 +701,9 @@
       <varlistentry>
         <term><option>x-systemd.device-timeout=</option></term>
 
-        <listitem><para>Specifies how long systemd should wait for a device to show up
-        before giving up on the entry. The argument is a time in seconds or explicitly
-        specified units of
-        <literal>s</literal>,
-        <literal>min</literal>,
-        <literal>h</literal>,
-        <literal>ms</literal>.
+        <listitem><para>Specifies how long systemd should wait for a block device to show up before
+        giving up on the entry. The argument is a time in seconds or explicitly specified units of
+        <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>ms</literal>.
         </para></listitem>
       </varlistentry>
 

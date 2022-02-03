@@ -22,8 +22,8 @@ bool unit_instance_is_valid(const char *i) _pure_;
 bool unit_suffix_is_valid(const char *s) _pure_;
 
 int unit_name_to_prefix(const char *n, char **ret);
-int unit_name_to_instance(const char *n, char **ret);
-static inline int unit_name_classify(const char *n) {
+UnitNameFlags unit_name_to_instance(const char *n, char **ret);
+static inline UnitNameFlags unit_name_classify(const char *n) {
         return unit_name_to_instance(n, NULL);
 }
 int unit_name_to_prefix_and_instance(const char *n, char **ret);
@@ -62,3 +62,5 @@ static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char 
 int slice_build_parent_slice(const char *slice, char **ret);
 int slice_build_subslice(const char *slice, const char *name, char **subslice);
 bool slice_name_is_valid(const char *name);
+
+bool unit_name_prefix_equal(const char *a, const char *b);

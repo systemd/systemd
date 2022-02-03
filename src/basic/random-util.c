@@ -161,7 +161,6 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         static int have_syscall = -1;
         _cleanup_close_ int fd = -1;
         bool got_some = false;
-        int r;
 
         /* Gathers some high-quality randomness from the kernel (or potentially mid-quality randomness from
          * the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't block, unless the RANDOM_BLOCK
@@ -188,7 +187,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                  * invocations or so. That's because we don't really care about the quality here. We
                  * generally prefer using RDRAND if the caller allows us to, since this way we won't upset
                  * the kernel's random subsystem by accessing it before the pool is initialized (after all it
-                 * will kmsg log about every attempt to do so)..*/
+                 * will kmsg log about every attempt to do so). */
                 for (;;) {
                         unsigned long u;
                         size_t m;
@@ -220,18 +219,19 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
 
                 for (;;) {
-                        r = getrandom(p, n,
+                        ssize_t l;
+                        l = getrandom(p, n,
                                       (FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_NONBLOCK) |
                                       (FLAGS_SET(flags, RANDOM_ALLOW_INSECURE) ? GRND_INSECURE : 0));
-                        if (r > 0) {
+                        if (l > 0) {
                                 have_syscall = true;
 
-                                if ((size_t) r == n)
+                                if ((size_t) l == n)
                                         return 0; /* Yay, success! */
 
-                                assert((size_t) r < n);
-                                p = (uint8_t*) p + r;
-                                n -= r;
+                                assert((size_t) l < n);
+                                p = (uint8_t*) p + l;
+                                n -= l;
 
                                 if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
                                         /* Fill in the remaining bytes using pseudo-random values */
@@ -248,7 +248,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 /* Fill in the rest with /dev/urandom */
                                 break;
 
-                        } else if (r == 0) {
+                        } else if (l == 0) {
                                 have_syscall = true;
                                 return -EIO;
 

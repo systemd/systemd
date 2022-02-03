@@ -25,7 +25,7 @@ __contains_word () {
 
 __get_interfaces(){
     local name
-    for name in $(cd /sys/class/net && ls); do
+    for name in $(cd /sys/class/net && command ls); do
         [[ "$name" != "lo" ]] && echo "$name"
     done
 }
@@ -71,7 +71,7 @@ _systemd-resolve() {
         return 0
     fi
 
-    if [[ "$cur" = -* ]]; then
+    if [[ "$cur" = -* ]] || [[ -z ${comps-} ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi

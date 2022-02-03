@@ -1,13 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# The 'optimization' option was introduced in meson 0.48.0, so let's keep
-# the code compatible with older versions as well
-if meson.version().version_compare('>=0.48.0')
-        optimization = '--optimization=@0@'.format(get_option('optimization'))
-else
-        optimization = ''
-endif
-
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
         output : 'sanitize-address-undefined-fuzzers',
@@ -15,21 +7,23 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined @0@'.format(optimization),
+                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ -Dc_args=@2@ -Dcpp_args=@2@'.format(
+                           get_option('optimization'),
+                           get_option('werror') ? '--werror' : '',
+                           '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'
+                   ),
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
 
 sanitizers = [['address,undefined', sanitize_address_undefined]]
 
-if git.found()
-        out = run_command(
-                'env', '-u', 'GIT_WORK_TREE',
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'ls-files', ':/test/fuzz/*/*')
+if git.found() and fs.exists(project_source_root / '.git')
+        out = run_command(env, '-u', 'GIT_WORK_TREE',
+                          git, '--git-dir=@0@/.git'.format(project_source_root),
+                          'ls-files', ':/test/fuzz/*/*',
+                          check: true)
 else
-        out = run_command(
-                'sh', '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
+        out = run_command(sh, '-c', 'cd "@0@"; echo test/fuzz/*/*'.format(project_source_root), check: true)
 endif
 
 fuzz_regression_tests = []

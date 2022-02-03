@@ -2,6 +2,7 @@
 title: Coding Style
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Coding Style
@@ -69,6 +70,14 @@ layout: default
   ```
 
 - Do not write `foo ()`, write `foo()`.
+- `else` blocks should generally start on the same line as the closing `}`:
+  ```c
+  if (foobar) {
+          find();
+          waldo();
+  } else
+          dont_find_waldo();
+  ```
 
 ## Code Organization and Semantics
 
@@ -135,31 +144,6 @@ layout: default
   global in global variables, for example data parsed from command lines, see
   below.
 
-- You might wonder what kind of common code belongs in `src/shared/` and what
-  belongs in `src/basic/`. The split is like this: anything that is used to
-  implement the public shared object we provide (sd-bus, sd-login, sd-id128,
-  nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
-  be located in `src/basic` (those objects are not allowed to link to
-  libsystemd-shared.so). Conversely, anything which is shared between multiple
-  components and does not need to be in `src/basic/`, should be in
-  `src/shared/`.
-
-  To summarize:
-
-  `src/basic/`
-  - may be used by all code in the tree
-  - may not use any code outside of `src/basic/`
-
-  `src/libsystemd/`
-  - may be used by all code in the tree, except for code in `src/basic/`
-  - may not use any code outside of `src/basic/`, `src/libsystemd/`
-
-  `src/shared/`
-  - may be used by all code in the tree, except for code in `src/basic/`,
-    `src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
-    `src/journal/` that end up in `libjournal-client.a` convenience library.
-  - may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
-
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are
   incompatible with glibc it's on them. However, if there are equivalent POSIX
   and Linux/GNU-specific APIs, we generally prefer the POSIX APIs. If there
@@ -168,18 +152,46 @@ layout: default
 
 ## Using C Constructs
 
-- Preferably allocate local variables on the top of the block:
+- Allocate local variables where it makes sense: at the top of the block, or at
+  the point where they can be initialized. Avoid huge variable declaration
+  lists at the top of the function.
+
+  As an exception, `r` is typically used for a local state variable, but should
+  almost always be declared as the last variable at the top of the function.
 
   ```c
   {
-          int a, b;
+          uint64_t a;
+          int r;
 
-          a = 5;
-          b = a;
+          r = frobnicate(&a);
+          if (r < 0)
+                  …
+
+          uint64_t b = a + 1, c;
+
+          r = foobarify(a, b, &c);
+          if (r < 0)
+                  …
+
+          const char *pretty = prettify(a, b, c);
+          …
   }
   ```
 
-- Do not mix function invocations with variable definitions in one line. Wrong:
+- Do not mix multiple variable definitions with function invocations or
+  complicated expressions:
+
+  ```c
+  {
+          uint64_t x = 7;
+          int a;
+
+          a = foobar();
+  }
+  ```
+
+  instead of:
 
   ```c
   {
@@ -188,18 +200,7 @@ layout: default
   }
   ```
 
-  Right:
-
-  ```c
-  {
-          int a;
-          uint64_t x = 7;
-
-          a = foobar();
-  }
-  ```
-
-- Use `goto` for cleaning up, and only use it for that. i.e. you may only jump
+- Use `goto` for cleaning up, and only use it for that. I.e. you may only jump
   to the end of a function, and little else. Never jump backwards!
 
 - To minimize strict aliasing violations, we prefer unions over casting.
@@ -233,7 +234,7 @@ layout: default
 - To determine the length of a constant string `"foo"`, don't bother with
   `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
   the call away for fixed strings). The only exception is when declaring an
-  array. In that case use STRLEN, which evaluates to a static constant and
+  array. In that case use `STRLEN()`, which evaluates to a static constant and
   doesn't force the compiler to create a VLA.
 
 - Please use C's downgrade-to-bool feature only for expressions that are
@@ -284,6 +285,25 @@ layout: default
   one cause, it *really* should have an `int` as the return value for the error
   code.
 
+- libc system calls typically return -1 on error (with the error code in
+  `errno`), and >= 0 on success. Use the RET_NERRNO() helper if you are looking
+  for a simple way to convert this libc style error returning into systemd
+  style error returning. e.g.
+
+  ```c
+  …
+  r = RET_NERRNO(unlink(t));
+  …
+  ```
+
+  or
+
+  ```c
+  …
+  r = RET_NERRNO(open("/some/file", O_RDONLY|O_CLOEXEC));
+  …
+  ```
+
 - Do not bother with error checking whether writing to stdout/stderr worked.
 
 - Do not log errors from "library" code, only do so from "main program"
@@ -296,7 +316,7 @@ layout: default
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
   used for detecting programming errors, not for runtime errors. `assert()` and
-  `assert_return()` by usage of `_likely_()` inform the compiler that he should
+  `assert_return()` by usage of `_likely_()` inform the compiler that it should
   not expect these checks to fail, and they inform fellow programmers about the
   expected validity and range of parameters.
 
@@ -338,7 +358,7 @@ layout: default
 
 - For every function you add, think about whether it is a "logging" function or
   a "non-logging" function. "Logging" functions do (non-debug) logging on their
-  own, "non-logging" function never log on their own (except at debug level)
+  own, "non-logging" functions never log on their own (except at debug level)
   and expect their callers to log. All functions in "library" code, i.e. in
   `src/shared/` and suchlike must be "non-logging". Every time a "logging"
   function calls a "non-logging" function, it should log about the resulting
@@ -372,12 +392,12 @@ layout: default
   `log_oom()` for then printing a short message, but not in "library" code.
 
 - Avoid fixed-size string buffers, unless you really know the maximum size and
-  that maximum size is small. They are a source of errors, since they possibly
-  result in truncated strings. It is often nicer to use dynamic memory,
-  `alloca()` or VLAs. If you do allocate fixed-size strings on the stack, then
-  it is probably only OK if you either use a maximum size such as `LINE_MAX`,
-  or count in detail the maximum size a string can have. (`DECIMAL_STR_MAX` and
-  `DECIMAL_STR_WIDTH` macros are your friends for this!)
+  that maximum size is small. It is often nicer to use dynamic memory,
+  `alloca_safe()` or VLAs. If you do allocate fixed-size strings on the stack,
+  then it is probably only OK if you either use a maximum size such as
+  `LINE_MAX`, or count in detail the maximum size a string can
+  have. (`DECIMAL_STR_MAX` and `DECIMAL_STR_WIDTH` macros are your friends for
+  this!)
 
   Or in other words, if you use `char buf[256]` then you are likely doing
   something wrong!
@@ -385,13 +405,20 @@ layout: default
 - Make use of `_cleanup_free_` and friends. It makes your code much nicer to
   read (and shorter)!
 
-- Use `alloca()`, but never forget that it is not OK to invoke `alloca()`
-  within a loop or within function call parameters. `alloca()` memory is
-  released at the end of a function, and not at the end of a `{}` block. Thus,
-  if you invoke it in a loop, you keep increasing the stack pointer without
-  ever releasing memory again. (VLAs have better behavior in this case, so
-  consider using them as an alternative.)  Regarding not using `alloca()`
-  within function parameters, see the BUGS section of the `alloca(3)` man page.
+- Do not use `alloca()`, `strdupa()` or `strndupa()` directly. Use
+  `alloca_safe()`, `strdupa_safe()` or `strndupa_safe()` instead. (The
+  difference is that the latter include an assertion that the specified size is
+  below a safety threshold, so that the program rather aborts than runs into
+  possible stack overruns.)
+
+- Use `alloca_safe()`, but never forget that it is not OK to invoke
+  `alloca_safe()` within a loop or within function call
+  parameters. `alloca_safe()` memory is released at the end of a function, and
+  not at the end of a `{}` block. Thus, if you invoke it in a loop, you keep
+  increasing the stack pointer without ever releasing memory again. (VLAs have
+  better behavior in this case, so consider using them as an alternative.)
+  Regarding not using `alloca_safe()` within function parameters, see the BUGS
+  section of the `alloca(3)` man page.
 
 - If you want to concatenate two or more strings, consider using `strjoina()`
   or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
@@ -429,7 +456,7 @@ layout: default
   limits after which it will refuse operation. It's fine if it is hard-coded
   (at least initially), but it needs to be there. This is particularly
   important for objects that unprivileged users may allocate, but also matters
-  for everything else any user may allocated.
+  for everything else any user may allocate.
 
 ## Types
 
@@ -464,7 +491,7 @@ layout: default
 
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
-  is C99 and in our public APIs we try to stick to C89 (with a few extension).
+  is C99 and in our public APIs we try to stick to C89 (with a few extensions).
 
 ## Deadlocks
 
@@ -581,7 +608,7 @@ layout: default
   process, please use `_exit()` instead of `exit()`, so that the exit handlers
   are not run.
 
-- We never use the POSIX version of `basename()` (which glibc defines it in
+- We never use the POSIX version of `basename()` (which glibc defines in
   `libgen.h`), only the GNU version (which glibc defines in `string.h`).  The
   only reason to include `libgen.h` is because `dirname()` is needed. Every
   time you need that please immediately undefine `basename()`, and add a
@@ -590,7 +617,7 @@ layout: default
 - Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size
   of paths) and `NAME_MAX` (for checking maximum size of filenames).
   `FILENAME_MAX` is not POSIX, and is a confusingly named alias for `PATH_MAX`
-  on Linux. Note the `NAME_MAX` does not include space for a trailing `NUL`,
+  on Linux. Note that `NAME_MAX` does not include space for a trailing `NUL`,
   but `PATH_MAX` does. UNIX FTW!
 
 ## Committing to git

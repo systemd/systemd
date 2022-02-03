@@ -33,6 +33,9 @@ typedef enum NamingSchemeFlags {
         NAMING_NSPAWN_LONG_HASH    = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
         NAMING_BRIDGE_NO_SLOT      = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
         NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
+        NAMING_16BIT_INDEX         = 1 << 11, /* Allow full 16-bit for the onboard index */
+        NAMING_REPLACE_STRICTLY    = 1 << 12, /* Use udev_replace_ifname() for NAME= rule */
+        NAMING_XEN_VIF             = 1 << 13, /* GEnerate names for Xen netfront devices */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -42,7 +45,10 @@ typedef enum NamingSchemeFlags {
         NAMING_V243 = NAMING_V241 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
-        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID,
+        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX | NAMING_REPLACE_STRICTLY,
+        NAMING_V250 = NAMING_V249 | NAMING_XEN_VIF,
+
+        EXTRA_NET_NAMING_SCHEMES
 
         _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;
@@ -52,8 +58,27 @@ typedef struct NamingScheme {
         NamingSchemeFlags flags;
 } NamingScheme;
 
+const NamingScheme* naming_scheme_from_name(const char *name);
 const NamingScheme* naming_scheme(void);
 
 static inline bool naming_scheme_has(NamingSchemeFlags flags) {
         return FLAGS_SET(naming_scheme()->flags, flags);
 }
+
+typedef enum NamePolicy {
+        NAMEPOLICY_KERNEL,
+        NAMEPOLICY_KEEP,
+        NAMEPOLICY_DATABASE,
+        NAMEPOLICY_ONBOARD,
+        NAMEPOLICY_SLOT,
+        NAMEPOLICY_PATH,
+        NAMEPOLICY_MAC,
+        _NAMEPOLICY_MAX,
+        _NAMEPOLICY_INVALID = -EINVAL,
+} NamePolicy;
+
+const char *name_policy_to_string(NamePolicy p) _const_;
+NamePolicy name_policy_from_string(const char *p) _pure_;
+
+const char *alternative_names_policy_to_string(NamePolicy p) _const_;
+NamePolicy alternative_names_policy_from_string(const char *p) _pure_;

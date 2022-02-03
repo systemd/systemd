@@ -2,11 +2,12 @@
 title: GVariant D-Bus Message Serialization
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # GVariant D-Bus Message Serialization
 
-We stay close to the original dbus1 framing as possible, but make
+We stay as close to the original dbus1 framing as possible, but make
 certain changes to adapt for GVariant. dbus1 has the following
 framing:
 

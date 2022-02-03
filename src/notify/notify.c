@@ -170,7 +170,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
         }
 
@@ -232,7 +232,7 @@ static int run(int argc, char* argv[]) {
 
         our_env[i++] = NULL;
 
-        final_env = strv_env_merge(2, our_env, argv + optind);
+        final_env = strv_env_merge(our_env, argv + optind);
         if (!final_env)
                 return log_oom();
 

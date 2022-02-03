@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
+
+[Distribution]
+Distribution=opensuse
+Release=tumbleweed
+
+[Packages]
+BuildPackages=
+        docbook-xsl-stylesheets
+        fdupes
+        gcc
+        gnu-efi
+        gperf
+        intltool
+        libacl-devel
+        libapparmor-devel
+        libblkid-devel
+        libbz2-devel
+        libcap-devel
+        libcryptsetup-devel
+        libcurl-devel
+        libgcrypt-devel
+        libgnutls-devel
+        libkmod-devel
+        liblz4-devel
+        libmicrohttpd-devel
+        libmount-devel
+        libseccomp-devel
+        libselinux-devel
+        libxslt-tools
+        meson
+        pam-devel
+        pciutils-devel
+        pcre-devel
+        python3
+        python3-Jinja2
+        python3-lxml
+        qrencode-devel
+        system-user-nobody
+        systemd-sysvinit
+        zlib-devel
+# to satisfy tests
+        acl
+        diffutils
+        glibc-locale
+        system-group-obsolete
+        system-user-bin
+        system-user-daemon
+        system-user-root
+        timezone
+
+Packages=
+        gdb
+        # brought in via meson->python3
+        libp11-kit0
+        # --bootable=no
+        dbus-1
+        libapparmor1
+        libcrypt1
+        libcryptsetup12
+        libgcrypt20
+        libgnutls30
+        libkmod2
+        liblz4-1
+        libmount1
+        libqrencode4
+        libseccomp2
+        pam
+        nano
+        strace
+        util-linux

@@ -27,10 +27,23 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
-/* Note to readers: << and >> have lower precedence than & and | */
+/* This log level disables logging completely. It can only be passed to log_set_max_level() and cannot be
+ * used a regular log level. */
+#define LOG_NULL (LOG_EMERG - 1)
+
+/* Note to readers: << and >> have lower precedence (are evaluated earlier) than & and | */
 #define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
 #define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
-#define ERRNO_VALUE(val)                    (abs(val) & 255)
+#define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
+
+/* The callback function to be invoked when syntax warnings are seen
+ * in the unit files. */
+typedef void (*log_syntax_callback_t)(const char *unit, int level, void *userdata);
+void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata);
+
+static inline void clear_log_syntax_callback(dummy_t *dummy) {
+          set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
+}
 
 const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
@@ -69,6 +82,7 @@ int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
 
+void log_parse_environment_variables(void);
 void log_parse_environment(void);
 
 int log_dispatch_internal(
@@ -174,7 +188,6 @@ _noreturn_ void log_assert_failed(
                 const char *func);
 
 _noreturn_ void log_assert_failed_unreachable(
-                const char *text,
                 const char *file,
                 int line,
                 const char *func);
@@ -236,10 +249,35 @@ int log_emergency_level(void);
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
+/* This logs at the specified level the first time it is called, and then
+ * logs at debug. If the specified level is debug, this logs only the first
+ * time it is called. */
+#define log_once(level, ...)                                             \
+        ({                                                               \
+                if (ONCE)                                                \
+                        log_full(level, __VA_ARGS__);                    \
+                else if (LOG_PRI(level) != LOG_DEBUG)                    \
+                        log_debug(__VA_ARGS__);                          \
+        })
+
+#define log_once_errno(level, error, ...)                                \
+        ({                                                               \
+                int _err = (error);                                      \
+                if (ONCE)                                                \
+                        _err = log_full_errno(level, _err, __VA_ARGS__); \
+                else if (LOG_PRI(level) != LOG_DEBUG)                    \
+                        _err = log_debug_errno(_err, __VA_ARGS__);       \
+                else                                                     \
+                        _err = -ERRNO_VALUE(_err);                       \
+                _err;                                                    \
+        })
+
 #if LOG_TRACE
-#  define log_trace(...) log_debug(__VA_ARGS__)
+#  define log_trace(...)          log_debug(__VA_ARGS__)
+#  define log_trace_errno(...)    log_debug_errno(__VA_ARGS__)
 #else
-#  define log_trace(...) do {} while (0)
+#  define log_trace(...)          do {} while (0)
+#  define log_trace_errno(e, ...) (-ERRNO_VALUE(e))
 #endif
 
 /* Structured logging */

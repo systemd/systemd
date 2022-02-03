@@ -128,6 +128,7 @@
         <varlistentry>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>x</constant><replaceable>slot</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
@@ -157,6 +158,11 @@
                 <row>
                   <entry><replaceable>prefix</replaceable> <constant>v</constant><replaceable>slot</replaceable></entry>
                   <entry>VIO slot number (IBM PowerVM)</entry>
+                </row>
+
+                <row>
+                  <entry><replaceable>prefix</replaceable> <constant>X</constant><replaceable>number</replaceable></entry>
+                  <entry>VIF interface number (Xen)</entry>
                 </row>
 
                 <row>
@@ -376,7 +382,25 @@
           of the <filename>function_id</filename> device attribute. This attribute is now used to build the
           <varname>ID_NET_NAME_SLOT</varname>. Before that, all slot names were parsed as decimal
           numbers, which could either result in an incorrect value of the <varname>ID_NET_NAME_SLOT</varname>
-          property or none at all.</para></listitem>
+          property or none at all.</para>
+
+          <para>Some firmware and hypervisor implementations report unreasonably high numbers for the onboard
+          index. To prevent the generation of bogus onbard interface names, index numbers greater than 16381
+          (2¹⁴-1) were ignored. For s390 PCI devices index values up to 65535 (2¹⁶-1) are valid. To account
+          for that, the limit was increased to 65535.</para>
+
+          <para>The udev rule <varname>NAME=</varname> replaces <literal>:</literal>,
+          <literal>/</literal>, and <literal>%</literal> with an underscore (<literal>_</literal>), and
+          refuses strings which contain only numerics.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v250</constant></term>
+
+          <listitem><para>Added naming scheme for Xen netfront "vif" interfaces based on the guest side
+          VIF number set from the Xen config (or the interface index in AWS EC2).</para>
+          </listitem>
         </varlistentry>
 
       </variablelist>

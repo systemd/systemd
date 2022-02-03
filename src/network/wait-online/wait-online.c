@@ -187,7 +187,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -195,7 +195,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_setup();
@@ -223,6 +223,8 @@ static int run(int argc, char *argv[]) {
                                       "STATUS=Failed to wait for network connectivity...");
 
         r = sd_event_loop(m->event);
+        if (r == -ETIMEDOUT)
+                return log_error_errno(r, "Timeout occurred while waiting for network connectivity.");
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 

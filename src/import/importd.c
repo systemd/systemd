@@ -19,7 +19,7 @@
 #include "machine-pool.h"
 #include "main-func.h"
 #include "missing_capability.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -126,10 +126,8 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->format);
         free(t->object_path);
 
-        if (t->pid > 0) {
-                (void) kill_and_sigcont(t->pid, SIGKILL);
-                (void) wait_for_terminate(t->pid, NULL);
-        }
+        if (t->pid > 1)
+                sigkill_wait(t->pid);
 
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
@@ -391,9 +389,10 @@ static int transfer_start(Transfer *t) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = rearrange_stdio(t->stdin_fd,
-                                    t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd,
+                r = rearrange_stdio(TAKE_FD(t->stdin_fd),
+                                    t->stdout_fd < 0 ? pipefd[1] : TAKE_FD(t->stdout_fd),
                                     pipefd[1]);
+                TAKE_FD(pipefd[1]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);
@@ -431,7 +430,7 @@ static int transfer_start(Transfer *t) {
                         break;
 
                 default:
-                        assert_not_reached("Unexpected transfer type");
+                        assert_not_reached();
                 }
 
                 switch (t->type) {
@@ -568,10 +567,11 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (IN_SET(n, -EAGAIN, -EINTR))
-                return 0;
-        if (n < 0)
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
                 return (int) n;
+        }
 
         cmsg_close_all(&msghdr);
 
@@ -928,7 +928,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "URL %s is invalid", remote);
 

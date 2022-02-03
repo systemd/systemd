@@ -11,6 +11,8 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "chase-symlinks.h"
+#include "data-fd-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -23,12 +25,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "install.h"
 #include "log.h"
+#include "manager-dump.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -311,7 +314,8 @@ static int property_set_watchdog(Manager *m, WatchdogType type, sd_bus_message *
         if (r < 0)
                 return r;
 
-        return manager_override_watchdog(m, type, timeout);
+        manager_override_watchdog(m, type, timeout);
+        return 0;
 }
 
 static int property_set_runtime_watchdog(
@@ -354,6 +358,34 @@ static int property_set_kexec_watchdog(
         assert(value);
 
         return property_set_watchdog(userdata, WATCHDOG_KEXEC, value);
+}
+
+static int property_get_oom_score_adjust(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r, n;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        if (m->default_oom_score_adjust_set)
+                n = m->default_oom_score_adjust;
+        else {
+                n = 0;
+                r = get_oom_score_adjust(&n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read current OOM score adjustment value, ignoring: %m");
+        }
+
+        return sd_bus_message_append(reply, "i", n);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -1322,16 +1354,14 @@ static int verify_run_space(const char *message, sd_bus_error *error) {
 
         available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
 
-        if (available < RELOAD_DISK_SPACE_MIN) {
-                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+        if (available < RELOAD_DISK_SPACE_MIN)
                 return sd_bus_error_setf(error,
                                          BUS_ERROR_DISK_FULL,
                                          "%s, not enough space available on /run/systemd. "
                                          "Currently, %s are free, but a safety buffer of %s is enforced.",
                                          message,
-                                         format_bytes(fb_available, sizeof(fb_available), available),
-                                         format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
-        }
+                                         FORMAT_BYTES(available),
+                                         FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
 
         return 0;
 }
@@ -1528,13 +1558,11 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
 
-        if (available < RELOAD_DISK_SPACE_MIN) {
-                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+        if (available < RELOAD_DISK_SPACE_MIN)
                 log_warning("Dangerously low amount of free space on /run/systemd, root switching might fail.\n"
                             "Currently, %s are free, but %s are suggested. Proceeding anyway.",
-                            format_bytes(fb_available, sizeof(fb_available), available),
-                            format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
-        }
+                            FORMAT_BYTES(available),
+                            FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
@@ -2271,7 +2299,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
-        UnitFilePresetMode mm;
+        UnitFilePresetMode preset_mode;
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
@@ -2290,10 +2318,10 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
-                mm = UNIT_FILE_PRESET_FULL;
+                preset_mode = UNIT_FILE_PRESET_FULL;
         else {
-                mm = unit_file_preset_mode_from_string(mode);
-                if (mm < 0)
+                preset_mode = unit_file_preset_mode_from_string(mode);
+                if (preset_mode < 0)
                         return -EINVAL;
         }
 
@@ -2303,7 +2331,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, mm, &changes, &n_changes);
+        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2435,7 +2463,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
-        UnitFilePresetMode mm;
+        UnitFilePresetMode preset_mode;
         const char *mode;
         UnitFileFlags flags;
         int force, runtime, r;
@@ -2454,10 +2482,10 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
-                mm = UNIT_FILE_PRESET_FULL;
+                preset_mode = UNIT_FILE_PRESET_FULL;
         else {
-                mm = unit_file_preset_mode_from_string(mode);
-                if (mm < 0)
+                preset_mode = unit_file_preset_mode_from_string(mode);
+                if (preset_mode < 0)
                         return -EINVAL;
         }
 
@@ -2467,7 +2495,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, mm, &changes, &n_changes);
+        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2646,6 +2674,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_GENERATORS_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
+        BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDSecurityStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDSecurityFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDGeneratorsStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_GENERATORS_START]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2724,6 +2753,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, default_tasks_max), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("GetUnit",
@@ -2765,6 +2795,15 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  "ss",
                                  SD_BUS_PARAM(name)
                                  SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_start_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StartUnitWithFlags",
+                                 "sst",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode)
+                                 SD_BUS_PARAM(flags),
                                  "o",
                                  SD_BUS_PARAM(job),
                                  method_start_unit,

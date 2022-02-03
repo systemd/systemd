@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -68,9 +69,7 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        (void) kill_and_sigcont(agent_pid, SIGTERM);
-        (void) wait_for_terminate(agent_pid, NULL);
-        agent_pid = 0;
+        sigterm_wait(TAKE_PID(agent_pid));
 }
 
 #else

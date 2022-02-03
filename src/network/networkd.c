@@ -7,22 +7,32 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "bus-log-control-api.h"
 #include "capability-util.h"
 #include "daemon-util.h"
 #include "firewall-util.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "networkd-conf.h"
+#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "user-util.h"
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_setup();
+
+        r = service_parse_argv("systemd-networkd.service",
+                               "Manage and configure network devices, create virtual network devices",
+                               BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -73,13 +83,13 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(&m, /* test_mode = */ false);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 
-        r = manager_connect_bus(m);
+        r = manager_setup(m);
         if (r < 0)
-                return log_error_errno(r, "Could not connect to bus: %m");
+                return log_error_errno(r, "Could not setup manager: %m");
 
         r = manager_parse_config_file(m);
         if (r < 0)

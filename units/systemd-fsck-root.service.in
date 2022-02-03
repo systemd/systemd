@@ -14,9 +14,11 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Before=local-fs.target shutdown.target
 ConditionPathIsReadWrite=!/
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-fsck
+ExecStart={{ROOTLIBEXECDIR}}/systemd-fsck
 TimeoutSec=0

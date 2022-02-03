@@ -7,12 +7,12 @@ files = [['README',               ''],
          ['journal-nocow.conf',   ''],
          ['systemd-nologin.conf', 'HAVE_PAM'],
          ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+         ['systemd-resolve.conf', 'ENABLE_RESOLVE'],
          ['systemd-tmp.conf',     ''],
          ['portables.conf',       'ENABLE_PORTABLED'],
          ['systemd-pstore.conf',  'ENABLE_PSTORE'],
          ['tmp.conf',             ''],
          ['x11.conf',             ''],
-         ['legacy.conf',          'HAVE_SYSV_COMPAT'],
         ]
 
 foreach pair : files
@@ -26,38 +26,31 @@ foreach pair : files
         endif
 endforeach
 
-in_files = ['static-nodes-permissions.conf']
+in_files = [['etc.conf',                      ''],
+            ['legacy.conf',                   'HAVE_SYSV_COMPAT'],
+            ['static-nodes-permissions.conf', ''],
+            ['systemd.conf',                  ''],
+            ['var.conf',                      ''],
+           ]
 
-foreach file : in_files
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        if enable_tmpfiles
-                install_data(gen,
-                             install_dir : tmpfilesdir)
-        endif
-endforeach
-
-m4_files = ['etc.conf',
-            'systemd.conf',
-            'var.conf']
-
-foreach file : m4_files
-        if enable_tmpfiles
+foreach pair : in_files
+        if not enable_tmpfiles
+                # do nothing
+        elif pair[1] == '' or conf.get(pair[1]) == 1
                 custom_target(
-                        'tmpfiles.d_' + file,
-                         input : file + '.m4',
-                         output: file,
-                         command : [meson_apply_m4, config_h, '@INPUT@'],
-                         capture : true,
-                         install : true,
-                         install_dir : tmpfilesdir)
+                        pair[0],
+                        input : pair[0] + '.in',
+                        output: pair[0],
+                        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                        install : enable_tmpfiles,
+                        install_dir : tmpfilesdir)
+        else
+                message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
+                        .format(pair[0], pair[1], conf.get(pair[1], 0)))
         endif
 endforeach
 
 if enable_tmpfiles and install_sysconfdir
         meson.add_install_script(
-                'sh', '-c',
-                mkdir_p.format(join_paths(sysconfdir, 'tmpfiles.d')))
+                'sh', '-c', mkdir_p.format(sysconfdir / 'tmpfiles.d'))
 endif

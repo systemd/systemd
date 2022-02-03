@@ -42,7 +42,7 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
-_public_ int sd_ndisc_set_callback(
+int sd_ndisc_set_callback(
                 sd_ndisc *nd,
                 sd_ndisc_callback_t callback,
                 void *userdata) {
@@ -55,7 +55,7 @@ _public_ int sd_ndisc_set_callback(
         return 0;
 }
 
-_public_ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
+int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         assert_return(nd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(nd->fd < 0, -EBUSY);
@@ -74,14 +74,22 @@ int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname) {
         return free_and_strdup(&nd->ifname, ifname);
 }
 
-const char *sd_ndisc_get_ifname(sd_ndisc *nd) {
-        if (!nd)
-                return NULL;
+int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
+        int r;
 
-        return get_ifname(nd->ifindex, &nd->ifname);
+        assert_return(nd, -EINVAL);
+
+        r = get_ifname(nd->ifindex, &nd->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = nd->ifname;
+
+        return 0;
 }
 
-_public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
+int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
         if (mac_addr)
@@ -92,7 +100,7 @@ _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         return 0;
 }
 
-_public_ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
+int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nd, -EINVAL);
@@ -112,7 +120,7 @@ _public_ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priori
         return 0;
 }
 
-_public_ int sd_ndisc_detach_event(sd_ndisc *nd) {
+int sd_ndisc_detach_event(sd_ndisc *nd) {
 
         assert_return(nd, -EINVAL);
         assert_return(nd->fd < 0, -EBUSY);
@@ -121,7 +129,7 @@ _public_ int sd_ndisc_detach_event(sd_ndisc *nd) {
         return 0;
 }
 
-_public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
+sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         assert_return(nd, NULL);
 
         return nd->event;
@@ -133,25 +141,26 @@ static void ndisc_reset(sd_ndisc *nd) {
         (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
         nd->retransmit_time = 0;
-        nd->recv_event_source = sd_event_source_unref(nd->recv_event_source);
+        nd->recv_event_source = sd_event_source_disable_unref(nd->recv_event_source);
         nd->fd = safe_close(nd->fd);
 }
 
 static sd_ndisc *ndisc_free(sd_ndisc *nd) {
         assert(nd);
 
-        nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
-        nd->timeout_no_ra = sd_event_source_unref(nd->timeout_no_ra);
-
         ndisc_reset(nd);
+
+        sd_event_source_unref(nd->timeout_event_source);
+        sd_event_source_unref(nd->timeout_no_ra);
         sd_ndisc_detach_event(nd);
+
         free(nd->ifname);
         return mfree(nd);
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
 
-_public_ int sd_ndisc_new(sd_ndisc **ret) {
+int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         assert_return(ret, -EINVAL);
@@ -170,28 +179,6 @@ _public_ int sd_ndisc_new(sd_ndisc **ret) {
         return 0;
 }
 
-_public_ int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *mtu) {
-        assert_return(nd, -EINVAL);
-        assert_return(mtu, -EINVAL);
-
-        if (nd->mtu == 0)
-                return -ENODATA;
-
-        *mtu = nd->mtu;
-        return 0;
-}
-
-_public_ int sd_ndisc_get_hop_limit(sd_ndisc *nd, uint8_t *ret) {
-        assert_return(nd, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        if (nd->hop_limit == 0)
-                return -ENODATA;
-
-        *ret = nd->hop_limit;
-        return 0;
-}
-
 static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         int r;
 
@@ -199,16 +186,8 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         assert(rt);
 
         r = ndisc_router_parse(nd, rt);
-        if (r == -EBADMSG) /* Bad packet */
-                return 0;
         if (r < 0)
-                return 0;
-
-        /* Update global variables we keep */
-        if (rt->mtu > 0)
-                nd->mtu = rt->mtu;
-        if (rt->hop_limit > 0)
-                nd->hop_limit = rt->hop_limit;
+                return r;
 
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
@@ -232,6 +211,9 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
+                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                        return 0;
+
                 log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
@@ -242,6 +224,9 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address, &rt->timestamp);
         if (r < 0) {
+                if (ERRNO_IS_TRANSIENT(r) || ERRNO_IS_DISCONNECT(r))
+                        return 0;
+
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &rt->address, &addr);
@@ -256,9 +241,6 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                         log_ndisc(nd, "Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
-                case -EAGAIN: /* ignore spurious wakeups */
-                        break;
-
                 default:
                         log_ndisc_errno(nd, r, "Unexpected error while reading from ICMPv6, ignoring: %m");
                         break;
@@ -268,8 +250,8 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         }
 
         (void) event_source_disable(nd->timeout_event_source);
-
-        return ndisc_handle_datagram(nd, rt);
+        (void) ndisc_handle_datagram(nd, rt);
+        return 0;
 }
 
 static usec_t ndisc_timeout_compute_random(usec_t val) {
@@ -279,7 +261,6 @@ static usec_t ndisc_timeout_compute_random(usec_t val) {
 }
 
 static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        char time_string[FORMAT_TIMESPAN_MAX];
         sd_ndisc *nd = userdata;
         usec_t time_now;
         int r;
@@ -314,8 +295,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         }
 
         log_ndisc(nd, "Sent Router Solicitation, next solicitation in %s",
-                  format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                  nd->retransmit_time, USEC_PER_SEC));
+                  FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
 
         return 0;
 
@@ -338,7 +318,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
         return 0;
 }
 
-_public_ int sd_ndisc_stop(sd_ndisc *nd) {
+int sd_ndisc_stop(sd_ndisc *nd) {
         if (!nd)
                 return 0;
 
@@ -351,7 +331,7 @@ _public_ int sd_ndisc_stop(sd_ndisc *nd) {
         return 1;
 }
 
-_public_ int sd_ndisc_start(sd_ndisc *nd) {
+int sd_ndisc_start(sd_ndisc *nd) {
         int r;
         usec_t time_now;
 

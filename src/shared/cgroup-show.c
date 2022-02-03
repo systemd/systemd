@@ -12,10 +12,13 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -82,12 +85,11 @@ static int show_cgroup_one_by_path(
                 bool more,
                 OutputFlags flags) {
 
-        char *fn;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t n = 0, n_allocated = 0;
         _cleanup_free_ pid_t *pids = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
-        pid_t pid;
+        size_t n = 0;
+        char *fn;
         int r;
 
         r = cg_mangle_path(path, &p);
@@ -99,20 +101,27 @@ static int show_cgroup_one_by_path(
         if (!f)
                 return -errno;
 
-        while ((r = cg_read_pid(f, &pid)) > 0) {
+        for (;;) {
+                pid_t pid;
+
+                /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
+                 * From https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#threads,
+                 * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
+                 * the subtree and is not readable in the subtree proper. */
+                r = cg_read_pid(f, &pid);
+                if (IN_SET(r, 0, -EOPNOTSUPP))
+                        break;
+                if (r < 0)
+                        return r;
 
                 if (!(flags & OUTPUT_KERNEL_THREADS) && is_kernel_thread(pid) > 0)
                         continue;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + 1))
+                if (!GREEDY_REALLOC(pids, n + 1))
                         return -ENOMEM;
 
-                assert(n < n_allocated);
                 pids[n++] = pid;
         }
-
-        if (r < 0)
-                return r;
 
         show_pid_array(pids, n, prefix, n_columns, false, more, flags);
 
@@ -122,38 +131,109 @@ static int show_cgroup_one_by_path(
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
-                const char *glyph) {
+                SpecialGlyph glyph,
+                OutputFlags flags) {
 
+        uint64_t cgroupid = UINT64_MAX;
         _cleanup_free_ char *b = NULL;
+        _cleanup_close_ int fd = -1;
         bool delegate = false;
         int r;
 
-        r = getxattr_malloc(path, "trusted.delegate", &b, false);
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) || FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
+                fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
+                if (fd < 0)
+                        log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
+        }
+
+        r = getxattr_malloc(fd < 0 ? path : FORMAT_PROC_FD_PATH(fd), "trusted.delegate", &b);
         if (r < 0) {
                 if (r != -ENODATA)
-                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute: %m");
+                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute, ignoring: %m");
         } else {
                 r = parse_boolean(b);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value: %m");
+                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value, ignoring: %m");
                 else
                         delegate = r > 0;
 
                 b = mfree(b);
         }
 
-        b = strdup(basename(path));
-        if (!b)
-                return -ENOMEM;
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
+                cg_file_handle fh = CG_FILE_HANDLE_INIT;
+                int mnt_id = -1;
 
-        printf("%s%s%s%s%s %s%s%s\n",
-               prefix, glyph,
+                if (name_to_handle_at(
+                                    fd < 0 ? AT_FDCWD : fd,
+                                    fd < 0 ? path : "",
+                                    &fh.file_handle,
+                                    &mnt_id,
+                                    fd < 0 ? 0 : AT_EMPTY_PATH) < 0)
+                        log_debug_errno(errno, "Failed to determine cgroup ID of %s, ignoring: %m", path);
+                else
+                        cgroupid = CG_FILE_HANDLE_CGROUPID(fh);
+        }
+
+        r = path_extract_filename(path, &b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from cgroup path: %m");
+
+        printf("%s%s%s%s%s",
+               prefix, special_glyph(glyph),
                delegate ? ansi_underline() : "",
                cg_unescape(b),
-               delegate ? ansi_normal() : "",
-               delegate ? ansi_highlight() : "",
-               delegate ? special_glyph(SPECIAL_GLYPH_ELLIPSIS) : "",
                delegate ? ansi_normal() : "");
+
+        if (delegate)
+                printf(" %s%s%s",
+                       ansi_highlight(),
+                       special_glyph(SPECIAL_GLYPH_ELLIPSIS),
+                       ansi_normal());
+
+        if (cgroupid != UINT64_MAX)
+                printf(" %s(#%" PRIu64 ")%s", ansi_grey(), cgroupid, ansi_normal());
+
+        printf("\n");
+
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) && fd >= 0) {
+                _cleanup_free_ char *nl = NULL;
+                char *xa;
+
+                r = flistxattr_malloc(fd, &nl);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enumerate xattrs on '%s', ignoring: %m", path);
+
+                NULSTR_FOREACH(xa, nl) {
+                        _cleanup_free_ char *x = NULL, *y = NULL, *buf = NULL;
+                        int n;
+
+                        if (!STARTSWITH_SET(xa, "user.", "trusted."))
+                                continue;
+
+                        n = fgetxattr_malloc(fd, xa, &buf);
+                        if (n < 0) {
+                                log_debug_errno(r, "Failed to read xattr '%s' off '%s', ignoring: %m", xa, path);
+                                continue;
+                        }
+
+                        x = cescape(xa);
+                        if (!x)
+                                return -ENOMEM;
+
+                        y = cescape_length(buf, n);
+                        if (!y)
+                                return -ENOMEM;
+
+                        printf("%s%s%s %s%s%s: %s\n",
+                               prefix,
+                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
+                               special_glyph(SPECIAL_GLYPH_ARROW),
+                               ansi_blue(), x, ansi_normal(),
+                               y);
+                }
+        }
+
         return 0;
 }
 
@@ -201,7 +281,7 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH));
+                        r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_BRANCH, flags);
                         if (r < 0)
                                 return r;
 
@@ -225,7 +305,7 @@ int show_cgroup_by_path(
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
+                r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_RIGHT, flags);
                 if (r < 0)
                         return r;
 
@@ -356,13 +436,16 @@ int show_cgroup_get_path_and_warn(
                 const char *prefix,
                 char **ret) {
 
-        int r;
         _cleanup_free_ char *root = NULL;
+        int r;
 
         if (machine) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *m;
+
+                if (!hostname_is_valid(machine, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine name is not valid: %s", machine);
 
                 m = strjoina("/run/systemd/machines/", machine);
                 r = parse_env_file(NULL, m, "SCOPE", &unit);
@@ -371,7 +454,7 @@ int show_cgroup_get_path_and_warn(
 
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
                 if (r < 0)
-                        return bus_log_connect_error(r);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
 
                 r = show_cgroup_get_unit_path_and_warn(bus, unit, &root);
                 if (r < 0)
@@ -381,14 +464,14 @@ int show_cgroup_get_path_and_warn(
                 if (r == -ENOMEDIUM)
                         return log_error_errno(r, "Failed to get root control group path.\n"
                                                   "No cgroup filesystem mounted on /sys/fs/cgroup");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
         }
 
         if (prefix) {
                 char *t;
 
-                t = strjoin(root, prefix);
+                t = path_join(root, prefix);
                 if (!t)
                         return log_oom();
 

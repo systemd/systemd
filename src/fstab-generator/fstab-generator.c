@@ -5,11 +5,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -50,6 +51,7 @@ static int arg_root_rw = -1;
 static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
+static char *arg_usr_hash = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_what, freep);
@@ -59,6 +61,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
@@ -196,7 +199,6 @@ static int write_timeout(
                 const char *variable) {
 
         _cleanup_free_ char *timeout = NULL;
-        char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
         int r;
 
@@ -212,7 +214,7 @@ static int write_timeout(
                 return 0;
         }
 
-        fprintf(f, "%s=%s\n", variable, format_timespan(timespan, sizeof(timespan), u, 0));
+        fprintf(f, "%s=%s\n", variable, FORMAT_TIMESPAN(u, 0));
 
         return 0;
 }
@@ -435,7 +437,7 @@ static int add_mount(
 
         /* Order the mount unit we generate relative to the post unit, so that DefaultDependencies= on the
          * target unit won't affect us. */
-        if (post && !FLAGS_SET(flags, MOUNT_AUTOMOUNT) && !FLAGS_SET(flags, MOUNT_NOAUTO))
+        if (post && !FLAGS_SET(flags, MOUNT_NOFAIL))
                 fprintf(f, "Before=%s\n", post);
 
         if (passno != 0) {
@@ -452,6 +454,10 @@ static int add_mount(
                 "\n"
                 "[Mount]\n");
 
+        r = write_what(f, what);
+        if (r < 0)
+                return r;
+
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
 
@@ -459,10 +465,6 @@ static int add_mount(
         if (!where_escaped)
                 return log_oom();
         fprintf(f, "Where=%s\n", where_escaped);
-
-        r = write_what(f, what);
-        if (r < 0)
-                return r;
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 _cleanup_free_ char *t = NULL;
@@ -600,9 +602,16 @@ static int parse_fstab(bool initrd) {
                 if (!what)
                         return log_oom();
 
-                if (is_device_path(what) && path_is_read_only_fs("/sys") > 0) {
-                        log_info("Running in a container, ignoring fstab device entry for %s.", what);
-                        continue;
+                if (path_is_read_only_fs("/sys") > 0) {
+                        if (streq(what, "sysfs")) {
+                                log_info("Running in a container, ignoring fstab entry for %s.", what);
+                                continue;
+                        }
+
+                        if (is_device_path(what)) {
+                                log_info("Running in a container, ignoring fstab device entry for %s.", what);
+                                continue;
+                        }
                 }
 
                 where = strdup(me->mnt_dir);
@@ -610,7 +619,7 @@ static int parse_fstab(bool initrd) {
                         return log_oom();
 
                 if (is_path(where)) {
-                        path_simplify(where, false);
+                        path_simplify(where);
 
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
@@ -683,6 +692,57 @@ static int parse_fstab(bool initrd) {
         return r;
 }
 
+static int sysroot_is_nfsroot(void) {
+        union in_addr_union u;
+        const char *sep, *a;
+        int r;
+
+        assert(arg_root_what);
+
+        /* From dracut.cmdline(7).
+         *
+         * root=[<server-ip>:]<root-dir>[:<nfs-options>]
+         * root=nfs:[<server-ip>:]<root-dir>[:<nfs-options>],
+         * root=nfs4:[<server-ip>:]<root-dir>[:<nfs-options>],
+         * root={dhcp|dhcp6}
+         *
+         * mount nfs share from <server-ip>:/<root-dir>, if no server-ip is given, use dhcp next_server.
+         * If server-ip is an IPv6 address it has to be put in brackets, e.g. [2001:DB8::1]. NFS options
+         * can be appended with the prefix ":" or "," and are separated by ",". */
+
+        if (path_equal(arg_root_what, "/dev/nfs") ||
+            STR_IN_SET(arg_root_what, "dhcp", "dhcp6") ||
+            STARTSWITH_SET(arg_root_what, "nfs:", "nfs4:"))
+                return true;
+
+        /* IPv6 address */
+        if (arg_root_what[0] == '[') {
+                sep = strchr(arg_root_what + 1, ']');
+                if (!sep)
+                        return -EINVAL;
+
+                a = strndupa_safe(arg_root_what + 1, sep - arg_root_what - 1);
+
+                r = in_addr_from_string(AF_INET6, a, &u);
+                if (r < 0)
+                        return r;
+
+                return true;
+        }
+
+        /* IPv4 address */
+        sep = strchr(arg_root_what, ':');
+        if (sep) {
+                a = strndupa_safe(arg_root_what, sep - arg_root_what);
+
+                if (in_addr_from_string(AF_INET, a, &u) >= 0)
+                        return true;
+        }
+
+        /* root directory without address */
+        return path_is_absolute(arg_root_what) && !path_startswith(arg_root_what, "/dev");
+}
+
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts, *fstype;
@@ -700,9 +760,27 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        if (path_equal(arg_root_what, "/dev/nfs")) {
+        r = sysroot_is_nfsroot();
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if the root directory is on NFS, assuming not: %m");
+        else if (r > 0) {
                 /* This is handled by the kernel or the initrd */
-                log_debug("Skipping root directory handling, as /dev/nfs was requested.");
+                log_debug("Skipping root directory handling, as root on NFS was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "cifs://")) {
+                log_debug("Skipping root directory handling, as root on CIFS was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "iscsi:")) {
+                log_debug("Skipping root directory handling, as root on iSCSI was requested.");
+                return 0;
+        }
+
+        if (startswith(arg_root_what, "live:")) {
+                log_debug("Skipping root directory handling, as root on live image was requested.");
                 return 0;
         }
 
@@ -881,7 +959,7 @@ static int add_volatile_root(void) {
                 return 0;
 
         return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
-                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_VOLATILE_ROOT_SERVICE);
+                                     SYSTEM_DATA_UNIT_DIR "/" SPECIAL_VOLATILE_ROOT_SERVICE);
 }
 
 static int add_volatile_var(void) {
@@ -969,6 +1047,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
 
+        } else if (streq(key, "usrhash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_usr_hash, value);
+
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
@@ -997,22 +1082,33 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int determine_root(void) {
-        /* If we have a root hash but no root device then Verity is used, and we use the "root" DM device as root. */
+static int determine_device(char **what, const char *hash, const char *name) {
 
-        if (arg_root_what)
+        assert(what);
+        assert(name);
+
+        /* If we have a hash but no device then Verity is used, and we use the DM device. */
+        if (*what)
                 return 0;
 
-        if (!arg_root_hash)
+        if (!hash)
                 return 0;
 
-        arg_root_what = strdup("/dev/mapper/root");
-        if (!arg_root_what)
+        *what = path_join("/dev/mapper/", name);
+        if (!*what)
                 return log_oom();
 
-        log_info("Using verity root device %s.", arg_root_what);
+        log_info("Using verity %s device %s.", name, *what);
 
         return 1;
+}
+
+static int determine_root(void) {
+        return determine_device(&arg_root_what, arg_root_hash, "root");
+}
+
+static int determine_usr(void) {
+        return determine_device(&arg_usr_what, arg_usr_hash, "usr");
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
@@ -1026,6 +1122,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         (void) determine_root();
+        (void) determine_usr();
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {

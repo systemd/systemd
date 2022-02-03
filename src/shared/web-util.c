@@ -36,16 +36,29 @@ bool http_url_is_valid(const char *url) {
         return ascii_is_valid(p);
 }
 
+bool file_url_is_valid(const char *url) {
+        const char *p;
+
+        if (isempty(url))
+                return false;
+
+        p = startswith(url, "file:/");
+        if (isempty(p))
+                return false;
+
+        return ascii_is_valid(p);
+}
+
 bool documentation_url_is_valid(const char *url) {
         const char *p;
 
         if (isempty(url))
                 return false;
 
-        if (http_url_is_valid(url))
+        if (http_url_is_valid(url) || file_url_is_valid(url))
                 return true;
 
-        p = STARTSWITH_SET(url, "file:/", "info:", "man:");
+        p = STARTSWITH_SET(url, "info:", "man:");
         if (isempty(p))
                 return false;
 

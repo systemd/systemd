@@ -15,10 +15,13 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "in-addr-prefix-util.h"
+#include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "socket-util.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
 
@@ -316,14 +319,17 @@ static int property_get_ip_address_access(
                 void *userdata,
                 sd_bus_error *error) {
 
-        IPAddressAccessItem** items = userdata, *i;
+        Set **prefixes = userdata;
+        struct in_addr_prefix *i;
         int r;
+
+        assert(prefixes);
 
         r = sd_bus_message_open_container(reply, 'a', "(iayu)");
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(items, i, *items) {
+        SET_FOREACH(i, *prefixes) {
 
                 r = sd_bus_message_open_container(reply, 'r', "iayu");
                 if (r < 0)
@@ -389,15 +395,56 @@ static int property_get_socket_bind(
 
         assert(items);
 
-        r = sd_bus_message_open_container(reply, 'a', "(iqq)");
+        r = sd_bus_message_open_container(reply, 'a', "(iiqq)");
         if (r < 0)
                 return r;
 
         LIST_FOREACH(socket_bind_items, i, *items) {
-                r = sd_bus_message_append(reply, "(iqq)", i->address_family, i->nr_ports, i->port_min);
+                r = sd_bus_message_append(reply, "(iiqq)", i->address_family, i->ip_protocol, i->nr_ports, i->port_min);
                 if (r < 0)
                         return r;
         }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_restrict_network_interfaces(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        int r;
+        CGroupContext *c = userdata;
+        char *iface;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->restrict_network_interfaces_is_allow_list);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(iface, c->restrict_network_interfaces) {
+                r = sd_bus_message_append(reply, "s", iface);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
 
         return sd_bus_message_close_container(reply);
 }
@@ -414,7 +461,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
+        SD_BUS_PROPERTY("StartupAllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
+        SD_BUS_PROPERTY("StartupAllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_mems), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -454,8 +503,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
-        SD_BUS_PROPERTY("SocketBindAllow", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
-        SD_BUS_PROPERTY("SocketBindDeny", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
+        SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
+        SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
+        SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1113,17 +1163,15 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
                         if (c->cpu_quota_period_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
-                        else {
-                                char v[FORMAT_TIMESPAN_MAX];
+                        else
                                 unit_write_settingf(u, flags, "CPUQuotaPeriodSec",
                                                     "CPUQuotaPeriodSec=%s",
-                                                    format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1));
-                        }
+                                                    FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1));
                 }
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "AllowedCPUs", "AllowedMemoryNodes")) {
+        } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
                 _cleanup_(cpu_set_reset) CPUSet new_set = {};
@@ -1138,7 +1186,7 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *setstr = NULL;
-                        CPUSet *set;
+                        CPUSet *set = NULL;
 
                         setstr = cpu_set_to_range_string(&new_set);
                         if (!setstr)
@@ -1146,8 +1194,14 @@ int bus_cgroup_set_property(
 
                         if (streq(name, "AllowedCPUs"))
                                 set = &c->cpuset_cpus;
-                        else
+                        else if (streq(name, "StartupAllowedCPUs"))
+                                set = &c->startup_cpuset_cpus;
+                        else if (streq(name, "AllowedMemoryNodes"))
                                 set = &c->cpuset_mems;
+                        else if (streq(name, "StartupAllowedMemoryNodes"))
+                                set = &c->startup_cpuset_mems;
+
+                        assert(set);
 
                         cpu_set_reset(set);
                         *set = new_set;
@@ -1373,7 +1427,6 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        char ts[FORMAT_TIMESPAN_MAX];
                         CGroupIODeviceLatency *a;
                         size_t size = 0;
 
@@ -1391,7 +1444,7 @@ int bus_cgroup_set_property(
                         fputs("IODeviceLatencyTargetSec=\n", f);
                         LIST_FOREACH(device_latencies, a, c->io_device_latencies)
                                 fprintf(f, "IODeviceLatencyTargetSec=%s %s\n",
-                                        a->path, format_timespan(ts, sizeof(ts), a->target_usec, 1));
+                                        a->path, FORMAT_TIMESPAN(a->target_usec, 1));
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -1704,10 +1757,8 @@ int bus_cgroup_set_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
-                IPAddressAccessItem **list;
+                _cleanup_set_free_ Set *new_prefixes = NULL;
                 size_t n = 0;
-
-                list = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
 
                 r = sd_bus_message_enter_container(message, 'a', "(iayu)");
                 if (r < 0)
@@ -1748,17 +1799,16 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Prefix length %" PRIu32 " too large for address family %s.", prefixlen, af_to_name(family));
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                IPAddressAccessItem *item;
+                                struct in_addr_prefix prefix = {
+                                        .family = family,
+                                        .prefixlen = prefixlen,
+                                };
 
-                                item = new0(IPAddressAccessItem, 1);
-                                if (!item)
-                                        return -ENOMEM;
+                                memcpy(&prefix.address, ap, an);
 
-                                item->family = family;
-                                item->prefixlen = prefixlen;
-                                memcpy(&item->address, ap, an);
-
-                                LIST_PREPEND(items, *list, item);
+                                r = in_addr_prefix_add(&new_prefixes, &prefix);
+                                if (r < 0)
+                                        return r;
                         }
 
                         r = sd_bus_message_exit_container(message);
@@ -1772,33 +1822,46 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                *list = ip_address_access_reduce(*list);
-
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        IPAddressAccessItem *item;
                         size_t size = 0;
-
-                        if (n == 0)
-                                *list = ip_address_access_free_all(*list);
+                        Set **prefixes;
+                        bool *reduced;
 
                         unit_invalidate_cgroup_bpf(u);
                         f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs(name, f);
-                        fputs("=\n", f);
+                        prefixes = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
+                        reduced = streq(name, "IPAddressAllow") ? &c->ip_address_allow_reduced : &c->ip_address_deny_reduced;
 
-                        LIST_FOREACH(items, item, *list) {
-                                char buffer[CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
+                        if (n == 0) {
+                                *reduced = true;
+                                *prefixes = set_free(*prefixes);
+                                fputs(name, f);
+                                fputs("=\n", f);
+                        } else {
+                                struct in_addr_prefix *p;
 
-                                errno = 0;
-                                if (!inet_ntop(item->family, &item->address, buffer, sizeof(buffer)))
-                                        return errno_or_else(EINVAL);
+                                *reduced = false;
 
-                                fprintf(f, "%s=%s/%u\n", name, buffer, item->prefixlen);
+                                r = in_addr_prefixes_merge(prefixes, new_prefixes);
+                                if (r < 0)
+                                        return r;
+
+                                SET_FOREACH(p, new_prefixes) {
+                                        _cleanup_free_ char *buffer = NULL;
+
+                                        r = in_addr_prefix_to_string(p->family, &p->address, p->prefixlen, &buffer);
+                                        if (r == -ENOMEM)
+                                                return r;
+                                        if (r < 0)
+                                                continue;
+
+                                        fprintf(f, "%s=%s\n", name, buffer);
+                                }
                         }
 
                         r = fflush_and_check(f);
@@ -1882,18 +1945,21 @@ int bus_cgroup_set_property(
                 CGroupSocketBindItem **list;
                 uint16_t nr_ports, port_min;
                 size_t n = 0;
-                int family;
+                int32_t family, ip_protocol;
 
                 list = streq(name, "SocketBindAllow") ? &c->socket_bind_allow : &c->socket_bind_deny;
 
-                r = sd_bus_message_enter_container(message, 'a', "(iqq)");
+                r = sd_bus_message_enter_container(message, 'a', "(iiqq)");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "(iqq)", &family, &nr_ports, &port_min)) > 0) {
+                while ((r = sd_bus_message_read(message, "(iiqq)", &family, &ip_protocol, &nr_ports, &port_min)) > 0) {
 
                         if (!IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects INET or INET6 family, if specified.", name);
+
+                        if (!IN_SET(ip_protocol, 0, IPPROTO_TCP, IPPROTO_UDP))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects TCP or UDP protocol, if specified.", name);
 
                         if (port_min + (uint32_t) nr_ports > (1 << 16))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects maximum port value lesser than 65536.", name);
@@ -1910,6 +1976,7 @@ int bus_cgroup_set_property(
 
                                 *item = (CGroupSocketBindItem) {
                                         .address_family = family,
+                                        .ip_protocol = ip_protocol,
                                         .nr_ports = nr_ports,
                                         .port_min = port_min
                                 };
@@ -1957,6 +2024,64 @@ int bus_cgroup_set_property(
                                 return r;
 
                         unit_write_setting(u, flags, name, buf);
+                }
+
+                return 1;
+        }
+        if (streq(name, "RestrictNetworkInterfaces")) {
+                int is_allow_list;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &is_allow_list);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = NULL;
+                        char **s;
+
+                        if (strv_isempty(l)) {
+                                c->restrict_network_interfaces_is_allow_list = false;
+                                c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
+
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                                return 1;
+                        }
+
+                        if (set_isempty(c->restrict_network_interfaces))
+                                c->restrict_network_interfaces_is_allow_list = is_allow_list;
+
+                        STRV_FOREACH(s, l) {
+                                if (!ifname_valid(*s)) {
+                                        log_full(LOG_WARNING, "Invalid interface name, ignoring: %s", *s);
+                                        continue;
+                                }
+                                if (c->restrict_network_interfaces_is_allow_list != (bool) is_allow_list)
+                                        free(set_remove(c->restrict_network_interfaces, *s));
+                                else {
+                                        r = set_put_strdup(&c->restrict_network_interfaces, *s);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "%s=%s%s", name, is_allow_list ? "" : "~", joined);
                 }
 
                 return 1;

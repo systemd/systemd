@@ -1,35 +1,39 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if enable_sysusers
-        install_data('README', install_dir : sysusersdir)
-endif
+files = [['README',                ''],
+         ['systemd-coredump.conf', 'ENABLE_COREDUMP'],
+         ['systemd-oom.conf',      'ENABLE_OOMD']]
 
-in_files = ['basic.conf']
-
-foreach file : in_files
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        if enable_sysusers
-                install_data(gen,
-                             install_dir : sysusersdir)
+foreach pair : files
+        if not enable_sysusers
+                # do nothing
+        elif pair[1] == '' or conf.get(pair[1]) == 1
+                install_data(pair[0], install_dir : sysusersdir)
+        else
+                message('Not installing sysusers.d/@0@ because @1@ is @2@'
+                        .format(pair[0], pair[1], conf.get(pair[1], 0)))
         endif
 endforeach
 
-m4_files = ['systemd.conf']
 
-if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
-        m4_files += ['systemd-remote.conf']
+if enable_sysusers and conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
+        install_data('systemd-remote.conf', install_dir : sysusersdir)
 endif
 
-foreach file : m4_files
+
+in_files = [['basic.conf',            enable_sysusers],
+            ['systemd-journal.conf',  enable_sysusers],
+            ['systemd-network.conf',  enable_sysusers and conf.get('ENABLE_NETWORKD') == 1],
+            ['systemd-resolve.conf',  enable_sysusers and conf.get('ENABLE_RESOLVE') == 1],
+            ['systemd-timesync.conf', enable_sysusers and conf.get('ENABLE_TIMESYNCD') == 1]]
+
+foreach tuple : in_files
+        file = tuple[0]
         custom_target(
-                'sysusers.d_' + file,
-                input : file + '.m4',
+                file,
+                input : file + '.in',
                 output: file,
-                command : [meson_apply_m4, config_h, '@INPUT@'],
-                capture : true,
-                install : enable_sysusers,
+                command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                install : tuple[1],
                 install_dir : sysusersdir)
 endforeach

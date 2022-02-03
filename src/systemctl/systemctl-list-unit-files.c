@@ -136,7 +136,6 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 int list_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
-        size_t size = 0;
         unsigned c = 0;
         const char *state;
         char *path;
@@ -234,7 +233,7 @@ int list_unit_files(int argc, char *argv[], void *userdata) {
 
                 while ((r = sd_bus_message_read(reply, "(ss)", &path, &state)) > 0) {
 
-                        if (!GREEDY_REALLOC(units, size, c + 1))
+                        if (!GREEDY_REALLOC(units, c + 1))
                                 return log_oom();
 
                         units[c] = (struct UnitFileList) {
@@ -256,7 +255,7 @@ int list_unit_files(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         typesafe_qsort(units, c, compare_unit_file_list);
         r = output_unit_file_list(units, c);

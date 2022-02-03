@@ -155,9 +155,8 @@
     <variablelist>
       <varlistentry>
         <term><filename>/run/</filename></term>
-        <listitem><para>A <literal>tmpfs</literal> file system for
-        system packages to place runtime data in. This directory is
-        flushed on boot, and generally writable for privileged
+        <listitem><para>A <literal>tmpfs</literal> file system for system packages to place runtime data,
+        socket files, and similar. This directory is flushed on boot, and generally writable for privileged
         programs only. Always writable.</para></listitem>
       </varlistentry>
 
@@ -288,17 +287,13 @@
     <variablelist>
       <varlistentry>
         <term><filename>/var/</filename></term>
-        <listitem><para>Persistent, variable system data. Must be
-        writable. This directory might be pre-populated with
-        vendor-supplied data, but applications should be able to
-        reconstruct necessary files and directories in this
-        subhierarchy should they be missing, as the system might start
-        up without this directory being populated. Persistency is
-        recommended, but optional, to support ephemeral systems. This
-        directory might become available or writable only very late
-        during boot. Components that are required to operate during
-        early boot hence shall not unconditionally rely on this
-        directory.</para></listitem>
+        <listitem><para>Persistent, variable system data. Writable during normal system operation. This
+        directory might be pre-populated with vendor-supplied data, but applications should be able to
+        reconstruct necessary files and directories in this subhierarchy should they be missing, as the
+        system might start up without this directory being populated. Persistency is recommended, but
+        optional, to support ephemeral systems. This directory might become available or writable only very
+        late during boot. Components that are required to operate during early boot hence shall not
+        unconditionally rely on this directory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -560,48 +555,69 @@
   </refsect1>
 
   <refsect1>
-    <title>Unprivileged Write Access</title>
+    <title>Write Access</title>
 
-    <para>Unprivileged processes generally lack write access to most
-    of the hierarchy.</para>
+    <refsect2>
+      <title>Unprivileged Write Access</title>
 
-    <para>The exceptions for normal users are
-    <filename>/tmp/</filename>,
-    <filename>/var/tmp/</filename>,
-    <filename>/dev/shm/</filename>, as well as the home directory
-    <varname>$HOME</varname> (usually found below
-    <filename>/home/</filename>) and the runtime directory
-    <varname>$XDG_RUNTIME_DIR</varname> (found below
-    <filename>/run/user/</filename>) of the user, which are all
-    writable.</para>
+      <para>Unprivileged processes generally lack write access to most of the hierarchy.</para>
 
-    <para>For unprivileged system processes, only
-    <filename>/tmp/</filename>,
-    <filename>/var/tmp/</filename> and
-    <filename>/dev/shm/</filename> are writable. If an
-    unprivileged system process needs a private writable directory in
-    <filename>/var/</filename> or <filename>/run/</filename>, it is
-    recommended to either create it before dropping privileges in the
-    daemon code, to create it via
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    fragments during boot, or via the
-    <varname>StateDirectory=</varname> and <varname>RuntimeDirectory=</varname>
-    directives of service units (see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details).</para>
+      <para>The exceptions for normal users are
+      <filename>/tmp/</filename>,
+      <filename>/var/tmp/</filename>,
+      <filename>/dev/shm/</filename>, as well as the home directory
+      <varname>$HOME</varname> (usually found below
+      <filename>/home/</filename>) and the runtime directory
+      <varname>$XDG_RUNTIME_DIR</varname> (found below
+      <filename>/run/user/</filename>) of the user, which are all
+      writable.</para>
 
-    <para><filename>/tmp/</filename>, <filename>/var/tmp/</filename> and <filename>/dev/shm/</filename>
-    should be mounted <option>nosuid</option> and <option>nodev</option>, which means that set-user-id mode
-    and character or block special devices are not interpreted on those file systems. In general it is not
-    possible to mount them <option>noexec</option>, because various programs use those directories for
-    dynamically generated or optimized code, and with that flag those use cases would break. Using this flag
-    is OK on special-purpose installations or systems where all software that may be installed is known and
-    doesn't require such functionality. See the discussion of
-    <option>nosuid</option>/<option>nodev</option>/<option>noexec</option> in <citerefentry
-    project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
-    <constant>PROT_EXEC</constant> in <citerefentry
-    project='man-pages'><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-    </para>
+      <para>For unprivileged system processes, only
+      <filename>/tmp/</filename>,
+      <filename>/var/tmp/</filename> and
+      <filename>/dev/shm/</filename> are writable. If an
+      unprivileged system process needs a private writable directory in
+      <filename>/var/</filename> or <filename>/run/</filename>, it is
+      recommended to either create it before dropping privileges in the
+      daemon code, to create it via
+      <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      fragments during boot, or via the
+      <varname>StateDirectory=</varname> and <varname>RuntimeDirectory=</varname>
+      directives of service units (see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details).</para>
+
+      <para><filename>/tmp/</filename>, <filename>/var/tmp/</filename> and <filename>/dev/shm/</filename>
+      should be mounted <option>nosuid</option> and <option>nodev</option>, which means that set-user-id mode
+      and character or block special devices are not interpreted on those file systems. In general it is not
+      possible to mount them <option>noexec</option>, because various programs use those directories for
+      dynamically generated or optimized code, and with that flag those use cases would break. Using this
+      flag is OK on special-purpose installations or systems where all software that may be installed is
+      known and doesn't require such functionality. See the discussion of
+      <option>nosuid</option>/<option>nodev</option>/<option>noexec</option> in <citerefentry
+      project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+      <constant>PROT_EXEC</constant> in <citerefentry
+      project='man-pages'><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
+
+    <refsect2>
+      <title>Lack of Write Access on Read-Only Systems and during System Recovery</title>
+
+      <para>As noted above, some systems operate with the <filename>/usr</filename> and
+      <filename>/etc</filename> hierarchies mounted read-only, possibly only allowing write access during
+      package upgrades. Other part of the hierarchy are generally mounted read-write (in particular
+      <filename>/var</filename> and <filename>/var/tmp</filename>), but may be read-only when the kernel
+      remounts the file system read-only in response to errors, or when the system is booted read-only for
+      recovery purposes. To the extent reasonable, applications should be prepared to execute without write
+      access, so that for example, failure to save non-essential data to <filename>/var/cache/</filename> or
+      failure to create a custom log file under <filename>/var/log</filename> does not prevent the
+      application from running.</para>
+
+      <para>The <filename>/run/</filename> directory is available since the earliest boot and is always
+      writable. It should be used for any runtime data and sockets, so that write access to e.g.
+      <filename>/etc</filename> or <filename>/var</filename> is not needed.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

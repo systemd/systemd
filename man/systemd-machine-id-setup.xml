@@ -39,7 +39,7 @@
 
     <para>If the tool is invoked without the <option>--commit</option>
     switch, <filename>/etc/machine-id</filename> is initialized with a
-    valid, new machined ID if it is missing or empty. The new machine
+    valid, new machine ID if it is missing or empty. The new machine
     ID will be acquired in the following fashion:</para>
 
     <orderedlist>
@@ -90,7 +90,7 @@
 
       <varlistentry>
         <term><option>--image=<replaceable>path</replaceable></option></term>
-        <listitem><para>Takes a path to a device node or refular file as argument. This is similar to
+        <listitem><para>Takes a path to a device node or regular file as argument. This is similar to
         <option>--root=</option> as described above, but operates on a disk image instead of a directory
         tree.</para></listitem>
       </varlistentry>

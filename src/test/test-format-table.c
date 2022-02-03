@@ -6,13 +6,12 @@
 #include "format-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "time-util.h"
 
-static void test_issue_9549(void) {
+TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("name", "type", "ro", "usage", "created", "modified"));
         assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
@@ -34,11 +33,9 @@ static void test_issue_9549(void) {
                         ));
 }
 
-static void test_multiline(void) {
+TEST(multiline) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -148,11 +145,9 @@ static void test_multiline(void) {
         formatted = mfree(formatted);
 }
 
-static void test_strv(void) {
+TEST(strv) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -262,11 +257,9 @@ static void test_strv(void) {
         formatted = mfree(formatted);
 }
 
-static void test_strv_wrapped(void) {
+TEST(strv_wrapped) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(table = table_new("foo", "bar"));
 
@@ -366,12 +359,42 @@ static void test_strv_wrapped(void) {
         formatted = mfree(formatted);
 }
 
-int main(int argc, char *argv[]) {
+TEST(json) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+
+        assert_se(t = table_new("foo bar", "quux", "piep miau"));
+        assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_STRING, "v1",
+                                 TABLE_UINT64, UINT64_C(4711),
+                                 TABLE_BOOLEAN, true) >= 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_STRV, STRV_MAKE("a", "b", "c"),
+                                 TABLE_EMPTY,
+                                 TABLE_MODE, 0755) >= 0);
+
+        assert_se(table_to_json(t, &v) >= 0);
+
+        assert_se(json_build(&w,
+                             JSON_BUILD_ARRAY(
+                                             JSON_BUILD_OBJECT(
+                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
+                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_UNSIGNED(4711)),
+                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_BOOLEAN(true))),
+                                             JSON_BUILD_OBJECT(
+                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
+                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_NULL),
+                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_UNSIGNED(0755))))) >= 0);
+
+        assert_se(json_variant_equal(v, w));
+}
+
+TEST(table) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
-
-        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
-        assert_se(setenv("COLUMNS", "40", 1) >= 0);
 
         assert_se(t = table_new("one", "two", "three"));
 
@@ -504,11 +527,12 @@ int main(int argc, char *argv[]) {
                                 " yes fäää          yes fäää         fäää\n"
                                 " yes xxx           yes xxx          xxx\n"
                                 "5min              5min              \n"));
-
-        test_issue_9549();
-        test_multiline();
-        test_strv();
-        test_strv_wrapped();
-
-        return 0;
 }
+
+static int intro(void) {
+        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
+        assert_se(setenv("COLUMNS", "40", 1) >= 0);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

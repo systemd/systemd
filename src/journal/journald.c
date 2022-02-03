@@ -26,16 +26,23 @@ int main(int argc, char *argv[]) {
 
         namespace = argc > 1 ? empty_to_null(argv[1]) : NULL;
 
-        /* So here's the deal: journald can't be considered as regular daemon when it comes to
-         * logging hence LOG_TARGET_AUTO won't do the right thing for it. Hence explicitly log to
-         * the console if we're started from a console or to kmsg otherwise. */
-        log_target = isatty(STDERR_FILENO) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG;
-
-        log_set_prohibit_ipc(true); /* better safe than sorry */
-        log_set_target(log_target);
         log_set_facility(LOG_SYSLOG);
-        log_parse_environment();
-        log_open();
+
+        if (namespace)
+                /* If we run for a log namespace, then we ourselves can log to the main journald. */
+                log_setup();
+        else {
+                /* So here's the deal if we run as the main journald: we can't be considered as regular
+                 * daemon when it comes to logging hence LOG_TARGET_AUTO won't do the right thing for
+                 * us. Hence explicitly log to the console if we're started from a console or to kmsg
+                 * otherwise. */
+                log_target = isatty(STDERR_FILENO) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG;
+
+                log_set_prohibit_ipc(true); /* better safe than sorry */
+                log_set_target(log_target);
+                log_parse_environment();
+                log_open();
+        }
 
         umask(0022);
 
@@ -81,7 +88,7 @@ int main(int argc, char *argv[]) {
 
                         /* The retention time is reached, so let's vacuum! */
                         if (server.oldest_file_usec + server.max_retention_usec < n) {
-                                log_info("Retention time reached.");
+                                log_info("Retention time reached, rotating.");
                                 server_rotate(&server);
                                 server_vacuum(&server, false);
                                 continue;
@@ -95,7 +102,7 @@ int main(int argc, char *argv[]) {
                 if (server.system_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(server.system_journal, &u)) {
+                        if (journal_file_next_evolve_usec(server.system_journal->file, &u)) {
                                 if (n >= u)
                                         t = 0;
                                 else

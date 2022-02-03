@@ -39,7 +39,10 @@
     url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
     url="https://systemd.io/GROUP_RECORD">JSON Group Records</ulink> definitions), and classic UNIX NSS/glibc
     user and group records. This tool is primarily a client to the <ulink
-    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>.</para>
+    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and may also
+    pick up drop-in JSON user and group records from <filename>/etc/userdb/</filename>,
+    <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
+    <filename>/usr/lib/userdb/</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -69,6 +72,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
+
+        <listitem><para>Selects JSON out mode (like <option>--output=json</option>) and selects the precise
+        display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
+        <literal>pretty</literal> human-friendly whitespace and newlines are inserted in the output to make
+        the JSON data more readable. If <literal>short</literal> all superfluous whitespace is
+        suppressed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--service=</option><replaceable>SERVICE</replaceable><optional>:<replaceable>SERVICE…</replaceable></optional></term>
         <term><option>-s</option> <replaceable>SERVICE</replaceable>:<replaceable>SERVICE…</replaceable></term>
 
@@ -87,6 +100,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--with-varlink=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to include Varlink user/group lookups in the output, i.e. those done
+        via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
+        Varlink</ulink>. If <option>--with-varlink=no</option> is used any attempts to resolve or enumerate
+        users/groups provided only via Varlink are suppressed. If <option>--with-varlink=yes</option> is
+        specified such users/groups are included in the output (which is the default).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--with-dropin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to include user/group lookups in the output that are defined using
+        drop-in files in <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
+        <filename>/run/host/userdb/</filename>, <filename>/usr/lib/userdb/</filename>. If
+        <option>--with-dropin=no</option> is used these records are suppressed. If
+        <option>--with-dropin=yes</option> is specified such users/groups are included in the output (which
+        is the default).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--synthesize=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
@@ -102,6 +136,22 @@
         <option>--synthesize=no</option>. Use this option to show only records that are natively defined as
         JSON user or group records, with all NSS/glibc compatibility and all implicit synthesis turned
         off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--multiplexer=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
+        default) or do lookups in the client (if specified as false). Using the multiplexer service is
+        typically preferable, since it runs in a locked down sandbox.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chain</option></term>
+
+        <listitem><para>When used with the <command>ssh-authorized-keys</command> command, this will allow
+        passing an additional command line after the user name that is chain executed after the lookup
+        completed. This allows chaining multiple tools that show SSH authorized keys.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -159,8 +209,8 @@
       <varlistentry>
         <term><command>ssh-authorized-keys</command></term>
 
-        <listitem><para>This operation is not a public, user-facing interface. It is used to allow the SSH daemon to pick
-        up authorized keys from user records, see below.</para></listitem>
+        <listitem><para>Show SSH authorized keys for this account. This command is intended to be used to
+        allow the SSH daemon to pick up authorized keys from user records, see below.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -228,6 +278,17 @@
         data, however the NSS/glibc APIs necessarily expose a more reduced set of fields
         only.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.DropIn</constant></term>
+
+        <listitem><para>This service is (also) provided by
+        <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and picks up JSON user/group records from <filename>/etc/userdb/</filename>,
+        <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
+        <filename>/usr/lib/userdb/</filename>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Note that <command>userdbctl</command> has internal support for NSS-based lookups too. This means
@@ -248,6 +309,19 @@
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 …</programlisting>
+
+    <para>Sometimes it's useful to allow chain invocation of another program to list SSH authorized keys. By
+    using the <option>--chain</option> such a tool may be chain executed by <command>userdbctl
+    ssh-authorized-keys</command> once a lookup completes (regardless if an SSH key was found or
+    not). Example:</para>
+
+    <programlisting>…
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain /usr/bin/othertool %u
+AuthorizedKeysCommandUser root
+…</programlisting>
+
+    <para>The above will first query the userdb database for SSH keys, and then chain execute
+    <command>/usr/bin/othertool</command> to also be queried.</para>
   </refsect1>
 
   <refsect1>

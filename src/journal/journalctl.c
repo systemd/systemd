@@ -27,6 +27,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "chase-symlinks.h"
 #include "chattr-util.h"
 #include "def.h"
 #include "dissect-image.h"
@@ -276,13 +277,13 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
                 *boot_id = SD_ID128_NULL;
                 *offset = 0;
                 return 0;
-        } else if (strlen(x) >= 32) {
+        } else if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
                 char *t;
 
-                t = strndupa(x, 32);
+                t = strndupa_safe(x, SD_ID128_STRING_MAX - 1);
                 r = sd_id128_from_string(t, &id);
                 if (r >= 0)
-                        x += 32;
+                        x += SD_ID128_STRING_MAX - 1;
 
                 if (!IN_SET(*x, 0, '-', '+'))
                         return -EINVAL;
@@ -326,7 +327,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("journalctl", "1", &link);
         if (r < 0)
@@ -550,10 +551,17 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_lines == ARG_LINES_DEFAULT)
                                 arg_lines = 1000;
 
+                        arg_boot = true;
+
                         break;
 
                 case 'f':
                         arg_follow = true;
+
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+
                         break;
 
                 case 'o':
@@ -1046,7 +1054,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
@@ -1227,7 +1235,7 @@ static int discover_next_boot(sd_journal *j,
                 BootId **ret) {
 
         _cleanup_free_ BootId *next_boot = NULL;
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1280,7 +1288,7 @@ static int discover_next_boot(sd_journal *j,
                 return r;
 
         /* Now seek to the last occurrence of this boot ID. */
-        sd_id128_to_string(next_boot->id, match + 9);
+        sd_id128_to_string(next_boot->id, match + STRLEN("_BOOT_ID="));
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
                 return r;
@@ -1336,11 +1344,11 @@ static int get_boots(
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
         if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[9+32+1] = "_BOOT_ID=";
+                char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
 
                 sd_journal_flush_matches(j);
 
-                sd_id128_to_string(*boot_id, match + 9);
+                sd_id128_to_string(*boot_id, match + STRLEN("_BOOT_ID="));
                 r = sd_journal_add_match(j, match, sizeof(match) - 1);
                 if (r < 0)
                         return r;
@@ -1444,7 +1452,7 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         /* numbers are one less, but we need an extra char for the sign */
         w = DECIMAL_STR_WIDTH(count - 1) + 1;
@@ -1467,7 +1475,7 @@ static int list_boots(sd_journal *j) {
 }
 
 static int add_boot(sd_journal *j) {
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1499,7 +1507,7 @@ static int add_boot(sd_journal *j) {
                 return r == 0 ? -ENODATA : r;
         }
 
-        sd_id128_to_string(boot_id, match + 9);
+        sd_id128_to_string(boot_id, match + STRLEN("_BOOT_ID="));
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
@@ -1873,13 +1881,13 @@ static int setup_keys(void) {
                 return log_oom();
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
-        mpk = alloca(mpk_size);
+        mpk = alloca_safe(mpk_size);
 
         seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = alloca(seed_size);
+        seed = alloca_safe(seed_size);
 
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
-        state = alloca(state_size);
+        state = alloca_safe(state_size);
 
         log_info("Generating seed...");
         r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
@@ -1902,19 +1910,10 @@ static int setup_keys(void) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", k);
 
-        /* Enable secure remove, exclusion from dump, synchronous writing and in-place updating */
-        static const unsigned chattr_flags[] = {
-                FS_SECRM_FL,
-                FS_NODUMP_FL,
-                FS_SYNC_FL,
-                FS_NOCOW_FL,
-        };
-        for (size_t j = 0; j < ELEMENTSOF(chattr_flags); j++) {
-                r = chattr_fd(fd, chattr_flags[j], chattr_flags[j], NULL);
-                if (r < 0)
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set file attribute 0x%x: %m", chattr_flags[j]);
-        }
+        r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to set file attributes on '%s', ignoring: %m", k);
 
         struct FSSHeader h = {
                 .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
@@ -1951,7 +1950,6 @@ static int setup_keys(void) {
                 if (hn)
                         hostname_cleanup(hn);
 
-                char tsb[FORMAT_TIMESPAN_MAX];
                 fprintf(stderr,
                         "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
                         "\n"
@@ -1970,7 +1968,7 @@ static int setup_keys(void) {
                         SD_ID128_FORMAT_VAL(machine),
                         ansi_highlight(), ansi_normal(),
                         p,
-                        format_timespan(tsb, sizeof(tsb), arg_interval, 0),
+                        FORMAT_TIMESPAN(arg_interval, 0),
                         ansi_highlight(), ansi_normal(),
                         ansi_highlight_red());
                 fflush(stderr);
@@ -2023,7 +2021,7 @@ static int verify(sd_journal *j) {
                 else if (k < 0)
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
                 else {
-                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
+                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
                         log_info("PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
@@ -2031,10 +2029,10 @@ static int verify(sd_journal *j) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
+                                                 FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), last - first, 0));
+                                                 FORMAT_TIMESPAN(last - first, 0));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }
@@ -2074,6 +2072,11 @@ static int simple_varlink_call(const char *option, const char *method) {
 }
 
 static int flush_to_var(void) {
+        if (access("/run/systemd/journal/flushed", F_OK) >= 0)
+                return 0; /* Already flushed, no need to contact journald */
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Unable to check for existence of /run/systemd/journal/flushed: %m");
+
         return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
 }
 
@@ -2154,7 +2157,7 @@ int main(int argc, char *argv[]) {
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK : DISSECT_IMAGE_READ_ONLY),
+                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);
@@ -2197,7 +2200,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
-                        (void) pager_open(arg_pager_flags);
+                        pager_open(arg_pager_flags);
 
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database, oneline, argv + optind);
@@ -2239,7 +2242,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action");
+                assert_not_reached();
         }
 
         if (arg_directory)
@@ -2324,7 +2327,7 @@ int main(int argc, char *argv[]) {
         case ACTION_FLUSH:
         case ACTION_SYNC:
         case ACTION_ROTATE:
-                assert_not_reached("Unexpected action.");
+                assert_not_reached();
 
         case ACTION_PRINT_HEADER:
                 journal_print_header(j);
@@ -2337,14 +2340,13 @@ int main(int argc, char *argv[]) {
 
         case ACTION_DISK_USAGE: {
                 uint64_t bytes = 0;
-                char sbytes[FORMAT_BYTES_MAX];
 
                 r = sd_journal_get_usage(j, &bytes);
                 if (r < 0)
                         goto finish;
 
                 printf("Archived and active journals take up %s in the file system.\n",
-                       format_bytes(sbytes, sizeof(sbytes), bytes));
+                       FORMAT_BYTES(bytes));
                 goto finish;
         }
 
@@ -2391,7 +2393,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action");
+                assert_not_reached();
         }
 
         if (arg_boot_offset != 0 &&
@@ -2591,9 +2593,9 @@ int main(int argc, char *argv[]) {
                 need_seek = true;
 
         if (!arg_follow)
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
-        if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
+        if (!arg_quiet && (arg_lines != 0 || arg_follow) && DEBUG_LOGGING) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 

@@ -1,22 +1,83 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ftw.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
+#include "recurse-dir.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "fileio.h"
 #include "user-util.h"
-#include "fd-util.h"
+#include "virt.h"
+
+static int cg_any_controller_used_for_v1(void) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_strv_free_ char **lines = NULL;
+        char **line;
+        int r;
+
+        r = read_full_virtual_file("/proc/cgroups", &buf, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Could not read /proc/cgroups, ignoring: %m");
+
+        r = strv_split_newlines_full(&lines, buf, 0);
+        if (r < 0)
+                return r;
+
+        /* The intention of this is to check if the fully unified cgroup tree setup is possible, meaning all
+         * enabled kernel cgroup controllers are currently not in use by cgroup1.  For reference:
+         * https://systemd.io/CGROUP_DELEGATION/#three-different-tree-setups-
+         *
+         * Note that this is typically only useful to check inside a container where we don't know what
+         * cgroup tree setup is in use by the host; if the host is using legacy or hybrid, we can't use
+         * unified since some or all controllers would be missing. This is not the best way to detect this,
+         * as whatever container manager created our container should have mounted /sys/fs/cgroup
+         * appropriately, but in case that wasn't done, we try to detect if it's possible for us to use
+         * unified cgroups. */
+        STRV_FOREACH(line, lines) {
+                _cleanup_free_ char *name = NULL, *hierarchy_id = NULL, *num = NULL, *enabled = NULL;
+
+                /* Skip header line */
+                if (startswith(*line, "#"))
+                        continue;
+
+                const char *p = *line;
+                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Error parsing /proc/cgroups line, ignoring: %m");
+                else if (r < 4) {
+                        log_debug("Invalid /proc/cgroups line, ignoring.");
+                        continue;
+                }
+
+                /* Ignore disabled controllers. */
+                if (streq(enabled, "0"))
+                        continue;
+
+                /* Ignore controllers we don't care about. */
+                if (cgroup_controller_from_string(name) < 0)
+                        continue;
+
+                /* Since the unified cgroup doesn't use multiple hierarchies, if any controller has a
+                 * non-zero hierarchy_id that means it's in use already in a legacy (or hybrid) cgroup v1
+                 * hierarchy, and can't be used in a unified cgroup. */
+                if (!streq(hierarchy_id, "0")) {
+                        log_debug("Cgroup controller %s in use by legacy v1 hierarchy.", name);
+                        return 1;
+                }
+        }
+
+        return 0;
+}
 
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
@@ -44,6 +105,10 @@ bool cg_is_unified_wanted(void) {
         r = proc_cmdline_get_key("cgroup_no_v1", 0, &c);
         if (r > 0 && streq_ptr(c, "all"))
                 return (wanted = true);
+
+        /* If any controller is in use as v1, don't use unified. */
+        if (cg_any_controller_used_for_v1() > 0)
+                return (wanted = false);
 
         return (wanted = is_default);
 }
@@ -149,19 +214,23 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         return 0;
 }
 
-static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-        assert(path);
-        assert(sb);
-        assert(ftwbuf);
+static int trim_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
 
-        if (typeflag != FTW_DP)
-                return 0;
+        /* Failures to delete inner cgroup we ignore (but debug log in case error code is unexpected) */
+        if (event == RECURSE_DIR_LEAVE &&
+            de->d_type == DT_DIR &&
+            unlinkat(dir_fd, de->d_name, AT_REMOVEDIR) < 0 &&
+            !IN_SET(errno, ENOENT, ENOTEMPTY, EBUSY))
+                log_debug_errno(errno, "Failed to trim inner cgroup %s, ignoring: %m", path);
 
-        if (ftwbuf->level < 1)
-                return 0;
-
-        (void) rmdir(path);
-        return 0;
+        return RECURSE_DIR_CONTINUE;
 }
 
 int cg_trim(const char *controller, const char *path, bool delete_root) {
@@ -169,32 +238,41 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         int r, q;
 
         assert(path);
+        assert(controller);
 
         r = cg_get_path(controller, path, NULL, &fs);
         if (r < 0)
                 return r;
 
-        errno = 0;
-        if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
-                if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = errno_or_else(EIO);
-        }
+        r = recurse_dir_at(
+                        AT_FDCWD,
+                        fs,
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ UINT_MAX,
+                        RECURSE_DIR_ENSURE_TYPE,
+                        trim_cb,
+                        NULL);
+        if (r == -ENOENT) /* non-existing is the ultimate trimming, hence no error */
+                r = 0;
+        else if (r < 0)
+                log_debug_errno(r, "Failed to iterate through cgroup %s: %m", path);
 
-        if (delete_root) {
-                if (rmdir(fs) < 0 && errno != ENOENT)
-                        return -errno;
+        /* If we shall delete the top-level cgroup, then propagate the faiure to do so (except if it is
+         * already gone anyway). Also, let's debug log about this failure, except if the error code is an
+         * expected one. */
+        if (delete_root && !empty_or_root(path) &&
+            rmdir(fs) < 0 && errno != ENOENT) {
+                if (!IN_SET(errno, ENOTEMPTY, EBUSY))
+                        log_debug_errno(errno, "Failed to trim cgroup %s: %m", path);
+                if (r >= 0)
+                        r = -errno;
         }
 
         q = cg_hybrid_unified();
         if (q < 0)
                 return q;
-        if (q > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                q = cg_trim(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, delete_root);
-                if (q < 0)
-                        log_warning_errno(q, "Failed to trim compat systemd cgroup %s: %m", path);
-        }
+        if (q > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, delete_root);
 
         return r;
 }
@@ -214,7 +292,7 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        r = mkdir_errno_wrapper(fs, 0755);
+        r = RET_NERRNO(mkdir(fs, 0755));
         if (r == -EEXIST)
                 return 0;
         if (r < 0)

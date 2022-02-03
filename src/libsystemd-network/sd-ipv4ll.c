@@ -15,7 +15,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
-#include "log-link.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
@@ -46,21 +46,25 @@ struct sd_ipv4ll {
         be32_t claimed_address;
 
         sd_ipv4ll_callback_t callback;
-        void* userdata;
+        void *userdata;
+
+        sd_ipv4ll_check_mac_callback_t check_mac_callback;
+        void *check_mac_userdata;
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...)           \
         log_interface_prefix_full_errno(                \
                 "IPv4LL: ",                             \
-                sd_ipv4ll_get_ifname(ll),               \
+                sd_ipv4ll, ll,                          \
                 error, fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...)                        \
         log_interface_prefix_full_errno_zerook(         \
                 "IPv4LL: ",                             \
-                sd_ipv4ll_get_ifname(ll),               \
+                sd_ipv4ll, ll,                          \
                 0, fmt, ##__VA_ARGS__)
 
-static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
+static void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata);
+static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata);
 
 static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
         assert(ll);
@@ -88,6 +92,10 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
                 return r;
 
         r = sd_ipv4acd_set_callback(ll->acd, ipv4ll_on_acd, ll);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_check_mac_callback(ll->acd, ipv4ll_check_mac, ll);
         if (r < 0)
                 return r;
 
@@ -125,11 +133,10 @@ int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *ifname) {
         return sd_ipv4acd_set_ifname(ll->acd, ifname);
 }
 
-const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
+int sd_ipv4ll_get_ifname(sd_ipv4ll *ll, const char **ret) {
+        assert_return(ll, -EINVAL);
 
-        return sd_ipv4acd_get_ifname(ll->acd);
+        return sd_ipv4acd_get_ifname(ll->acd, ret);
 }
 
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
@@ -137,7 +144,7 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
 
         assert_return(ll, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
 
         r = sd_ipv4acd_set_mac(ll->acd, addr);
         if (r < 0)
@@ -164,6 +171,15 @@ int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdat
 
         ll->callback = cb;
         ll->userdata = userdata;
+
+        return 0;
+}
+
+int sd_ipv4ll_set_check_mac_callback(sd_ipv4ll *ll, sd_ipv4ll_check_mac_callback_t cb, void *userdata) {
+        assert_return(ll, -EINVAL);
+
+        ll->check_mac_callback = cb;
+        ll->check_mac_userdata = userdata;
 
         return 0;
 }
@@ -343,11 +359,22 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 break;
 
         default:
-                assert_not_reached("Invalid IPv4ACD event.");
+                assert_not_reached();
         }
 
         return;
 
 error:
         ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_STOP);
+}
+
+static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
+        sd_ipv4ll *ll = userdata;
+
+        assert(ll);
+
+        if (ll->check_mac_callback)
+                return ll->check_mac_callback(ll, mac, ll->check_mac_userdata);
+
+        return 0;
 }

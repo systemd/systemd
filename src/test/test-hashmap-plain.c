@@ -10,13 +10,9 @@
 #include "time-util.h"
 #include "tests.h"
 
-void test_hashmap_funcs(void);
-
-static void test_hashmap_replace(void) {
+TEST(hashmap_replace) {
         Hashmap *m;
         char *val1, *val2, *val3, *val4, *val5, *r;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
 
@@ -52,11 +48,9 @@ static void test_hashmap_replace(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_copy(void) {
+TEST(hashmap_copy) {
         Hashmap *m, *copy;
         char *val1, *val2, *val3, *val4, *r;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("val1");
         assert_se(val1);
@@ -89,12 +83,10 @@ static void test_hashmap_copy(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_get_strv(void) {
+TEST(hashmap_get_strv) {
         Hashmap *m;
         char **strv;
         char *val1, *val2, *val3, *val4;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("val1");
         assert_se(val1);
@@ -128,11 +120,9 @@ static void test_hashmap_get_strv(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_move_one(void) {
+TEST(hashmap_move_one) {
         Hashmap *m, *n;
         char *val1, *val2, *val3, *val4, *r;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("val1");
         assert_se(val1);
@@ -169,11 +159,9 @@ static void test_hashmap_move_one(void) {
         hashmap_free_free(n);
 }
 
-static void test_hashmap_move(void) {
+TEST(hashmap_move) {
         Hashmap *m, *n;
         char *val1, *val2, *val3, *val4, *r;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("val1");
         assert_se(val1);
@@ -213,11 +201,9 @@ static void test_hashmap_move(void) {
         hashmap_free_free(n);
 }
 
-static void test_hashmap_update(void) {
+TEST(hashmap_update) {
         Hashmap *m;
         char *val1, *val2, *r;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         val1 = strdup("old_value");
@@ -242,14 +228,12 @@ static void test_hashmap_update(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_put(void) {
+TEST(hashmap_put) {
         Hashmap *m = NULL;
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
         void *val2 = (void*) "val 2";
         _cleanup_free_ char* key1 = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) == 1);
         assert_se(m);
@@ -265,11 +249,9 @@ static void test_hashmap_put(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_remove(void) {
+TEST(hashmap_remove1) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char *r;
-
-        log_info("/* %s */", __func__);
 
         r = hashmap_remove(NULL, "key 1");
         assert_se(r == NULL);
@@ -291,15 +273,13 @@ static void test_hashmap_remove(void) {
         assert_se(!hashmap_get(m, "key 1"));
 }
 
-static void test_hashmap_remove2(void) {
+TEST(hashmap_remove2) {
         _cleanup_hashmap_free_free_free_ Hashmap *m = NULL;
         char key1[] = "key 1";
         char key2[] = "key 2";
         char val1[] = "val 1";
         char val2[] = "val 2";
         void *r, *r2;
-
-        log_info("/* %s */", __func__);
 
         r = hashmap_remove2(NULL, "key 1", &r2);
         assert_se(r == NULL);
@@ -324,14 +304,12 @@ static void test_hashmap_remove2(void) {
         assert_se(!hashmap_get(m, key1));
 }
 
-static void test_hashmap_remove_value(void) {
+TEST(hashmap_remove_value) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char *r;
 
         char val1[] = "val 1";
         char val2[] = "val 2";
-
-        log_info("/* %s */", __func__);
 
         r = hashmap_remove_value(NULL, "key 1", val1);
         assert_se(r == NULL);
@@ -360,12 +338,10 @@ static void test_hashmap_remove_value(void) {
         assert_se(!hashmap_get(m, "key 1"));
 }
 
-static void test_hashmap_remove_and_put(void) {
+TEST(hashmap_remove_and_put) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         int valid;
         char *r;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -392,7 +368,7 @@ static void test_hashmap_remove_and_put(void) {
         assert_se(valid == -EEXIST);
 }
 
-static void test_hashmap_remove_and_replace(void) {
+TEST(hashmap_remove_and_replace) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         int valid;
         void *key1 = UINT_TO_PTR(1);
@@ -400,8 +376,6 @@ static void test_hashmap_remove_and_replace(void) {
         void *key3 = UINT_TO_PTR(3);
         void *r;
         int i, j;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&trivial_hash_ops);
         assert_se(m);
@@ -450,11 +424,9 @@ static void test_hashmap_remove_and_replace(void) {
         }
 }
 
-static void test_hashmap_ensure_allocated(void) {
+TEST(hashmap_ensure_allocated) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         int r;
-
-        log_info("/* %s */", __func__);
 
         r = hashmap_ensure_allocated(&m, &string_hash_ops);
         assert_se(r == 1);
@@ -467,7 +439,7 @@ static void test_hashmap_ensure_allocated(void) {
         assert_se(r == 0);
 }
 
-static void test_hashmap_foreach_key(void) {
+TEST(hashmap_foreach_key) {
         Hashmap *m;
         bool key_found[] = { false, false, false, false };
         const char *s;
@@ -478,15 +450,13 @@ static void test_hashmap_foreach_key(void) {
                 "key 3\0"
                 "key 4\0";
 
-        log_info("/* %s */", __func__);
-
         m = hashmap_new(&string_hash_ops);
 
         NULSTR_FOREACH(key, key_table)
                 hashmap_put(m, key, (void*) (const char*) "my dummy val");
 
         HASHMAP_FOREACH_KEY(s, key, m) {
-                assert(s);
+                assert_se(s);
                 if (!key_found[0] && streq(key, "key 1"))
                         key_found[0] = true;
                 else if (!key_found[1] && streq(key, "key 2"))
@@ -503,13 +473,11 @@ static void test_hashmap_foreach_key(void) {
         hashmap_free(m);
 }
 
-static void test_hashmap_foreach(void) {
+TEST(hashmap_foreach) {
         Hashmap *m;
         bool value_found[] = { false, false, false, false };
         char *val1, *val2, *val3, *val4, *s;
         unsigned count;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("my val1");
         assert_se(val1);
@@ -556,11 +524,9 @@ static void test_hashmap_foreach(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_merge(void) {
+TEST(hashmap_merge) {
         Hashmap *m, *n;
         char *val1, *val2, *val3, *val4, *r;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("my val1");
         assert_se(val1);
@@ -591,11 +557,9 @@ static void test_hashmap_merge(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_contains(void) {
+TEST(hashmap_contains) {
         Hashmap *m;
         char *val1;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("my val");
         assert_se(val1);
@@ -613,11 +577,9 @@ static void test_hashmap_contains(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_isempty(void) {
+TEST(hashmap_isempty) {
         Hashmap *m;
         char *val1;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("my val");
         assert_se(val1);
@@ -632,11 +594,9 @@ static void test_hashmap_isempty(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_size(void) {
+TEST(hashmap_size) {
         Hashmap *m;
         char *val1, *val2, *val3, *val4;
-
-        log_info("/* %s */", __func__);
 
         val1 = strdup("my val");
         assert_se(val1);
@@ -663,12 +623,10 @@ static void test_hashmap_size(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_get(void) {
+TEST(hashmap_get) {
         Hashmap *m;
         char *r;
         char *val;
-
-        log_info("/* %s */", __func__);
 
         val = strdup("my val");
         assert_se(val);
@@ -690,14 +648,12 @@ static void test_hashmap_get(void) {
         hashmap_free_free(m);
 }
 
-static void test_hashmap_get2(void) {
+TEST(hashmap_get2) {
         Hashmap *m;
         char *r;
         char *val;
         char key_orig[] = "Key 1";
         void *key_copy;
-
-        log_info("/* %s */", __func__);
 
         val = strdup("my val");
         assert_se(val);
@@ -734,7 +690,7 @@ static const struct hash_ops crippled_hashmap_ops = {
         .compare = trivial_compare_func,
 };
 
-static void test_hashmap_many(void) {
+TEST(hashmap_many) {
         Hashmap *h;
         unsigned i, j;
         void *v, *k;
@@ -752,7 +708,6 @@ static void test_hashmap_many(void) {
 
         for (j = 0; j < ELEMENTSOF(tests); j++) {
                 usec_t ts = now(CLOCK_MONOTONIC), n;
-                char b[FORMAT_TIMESPAN_MAX];
 
                 assert_se(h = hashmap_new(tests[j].ops));
 
@@ -779,18 +734,17 @@ static void test_hashmap_many(void) {
                 hashmap_free(h);
 
                 n = now(CLOCK_MONOTONIC);
-                log_info("test took %s", format_timespan(b, sizeof b, n - ts, 0));
+                log_info("test took %s", FORMAT_TIMESPAN(n - ts, 0));
         }
 }
 
 extern unsigned custom_counter;
 extern const struct hash_ops boring_hash_ops, custom_hash_ops;
 
-static void test_hashmap_free(void) {
+TEST(hashmap_free) {
         Hashmap *h;
         bool slow = slow_tests_enabled();
         usec_t ts, n;
-        char b[FORMAT_TIMESPAN_MAX];
         unsigned n_entries = slow ? 1 << 20 : 240;
 
         const struct {
@@ -824,7 +778,7 @@ static void test_hashmap_free(void) {
                 hashmap_free(h);
 
                 n = now(CLOCK_MONOTONIC);
-                log_info("%s test took %s", tests[j].title, format_timespan(b, sizeof b, n - ts, 0));
+                log_info("%s test took %s", tests[j].title, FORMAT_TIMESPAN(n - ts, 0));
 
                 assert_se(custom_counter == tests[j].expect_counter);
         }
@@ -837,12 +791,10 @@ static void item_seen(Item *item) {
         item->seen++;
 }
 
-static void test_hashmap_free_with_destructor(void) {
+TEST(hashmap_free_with_destructor) {
         Hashmap *m;
         struct Item items[4] = {};
         unsigned i;
-
-        log_info("/* %s */", __func__);
 
         assert_se(m = hashmap_new(NULL));
         for (i = 0; i < ELEMENTSOF(items) - 1; i++)
@@ -855,10 +807,8 @@ static void test_hashmap_free_with_destructor(void) {
         assert_se(items[3].seen == 0);
 }
 
-static void test_hashmap_first(void) {
+TEST(hashmap_first) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -874,10 +824,8 @@ static void test_hashmap_first(void) {
 #endif
 }
 
-static void test_hashmap_first_key(void) {
+TEST(hashmap_first_key) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -893,10 +841,8 @@ static void test_hashmap_first_key(void) {
 #endif
 }
 
-static void test_hashmap_steal_first_key(void) {
+TEST(hashmap_steal_first_key) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -908,12 +854,10 @@ static void test_hashmap_steal_first_key(void) {
         assert_se(hashmap_isempty(m));
 }
 
-static void test_hashmap_steal_first(void) {
+TEST(hashmap_steal_first) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         int seen[3] = {};
         char *val;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -930,10 +874,8 @@ static void test_hashmap_steal_first(void) {
         assert_se(hashmap_isempty(m));
 }
 
-static void test_hashmap_clear_free_free(void) {
+TEST(hashmap_clear_free_free) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -956,10 +898,8 @@ static void test_hashmap_clear_free_free(void) {
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(test_hash_ops_key, char, string_hash_func, string_compare_func, free);
 DEFINE_PRIVATE_HASH_OPS_FULL(test_hash_ops_full, char, string_hash_func, string_compare_func, free, char, free);
 
-static void test_hashmap_clear_free_with_destructor(void) {
+TEST(hashmap_clear_free_with_destructor) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&test_hash_ops_key);
         assert_se(m);
@@ -983,10 +923,8 @@ static void test_hashmap_clear_free_with_destructor(void) {
         assert_se(hashmap_isempty(m));
 }
 
-static void test_hashmap_reserve(void) {
+TEST(hashmap_reserve) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-
-        log_info("/* %s */", __func__);
 
         m = hashmap_new(&string_hash_ops);
 
@@ -1002,10 +940,8 @@ static void test_hashmap_reserve(void) {
         assert_se(hashmap_reserve(m, UINT_MAX - 1) == -ENOMEM);
 }
 
-static void test_path_hashmap(void) {
+TEST(path_hashmap) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(h = hashmap_new(&path_hash_ops));
 
@@ -1014,8 +950,11 @@ static void test_path_hashmap(void) {
         assert_se(hashmap_put(h, "//foo", INT_TO_PTR(3)) == -EEXIST);
         assert_se(hashmap_put(h, "//foox/", INT_TO_PTR(4)) >= 0);
         assert_se(hashmap_put(h, "/foox////", INT_TO_PTR(5)) == -EEXIST);
+        assert_se(hashmap_put(h, "//././/foox//.//.", INT_TO_PTR(5)) == -EEXIST);
         assert_se(hashmap_put(h, "foo//////bar/quux//", INT_TO_PTR(6)) >= 0);
         assert_se(hashmap_put(h, "foo/bar//quux/", INT_TO_PTR(8)) == -EEXIST);
+        assert_se(hashmap_put(h, "foo./ba.r//.quux/", INT_TO_PTR(9)) >= 0);
+        assert_se(hashmap_put(h, "foo./ba.r//.//.quux///./", INT_TO_PTR(10)) == -EEXIST);
 
         assert_se(hashmap_get(h, "foo") == INT_TO_PTR(1));
         assert_se(hashmap_get(h, "foo/") == INT_TO_PTR(1));
@@ -1024,19 +963,19 @@ static void test_path_hashmap(void) {
         assert_se(hashmap_get(h, "//foo") == INT_TO_PTR(2));
         assert_se(hashmap_get(h, "/////foo////") == INT_TO_PTR(2));
         assert_se(hashmap_get(h, "/////foox////") == INT_TO_PTR(4));
+        assert_se(hashmap_get(h, "/.///./foox//.//") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox/") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox") == INT_TO_PTR(4));
         assert_se(!hashmap_get(h, "foox"));
         assert_se(hashmap_get(h, "foo/bar/quux") == INT_TO_PTR(6));
         assert_se(hashmap_get(h, "foo////bar////quux/////") == INT_TO_PTR(6));
         assert_se(!hashmap_get(h, "/foo////bar////quux/////"));
+        assert_se(hashmap_get(h, "foo././//ba.r////.quux///.//.") == INT_TO_PTR(9));
 }
 
-static void test_string_strv_hashmap(void) {
+TEST(string_strv_hashmap) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         char **s;
-
-        log_info("/* %s */", __func__);
 
         assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 1);
         assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 0);
@@ -1059,40 +998,8 @@ static void test_string_strv_hashmap(void) {
         assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
 }
 
-void test_hashmap_funcs(void) {
-        log_info("/************ %s ************/", __func__);
-
-        test_hashmap_copy();
-        test_hashmap_get_strv();
-        test_hashmap_move_one();
-        test_hashmap_move();
-        test_hashmap_replace();
-        test_hashmap_update();
-        test_hashmap_put();
-        test_hashmap_remove();
-        test_hashmap_remove2();
-        test_hashmap_remove_value();
-        test_hashmap_remove_and_put();
-        test_hashmap_remove_and_replace();
-        test_hashmap_ensure_allocated();
-        test_hashmap_foreach();
-        test_hashmap_foreach_key();
-        test_hashmap_contains();
-        test_hashmap_merge();
-        test_hashmap_isempty();
-        test_hashmap_get();
-        test_hashmap_get2();
-        test_hashmap_size();
-        test_hashmap_many();
-        test_hashmap_free();
-        test_hashmap_free_with_destructor();
-        test_hashmap_first();
-        test_hashmap_first_key();
-        test_hashmap_steal_first_key();
-        test_hashmap_steal_first();
-        test_hashmap_clear_free_free();
-        test_hashmap_clear_free_with_destructor();
-        test_hashmap_reserve();
-        test_path_hashmap();
-        test_string_strv_hashmap();
+/* Signal to test-hashmap.c that tests from this compilation unit were run. */
+extern int n_extern_tests_run;
+TEST(ensure_extern_hashmap_tests) {
+        n_extern_tests_run++;
 }

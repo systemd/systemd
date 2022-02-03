@@ -24,7 +24,8 @@ libmachine_core = static_library(
         'machine-core',
         libmachine_core_sources,
         include_directories : includes,
-        dependencies : [threads])
+        dependencies : threads,
+        build_by_default : false)
 
 if conf.get('ENABLE_MACHINED') == 1
         install_data('org.freedesktop.machine1.conf',
@@ -36,7 +37,7 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 tests += [
-        [['src/machine/test-machine-tables.c'],
+        [files('test-machine-tables.c'),
          [libmachine_core,
           libshared],
          [threads]],

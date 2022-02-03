@@ -17,11 +17,14 @@ PrivateKey=
 PrivateKeyFile=
 FwMark=
 FirewallMark=
+RouteTable=
+RouteMetric=
 [MACVTAP]
 Mode=
 SourceMACAddress=
 [Match]
 Architecture=
+Firmware=
 Host=
 KernelVersion=
 Virtualization=
@@ -66,6 +69,8 @@ PresharedKeyFile=
 PersistentKeepalive=
 PublicKey=
 AllowedIPs=
+RouteTable=
+RouteMetric=
 [Tunnel]
 FooOverUDP=
 IPv6FlowLabel=
@@ -233,4 +238,10 @@ HopPenalty=
 OriginatorIntervalSec=
 GatewayBandwithDown=
 GatewayBandwithUp=
+GatewayBandwidthDown=
+GatewayBandwidthUp=
 RoutingAlgorithm=
+[IPoIB]
+PartitionKey=
+Mode=
+IgnoreUserspaceMulticastGroups=

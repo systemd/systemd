@@ -20,6 +20,7 @@
 #include <asm/sgidefs.h>
 #endif
 
+#include "macro.h"
 #include "missing_keyctl.h"
 #include "missing_stat.h"
 #include "missing_syscall_def.h"
@@ -41,6 +42,26 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 
 /* ======================================================================= */
 
+#if !HAVE_IOPRIO_GET
+static inline int missing_ioprio_get(int which, int who) {
+        return syscall(__NR_ioprio_get, which, who);
+}
+
+#  define ioprio_get missing_ioprio_get
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_IOPRIO_SET
+static inline int missing_ioprio_set(int which, int who, int ioprio) {
+        return syscall(__NR_ioprio_set, which, who, ioprio);
+}
+
+#  define ioprio_set missing_ioprio_set
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_MEMFD_CREATE
 static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #  ifdef __NR_memfd_create
@@ -57,7 +78,8 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 /* ======================================================================= */
 
 #if !HAVE_GETRANDOM
-static inline int missing_getrandom(void *buffer, size_t count, unsigned flags) {
+/* glibc says getrandom() returns ssize_t */
+static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
 #  ifdef __NR_getrandom
         return syscall(__NR_getrandom, buffer, count, flags);
 #  else
@@ -424,4 +446,159 @@ static inline int missing_epoll_pwait2(
 }
 
 #  define epoll_pwait2 missing_epoll_pwait2
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOUNT_SETATTR
+
+#if !HAVE_STRUCT_MOUNT_ATTR
+struct mount_attr {
+        uint64_t attr_set;
+        uint64_t attr_clr;
+        uint64_t propagation;
+        uint64_t userns_fd;
+};
+#else
+struct mount_attr;
+#endif
+
+#ifndef MOUNT_ATTR_RDONLY
+#define MOUNT_ATTR_RDONLY       0x00000001 /* Mount read-only */
+#endif
+
+#ifndef MOUNT_ATTR_NOSUID
+#define MOUNT_ATTR_NOSUID       0x00000002 /* Ignore suid and sgid bits */
+#endif
+
+#ifndef MOUNT_ATTR_NODEV
+#define MOUNT_ATTR_NODEV        0x00000004 /* Disallow access to device special files */
+#endif
+
+#ifndef MOUNT_ATTR_NOEXEC
+#define MOUNT_ATTR_NOEXEC       0x00000008 /* Disallow program execution */
+#endif
+
+#ifndef MOUNT_ATTR__ATIME
+#define MOUNT_ATTR__ATIME       0x00000070 /* Setting on how atime should be updated */
+#endif
+
+#ifndef MOUNT_ATTR_RELATIME
+#define MOUNT_ATTR_RELATIME     0x00000000 /* - Update atime relative to mtime/ctime. */
+#endif
+
+#ifndef MOUNT_ATTR_NOATIME
+#define MOUNT_ATTR_NOATIME      0x00000010 /* - Do not update access times. */
+#endif
+
+#ifndef MOUNT_ATTR_STRICTATIME
+#define MOUNT_ATTR_STRICTATIME  0x00000020 /* - Always perform atime updates */
+#endif
+
+#ifndef MOUNT_ATTR_NODIRATIME
+#define MOUNT_ATTR_NODIRATIME   0x00000080 /* Do not update directory access times */
+#endif
+
+#ifndef MOUNT_ATTR_IDMAP
+#define MOUNT_ATTR_IDMAP        0x00100000 /* Idmap mount to @userns_fd in struct mount_attr. */
+#endif
+
+#ifndef MOUNT_ATTR_NOSYMFOLLOW
+#define MOUNT_ATTR_NOSYMFOLLOW  0x00200000 /* Do not follow symlinks */
+#endif
+
+#ifndef MOUNT_ATTR_SIZE_VER0
+#define MOUNT_ATTR_SIZE_VER0    32 /* sizeof first published struct */
+#endif
+
+#ifndef AT_RECURSIVE
+#define AT_RECURSIVE 0x8000
+#endif
+
+static inline int missing_mount_setattr(
+                int dfd,
+                const char *path,
+                unsigned flags,
+                struct mount_attr *attr,
+                size_t size) {
+
+#  if defined __NR_mount_setattr && __NR_mount_setattr >= 0
+        return syscall(__NR_mount_setattr, dfd, path, flags, attr, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define mount_setattr missing_mount_setattr
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_OPEN_TREE
+
+#ifndef OPEN_TREE_CLONE
+#define OPEN_TREE_CLONE 1
+#endif
+
+#ifndef OPEN_TREE_CLOEXEC
+#define OPEN_TREE_CLOEXEC O_CLOEXEC
+#endif
+
+static inline int missing_open_tree(
+                int dfd,
+                const char *filename,
+                unsigned flags) {
+
+#  if defined __NR_open_tree && __NR_open_tree >= 0
+        return syscall(__NR_open_tree, dfd, filename, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define open_tree missing_open_tree
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOVE_MOUNT
+
+#ifndef MOVE_MOUNT_F_EMPTY_PATH
+#define MOVE_MOUNT_F_EMPTY_PATH 0x00000004 /* Empty from path permitted */
+#endif
+
+static inline int missing_move_mount(
+                int from_dfd,
+                const char *from_pathname,
+                int to_dfd,
+                const char *to_pathname,
+                unsigned flags) {
+
+#  if defined __NR_move_mount && __NR_move_mount >= 0
+        return syscall(__NR_move_mount, from_dfd, from_pathname, to_dfd, to_pathname, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define move_mount missing_move_mount
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_GETDENTS64
+
+static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
+#  if defined __NR_getdents64 && __NR_getdents64 >= 0
+        return syscall(__NR_getdents64, fd, buffer, length);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define getdents64 missing_getdents64
 #endif

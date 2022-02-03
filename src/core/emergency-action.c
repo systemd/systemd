@@ -146,7 +146,7 @@ void emergency_action(
                 break;
 
         default:
-                assert_not_reached("Unknown emergency action");
+                assert_not_reached();
         }
 }
 

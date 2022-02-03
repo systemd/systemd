@@ -8,44 +8,10 @@
 #include <efilib.h>
 
 #include "graphics.h"
+#include "missing_efi.h"
 #include "util.h"
 
-#define EFI_CONSOLE_CONTROL_GUID \
-        &(EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
-
 EFI_STATUS graphics_mode(BOOLEAN on) {
-
-        struct _EFI_CONSOLE_CONTROL_PROTOCOL;
-
-        typedef enum {
-                EfiConsoleControlScreenText,
-                EfiConsoleControlScreenGraphics,
-                EfiConsoleControlScreenMaxValue,
-        } EFI_CONSOLE_CONTROL_SCREEN_MODE;
-
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                EFI_CONSOLE_CONTROL_SCREEN_MODE *Mode,
-                BOOLEAN *UgaExists,
-                BOOLEAN *StdInLocked
-        );
-
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                EFI_CONSOLE_CONTROL_SCREEN_MODE Mode
-        );
-
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                CHAR16 *Password
-        );
-
-        typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
-                EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE GetMode;
-                EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE SetMode;
-                EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN LockStdIn;
-        } EFI_CONSOLE_CONTROL_PROTOCOL;
-
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
         EFI_CONSOLE_CONTROL_SCREEN_MODE new;
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
@@ -53,13 +19,13 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         BOOLEAN stdin_locked;
         EFI_STATUS err;
 
-        err = LibLocateProtocol(EFI_CONSOLE_CONTROL_GUID, (VOID **)&ConsoleControl);
+        err = LibLocateProtocol((EFI_GUID*) EFI_CONSOLE_CONTROL_GUID, (void **)&ConsoleControl);
         if (EFI_ERROR(err))
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
 
         /* check current mode */
-        err = uefi_call_wrapper(ConsoleControl->GetMode, 4, ConsoleControl, &current, &uga_exists, &stdin_locked);
+        err =ConsoleControl->GetMode(ConsoleControl, &current, &uga_exists, &stdin_locked);
         if (EFI_ERROR(err))
                 return err;
 
@@ -68,10 +34,10 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         if (new == current)
                 return EFI_SUCCESS;
 
-        err = uefi_call_wrapper(ConsoleControl->SetMode, 2, ConsoleControl, new);
+        err =ConsoleControl->SetMode(ConsoleControl, new);
 
         /* some firmware enables the cursor when switching modes */
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
+        ST->ConOut->EnableCursor(ST->ConOut, FALSE);
 
         return err;
 }

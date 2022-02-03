@@ -34,7 +34,7 @@ int add_dependency(int argc, char *argv[], void *userdata) {
         else if (streq(verb, "add-requires"))
                 dep = UNIT_REQUIRES;
         else
-                assert_not_reached("Unknown verb");
+                assert_not_reached();
 
         if (install_client_side()) {
                 r = unit_file_add_dependency(arg_scope, unit_file_flags_from_args(), arg_root, names, target, dep, &changes, &n_changes);

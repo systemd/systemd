@@ -3,6 +3,17 @@
 
 #include "macro.h"
 
+typedef enum Fido2EnrollFlags {
+        FIDO2ENROLL_PIN           = 1 << 0,
+        FIDO2ENROLL_UP            = 1 << 1, /* User presence (ie: touching token) */
+        FIDO2ENROLL_UV            = 1 << 2, /* User verification (ie: fingerprint) */
+        FIDO2ENROLL_PIN_IF_NEEDED = 1 << 3, /* If auth doesn't work without PIN ask for one, as in systemd 248 */
+        FIDO2ENROLL_UP_IF_NEEDED  = 1 << 4, /* If auth doesn't work without UP, enable it, as in systemd 248 */
+        FIDO2ENROLL_UV_OMIT       = 1 << 5, /* Leave "uv" untouched, as in systemd 248 */
+        _FIDO2ENROLL_TYPE_MAX,
+        _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
+} Fido2EnrollFlags;
+
 #if HAVE_LIBFIDO2
 #include <fido.h>
 
@@ -16,6 +27,7 @@ extern int (*sym_fido_assert_set_extensions)(fido_assert_t *, int);
 extern int (*sym_fido_assert_set_hmac_salt)(fido_assert_t *, const unsigned char *, size_t);
 extern int (*sym_fido_assert_set_rp)(fido_assert_t *, const char *);
 extern int (*sym_fido_assert_set_up)(fido_assert_t *, fido_opt_t);
+extern int (*sym_fido_assert_set_uv)(fido_assert_t *, fido_opt_t);
 extern size_t (*sym_fido_cbor_info_extensions_len)(const fido_cbor_info_t *);
 extern char **(*sym_fido_cbor_info_extensions_ptr)(const fido_cbor_info_t *);
 extern void (*sym_fido_cbor_info_free)(fido_cbor_info_t **);
@@ -48,6 +60,7 @@ extern bool (*sym_fido_dev_is_fido2)(const fido_dev_t *);
 extern int (*sym_fido_dev_make_cred)(fido_dev_t *, fido_cred_t *, const char *);
 extern fido_dev_t* (*sym_fido_dev_new)(void);
 extern int (*sym_fido_dev_open)(fido_dev_t *, const char *);
+extern int (*sym_fido_dev_close)(fido_dev_t *);
 extern const char* (*sym_fido_strerr)(int);
 
 int dlopen_libfido2(void);
@@ -63,8 +76,10 @@ static inline void fido_assert_free_wrapper(fido_assert_t **p) {
 }
 
 static inline void fido_dev_free_wrapper(fido_dev_t **p) {
-        if (*p)
+        if (*p) {
+                sym_fido_dev_close(*p);
                 sym_fido_dev_free(p);
+        }
 }
 
 static inline void fido_cred_free_wrapper(fido_cred_t **p) {
@@ -80,7 +95,7 @@ int fido2_use_hmac_hash(
                 const void *cid,
                 size_t cid_size,
                 char **pins,
-                bool up, /* user presence permitted */
+                Fido2EnrollFlags required,
                 void **ret_hmac,
                 size_t *ret_hmac_size);
 
@@ -93,12 +108,16 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                Fido2EnrollFlags lock_with,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
-                char **ret_usedpin);
+                char **ret_usedpin,
+                Fido2EnrollFlags *ret_locked_with);
 
 #endif
 
 int fido2_list_devices(void);
 int fido2_find_device_auto(char **ret);
+
+int fido2_have_device(const char *device);

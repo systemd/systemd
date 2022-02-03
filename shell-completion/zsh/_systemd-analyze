@@ -1,30 +1,9 @@
-#compdef systemd-analyze                    -*- shell-script -*-
+#compdef systemd-analyze
 # SPDX-License-Identifier: LGPL-2.1-or-later
-
-(( $+functions[_systemd-analyze_log-level] )) ||
-    _systemd-analyze_log-level() {
-        local -a _levels
-        _levels=(debug info notice warning err crit alert emerg)
-        _describe -t level 'logging level' _levels || compadd "$@"
-    }
-
-(( $+functions[_systemd-analyze_log-target] )) ||
-    _systemd-analyze_log-target() {
-        local -a _targets
-        _targets=(console journal kmsg journal-or-kmsg null)
-        _describe -t target 'logging target' _targets || compadd "$@"
-    }
 
 (( $+functions[_systemd-analyze_verify] )) ||
     _systemd-analyze_verify() {
         _sd_unit_files
-    }
-
-(( $+functions[_systemd-analyze_service-watchdogs] )) ||
-    _systemd-analyze_service-watchdogs() {
-        local -a _states
-        _states=(on off)
-        _describe -t state 'state' _states || compadd "$@"
     }
 
 (( $+functions[_systemd-analyze_cat-config] )) ||
@@ -32,9 +11,33 @@
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 
+(( $+functions[_systemd-analyze_critical-chain] )) ||
+    _systemd-analyze_critical-chain() {
+        local -a _units
+        systemctl list-units --no-legend --no-pager --plain --all |
+        while read -r a b c; do
+            _units+=($a)
+        done
+        compadd -a _units
+    }
+
 (( $+functions[_systemd-analyze_security] )) ||
     _systemd-analyze_security() {
         _sd_unit_files
+    }
+
+(( $+functions[_systemd-analyze_syscall-filter] )) ||
+    _systemd-analyze_syscall-filter() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager syscall-filter | grep '^@') )
+        _describe -t groups 'syscall groups' _groups || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_filesystems] )) ||
+    _systemd-analyze_filesystems() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager filesystems | grep '^@') )
+        _describe -t groups 'file system groups' _groups || compadd "$@"
     }
 
 (( $+functions[_systemd-analyze_commands] )) ||
@@ -52,16 +55,17 @@
             'unit-files:List files and symlinks for units'
             'unit-paths:List unit load paths'
             'exit-status:List known exit statuses'
-            'syscall-filter:List syscalls in seccomp filter'
+            'capability:List capability definitions'
+            'syscall-filter:List syscalls in seccomp filters'
+            'filesystems:List known filesystems'
             'condition:Evaluate Condition*= and Assert*= assignments'
             'verify:Check unit files for correctness'
             'calendar:Validate repetitive calendar time events'
             'timestamp:Parse a systemd syntax timestamp'
             'timespan:Parse a systemd syntax timespan'
             'security:Analyze security settings of a service'
-            # 'log-level:Get/set systemd log threshold'
-            # 'log-target:Get/set systemd log target'
-            # 'service-watchdogs:Get/set service watchdog status'
+            'inspect-elf:Parse and print ELF package metadata'
+            # log-level, log-target, service-watchdogs have been deprecated
         )
 
         if (( CURRENT == 1 )); then
@@ -87,8 +91,17 @@ _arguments \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
     '--global[Show global user instance config]' \
+    '--root=[Add support for root argument]:PATH' \
+    '--image=[Add support for discrete images]:PATH' \
+    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
+    '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
+    '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
+    '--security-policy=[Allow user to use customized requirements to compare unit file(s) against]: PATH' \
+    '--json=[Generate a JSON output of the security analysis table]:MODE:(pretty short off)' \
+    '--profile=[Include the specified profile in the security review of the unit(s)]: PATH' \
     '--no-pager[Do not pipe output into a pager]' \
-    '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
+    '--man=[Do (not) check for existence of man pages]:BOOL:(yes no)' \
+    '--generators=[Do (not) run unit generators]:BOOL:(yes no)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
     '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
@@ -96,4 +109,5 @@ _arguments \
     '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
+    '--quiet[Do not show hints]' \
     '*::systemd-analyze commands:_systemd-analyze_commands'

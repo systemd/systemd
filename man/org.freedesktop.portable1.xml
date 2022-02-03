@@ -40,7 +40,7 @@ node /org/freedesktop/portable1 {
     methods:
       GetImage(in  s image,
                out o object);
-      ListImages(out a(ssbtttso) UNNAMED);
+      ListImages(out a(ssbtttso) images);
       GetImageOSRelease(in  s image,
                         out a{ss} os_release);
       GetImageMetadata(in  s image,
@@ -57,6 +57,10 @@ node /org/freedesktop/portable1 {
                                      out a{say} units);
       GetImageState(in  s image,
                     out s state);
+      GetImageStateWithExtensions(in  s image,
+                                  in  as extensions,
+                                  in  t flags,
+                                  out s state);
       AttachImage(in  s image,
                   in  as matches,
                   in  s profile,
@@ -132,6 +136,8 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetImageState()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageStateWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="AttachImage()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachImageWithExtensions()"/>
@@ -187,7 +193,15 @@ node /org/freedesktop/portable1 {
       This method is a superset of <function>GetImageMetadata()</function> with the addition of
       a list of extensions as input parameter, which were overlaid on top of the main
       image via <function>AttachImageWithExtensions()</function>.
-      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+      The <varname>flag</varname> parameter can be used to request that, before the units, the path of
+      each extension and an array of bytes with the content of the respective extension-release file
+      are sent. One such structure will be sent for each extension named in the input arguments. The
+      flag value to enable this functionality is defined as follows:</para>
+
+      <programlisting>
+#define PORTABLE_INSPECT_EXTENSION_RELEASES  (UINT64_C(1) &lt;&lt; 1)
+      </programlisting>
+
 
       <para><function>GetImageState()</function> retrieves the image state as one of the following
       strings:
@@ -206,6 +220,12 @@ node /org/freedesktop/portable1 {
 
         <listitem><para>running-runtime</para></listitem>
       </itemizedlist></para>
+
+      <para><function>GetImageStateWithExtensions()</function> is a superset of
+      <function>GetImageState()</function>, with additional support for a list of extensions
+      as input parameters, which is necessary to query the state in case the image was attached
+      in that particular way. The <varname>flag</varname> parameter is currently unused and
+      reserved for future purposes.</para>
 
       <para><function>AttachImage()</function> attaches a portable image to the system.
       This method takes an image path or name, a list of strings that will be used to search for
@@ -322,7 +342,7 @@ node /org/freedesktop/portable1 {
 node /org/freedesktop/portable1 {
   interface org.freedesktop.portable1.Image {
     methods:
-      GetOSRelease(out a{ss} UNNAMED);
+      GetOSRelease(out a{ss} os_release);
       GetMetadata(in  as matches,
                   out s image,
                   out ay os_release,
@@ -333,7 +353,10 @@ node /org/freedesktop/portable1 {
                                 out s image,
                                 out ay os_release,
                                 out a{say} units);
-      GetState(out s UNNAMED);
+      GetState(out s state);
+      GetStateWithExtensions(in  as extensions,
+                             in  t flags,
+                             out s state);
       Attach(in  as matches,
              in  s profile,
              in  b runtime,
@@ -402,6 +425,8 @@ node /org/freedesktop/portable1 {
 
     <!--method GetState is not documented!-->
 
+    <!--method GetStateWithExtensions is not documented!-->
+
     <!--method Attach is not documented!-->
 
     <!--method AttachWithExtensions is not documented!-->
@@ -433,6 +458,8 @@ node /org/freedesktop/portable1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetMetadataWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetState()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetStateWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Attach()"/>
 

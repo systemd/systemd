@@ -49,9 +49,9 @@ _udevadm() {
         [COMMON]='-h --help -V --version'
         [DEBUG]='-d --debug'
         [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db
-                           -w --wait-for-initialization'
-        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
-        [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon'
+                           -w --wait-for-initialization --value'
+        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file --property'
+        [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
                        -g --tag-match -y --sysname-match --name-match -b --parent-match'
@@ -61,6 +61,7 @@ _udevadm() {
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST]='-a --action -N --resolve-names'
+        [TEST_BUILTIN]='-a --action'
     )
 
     local verbs=(info trigger settle control monitor test-builtin test)
@@ -73,7 +74,7 @@ _udevadm() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         if [[ "$cur" = -* ]]; then
             COMPREPLY=( $(compgen -W '${OPTS[COMMON]} ${OPTS[DEBUG]}' -- "$cur") )
         else
@@ -215,6 +216,16 @@ _udevadm() {
             ;;
 
         'test-builtin')
+            if __contains_word "$prev" ${OPTS[TEST_BUILTIN]}; then
+                case $prev in
+                    -a|--action)
+                        comps=$( udevadm test-builtin --action help )
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
             for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" "${builtins[@]}"; then
                     builtin=${COMP_WORDS[i]}
@@ -225,7 +236,7 @@ _udevadm() {
             if [[ -z $builtin ]]; then
                 comps="${builtins[@]}"
             elif [[ $cur = -* ]]; then
-                comps="${OPTS[COMMON]}"
+                comps="${OPTS[COMMON]} ${OPTS[TEST_BUILTIN]}"
             else
                 comps=$( __get_all_sysdevs )
                 local IFS=$'\n'

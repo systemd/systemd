@@ -2,6 +2,7 @@
 title: Known Environment Variables
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Known Environment Variables
@@ -22,17 +23,17 @@ All tools:
 * `$SYSTEMD_OFFLINE=[0|1]` — if set to `1`, then `systemctl` will refrain from
   talking to PID 1; this has the same effect as the historical detection of
   `chroot()`. Setting this variable to `0` instead has a similar effect as
-  `SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to communicate with PID 1 even
-  if a `chroot()` environment is detected. You almost certainly want to set
-  this to `1` if you maintain a package build system or similar and are trying
-  to use a modern container system and not plain `chroot()`.
+  `$SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to communicate with PID 1
+  even if a `chroot()` environment is detected. You almost certainly want to
+  set this to `1` if you maintain a package build system or similar and are
+  trying to use a modern container system and not plain `chroot()`.
 
 * `$SYSTEMD_IGNORE_CHROOT=1` — if set, don't check whether being invoked in a
   `chroot()` environment. This is particularly relevant for systemctl, as it
   will not alter its behaviour for `chroot()` environments if set. Normally it
   refrains from talking to PID 1 in such a case; turning most operations such
   as `start` into no-ops.  If that's what's explicitly desired, you might
-  consider setting `SYSTEMD_OFFLINE=1`.
+  consider setting `$SYSTEMD_OFFLINE=1`.
 
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
@@ -48,6 +49,10 @@ All tools:
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of `/etc/crypttab`. Only
   useful for debugging. Currently only supported by
   `systemd-cryptsetup-generator`.
+
+* `$SYSTEMD_INTEGRITYTAB` — if set, use this path instead of
+  `/etc/integritytab`. Only useful for debugging. Currently only supported by
+  `systemd-integritysetup-generator`.
 
 * `$SYSTEMD_VERITYTAB` — if set, use this path instead of
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
@@ -95,7 +100,7 @@ All tools:
 * `$SYSTEMD_RDRAND=0` — if set, the RDRAND instruction will never be used,
   even if the CPU supports it.
 
-* `$SYSTEMD_SECCOMP=0` – if set, seccomp filters will not be enforced, even if
+* `$SYSTEMD_SECCOMP=0` — if set, seccomp filters will not be enforced, even if
   support for it is compiled in and available in the kernel.
 
 * `$SYSTEMD_LOG_SECCOMP=1` — if set, system calls blocked by seccomp filtering,
@@ -132,6 +137,12 @@ All tools:
 
 * `$SYSTEMD_NSPAWN_TMPFS_TMP=0` — if set, do not overmount `/tmp/` in the
   container with a tmpfs, but leave the directory from the image in place.
+
+* `$SYSTEMD_SUPPRESS_SYNC=1` — if set, all disk synchronization syscalls are
+  blocked to the container payload (e.g. `sync()`, `fsync()`, `syncfs()`, …)
+  and the `O_SYNC`/`O_DSYNC` flags are made unavailable to `open()` and
+  friends. This is equivalent to passing `--suppress-sync=yes` on the
+  `systemd-nspawn` command line.
 
 `systemd-logind`:
 
@@ -188,7 +199,7 @@ All tools:
 
 `systemd-udevd`:
 
-* `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
+* `$NET_NAMING_SCHEME=` — if set, takes a network naming scheme (i.e. one of
   "v238", "v239", "v240"…, or the special value "latest") as parameter. If
   specified udev's `net_id` builtin will follow the specified naming scheme
   when determining stable network interface names. This may be used to revert
@@ -266,13 +277,13 @@ All tools:
 
 `systemd-firstboot` and `localectl`:
 
-* `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set, non-UTF-8 locales are listed among
+* `$SYSTEMD_LIST_NON_UTF8_LOCALES=1` — if set, non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
 
 `systemd-sysext`:
 
-* `SYSTEMD_SYSEXT_HIERARCHIES` – this variable may be used to override which
+* `$SYSTEMD_SYSEXT_HIERARCHIES` — this variable may be used to override which
   hierarchies are managed by `systemd-sysext`. By default only `/usr/` and
   `/opt/` are managed, and directories may be added or removed to that list by
   setting this environment variable to a colon-separated list of absolute
@@ -283,7 +294,7 @@ All tools:
 
 `systemd-tmpfiles`:
 
-* `SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
+* `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
   subvolumes only if the OS itself is installed into a subvolume. If set to `1`
   (or another value interpreted as true), these lines will always create
   subvolumes if the backing filesystem supports them. If set to `0`, these
@@ -314,5 +325,117 @@ fuzzers:
 * `$SYSTEMD_FUZZ_RUNS` — The number of times execution should be repeated in
   manual invocations.
 
-Note that is may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
+Note that it may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
 is suppressed by default.
+
+`systemd-importd`:
+
+* `$SYSTEMD_IMPORT_BTRFS_SUBVOL` — takes a boolean, which controls whether to
+  prefer creating btrfs subvolumes over plain directories for machine
+  images. Has no effect on non-btrfs file systems where subvolumes are not
+  available anyway. If not set, defaults to true.
+
+* `$SYSTEMD_IMPORT_BTRFS_QUOTA` — takes a boolean, which controls whether to set
+  up quota automatically for created btrfs subvolumes for machine images. If
+  not set, defaults to true. Has no effect if machines are placed in regular
+  directories, because btrfs subvolumes are not supported or disabled. If
+  enabled, the quota group of the subvolume is automatically added to a
+  combined quota group for all such machine subvolumes.
+
+* `$SYSTEMD_IMPORT_SYNC` — takes a boolean, which controls whether to
+  synchronize images to disk after installing them, before completing the
+  operation. If not set, defaults to true. If disabled installation of images
+  will be quicker, but not as safe.
+
+`systemd-dissect`, `systemd-nspawn` and all other tools that may operate on
+disk images with `--image=` or similar:
+
+* `$SYSTEMD_DISSECT_VERITY_SIDECAR` — takes a boolean, which controls whether to
+  load "sidecar" Verity metadata files. If enabled (which is the default),
+  whenever a disk image is used, a set of files with the `.roothash`,
+  `.usrhash`, `.roothash.p7s`, `.usrhash.p7s`, `.verity` suffixes are searched
+  adjacent to disk image file, containing the Verity root hashes, their
+  signatures or the Verity data itself. If disabled this automatic discovery of
+  Verity metadata files is turned off.
+
+* `$SYSTEMD_DISSECT_VERITY_EMBEDDED` — takes a boolean, which controls whether
+  to load the embedded Verity signature data. If enabled (which is the
+  default), Verity root hash information and a suitable signature is
+  automatically acquired from a signature partition, following the
+  [Discoverable Partitions
+  Specification](https://systemd.io/DISCOVERABLE_PARTITIONS). If disabled any
+  such partition is ignored. Note that this only disables discovery of the root
+  hash and its signature, the Verity data partition itself is still searched in
+  the GPT image.
+
+* `$SYSTEMD_DISSECT_VERITY_SIGNATURE` — takes a boolean, which controls whether
+  to validate the signature of the Verity root hash if available. If enabled
+  (which is the default), the signature of suitable disk images is validated
+  against any of the certificates in `/etc/verity.d/*.crt` (and similar
+  directories in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
+  against its built-in certificates.
+
+* `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
+  LO_FLAGS_DIRECT_IO (i.e. direct IO + asynchronous IO) on loopback block
+  devices when opening them. Defaults to on, set this to "0" to disable this
+  feature.
+
+`systemd-cryptsetup`:
+
+* `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
+  whether to use the libcryptsetup "token" plugin module logic even when
+  activating via FIDO2, PKCS#11, TPM2, i.e. mechanisms natively supported by
+  `systemd-cryptsetup`. Defaults to enabled.
+
+Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
+and `homectl`:
+
+* `$PASSWORD` — takes a string: the literal password to use. If this
+  environment variable is set it is used as password instead of prompting the
+  user interactively. This exists primarily for debugging and testing
+  purposes. Do not use this for production code paths, since environment
+  variables are typically inherited down the process tree without restrictions
+  and should thus not be used for secrets.
+
+* `$NEWPASSWORD` — similar to `$PASSWORD` above, but is used when both a
+  current and a future password are required, for example if the password is to
+  be changed. In that case `$PASSWORD` shall carry the current (i.e. old)
+  password and `$NEWPASSWORD` the new.
+
+`systemd-homed`:
+
+* `$SYSTEMD_HOME_ROOT` – defines an absolute path where to look for home
+  directories/images. When unspecified defaults to `/home/`. This is useful for
+  debugging purposes in order to run a secondary `systemd-homed` instance that
+  operates on a different directory where home directories/images are placed.
+
+* `$SYSTEMD_HOME_RECORD_DIR` – defines an absolute path where to look for
+  fixated home records kept on the host. When unspecified defaults to
+  `/var/lib/systemd/home/`. Similar to `$SYSTEMD_HOME_ROOT` this is useful for
+  debugging purposes, in order to run a secondary `systemd-homed` instance that
+  operates on a record database entirely separate from the host's.
+
+* `$SYSTEMD_HOME_DEBUG_SUFFIX` – takes a short string that is suffixed to
+  `systemd-homed`'s D-Bus and Varlink service names/sockets. This is also
+  understood by `homectl`. This too is useful for running an additional copy of
+  `systemd-homed` that doesn't interfere with the host's main one.
+
+* `$SYSTEMD_HOMEWORK_PATH` – configures the path to the `systemd-homework`
+  binary to invoke. If not specified defaults to
+  `/usr/lib/systemd/systemd-homework`.
+
+  Combining these four environment variables is pretty useful when
+  debugging/developing `systemd-homed`:
+```sh
+SYSTEMD_HOME_DEBUG_SUFFIX=foo \
+      SYSTEMD_HOMEWORK_PATH=/home/lennart/projects/systemd/build/systemd-homework \
+      SYSTEMD_HOME_ROOT=/home.foo/ \
+      SYSTEMD_HOME_RECORD_DIR=/var/lib/systemd/home.foo/ \
+      /home/lennart/projects/systemd/build/systemd-homed
+```
+
+* `$SYSTEMD_HOME_MOUNT_OPTIONS_BTRFS`, `$SYSTEMD_HOME_MOUNT_OPTIONS_EXT4`,
+  `$SYSTEMD_HOME_MOUNT_OPTIONS_XFS` – configure the default mount options to
+  use for LUKS home directories, overriding the built-in default mount
+  options. There's one variable for each of the supported file systems for the
+  LUKS home directory backend.

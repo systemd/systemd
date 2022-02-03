@@ -4,6 +4,10 @@
 #include "service.h"
 #include "tests.h"
 
+static char *runtime_dir = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
+
 #define EXEC_START_ABSOLUTE \
         "ExecStart 0 /bin/sh \"sh\" \"-e\" \"-x\" \"-c\" \"systemctl --state=failed --no-legend --no-pager >/failed ; systemctl daemon-reload ; echo OK >/testok\""
 #define EXEC_START_RELATIVE \
@@ -17,17 +21,15 @@ static void test_deserialize_exec_command_one(Manager *m, const char *key, const
 
         r = service_deserialize_exec_command(u, key, line);
         log_debug("[%s] → %d (expected: %d)", line, r, expected);
-        assert(r == expected);
+        assert_se(r == expected);
 
         /* Note that the command doesn't match any command in the empty list of commands in 's', so it is
          * always rejected with "Current command vanished from the unit file", and we don't leak anything. */
 }
 
-static void test_deserialize_exec_command(void) {
+TEST(deserialize_exec_command) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
-
-        log_info("/* %s */", __func__);
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r)) {
@@ -50,19 +52,12 @@ static void test_deserialize_exec_command(void) {
         test_deserialize_exec_command_one(m, "control-command", "ExecWhat 11 /a/b c d e", -EINVAL);
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        r = enter_cgroup_subroot(NULL);
-        if (r == -ENOMEDIUM)
+static int intro(void) {
+        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
-
-        test_deserialize_exec_command();
-
         return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

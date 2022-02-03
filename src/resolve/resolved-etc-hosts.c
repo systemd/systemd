@@ -109,7 +109,10 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 r = dns_name_is_valid_ldh(name);
                 if (r <= 0) {
-                        log_warning_errno(r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
+                        if (r < 0)
+                                log_warning_errno(r, "/etc/hosts:%u: Failed to check the validity of hostname \"%s\", ignoring: %m", nr, name);
+                        else
+                                log_warning("/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
                         continue;
                 }
 
@@ -147,7 +150,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         bn->name = TAKE_PTR(name);
                 }
 
-                if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                if (!GREEDY_REALLOC(bn->addresses, bn->n_addresses + 1))
                         return log_oom();
 
                 bn->addresses[bn->n_addresses++] = &item->address;

@@ -3,14 +3,139 @@
 #include <net/if.h>
 #include <linux/can/netlink.h>
 
-#include "netlink-util.h"
 #include "networkd-can.h"
 #include "networkd-link.h"
-#include "networkd-manager.h"
+#include "networkd-network.h"
+#include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
 
-#define CAN_TERMINATION_OHM_VALUE 120
+#define CAN_TERMINATION_DEFAULT_OHM_VALUE 120
+
+int can_set_netlink_message(Link *link, sd_netlink_message *m) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(m);
+
+        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
+        if (r < 0)
+                return r;
+
+        if (link->network->can_bitrate > 0) {
+                struct can_bittiming bt = {
+                        .bitrate = link->network->can_bitrate,
+                        .sample_point = link->network->can_sample_point,
+                        .sjw = link->network->can_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
+                if (link->network->can_sample_point > 0)
+                        log_link_debug(link, "Setting sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                else
+                        log_link_debug(link, "Using default sample point");
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return r;
+        } else if (link->network->can_time_quanta_ns > 0) {
+                struct can_bittiming bt = {
+                        .tq = link->network->can_time_quanta_ns,
+                        .prop_seg = link->network->can_propagation_segment,
+                        .phase_seg1 = link->network->can_phase_buffer_segment_1,
+                        .phase_seg2 = link->network->can_phase_buffer_segment_2,
+                        .sjw = link->network->can_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting time quanta = %"PRIu32" nsec", bt.tq);
+                r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->can_data_bitrate > 0) {
+                struct can_bittiming bt = {
+                        .bitrate = link->network->can_data_bitrate,
+                        .sample_point = link->network->can_data_sample_point,
+                        .sjw = link->network->can_data_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
+                if (link->network->can_data_sample_point > 0)
+                        log_link_debug(link, "Setting data sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                else
+                        log_link_debug(link, "Using default data sample point");
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return r;
+        } else if (link->network->can_data_time_quanta_ns > 0) {
+                struct can_bittiming bt = {
+                        .tq = link->network->can_data_time_quanta_ns,
+                        .prop_seg = link->network->can_data_propagation_segment,
+                        .phase_seg1 = link->network->can_data_phase_buffer_segment_1,
+                        .phase_seg2 = link->network->can_data_phase_buffer_segment_2,
+                        .sjw = link->network->can_data_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting data time quanta = %"PRIu32" nsec", bt.tq);
+                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->can_restart_us > 0) {
+                uint64_t restart_ms;
+
+                if (link->network->can_restart_us == USEC_INFINITY)
+                        restart_ms = 0;
+                else
+                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
+
+                log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
+                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->can_control_mode_mask != 0) {
+                struct can_ctrlmode cm = {
+                        .mask = link->network->can_control_mode_mask,
+                        .flags = link->network->can_control_mode_flags,
+                };
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->network->can_termination_set) {
+                log_link_debug(link, "Setting can-termination to '%u'.", link->network->can_termination);
+
+                r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION, link->network->can_termination);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
 
 int config_parse_can_bitrate(
                 const char* unit,
@@ -52,268 +177,164 @@ int config_parse_can_bitrate(
         return 0;
 }
 
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+int config_parse_can_time_quanta(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        nsec_t val, *tq = data;
         int r;
 
-        assert(link);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                /* we warn but don't fail the link, as it may be brought up later */
-                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
-
-        return 1;
-}
-
-static int link_up_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Bringing CAN link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Set link");
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Failed to configure CAN link");
-                link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int link_set_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        struct can_ctrlmode cm = {};
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        log_link_debug(link, "Configuring CAN link.");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to allocate netlink message: %m");
-
-        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink flags: %m");
-
-        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to open netlink container: %m");
-
-        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, link->kind);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
-        if (link->network->can_bitrate > 0 || link->network->can_sample_point > 0) {
-                struct can_bittiming bt = {
-                        .bitrate = link->network->can_bitrate,
-                        .sample_point = link->network->can_sample_point,
-                };
-
-                log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
-                if (link->network->can_sample_point > 0)
-                        log_link_debug(link, "Setting sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
-                else
-                        log_link_debug(link, "Using default sample point");
-
-                r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
-        }
-
-        if (link->network->can_data_bitrate > 0 || link->network->can_data_sample_point > 0) {
-                struct can_bittiming bt = {
-                        .bitrate = link->network->can_data_bitrate,
-                        .sample_point = link->network->can_data_sample_point,
-                };
-
-                log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
-                if (link->network->can_data_sample_point > 0)
-                        log_link_debug(link, "Setting data sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
-                else
-                        log_link_debug(link, "Using default data sample point");
-
-                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
-        }
-
-        if (link->network->can_fd_mode >= 0) {
-                cm.mask |= CAN_CTRLMODE_FD;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode);
-                log_link_debug(link, "Setting FD mode to '%s'.", yes_no(link->network->can_fd_mode));
-        }
-
-        if (link->network->can_non_iso >= 0) {
-                cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso);
-                log_link_debug(link, "Setting FD non-ISO mode to '%s'.", yes_no(link->network->can_non_iso));
-        }
-
-        if (link->network->can_restart_us > 0) {
-                char time_string[FORMAT_TIMESPAN_MAX];
-                uint64_t restart_ms;
-
-                if (link->network->can_restart_us == USEC_INFINITY)
-                        restart_ms = 0;
-                else
-                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
-
-                format_timespan(time_string, FORMAT_TIMESPAN_MAX, restart_ms * 1000, MSEC_PER_SEC);
-
-                if (restart_ms > UINT32_MAX)
-                        return log_link_error_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.", time_string);
-
-                log_link_debug(link, "Setting restart = %s", time_string);
-
-                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
-        }
-
-        if (link->network->can_triple_sampling >= 0) {
-                cm.mask |= CAN_CTRLMODE_3_SAMPLES;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_3_SAMPLES, link->network->can_triple_sampling);
-                log_link_debug(link, "Setting triple-sampling to '%s'.", yes_no(link->network->can_triple_sampling));
-        }
-
-        if (link->network->can_berr_reporting >= 0) {
-                cm.mask |= CAN_CTRLMODE_BERR_REPORTING;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_BERR_REPORTING, link->network->can_berr_reporting);
-                log_link_debug(link, "Setting bus error reporting to '%s'.", yes_no(link->network->can_berr_reporting));
-        }
-
-        if (link->network->can_listen_only >= 0) {
-                cm.mask |= CAN_CTRLMODE_LISTENONLY;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);
-                log_link_debug(link, "Setting listen-only mode to '%s'.", yes_no(link->network->can_listen_only));
-        }
-
-        if (cm.mask != 0) {
-                r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
-        }
-
-        if (link->network->can_termination >= 0) {
-
-                log_link_debug(link, "Setting can-termination to '%s'.", yes_no(link->network->can_termination));
-
-                r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION,
-                                link->network->can_termination ? CAN_TERMINATION_OHM_VALUE : 0);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_TERMINATION attribute: %m");
-
-        }
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to close netlink container: %m");
-
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to close netlink container: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, m, link_set_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        if (!(link->flags & IFF_UP))
-                return link_up_can(link);
-
-        return 0;
-}
-
-static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
+        r = parse_nsec(rvalue, &val);
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, "Could not bring down interface");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        r = link_set_can(link);
-        if (r < 0)
-                link_enter_failed(link);
-
-        return 1;
-}
-
-int link_configure_can(Link *link) {
-        int r;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        if (streq_ptr(link->kind, "can")) {
-                /* The CAN interface must be down to configure bitrate, etc... */
-                if ((link->flags & IFF_UP)) {
-                        r = link_down(link, link_down_handler);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                } else {
-                        r = link_set_can(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse can time quanta '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (!(link->flags & IFF_UP)) {
-                r = link_up_can(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
+        /* Linux uses __u32 for bitrates, so the value should not exceed that. */
+        if (val <= 0 || val > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Time quanta out of permitted range 1...4294967295");
+                return 0;
         }
 
+        *tq = val;
+        return 0;
+}
+
+int config_parse_can_restart_usec(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *restart_usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse CAN restart sec '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (usec != USEC_INFINITY &&
+            DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "CAN RestartSec= must be in the range 0...%"PRIu32"ms, ignoring: %s", UINT32_MAX, rvalue);
+                return 0;
+        }
+
+        *restart_usec = usec;
+        return 0;
+}
+
+int config_parse_can_control_mode(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        uint32_t mask = ltype;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+        assert(mask != 0);
+
+        if (isempty(rvalue)) {
+                network->can_control_mode_mask &= ~mask;
+                network->can_control_mode_flags &= ~mask;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse CAN control mode '%s', ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        network->can_control_mode_mask |= mask;
+        SET_FLAG(network->can_control_mode_flags, mask, r);
+        return 0;
+}
+
+int config_parse_can_termination(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->can_termination_set = false;
+                return 0;
+        }
+
+        /* Note that 0 termination ohm value means no termination resistor, and there is no conflict
+         * between parse_boolean() and safe_atou16() when Termination=0. However, Termination=1 must be
+         * treated as 1 ohm, instead of true (and then the default ohm value). So, we need to parse the
+         * string with safe_atou16() at first. */
+
+        r = safe_atou16(rvalue, &network->can_termination);
+        if (r < 0) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse CAN termination value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                network->can_termination = r ? CAN_TERMINATION_DEFAULT_OHM_VALUE : 0;
+        }
+
+        network->can_termination_set = true;
         return 0;
 }

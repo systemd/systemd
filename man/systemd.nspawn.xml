@@ -33,7 +33,7 @@
     <title>Description</title>
 
     <para>An nspawn container settings file (suffix <filename>.nspawn</filename>) contains runtime
-    configuration for a local container, and is used used by
+    configuration for a local container, and is used by
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     Files of this type are named after the containers they define settings for. They are optional, and only
     required for containers whose execution environment shall differ from the defaults. Files of this type
@@ -202,7 +202,7 @@
         capabilities (see
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). The <varname>AmbientCapability=</varname> setting
-        specifies capability which will be passed to to started program
+        specifies capability which will be passed to the started program
         in the inheritable and ambient capability sets. This will grant
         these capabilities to this process. This setting correspond to
         the <option>--ambient-capability=</option> command line switch.
@@ -365,6 +365,16 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SuppressSync=</varname></term>
+
+        <listitem><para>Configures whether to suppress disk synchronization for the container payload. This
+        is equivalent to the <option>--suppress-sync=</option> command line switch, and takes the same
+        parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -416,6 +426,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindUser=</varname></term>
+
+        <listitem><para>Binds a user from the host into the container. This option is equivalent to the
+        command line switch <option>--bind-user=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details about the specific options supported. This setting is privileged (see
+        above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TemporaryFileSystem=</varname></term>
 
         <listitem><para>Adds a <literal>tmpfs</literal> mount to the
@@ -452,12 +472,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PrivateUsersChown=</varname></term>
+        <term><varname>PrivateUsersOwnership=</varname></term>
 
-        <listitem><para>Configures whether the ownership of the files and directories in the container tree shall be
-        adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is equivalent to the
-        <option>--private-users-chown</option> command line switch. This option is privileged (see
-        above). </para></listitem>
+        <listitem><para>Configures whether the ownership of the files and directories in the container tree
+        shall be adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is
+        equivalent to the <option>--private-users-ownership=</option> command line switch. This option is
+        privileged (see above).</para></listitem>
       </varlistentry>
 
     </variablelist>

@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "barrier.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "macro.h"
@@ -90,7 +91,7 @@
  * Returns: 0 on success, negative error code on failure.
  */
 int barrier_create(Barrier *b) {
-        _cleanup_(barrier_destroyp) Barrier *staging = b;
+        _unused_ _cleanup_(barrier_destroyp) Barrier *staging = b;
         int r;
 
         assert(b);
@@ -178,7 +179,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
         assert(b->me >= 0);
         do {
                 len = write(b->me, &buf, sizeof(buf));
-        } while (len < 0 && IN_SET(errno, EAGAIN, EINTR));
+        } while (len < 0 && ERRNO_IS_TRANSIENT(errno));
 
         if (len != sizeof(buf))
                 goto error;
@@ -230,7 +231,7 @@ static bool barrier_read(Barrier *b, int64_t comp) {
 
                         /* events on @them signal new data for us */
                         len = read(b->them, &buf, sizeof(buf));
-                        if (len < 0 && IN_SET(errno, EAGAIN, EINTR))
+                        if (len < 0 && ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         if (len != sizeof(buf))

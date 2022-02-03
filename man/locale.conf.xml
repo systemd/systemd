@@ -30,13 +30,13 @@
     system-wide locale settings. It is read at early boot by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
-    <para>The basic file format of <filename>locale.conf</filename> is
-    a newline-separated list of environment-like shell-compatible
-    variable assignments. It is possible to source the configuration
-    from shell scripts, however, beyond mere variable assignments, no
-    shell features are supported, allowing applications to read the
-    file without implementing a shell compatible execution
-    engine.</para>
+    <para>The format of <filename>locale.conf</filename> is a newline-separated list of environment-like
+    shell-compatible variable assignments, ignoring comments and empty lines. It is possible to source the
+    configuration from shell scripts, however, beyond mere variable assignments, no shell features are
+    supported, allowing applications to read the file without implementing a shell compatible execution
+    engine. See
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    detailed description of the format.</para>
 
     <para>Note that the kernel command line options
     <varname>locale.LANG=</varname>,
@@ -58,20 +58,20 @@
     <para>The locale settings configured in
     <filename>/etc/locale.conf</filename> are system-wide and are
     inherited by every service or user, unless overridden or unset by
-    individual programs or individual users.</para>
+    individual programs or users.</para>
 
     <para>Depending on the operating system, other configuration files
     might be checked for locale configuration as well, however only as
     fallback.</para>
 
-    <para><filename>/etc/locale.conf</filename> is usually created and updated
+    <para><filename>/etc/locale.conf</filename> can be updated
     using
     <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to alter the settings in this file during runtime from
     the command line. Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize them on mounted (but not booted) system images.</para>
+    to customize them on mounted (but not booted) system images.</para>
   </refsect1>
 
   <refsect1>
@@ -107,7 +107,9 @@
 
       <para><filename>/etc/locale.conf</filename>:</para>
 
-      <programlisting>LANG=de_DE.UTF-8
+      <programlisting># Custom settings
+
+LANG=de_DE.UTF-8
 LC_MESSAGES=en_US.UTF-8</programlisting>
     </example>
 
@@ -123,5 +125,4 @@ LC_MESSAGES=en_US.UTF-8</programlisting>
         <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
-
 </refentry>

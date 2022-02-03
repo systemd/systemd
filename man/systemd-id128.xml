@@ -74,9 +74,11 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>With <command>show</command>, well-known UUIDs are printed. When no arguments are specified, all
-    known UUIDs are shown. When arguments are specified, they must be the names or values of one or more
-    known UUIDs, which are then printed.</para>
+    <para>With <command>show</command>, well-known IDs are printed (for now, only GPT partition type UUIDs),
+    along with brief identifier strings. When no arguments are specified, all known IDs are shown. When
+    arguments are specified, they must be the identifiers or ID values of one or more known IDs, which are
+    then printed. Combine with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT
+    partition type UUIDs are usually shown.</para>
   </refsect1>
 
   <refsect1>

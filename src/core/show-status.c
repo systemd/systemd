@@ -123,6 +123,7 @@ int status_printf(const char *status, ShowStatusFlags flags, const char *format,
 static const char* const status_unit_format_table[_STATUS_UNIT_FORMAT_MAX] = {
         [STATUS_UNIT_FORMAT_NAME]        = "name",
         [STATUS_UNIT_FORMAT_DESCRIPTION] = "description",
+        [STATUS_UNIT_FORMAT_COMBINED]    = "combined",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(status_unit_format, StatusUnitFormat);

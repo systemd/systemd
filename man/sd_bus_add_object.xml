@@ -508,7 +508,7 @@
         <varlistentry>
           <term><constant>SD_BUS_VTABLE_METHOD_NO_REPLY</constant></term>
 
-          <listitem><para>Mark his vtable entry as a method that will not return a reply using the
+          <listitem><para>Mark this vtable entry as a method that will not return a reply using the
           <constant>org.freedesktop.DBus.Method.NoReply</constant> annotation in introspection data.
           </para></listitem>
         </varlistentry>

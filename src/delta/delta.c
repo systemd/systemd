@@ -6,11 +6,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
-#include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "nulstr-util.h"
@@ -289,9 +290,8 @@ static int enumerate_dir(
                 const char *path, bool dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
-        size_t n_files = 0, allocated_files = 0, n_dirs = 0, allocated_dirs = 0;
+        size_t n_files = 0, n_dirs = 0;
         char **t;
         int r;
 
@@ -311,10 +311,8 @@ static int enumerate_dir(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                dirent_ensure_type(d, de);
-
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d")) {
-                        if (!GREEDY_REALLOC0(dirs, allocated_dirs, n_dirs + 2))
+                        if (!GREEDY_REALLOC0(dirs, n_dirs + 2))
                                 return -ENOMEM;
 
                         dirs[n_dirs] = strdup(de->d_name);
@@ -326,7 +324,7 @@ static int enumerate_dir(
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!GREEDY_REALLOC0(files, allocated_files, n_files + 2))
+                if (!GREEDY_REALLOC0(files, n_files + 2))
                         return -ENOMEM;
 
                 files[n_files] = strdup(de->d_name);
@@ -627,7 +625,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -650,13 +648,13 @@ static int run(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (optind < argc) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        path_simplify(argv[i], false);
+                        path_simplify(argv[i]);
 
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)

@@ -17,7 +17,7 @@ Requires=systemd-journald.socket
 Before=shutdown.target
 
 [Service]
-ExecStart=-@rootlibexecdir@/systemd-coredump
+ExecStart=-{{ROOTLIBEXECDIR}}/systemd-coredump
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -35,11 +35,10 @@ ProtectKernelTunables=yes
 ProtectKernelLogs=yes
 ProtectSystem=strict
 RestrictAddressFamilies=AF_UNIX
-RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeMaxSec=5min
 StateDirectory=systemd/coredump
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service
+SystemCallFilter=@system-service @mount

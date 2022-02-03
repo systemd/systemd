@@ -3,9 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.swap"
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-
+<refentry id="systemd.swap" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.swap</title>
     <productname>systemd</productname>
@@ -169,6 +167,10 @@
   <refsect1>
     <title>Options</title>
 
+    <para>Swap unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
     <para>Swap unit files must include a [Swap] section, which carries
     information about the swap device it supervises. A number of
     options that may be used in this section are shared with other
@@ -235,11 +237,7 @@
       </varlistentry>
     </variablelist>
 
-    <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

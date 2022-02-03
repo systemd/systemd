@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Succeeding unit
+OnSuccess=testsuite-57-fail.service
+
+[Service]
+ExecStart=/bin/true

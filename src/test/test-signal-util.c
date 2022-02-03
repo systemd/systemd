@@ -7,16 +7,17 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "process-util.h"
 
 #define info(sig) log_info(#sig " = " STRINGIFY(sig) " = %d", sig)
 
-static void test_rt_signals(void) {
+TEST(rt_signals) {
         info(SIGRTMIN);
         info(SIGRTMAX);
 
         /* We use signals SIGRTMIN+0 to SIGRTMIN+24 unconditionally */
-        assert(SIGRTMAX - SIGRTMIN >= 24);
+        assert_se(SIGRTMAX - SIGRTMIN >= 24);
 }
 
 static void test_signal_to_string_one(int val) {
@@ -48,7 +49,7 @@ static void test_signal_from_string_number(const char *s, int val) {
         assert_se(signal_from_string(p) == -EINVAL);
 }
 
-static void test_signal_from_string(void) {
+TEST(signal_from_string) {
         char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int) + 1];
 
         test_signal_to_string_one(SIGHUP);
@@ -104,7 +105,7 @@ static void test_signal_from_string(void) {
         test_signal_from_string_number("-2", -ERANGE);
 }
 
-static void test_block_signals(void) {
+TEST(block_signals) {
         assert_se(signal_is_blocked(SIGUSR1) == 0);
         assert_se(signal_is_blocked(SIGALRM) == 0);
         assert_se(signal_is_blocked(SIGVTALRM) == 0);
@@ -122,7 +123,7 @@ static void test_block_signals(void) {
         assert_se(signal_is_blocked(SIGVTALRM) == 0);
 }
 
-static void test_ignore_signals(void) {
+TEST(ignore_signals) {
         assert_se(ignore_signals(SIGINT) >= 0);
         assert_se(kill(getpid_cached(), SIGINT) >= 0);
         assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
@@ -133,11 +134,42 @@ static void test_ignore_signals(void) {
         assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_rt_signals();
-        test_signal_from_string();
-        test_block_signals();
-        test_ignore_signals();
+TEST(pop_pending_signal) {
 
-        return 0;
+        assert_se(signal_is_blocked(SIGUSR1) == 0);
+        assert_se(signal_is_blocked(SIGUSR2) == 0);
+        assert_se(pop_pending_signal(SIGUSR1) == 0);
+        assert_se(pop_pending_signal(SIGUSR2) == 0);
+
+        {
+                BLOCK_SIGNALS(SIGUSR1, SIGUSR2);
+
+                assert_se(signal_is_blocked(SIGUSR1) > 0);
+                assert_se(signal_is_blocked(SIGUSR2) > 0);
+
+                assert_se(pop_pending_signal(SIGUSR1) == 0);
+                assert_se(pop_pending_signal(SIGUSR2) == 0);
+
+                assert_se(raise(SIGUSR1) >= 0);
+
+                assert_se(pop_pending_signal(SIGUSR2) == 0);
+                assert_se(pop_pending_signal(SIGUSR1) == SIGUSR1);
+                assert_se(pop_pending_signal(SIGUSR1) == 0);
+
+                assert_se(raise(SIGUSR1) >= 0);
+                assert_se(raise(SIGUSR2) >= 0);
+
+                assert_cc(SIGUSR1 < SIGUSR2);
+
+                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR1);
+                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR2);
+                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == 0);
+        }
+
+        assert_se(signal_is_blocked(SIGUSR1) == 0);
+        assert_se(signal_is_blocked(SIGUSR2) == 0);
+        assert_se(pop_pending_signal(SIGUSR1) == 0);
+        assert_se(pop_pending_signal(SIGUSR2) == 0);
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

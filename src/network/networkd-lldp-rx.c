@@ -41,14 +41,14 @@ static bool link_lldp_rx_enabled(Link *link) {
 
         /* LLDP should be handled on bridge and bond slaves as those have a direct connection to their peers,
          * not on the bridge/bond master. Linux doesn't even (by default) forward lldp packets to the bridge
-         * master.*/
+         * master. */
         if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
         return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata) {
+static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -56,12 +56,13 @@ static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor 
 
         (void) link_lldp_save(link);
 
-        if (link_lldp_emit_enabled(link) && event == SD_LLDP_EVENT_ADDED) {
+        if (link->lldp_tx && event == SD_LLDP_RX_EVENT_ADDED) {
                 /* If we received information about a new neighbor, restart the LLDP "fast" logic */
 
                 log_link_debug(link, "Received LLDP datagram from previously unknown neighbor, restarting 'fast' LLDP transmission.");
 
-                r = link_lldp_emit_start(link);
+                (void) sd_lldp_tx_stop(link->lldp_tx);
+                r = sd_lldp_tx_start(link->lldp_tx);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
         }
@@ -73,66 +74,37 @@ int link_lldp_rx_configure(Link *link) {
         if (!link_lldp_rx_enabled(link))
                 return 0;
 
-        if (link->lldp)
+        if (link->lldp_rx)
                 return -EBUSY;
 
-        r = sd_lldp_new(&link->lldp);
+        r = sd_lldp_rx_new(&link->lldp_rx);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_attach_event(link->lldp, link->manager->event, 0);
+        r = sd_lldp_rx_attach_event(link->lldp_rx, link->manager->event, 0);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_ifindex(link->lldp, link->ifindex);
+        r = sd_lldp_rx_set_ifindex(link->lldp_rx, link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_match_capabilities(link->lldp,
-                                       link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
-                                       SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
-                                       SD_LLDP_SYSTEM_CAPABILITIES_ALL);
+        r = sd_lldp_rx_match_capabilities(link->lldp_rx,
+                                          link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
+                                          SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :
+                                          SD_LLDP_SYSTEM_CAPABILITIES_ALL);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
+        r = sd_lldp_rx_set_filter_address(link->lldp_rx, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_callback(link->lldp, lldp_handler, link);
-        if (r < 0)
-                return r;
-
-        r = link_update_lldp(link);
+        r = sd_lldp_rx_set_callback(link->lldp_rx, lldp_rx_handler, link);
         if (r < 0)
                 return r;
 
         return 0;
-}
-
-int link_update_lldp(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!link->lldp)
-                return 0;
-
-        if (link->flags & IFF_UP) {
-                r = sd_lldp_start(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to start LLDP: %m");
-                if (r > 0)
-                        log_link_debug(link, "Started LLDP.");
-        } else {
-                r = sd_lldp_stop(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to stop LLDP: %m");
-                if (r > 0)
-                        log_link_debug(link, "Stopped LLDP.");
-        }
-
-        return r;
 }
 
 int link_lldp_save(Link *link) {
@@ -142,14 +114,16 @@ int link_lldp_save(Link *link) {
         int n = 0, r, i;
 
         assert(link);
-        assert(link->lldp_file);
 
-        if (!link->lldp) {
+        if (isempty(link->lldp_file))
+                return 0; /* Do not update state file when running in test mode. */
+
+        if (!link->lldp_rx) {
                 (void) unlink(link->lldp_file);
                 return 0;
         }
 
-        r = sd_lldp_get_neighbors(link->lldp, &l);
+        r = sd_lldp_rx_get_neighbors(link->lldp_rx, &l);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -163,7 +137,7 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         for (i = 0; i < n; i++) {
                 const void *p;

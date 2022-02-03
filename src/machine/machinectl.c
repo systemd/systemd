@@ -63,7 +63,7 @@
 
 static char **arg_property = NULL;
 static bool arg_all = false;
-static bool arg_value = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -89,7 +89,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 
 static OutputFlags get_output_flags(void) {
         return
-                arg_all * OUTPUT_SHOW_ALL |
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
@@ -273,7 +273,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_machine_mgr, "ListMachines", &error, &reply, NULL);
         if (r < 0)
@@ -352,7 +352,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_machine_mgr, "ListImages", &error, &reply, NULL);
         if (r < 0)
@@ -507,10 +507,7 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
-        char since2[FORMAT_TIMESTAMP_MAX];
-        _cleanup_free_ char *addresses = NULL;
-        const char *s1, *s2;
+        _cleanup_free_ char *addresses = NULL, *s1 = NULL, *s2 = NULL;
         int ifi = -1;
 
         assert(bus);
@@ -523,12 +520,12 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else
                 putchar('\n');
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp.realtime);
-        s2 = format_timestamp(since2, sizeof(since2), i->timestamp.realtime);
+        s1 = strdup(strempty(FORMAT_TIMESTAMP_RELATIVE(i->timestamp.realtime)));
+        s2 = strdup(strempty(FORMAT_TIMESTAMP(i->timestamp.realtime)));
 
-        if (s1)
-                printf("\t   Since: %s; %s\n", s2, s1);
-        else if (s2)
+        if (!isempty(s1))
+                printf("\t   Since: %s; %s\n", strna(s2), s1);
+        else if (!isempty(s2))
                 printf("\t   Since: %s\n", s2);
 
         if (i->leader > 0) {
@@ -560,9 +557,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputs("\t   Iface:", stdout);
 
                 for (size_t c = 0; c < i->n_netif; c++) {
-                        char name[IF_NAMESIZE+1];
+                        char name[IF_NAMESIZE];
 
-                        if (format_ifname(i->netif[c], name)) {
+                        if (format_ifname(i->netif[c], name) >= 0) {
                                 fputc(' ', stdout);
                                 fputs(name, stdout);
 
@@ -689,7 +686,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -708,7 +705,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (properties && argc <= 1) {
 
@@ -828,12 +825,6 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
-        char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
-        char ts_absolute[FORMAT_TIMESTAMP_MAX];
-        char bs[FORMAT_BYTES_MAX];
-        char bs_exclusive[FORMAT_BYTES_MAX];
-        const char *s1, *s2, *s3, *s4;
-
         assert(bus);
         assert(i);
 
@@ -859,33 +850,29 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                i->read_only ? "read-only" : "writable",
                i->read_only ? ansi_normal() : "");
 
-        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
-        s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->crtime);
-        if (s1 && s2)
-                printf("\t Created: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\t Created: %s\n", s2);
+        if (i->crtime > 0 && i->crtime < USEC_INFINITY)
+                printf("\t Created: %s; %s\n",
+                       FORMAT_TIMESTAMP(i->crtime), FORMAT_TIMESTAMP_RELATIVE(i->crtime));
 
-        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->mtime);
-        s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->mtime);
-        if (s1 && s2)
-                printf("\tModified: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\tModified: %s\n", s2);
+        if (i->mtime > 0 && i->mtime < USEC_INFINITY)
+                printf("\tModified: %s; %s\n",
+                       FORMAT_TIMESTAMP(i->mtime), FORMAT_TIMESTAMP_RELATIVE(i->mtime));
 
-        s3 = format_bytes(bs, sizeof(bs), i->usage);
-        s4 = i->usage_exclusive != i->usage ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->usage_exclusive) : NULL;
-        if (s3 && s4)
-                printf("\t   Usage: %s (exclusive: %s)\n", s3, s4);
-        else if (s3)
-                printf("\t   Usage: %s\n", s3);
+        if (i->usage != UINT64_MAX) {
+                if (i->usage_exclusive != i->usage && i->usage_exclusive != UINT64_MAX)
+                        printf("\t   Usage: %s (exclusive: %s)\n",
+                               FORMAT_BYTES(i->usage), FORMAT_BYTES(i->usage_exclusive));
+                else
+                        printf("\t   Usage: %s\n", FORMAT_BYTES(i->usage));
+        }
 
-        s3 = format_bytes(bs, sizeof(bs), i->limit);
-        s4 = i->limit_exclusive != i->limit ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->limit_exclusive) : NULL;
-        if (s3 && s4)
-                printf("\t   Limit: %s (exclusive: %s)\n", s3, s4);
-        else if (s3)
-                printf("\t   Limit: %s\n", s3);
+        if (i->limit != UINT64_MAX) {
+                if (i->limit_exclusive != i->limit && i->limit_exclusive != UINT64_MAX)
+                        printf("\t   Limit: %s (exclusive: %s)\n",
+                               FORMAT_BYTES(i->limit), FORMAT_BYTES(i->limit_exclusive));
+                else
+                        printf("\t   Limit: %s\n", FORMAT_BYTES(i->limit));
+        }
 }
 
 static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
@@ -940,18 +927,14 @@ typedef struct PoolStatusInfo {
 } PoolStatusInfo;
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
-        char bs[FORMAT_BYTES_MAX], *s;
-
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
 
-        s = format_bytes(bs, sizeof(bs), i->usage);
-        if (s)
-                printf("\t   Usage: %s\n", s);
+        if (i->usage != UINT64_MAX)
+                printf("\t   Usage: %s\n", FORMAT_BYTES(i->usage));
 
-        s = format_bytes(bs, sizeof(bs), i->limit);
-        if (s)
-                printf("\t   Limit: %s\n", s);
+        if (i->limit != UINT64_MAX)
+                printf("\t   Limit: %s\n", FORMAT_BYTES(i->limit));
 }
 
 static int show_pool_info(sd_bus *bus) {
@@ -1002,7 +985,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -1021,7 +1004,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (argc <= 1) {
 
@@ -2142,7 +2125,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 
@@ -2198,7 +2181,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 
@@ -2261,14 +2244,14 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
-        size_t n_transfers = 0, n_allocated = 0;
         const char *type, *remote, *local;
         sd_bus *bus = userdata;
         uint32_t id, max_id = 0;
+        size_t n_transfers = 0;
         double progress;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, NULL);
         if (r < 0)
@@ -2281,7 +2264,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL)) > 0) {
                 size_t l;
 
-                if (!GREEDY_REALLOC(transfers, n_allocated, n_transfers + 1))
+                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
                         return log_oom();
 
                 transfers[n_transfers].id = id;
@@ -2409,7 +2392,6 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
-        char fb[FORMAT_BYTES_MAX];
         sd_bus *bus = userdata;
         const char *name;
         unsigned c = 0;
@@ -2440,7 +2422,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                         total = UINT64_MAX;
                 } else {
                         log_info("Removed image '%s'. Freed exclusive disk space: %s",
-                                 name, format_bytes(fb, sizeof(fb), usage));
+                                 name, FORMAT_BYTES(usage));
                         if (total != UINT64_MAX)
                                 total += usage;
                 }
@@ -2455,7 +2437,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                 log_info("Removed %u images in total.", c);
         else
                 log_info("Removed %u images in total. Total freed exclusive disk space: %s.",
-                         c, format_bytes(fb, sizeof(fb), total));
+                         c, FORMAT_BYTES(total));
 
         return 0;
 }
@@ -2464,7 +2446,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("machinectl", "1", &link);
         if (r < 0)
@@ -2528,7 +2510,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-who=WHO           Who to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --uid=USER               Specify user ID to invoke shell as\n"
-               "  -E --setenv=VAR=VALUE       Add an environment variable for shell\n"
+               "  -E --setenv=VAR[=VALUE]     Add an environment variable for shell\n"
                "     --read-only              Create read-only bind mount\n"
                "     --mkdir                  Create directory before bind mounting, if missing\n"
                "  -n --lines=INTEGER          Number of journal entries to show\n"
@@ -2673,15 +2655,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case 'a':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         arg_all = true;
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'l':
@@ -2782,13 +2765,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E':
-                        if (!env_assignment_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Environment assignment invalid: %s", optarg);
-
-                        r = strv_extend(&arg_setenv, optarg);
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
                         if (r < 0)
-                                return log_oom();
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
                         break;
 
                 case ARG_MAX_ADDRESSES:
@@ -2806,7 +2785,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
         }
 
@@ -2890,7 +2869,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 

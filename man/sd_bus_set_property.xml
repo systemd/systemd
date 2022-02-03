@@ -39,7 +39,6 @@
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
         <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
         <paramdef>const char *<parameter>type</parameter></paramdef>
         <paramdef>...</paramdef>
       </funcprototype>
@@ -52,7 +51,6 @@
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
         <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
         <paramdef>const char *<parameter>type</parameter></paramdef>
         <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
@@ -115,10 +113,9 @@
     <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_set_property()</function> sets a D-Bus property. On success, the response
-    is stored in <parameter>reply</parameter>. If setting the property fails or an internal error
-    occurs, an error is returned and an extended description of the error is optionally stored in
-    <parameter>ret_error</parameter> if it is not <constant>NULL</constant>.
+    <para><function>sd_bus_set_property()</function> sets a D-Bus property. If setting the property
+    fails or an internal error occurs, an error is returned and an extended description of the error
+    is optionally stored in <parameter>ret_error</parameter> if it is not <constant>NULL</constant>.
     <parameter>type</parameter> and the arguments that follow it describe the new value of the
     property and must follow the format described in
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.

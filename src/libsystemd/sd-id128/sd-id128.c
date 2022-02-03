@@ -9,9 +9,9 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "hmac.h"
 #include "id128-util.h"
 #include "io-util.h"
-#include "khash.h"
 #include "macro.h"
 #include "missing_syscall.h"
 #include "random-util.h"
@@ -271,27 +271,15 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 }
 
 static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
-        _cleanup_(khash_unrefp) khash *h = NULL;
+        uint8_t hmac[SHA256_DIGEST_SIZE];
         sd_id128_t result;
-        const void *p;
-        int r;
 
         assert(ret);
 
-        r = khash_new_with_key(&h, "hmac(sha256)", &base, sizeof(base));
-        if (r < 0)
-                return r;
+        hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), hmac);
 
-        r = khash_put(h, &app_id, sizeof(app_id));
-        if (r < 0)
-                return r;
-
-        r = khash_digest_data(h, &p);
-        if (r < 0)
-                return r;
-
-        /* We chop off the trailing 16 bytes */
-        memcpy(&result, p, MIN(khash_get_size(h), sizeof(result)));
+        /* Take only the first half. */
+        memcpy(&result, hmac, MIN(sizeof(hmac), sizeof(result)));
 
         *ret = id128_make_v4_uuid(result);
         return 0;

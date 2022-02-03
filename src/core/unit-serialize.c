@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
 #include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
+#include "restrict-ifaces.h"
 #include "serialize.h"
-#include "socket-bind.h"
 #include "string-table.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -89,14 +90,28 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
 
-        if (unit_can_serialize(u)) {
+        if (switching_root && UNIT_VTABLE(u)->exclude_from_switch_root_serialization) {
+                /* In the new root, paths for mounts and automounts will be different, so it doesn't make
+                 * much sense to serialize things. API file systems will be moved to the new root, but we
+                 * don't have mount units for those. */
+                log_unit_debug(u, "not serializing before switch-root");
+                return 0;
+        }
+
+        /* Start marker */
+        fputs(u->id, f);
+        fputc('\n', f);
+
+        assert(!!UNIT_VTABLE(u)->serialize == !!UNIT_VTABLE(u)->deserialize_item);
+
+        if (UNIT_VTABLE(u)->serialize) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
                         return r;
@@ -152,7 +167,15 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) serialize_socket_bind(u, f, fds);
+        (void) bpf_serialize_socket_bind(u, f, fds);
+
+        (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
+        (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
+        (void) bpf_program_serialize_attachment(f, fds, "bpf-device-control-installed", u->bpf_device_control_installed);
+        (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
+        (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
+
+        (void) serialize_restrict_network_interfaces(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -175,7 +198,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                         (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
         }
 
-        if (serialize_jobs) {
+        if (!switching_root) {
                 if (u->job) {
                         fputs("job\n", f);
                         job_serialize(u->job, f);
@@ -373,16 +396,46 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         else {
                                 if (fdset_remove(fds, fd) < 0) {
                                         log_unit_debug(u, "Failed to remove %s value=%d from fdset", l, fd);
-
                                         continue;
                                 }
 
-                                (void) socket_bind_add_initial_link_fd(u, fd);
+                                (void) bpf_socket_bind_add_initial_link_fd(u, fd);
                         }
                         continue;
-                }
 
-                else if (streq(l, "ref-uid")) {
+                } else if (streq(l, "ip-bpf-ingress-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->ip_bpf_ingress_installed);
+                         continue;
+                } else if (streq(l, "ip-bpf-egress-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->ip_bpf_egress_installed);
+                         continue;
+                } else if (streq(l, "bpf-device-control-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->bpf_device_control_installed);
+                         continue;
+
+                } else if (streq(l, "ip-bpf-custom-ingress-installed")) {
+                         (void) bpf_program_deserialize_attachment_set(v, fds, &u->ip_bpf_custom_ingress_installed);
+                         continue;
+                } else if (streq(l, "ip-bpf-custom-egress-installed")) {
+                         (void) bpf_program_deserialize_attachment_set(v, fds, &u->ip_bpf_custom_egress_installed);
+                         continue;
+
+                } else if (streq(l, "restrict-ifaces-bpf-fd")) {
+                        int fd;
+
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
+                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
+                                continue;
+                        }
+                        if (fdset_remove(fds, fd) < 0) {
+                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
+                                continue;
+                        }
+
+                        (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
@@ -469,17 +522,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                if (unit_can_serialize(u)) {
-                        r = exec_runtime_deserialize_compat(u, l, v, fds);
-                        if (r < 0) {
-                                log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
-                                continue;
-                        }
-
+                r = exec_runtime_deserialize_compat(u, l, v, fds);
+                if (r < 0) {
+                        log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
+                        continue;
+                } else if (r > 0)
                         /* Returns positive if key was handled by the call */
-                        if (r > 0)
-                                continue;
+                        continue;
 
+                if (UNIT_VTABLE(u)->deserialize_item) {
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
@@ -497,8 +548,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
          * realize it again. */
-        unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
-        unit_invalidate_cgroup_bpf(u);
+        if (u->cgroup_realized) {
+                unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+                unit_invalidate_cgroup_bpf(u);
+        }
 
         return 0;
 }
@@ -540,6 +593,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 { UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT, "mountinfo-implicit" },
                 { UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,  "mountinfo-default"  },
                 { UNIT_DEPENDENCY_PROC_SWAP,          "proc-swap"          },
+                { UNIT_DEPENDENCY_SLICE_PROPERTY,     "slice-property"     },
         };
 
         assert(f);
@@ -571,7 +625,6 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
         const char *prefix2;
-        char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         CGroupMask m;
@@ -604,27 +657,21 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
                 "%s\tPerpetual: %s\n"
-                "%s\tGarbage Collection Mode: %s\n"
-                "%s\tSlice: %s\n"
-                "%s\tCGroup: %s\n"
-                "%s\tCGroup realized: %s\n",
+                "%s\tGarbage Collection Mode: %s\n",
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->state_change_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[1], sizeof(timestamp[1]), u->inactive_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[2], sizeof(timestamp[2]), u->active_enter_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[3], sizeof(timestamp[3]), u->active_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[4], sizeof(timestamp[4]), u->inactive_enter_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->state_change_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->inactive_exit_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->active_enter_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->active_exit_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
                 prefix, yes_no(u->perpetual),
-                prefix, collect_mode_to_string(u->collect_mode),
-                prefix, strna(unit_slice_name(u)),
-                prefix, strna(u->cgroup_path),
-                prefix, yes_no(u->cgroup_realized));
+                prefix, collect_mode_to_string(u->collect_mode));
 
         if (u->markers != 0) {
                 fprintf(f, "%s\tMarkers:", prefix);
@@ -635,37 +682,47 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (u->cgroup_realized_mask != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
-                fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
-        }
+        if (UNIT_HAS_CGROUP_CONTEXT(u)) {
+                fprintf(f,
+                        "%s\tSlice: %s\n"
+                        "%s\tCGroup: %s\n"
+                        "%s\tCGroup realized: %s\n",
+                        prefix, strna(unit_slice_name(u)),
+                        prefix, strna(u->cgroup_path),
+                        prefix, yes_no(u->cgroup_realized));
 
-        if (u->cgroup_enabled_mask != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
-                fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
-        }
+                if (u->cgroup_realized_mask != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
+                        fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_own_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
-        }
+                if (u->cgroup_enabled_mask != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
+                        fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_members_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
-        }
+                m = unit_get_own_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_delegate_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
+                m = unit_get_members_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
+                }
+
+                m = unit_get_delegate_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
+                }
         }
 
         if (!sd_id128_is_null(u->invocation_id))
@@ -706,7 +763,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tSuccess Action Exit Status: %i\n", prefix, u->success_action_exit_status);
 
         if (u->job_timeout != USEC_INFINITY)
-                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, FORMAT_TIMESPAN(u->job_timeout, 0));
 
         if (u->job_timeout_action != EMERGENCY_ACTION_NONE)
                 fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, emergency_action_to_string(u->job_timeout_action));
@@ -721,21 +778,21 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tCondition Timestamp: %s\n"
                         "%s\tCondition Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->condition_timestamp.realtime)),
+                        prefix, strna(FORMAT_TIMESTAMP(u->condition_timestamp.realtime)),
                         prefix, yes_no(u->condition_result));
 
         if (dual_timestamp_is_set(&u->assert_timestamp))
                 fprintf(f,
                         "%s\tAssert Timestamp: %s\n"
                         "%s\tAssert Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->assert_timestamp.realtime)),
+                        prefix, strna(FORMAT_TIMESTAMP(u->assert_timestamp.realtime)),
                         prefix, yes_no(u->assert_result));
 
         for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 UnitDependencyInfo di;
                 Unit *other;
 
-                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
+                HASHMAP_FOREACH_KEY(di.data, other, unit_get_dependencies(u, d)) {
                         bool space = false;
 
                         fprintf(f, "%s\t%s: %s (", prefix, unit_dependency_to_string(d), other->id);
@@ -770,12 +827,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
+                        "%s\tOnSuccessJobMode: %s\n"
                         "%s\tOnFailureJobMode: %s\n"
                         "%s\tIgnoreOnIsolate: %s\n",
                         prefix, yes_no(u->stop_when_unneeded),
                         prefix, yes_no(u->refuse_manual_start),
                         prefix, yes_no(u->refuse_manual_stop),
                         prefix, yes_no(u->default_dependencies),
+                        prefix, job_mode_to_string(u->on_success_job_mode),
                         prefix, job_mode_to_string(u->on_failure_job_mode),
                         prefix, yes_no(u->ignore_on_isolate));
 

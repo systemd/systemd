@@ -1,4 +1,4 @@
-#compdef busctl                    -*- shell-script -*-
+#compdef busctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # busctl(1) completion                               -*- shell-script -*-
@@ -25,7 +25,7 @@
         "list:List bus names"
         "status:Show bus service, process or bus owner credentials"
         "monitor:Show bus traffic"
-        "capture:Capture bus traffix as pcap"
+        "capture:Capture bus traffic"
         "tree:Show object tree of service"
         "introspect:Introspect object"
         "call:Call a method"

@@ -199,7 +199,7 @@ static bool value_node_test(
                 return false;
 
         default:
-                assert_not_reached("Invalid node type");
+                assert_not_reached();
         }
 }
 
@@ -234,7 +234,7 @@ static bool value_node_same(
                 return streq(node->value.str, value_str);
 
         default:
-                assert_not_reached("Invalid node type");
+                assert_not_reached();
         }
 }
 
@@ -375,7 +375,7 @@ int bus_match_run(
                 break;
 
         default:
-                assert_not_reached("Unknown match type.");
+                assert_not_reached();
         }
 
         if (BUS_MATCH_CAN_HASH(node->type)) {
@@ -711,7 +711,6 @@ int bus_match_parse(
                 unsigned *ret_n_components) {
 
         struct bus_match_component *components = NULL;
-        size_t components_allocated = 0;
         unsigned n_components = 0;
         int r;
 
@@ -724,7 +723,6 @@ int bus_match_parse(
                 enum bus_match_node_type t;
                 unsigned j = 0;
                 _cleanup_free_ char *value = NULL;
-                size_t value_allocated = 0;
                 bool escaped = false, quoted;
                 uint8_t u;
 
@@ -780,7 +778,7 @@ int bus_match_parse(
                                 }
                         }
 
-                        if (!GREEDY_REALLOC(value, value_allocated, j + 2)) {
+                        if (!GREEDY_REALLOC(value, j + 2)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -806,7 +804,7 @@ int bus_match_parse(
                 } else
                         u = 0;
 
-                if (!GREEDY_REALLOC(components, components_allocated, n_components + 1)) {
+                if (!GREEDY_REALLOC(components, n_components + 1)) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -999,20 +997,16 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
                 return "path_namespace";
 
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                snprintf(buf, l, "arg%i", t - BUS_MATCH_ARG);
-                return buf;
+                return snprintf_ok(buf, l, "arg%i", t - BUS_MATCH_ARG);
 
         case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
-                snprintf(buf, l, "arg%ipath", t - BUS_MATCH_ARG_PATH);
-                return buf;
+                return snprintf_ok(buf, l, "arg%ipath", t - BUS_MATCH_ARG_PATH);
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
-                snprintf(buf, l, "arg%inamespace", t - BUS_MATCH_ARG_NAMESPACE);
-                return buf;
+                return snprintf_ok(buf, l, "arg%inamespace", t - BUS_MATCH_ARG_NAMESPACE);
 
         case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST:
-                snprintf(buf, l, "arg%ihas", t - BUS_MATCH_ARG_HAS);
-                return buf;
+                return snprintf_ok(buf, l, "arg%ihas", t - BUS_MATCH_ARG_HAS);
 
         default:
                 return NULL;

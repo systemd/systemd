@@ -1,6 +1,8 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
 <refentry id="repart.d" conditional='ENABLE_REPART'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -55,11 +57,13 @@
     partition slot greater than the highest slot number currently in use. Any existing partitions that have
     no matching partition file are left as they are.</para>
 
-    <para>Note that these definitions may only be used to created and initialize new partitions or grow
+    <para>Note that these definitions may only be used to create and initialize new partitions or to grow
     existing ones. In the latter case it will not grow the contained files systems however; separate
     mechanisms, such as
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
-    used to grow the file systems inside of these partitions.</para>
+    used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
+    growing via the <varname>GrowFileSystem=</varname> setting, in which case the file system is grown on
+    first mount by tools that respect this flag. See below for details.</para>
   </refsect1>
 
   <refsect1>
@@ -199,6 +203,16 @@
               </row>
 
               <row>
+                <entry><constant>root-loongarch64</constant></entry>
+                <entry>Root file system partition for the LoongArch 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-loongarch64-verity</constant></entry>
+                <entry>Verity data for the LoongArch 64-bit root file system partition</entry>
+              </row>
+
+              <row>
                 <entry><constant>root-riscv32</constant></entry>
                 <entry>Root file system partition for the RISC-V 32-bit architecture</entry>
               </row>
@@ -289,6 +303,16 @@
               </row>
 
               <row>
+                <entry><constant>usr-loongarch64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the LoongArch 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-loongarch64-verity</constant></entry>
+                <entry>Verity data for the LoongArch 64-bit <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
                 <entry><constant>usr-riscv32</constant></entry>
                 <entry><filename>/usr/</filename> file system partition for the RISC-V 32-bit architecture</entry>
               </row>
@@ -307,8 +331,6 @@
                 <entry><constant>usr-riscv64-verity</constant></entry>
                 <entry>Verity data for the RISC-V 64-bit <filename>/usr/</filename> file system partition</entry>
               </row>
-
-
             </tbody>
           </tgroup>
         </table>
@@ -394,7 +416,7 @@
         …  suffixes (to the base of 1024). If <varname>SizeMinBytes=</varname> is specified the partition is
         created at or grown to at least the specified size. If <varname>SizeMaxBytes=</varname> is specified
         the partition is created at or grown to at most the specified size. The precise size is determined
-        through the weight value value configured with <varname>Weight=</varname>, see above. When
+        through the weight value configured with <varname>Weight=</varname>, see above. When
         <varname>SizeMinBytes=</varname> is set equal to <varname>SizeMaxBytes=</varname> the configured
         weight has no effect as the partition is explicitly sized to the specified fixed value. Note that
         partitions are never created smaller than 4096 bytes, and since partitions are never shrunk the
@@ -432,13 +454,13 @@
         <para>If the special value <literal>auto</literal> is specified, the source to copy from is
         automatically picked up from the running system (or the image specified with
         <option>--image=</option> — if used). A partition that matches both the configured partition type (as
-        declared with <varname>Type=</varname> above), and the currently mounted directory appropriate for
-        that partition type is determined. For example, if the partition type is set to
+        declared with <varname>Type=</varname> described above), and the currently mounted directory
+        appropriate for that partition type is determined. For example, if the partition type is set to
         <literal>root</literal> the partition backing the root directory (<filename>/</filename>) is used as
         source to copy from — if its partition type is set to <literal>root</literal> as well. If the
         declared type is <literal>usr</literal> the partition backing <filename>/usr/</filename> is used as
         source to copy blocks from — if its partition type is set to <literal>usr</literal> too. The logic is
-        capable of automatically tracking down the the backing partitions for encrypted and Verity-enabled
+        capable of automatically tracking down the backing partitions for encrypted and Verity-enabled
         volumes. <literal>CopyBlocks=auto</literal> is useful for implementing "self-replicating" systems,
         i.e. systems that are their own installer.</para>
 
@@ -509,7 +531,7 @@
       <varlistentry>
         <term><varname>MakeDirectories=</varname></term>
 
-        <listitem><para>akes one or more absolute paths, separated by whitespace, each declaring a directory
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
         to create within the new file system. Behaviour is similar to <varname>CopyFiles=</varname>, but
         instead of copying in a set of files this just creates the specified directories with the default
         mode of 0755 owned by the root user and group, plus all their parent directories (with the same
@@ -544,10 +566,10 @@
         are copied in or the file system configured with <varname>Format=</varname> is created.</para>
 
         <para>The LUKS2 UUID is automatically derived from the partition UUID in a stable fashion. If
-        <literal>key-file</literal> or <literal>key-file+tpm2</literal> is used a key is added to the LUKS2
-        superblock, configurable with the <option>--key-file=</option> switch to
+        <literal>key-file</literal> or <literal>key-file+tpm2</literal> is used, a key is added to the LUKS2
+        superblock, configurable with the <option>--key-file=</option> option to
         <command>systemd-repart</command>. If <literal>tpm2</literal> or <literal>key-file+tpm2</literal> is
-        used a key is added to the LUKS2 superblock that is enrolled to the local TPM2 chip, as configured
+        used, a key is added to the LUKS2 superblock that is enrolled to the local TPM2 chip, as configured
         with the <option>--tpm2-device=</option> and <option>--tpm2-pcrs=</option> options to
         <command>systemd-repart</command>.</para>
 
@@ -569,24 +591,51 @@
       <varlistentry>
         <term><varname>Flags=</varname></term>
 
-        <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
+        <listitem><para>Configures the 64bit GPT partition flags field to set for the partition when creating
         it. This option has no effect if the partition already exists. If not specified the flags values is
-        set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
-        refers to a Verity partition, in which case bit 60 is set (i.e. the read-only bit). This bit may also
-        be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
-        hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
-        decimal (no prefix).</para></listitem>
+        set to all zeroes, except for the three bits that can also be configured via
+        <varname>NoAuto=</varname>, <varname>ReadOnly=</varname> and <varname>GrowFileSystem=</varname>; see
+        below for details on the defaults for these three flags. Specify the flags value in hexadecimal (by
+        prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or decimal (no
+        prefix).</para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NoAuto=</varname></term>
         <term><varname>ReadOnly=</varname></term>
+        <term><varname>GrowFileSystem=</varname></term>
 
-        <listitem><para>Configures the Read-Only partition flags (bit 60) of the partition table entry. This
-        option is a friendly way to set bit 60 of the partition flags value without setting any of the other
-        bits, and may be set via <varname>Flags=</varname> too, see above.</para>
+        <listitem><para>Configures the No-Auto, Read-Only and Grow-File-System partition flags (bit 63, 60
+        and 59) of the partition table entry, as defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. Only
+        available for partition types supported by the specification. This option is a friendly way to set
+        bits 63, 60 and 59 of the partition flags value without setting any of the other bits, and may be set
+        via <varname>Flags=</varname> too, see above.</para>
 
-        <para>If both <varname>Flags=</varname> and <varname>ReadOnly=</varname> are set the latter controls
-        the value of the flag.</para></listitem>
+        <para>If <varname>Flags=</varname> is used in conjunction with one or more of
+        <varname>NoAuto=</varname>/<varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> the latter
+        control the value of the relevant flags, i.e. the high-level settings
+        <varname>NoAuto=</varname>/<varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> override
+        the relevant bits of the low-level setting <varname>Flags=</varname>.</para>
+
+        <para>Note that the three flags affect only automatic partition mounting, as implemented by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        or the <option>--image=</option> option of various commands (such as
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>). It
+        has no effect on explicit mounts, such as those done via <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+        <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        marked for file system growing) the latter is typically without effect: the read-only flag takes
+        precedence in most tools reading these flags, and since growing the file system involves writing to
+        the partition it is consequently ignored.</para>
+
+        <para><varname>NoAuto=</varname> defaults to off. <varname>ReadOnly=</varname> defaults to on for
+        Verity partition types, and off for all others. <varname>GrowFileSystem=</varname> defaults to on for
+        all partition types that support it, except if the partition is marked read-only (and thus
+        effectively, defaults to off for Verity partitions).</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -594,7 +643,9 @@
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers may be used in the <varname>Label=</varname> setting. The following expansions are understood:</para>
+    <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
+    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname> settings. The following expansions are
+    understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -621,6 +672,8 @@
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>
           </tbody>
         </tgroup>

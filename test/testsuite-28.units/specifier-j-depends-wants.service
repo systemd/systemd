@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Dependent service for percent-j specifier
 After=testsuite-28-pre.service

@@ -15,13 +15,12 @@
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
-static void test_fgetxattrat_fake(void) {
+TEST(getxattr_at_malloc) {
         char t[] = "/var/tmp/xattrtestXXXXXX";
+        _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -1;
         const char *x;
-        char v[3];
         int r;
-        size_t size;
 
         assert_se(mkdtemp(t));
         x = strjoina(t, "/test");
@@ -35,30 +34,38 @@ static void test_fgetxattrat_fake(void) {
         fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
 
-        assert_se(fgetxattrat_fake(fd, "test", "user.foo", v, 3, 0, &size) >= 0);
-        assert_se(size == 3);
-        assert_se(memcmp(v, "bar", 3) == 0);
+        assert_se(getxattr_at_malloc(fd, "test", "user.foo", 0, &value) == 3);
+        assert_se(memcmp(value, "bar", 3) == 0);
+        value = mfree(value);
+
+        assert_se(getxattr_at_malloc(AT_FDCWD, x, "user.foo", 0, &value) == 3);
+        assert_se(memcmp(value, "bar", 3) == 0);
+        value = mfree(value);
 
         safe_close(fd);
         fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
-        r = fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size);
+        r = getxattr_at_malloc(fd, "usr", "user.idontexist", 0, &value);
         assert_se(r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r));
+
+        safe_close(fd);
+        fd = open(x, O_PATH|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value) == 3);
+        assert_se(streq(value, "bar"));
 
 cleanup:
         assert_se(unlink(x) >= 0);
         assert_se(rmdir(t) >= 0);
 }
 
-static void test_getcrtime(void) {
-
+TEST(getcrtime) {
         _cleanup_close_ int fd = -1;
-        char ts[FORMAT_TIMESTAMP_MAX];
         const char *vt;
         usec_t usec, k;
         int r;
 
-        assert_se(tmp_dir(&vt) >= 0);
+        assert_se(var_tmp_dir(&vt) >= 0);
 
         fd = open_tmpfile_unlinkable(vt, O_RDWR);
         assert_se(fd >= 0);
@@ -67,7 +74,7 @@ static void test_getcrtime(void) {
         if (r < 0)
                 log_debug_errno(r, "btime: %m");
         else
-                log_debug("btime: %s", format_timestamp(ts, sizeof(ts), usec));
+                log_debug("btime: %s", FORMAT_TIMESTAMP(usec));
 
         k = now(CLOCK_REALTIME);
 
@@ -79,11 +86,4 @@ static void test_getcrtime(void) {
         }
 }
 
-int main(void) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_fgetxattrat_fake();
-        test_getcrtime();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

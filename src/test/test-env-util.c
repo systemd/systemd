@@ -12,9 +12,7 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_strv_env_delete(void) {
-        log_info("/* %s */", __func__);
-
+TEST(strv_env_delete) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
@@ -34,9 +32,7 @@ static void test_strv_env_delete(void) {
         assert_se(strv_length(d) == 2);
 }
 
-static void test_strv_env_get(void) {
-        log_info("/* %s */", __func__);
-
+TEST(strv_env_get) {
         char **l = STRV_MAKE("ONE_OR_TWO=1", "THREE=3", "ONE_OR_TWO=2", "FOUR=4");
 
         assert_se(streq(strv_env_get(l, "ONE_OR_TWO"), "2"));
@@ -44,9 +40,7 @@ static void test_strv_env_get(void) {
         assert_se(streq(strv_env_get(l, "FOUR"), "4"));
 }
 
-static void test_strv_env_pairs_get(void) {
-        log_info("/* %s */", __func__);
-
+TEST(strv_env_pairs_get) {
         char **l = STRV_MAKE("ONE_OR_TWO", "1", "THREE", "3", "ONE_OR_TWO", "2", "FOUR", "4", "FIVE", "5", "SIX", "FIVE", "SEVEN", "7");
 
         assert_se(streq(strv_env_pairs_get(l, "ONE_OR_TWO"), "2"));
@@ -55,9 +49,7 @@ static void test_strv_env_pairs_get(void) {
         assert_se(streq(strv_env_pairs_get(l, "FIVE"), "5"));
 }
 
-static void test_strv_env_unset(void) {
-        log_info("/* %s */", __func__);
-
+TEST(strv_env_unset) {
         _cleanup_strv_free_ char **l = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
@@ -70,44 +62,38 @@ static void test_strv_env_unset(void) {
         assert_se(strv_length(l) == 2);
 }
 
-static void test_strv_env_merge(void) {
-        log_info("/* %s */", __func__);
+TEST(strv_env_merge) {
+        char **a = STRV_MAKE("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", "EQ===");
+        char **b = STRV_MAKE("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES");
 
-        _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
-
-        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
-        assert_se(a);
-
-        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES");
-        assert_se(b);
-
-        r = strv_env_merge(2, a, b);
+        _cleanup_strv_free_ char **r = strv_env_merge(NULL, a, NULL, b, NULL, a, b, b, NULL);
         assert_se(r);
         assert_se(streq(r[0], "FOO="));
         assert_se(streq(r[1], "WALDO="));
         assert_se(streq(r[2], "PIEP"));
         assert_se(streq(r[3], "SCHLUMPF=SMURFF"));
-        assert_se(streq(r[4], "PIEP="));
-        assert_se(streq(r[5], "NANANANA=YES"));
-        assert_se(strv_length(r) == 6);
+        assert_se(streq(r[4], "EQ==="));
+        assert_se(streq(r[5], "PIEP="));
+        assert_se(streq(r[6], "NANANANA=YES"));
+        assert_se(strv_length(r) == 7);
 
         assert_se(strv_env_clean(r) == r);
         assert_se(streq(r[0], "FOO="));
         assert_se(streq(r[1], "WALDO="));
         assert_se(streq(r[2], "SCHLUMPF=SMURFF"));
-        assert_se(streq(r[3], "PIEP="));
-        assert_se(streq(r[4], "NANANANA=YES"));
-        assert_se(strv_length(r) == 5);
+        assert_se(streq(r[3], "EQ==="));
+        assert_se(streq(r[4], "PIEP="));
+        assert_se(streq(r[5], "NANANANA=YES"));
+        assert_se(strv_length(r) == 6);
 }
 
-static void test_strv_env_replace_strdup(void) {
-        log_info("/* %s */", __func__);
-
+TEST(strv_env_replace_strdup) {
         _cleanup_strv_free_ char **a = NULL;
 
         assert_se(strv_env_replace_strdup(&a, "a=a") == 1);
         assert_se(strv_env_replace_strdup(&a, "b=b") == 1);
         assert_se(strv_env_replace_strdup(&a, "a=A") == 0);
+        assert_se(strv_env_replace_strdup(&a, "c") == -EINVAL);
 
         assert_se(strv_length(a) == 2);
         strv_sort(a);
@@ -115,9 +101,26 @@ static void test_strv_env_replace_strdup(void) {
         assert_se(streq(a[1], "b=b"));
 }
 
-static void test_strv_env_assign(void) {
-        log_info("/* %s */", __func__);
+TEST(strv_env_replace_strdup_passthrough) {
+        _cleanup_strv_free_ char **a = NULL;
 
+        assert_se(putenv((char*) "a=a") == 0);
+        assert_se(putenv((char*) "b=") == 0);
+        assert_se(unsetenv("c") == 0);
+
+        assert_se(strv_env_replace_strdup_passthrough(&a, "a") == 1);
+        assert_se(strv_env_replace_strdup_passthrough(&a, "b") == 1);
+        assert_se(strv_env_replace_strdup_passthrough(&a, "c") == 1);
+        assert_se(strv_env_replace_strdup_passthrough(&a, "a") == 0);
+        assert_se(strv_env_replace_strdup_passthrough(&a, "$a") == -EINVAL);
+
+        assert_se(strv_length(a) == 3);
+        assert_se(streq(a[0], "a=a"));
+        assert_se(streq(a[1], "b="));
+        assert_se(streq(a[2], "c="));
+}
+
+TEST(strv_env_assign) {
         _cleanup_strv_free_ char **a = NULL;
 
         assert_se(strv_env_assign(&a, "a", "a") == 1);
@@ -131,9 +134,7 @@ static void test_strv_env_assign(void) {
         assert_se(streq(a[0], "a=A"));
 }
 
-static void test_env_strv_get_n(void) {
-        log_info("/* %s */", __func__);
-
+TEST(env_strv_get_n) {
         const char *_env[] = {
                 "FOO=NO NO NO",
                 "FOO=BAR BAR",
@@ -163,7 +164,7 @@ static void test_env_strv_get_n(void) {
                             getenv("PATH")));
 }
 
-static void test_replace_env(bool braceless) {
+static void test_replace_env1(bool braceless) {
         log_info("/* %s(braceless=%s) */", __func__, yes_no(braceless));
 
         const char *env[] = {
@@ -198,7 +199,7 @@ static void test_replace_env2(bool extended) {
                 "BAR=bar",
                 NULL
         };
-        _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL, *x = NULL;
+        _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL, *x = NULL, *y = NULL;
         unsigned flags = REPLACE_ENV_ALLOW_EXTENDED*extended;
 
         t = replace_env("FOO=${FOO:-${BAR}}", (char**) env, flags);
@@ -218,11 +219,19 @@ static void test_replace_env2(bool extended) {
 
         x = replace_env("XXX=${XXX:+${BAR}post}", (char**) env, flags);
         assert_se(streq(x, extended ? "XXX=" : "XXX=${XXX:+barpost}"));
+
+        y = replace_env("FOO=${FOO}between${BAR:-baz}", (char**) env, flags);
+        assert_se(streq(y, extended ? "FOO=foobetweenbar" : "FOO=foobetween${BAR:-baz}"));
 }
 
-static void test_replace_env_argv(void) {
-        log_info("/* %s */", __func__);
+TEST(replace_env) {
+        test_replace_env1(false);
+        test_replace_env1(true);
+        test_replace_env2(false);
+        test_replace_env2(true);
+}
 
+TEST(replace_env_argv) {
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
@@ -272,9 +281,7 @@ static void test_replace_env_argv(void) {
         assert_se(strv_length(r) == 17);
 }
 
-static void test_env_clean(void) {
-        log_info("/* %s */", __func__);
-
+TEST(env_clean) {
         _cleanup_strv_free_ char **e = strv_new("FOOBAR=WALDO",
                                                 "FOOBAR=WALDO",
                                                 "FOOBAR",
@@ -310,9 +317,7 @@ static void test_env_clean(void) {
         assert_se(e[8] == NULL);
 }
 
-static void test_env_name_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(env_name_is_valid) {
         assert_se(env_name_is_valid("test"));
 
         assert_se(!env_name_is_valid(NULL));
@@ -324,9 +329,7 @@ static void test_env_name_is_valid(void) {
         assert_se(!env_name_is_valid("#¤%&?_only_numbers_letters_and_underscore_allowed"));
 }
 
-static void test_env_value_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(env_value_is_valid) {
         assert_se(env_value_is_valid(""));
         assert_se(env_value_is_valid("głąb kapuściany"));
         assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
@@ -339,9 +342,7 @@ static void test_env_value_is_valid(void) {
                                                  * We currently disallow that. */
 }
 
-static void test_env_assignment_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(env_assignment_is_valid) {
         assert_se(env_assignment_is_valid("a="));
         assert_se(env_assignment_is_valid("b=głąb kapuściany"));
         assert_se(env_assignment_is_valid("c=\\007\\009\\011"));
@@ -361,25 +362,21 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
-static void test_putenv_dup(void) {
-        log_info("/* %s */", __func__);
-
+TEST(putenv_dup) {
         assert_se(putenv_dup("A=a1", true) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a1", true) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a2", false) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a2", true) == 0);
-        assert_se(streq(getenv("A"), "a2"));
+        assert_se(streq_ptr(getenv("A"), "a2"));
 }
 
-static void test_setenv_systemd_exec_pid(void) {
+TEST(setenv_systemd_exec_pid) {
         _cleanup_free_ char *saved = NULL;
         const char *e;
         pid_t p;
-
-        log_info("/* %s */", __func__);
 
         e = getenv("SYSTEMD_EXEC_PID");
         if (e)
@@ -409,28 +406,48 @@ static void test_setenv_systemd_exec_pid(void) {
         assert_se(set_unset_env("SYSTEMD_EXEC_PID", saved, 1) >= 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
+TEST(unsetenv_erase) {
+        int r;
 
-        test_strv_env_delete();
-        test_strv_env_get();
-        test_strv_env_pairs_get();
-        test_strv_env_unset();
-        test_strv_env_merge();
-        test_strv_env_replace_strdup();
-        test_strv_env_assign();
-        test_env_strv_get_n();
-        test_replace_env(false);
-        test_replace_env(true);
-        test_replace_env2(false);
-        test_replace_env2(true);
-        test_replace_env_argv();
-        test_env_clean();
-        test_env_name_is_valid();
-        test_env_value_is_valid();
-        test_env_assignment_is_valid();
-        test_putenv_dup();
-        test_setenv_systemd_exec_pid();
+        r = safe_fork("(sd-unsetenverase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r == 0) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **e;
 
-        return 0;
+                /* child */
+
+                assert_se(unsetenv_erase("thisenvvardefinitelywontexist") == 0);
+
+                l = strv_new("FOO=BAR", "QUUX=PIFF", "ONE=TWO", "A=B");
+                assert_se(strv_length(l) == 4);
+
+                environ = l;
+
+                STRV_FOREACH(e, environ) {
+                        _cleanup_free_ char *n = NULL;
+                        char *eq;
+
+                        eq = strchr(*e, '=');
+                        if (!eq)
+                                continue;
+
+                        n = strndup(*e, eq - *e);
+                        assert_se(n);
+
+                        assert_se(streq_ptr(getenv(n), eq + 1));
+                        assert_se(getenv(n) == eq + 1);
+                        assert_se(unsetenv_erase(n) > 0);
+                        assert_se(isempty(eq + 1));
+                        assert_se(!getenv(n));
+                }
+
+                environ = NULL;
+                l = strv_free(l);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(r > 0);
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

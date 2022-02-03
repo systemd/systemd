@@ -5,12 +5,12 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void _test_one(int line, const char *input, const char *output) {
         CalendarSpec *c;
         _cleanup_free_ char *p = NULL, *q = NULL;
         usec_t u;
-        char buf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         assert_se(calendar_spec_from_string(input, &c) >= 0);
@@ -22,7 +22,7 @@ static void _test_one(int line, const char *input, const char *output) {
 
         u = now(CLOCK_REALTIME);
         r = calendar_spec_next_usec(c, u, &u);
-        log_info("Next: %s", r < 0 ? strerror_safe(r) : format_timestamp(buf, sizeof buf, u));
+        log_info("Next: %s", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP(u));
         calendar_spec_free(c);
 
         assert_se(calendar_spec_from_string(p, &c) >= 0);
@@ -37,12 +37,11 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         CalendarSpec *c;
         usec_t u;
         char *old_tz;
-        char buf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         old_tz = getenv("TZ");
         if (old_tz)
-                old_tz = strdupa(old_tz);
+                old_tz = strdupa_safe(old_tz);
 
         if (!isempty(new_tz))
                 new_tz = strjoina(":", new_tz);
@@ -56,11 +55,11 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
 
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
-        log_info("At: %s", r < 0 ? strerror_safe(r) : format_timestamp_style(buf, sizeof buf, u, TIMESTAMP_US));
+        log_info("At: %s", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US));
         if (expect != USEC_INFINITY)
                 assert_se(r >= 0 && u == expect);
         else
-                assert(r == -ENOENT);
+                assert_se(r == -ENOENT);
 
         calendar_spec_free(c);
 
@@ -69,7 +68,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
 }
 #define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
 
-static void test_timestamp(void) {
+TEST(timestamp) {
         char buf[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *t = NULL;
         CalendarSpec *c;
@@ -90,21 +89,20 @@ static void test_timestamp(void) {
         assert_se(y == x);
 }
 
-static void test_hourly_bug_4031(void) {
+TEST(hourly_bug_4031) {
         CalendarSpec *c;
         usec_t n, u, w;
-        char buf[FORMAT_TIMESTAMP_MAX], zaf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         assert_se(calendar_spec_from_string("hourly", &c) >= 0);
         n = now(CLOCK_REALTIME);
         assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
 
-        log_info("Now: %s (%"PRIu64")", format_timestamp_style(buf, sizeof buf, n, TIMESTAMP_US), n);
-        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : format_timestamp_style(buf, sizeof buf, u, TIMESTAMP_US), u);
+        log_info("Now: %s (%"PRIu64")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
+        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US), u);
 
         assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
-        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : format_timestamp_style(zaf, sizeof zaf, w, TIMESTAMP_US), w);
+        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(w, TIMESTAMP_US), w);
 
         assert_se(n < u);
         assert_se(u <= n + USEC_PER_HOUR);
@@ -114,9 +112,7 @@ static void test_hourly_bug_4031(void) {
         calendar_spec_free(c);
 }
 
-int main(int argc, char* argv[]) {
-        CalendarSpec *c;
-
+TEST(calendar_spec_one) {
         test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Sat,Thu,Mon..Wed,Sat..Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");
         test_one("Mon,Sun 12-*-* 2,1:23", "Mon,Sun 2012-*-* 01,02:23:00");
@@ -183,7 +179,9 @@ int main(int argc, char* argv[]) {
         test_one("@0 UTC", "1970-01-01 00:00:00 UTC");
         test_one("*:05..05", "*-*-* *:05:00");
         test_one("*:05..10/6", "*-*-* *:05:00");
+}
 
+TEST(calendar_spec_next) {
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "CET", 12345, 1459041420000000);
         test_next("2016-03-27 03:17:00", "EET", 12345, -1);
@@ -217,6 +215,10 @@ int main(int argc, char* argv[]) {
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
+}
+
+TEST(calendar_spec_from_string) {
+        CalendarSpec *c;
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string(" utc", &c) < 0);
@@ -243,9 +245,6 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00:2300", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) < 0);
         assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
-
-        test_timestamp();
-        test_hourly_bug_4031();
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

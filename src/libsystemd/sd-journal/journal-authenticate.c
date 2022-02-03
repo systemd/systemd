@@ -182,14 +182,13 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
         } else {
                 f->fsprg_state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
                 f->fsprg_state = malloc(f->fsprg_state_size);
-
                 if (!f->fsprg_state)
                         return -ENOMEM;
         }
 
         log_debug("Seeking FSPRG key to %"PRIu64".", goal);
 
-        msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
+        msk = alloca_safe(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
         FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
         return 0;
@@ -249,18 +248,18 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
                 gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
+                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
                 break;
 
         case OBJECT_FIELD:
                 /* Same here */
                 gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
+                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
                 break;
 
         case OBJECT_ENTRY:
                 /* All */
-                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
+                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:

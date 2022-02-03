@@ -7,7 +7,6 @@
 # Balázs Úr <urbalazs at gmail dot com>, 2016.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2016-08-23 18:03+0100\n"

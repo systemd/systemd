@@ -34,6 +34,24 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
         return 1;
 }
 
+int bus_log_address_error(int r, BusTransport transport) {
+        bool hint = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM;
+
+        return log_error_errno(r,
+                               hint ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                      "Failed to set bus address: %m");
+}
+
+int bus_log_connect_error(int r, BusTransport transport) {
+        bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
+             hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
+
+        return log_error_errno(r,
+                               r == hint_vars ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                               r == hint_addr ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                                "Failed to connect to bus: %m");
+}
+
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         const char *match;
         const char *unique;
@@ -291,7 +309,7 @@ int bus_connect_transport(
                 break;
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
         if (r < 0)
                 return r;
@@ -337,7 +355,7 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
                 break;
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
 
         return r;

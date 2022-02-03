@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "env-file.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -16,7 +17,7 @@
 #include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-table.h"
@@ -209,18 +210,11 @@ void inhibitor_stop(Inhibitor *i) {
 }
 
 int inhibitor_load(Inhibitor *i) {
-
-        _cleanup_free_ char
-                *what = NULL,
-                *uid = NULL,
-                *pid = NULL,
-                *who = NULL,
-                *why = NULL,
-                *mode = NULL;
-
+        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
         InhibitWhat w;
         InhibitMode mm;
         char *cc;
+        ssize_t l;
         int r;
 
         r = parse_env_file(NULL, i->state_file,
@@ -255,17 +249,17 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (who) {
-                r = cunescape(who, 0, &cc);
-                if (r < 0)
-                        return log_oom();
+                l = cunescape(who, 0, &cc);
+                if (l < 0)
+                        return log_debug_errno(l, "Failed to unescape \"who\" of inhibitor: %m");
 
                 free_and_replace(i->who, cc);
         }
 
         if (why) {
-                r = cunescape(why, 0, &cc);
-                if (r < 0)
-                        return log_oom();
+                l = cunescape(why, 0, &cc);
+                if (l < 0)
+                        return log_debug_errno(l, "Failed to unescape \"why\" of inhibitor: %m");
 
                 free_and_replace(i->why, cc);
         }
@@ -334,11 +328,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         /* Open writing side */
-        r = open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK));
 }
 
 static void inhibitor_remove_fifo(Inhibitor *i) {

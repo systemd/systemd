@@ -23,6 +23,7 @@
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -40,6 +41,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
+#include "verb-log-control.h"
 #include "verbs.h"
 
 static int arg_family = AF_UNSPEC;
@@ -104,22 +106,15 @@ static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b
 
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
-        const char *dot;
         int ifi;
 
         assert(s);
 
-        dot = strchr(s, '.');
-        if (dot) {
-                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
-                iface = strndup(s, dot - s);
-
-        } else
-                iface = strdup(s);
+        iface = strdup(s);
         if (!iface)
                 return log_oom();
 
-        ifi = resolve_interface(NULL, iface);
+        ifi = rtnl_resolve_interface(NULL, iface);
         if (ifi < 0) {
                 if (ifi == -ENODEV && arg_ifindex_permissive) {
                         log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
@@ -138,9 +133,25 @@ int ifname_mangle(const char *s) {
         return 1;
 }
 
-static void print_source(uint64_t flags, usec_t rtt) {
-        char rtt_str[FORMAT_TIMESTAMP_MAX];
+int ifname_resolvconf_mangle(const char *s) {
+        const char *dot;
 
+        assert(s);
+
+        dot = strchr(s, '.');
+        if (dot) {
+                _cleanup_free_ char *iface = NULL;
+
+                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
+                iface = strndup(s, dot - s);
+                if (!iface)
+                        return log_oom();
+                return ifname_mangle(iface);
+        } else
+                return ifname_mangle(s);
+}
+
+static void print_source(uint64_t flags, usec_t rtt) {
         if (!arg_legend)
                 return;
 
@@ -156,11 +167,10 @@ static void print_source(uint64_t flags, usec_t rtt) {
                flags & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
                flags & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
 
-        assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
-
         printf(" in %s.%s\n"
                "%s-- Data is authenticated: %s; Data was acquired via local or encrypted transport: %s%s\n",
-               rtt_str, ansi_normal(),
+               FORMAT_TIMESPAN(rtt, 100),
+               ansi_normal(),
                ansi_grey(),
                yes_no(flags & SD_RESOLVED_AUTHENTICATED),
                yes_no(flags & SD_RESOLVED_CONFIDENTIAL),
@@ -178,17 +188,19 @@ static void print_source(uint64_t flags, usec_t rtt) {
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
-        char ifname[IF_NAMESIZE + 1];
+        char ifname[IF_NAMESIZE];
+        int r;
 
         if (ifindex <= 0)
                 return;
 
-        if (!format_ifname(ifindex, ifname))
-                log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
-        else
-                printf("%*s%s-- link: %s%s",
-                       60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
-                       ansi_grey(), ifname, ansi_normal());
+        r = format_ifname(ifindex, ifname);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
+
+        printf("%*s%s-- link: %s%s",
+               60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
+               ansi_grey(), ifname, ansi_normal());
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {
@@ -612,7 +624,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
         q = strchr(p, '?');
         if (q) {
-                n = strndupa(p, q - p);
+                n = strndupa_safe(p, q - p);
                 q++;
 
                 for (;;) {
@@ -990,7 +1002,7 @@ static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid port \"%s\".", port + 1);
 
-                address = strndupa(address, port - address);
+                address = strndupa_safe(address, port - address);
         }
 
         r = asprintf(&full, "_%u._%s.%s",
@@ -1546,15 +1558,16 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(link_info_clear) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *p = NULL;
-        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE + 1] = "";
+        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE];
         int r;
 
         assert(bus);
         assert(ifindex > 0);
 
         if (!name) {
-                if (!format_ifname(ifindex, ifname))
-                        return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
+                r = format_ifname(ifindex, ifname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
 
                 name = ifname;
         }
@@ -1575,7 +1588,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (mode == STATUS_DNS)
                 return status_print_strv_ifindex(ifindex, name, link_info.dns_ex ?: link_info.dns);
@@ -1839,7 +1852,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (mode == STATUS_DNS)
                 return status_print_strv_global(global_info.dns_ex ?: global_info.dns);
@@ -1963,7 +1976,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         _cleanup_free_ InterfaceInfo *infos = NULL;
-        size_t n_allocated = 0, n_infos = 0;
+        size_t n_infos = 0;
 
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 const char *name;
@@ -1988,7 +2001,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 if (r < 0)
                         return rtnl_log_parse_error(r);
 
-                if (!GREEDY_REALLOC(infos, n_allocated, n_infos + 1))
+                if (!GREEDY_REALLOC(infos, n_infos + 1))
                         return log_oom();
 
                 infos[n_infos++] = (InterfaceInfo) { ifindex, name };
@@ -2018,7 +2031,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 STRV_FOREACH(ifname, argv + 1) {
                         int ifindex, q;
 
-                        ifindex = resolve_interface(&rtnl, *ifname);
+                        ifindex = rtnl_resolve_interface(&rtnl, *ifname);
                         if (ifindex < 0) {
                                 log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
                                 continue;
@@ -2525,45 +2538,12 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 }
 
 static int verb_log_level(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int r;
 
         assert(bus);
+        assert(IN_SET(argc, 1, 2));
 
-        if (argc == 1) {
-                _cleanup_free_ char *level = NULL;
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                "LogLevel",
-                                &error,
-                                &level);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
-
-                puts(level);
-
-        } else {
-                assert(argc == 2);
-
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                "LogLevel",
-                                &error,
-                                "s",
-                                argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
 static void help_protocol_types(void) {
@@ -3001,7 +2981,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3253,7 +3233,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3403,7 +3383,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
                 return translate("revert", arg_ifname, 0, NULL, bus);
 
         case _MODE_INVALID:
-                assert_not_reached("invalid mode");
+                assert_not_reached();
         }
 
         return 0;

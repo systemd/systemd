@@ -78,7 +78,7 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_VALIDATING:
         case DNS_TRANSACTION_SUCCESS:
         default:
-                assert_not_reached("Impossible state");
+                assert_not_reached();
         }
 }
 
@@ -364,7 +364,7 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                intmax_t b;
+                int64_t b;
 
                 if (!json_variant_is_integer(i))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));

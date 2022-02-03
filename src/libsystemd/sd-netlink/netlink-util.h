@@ -19,13 +19,15 @@ typedef struct RouteVia {
 
 typedef struct MultipathRoute {
         RouteVia gateway;
-        int ifindex;
         uint32_t weight;
+        int ifindex;
+        char *ifname;
 } MultipathRoute;
 
-int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
-uint32_t rtnl_message_get_serial(sd_netlink_message *m);
-void rtnl_message_seal(sd_netlink_message *m);
+MultipathRoute *multipath_route_free(MultipathRoute *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MultipathRoute*, multipath_route_free);
+
+int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret);
 
 static inline bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);
@@ -74,7 +76,7 @@ int rtnl_set_link_properties(
                 sd_netlink **rtnl,
                 int ifindex,
                 const char *alias,
-                const struct ether_addr *mac,
+                const struct hw_addr_data *hw_addr,
                 uint32_t txqueues,
                 uint32_t rxqueues,
                 uint32_t txqueuelen,
@@ -85,8 +87,17 @@ int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret)
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
 int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name);
-int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret);
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret);
+int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name);
+int rtnl_resolve_interface(sd_netlink **rtnl, const char *name);
+int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
+int rtnl_get_link_info(
+                sd_netlink **rtnl,
+                int ifindex,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
@@ -111,11 +122,21 @@ int rtnl_log_create_error(int r);
                                      userdata, description);            \
         })
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data);
+#define genl_add_match(nl, ret_slot, family, group, cmd, callback, destroy_callback, userdata, description) \
+        ({                                                              \
+                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
+                void (*_destroy_)(typeof(userdata)) = destroy_callback; \
+                sd_genl_add_match(nl, ret_slot, family, group, cmd,     \
+                                  (sd_netlink_message_handler_t) _callback_, \
+                                  (sd_netlink_destroy_t) _destroy_,     \
+                                  userdata, description);               \
+        })
+
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data);
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data);
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data);
 int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);

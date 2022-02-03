@@ -1,3 +1,6 @@
+src/boot/efi/boot.c
+src/boot/efi/secure-boot.c
+src/boot/efi/stub.c
 src/core/dbus-automount.c
 src/core/dbus-device.c
 src/core/dbus-job.c
@@ -18,4 +21,5 @@ src/locale/localed.c
 src/timedate/timedated.c
 units/debug-shell.service.in
 units/systemd-journald.service.in
+units/systemd-timesyncd.service.in
 units/user@.service.in

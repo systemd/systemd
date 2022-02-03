@@ -1,4 +1,4 @@
-Files in this directory contain configuration for systemd-udev.service, a
+Files in this directory contain configuration for systemd-udevd.service, a
 daemon that manages symlinks to device nodes, permissions of devices nodes,
 emits device events for userspace, and renames network interfaces.
 

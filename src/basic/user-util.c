@@ -571,7 +571,7 @@ int get_home_dir(char **_h) {
                 if (!h)
                         return -ENOMEM;
 
-                *_h = path_simplify(h, true);
+                *_h = path_simplify(h);
                 return 0;
         }
 
@@ -609,7 +609,7 @@ int get_home_dir(char **_h) {
         if (!h)
                 return -ENOMEM;
 
-        *_h = path_simplify(h, true);
+        *_h = path_simplify(h);
         return 0;
 }
 
@@ -628,7 +628,7 @@ int get_shell(char **_s) {
                 if (!s)
                         return -ENOMEM;
 
-                *_s = path_simplify(s, true);
+                *_s = path_simplify(s);
                 return 0;
         }
 
@@ -666,7 +666,7 @@ int get_shell(char **_s) {
         if (!s)
                 return -ENOMEM;
 
-        *_s = path_simplify(s, true);
+        *_s = path_simplify(s);
         return 0;
 }
 
@@ -680,10 +680,7 @@ int reset_uid_gid(void) {
         if (setresgid(0, 0, 0) < 0)
                 return -errno;
 
-        if (setresuid(0, 0, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setresuid(0, 0, 0));
 }
 
 int take_etc_passwd_lock(const char *root) {
@@ -943,10 +940,7 @@ int maybe_setgroups(size_t size, const gid_t *list) {
                 }
         }
 
-        if (setgroups(size, list) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(setgroups(size, list));
 }
 
 bool synthesize_nobody(void) {
@@ -1084,4 +1078,15 @@ int is_this_me(const char *username) {
                 return r;
 
         return uid == getuid();
+}
+
+const char *get_home_root(void) {
+        const char *e;
+
+        /* For debug purposes allow overriding where we look for home dirs */
+        e = secure_getenv("SYSTEMD_HOME_ROOT");
+        if (e && path_is_absolute(e) && path_is_normalized(e))
+                return e;
+
+        return "/home";
 }

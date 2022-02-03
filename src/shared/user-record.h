@@ -10,42 +10,6 @@
 #include "missing_resource.h"
 #include "time-util.h"
 
-/* But some limits on disk sizes: not less than 5M, not more than 5T */
-#define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
-#define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
-
-/* The default disk size to use when nothing else is specified, relative to free disk space */
-#define USER_DISK_SIZE_DEFAULT_PERCENT 85
-
-bool uid_is_system(uid_t uid);
-bool gid_is_system(gid_t gid);
-
-static inline bool uid_is_dynamic(uid_t uid) {
-        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
-}
-
-static inline bool gid_is_dynamic(gid_t gid) {
-        return uid_is_dynamic((uid_t) gid);
-}
-
-static inline bool uid_is_container(uid_t uid) {
-        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
-}
-
-static inline bool gid_is_container(gid_t gid) {
-        return uid_is_container((uid_t) gid);
-}
-
-typedef struct UGIDAllocationRange {
-        uid_t system_alloc_uid_min;
-        uid_t system_uid_max;
-        gid_t system_alloc_gid_min;
-        gid_t system_gid_max;
-} UGIDAllocationRange;
-
-int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root);
-const UGIDAllocationRange *acquire_ugid_allocation_range(void);
-
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
         USER_SYSTEM,      /* statically allocated users for system services */
@@ -169,6 +133,9 @@ typedef enum UserRecordLoadFlags {
 
         /* Whether to ignore errors and load what we can */
         USER_RECORD_PERMISSIVE          = 1U << 29,
+
+        /* Whether an empty record is OK */
+        USER_RECORD_EMPTY_OK            = 1U << 30,
 } UserRecordLoadFlags;
 
 static inline UserRecordLoadFlags USER_RECORD_REQUIRE(UserRecordMask m) {
@@ -233,6 +200,9 @@ typedef struct Fido2HmacSalt {
 
         /* What to test the hashed salt value against, usually UNIX password hash here. */
         char *hashed_password;
+
+        /* Whether the 'up', 'uv', 'clientPin' features are enabled. */
+        int uv, up, client_pin;
 } Fido2HmacSalt;
 
 typedef struct RecoveryKey {
@@ -242,6 +212,21 @@ typedef struct RecoveryKey {
         /* A UNIX password hash of the normalized form of modhex64 */
         char *hashed_password;
 } RecoveryKey;
+
+typedef enum AutoResizeMode {
+        AUTO_RESIZE_OFF,               /* no automatic grow/shrink */
+        AUTO_RESIZE_GROW,              /* grow at login */
+        AUTO_RESIZE_SHRINK_AND_GROW,   /* shrink at logout + grow at login */
+        _AUTO_RESIZE_MODE_MAX,
+        _AUTO_RESIZE_MODE_INVALID = -EINVAL,
+} AutoResizeMode;
+
+#define REBALANCE_WEIGHT_OFF UINT64_C(0)
+#define REBALANCE_WEIGHT_DEFAULT UINT64_C(100)
+#define REBALANCE_WEIGHT_BACKING UINT64_C(20)
+#define REBALANCE_WEIGHT_MIN UINT64_C(1)
+#define REBALANCE_WEIGHT_MAX UINT64_C(10000)
+#define REBALANCE_WEIGHT_UNSET UINT64_MAX
 
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
@@ -279,6 +264,8 @@ typedef struct UserRecord {
         uint64_t disk_size_relative; /* Disk size, relative to the free bytes of the medium, normalized to UINT32_MAX = 100% */
         char *skeleton_directory;
         mode_t access_mode;
+        AutoResizeMode auto_resize_mode;
+        uint64_t rebalance_weight;
 
         uint64_t tasks_max;
         uint64_t memory_high;
@@ -298,6 +285,7 @@ typedef struct UserRecord {
         char *cifs_domain;
         char *cifs_user_name;
         char *cifs_service;
+        char *cifs_extra_mount_options;
 
         char *image_path;
         char *image_path_auto; /* when none is configured explicitly, this is where we place the implicit image */
@@ -324,6 +312,7 @@ typedef struct UserRecord {
         uint64_t luks_pbkdf_time_cost_usec;
         uint64_t luks_pbkdf_memory_cost;
         uint64_t luks_pbkdf_parallel_threads;
+        char *luks_extra_mount_options;
 
         uint64_t disk_usage;
         uint64_t disk_free;
@@ -347,6 +336,7 @@ typedef struct UserRecord {
         int removable;
         int enforce_password_policy;
         int auto_login;
+        int drop_caches;
 
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */
@@ -368,6 +358,7 @@ typedef struct UserRecord {
         Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
         int fido2_user_presence_permitted;
+        int fido2_user_verification_permitted;
 
         char **recovery_key_type;
         RecoveryKey *recovery_key;
@@ -412,6 +403,9 @@ int user_record_removable(UserRecord *h);
 usec_t user_record_ratelimit_interval_usec(UserRecord *h);
 uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
+bool user_record_drop_caches(UserRecord *h);
+AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
+uint64_t user_record_rebalance_weight(UserRecord *h);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -442,3 +436,6 @@ UserStorage user_storage_from_string(const char *s) _pure_;
 
 const char* user_disposition_to_string(UserDisposition t) _const_;
 UserDisposition user_disposition_from_string(const char *s) _pure_;
+
+const char* auto_resize_mode_to_string(AutoResizeMode m) _const_;
+AutoResizeMode auto_resize_mode_from_string(const char *s) _pure_;

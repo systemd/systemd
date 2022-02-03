@@ -15,7 +15,7 @@ Before=sockets.target
 
 [Socket]
 ListenStream=/run/systemd/userdb/io.systemd.Multiplexer
-Symlinks=/run/systemd/userdb/io.systemd.NameServiceSwitch
+Symlinks=/run/systemd/userdb/io.systemd.NameServiceSwitch /run/systemd/userdb/io.systemd.DropIn
 SocketMode=0666
 
 [Install]

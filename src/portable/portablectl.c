@@ -10,6 +10,7 @@
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
+#include "chase-symlinks.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -24,8 +25,8 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "portable.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "string-util.h"
 #include "strv.h"
@@ -219,7 +220,7 @@ static int acquire_bus(sd_bus **bus) {
 
         r = bus_connect_transport(arg_transport, arg_host, false, bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         (void) sd_bus_set_allow_interactive_authorization(*bus, arg_ask_password);
 
@@ -259,8 +260,8 @@ static int maybe_reload(sd_bus **bus) {
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        PortableFlags flags = PORTABLE_INSPECT_EXTENSION_RELEASES;
         const char *method;
-        uint64_t flags = 0;
         int r;
 
         assert(bus);
@@ -332,7 +333,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (arg_cat) {
                 printf("%s-- OS Release: --%s\n", ansi_highlight(), ansi_normal());
@@ -364,6 +365,74 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_enter_container(reply, 'a', "{say}");
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        /* If we specified any extensions, we'll first get back exactly the
+         * paths (and extension-release content) for each one of the arguments. */
+        for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
+                const char *name;
+
+                r = sd_bus_message_enter_container(reply, 'e', "say");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "s", &name);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &data, &sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (arg_cat) {
+                        if (nl)
+                                fputc('\n', stdout);
+
+                        printf("%s-- Extension Release: %s --%s\n", ansi_highlight(), name, ansi_normal());
+                        fwrite(data, sz, 1, stdout);
+                        fflush(stdout);
+                        nl = true;
+                } else {
+                        _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
+                                *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+
+                        f = fmemopen_unlocked((void*) data, sz, "re");
+                        if (!f)
+                                return log_error_errno(errno, "Failed to open extension-release buffer: %m");
+
+                        r = parse_env_file(f, name,
+                                           "ID", &id,
+                                           "VERSION_ID", &version_id,
+                                           "SYSEXT_SCOPE", &sysext_scope,
+                                           "SYSEXT_LEVEL", &sysext_level,
+                                           "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                           "PORTABLE_PREFIXES", &portable_prefixes,
+                                           "PRETTY_NAME", &pretty_os);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
+
+                        printf("Extension:\n\t%s\n"
+                                "\tExtension Scope:\n\t\t%s\n"
+                                "\tExtension Compatibility Level:\n\t\t%s\n"
+                                "\tPortable Service:\n\t\t%s\n"
+                                "\tPortable Prefixes:\n\t\t%s\n"
+                                "\tOperating System:\n\t\t%s (%s %s)\n",
+                                name,
+                                strna(sysext_scope),
+                                strna(sysext_level),
+                                strna(pretty_portable),
+                                strna(portable_prefixes),
+                                strna(pretty_os),
+                                strna(id),
+                                strna(version_id));
+                }
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
 
         for (;;) {
                 const char *name;
@@ -699,6 +768,14 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        /* If we specified any extensions, we'll first get back exactly the
+         * paths (and extension-release content) for each one of the arguments. */
+        for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
+                r = sd_bus_message_skip(reply, "{say}");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
         for (;;) {
                 const char *name;
 
@@ -1033,11 +1110,11 @@ static int set_limit(int argc, char *argv[], void *userdata) {
 }
 
 static int is_image_attached(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
-        const char *state;
+        const char *state, *method;
         int r;
 
         r = determine_image(argv[1], true, &image);
@@ -1048,9 +1125,29 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_portable_mgr, "GetImageState", &error, &reply, "s", image);
+        method = strv_isempty(arg_extension_images) ? "GetImageState" : "GetImageStateWithExtensions";
+
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
         if (r < 0)
-                return log_error_errno(r, "Failed to get image state: %s", bus_error_message(&error, r));
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", image);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = attach_extensions_to_message(m, arg_extension_images);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(arg_extension_images)) {
+                r = sd_bus_message_append(m, "t", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &state);
         if (r < 0)
@@ -1092,7 +1189,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("portablectl", "1", &link);
         if (r < 0)
@@ -1288,7 +1385,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
         }
 

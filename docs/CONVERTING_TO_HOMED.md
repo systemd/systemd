@@ -2,6 +2,7 @@
 title: Converting Existing Users to systemd-homed
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Converting Existing Users to systemd-homed managed Users

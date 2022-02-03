@@ -296,9 +296,7 @@ int logind_schedule_shutdown(void) {
 
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
-        const char *log_action;
         sd_bus *bus;
         int r;
 
@@ -309,24 +307,19 @@ int logind_schedule_shutdown(void) {
         switch (arg_action) {
         case ACTION_HALT:
                 action = "halt";
-                log_action = "Shutdown";
                 break;
         case ACTION_POWEROFF:
                 action = "poweroff";
-                log_action = "Shutdown";
                 break;
         case ACTION_KEXEC:
                 action = "kexec";
-                log_action = "Reboot via kexec";
                 break;
         case ACTION_EXIT:
                 action = "exit";
-                log_action = "Shutdown";
                 break;
         case ACTION_REBOOT:
         default:
                 action = "reboot";
-                log_action = "Reboot";
                 break;
         }
 
@@ -337,10 +330,11 @@ int logind_schedule_shutdown(void) {
 
         r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
         if (r < 0)
-                return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
+                return log_warning_errno(r, "Failed to schedule shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
-                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.", log_action, format_timestamp_style(date, sizeof(date), arg_when, arg_timestamp_style));
+                logind_show_shutdown();
+
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
@@ -368,6 +362,50 @@ int logind_cancel_shutdown(void) {
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
                                "Not compiled with logind support, cannot cancel scheduled shutdowns.");
+#endif
+}
+
+int logind_show_shutdown(void) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        sd_bus *bus;
+        const char *action = NULL;
+        uint64_t elapse;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = bus_get_property(bus, bus_login_mgr, "ScheduledShutdown", &error, &reply, "(st)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to query scheduled shutdown: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "(st)", &action, &elapse);
+        if (r < 0)
+                return r;
+
+        if (isempty(action))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+
+        if (STR_IN_SET(action, "halt", "poweroff", "exit"))
+                action = "Shutdown";
+        else if (streq(action, "kexec"))
+                action = "Reboot via kexec";
+        else if (streq(action, "reboot"))
+                action = "Reboot";
+
+        /* If we don't recognize the action string, we'll show it as-is */
+
+        log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                 action,
+                 FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Not compiled with logind support, cannot show scheduled shutdowns.");
 #endif
 }
 

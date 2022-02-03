@@ -207,7 +207,7 @@ disable *</programlisting>
       <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
 
-    <para><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <para><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     has a discussion of packaging scriptlets.</para>
 
     <para>Fedora page introducing the use of presets:

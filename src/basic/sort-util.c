@@ -5,7 +5,7 @@
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 __compar_d_fn_t compar, void *arg) {
+                 comparison_userdata_fn_t compar, void *arg) {
         size_t l, u, idx;
         const void *p;
         int comparison;

@@ -3,6 +3,18 @@
 #include "format-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
+
+/* Do some basic checks on STRLEN() and DECIMAL_STR_MAX() */
+assert_cc(STRLEN("xxx") == 3);
+assert_cc(STRLEN("") == 0);
+assert_cc(STRLEN(L"xxx") == 3 * sizeof(wchar_t));
+assert_cc(STRLEN(L"") == 0);
+assert_cc(DECIMAL_STR_MAX(uint8_t) == 5);
+assert_cc(DECIMAL_STR_MAX(int8_t) == 5);
+assert_cc(DECIMAL_STR_MAX(uint64_t) == 22);
+assert_cc(DECIMAL_STR_MAX(char) == 5);
+assert_cc(CONST_MAX(DECIMAL_STR_MAX(int8_t), STRLEN("xxx")) == 5);
 
 static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec_with_p, const char *iec_without_p,
                                   const char *si_with_p, const char *si_without_p) {
@@ -14,7 +26,7 @@ static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec
         assert_se(streq_ptr(format_bytes_full(buf, sizeof buf, val, trailing_B ? FORMAT_BYTES_TRAILING_B : 0), si_without_p));
 }
 
-static void test_format_bytes(void) {
+TEST(format_bytes) {
         test_format_bytes_one(900, true, "900B", "900B", "900B", "900B");
         test_format_bytes_one(900, false, "900", "900", "900", "900");
         test_format_bytes_one(1023, true, "1023B", "1023B", "1.0K", "1K");
@@ -32,8 +44,4 @@ static void test_format_bytes(void) {
         test_format_bytes_one(UINT64_MAX, false, NULL, NULL, NULL, NULL);
 }
 
-int main(void) {
-        test_format_bytes();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

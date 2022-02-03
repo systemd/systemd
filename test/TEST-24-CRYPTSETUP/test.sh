@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 TEST_DESCRIPTION="cryptsetup systemd setup"
@@ -19,6 +20,7 @@ check_result_qemu() {
     cryptsetup luksOpen "${LOOPDEV:?}p2" varcrypt <"$TESTDIR/keyfile"
     mount /dev/mapper/varcrypt "$initdir/var"
     save_journal "$initdir/var/log/journal"
+    check_coverage_reports "${initdir:?}" || ret=5
     _umount_dir "$initdir/var"
     _umount_dir "$initdir"
     cryptsetup luksClose /dev/mapper/varcrypt

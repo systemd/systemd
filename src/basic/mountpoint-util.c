@@ -5,14 +5,16 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
-#include "label.h"
 #include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -154,8 +156,21 @@ static bool filename_possibly_with_slash_suffix(const char *s) {
         if (slash[strspn(slash, "/")] != 0) /* Check that the suffix consist only of one or more slashes */
                 return false;
 
-        copied = strndupa(s, slash - s);
+        copied = strndupa_safe(s, slash - s);
         return filename_is_valid(copied);
+}
+
+static bool is_name_to_handle_at_fatal_error(int err) {
+        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For
+         * example the kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall
+         * was blocked (EACCES/EPERM; maybe through seccomp, because we are running inside of a
+         * container), or the mount point is not triggered yet (EOVERFLOW, think nfs4), or some
+         * general name_to_handle_at() flakiness (EINVAL). However other errors are not supposed to
+         * happen and therefore are considered fatal ones. */
+
+        assert(err < 0);
+
+        return !IN_SET(err, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL);
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
@@ -207,39 +222,40 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 return false; /* symlinks are never mount points */
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
-        if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL))
-                /* This kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
-                 * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container?), or the mount
-                 * point is not triggered yet (EOVERFLOW, think nfs4), or some general name_to_handle_at() flakiness
-                 * (EINVAL): fall back to simpler logic. */
-                goto fallback_fdinfo;
-        else if (r == -EOPNOTSUPP)
-                /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
-                 * supports it (in which case it is a mount point), otherwise fall back to the traditional stat()
-                 * logic */
+        if (r < 0) {
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+                if (r != -EOPNOTSUPP)
+                        goto fallback_fdinfo;
+
+                /* This kernel or file system does not support name_to_handle_at(), hence let's see
+                 * if the upper fs supports it (in which case it is a mount point), otherwise fall
+                 * back to the traditional stat() logic */
                 nosupp = true;
-        else if (r < 0)
-                return r;
+        }
 
         r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
-        if (r == -EOPNOTSUPP) {
-                if (nosupp)
-                        /* Neither parent nor child do name_to_handle_at()?  We have no choice but to fall back. */
+        if (r < 0) {
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+                if (r != -EOPNOTSUPP)
                         goto fallback_fdinfo;
-                else
-                        /* The parent can't do name_to_handle_at() but the directory we are interested in can?  If so,
-                         * it must be a mount point. */
-                        return 1;
-        } else if (r < 0)
-                return r;
+                if (nosupp)
+                        /* Both the parent and the directory can't do name_to_handle_at() */
+                        goto fallback_fdinfo;
 
-        /* The parent can do name_to_handle_at() but the directory we are interested in can't? If so, it must
-         * be a mount point. */
+                /* The parent can't do name_to_handle_at() but the directory we are
+                 * interested in can?  If so, it must be a mount point. */
+                return 1;
+        }
+
+        /* The parent can do name_to_handle_at() but the directory we are interested in can't? If
+         * so, it must be a mount point. */
         if (nosupp)
                 return 1;
 
-        /* If the file handle for the directory we are interested in and its parent are identical, we assume
-         * this is the root directory, which is a mount point. */
+        /* If the file handle for the directory we are interested in and its parent are identical,
+         * we assume this is the root directory, which is a mount point. */
 
         if (h->handle_bytes == h_parent->handle_bytes &&
             h->handle_type == h_parent->handle_type &&
@@ -339,10 +355,10 @@ int path_get_mnt_id(const char *path, int *ret) {
         }
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
-        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access, or untriggered mount, or name_to_handle_at() is flaky */
-                return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
+        if (r == 0 || is_name_to_handle_at_fatal_error(r))
+                return r;
 
-        return r;
+        return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
 }
 
 bool fstype_is_network(const char *fstype) {
@@ -352,48 +368,33 @@ bool fstype_is_network(const char *fstype) {
         if (x)
                 fstype = x;
 
+        if (nulstr_contains(filesystem_sets[FILESYSTEM_SET_NETWORK].value, fstype))
+                return true;
+
+        /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
-                          "afs",
-                          "ceph",
-                          "cifs",
-                          "smb3",
-                          "smbfs",
-                          "sshfs",
-                          "ncpfs",
-                          "ncp",
-                          "nfs",
-                          "nfs4",
-                          "gfs",
-                          "gfs2",
+                          "davfs",
                           "glusterfs",
-                          "pvfs2", /* OrangeFS */
-                          "ocfs2",
                           "lustre",
-                          "davfs");
+                          "sshfs");
 }
 
 bool fstype_is_api_vfs(const char *fstype) {
+        const FilesystemSet *fs;
+
+        FOREACH_POINTER(fs,
+                filesystem_sets + FILESYSTEM_SET_BASIC_API,
+                filesystem_sets + FILESYSTEM_SET_AUXILIARY_API,
+                filesystem_sets + FILESYSTEM_SET_PRIVILEGED_API,
+                filesystem_sets + FILESYSTEM_SET_TEMPORARY)
+            if (nulstr_contains(fs->value, fstype))
+                    return true;
+
+        /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
                           "autofs",
-                          "bpf",
-                          "cgroup",
-                          "cgroup2",
-                          "configfs",
                           "cpuset",
-                          "debugfs",
-                          "devpts",
-                          "devtmpfs",
-                          "efivarfs",
-                          "fusectl",
-                          "hugetlbfs",
-                          "mqueue",
-                          "proc",
-                          "pstore",
-                          "ramfs",
-                          "securityfs",
-                          "sysfs",
-                          "tmpfs",
-                          "tracefs");
+                          "devtmpfs");
 }
 
 bool fstype_is_blockdev_backed(const char *fstype) {
@@ -410,6 +411,8 @@ bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
         return STR_IN_SET(fstype,
                           "DM_verity_hash",
+                          "cramfs",
+                          "erofs",
                           "iso9660",
                           "squashfs");
 }
@@ -417,6 +420,7 @@ bool fstype_is_ro(const char *fstype) {
 bool fstype_can_discard(const char *fstype) {
         return STR_IN_SET(fstype,
                           "btrfs",
+                          "f2fs",
                           "ext4",
                           "vfat",
                           "xfs");
@@ -509,26 +513,4 @@ int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
         else
                 return -EINVAL;
         return 0;
-}
-
-int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
-        assert(st);
-        assert(dest);
-
-        if (S_ISDIR(st->st_mode))
-                return mkdir_label(dest, mode);
-        else
-                return mknod(dest, S_IFREG|(mode & ~0111), 0);
-}
-
-int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
-        struct stat st;
-
-        assert(source);
-        assert(dest);
-
-        if (stat(source, &st) < 0)
-                return -errno;
-
-        return make_mount_point_inode_from_stat(&st, dest, mode);
 }

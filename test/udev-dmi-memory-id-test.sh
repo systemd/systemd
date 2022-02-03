@@ -8,10 +8,11 @@ input="$2"
 expected="$3"
 
 output=$(mktemp --tmpdir "test-udev-dmi-memory-id.XXXXXXXXXX")
+# shellcheck disable=SC2064
 trap "rm '$output'" EXIT INT QUIT PIPE
 
 (
     set -x
-    "$dmi_memory_id" -F "$input" >$output
+    "$dmi_memory_id" -F "$input" >"$output"
     diff -u "$output" "$expected"
 )

@@ -2,6 +2,7 @@
 title: Control Group APIs and Delegation
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Control Group APIs and Delegation
@@ -131,7 +132,7 @@ If you wonder how to detect which of these three modes is currently used, use
 you are either in legacy or hybrid mode. To distinguish these two cases, run
 `statfs()` again on `/sys/fs/cgroup/unified/`. If that succeeds and reports
 `CGROUP2_SUPER_MAGIC` you are in hybrid mode, otherwise not.
-From a shell, you can use check the `Type` in `stat -f /sys/fs/cgroup` and
+From a shell, you can check the `Type` in `stat -f /sys/fs/cgroup` and
 `stat -f /sys/fs/cgroup/unified`.
 
 ## systemd's Unit Types
@@ -224,7 +225,7 @@ guarantees:
    cgroups below it. Note however that systemd will do that only in the unified
    hierarchy (in unified and hybrid mode) as well as on systemd's own private
    hierarchy (in legacy and hybrid mode). It won't pass ownership of the legacy
-   controller hierarchies. Delegation to less privileges processes is not safe
+   controller hierarchies. Delegation to less privileged processes is not safe
    in cgroup v1 (as a limitation of the kernel), hence systemd won't facilitate
    access to it.
 
@@ -243,7 +244,7 @@ delegated.
 
 Let's stress one thing: delegation is available on scope and service units
 only. It's expressly not available on slice units. Why? Because slice units are
-our *inner* nodes of the cgroup trees and we freely attach service and scopes
+our *inner* nodes of the cgroup trees and we freely attach services and scopes
 to them. If we'd allow delegation on slice units then this would mean that
 both systemd and your own manager would create/delete cgroups below the slice
 unit and that conflicts with the single-writer rule.
@@ -309,10 +310,12 @@ You basically have three options:
 
 3. 🙁 The *i-like-continents* option. In this option you'd leave your manager
    daemon where it is, and would not turn on delegation on its unit. However,
-   as first thing you register a new scope unit with systemd, and that scope
-   unit would have `Delegate=` turned on, and then you place all your
-   containers underneath it. From systemd's PoV there'd be two units: your
-   manager service and the big scope that contains all your containers in one.
+   as you start your first managed process (a container, for example) you would
+   register a new scope unit with systemd, and that scope unit would have
+   `Delegate=` turned on, and it would contain the PID of this process; all
+   your managed processes subsequently created should also be moved into this
+   scope. From systemd's PoV there'd be two units: your manager service and the
+   big scope that contains all your managed processes in one.
 
 BTW: if for whatever reason you say "I hate D-Bus, I'll never call any D-Bus
 API, kthxbye", then options #1 and #3 are not available, as they generally
@@ -353,7 +356,7 @@ but of course that's between you and those other tenants, and systemd won't
 care. Replicating the cgroup hierarchies in those unsupported controllers would
 mean replicating the full cgroup paths in them, and hence the prefixing
 `.slice` components too, otherwise the hierarchies will start being orthogonal
-after all, and that's not really desirable. On more thing: systemd will clean
+after all, and that's not really desirable. One more thing: systemd will clean
 up after you in the hierarchies it manages: if your daemon goes down, its
 cgroups will be removed too. You basically get the guarantee that you start
 with a pristine cgroup sub-tree for your service or scope whenever it is

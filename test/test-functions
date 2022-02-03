@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2031
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# shellcheck disable=SC2030,SC2031
 # ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
 # Note: the shellcheck line above disables warning for variables which were
 #       modified in a subshell. In our case this behavior is expected, but
@@ -35,16 +37,35 @@ QEMU_MEM="${QEMU_MEM:-512M}"
 # To force creating a new image from scratch (eg: to encrypt it), also define
 # TEST_FORCE_NEWIMAGE=1 in the test setup script.
 IMAGE_NAME=${IMAGE_NAME:-default}
+STRIP_BINARIES="${STRIP_BINARIES:-yes}"
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
+
+# Simple wrapper to unify boolean checks.
+# Note: this function needs to stay near the top of the file, so we can use it
+#       in code in the outermost scope.
+get_bool() {
+    # Make the value lowercase to make the regex matching simpler
+    local _bool="${1,,}"
+
+    # Consider empty value as "false"
+    if [[ -z "$_bool" || "$_bool" =~ ^(0|no|false)$ ]]; then
+        return 1
+    elif [[ "$_bool" =~ ^(1|yes|true)$ ]]; then
+        return 0
+    else
+        echo >&2 "Value '$_bool' is not a valid boolean value"
+        exit 1
+    fi
+}
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
 # running under KVM. If these conditions are met, enable KVM (and possibly
 # nested KVM), otherwise disable it.
-if [[ -n "${TEST_NESTED_KVM:=}" || ( -z "${TEST_NO_KVM:=}" && $(systemd-detect-virt -v) != kvm ) ]]; then
+if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && [[ "$(systemd-detect-virt -v)" != kvm ]]); then
     QEMU_KVM=yes
 else
     QEMU_KVM=no
@@ -64,13 +85,11 @@ TOOLS_DIR="$SOURCE_DIR/tools"
 export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
-if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
-    if [ "$NO_BUILD" ]; then
-        BUILD_DIR="$SOURCE_DIR"
-    else
-        echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
-        exit 1
-    fi
+if get_bool "${NO_BUILD:=}"; then
+    BUILD_DIR="$SOURCE_DIR"
+elif ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
+    echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
+    exit 1
 fi
 
 PATH_TO_INIT="$ROOTLIBDIR/systemd"
@@ -104,9 +123,9 @@ fi
 
 BASICTOOLS=(
     awk
+    base64
     basename
     bash
-    busybox
     capsh
     cat
     chmod
@@ -131,9 +150,11 @@ BASICTOOLS=(
     head
     ionice
     ip
+    ldd
     ln
     loadkeys
     login
+    losetup
     lz4cat
     mkfifo
     mktemp
@@ -155,7 +176,6 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
-    socat
     stat
     su
     sulogin
@@ -172,6 +192,7 @@ BASICTOOLS=(
     umount
     uname
     unshare
+    wc
     xargs
     xzcat
 )
@@ -209,7 +230,7 @@ is_built_with_asan() {
 
     # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
     local _asan_calls
-    _asan_calls="$(objdump -dC "$SYSTEMD_JOURNALD" | grep -E "callq?\s+[0-9a-f]+\s+<__asan" -c)"
+    _asan_calls="$(objdump -dC "$SYSTEMD_JOURNALD" | grep -E "(callq?|brasl?|bl)\s.+__asan" -c)"
     if ((_asan_calls < 1000)); then
         return 1
     else
@@ -217,9 +238,18 @@ is_built_with_asan() {
     fi
 }
 
-IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+is_built_with_coverage() {
+    if get_bool "${NO_BUILD:=}" || ! command -v meson >/dev/null; then
+        return 1
+    fi
 
-if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'
+}
+
+IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
+
+if get_bool "$IS_BUILT_WITH_ASAN"; then
     STRIP_BINARIES=no
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
@@ -227,10 +257,10 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     QEMU_SMP="${QEMU_SMP:-4}"
 
     # We need to correctly distinguish between gcc's and clang's ASan DSOs.
-    if ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libasan.so/ {x=$1; exit} END {print x; exit x==""}')"; then
+    if ASAN_RT_NAME="$(awk '/libasan.so/ {x=$1; exit} END {print x; exit x==""}' < <(ldd "$SYSTEMD"))"; then
         ASAN_COMPILER=gcc
         ASAN_RT_PATH="$(readlink -f "$(${CC:-gcc} --print-file-name "$ASAN_RT_NAME")")"
-    elif ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libclang_rt.asan/ {x=$1; exit} END {print x; exit x==""}')"; then
+    elif ASAN_RT_NAME="$(awk '/libclang_rt.asan/ {x=$1; exit} END {print x; exit x==""}' < <(ldd "$SYSTEMD"))"; then
         ASAN_COMPILER=clang
         ASAN_RT_PATH="$(readlink -f "$(${CC:-clang} --print-file-name "$ASAN_RT_NAME")")"
 
@@ -256,7 +286,7 @@ fi
 find_qemu_bin() {
     QEMU_BIN="${QEMU_BIN:-""}"
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
-    if [[ $QEMU_KVM == "yes" ]]; then
+    if get_bool "$QEMU_KVM"; then
         [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
     fi
 
@@ -322,18 +352,20 @@ run_qemu() {
     umount_loopback
 
     if [[ ! "$KERNEL_BIN" ]]; then
-        if [[ "$LOOKS_LIKE_ARCH" ]]; then
+        if get_bool "$LOOKS_LIKE_ARCH"; then
             KERNEL_BIN=/boot/vmlinuz-linux
         else
             [ "$ARCH" ] || ARCH=$(uname -m)
             case $ARCH in
                 ppc64*)
-                KERNEL_BIN="/boot/vmlinux-$KERNEL_VER"
-                CONSOLE=hvc0
-                ;;
+                    # Ubuntu ppc64* calls the kernel binary as vmlinux-*, RHEL/CentOS
+                    # uses the "standard" vmlinuz- prefix
+                    [[ -e "/boot/vmlinux-$KERNEL_VER" ]] && KERNEL_BIN="/boot/vmlinux-$KERNEL_VER" || KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
+                    CONSOLE=hvc0
+                    ;;
                 *)
-                KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
-                ;;
+                    KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
+                    ;;
             esac
         fi
     fi
@@ -385,25 +417,24 @@ run_qemu() {
         exit 1
     fi
 
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         kernel_params+=("rd.hostonly=0")
     fi
 
     kernel_params+=(
-        "root=/dev/sda1"
+        "root=LABEL=systemd_boot"
         "rw"
         "raid=noautodetect"
         "rd.luks=0"
         "loglevel=2"
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
-        "selinux=0"
         "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
     )
 
-    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+    if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
@@ -429,12 +460,12 @@ run_qemu() {
         kernel_params+=("${user_kernel_append[@]}")
     fi
 
-    if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
+    if [[ "$INITRD" ]] && ! get_bool "$SKIP_INITRD"; then
         qemu_options+=(-initrd "$INITRD")
     fi
 
     # Let's use KVM if possible
-    if [[ -c /dev/kvm && $QEMU_KVM == "yes" ]]; then
+    if [[ -c /dev/kvm ]] && get_bool $QEMU_KVM; then
         qemu_options+=(-machine "accel=kvm" -enable-kvm -cpu host)
     fi
 
@@ -444,8 +475,8 @@ run_qemu() {
 
     (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}")
     rc=$?
-    if [ "$rc" = 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
-        derror "test timed out after $QEMU_TIMEOUT s"
+    if [ "$rc" -eq 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
+        derror "Test timed out after ${QEMU_TIMEOUT}s"
         TIMED_OUT=1
     else
         [ "$rc" != 0 ] && derror "QEMU failed with exit code $rc"
@@ -472,7 +503,7 @@ run_nspawn() {
         "systemd.wants=testsuite-$2.service"
     )
 
-    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+    if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
@@ -508,8 +539,8 @@ run_nspawn() {
 
     (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}")
     rc=$?
-    if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
-        derror "test timed out after $NSPAWN_TIMEOUT s"
+    if [ "$rc" -eq 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
+        derror "Test timed out after ${NSPAWN_TIMEOUT}s"
         TIMED_OUT=1
     else
         [ "$rc" != 0 ] && derror "nspawn failed with exit code $rc"
@@ -545,7 +576,8 @@ install_verity_minimal() {
         oldinitdir="$initdir"
         rm -rfv "$TESTDIR/minimal"
         export initdir="$TESTDIR/minimal"
-        mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt"
+        # app0 will use TemporaryFileSystem=/var/lib, app1 will need the mount point in the base image
+        mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt" "$initdir/var/lib/app1"
         setup_basic_dirs
         install_basic_tools
         # Shellcheck treats [[ -v VAR ]] as an assignment to avoid a different
@@ -557,24 +589,33 @@ install_verity_minimal() {
             # missing $LD_PRELOAD libraries.
             inst_libs "$ASAN_RT_PATH"
             inst_library "$ASAN_RT_PATH"
+            # Create a dummy LSan suppression file otherwise gcc's ASan
+            # complains as it doesn't exist in the minimal image
+            # (i.e. when running TEST-29 or TEST-50 under sanitizers)
+            touch "$initdir/systemd-lsan.supp"
         fi
         cp "$os_release" "$initdir/usr/lib/os-release"
         ln -s ../usr/lib/os-release "$initdir/etc/os-release"
         touch "$initdir/etc/machine-id" "$initdir/etc/resolv.conf"
         touch "$initdir/opt/some_file"
         echo MARKER=1 >>"$initdir/usr/lib/os-release"
-        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >"$initdir/usr/lib/systemd/system/app0.service"
-        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-foo.service"
+        echo "PORTABLE_PREFIXES=app0 minimal minimal-app0" >>"$initdir/usr/lib/os-release"
+        cat >"$initdir/usr/lib/systemd/system/minimal-app0.service" <<EOF
+[Service]
+ExecStartPre=cat /usr/lib/os-release
+ExecStart=sleep 120
+EOF
+        cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw" -noappend
         veritysetup format "$oldinitdir/usr/share/minimal_0.raw" "$oldinitdir/usr/share/minimal_0.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_0.roothash"
 
         sed -i "s/MARKER=1/MARKER=2/g" "$initdir/usr/lib/os-release"
-        rm "$initdir/usr/lib/systemd/system/app0-foo.service"
-        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-bar.service"
+        rm "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
+        cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-bar.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw" -noappend
         veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_1.roothash"
 
@@ -593,36 +634,46 @@ install_verity_minimal() {
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
+TemporaryFileSystem=/var/lib
+StateDirectory=app0
+RuntimeDirectory=app0
 EOF
         cat >"$initdir/opt/script0.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
+echo bar > \${STATE_DIRECTORY}/foo
 cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
 
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
-        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app1"
-        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app1"
+        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
+        ( echo "${version_id}"
+          echo "SYSEXT_SCOPE=portable"
+          echo "PORTABLE_PREFIXES=app1" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
+        setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
         cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
+StateDirectory=app1
+RuntimeDirectory=app1
 EOF
         cat >"$initdir/opt/script1.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
-cat /usr/lib/extension-release.d/extension-release.app1
+echo baz > \${STATE_DIRECTORY}/foo
+cat /usr/lib/extension-release.d/extension-release.app2
 EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw" -noappend
     )
 }
 
@@ -646,18 +697,20 @@ setup_basic_environment() {
     install_fs_tools
     install_modules
     install_plymouth
+    install_haveged
     install_debug_tools
     install_ld_so_conf
     install_testuser
     has_user_dbus_socket && install_user_dbus
     setup_selinux
     strip_binaries
+    instmods veth
     install_depmod_files
     generate_module_dependencies
-    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN"; then
         create_asan_wrapper
     fi
-    if [ -n "$TEST_INSTALL_VERITY_MINIMAL" ]; then
+    if get_bool "$TEST_INSTALL_VERITY_MINIMAL"; then
         install_verity_minimal
     fi
 }
@@ -665,7 +718,7 @@ setup_basic_environment() {
 setup_selinux() {
     dinfo "Setup SELinux"
     # don't forget KERNEL_APPEND='... selinux=1 ...'
-    if [[ "$SETUP_SELINUX" != "yes" ]]; then
+    if ! get_bool "$SETUP_SELINUX"; then
         dinfo "SETUP_SELINUX != yes, skipping SELinux configuration"
         return 0
     fi
@@ -685,9 +738,9 @@ setup_selinux() {
     mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
     ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
-    dracut_install "${fixfiles_tools[@]}"
-    dracut_install fixfiles
-    dracut_install sestatus
+    image_install "${fixfiles_tools[@]}"
+    image_install fixfiles
+    image_install sestatus
 }
 
 install_valgrind() {
@@ -699,16 +752,16 @@ install_valgrind() {
     local valgrind_bins valgrind_libs valgrind_dbg_and_supp
 
     valgrind_bins="$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')"
-    dracut_install "$valgrind_bins"
+    image_install "$valgrind_bins"
 
     valgrind_libs="$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')"
-    dracut_install "$valgrind_libs"
+    image_install "$valgrind_libs"
 
     valgrind_dbg_and_supp="$(
         strace -e open valgrind /bin/true 2>&1 >/dev/null |
         perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
     )"
-    dracut_install "$valgrind_dbg_and_supp"
+    image_install "$valgrind_dbg_and_supp"
 }
 
 create_valgrind_wrapper() {
@@ -731,7 +784,7 @@ create_asan_wrapper() {
 
     # clang: install llvm-symbolizer to generate useful reports
     # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
-    [[ "$ASAN_COMPILER" == "clang" ]] && dracut_install "llvm-symbolizer"
+    [[ "$ASAN_COMPILER" == "clang" ]] && image_install "llvm-symbolizer"
 
     cat >"$asan_wrapper" <<EOF
 #!/usr/bin/env bash
@@ -744,9 +797,23 @@ if [[ ! -e "$ASAN_RT_PATH" ]]; then
     exit 1
 fi
 
+# Suppress certain leaks reported by LSan (either in external tools or bogus
+# ones)
+# Docs: # https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
+#
+# - fsck is called by systemd-homed and is reporting a leak we're not interested
+#   in
+# - libLLVM is a "side effect" caused by the previous fsck leak
+cat >/systemd-lsan.supp <<INNER_EOF
+leak:/bin/fsck$
+leak:/sbin/fsck$
+leak:/lib/libLLVM
+INNER_EOF
+
+DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-}:suppressions=/systemd-lsan.supp
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS LSAN_OPTIONS=\$DEFAULT_LSAN_OPTIONS"
 
 # As right now bash is the PID 1, we can't expect PATH to have a sane value.
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
@@ -847,15 +914,15 @@ EOF
 
 install_fs_tools() {
     dinfo "Install fsck"
-    dracut_install /sbin/fsck*
-    dracut_install -o /bin/fsck*
+    image_install /sbin/fsck*
+    image_install -o /bin/fsck*
 
     # fskc.reiserfs calls reiserfsck. so, install it
-    dracut_install -o reiserfsck
+    image_install -o reiserfsck
 
     # we use mkfs in system-repart tests
-    dracut_install /sbin/mkfs.ext4
-    dracut_install /sbin/mkfs.vfat
+    image_install /sbin/mkfs.ext4
+    image_install /sbin/mkfs.vfat
 }
 
 install_modules() {
@@ -863,8 +930,10 @@ install_modules() {
 
     instmods loop
     instmods vfat
+    instmods nls_ascii =nls
+    instmods dummy
 
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
     fi
 }
@@ -872,7 +941,8 @@ install_modules() {
 install_dmevent() {
     instmods dm_crypt =crypto
     inst_binary dmeventd
-    if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
+    image_install "${ROOTLIBDIR:?}"/system/dm-event.{service,socket}
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
         # and since buster/bionic 95-dm-notify.rules
         # see https://gitlab.com/debian-lvm/lvm2/blob/master/debian/patches/udev.patch
@@ -880,8 +950,104 @@ install_dmevent() {
     else
         inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
     fi
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         inst_rules 60-persistent-storage.rules 61-persistent-storage-compat.rules 99-systemd.rules
+    fi
+}
+
+install_multipath() {
+    instmods "=md" multipath
+    image_install kpartx /lib/udev/kpartx_id lsmod mpathpersist multipath multipathd partx
+    image_install "${ROOTLIBDIR:?}"/system/multipathd.{service,socket}
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
+        inst_rules 56-dm-parts.rules 56-dm-mpath.rules 60-multipath.rules 68-del-part-nodes.rules 95-kpartx.rules
+    else
+        inst_rules 11-dm-mpath.rules 11-dm-parts.rules 62-multipath.rules 66-kpartx.rules 68-del-part-nodes.rules
+    fi
+    mkdir -p "${initdir:?}/etc/multipath"
+
+    local file
+    while read -r file; do
+        # Install libraries required by the given library
+        inst_libs "$file"
+        # Install the library itself and create necessary symlinks
+        inst_library "$file"
+    done < <(find /lib*/multipath -type f)
+
+    if get_bool "$LOOKS_LIKE_ARCH"; then
+        # On Arch the multipath libraries are not linked against libgcc_s.so.1,
+        # but it's still required at runtime
+        inst_library "/lib64/libgcc_s.so.1"
+    fi
+}
+
+install_lvm() {
+    image_install lvm
+    image_install "${ROOTLIBDIR:?}"/system/lvm2-lvmpolld.{service,socket}
+    image_install "${ROOTLIBDIR:?}"/system/{blk-availability,lvm2-monitor}.service
+    image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
+    image_install -o "/lib/tmpfiles.d/lvm2.conf"
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
+        inst_rules 56-lvm.rules 69-lvm-metad.rules
+    else
+        # Support the new udev autoactivation introduced in lvm 2.03.14
+        # https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
+        if [[ -f /lib/udev/rules.d/69-dm-lvm.rules ]]; then
+            inst_rules 11-dm-lvm.rules 69-dm-lvm.rules
+        else
+            image_install "${ROOTLIBDIR:?}"/system/lvm2-pvscan@.service
+            inst_rules 11-dm-lvm.rules 69-dm-lvm-metad.rules
+        fi
+    fi
+    mkdir -p "${initdir:?}/etc/lvm"
+}
+
+install_btrfs() {
+    instmods btrfs
+    # Not all utilities provided by btrfs-progs are listed here; extend the list
+    # if necessary
+    image_install btrfs btrfstune mkfs.btrfs
+    inst_rules 64-btrfs-dm.rules
+}
+
+install_iscsi() {
+    # Install both client and server side stuff by default
+    local inst="${1:-}"
+    local file
+
+    # Install client-side stuff ("initiator" in iSCSI jargon) - Open-iSCSI in this case
+    # (open-iscsi on Debian, iscsi-initiator-utils on Fedora, etc.)
+    if [[ -z "$inst" || "$inst" =~ (client|initiator) ]]; then
+        image_install iscsi-iname iscsiadm iscsid iscsistart
+        image_install -o "${ROOTLIBDIR:?}"/system/iscsi-{init,onboot,shutdown}.service
+        image_install "${ROOTLIBDIR:?}"/system/iscsid.{service,socket}
+        image_install "${ROOTLIBDIR:?}"/system/iscsi.service
+        mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
+        mkdir -p "${initdir:?}/etc/iscsi"
+        echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
+        inst_simple "/etc/iscsi/initiatorname.iscsi"
+    fi
+
+    # Install server-side stuff ("target" in iSCSI jargon) - TGT in this case
+    # (tgt on Debian, scsi-target-utils on Fedora, etc.)
+    if [[ -z "$inst" || "$inst" =~ (server|target) ]]; then
+        image_install tgt-admin tgt-setup-lun tgtadm tgtd tgtimg
+        image_install -o /etc/sysconfig/tgtd
+        image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        mkdir -p "${initdir:?}/etc/tgt"
+        touch "${initdir:?}"/etc/tgt/{tgtd,targets}.conf
+        # Install perl modules required by tgt-admin
+        #
+        # Forgive me father for I have sinned. The monstrosity below appends
+        # a perl snippet to the `tgt-admin` perl script on the fly, which
+        # dumps a list of files (perl modules) required by `tgt-admin` at
+        # the runtime plus any DSOs loaded via DynaLoader. This list is then
+        # passed to `inst_simple` which installs the necessary files into the image
+        #
+        # shellcheck disable=SC2016
+        while read -r file; do
+            inst_simple "$file"
+        done < <(perl -- <(cat "$(command -v tgt-admin)" <(echo -e 'use DynaLoader; print map { "$_\n" } values %INC; print join("\n", @DynaLoader::dl_shared_objects)')) -p | awk '/^\// { print $1 }')
     fi
 }
 
@@ -895,6 +1061,13 @@ install_compiled_systemd() {
         exit 1
     fi
     (set -x; DESTDIR="$initdir" "$ninja_bin" -C "$BUILD_DIR" install)
+
+    # If we are doing coverage runs, copy over the binary notes files, as lcov expects to
+    # find them in the same directory as the runtime data counts
+    if get_bool "$IS_BUILT_WITH_COVERAGE"; then
+        mkdir -p "${initdir}/${BUILD_DIR:?}/"
+        rsync -am --include='*/' --include='*.gcno' --exclude='*' "${BUILD_DIR:?}/" "${initdir}/${BUILD_DIR:?}/"
+    fi
 }
 
 install_debian_systemd() {
@@ -913,11 +1086,52 @@ install_debian_systemd() {
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
+install_suse_systemd() {
+    local testsdir=/usr/lib/systemd/tests
+    local pkgs
+
+    dinfo "Install SUSE systemd"
+
+    pkgs=(
+        systemd
+        systemd-container
+        systemd-coredump
+        systemd-experimental
+        systemd-journal-remote
+        systemd-portable
+        udev
+    )
+
+    for p in "${pkgs[@]}"; do
+        rpm -q "$p" &>/dev/null || continue
+
+        ddebug "Install files from package $p"
+        while read -r f; do
+            [ -e "$f" ] || continue
+            [ -d "$f" ] && continue
+            inst "$f"
+        done < <(rpm -ql "$p")
+    done
+
+    # we only need testsdata dir as well as the unit tests (for
+    # TEST-02-UNITTESTS) in the image.
+    dinfo "Install unit tests and testdata directory"
+
+    mkdir -p "$initdir/$testsdir"
+    cp "$testsdir"/test-* "$initdir/$testsdir/"
+    cp -a "$testsdir/testdata" "$initdir/$testsdir/"
+
+    # On openSUSE, these dirs are not created at package install for now on.
+    mkdir -p "$initdir/var/log/journal/remote"
+}
+
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
-    if [ "$LOOKS_LIKE_DEBIAN" ]; then
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
         install_debian_systemd
+    elif get_bool "$LOOKS_LIKE_SUSE"; then
+        install_suse_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
         exit 1
@@ -926,21 +1140,40 @@ install_distro_systemd() {
 
 install_systemd() {
     dinfo "Install systemd"
-    if [ "$NO_BUILD" ]; then
+    if get_bool "$NO_BUILD"; then
         install_distro_systemd
     else
         install_compiled_systemd
     fi
 
     # remove unneeded documentation
-    rm -fr "$initdir"/usr/share/{man,doc}
-
-    [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
+    rm -fr "${initdir:?}"/usr/share/{man,doc}
 
     # enable debug logging in PID1
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
     # store coredumps in journal
     echo Storage=journal >>"$initdir/etc/systemd/coredump.conf"
+    # Propagate SYSTEMD_UNIT_PATH to user systemd managers
+    mkdir "$initdir/etc/systemd/system/user@.service.d/"
+    echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
+
+    # When built with gcov, disable ProtectSystem= and ProtectHome in the test
+    # images, since it prevents gcov to write the coverage reports (*.gcda files)
+    if get_bool "$IS_BUILT_WITH_COVERAGE"; then
+        mkdir -p "$initdir/etc/systemd/system/service.d/"
+        echo -e "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/gcov-override.conf"
+    fi
+
+    # If we're built with -Dportabled=false, tests with systemd-analyze
+    # --profile will fail. Since we need just the profile (text) files, let's
+    # copy them into the image if they don't exist there.
+    local portable_dir="${initdir:?}${ROOTLIBDIR:?}/portable"
+    if [[ ! -d "$portable_dir/profile/strict" ]]; then
+        dinfo "Couldn't find portable profiles in the test image"
+        dinfo "Copying them directly from the source tree"
+        mkdir -p "$portable_dir"
+        cp -frv "${SOURCE_DIR:?}/src/portable/profile" "$portable_dir"
+    fi
 }
 
 get_ldpath() {
@@ -964,7 +1197,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2 libbpf libelf libdw; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -1004,7 +1237,18 @@ create_empty_image() {
     fi
 
     local size=500
-    if [[ "$STRIP_BINARIES" = "no" ]]; then
+    if ! get_bool "$NO_BUILD"; then
+        if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
+            size=$((size+=200))
+        fi
+        if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
+            size=$((size+=200))
+        fi
+        if get_bool "$IS_BUILT_WITH_COVERAGE"; then
+            size=$((size+=250))
+        fi
+    fi
+    if ! get_bool "$STRIP_BINARIES"; then
         size=$((4 * size))
     fi
 
@@ -1017,15 +1261,15 @@ create_empty_image() {
     LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
     sfdisk "$LOOPDEV" <<EOF
-,$((size - 50))M
+,$((size - 50))M,L,*
 ,
 EOF
 
     udevadm settle
 
-    local label=(-L systemd)
+    local label=(-L systemd_boot)
     # mkfs.reiserfs doesn't know -L. so, use --label instead
-    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd)
+    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd_boot)
     if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p1" -q; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
@@ -1050,7 +1294,7 @@ mount_initdir() {
 
 cleanup_initdir() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir "${initdir:?}"
+    get_bool "$TEST_SETUP_CLEANUP_ROOTDIR" && _umount_dir "${initdir:?}"
 }
 
 umount_loopback() {
@@ -1071,7 +1315,7 @@ check_asan_reports() {
     local ret=0
     local root="${1:?}"
 
-    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN"; then
         ls -l "$root"
         if [[ -e "$root/systemd.asan.log.1" ]]; then
             cat "$root/systemd.asan.log.1"
@@ -1105,7 +1349,51 @@ check_asan_reports() {
     return $ret
 }
 
+check_coverage_reports() {
+    local root="${1:?}"
+
+    if get_bool "$NO_BUILD"; then
+        return 0
+    fi
+    if ! get_bool "$IS_BUILT_WITH_COVERAGE"; then
+        return 0
+    fi
+
+    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+        dest="${ARTIFACT_DIRECTORY}/${testname:?}.coverage-info"
+    else
+        dest="${TESTDIR:?}/coverage-info"
+    fi
+
+    # Create a coverage report that will later be uploaded. Remove info about
+    # system libraries/headers, as we don't really care about them.
+    if [[ -f "$dest" ]]; then
+        # If the destination report file already exists, don't overwrite it, but
+        # dump the new report in a temporary file and then merge it with the already
+        # present one - this usually happens when running both "parts" of a test
+        # in one run (the qemu and the nspawn part).
+        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+        lcov --remove "${dest}.new" -o "${dest}.new" '/usr/include/*' '/usr/lib/*'
+        lcov --add-tracefile "${dest}" --add-tracefile "${dest}.new" -o "${dest}"
+        rm -f "${dest}.new"
+    else
+        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}"
+        lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
+    fi
+
+    return 0
+}
+
 save_journal() {
+    # Default to always saving journal
+    local save="yes"
+
+    if [ "${TEST_SAVE_JOURNAL}" = "no" ]; then
+        save="no"
+    elif [ "${TEST_SAVE_JOURNAL}" = "fail" ] && [ "$2" = "0" ]; then
+        save="no"
+    fi
+
     if [ -n "${ARTIFACT_DIRECTORY}" ]; then
         dest="${ARTIFACT_DIRECTORY}/${testname:?}.journal"
     else
@@ -1113,9 +1401,9 @@ save_journal() {
     fi
 
     for j in "${1:?}"/*; do
-        "$SYSTEMD_JOURNAL_REMOTE" \
-            -o "$dest" \
-            --getter="$JOURNALCTL -o export -D $j"
+        if get_bool "$save"; then
+            "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
+        fi
 
         if [ -n "${TEST_SHOW_JOURNAL}" ]; then
             echo "---- $j ----"
@@ -1124,6 +1412,14 @@ save_journal() {
 
         rm -r "$j"
     done
+
+    if ! get_bool "$save"; then
+        return 0
+    fi
+
+    if [ -n "${SUDO_USER}" ]; then
+        setfacl -m "user:${SUDO_USER:?}:r-X" "$dest"*
+    fi
 
     # we want to print this sometime later, so save this in a variable
     JOURNAL_LIST="$(ls -l "$dest"*)"
@@ -1134,10 +1430,15 @@ check_result_common() {
     local ret
 
     if [ -s "$workspace/failed" ]; then
-        # …/failed only counts if non-empty
-        ls -l "$workspace/failed"
+        # Non-empty …/failed has highest priority
         cp -a "$workspace/failed" "${TESTDIR:?}/"
+        if [ -n "${SUDO_USER}" ]; then
+            setfacl -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}/"failed
+        fi
         ret=1
+    elif get_bool "$TIMED_OUT"; then
+        echo "(timeout)" >"${TESTDIR:?}/failed"
+        ret=2
     elif [ -e "$workspace/testok" ]; then
         # …/testok always counts (but with lower priority than …/failed)
         ret=0
@@ -1146,25 +1447,28 @@ check_result_common() {
         echo "${TESTNAME:?} was skipped:"
         cat "$workspace/skipped"
         ret=0
-    elif [ -n "$TIMED_OUT" ]; then
-        echo "${TESTNAME:?} timed out!"
-        ret=2
     else
-        echo "${TESTNAME:?} did not report a result!"
+        echo "(failed; see logs)" >"${TESTDIR:?}/failed"
+        ret=3
     fi
 
-    save_journal "$workspace/var/log/journal"
+    check_asan_reports "$workspace" || ret=4
 
-    check_asan_reports "$workspace" || ret=3
+    check_coverage_reports "$workspace" || ret=5
+
+    save_journal "$workspace/var/log/journal" $ret
 
     if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
         cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
     fi
 
-    [ -f "$TESTDIR/failed" ] && cat "$TESTDIR/failed"
+    if [ ${ret:?} != 0 ] && [ -f "$TESTDIR/failed" ]; then
+        echo -n "${TESTNAME:?}: "
+        cat "$TESTDIR/failed"
+    fi
     echo "${JOURNAL_LIST:-"No journals were saved"}"
 
-    return $ret
+    return ${ret:?}
 }
 
 check_result_nspawn() {
@@ -1208,9 +1512,75 @@ check_result_qemu() {
     return $ret
 }
 
+check_result_nspawn_unittests() {
+    local workspace="${1:?}"
+    local ret=1
+
+    [[ -e "$workspace/testok" ]] && ret=0
+
+    if [[ -s "$workspace/failed" ]]; then
+        ret=$((ret + 1))
+        echo "=== Failed test log ==="
+        cat "$workspace/failed"
+    else
+        if [[ -s "$workspace/skipped" ]]; then
+            echo "=== Skipped test log =="
+            cat "$workspace/skipped"
+            # We might have only skipped tests - that should not fail the job
+            ret=0
+        fi
+        if [[ -s "$workspace/testok" ]]; then
+            echo "=== Passed tests ==="
+            cat "$workspace/testok"
+        fi
+    fi
+
+    get_bool "${TIMED_OUT:=}" && ret=1
+    check_coverage_reports "$workspace" || ret=5
+
+    save_journal "$workspace/var/log/journal" $ret
+
+    _umount_dir "${initdir:?}"
+
+    return $ret
+}
+
+check_result_qemu_unittests() {
+    local ret=1
+
+    mount_initdir
+    [[ -e "${initdir:?}/testok" ]] && ret=0
+
+    if [[ -s "$initdir/failed" ]]; then
+        ret=$((ret + 1))
+        echo "=== Failed test log ==="
+        cat "$initdir/failed"
+    else
+        if [[ -s "$initdir/skipped" ]]; then
+            echo "=== Skipped test log =="
+            cat "$initdir/skipped"
+            # We might have only skipped tests - that should not fail the job
+            ret=0
+        fi
+        if [[ -s "$initdir/testok" ]]; then
+            echo "=== Passed tests ==="
+            cat "$initdir/testok"
+        fi
+    fi
+
+    get_bool "${TIMED_OUT:=}" && ret=1
+    check_coverage_reports "$initdir" || ret=5
+
+    save_journal "$initdir/var/log/journal" $ret
+
+    _umount_dir "$initdir"
+
+    return $ret
+}
+
 strip_binaries() {
     dinfo "Strip binaries"
-    if [[ "$STRIP_BINARIES" = "no" ]]; then
+    if ! get_bool "$STRIP_BINARIES"; then
         dinfo "STRIP_BINARIES == no, keeping binaries unstripped"
         return 0
     fi
@@ -1266,10 +1636,22 @@ install_plymouth() {
     # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
     #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
-    #         dracut_install plymouth plymouthd
+    #         image_install plymouth plymouthd
     # else
         rm -f "${initdir:?}"/{usr/lib,lib,etc}/systemd/system/plymouth* "$initdir"/{usr/lib,lib,etc}/systemd/system/*/plymouth*
     # fi
+}
+
+install_haveged() {
+    # If haveged is installed, it's probably included in initrd and needs to be
+    # installed in the image too.
+    if [ -x /usr/sbin/haveged ]; then
+        dinfo "Install haveged files"
+        inst /usr/sbin/haveged
+        for u in /usr/lib/systemd/system/haveged*; do
+            inst "$u"
+        done
+    fi
 }
 
 install_ld_so_conf() {
@@ -1309,7 +1691,7 @@ install_config_files() {
     : >"$initdir/etc/resolv.conf"
 
     # set the hostname
-    echo systemd-testsuite >"$initdir/etc/hostname"
+    echo 'H' >"$initdir/etc/hostname"
 
     # let's set up just one image with the traditional verbose output
     if [ "${IMAGE_NAME:?}" != "basic" ]; then
@@ -1320,17 +1702,17 @@ install_config_files() {
 
 install_basic_tools() {
     dinfo "Install basic tools"
-    dracut_install "${BASICTOOLS[@]}"
-    dracut_install -o sushell
+    image_install "${BASICTOOLS[@]}"
+    image_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
-    dracut_install -o ldconfig.real
+    image_install -o ldconfig.real
 }
 
 install_debug_tools() {
     dinfo "Install debug tools"
-    dracut_install "${DEBUGTOOLS[@]}"
+    image_install -o "${DEBUGTOOLS[@]}"
 
-    if [[ $INTERACTIVE_DEBUG ]]; then
+    if get_bool "$INTERACTIVE_DEBUG"; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
         local getty_override="${initdir:?}/etc/systemd/system/serial-getty@.service.d"
         mkdir -p "$getty_override"
@@ -1351,7 +1733,7 @@ install_libnss() {
     # install libnss_files for login
     local NSS_LIBS
     mapfile -t NSS_LIBS < <(LD_DEBUG=files getent passwd 2>&1 >/dev/null | sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    dracut_install "${NSS_LIBS[@]}"
+    image_install "${NSS_LIBS[@]}"
 }
 
 install_dbus() {
@@ -1427,13 +1809,13 @@ install_pam() {
     dinfo "Install PAM"
     local paths=()
 
-    if [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null; then
+    if get_bool "$LOOKS_LIKE_DEBIAN" && type -p dpkg-architecture &>/dev/null; then
         paths+=("/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security")
     else
         paths+=(/lib*/security)
     fi
 
-    for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
+    for d in /etc/pam.d /etc/security /usr/{etc,lib}/pam.d; do
         [ -d "$d" ] && paths+=("$d")
     done
 
@@ -1443,12 +1825,20 @@ install_pam() {
 
     # pam_unix depends on unix_chkpwd.
     # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
-    dracut_install -o unix_chkpwd
+    image_install -o unix_chkpwd
 
     # set empty root password for easy debugging
     sed -i 's/^root:x:/root::/' "${initdir:?}/etc/passwd"
+
+    # And make sure pam_unix will accept it by making sure that
+    # the PAM module has the nullok option.
+    for d in /etc/pam.d /usr/{etc,lib}/pam.d; do
+        [ -d "$initdir/$d" ] || continue
+        sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
+    done
 }
 
+# shellcheck disable=SC2120
 install_keymaps() {
     dinfo "Install keymaps"
     # The first three paths may be deprecated.
@@ -1505,7 +1895,7 @@ install_terminfo() {
     for terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
         [ -f "${terminfodir}/l/linux" ] && break
     done
-    dracut_install -o "${terminfodir}/l/linux"
+    image_install -o "${terminfodir}/l/linux"
 }
 
 has_user_dbus_socket() {
@@ -1517,6 +1907,8 @@ has_user_dbus_socket() {
     fi
 }
 
+setup_nspawn_root_hook() { :;}
+
 setup_nspawn_root() {
     if [ -z "${initdir}" ]; then
         dfatal "\$initdir not defined"
@@ -1525,10 +1917,12 @@ setup_nspawn_root() {
 
     rm -rf "${TESTDIR:?}/unprivileged-nspawn-root"
 
-    if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+    if get_bool "$RUN_IN_UNPRIVILEGED_CONTAINER"; then
         ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
         cp -ar "$initdir" "$TESTDIR/unprivileged-nspawn-root"
     fi
+
+    setup_nspawn_root_hook
 }
 
 setup_basic_dirs() {
@@ -1551,11 +1945,11 @@ setup_basic_dirs() {
 
 mask_supporting_services() {
     # mask some services that we do not want to run in these tests
-    ln -fs /dev/null "${initdir:?}/etc/systemd/system/systemd-hwdb-update.service"
-    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-journal-catalog-update.service"
-    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-networkd.service"
-    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-networkd.socket"
-    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-resolved.service"
+    ln -fsv /dev/null "${initdir:?}/etc/systemd/system/systemd-hwdb-update.service"
+    ln -fsv /dev/null "$initdir/etc/systemd/system/systemd-journal-catalog-update.service"
+    ln -fsv /dev/null "$initdir/etc/systemd/system/systemd-networkd.service"
+    ln -fsv /dev/null "$initdir/etc/systemd/system/systemd-networkd.socket"
+    ln -fsv /dev/null "$initdir/etc/systemd/system/systemd-resolved.service"
 }
 
 inst_libs() {
@@ -1565,6 +1959,9 @@ inst_libs() {
 
     while read -r line; do
         [[ "$line" = 'not a dynamic executable' ]] && break
+        # Ignore errors about our own stuff missing. This is most likely caused
+        # by ldd attempting to use the unprefixed RPATH.
+        [[ "$line" =~ libsystemd.*\ not\ found ]] && continue
 
         if [[ "$line" =~ $so_regex ]]; then
             file="${BASH_REMATCH[1]}"
@@ -1577,7 +1974,7 @@ inst_libs() {
             dfatal "Missing a shared library required by $bin."
             dfatal "Run \"ldd $bin\" to find out what it is."
             dfatal "$line"
-            dfatal "dracut cannot create an initrd."
+            dfatal "Cannot create a test image."
             exit 1
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
@@ -1611,6 +2008,24 @@ import_initdir() {
     initdir="${TESTDIR:?}/root"
     mkdir -p "$initdir"
     export initdir
+}
+
+get_cgroup_hierarchy() {
+    case "$(stat -c '%T' -f /sys/fs/cgroup)" in
+        cgroup2fs)
+            echo "unified"
+            ;;
+        tmpfs)
+            if [[ -d /sys/fs/cgroup/unified && "$(stat -c '%T' -f /sys/fs/cgroup/unified)" == cgroup2fs ]]; then
+                echo "hybrid"
+            else
+                echo "legacy"
+            fi
+            ;;
+        *)
+            dfatal "Failed to determine host's cgroup hierarchy"
+            exit 1
+    esac
 }
 
 ## @brief Converts numeric logging level to the first letter of level name.
@@ -1673,7 +2088,7 @@ dlog() {
 dtrace() {
     set +x
     dlog 6 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1693,7 +2108,7 @@ ddebug() {
 dinfo() {
     set +x
     dlog 4 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1705,7 +2120,7 @@ dinfo() {
 dwarn() {
     set +x
     dlog 3 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1725,14 +2140,14 @@ derror() {
 dfatal() {
     set +x
     dlog 1 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
 
 
 # Generic substring function.  If $2 is in $1, return 0.
-strstr() { [ "${1#*$2*}" != "$1" ]; }
+strstr() { [ "${1#*"$2"*}" != "$1" ]; }
 
 # normalize_path <path>
 # Prints the normalized path, where it removes any duplicated
@@ -1937,7 +2352,7 @@ inst_binary() {
     # In certain cases we might attempt to install a binary which is already
     # present in the test image, yet it's missing from the host system.
     # In such cases, let's check if the binary indeed exists in the image
-    # before doing any other chcecks. If it does, immediately return with
+    # before doing any other checks. If it does, immediately return with
     # success.
     if [[ $# -eq 1 ]]; then
         for path in "" bin sbin usr/bin usr/sbin; do
@@ -1956,6 +2371,10 @@ inst_binary() {
     while read -r line; do
         [[ "$line" = 'not a dynamic executable' ]] && break
 
+        # Ignore errors about our own stuff missing. This is most likely caused
+        # by ldd attempting to use the unprefixed RPATH.
+        [[ "$line" =~ libsystemd.*\ not\ found ]] && continue
+
         if [[ "$line" =~ $so_regex ]]; then
             file="${BASH_REMATCH[1]}"
             [[ -e "${initdir}/$file" ]] && continue
@@ -1967,7 +2386,7 @@ inst_binary() {
             dfatal "Missing a shared library required by $bin."
             dfatal "Run \"ldd $bin\" to find out what it is."
             dfatal "$line"
-            dfatal "dracut cannot create an initrd."
+            dfatal "Cannot create a test image."
             exit 1
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
@@ -1983,7 +2402,7 @@ inst_script() {
 
     read -r -n 80 line <"$bin"
     # If debug is set, clean unprintable chars to prevent messing up the term
-    [[ "${debug:=}" ]] && line="$(echo -n "$line" | tr -c -d '[:print:][:space:]')"
+    get_bool "${debug:=}" && line="$(echo -n "$line" | tr -c -d '[:print:][:space:]')"
     shebang_regex='(#! *)(/[^ ]+).*'
     [[ "$line" =~ $shebang_regex ]] || return 1
     inst "${BASH_REMATCH[2]}" && inst_simple "$bin" "$@"
@@ -2016,7 +2435,7 @@ inst_rule_programs() {
     local rule="${1:?}"
     local prog bin
 
-    awk 'match($0, /PROGRAM==?"([^ "]+)/, m) { print m[1]; }' "$rule" | while read -r prog; do
+    sed -rn 's/^.*?PROGRAM==?"([^ "]+).*$/\1/p' "$rule" | while read -r prog; do
         if [ -x "/lib/udev/$prog" ]; then
             bin="/lib/udev/$prog"
         else
@@ -2027,7 +2446,7 @@ inst_rule_programs() {
         fi
 
         #dinfo "Installing $_bin due to it's use in the udev rule $(basename $1)"
-        dracut_install "$bin"
+        image_install "$bin"
     done
 }
 
@@ -2084,6 +2503,8 @@ inst() {
     for fun in inst_symlink inst_script inst_binary inst_simple; do
         "$fun" "$@" && return 0
     done
+
+    dwarn "Failed to install '$1'"
     return 1
 }
 
@@ -2115,10 +2536,10 @@ inst_any() {
     return 1
 }
 
-# dracut_install [-o ] <file> [<file> ... ]
-# Install <file> to the initramfs image
+# image_install [-o ] <file> [<file> ... ]
+# Install <file> to the test image
 # -o optionally install the <file> and don't fail, if it is not there
-dracut_install() {
+image_install() {
     local optional=no
     local prog="${1:?}"
 
@@ -2129,7 +2550,7 @@ dracut_install() {
 
     for prog in "$@"; do
         if ! inst "$prog" ; then
-            if [[ "$optional" = yes ]]; then
+            if get_bool "$optional"; then
                 dinfo "Skipping program $prog as it cannot be found and is" \
                     "flagged to be optional"
             else
@@ -2145,12 +2566,12 @@ dracut_install() {
 install_kmod_with_fw() {
     local module="${1:?}"
     # no need to go further if the module is already installed
-    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*/lib/modules/$KERNEL_VER/}" ]] && return 0
+    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*"/lib/modules/$KERNEL_VER/"}" ]] && return 0
     [[ -e "$initdir/.kernelmodseen/${module##*/}" ]] && return 0
 
     [ -d "$initdir/.kernelmodseen" ] && : >"$initdir/.kernelmodseen/${module##*/}"
 
-    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*/lib/modules/$KERNEL_VER/}" || return $?
+    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*"/lib/modules/$KERNEL_VER/"}" || return $?
 
     local modname="${module##*/}"
     local fwdir found fw
@@ -2164,7 +2585,7 @@ install_kmod_with_fw() {
                 found=yes
             fi
         done
-        if [[ $found != yes ]]; then
+        if ! get_bool "$found"; then
             if ! grep -qe "\<${modname//-/_}\>" /proc/modules; then
                 dinfo "Possible missing firmware \"${fw}\" for kernel module" \
                     "\"${modname}.ko\""
@@ -2196,7 +2617,7 @@ for_each_kmod_dep() {
         found=1
     done < <(modprobe "$@" --ignore-install --show-depends "$kmod")
 
-    [[ $found -eq 0 ]] && return 1
+    ! get_bool "$found" && return 1
     return 0
 }
 
@@ -2227,7 +2648,7 @@ instmods() {
                 else
                     (
                         [[ "$mpargs" ]] && echo "$mpargs"
-                        find "$mod_dir" -path "*/${mod#=}/*" -type f -printf '%f\n'
+                        find "$mod_dir" -path "*/${mod#=}/*" -name "*.ko*" -type f -printf '%f\n'
                     ) | instmods
                 fi
                 ;;
@@ -2283,12 +2704,6 @@ instmods() {
     return 0
 }
 
-setup_suse() {
-    ln -fs ../usr/bin/systemctl "${initdir:?}/bin/"
-    ln -fs ../usr/lib/systemd "$initdir/lib/"
-    inst_simple "/usr/lib/systemd/system/haveged.service"
-}
-
 _umount_dir() {
     local mountpoint="${1:?}"
     if mountpoint -q "$mountpoint"; then
@@ -2309,7 +2724,7 @@ _test_cleanup() {
         [[ -n "$initdir" ]] && _umount_dir "$initdir"
         [[ -n "$IMAGE_PUBLIC" ]] && rm -vf "$IMAGE_PUBLIC"
         # If multiple setups/cleans are ran in parallel, this can cause a race
-        if [[ -n "$IMAGESTATEDIR" &&  $TEST_PARALLELIZE -ne 1 ]]; then
+        if [[ -n "$IMAGESTATEDIR" && $TEST_PARALLELIZE -ne 1 ]]; then
             rm -vf "${IMAGESTATEDIR}/default.img"
         fi
         [[ -n "$TESTDIR" ]] && rm -vfr "$TESTDIR"
@@ -2335,12 +2750,11 @@ test_create_image() {
     (
         LOG_LEVEL=5
         setup_basic_environment
-        mask_supporting_services
     )
 }
 
 test_setup() {
-    if [ "${TEST_REQUIRE_INSTALL_TESTS:?}" -ne 0 ] && \
+    if get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
             command -v meson >/dev/null && \
             [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
@@ -2368,25 +2782,30 @@ test_setup() {
                 cleanup_loopdev
                 IMAGE_PUBLIC="${image_old}"
             fi
-            if [ "${IMAGE_NAME:?}" != "default" ] && [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
+            if [ "${IMAGE_NAME:?}" != "default" ] && ! get_bool "${TEST_FORCE_NEWIMAGE}"; then
                 cp -v "$(realpath "${IMAGESTATEDIR}/default.img")" "$IMAGE_PUBLIC"
             fi
         fi
 
-        local hook_defined=1
-        if declare -f -F test_append_files >/dev/null; then
-            hook_defined=$?
-        fi
+        local hook_defined
+        declare -f -F test_append_files >/dev/null && hook_defined=yes || hook_defined=no
 
         echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath "$IMAGE_PUBLIC")"
-        if [ "$TEST_PARALLELIZE" -ne 0 ] || [ "$hook_defined" -eq 0 ]; then
+        if get_bool "$TEST_PARALLELIZE" || get_bool "$hook_defined"; then
             cp -v -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
         else
             ln -sv -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
         fi
 
         mount_initdir
-        if [ "$hook_defined" -eq 0 ]; then
+        # We want to test all services in TEST-01-BASIC, but mask them in
+        # all other tests
+        if [[ "${TESTID:?}" != "01" ]]; then
+            dinfo "Masking supporting services"
+            mask_supporting_services
+        fi
+
+        if get_bool "$hook_defined"; then
             test_append_files "${initdir:?}"
         fi
     fi
@@ -2398,14 +2817,14 @@ test_run() {
     local test_id="${1:?}"
     mount_initdir
 
-    if [ -z "${TEST_NO_QEMU:=}" ]; then
+    if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then
             check_result_qemu || { echo "QEMU test failed"; return 1; }
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
-    if [ -z "${TEST_NO_NSPAWN:=}" ]; then
+    if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
         if run_nspawn "${initdir:?}" "$test_id"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
@@ -2413,7 +2832,7 @@ test_run() {
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
-        if [[ "${RUN_IN_UNPRIVILEGED_CONTAINER:=}" = "yes" ]]; then
+        if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
             if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
@@ -2431,17 +2850,17 @@ do_test() {
         exit 0
     fi
 
-    if [ -n "${TEST_NO_QEMU:=}" ] && [ -n "${TEST_NO_NSPAWN:=}" ]; then
+    if get_bool "${TEST_NO_QEMU:=}" && get_bool "${TEST_NO_NSPAWN:=}"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
         exit 0
     fi
 
-    if [ -n "${TEST_QEMU_ONLY:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if get_bool "${TEST_QEMU_ONLY:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
         exit 0
     fi
 
-    if [ -n "${TEST_PREFER_NSPAWN:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if get_bool "${TEST_PREFER_NSPAWN:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         TEST_NO_QEMU=1
     fi
 
@@ -2462,7 +2881,6 @@ do_test() {
     if [ -n "${SUDO_USER}" ]; then
         ddebug "Making ${TESTDIR:?} readable for ${SUDO_USER} (acquired from sudo)"
         setfacl -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}"
-        setfacl -d -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}"
     fi
 
     testname="$(basename "$PWD")"
@@ -2478,7 +2896,8 @@ do_test() {
                 else
                     echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
                 fi
-                exit $ret;;
+                exit $ret
+                ;;
             --setup)
                 echo "${testname} SETUP: $TEST_DESCRIPTION"
                 test_setup
@@ -2512,8 +2931,11 @@ do_test() {
                     echo "[FAILED]"
                     echo "see $TESTLOG"
                 fi
-                exit $ret;;
-            *) break ;;
+                exit $ret
+                ;;
+            *)
+                break
+                ;;
         esac
         shift
     done

@@ -65,7 +65,7 @@ static int property_get_listen(
                                 break;
 
                         default:
-                                assert_not_reached("Unknown socket type");
+                                assert_not_reached();
                 }
 
                 r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);
@@ -383,14 +383,14 @@ static int bus_socket_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
-                                if (!path_is_valid(p->path))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", t);
+                                if (!path_is_valid(a))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
                                 p->path = strdup(a);
                                 if (!p->path)
                                         return log_oom();
 
-                                path_simplify(p->path, false);
+                                path_simplify(p->path);
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);

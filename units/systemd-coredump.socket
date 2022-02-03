@@ -11,6 +11,8 @@
 Description=Process Core Dump Socket
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
+Before=shutdown.target
+Conflicts=shutdown.target
 
 [Socket]
 ListenSequentialPacket=/run/systemd/coredump

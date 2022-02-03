@@ -1,0 +1,44 @@
+# This file is part of systemd.
+#
+# Database for signal analyzers (protocol analyzers, logic analyzers,
+# oscilloscopes, multimeters, bench power supplies, etc.) that should
+# be accessible to the seat owner.
+#
+# Permitted keys:
+#   Specify if a device is a signal analyzer
+#   ID_SIGNAL_ANALYZER=1|0
+
+###########################################################
+# Total Phase
+###########################################################
+# Aarvark I2C/SPI Host Adapter
+usb:v0403pE0D0*
+ ID_SIGNAL_ANALYZER=1
+
+# Beagle Protocol Analyzers
+usb:v1679p2001*
+ ID_SIGNAL_ANALYZER=1
+
+# Cheetah SPI Host Adapter
+usb:v1679p2002*
+ ID_SIGNAL_ANALYZER=1
+
+# Komodo CAN Duo Interface
+usb:v1679p3001*
+ ID_SIGNAL_ANALYZER=1
+
+# Power Delivery Analyzers
+usb:v1679p6003*
+usb:v0483pDF11*
+ ID_SIGNAL_ANALYZER=1
+
+###########################################################
+# XGecu
+###########################################################
+# TL866A/CS
+usb:v04D8pE11C*
+ ID_SIGNAL_ANALYZER=1
+
+# TL866II+
+usb:vA466p0A53*
+ ID_SIGNAL_ANALYZER=1

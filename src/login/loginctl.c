@@ -39,8 +39,7 @@
 #include "verbs.h"
 
 static char **arg_property = NULL;
-static bool arg_all = false;
-static bool arg_value = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -57,7 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 static OutputFlags get_output_flags(void) {
 
         return
-                arg_all * OUTPUT_SHOW_ALL |
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR;
 }
@@ -124,7 +123,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
         if (r < 0)
@@ -198,7 +197,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_login_mgr, "ListUsers", &error, &reply, NULL);
         if (r < 0)
@@ -248,7 +247,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         assert(bus);
         assert(argv);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_login_mgr, "ListSeats", &error, &reply, NULL);
         if (r < 0)
@@ -451,9 +450,6 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
-        char since2[FORMAT_TIMESTAMP_MAX];
-        const char *s1, *s2;
         SessionStatusInfo i = {};
         int r;
 
@@ -473,13 +469,10 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         else
                 printf("%"PRIu32"\n", i.uid);
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
-        s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
-
-        if (s1)
-                printf("\t   Since: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\t   Since: %s\n", s2);
+        if (i.timestamp.realtime > 0 && i.timestamp.realtime < USEC_INFINITY)
+                printf("\t   Since: %s; %s\n",
+                       FORMAT_TIMESTAMP(i.timestamp.realtime),
+                       FORMAT_TIMESTAMP_RELATIVE(i.timestamp.realtime));
 
         if (i.leader > 0) {
                 _cleanup_free_ char *t = NULL;
@@ -582,9 +575,6 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
-        char since2[FORMAT_TIMESTAMP_MAX];
-        const char *s1, *s2;
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 
@@ -602,13 +592,10 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         else
                 printf("%"PRIu32"\n", i.uid);
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
-        s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
-
-        if (s1)
-                printf("\t   Since: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\t   Since: %s\n", s2);
+        if (i.timestamp.realtime > 0 && i.timestamp.realtime < USEC_INFINITY)
+                printf("\t   Since: %s; %s\n",
+                       FORMAT_TIMESTAMP(i.timestamp.realtime),
+                       FORMAT_TIMESTAMP_RELATIVE(i.timestamp.realtime));
 
         if (!isempty(i.state))
                 printf("\t   State: %s\n", i.state);
@@ -705,7 +692,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char type;
         const char *contents;
         int r;
@@ -728,8 +715,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, s);
+                        bus_print_property_value(name, expected_value, flags, s);
 
                         return 1;
 
@@ -745,7 +731,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                        "Invalid user ID: " UID_FMT,
                                                        uid);
 
-                        bus_print_property_valuef(name, expected_value, value, UID_FMT, uid);
+                        bus_print_property_valuef(name, expected_value, flags, UID_FMT, uid);
                         return 1;
                 }
                 break;
@@ -760,7 +746,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (!value)
+                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                 printf("%s=", name);
 
                         while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
@@ -768,7 +754,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 space = true;
                         }
 
-                        if (space || !value)
+                        if (space || !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                 printf("\n");
 
                         if (r < 0)
@@ -804,8 +790,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
                         path,
                         print_property,
                         arg_property,
-                        arg_value,
-                        arg_all,
+                        arg_print_flags,
                         NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -825,7 +810,7 @@ static int show_session(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
@@ -862,7 +847,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
@@ -919,7 +904,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 
         properties = !strstr(argv[0], "status");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
@@ -1089,9 +1074,15 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        const char *u = argv[i];
+
+                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
 
                 r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, NULL, "u", (uint32_t) uid);
                 if (r < 0)
@@ -1117,9 +1108,15 @@ static int kill_user(int argc, char *argv[], void *userdata) {
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        const char *u = argv[i];
+
+                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
 
                 r = bus_call_method(
                         bus,
@@ -1222,7 +1219,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("loginctl", "1", &link);
         if (r < 0)
@@ -1331,7 +1328,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'P':
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         _fallthrough_;
 
                 case 'p': {
@@ -1342,16 +1339,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
                 }
 
                 case 'a':
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'l':
@@ -1415,7 +1412,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -1471,7 +1468,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 

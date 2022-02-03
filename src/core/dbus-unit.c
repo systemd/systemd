@@ -155,21 +155,27 @@ static int property_get_dependencies(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap **h = userdata;
-        Unit *u;
+        Unit *u = userdata, *other;
+        UnitDependency d;
+        Hashmap *deps;
         void *v;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(h);
+        assert(u);
+
+        d = unit_dependency_from_string(property);
+        assert_se(d >= 0);
+
+        deps = unit_get_dependencies(u, d);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, u, *h) {
-                r = sd_bus_message_append(reply, "s", u->id);
+        HASHMAP_FOREACH_KEY(v, other, deps) {
+                r = sd_bus_message_append(reply, "s", other->id);
                 if (r < 0)
                         return r;
         }
@@ -371,6 +377,7 @@ int bus_unit_method_start_generic(
                 bool reload_if_possible,
                 sd_bus_error *error) {
 
+        BusUnitQueueFlags job_flags = reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0;
         const char *smode, *verb;
         JobMode mode;
         int r;
@@ -399,6 +406,23 @@ int bus_unit_method_start_generic(
         else
                 verb = job_type_to_string(job_type);
 
+        if (sd_bus_message_is_method_call(message, NULL, "StartUnitWithFlags")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+                /* Let clients know that this version doesn't support any flags at the moment. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
+
+                /* The new method unconditionally uses the new behaviour of returning 'skip' when
+                 * a job is skipped. */
+                job_flags |= BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL;
+        }
+
         r = bus_verify_manage_units_async_full(
                         u,
                         verb,
@@ -412,35 +436,34 @@ int bus_unit_method_start_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        return bus_unit_queue_job(message, u, job_type, mode,
-                                  reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0, error);
+        return bus_unit_queue_job(message, u, job_type, mode, job_flags, error);
 }
 
-static int method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_START, false, error);
 }
 
-static int method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_stop(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
@@ -844,26 +867,34 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Unit, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Names", "as", property_get_names, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Following", "s", property_get_following, 0, 0),
-        SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Wants", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BindsTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BINDS_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PartOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PART_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequiredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequisiteOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("WantedBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BoundBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BOUND_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ConsistsOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONSISTS_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Conflicts", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONFLICTS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ConflictedBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Before", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BEFORE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("After", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_AFTER]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OnFailure", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_ON_FAILURE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Triggers", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_TRIGGERS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_JOINS_NAMESPACE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Wants", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BindsTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PartOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Upholds", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequiredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequisiteOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WantedBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BoundBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UpheldBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConsistsOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Conflicts", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConflictedBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Before", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("After", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccess", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccessOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnFailure", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnFailureOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Triggers", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PropagatesStopTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StopPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SliceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_requires_mounts_for, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -893,9 +924,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RefuseManualStop", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AllowIsolate", "b", bus_property_get_bool, offsetof(Unit, allow_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultDependencies", "b", bus_property_get_bool, offsetof(Unit, default_dependencies), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccesJobMode", "s", property_get_job_mode, offsetof(Unit, on_success_job_mode), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN), /* deprecated */
+        SD_BUS_PROPERTY("OnSuccessJobMode", "s", property_get_job_mode, offsetof(Unit, on_success_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, 0),
         SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -927,49 +960,49 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_start,
+                                 bus_unit_method_start,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Stop",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_stop,
+                                 bus_unit_method_stop,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Reload",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload,
+                                 bus_unit_method_reload,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Restart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_restart,
+                                 bus_unit_method_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("TryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_try_restart,
+                                 bus_unit_method_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_restart,
+                                 bus_unit_method_reload_or_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReloadOrTryRestart",
                                  "s",
                                  SD_BUS_PARAM(mode),
                                  "o",
                                  SD_BUS_PARAM(job),
-                                 method_reload_or_try_restart,
+                                 bus_unit_method_reload_or_try_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("EnqueueJob",
                                  "ss",
@@ -1080,6 +1113,30 @@ static int property_get_current_memory(
         r = unit_get_memory_current(u, &sz);
         if (r < 0 && r != -ENODATA)
                 log_unit_warning_errno(u, r, "Failed to get memory.usage_in_bytes attribute: %m");
+
+        return sd_bus_message_append(reply, "t", sz);
+}
+
+static int property_get_available_memory(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t sz = UINT64_MAX;
+        Unit *u = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        r = unit_get_memory_available(u, &sz);
+        if (r < 0 && r != -ENODATA)
+                log_unit_warning_errno(u, r, "Failed to get total available memory from cgroup: %m");
 
         return sd_bus_message_append(reply, "t", sz);
 }
@@ -1229,7 +1286,9 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
                 p = buf;
         }
 
-        (void) get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &cmdline);
+        (void) get_process_cmdline(pid, SIZE_MAX,
+                                   PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE,
+                                   &cmdline);
 
         return sd_bus_message_append(reply,
                                      "(sus)",
@@ -1255,11 +1314,15 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
         for (;;) {
                 pid_t pid;
 
+                /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
+                 * From https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#threads,
+                 * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
+                 * the subtree and is not readable in the subtree proper. */
                 r = cg_read_pid(f, &pid);
+                if (IN_SET(r, 0, -EOPNOTSUPP))
+                        break;
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        break;
 
                 if (is_kernel_thread(pid) > 0)
                         continue;
@@ -1526,6 +1589,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("EffectiveCPUs", "ay", property_get_cpuset_cpus, 0, 0),
         SD_BUS_PROPERTY("EffectiveMemoryNodes", "ay", property_get_cpuset_mems, 0, 0),
@@ -1739,6 +1803,9 @@ int bus_unit_queue_job_one(
         r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL))
+                j->return_skip_on_cond_failure = true;
 
         r = bus_job_track_sender(j, message);
         if (r < 0)
@@ -2114,6 +2181,9 @@ static int bus_unit_set_transient_property(
         if (streq(name, "DefaultDependencies"))
                 return bus_set_transient_bool(u, name, &u->default_dependencies, message, flags, error);
 
+        if (streq(name, "OnSuccessJobMode"))
+                return bus_set_transient_job_mode(u, name, &u->on_success_job_mode, message, flags, error);
+
         if (streq(name, "OnFailureJobMode"))
                 return bus_set_transient_job_mode(u, name, &u->on_failure_job_mode, message, flags, error);
 
@@ -2247,7 +2317,7 @@ static int bus_unit_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        path_simplify(*p, true);
+                        path_simplify(*p);
 
                         if (!path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s is not absolute: %s", name, *p);
@@ -2286,12 +2356,16 @@ static int bus_unit_set_transient_property(
                             UNIT_WANTS,
                             UNIT_BINDS_TO,
                             UNIT_PART_OF,
+                            UNIT_UPHOLDS,
                             UNIT_CONFLICTS,
                             UNIT_BEFORE,
                             UNIT_AFTER,
+                            UNIT_ON_SUCCESS,
                             UNIT_ON_FAILURE,
                             UNIT_PROPAGATES_RELOAD_TO,
                             UNIT_RELOAD_PROPAGATED_FROM,
+                            UNIT_PROPAGATES_STOP_TO,
+                            UNIT_STOP_PROPAGATED_FROM,
                             UNIT_JOINS_NAMESPACE_OF))
                     return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Dependency type %s may not be created transiently.", unit_dependency_to_string(d));
 

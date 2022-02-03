@@ -29,10 +29,10 @@ struct scsi_id_device {
         char vendor[9];
         char model[17];
         char revision[5];
-        char type[33];
         char kernel[64];
         char serial[MAX_SERIAL_LEN];
         char serial_short[MAX_SERIAL_LEN];
+        unsigned type;
         int use_sg;
 
         /* Always from page 0x80 e.g. 'B3G1P8500RWT' - may not be unique */

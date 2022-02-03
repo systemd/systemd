@@ -8,6 +8,40 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
+static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *text;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &text)) > 0) {
+                _cleanup_free_ char *n = NULL;
+                const char *sep;
+
+                sep = strchr(text, '=');
+                if (!sep)
+                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                               "Invalid environment block");
+
+                n = strndup(text, sep - text);
+                if (!n)
+                        return log_oom();
+
+                sep++;
+
+                r = json_variant_set_field_string(&v, n, sep);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set JSON field '%s' to '%s': %m", n, sep);
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int print_variable(const char *s) {
         const char *sep;
         _cleanup_free_ char *esc = NULL;
@@ -17,7 +51,7 @@ static int print_variable(const char *s) {
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Invalid environment block");
 
-        esc = shell_maybe_quote(sep + 1, ESCAPE_POSIX);
+        esc = shell_maybe_quote(sep + 1, SHELL_ESCAPE_POSIX);
         if (!esc)
                 return log_oom();
 
@@ -36,7 +70,7 @@ int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_get_property(bus, bus_systemd_mgr, "Environment", &error, &reply, "as");
         if (r < 0)
@@ -46,13 +80,23 @@ int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
-                r = print_variable(text);
+        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_transform_message(reply, &v);
                 if (r < 0)
                         return r;
+
+                json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+        } else {
+                while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
+                        r = print_variable(text);
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)

@@ -107,7 +107,7 @@ UdevBuiltinCommand udev_builtin_lookup(const char *command) {
         return _UDEV_BUILTIN_INVALID;
 }
 
-int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test) {
+int udev_builtin_run(sd_device *dev, sd_netlink **rtnl, UdevBuiltinCommand cmd, const char *command, bool test) {
         _cleanup_strv_free_ char **argv = NULL;
         int r;
 
@@ -124,7 +124,7 @@ int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command
 
         /* we need '0' here to reset the internal state */
         optind = 0;
-        return builtins[cmd]->cmd(dev, strv_length(argv), argv, test);
+        return builtins[cmd]->cmd(dev, rtnl, strv_length(argv), argv, test);
 }
 
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val) {

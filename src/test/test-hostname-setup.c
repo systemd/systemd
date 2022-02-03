@@ -9,13 +9,13 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_read_etc_hostname(void) {
+TEST(read_etc_hostname) {
         char path[] = "/tmp/hostname.XXXXXX";
         char *hostname;
         int fd;
 
         fd = mkostemp_safe(path);
-        assert(fd > 0);
+        assert_se(fd > 0);
         close(fd);
 
         /* simple hostname */
@@ -58,15 +58,8 @@ static void test_read_etc_hostname(void) {
         unlink(path);
 }
 
-static void test_hostname_setup(void) {
+TEST(hostname_setup) {
         hostname_setup(false);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_read_etc_hostname();
-        test_hostname_setup();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 set -o pipefail
 
@@ -17,6 +18,9 @@ systemctl daemon-reload
 # Check again after the reload
 systemctl show-environment | grep -q '^PATH=.*testaddition$'
 systemctl show-environment | grep -q '^FOO=BAR$'
+
+# Check that JSON output is supported
+systemctl show-environment --output=json | grep -q '^{.*"FOO":"BAR".*}$'
 
 # Drop both
 systemctl unset-environment FOO PATH

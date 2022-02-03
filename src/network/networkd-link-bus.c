@@ -10,6 +10,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -23,6 +24,7 @@
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_carrier_state, link_carrier_state, LinkCarrierState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_address_state, link_address_state, LinkAddressState);
+BUS_DEFINE_PROPERTY_GET_ENUM(property_get_online_state, link_online_state, LinkOnlineState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);
 
 static int property_get_bit_rates(
@@ -193,9 +195,16 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        search_domains = ordered_set_new(&string_hash_ops_free);
+        if (!search_domains)
+                return -ENOMEM;
+
+        route_domains = ordered_set_new(&string_hash_ops_free);
+        if (!route_domains)
+                return -ENOMEM;
+
         for (;;) {
                 _cleanup_free_ char *str = NULL;
-                OrderedSet **domains;
                 const char *name;
                 int route_only;
 
@@ -217,12 +226,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
 
-                domains = route_only ? &route_domains : &search_domains;
-                r = ordered_set_ensure_allocated(domains, &string_hash_ops_free);
-                if (r < 0)
-                        return r;
-
-                r = ordered_set_consume(*domains, TAKE_PTR(str));
+                r = ordered_set_consume(route_only ? route_domains : search_domains, TAKE_PTR(str));
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -665,7 +669,7 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = link_reconfigure(l, true);
+        r = link_reconfigure(l, /* force = */ true);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -678,7 +682,36 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable link_vtable[] = {
+int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        Link *link = userdata;
+        int r;
+
+        assert(message);
+        assert(link);
+
+        r = link_build_json(link, &v);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+static const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -686,6 +719,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Link, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Link, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Link, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("OnlineState", "s", property_get_online_state, offsetof(Link, online_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BitRates", "(tt)", property_get_bit_rates, 0, 0),
 
@@ -764,6 +798,11 @@ const sd_bus_vtable link_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_link_method_reconfigure,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                bus_link_method_describe,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
@@ -797,11 +836,11 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         assert(m);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->links) + 1);
+        l = new0(char*, hashmap_size(m->links_by_index) + 1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 char *p;
 
                 p = link_bus_path(link);
@@ -837,7 +876,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (ifindex < 0)
                 return 0;
 
-        r = link_get(m, ifindex, &link);
+        r = link_get_by_index(m, ifindex, &link);
         if (r < 0)
                 return 0;
 
@@ -877,3 +916,10 @@ int link_send_changed(Link *link, const char *property, ...) {
 
         return link_send_changed_strv(link, properties);
 }
+
+const BusObjectImplementation link_object = {
+        "/org/freedesktop/network1/link",
+        "org.freedesktop.network1.Link",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({link_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
+};

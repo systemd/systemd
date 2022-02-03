@@ -90,6 +90,20 @@
     <variablelist class='unit-directives'>
 
       <varlistentry>
+        <term><varname>ExecSearchPath=</varname></term>
+
+        <listitem><para>Takes a colon separated list of absolute paths relative to which the executable
+        used by the <varname>Exec*=</varname> (e.g. <varname>ExecStart=</varname>,
+        <varname>ExecStop=</varname>, etc.) properties can be found. <varname>ExecSearchPath=</varname>
+        overrides <varname>$PATH</varname> if <varname>$PATH</varname> is not supplied by the user through
+        <varname>Environment=</varname>, <varname>EnvironmentFile=</varname> or
+        <varname>PassEnvironment=</varname>. Assigning an empty string removes previous assignments
+        and setting <varname>ExecSearchPath=</varname> to a value multiple times will append
+        to the previous setting.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by
@@ -241,7 +255,7 @@
         <para>This option is supported only for disk images that contain a single file system, without an
         enveloping partition table. Images that contain a GPT partition table should instead include both
         root file system and matching Verity data in the same image, implementing the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink>.</para>
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -402,14 +416,15 @@
         <term><varname>ExtensionImages=</varname></term>
 
         <listitem><para>This setting is similar to <varname>MountImages=</varname> in that it mounts a file
-        system hierarchy from a block device node or loopback file, but instead of providing a destination path,
-        an overlay will be set up. This option expects a whitespace separated list of mount definitions. Each
-        definition consists of a source path, optionally followed by a colon and a list of mount options.</para>
+        system hierarchy from a block device node or loopback file, but instead of providing a destination
+        path, an overlay will be set up. This option expects a whitespace separated list of mount
+        definitions. Each definition consists of a source path, optionally followed by a colon and a list of
+        mount options.</para>
 
         <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
-        <filename>/opt/</filename> hierarchies from the root. The order in which the images are listed
-        will determine the order in which the overlay is laid down: images specified first to last will result
-        in overlayfs layers bottom to top.</para>
+        <filename>/opt/</filename> hierarchies. The order in which the images are listed will determine the
+        order in which the overlay is laid down: images specified first to last will result in overlayfs
+        layers bottom to top.</para>
 
         <para>Mount options may be defined as a single comma-separated list of options, in which case they
         will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
@@ -427,6 +442,11 @@
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
         reset.</para>
 
+        <para>Each image must carry a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
+        or the host. See:
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
         set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
@@ -436,6 +456,34 @@
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtensionDirectories=</varname></term>
+
+        <listitem><para>This setting is similar to <varname>BindReadOnlyPaths=</varname> in that it mounts a file
+        system hierarchy from a directory, but instead of providing a destination path, an overlay will be set
+        up. This option expects a whitespace separated list of source directories.</para>
+
+        <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
+        <filename>/opt/</filename> hierarchies. The order in which the directories are listed will determine
+        the order in which the overlay is laid down: directories specified first to last will result in overlayfs
+        layers bottom to top.</para>
+
+        <para>Each directory listed in <varname>ExtensionDirectories=</varname> may be prefixed with <literal>-</literal>,
+        in which case it will be ignored when its source path does not exist. Any mounts created with this option are
+        specific to the unit, and are not visible in the host's mount table.</para>
+
+        <para>These settings may be used more than once, each usage appends to the unit's list of directories
+        paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
+        reset.</para>
+
+        <para>Each directory must contain a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
+        or the host. See:
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -675,7 +723,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>SystemCallArchitectures=</varname>,
         <varname>SystemCallFilter=</varname>, or
         <varname>SystemCallLog=</varname> are specified. Note that even if this setting is overridden
-        by them, <command>systemctl show</command> shows the original value of this setting. Also see
+        by them, <command>systemctl show</command> shows the original value of this setting. In case the
+        service will be run in a new mount namespace anyway and SELinux is disabled, all file systems
+        are mounted with <constant>MS_NOSUID</constant> flag. Also see
         <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New
         Privileges Flag</ulink>.</para></listitem>
       </varlistentry>
@@ -708,10 +758,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Set the SELinux security context of the executed process. If set, this will override the
         automated domain transition. However, the policy still needs to authorize the transition. This directive is
-        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, all errors will be ignored. This does not
-        affect commands prefixed with <literal>+</literal>.  See <citerefentry
-        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details.</para></listitem>
+        ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
+        security context will be ignored, but it's still possible that the subsequent
+        <function>execve()</function> may fail if the policy doesn't allow the transition for the
+        non-overridden context. This does not affect commands prefixed with <literal>+</literal>.  See
+        <citerefentry
+        project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1036,8 +1089,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>Nice=</varname></term>
 
-        <listitem><para>Sets the default nice level (scheduling priority) for executed processes. Takes an integer
-        between -20 (highest priority) and 19 (lowest priority). See
+        <listitem><para>Sets the default nice level (scheduling priority) for executed processes. Takes an
+        integer between -20 (highest priority) and 19 (lowest priority). In case of resource contention,
+        smaller values mean more resources will be made available to the unit's processes, larger values mean
+        less resources will be made available. See
         <citerefentry><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1054,11 +1109,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>CPUSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the CPU scheduling priority for executed processes. The available priority range depends
-        on the selected CPU scheduling policy (see above). For real-time scheduling policies an integer between 1
-        (lowest priority) and 99 (highest priority) can be used. See
-        <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. </para></listitem>
+        <listitem><para>Sets the CPU scheduling priority for executed processes. The available priority range
+        depends on the selected CPU scheduling policy (see above). For real-time scheduling policies an
+        integer between 1 (lowest priority) and 99 (highest priority) can be used. In case of CPU resource
+        contention, smaller values mean less CPU time is made available to the service, larger values mean
+        more. See <citerefentry
+        project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details. </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1111,10 +1168,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IOSchedulingClass=</varname></term>
 
-        <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
-        of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
-        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
+        <listitem><para>Sets the I/O scheduling class for executed processes. Takes one of the strings
+        <option>realtime</option>, <option>best-effort</option> or <option>idle</option>. The kernel's
+        default scheduling class is <option>best-effort</option> at a priority of 4. If the empty string is
+        assigned to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
+        <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1122,11 +1180,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IOSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0 (highest
-        priority) and 7 (lowest priority). The available priorities depend on the selected I/O scheduling class (see
-        above). If the empty string is assigned to this option, all prior assignments to both
-        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect.
-        See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0
+        (highest priority) and 7 (lowest priority). In case of I/O contention, smaller values mean more I/O
+        bandwidth is made available to the unit's processes, larger values mean less bandwidth. The available
+        priorities depend on the selected I/O scheduling class (see above). If the empty string is assigned
+        to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
+        <varname>IOSchedulingPriority=</varname> have no effect. For the kernel's default scheduling class
+        (<option>best-effort</option>) this defaults to 4. See
+        <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
@@ -1282,16 +1343,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
         are mounted from there into the unit's file system namespace.</para>
 
-        <para>If <varname>DynamicUser=</varname> is used in conjunction with
-        <varname>StateDirectory=</varname>, the logic for <varname>CacheDirectory=</varname> and
-        <varname>LogsDirectory=</varname> is slightly altered: the directories are created below
-        <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
-        <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
+        <para>If <varname>DynamicUser=</varname> is used, the logic for <varname>CacheDirectory=</varname>,
+        <varname>LogsDirectory=</varname> and <varname>StateDirectory=</varname> is slightly altered: the directories are created below
+        <filename>/var/cache/private</filename>, <filename>/var/log/private</filename> and <filename>/var/lib/private</filename>,
+        respectively, which are host directories made inaccessible to
         unprivileged users, which ensures that access to these directories cannot be gained through dynamic
         user ID recycling. Symbolic links are created to hide this difference in behaviour. Both from
         perspective of the host and from inside the unit, the relevant directories hence always appear
-        directly below <filename>/var/lib</filename>, <filename>/var/cache</filename> and
-        <filename>/var/log</filename>.</para>
+        directly below <filename>/var/cache</filename>, <filename>/var/log</filename> and
+        <filename>/var/lib</filename>.</para>
 
         <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
         their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
@@ -1299,6 +1359,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         directory is cleaned up automatically after use. For runtime directories that require more complex or different
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>
+        and <varname>LogsDirectory=</varname>  optionally support a second parameter, separated by <literal>:</literal>.
+        The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
+        The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
+        options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
+        using the same first parameter, but a different second parameter.</para></listitem>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
@@ -1328,7 +1395,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <programlisting>RuntimeDirectory=foo/bar
 StateDirectory=aaa/bbb ccc</programlisting>
         then the environment variable <literal>RUNTIME_DIRECTORY</literal> is set with <literal>/run/foo/bar</literal>, and
-        <literal>STATE_DIRECTORY</literal> is set with <literal>/var/lib/aaa/bbb:/var/lib/ccc</literal>.</para></listitem>
+        <literal>STATE_DIRECTORY</literal> is set with <literal>/var/lib/aaa/bbb:/var/lib/ccc</literal>.</para>
+
+        <para>Example: if a system service unit has the following,
+        <programlisting>RuntimeDirectory=foo:bar foo:baz</programlisting>
+        the service manager creates <filename index='false'>/run/foo</filename> (if it does not exist), and
+        <filename index='false'>/run/bar</filename> plus <filename index='false'>/run/baz</filename> as symlinks to
+        <filename index='false'>/run/foo</filename>.</para>
       </varlistentry>
 
       <varlistentry>
@@ -1499,33 +1572,40 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateDevices=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev/</filename> mount for the
-        executed processes and only adds API pseudo devices such as <filename>/dev/null</filename>,
-        <filename>/dev/zero</filename> or <filename>/dev/random</filename> (as well as the pseudo TTY subsystem) to it,
-        but no physical devices such as <filename>/dev/sda</filename>, system memory <filename>/dev/mem</filename>,
-        system ports <filename>/dev/port</filename> and others. This is useful to securely turn off physical device
-        access by the executed process. Defaults to false. Enabling this option will install a system call filter to
-        block low-level I/O system calls that are grouped in the <varname>@raw-io</varname> set, will also remove
-        <constant>CAP_MKNOD</constant> and <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for the
-        unit (see above), and set <varname>DevicePolicy=closed</varname> (see
+        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev/</filename> mount for
+        the executed processes and only adds API pseudo devices such as <filename>/dev/null</filename>,
+        <filename>/dev/zero</filename> or <filename>/dev/random</filename> (as well as the pseudo TTY
+        subsystem) to it, but no physical devices such as <filename>/dev/sda</filename>, system memory
+        <filename>/dev/mem</filename>, system ports <filename>/dev/port</filename> and others. This is useful
+        to turn off physical device access by the executed process. Defaults to false.</para>
+
+        <para>Enabling this option will install a system call filter to block low-level I/O system calls that
+        are grouped in the <varname>@raw-io</varname> set, remove <constant>CAP_MKNOD</constant> and
+        <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for the unit, and set
+        <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details). Note that using this setting will disconnect propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work). This means that this setting may not be used for
-        services which shall be able to install mount points in the main mount namespace. The new
-        <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old programs which try
-        to set up executable memory by using
+        for details). Note that using this setting will disconnect propagation of mounts from the service to
+        the host (propagation in the opposite direction continues to work). This means that this setting may
+        not be used for services which shall be able to install mount points in the main mount namespace. The
+        new <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old
+        programs which try to set up executable memory by using
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
-        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the same
-        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above. If turned on and if running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the
+        same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. If turned on and if running in user
+        mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
-        available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
+        <para>Note that the implementation of this setting might be impossible (for example if mount
+        namespaces are not available), and the unit should be written in a way that does not solely rely on
+        this setting for security.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <para>When access to some but not all devices must be possible, the <varname>DeviceAllow=</varname>
+        setting might be used instead. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1806,6 +1886,100 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         used for local communication, including for
         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         logging.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RestrictFileSystems=</varname></term>
+
+        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a space-separated
+        list of filesystem names. Any filesystem listed is made accessible to the unit's processes, access to filesystem
+        types not listed is prohibited (allow-listing). If the first character of the list is <literal>~</literal>, the
+        effect is inverted: access to the filesystems listed is prohibited (deny-listing). If the empty string is assigned,
+        access to filesystems is not restricted.</para>
+
+        <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered will take
+        precedence and will dictate the default action (allow access to the filesystem or deny it). Then the next occurrences
+        of this option will add or delete the listed filesystems from the set of the restricted filesystems, depending on its
+        type and the default action.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=ext4 tmpfs
+RestrictFileSystems=ext2 ext4</programlisting>
+        then access to <constant>ext4</constant>, <constant>tmpfs</constant>, and <constant>ext2</constant> is allowed
+        and access to other filesystems is denied.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=ext4 tmpfs
+RestrictFileSystems=~ext4</programlisting>
+        then only access <constant>tmpfs</constant> is allowed.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=~ext4 tmpfs
+RestrictFileSystems=ext4</programlisting>
+        then only access to <constant>tmpfs</constant> is denied.</para>
+
+        <para>As the number of possible filesystems is large, predefined sets of filesystems are provided.  A set
+        starts with <literal>@</literal> character, followed by name of the set.</para>
+
+        <table>
+          <title>Currently predefined filesystem sets</title>
+
+          <tgroup cols='2'>
+            <colspec colname='set' />
+            <colspec colname='description' />
+            <thead>
+              <row>
+                <entry>Set</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>@basic-api</entry>
+                <entry>Basic filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@auxiliary-api</entry>
+                <entry>Auxiliary filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@common-block</entry>
+                <entry>Common block device filesystems.</entry>
+              </row>
+              <row>
+                <entry>@historical-block</entry>
+                <entry>Historical block device filesystems.</entry>
+              </row>
+              <row>
+                <entry>@network</entry>
+                <entry>Well-known network filesystems.</entry>
+              </row>
+              <row>
+                <entry>@privileged-api</entry>
+                <entry>Privileged filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@temporary</entry>
+                <entry>Temporary filesystems: tmpfs, ramfs.</entry>
+              </row>
+              <row>
+                <entry>@known</entry>
+                <entry>All known filesystems defined by the kernel. This list is defined statically in systemd based on a kernel
+                version that was available when this systemd version was released. It will become progressively more
+                out-of-date as the kernel is updated.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>filesystems</command> command to retrieve a list of filesystems defined on the local
+        system.</para>
+
+        <para>Note that this setting might not be supported on some systems (for example if the LSM eBPF hook is
+        not enabled in the underlying kernel or if not using the unified control group hierarchy). In that case this setting
+        has no effect.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2297,7 +2471,7 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <listitem><para>Sets environment variables for executed processes. Each line is unquoted using the
         rules described in "Quoting" section in
-        <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and becomes a list of variable assignments. If you need to assign a value containing spaces or the
         equals sign to a variable, put quotes around the whole assignment. Variable expansion is not
         performed inside the strings and the <literal>$</literal> character has no special meaning. Specifier
@@ -2331,25 +2505,47 @@ SystemCallErrorNumber=EPERM</programlisting>
         clients via D-Bus IPC, and generally not understood as being data that requires protection. Moreover,
         environment variables are propagated down the process tree, including across security boundaries
         (such as setuid/setgid executables), and hence might leak to processes that should not have access to
-        the secret data. Use <varname>LoadCredential=</varname> (see below) to pass data to unit processes
+        the secret data. Use <varname>LoadCredential=</varname>, <varname>LoadCredentialEncrypted=</varname>
+        or <varname>SetCredentialEncrypted=</varname> (see below) to pass data to unit processes
         securely.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>EnvironmentFile=</varname></term>
 
-        <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text
-        file. The text file should contain new-line-separated variable assignments.  Empty lines, lines without an
-        <literal>=</literal> separator, or lines starting with ; or # will be ignored, which may be used for
-        commenting. A line ending with a backslash will be concatenated with the following one, allowing multiline
-        variable definitions. The parser strips leading and trailing whitespace from the values of assignments, unless
-        you use double quotes (").</para>
+        <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text file.
+        The text file should contain newline-separated variable assignments.  Empty lines, lines without an
+        <literal>=</literal> separator, or lines starting with <literal>;</literal> or <literal>#</literal> will be
+        ignored, which may be used for commenting. The file must be UTF-8 encoded. Valid characters are <ulink
+        url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than <ulink
+        url="https://www.unicode.org/glossary/#noncharacter">noncharacters</ulink>, U+0000 NUL, and U+FEFF <ulink
+        url="https://www.unicode.org/glossary/#byte_order_mark">byte order mark</ulink>. Control codes other than NUL
+        are allowed.</para>
 
-        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
-        are supported, but not
-        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
-        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
-        <varname>EnvironmentFile=</varname>.</para>
+        <para>In the file, an unquoted value after the <literal>=</literal> is parsed with the same backslash-escape
+        rules as <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_01">unquoted
+        text</ulink> in a POSIX shell, but unlike in a shell, interior whitespace is preserved and quotes after the
+        first non-whitespace character are preserved. Leading and trailing whitespace (space, tab, carriage return) is
+        discarded, but interior whitespace within the line is preserved verbatim. A line ending with a backslash will be
+        continued to the following one, with the newline itself discarded. A backslash
+        <literal>\</literal> followed by any character other than newline will preserve the following character, so that
+        <literal>\\</literal> will become the value <literal>\</literal>.</para>
+
+        <para>In the file, a <literal>'</literal>-quoted value after the <literal>=</literal> can span multiple lines
+        and contain any character verbatim other than single quote, like <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_02">single-quoted
+        text</ulink> in a POSIX shell. No backslash-escape sequences are recognized. Leading and trailing whitespace
+        outside of the single quotes is discarded.</para>
+
+        <para>In the file, a <literal>"</literal>-quoted value after the <literal>=</literal> can span multiple lines,
+        and the same escape sequences are recognized as in <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_03">double-quoted
+        text</ulink> of a POSIX shell. Backslash (<literal>\</literal>) followed by any of <literal>"\`$</literal> will
+        preserve that character. A backslash followed by newline is a line continuation, and the newline itself is
+        discarded. A backslash followed by any other character is ignored; both the backslash and the following
+        character are preserved verbatim. Leading and trailing whitespace outside of the double quotes is
+        discarded.</para>
 
         <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
         <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
@@ -2381,12 +2577,6 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para>Variables set for invoked processes due to this setting are subject to being overridden by those
         configured with <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>.</para>
-
-        <para><ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C escapes</ulink>
-        are supported, but not
-        <ulink url="https://en.wikipedia.org/wiki/Control_character#In_ASCII">most control characters</ulink>.
-        <literal>\t</literal> and <literal>\n</literal> can be used to insert tabs and newlines within
-        <varname>EnvironmentFile=</varname>.</para>
 
         <para>Example:
         <programlisting>PassEnvironment=VAR1 VAR2 VAR3</programlisting>
@@ -2653,7 +2843,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
         of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
-        of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
+        of the processes belonging to this unit, as well as any log messages written by the system manager process
+        (PID 1) in reference to this unit, sent via any supported logging protocol. The filtering is applied
         early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
         through this filter successfully might still be dropped by filters applied at a later stage in the logging
         subsystem. For example, <varname>MaxLevelStore=</varname> configured in
@@ -2808,6 +2999,14 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TTYRows=</varname></term>
+        <term><varname>TTYColumns=</varname></term>
+
+        <listitem><para>Configure the size of the TTY specified with <varname>TTYPath=</varname>. If unset or
+        set to the empty string, the kernel default is used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TTYVTDisallocate=</varname></term>
 
         <listitem><para>If the terminal device specified with <varname>TTYPath=</varname> is a virtual console
@@ -2824,6 +3023,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <varlistentry>
         <term><varname>LoadCredential=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
+        <term><varname>LoadCredentialEncrypted=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
         that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
@@ -2850,7 +3050,24 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         newline characters and <constant>NUL</constant> bytes. If the file system path is omitted it is
         chosen identical to the credential name, i.e. this is a terse way do declare credentials to inherit
         from the service manager into a service. This option may be used multiple times, each time defining
-        an additional credential to pass to the unit.</para>
+        an additional credential to pass to the unit. Alternatively, if the path is a directory, every file
+        in that directory will be loaded as a separate credential. The ID for each credential will be the
+        provided ID suffixed with <literal>_$FILENAME</literal> (e.g., <literal>Key_file1</literal>). When
+        loading from a directory, symlinks will be ignored.</para>
+
+        <para>The <varname>LoadCredentialEncrypted=</varname> setting is identical to
+        <varname>LoadCredential=</varname>, except that the credential data is decrypted before being passed
+        on to the executed processes. Specifically, the referenced path should refer to a file or socket with
+        an encrypted credential, as implemented by
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>. This
+        credential is loaded, decrypted and then passed to the application in decrypted plaintext form, in
+        the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
+        credential configured this way may encrypted with a secret key derived from the system's TPM2
+        security chip, or with a secret key stored in
+        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted credentials
+        improves security as credentials are not stored in plaintext and only decrypted into plaintext the
+        moment a service requiring them is started. Moreover, credentials may be bound to the local hardware
+        and installations, so that they cannot easily be analyzed offline.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
@@ -2883,6 +3100,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <varlistentry>
         <term><varname>SetCredential=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+        <term><varname>SetCredentialEncrypted=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
         <listitem><para>The <varname>SetCredential=</varname> setting is similar to
         <varname>LoadCredential=</varname> but accepts a literal value to use as data for the credential,
@@ -2892,6 +3110,14 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varname>LoadCredential=</varname>. In order to embed binary data into the credential data use
         C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to embed
         a <constant>NUL</constant> byte).</para>
+
+        <para>The <varname>SetCredentialEncrypted=</varname> setting is identical to
+        <varname>SetCredential=</varname> but expects an encrypted credential in literal form as value. This
+        allows embedding confidential credentials securely directly in unit files. Use
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>'
+        <option>-p</option> switch to generate suitable <varname>SetCredentialEncrypted=</varname> lines
+        directly from plaintext credentials. For further details see
+        <varname>LoadCredentialEncrypted=</varname> above.</para>
 
         <para>If a credential of the same ID is listed in both <varname>LoadCredential=</varname> and
         <varname>SetCredential=</varname>, the latter will act as default if the former cannot be
@@ -2988,7 +3214,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     configuration, with just a few environment variables. The user manager inherits environment variables as
     any other system service, but in addition may receive additional environment variables from PAM, and,
     typically, additional imported variables when the user starts a graphical session. It is recommended to
-    keep the environment blocks in both the system and user managers managers lean. Importing all variables
+    keep the environment blocks in both the system and user managers lean. Importing all variables
     inherited by the graphical session or by one of the user shells is strongly discouraged.</para>
 
     <para>Hint: <command>systemd-run -P env</command> and <command>systemd-run --user -P env</command> print
@@ -3010,7 +3236,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           in the system manager. When compiled for systems with "unmerged <filename>/usr/</filename>"
           (<filename>/bin</filename> is not a symlink to <filename>/usr/bin</filename>),
           <literal>:<filename>/sbin</filename>:<filename>/bin</filename></literal> is appended. In case of
-          the the user manager, a different path may be configured by the distribution. It is recommended to
+          the user manager, a different path may be configured by the distribution. It is recommended to
           not rely on the order of entries, and have only one program with a given name in
           <varname>$PATH</varname>.</para></listitem>
         </varlistentry>
@@ -3367,6 +3593,41 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$MONITOR_METADATA</varname></term>
+
+          <listitem><para>Only defined for the service unit type, this environment variable is passed to all
+          <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which run in services
+          triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.</para>
+
+          <para>
+          The contents of this variable consists of a semi-colon separated list of metadata fields associated with the triggering
+          service. For each service which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname>
+          dependency the following fields will be set:
+          </para>
+
+          <itemizedlist>
+            <listitem><para><constant>SERVICE_RESULT</constant></para></listitem>
+            <listitem><para><constant>EXIT_CODE</constant></para></listitem>
+            <listitem><para><constant>EXIT_STATUS</constant></para></listitem>
+            <listitem><para><constant>INVOCATION_ID</constant></para></listitem>
+            <listitem><para><constant>UNIT</constant></para></listitem>
+          </itemizedlist>
+
+          <para>The fields <constant>SERVICE_RESULT</constant>, <constant>EXIT_CODE</constant> and
+          <constant>EXIT_STATUS</constant> may take the same values that are allowed when set for
+          <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes. The fields
+          <constant>INVOCATION_ID</constant> and <constant>UNIT</constant> are the invocaton id and unit
+          name of the service which triggered the dependency. Each field is comma separated, i.e.</para>
+
+          <programlisting>
+SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=triggering.service
+          </programlisting>
+
+          </listitem>
+
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$PIDFILE</varname></term>
 
           <listitem><para>The path to the configured PID file, in case the process is forked off on behalf of
@@ -3701,6 +3962,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry><constant>EXIT_CREDENTIALS</constant></entry>
             <entry>Failed to set up unit's credentials. See <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> above.</entry>
           </row>
+          <row>
+            <entry>245</entry>
+            <entry><constant>EXIT_BPF</constant></entry>
+            <entry>Failed to apply BPF restrictions. See <varname>RestrictFileSystems=</varname> above.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -3796,6 +4062,77 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </tbody>
       </tgroup>
     </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+      <example>
+        <title><varname>$MONITOR_METADATA</varname> usage</title>
+
+        <para>A service <filename index="false">myfailer.service</filename> which can trigger an
+        <varname>OnFailure=</varname> dependency.</para>
+
+        <programlisting>
+[Unit]
+Description=Service which can trigger an OnFailure= dependency
+OnFailure=myhandler.service
+
+[Service]
+ExecStart=/bin/myprogram
+        </programlisting>
+
+        <para>A service <filename index="false">mysuccess.service</filename> which can trigger an
+        <varname>OnSuccess=</varname> dependency.</para>
+
+        <programlisting>
+[Unit]
+Description=Service which can trigger an OnSuccess= dependency
+OnSuccess=myhandler.service
+
+[Service]
+ExecStart=/bin/mysecondprogram
+        </programlisting>
+
+        <para>A service <filename index="false">myhandler.service</filename> which can be triggered
+        by any of the above services.</para>
+
+        <programlisting>
+[Unit]
+Description=Acts on service failing or succeeding
+
+[Service]
+ExecStart=/bin/bash -c "echo $MONITOR_METADATA"
+        </programlisting>
+
+        <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
+        then <filename index="false">myhandler.service</filename> would be triggered and the
+        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service
+        </programlisting>
+
+        <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
+        then <filename index="false">myhandler.service</filename> would be triggered and the
+        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+        </programlisting>
+
+        <para>If <filename index="false">myfailer.service</filename> and <filename index="false">mysuccess.service</filename> were to run and exit,
+        there is a chance that the triggered dependency start job might be merged. Thus only a single invocation of
+        <filename index="false">myhandler.service</filename> would be triggered. In this case the <varname>$MONITOR_METADATA</varname> variable
+        would be a list containing exit metadata for both of <filename index="false">myfailer.service</filename>
+        and <filename index="false">mysuccess.service</filename>.</para>
+
+        <programlisting>
+MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service;SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+        </programlisting>
+
+    </example>
+
   </refsect1>
 
   <refsect1>

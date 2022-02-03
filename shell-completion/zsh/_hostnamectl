@@ -1,8 +1,8 @@
-#compdef hostnamectl                    -*- shell-script -*-
+#compdef hostnamectl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-(( $+functions[_hostnamectl_set-hostname] )) ||
-_hostnamectl_set-hostname() {
+(( $+functions[_hostnamectl_hostname] )) ||
+_hostnamectl_hostname() {
     if (( CURRENT <= 3 )); then
         _message "new hostname"
     else
@@ -10,8 +10,8 @@ _hostnamectl_set-hostname() {
     fi
 }
 
-(( $+functions[_hostnamectl_set-icon-name] )) ||
-_hostnamectl_set-icon-name() {
+(( $+functions[_hostnamectl_icon-name] )) ||
+_hostnamectl_icon-name() {
     if (( CURRENT <= 3 )); then
         _message "new icon name"
     else
@@ -19,8 +19,8 @@ _hostnamectl_set-icon-name() {
     fi
 }
 
-(( $+functions[_hostnamectl_set-chassis] )) ||
-_hostnamectl_set-chassis() {
+(( $+functions[_hostnamectl_chassis] )) ||
+_hostnamectl_chassis() {
     if (( CURRENT <= 3 )); then
         _chassis=( desktop laptop convertible server tablet handset watch embedded vm container )
         _describe chassis _chassis
@@ -29,8 +29,8 @@ _hostnamectl_set-chassis() {
     fi
 }
 
-(( $+functions[_hostnamectl_set-deployment] )) ||
-_hostnamectl_set-deployment() {
+(( $+functions[_hostnamectl_deployment] )) ||
+_hostnamectl_deployment() {
     if (( CURRENT <= 3 )); then
         _message "new environment"
     else
@@ -38,8 +38,8 @@ _hostnamectl_set-deployment() {
     fi
 }
 
-(( $+functions[_hostnamectl_set-location] )) ||
-_hostnamectl_set-location() {
+(( $+functions[_hostnamectl_location] )) ||
+_hostnamectl_location() {
     if (( CURRENT <= 3 )); then
         _message "new location"
     else
@@ -52,11 +52,11 @@ _hostnamectl_commands() {
     local -a _hostnamectl_cmds
     _hostnamectl_cmds=(
         "status:Show current hostname settings"
-        "set-hostname:Set system hostname"
-        "set-icon-name:Set icon name for host"
-        "set-chassis:Set chassis type for host"
-        "set-deployment:Set deployment environment for host"
-        "set-location:Set location for host"
+        "hostname:Get/set system hostname"
+        "icon-name:Get/set icon name for host"
+        "chassis:Get/set chassis type for host"
+        "deployment:Get/set deployment environment for host"
+        "location:Get/set location for host"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"
@@ -75,6 +75,13 @@ _hostnamectl_commands() {
     fi
 }
 
+(( $+functions[_hostnamectl_get_json] )) || _hostnamectl_get_json()
+{
+    local -a _json_forms
+    _json_forms=( $(hostnamectl --json=help 2>/dev/null) )
+    _values 'format' $_json_forms
+}
+
 _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
@@ -84,4 +91,5 @@ _arguments -s \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '--json[Shows output formatted as JSON]:format:_hostnamectl_get_json' \
     '*::hostnamectl commands:_hostnamectl_commands'

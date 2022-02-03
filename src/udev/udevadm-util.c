@@ -71,25 +71,66 @@ static int find_device_from_unit(const char *unit_name, sd_device **ret) {
 }
 
 int find_device(const char *id, const char *prefix, sd_device **ret) {
-        _cleanup_free_ char *path = NULL;
+        assert(id);
+        assert(ret);
+
+        if (find_device_from_path(id, ret) >= 0)
+                return 0;
+
+        if (prefix && !path_startswith(id, prefix)) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(prefix, id);
+                if (!path)
+                        return -ENOMEM;
+
+                if (find_device_from_path(path, ret) >= 0)
+                        return 0;
+        }
+
+        /* Check if the argument looks like a device unit name. */
+        return find_device_from_unit(id, ret);
+}
+
+int find_device_with_action(const char *id, sd_device_action_t action, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
         assert(id);
         assert(ret);
+        assert(action >= 0 && action < _SD_DEVICE_ACTION_MAX);
 
-        if (prefix) {
-                if (!path_startswith(id, prefix)) {
-                        id = path = path_join(prefix, id);
-                        if (!path)
-                                return -ENOMEM;
-                }
-        } else {
-                /* In cases where the argument is generic (no prefix specified),
-                 * check if the argument looks like a device unit name. */
-                r = find_device_from_unit(id, ret);
-                if (r >= 0)
-                        return r;
+        r = find_device(id, "/sys", &dev);
+        if (r < 0)
+                return r;
+
+        r = device_read_uevent_file(dev);
+        if (r < 0)
+                return r;
+
+        r = device_set_action(dev, action);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(dev);
+        return 0;
+}
+
+int parse_device_action(const char *str, sd_device_action_t *action) {
+        sd_device_action_t a;
+
+        assert(str);
+        assert(action);
+
+        if (streq(str, "help")) {
+                dump_device_action_table();
+                return 0;
         }
 
-        return find_device_from_path(id, ret);
+        a = device_action_from_string(str);
+        if (a < 0)
+                return a;
+
+        *action = a;
+        return 1;
 }

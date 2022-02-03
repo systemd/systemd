@@ -29,19 +29,35 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util-label.h"
+#include "uid-alloc-range.h"
 #include "uid-range.h"
-#include "user-record.h"
 #include "user-util.h"
 #include "utf8.h"
 #include "util.h"
 
 typedef enum ItemType {
-        ADD_USER = 'u',
-        ADD_GROUP = 'g',
+        ADD_USER =   'u',
+        ADD_GROUP =  'g',
         ADD_MEMBER = 'm',
-        ADD_RANGE = 'r',
+        ADD_RANGE =  'r',
 } ItemType;
+
+static inline const char* item_type_to_string(ItemType t) {
+        switch (t) {
+        case ADD_USER:
+                return "user";
+        case ADD_GROUP:
+                return "group";
+        case ADD_MEMBER:
+                return "member";
+        case ADD_RANGE:
+                return "range";
+        default:
+                assert_not_reached();
+        }
+}
 
 typedef struct Item {
         ItemType type;
@@ -59,8 +75,8 @@ typedef struct Item {
 
         bool gid_set:1;
 
-        /* When set the group with the specified gid must exist
-         * and the check if a uid clashes with the gid is skipped.
+        /* When set the group with the specified GID must exist
+         * and the check if a UID clashes with the GID is skipped.
          */
         bool id_set_strict:1;
 
@@ -74,6 +90,7 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
+static bool arg_dry_run = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 
@@ -252,10 +269,10 @@ static int make_backup(const char *target, const char *x) {
                 return -errno;
 
         r = fopen_temporary_label(
-                        target,   /* The path for which to the lookup the label */
+                        target,   /* The path for which to the look up the label */
                         x,        /* Where we want the file actually to end up */
-                        &dst,
-                        &dst_tmp  /* The temporary file we write to */);
+                        &dst,     /* The temporary file we write to */
+                        &dst_tmp);
         if (r < 0)
                 return r;
 
@@ -267,7 +284,7 @@ static int make_backup(const char *target, const char *x) {
 
         /* Copy over the access mask. Don't fail on chmod() or chown(). If it stays owned by us and/or
          * unreadable by others, then it isn't too bad... */
-        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
+        r = fchmod_and_chown_with_fallback(fileno(dst), dst_tmp, st.st_mode & 07777, st.st_uid, st.st_gid);
         if (r < 0)
                 log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
@@ -281,7 +298,7 @@ static int make_backup(const char *target, const char *x) {
         if (rename(dst_tmp, backup) < 0)
                 return errno;
 
-        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed*/
+        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed */
         return 0;
 }
 
@@ -386,22 +403,31 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_isempty(todo_uids))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/passwd…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", passwd_path);
 
         original = fopen(passwd_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(passwd));
+                /* Allow fallback path for when /proc is not mounted. On any normal system /proc will be
+                 * mounted, but e.g. when 'dnf --installroot' is used, it might not be. There is no security
+                 * relevance here, since the environment is ultimately trusted, and not requiring /proc makes
+                 * it easier to depend on sysusers in packaging scripts and suchlike. */
+                r = copy_rights_with_fallback(fileno(original), fileno(passwd), passwd_tmp);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                                               passwd_path, passwd_tmp);
 
                 while ((r = fgetpwent_sane(original, &pw)) > 0) {
-
                         i = ordered_hashmap_get(users, pw->pw_name);
                         if (i && i->todo_user)
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
@@ -419,16 +445,17 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                         r = putpwent_sane(pw, passwd);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to add existing user \"%s\" to temporary passwd file: %m",
+                                                       pw->pw_name);
                 }
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", passwd_path);
 
         } else {
                 if (errno != ENOENT)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open %s: %m", passwd_path);
                 if (fchmod(fileno(passwd), 0644) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to fchmod %s: %m", passwd_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
@@ -438,10 +465,10 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_name = i->name,
                         .pw_uid = i->uid,
                         .pw_gid = i->gid,
-                        .pw_gecos = i->description,
+                        .pw_gecos = (char*) strempty(i->description),
 
                         /* "x" means the password is stored in the shadow file */
-                        .pw_passwd = (char*) "x",
+                        .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
 
                         /* We default to the root directory as home */
                         .pw_dir = i->home ?: (char*) "/",
@@ -464,25 +491,27 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                 r = putpwent_sane(&n, passwd);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add new user \"%s\" to temporary passwd file: %m",
+                                               pw->pw_name);
         }
 
         /* Append the remaining NIS entries if any */
         while (pw) {
                 r = putpwent_sane(pw, passwd);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add existing user \"%s\" to temporary passwd file: %m",
+                                               pw->pw_name);
 
                 r = fgetpwent_sane(original, &pw);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", passwd_path);
                 if (r == 0)
                         break;
         }
 
         r = fflush_and_check(passwd);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to flush %s: %m", passwd_tmp);
 
         *tmpfile = TAKE_PTR(passwd);
         *tmpfile_path = TAKE_PTR(passwd_tmp);
@@ -498,24 +527,29 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_isempty(todo_uids))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/shadow…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
         lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
 
         original = fopen(shadow_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(shadow));
+                r = copy_rights_with_fallback(fileno(original), fileno(shadow), shadow_tmp);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                                               shadow_path, shadow_tmp);
 
                 while ((r = fgetspent_sane(original, &sp)) > 0) {
-
                         i = ordered_hashmap_get(users, sp->sp_namp);
                         if (i && i->todo_user) {
                                 /* we will update the existing entry */
@@ -533,16 +567,18 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
                         r = putspent_sane(sp, shadow);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to add existing user \"%s\" to temporary shadow file: %m",
+                                                       sp->sp_namp);
+
                 }
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", shadow_path);
 
         } else {
                 if (errno != ENOENT)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open %s: %m", shadow_path);
                 if (fchmod(fileno(shadow), 0000) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to fchmod %s: %m", shadow_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
@@ -551,7 +587,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
+                        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
@@ -591,18 +627,20 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
                 r = putspent_sane(&n, shadow);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add new user \"%s\" to temporary shadow file: %m",
+                                               sp->sp_namp);
         }
 
         /* Append the remaining NIS entries if any */
         while (sp) {
                 r = putspent_sane(sp, shadow);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add existing user \"%s\" to temporary shadow file: %m",
+                                               sp->sp_namp);
 
                 r = fgetspent_sane(original, &sp);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", shadow_path);
                 if (r == 0)
                         break;
         }
@@ -611,7 +649,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
         r = fflush_sync_and_check(shadow);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to flush %s: %m", shadow_tmp);
 
         *tmpfile = TAKE_PTR(shadow);
         *tmpfile_path = TAKE_PTR(shadow_tmp);
@@ -627,19 +665,25 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
+        if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/group…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", group_path);
 
         original = fopen(group_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(group));
+                r = copy_rights_with_fallback(fileno(original), fileno(group), group_tmp);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                                               group_path, group_tmp);
 
                 while ((r = fgetgrent_sane(original, &gr)) > 0) {
                         /* Safety checks against name and GID collisions. Normally,
@@ -664,30 +708,32 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                         r = putgrent_with_members(gr, group);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
+                                                       gr->gr_name);
                         if (r > 0)
                                 group_changed = true;
                 }
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", group_path);
 
         } else {
                 if (errno != ENOENT)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open %s: %m", group_path);
                 if (fchmod(fileno(group), 0644) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to fchmod %s: %m", group_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
-                        .gr_passwd = (char*) "x",
+                        .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
                 };
 
                 r = putgrent_with_members(&n, group);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add new group \"%s\" to temporary group file: %m",
+                                               gr->gr_name);
 
                 group_changed = true;
         }
@@ -696,18 +742,19 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         while (gr) {
                 r = putgrent_sane(gr, group);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
+                                               gr->gr_name);
 
                 r = fgetgrent_sane(original, &gr);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read %s: %m", group_path);
                 if (r == 0)
                         break;
         }
 
         r = fflush_sync_and_check(group);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to flush %s: %m", group_tmp);
 
         if (group_changed) {
                 *tmpfile = TAKE_PTR(group);
@@ -724,20 +771,26 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         Item *i;
         int r;
 
-        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
+        if (ordered_hashmap_isempty(todo_gids) && ordered_hashmap_isempty(members))
                 return 0;
+
+        if (arg_dry_run) {
+                log_info("Would write /etc/gshadow…");
+                return 0;
+        }
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", gshadow_path);
 
         original = fopen(gshadow_path, "re");
         if (original) {
                 struct sgrp *sg;
 
-                r = copy_rights(fileno(original), fileno(gshadow));
+                r = copy_rights_with_fallback(fileno(original), fileno(gshadow), gshadow_tmp);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                                               gshadow_path, gshadow_tmp);
 
                 while ((r = fgetsgent_sane(original, &sg)) > 0) {
 
@@ -749,7 +802,8 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                         r = putsgent_with_members(sg, gshadow);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary gshadow file: %m",
+                                                       sg->sg_namp);
                         if (r > 0)
                                 group_changed = true;
                 }
@@ -758,42 +812,41 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
         } else {
                 if (errno != ENOENT)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open %s: %m", gshadow_path);
                 if (fchmod(fileno(gshadow), 0000) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to fchmod %s: %m", gshadow_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct sgrp n = {
                         .sg_namp = i->name,
-                        .sg_passwd = (char*) "!*",
+                        .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
                 };
 
                 r = putsgent_with_members(&n, gshadow);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to add new group \"%s\" to temporary gshadow file: %m",
+                                               n.sg_namp);
 
                 group_changed = true;
         }
 
         r = fflush_sync_and_check(gshadow);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to flush %s: %m", gshadow_tmp);
 
         if (group_changed) {
                 *tmpfile = TAKE_PTR(gshadow);
                 *tmpfile_path = TAKE_PTR(gshadow_tmp);
         }
-        return 0;
-#else
-        return 0;
 #endif
+        return 0;
 }
 
 static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
-        const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
+        const char *passwd_path, *shadow_path, *group_path, *gshadow_path;
         int r;
 
         passwd_path = prefix_roota(arg_root, "/etc/passwd");
@@ -821,31 +874,31 @@ static int write_files(void) {
         if (group) {
                 r = make_backup("/etc/group", group_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to make backup %s: %m", group_path);
         }
         if (gshadow) {
                 r = make_backup("/etc/gshadow", gshadow_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to make backup %s: %m", gshadow_path);
         }
 
         if (passwd) {
                 r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to make backup %s: %m", passwd_path);
         }
         if (shadow) {
                 r = make_backup("/etc/shadow", shadow_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to make backup %s: %m", shadow_path);
         }
 
         /* And make the new files count */
         if (group) {
                 r = rename_and_apply_smack_floor_label(group_tmp, group_path);
                 if (r < 0)
-                        return r;
-
+                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                                               group_tmp, group_path);
                 group_tmp = mfree(group_tmp);
 
                 if (!arg_root && !arg_image)
@@ -854,7 +907,8 @@ static int write_files(void) {
         if (gshadow) {
                 r = rename_and_apply_smack_floor_label(gshadow_tmp, gshadow_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                                               gshadow_tmp, gshadow_path);
 
                 gshadow_tmp = mfree(gshadow_tmp);
         }
@@ -862,7 +916,8 @@ static int write_files(void) {
         if (passwd) {
                 r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                                               passwd_tmp, passwd_path);
 
                 passwd_tmp = mfree(passwd_tmp);
 
@@ -872,7 +927,8 @@ static int write_files(void) {
         if (shadow) {
                 r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                                               shadow_tmp, shadow_path);
 
                 shadow_tmp = mfree(shadow_tmp);
         }
@@ -881,10 +937,6 @@ static int write_files(void) {
 }
 
 static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
-        struct passwd *p;
-        struct group *g;
-        const char *n;
-        Item *i;
 
         /* Let's see if we already have assigned the UID a second time */
         if (ordered_hashmap_get(todo_uids, UID_TO_PTR(uid)))
@@ -893,6 +945,8 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
         /* Try to avoid using uids that are already used by a group
          * that doesn't have the same name as our new user. */
         if (check_with_gid) {
+                Item *i;
+
                 i = ordered_hashmap_get(todo_gids, GID_TO_PTR(uid));
                 if (i && !streq(i->name, name))
                         return 0;
@@ -903,6 +957,8 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
                 return 0;
 
         if (check_with_gid) {
+                const char *n;
+
                 n = hashmap_get(database_by_gid, GID_TO_PTR(uid));
                 if (n && !streq(n, name))
                         return 0;
@@ -910,6 +966,9 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
 
         /* Let's also check via NSS, to avoid UID clashes over LDAP and such, just in case */
         if (!arg_root) {
+                struct passwd *p;
+                struct group *g;
+
                 errno = 0;
                 p = getpwuid(uid);
                 if (p)
@@ -935,10 +994,7 @@ static int root_stat(const char *p, struct stat *st) {
         const char *fix;
 
         fix = prefix_roota(arg_root, p);
-        if (stat(fix, st) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(stat(fix, st));
 }
 
 static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
@@ -949,13 +1005,13 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
 
         assert(i);
 
-        /* First, try to get the gid directly */
+        /* First, try to get the GID directly */
         if (_gid && i->gid_path && root_stat(i->gid_path, &st) >= 0) {
                 gid = st.st_gid;
                 found_gid = true;
         }
 
-        /* Then, try to get the uid directly */
+        /* Then, try to get the UID directly */
         if ((_uid || (_gid && !found_gid))
             && i->uid_path
             && root_stat(i->uid_path, &st) >= 0) {
@@ -963,14 +1019,14 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
                 uid = st.st_uid;
                 found_uid = true;
 
-                /* If we need the gid, but had no success yet, also derive it from the uid path */
+                /* If we need the gid, but had no success yet, also derive it from the UID path */
                 if (_gid && !found_gid) {
                         gid = st.st_gid;
                         found_gid = true;
                 }
         }
 
-        /* If that didn't work yet, then let's reuse the gid as uid */
+        /* If that didn't work yet, then let's reuse the GID as UID */
         if (_uid && !found_uid && i->gid_path) {
 
                 if (found_gid) {
@@ -1035,13 +1091,13 @@ static int add_user(Item *i) {
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
         }
 
-        /* Try to use the suggested numeric uid */
+        /* Try to use the suggested numeric UID */
         if (i->uid_set) {
                 r = uid_is_ok(i->uid, i->name, !i->id_set_strict);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r == 0) {
-                        log_debug("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
+                        log_info("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
                         i->uid_set = false;
                 }
         }
@@ -1057,7 +1113,7 @@ static int add_user(Item *i) {
                         else {
                                 r = uid_is_ok(c, i->name, true);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                                 else if (r > 0) {
                                         i->uid = c;
                                         i->uid_set = true;
@@ -1071,7 +1127,7 @@ static int add_user(Item *i) {
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name, true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r > 0) {
                         i->uid = (uid_t) i->gid;
                         i->uid_set = true;
@@ -1089,7 +1145,7 @@ static int add_user(Item *i) {
 
                         r = uid_is_ok(search_uid, i->name, true);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                         else if (r > 0)
                                 break;
                 }
@@ -1100,16 +1156,17 @@ static int add_user(Item *i) {
 
         r = ordered_hashmap_ensure_put(&todo_uids, NULL, UID_TO_PTR(i->uid), i);
         if (r == -EEXIST)
-                return log_error_errno(r, "Requested user %s with uid " UID_FMT " and gid" GID_FMT " to be created is duplicated "
+                return log_error_errno(r, "Requested user %s with UID " UID_FMT " and gid" GID_FMT " to be created is duplicated "
                                        "or conflicts with another user.", i->name, i->uid, i->gid);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to store user %s with uid " UID_FMT " and gid " GID_FMT " to be created: %m",
+                return log_error_errno(r, "Failed to store user %s with UID " UID_FMT " and GID " GID_FMT " to be created: %m",
                                        i->name, i->uid, i->gid);
 
         i->todo_user = true;
-        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".", i->name, strna(i->description), i->uid, i->gid);
+        log_info("Creating user '%s' (%s) with UID " UID_FMT " and GID " GID_FMT ".",
+                 i->name, strna(i->description), i->uid, i->gid);
 
         return 0;
 }
@@ -1193,15 +1250,15 @@ static int add_group(Item *i) {
                 return 0;
         }
 
-        /* Try to use the suggested numeric gid */
+        /* Try to use the suggested numeric GID */
         if (i->gid_set) {
                 r = gid_is_ok(i->gid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (i->id_set_strict) {
-                        /* If we require the gid to already exist we can return here:
-                         * r > 0: means the gid does not exist -> fail
-                         * r == 0: means the gid exists -> nothing more to do.
+                        /* If we require the GID to already exist we can return here:
+                         * r > 0: means the GID does not exist -> fail
+                         * r == 0: means the GID exists -> nothing more to do.
                          */
                         if (r > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1211,7 +1268,7 @@ static int add_group(Item *i) {
                                 return 0;
                 }
                 if (r == 0) {
-                        log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
+                        log_info("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
                         i->gid_set = false;
                 }
         }
@@ -1220,7 +1277,7 @@ static int add_group(Item *i) {
         if (!i->gid_set && i->uid_set) {
                 r = gid_is_ok((gid_t) i->uid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (r > 0) {
                         i->gid = (gid_t) i->uid;
                         i->gid_set = true;
@@ -1238,7 +1295,7 @@ static int add_group(Item *i) {
                         else {
                                 r = gid_is_ok(c);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                        return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                                 else if (r > 0) {
                                         i->gid = c;
                                         i->gid_set = true;
@@ -1260,7 +1317,7 @@ static int add_group(Item *i) {
 
                         r = gid_is_ok(search_uid);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                         else if (r > 0)
                                 break;
                 }
@@ -1271,14 +1328,14 @@ static int add_group(Item *i) {
 
         r = ordered_hashmap_ensure_put(&todo_gids, NULL, GID_TO_PTR(i->gid), i);
         if (r == -EEXIST)
-                return log_error_errno(r, "Requested group %s with gid "GID_FMT " to be created is duplicated or conflicts with another user.", i->name, i->gid);
+                return log_error_errno(r, "Requested group %s with GID "GID_FMT " to be created is duplicated or conflicts with another user.", i->name, i->gid);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to store group %s with gid " GID_FMT " to be created: %m", i->name, i->gid);
+                return log_error_errno(r, "Failed to store group %s with GID " GID_FMT " to be created: %m", i->name, i->gid);
 
         i->todo_group = true;
-        log_info("Creating group %s with gid " GID_FMT ".", i->name, i->gid);
+        log_info("Creating group '%s' with GID " GID_FMT ".", i->name, i->gid);
 
         return 0;
 }
@@ -1322,7 +1379,7 @@ static int process_item(Item *i) {
                 return add_group(i);
 
         default:
-                assert_not_reached("Unknown item type");
+                assert_not_reached();
         }
 }
 
@@ -1442,13 +1499,6 @@ static bool item_equal(Item *a, Item *b) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-
-        static const Specifier specifier_table[] = {
-                COMMON_SYSTEM_SPECIFIERS,
-                COMMON_TMP_SPECIFIERS,
-                {}
-        };
-
         _cleanup_free_ char *action = NULL,
                 *name = NULL, *resolved_name = NULL,
                 *id = NULL, *resolved_id = NULL,
@@ -1492,7 +1542,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 name = mfree(name);
 
         if (name) {
-                r = specifier_printf(name, specifier_table, NULL, &resolved_name);
+                r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_name);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, name);
 
@@ -1507,7 +1557,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 id = mfree(id);
 
         if (id) {
-                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
+                r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_id);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, name);
@@ -1518,7 +1568,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                r = specifier_printf(description, specifier_table, NULL, &resolved_description);
+                r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_description);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, description);
@@ -1534,7 +1584,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                r = specifier_printf(home, specifier_table, NULL, &resolved_home);
+                r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_home);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, home);
@@ -1550,7 +1600,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 shell = mfree(shell);
 
         if (shell) {
-                r = specifier_printf(shell, specifier_table, NULL, &resolved_shell);
+                r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_shell);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, shell);
@@ -1571,7 +1621,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (!resolved_id)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'r' require a ID range in the third field.",
+                                               "[%s:%u] Lines of type 'r' require an ID range in the third field.",
                                                fname, line);
 
                 if (description || home || shell)
@@ -1634,7 +1684,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->uid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->uid_path, false);
+                                path_simplify(i->uid_path);
                         } else {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
@@ -1689,7 +1739,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->gid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->gid_path, false);
+                                path_simplify(i->gid_path);
                         } else {
                                 r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0)
@@ -1713,7 +1763,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (existing) {
                 /* Two identical items are fine */
                 if (!item_equal(existing, i))
-                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->name);
+                        log_warning("%s:%u: conflict with earlier configuration for %s '%s', ignoring line.",
+                                    fname, line,
+                                    item_type_to_string(i->type), i->name);
 
                 return 0;
         }
@@ -1728,6 +1780,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
         _cleanup_fclose_ FILE *rf = NULL;
+        _cleanup_free_ char *pp = NULL;
         FILE *f = NULL;
         unsigned v = 0;
         int r = 0;
@@ -1737,7 +1790,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, &pp);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1746,6 +1799,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 }
 
                 f = rf;
+                fn = pp;
         }
 
         for (;;) {
@@ -1787,7 +1841,7 @@ static int cat_config(void) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return cat_files(NULL, files, 0);
 }
@@ -1808,6 +1862,7 @@ static int help(void) {
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --dry-run              Just print what would be done\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
@@ -1825,6 +1880,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_REPLACE,
+                ARG_DRY_RUN,
                 ARG_INLINE,
                 ARG_NO_PAGER,
         };
@@ -1834,8 +1890,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "root",       required_argument, NULL, ARG_ROOT       },
-                { "image",      required_argument, NULL, ARG_IMAGE          },
+                { "image",      required_argument, NULL, ARG_IMAGE      },
                 { "replace",    required_argument, NULL, ARG_REPLACE    },
+                { "dry-run",    no_argument,       NULL, ARG_DRY_RUN    },
                 { "inline",     no_argument,       NULL, ARG_INLINE     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
@@ -1886,6 +1943,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_replace = optarg;
                         break;
 
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
+
                 case ARG_INLINE:
                         arg_inline = true;
                         break;
@@ -1898,7 +1959,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_replace && arg_cat_config)
@@ -1997,7 +2058,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_FSCK,
+                                DISSECT_IMAGE_FSCK |
+                                DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);
@@ -2043,7 +2105,7 @@ static int run(int argc, char *argv[]) {
                 login_defs_need_warning = true;
 
                 /* We pick a range that very conservative: we look at compiled-in maximum and the value in
-                 * /etc/login.defs. That way the uids/gids which we allocate will be interpreted correctly,
+                 * /etc/login.defs. That way the UIDs/GIDs which we allocate will be interpreted correctly,
                  * even if /etc/login.defs is removed later. (The bottom bound doesn't matter much, since
                  * it's only used during allocation, so we use the configured value directly). */
                 uid_t begin = login_defs.system_alloc_uid_min,
@@ -2059,9 +2121,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        lock = take_etc_passwd_lock(arg_root);
-        if (lock < 0)
-                return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
+        if (!arg_dry_run) {
+                lock = take_etc_passwd_lock(arg_root);
+                if (lock < 0)
+                        return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
+        }
 
         r = load_user_database();
         if (r < 0)

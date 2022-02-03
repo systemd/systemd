@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bridge99
+Kind=bridge
+
+[Bridge]
+MulticastQuerier=yes
+MulticastSnooping=yes
+Priority=10
+STP=yes
+ForwardDelaySec=5
+MulticastIGMPVersion=2
+VLANFiltering=yes

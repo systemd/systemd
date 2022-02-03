@@ -39,8 +39,8 @@ static int resolvconf_help(void) {
                "This is a compatibility alias for the resolvectl(1) tool, providing native\n"
                "command line compatibility with the resolvconf(8) tool of various Linux\n"
                "distributions and BSD systems. Some options supported by other implementations\n"
-               "are not supported and are ignored: -m, -p. Various options supported by other\n"
-               "implementations are not supported and will cause the invocation to fail: -u,\n"
+               "are not supported and are ignored: -m, -p, -u. Various options supported by other\n"
+               "implementations are not supported and will cause the invocation to fail:\n"
                "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
                "--updates-are-enabled.\n"
                "\nSee the %2$s for details.\n",
@@ -171,8 +171,11 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         log_debug("Switch -%c ignored.", c);
                         break;
 
-                /* Everybody else can agree on the existence of -u but we don't support it. */
+                /* -u supposedly should "update all subscribers". We have no subscribers, hence let's make
+                    this a NOP, and exit immediately, cleanly. */
                 case 'u':
+                        log_info("Switch -%c ignored.", c);
+                        return 0;
 
                 /* The following options are openresolv inventions we don't support. */
                 case 'I':
@@ -200,7 +203,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_mode == _MODE_INVALID)
@@ -211,7 +214,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected interface name as argument.");
 
-        r = ifname_mangle(argv[optind]);
+        r = ifname_resolvconf_mangle(argv[optind]);
         if (r <= 0)
                 return r;
 

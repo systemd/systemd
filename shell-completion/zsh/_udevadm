@@ -1,4 +1,4 @@
-#compdef udevadm                    -*- shell-script -*-
+#compdef udevadm
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_udevadm_info] )) ||
@@ -13,7 +13,9 @@ _udevadm_info(){
         '--export-prefix=[Add a prefix to the key name of exported values.]:prefix' \
         '--device-id-of-file=[Print major/minor numbers of the underlying device, where the file lives on.]:files:_udevadm_mounts' \
         '--export-db[Export the content of the udev database.]' \
-        '--cleanup-db[Cleanup the udev database.]'
+        '--cleanup-db[Cleanup the udev database.]' \
+        '--value[When showing properties, print only their values.]' \
+        '--property=[Show only properties by this name.]'
 }
 
 (( $+functions[_udevadm_trigger] )) ||
@@ -23,7 +25,7 @@ _udevadm_trigger(){
         '--dry-run[Do not actually trigger the event.]' \
         '--quiet[Suppress error logging in triggering events.]' \
         '--type=[Trigger a specific type of devices.]:types:(devices subsystems failed)' \
-        '--action=[Type of event to be triggered.]:actions:(add change remove)' \
+        '--action=[Type of event to be triggered.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem-match=[Trigger events for devices which belong to a matching subsystem.]' \
         '--subsystem-nomatch=[Do not trigger events for devices which belong to a matching subsystem.]' \
         '--attr-match=attribute=[Trigger events for devices with a matching sysfs attribute.]' \
@@ -31,7 +33,8 @@ _udevadm_trigger(){
         '--property-match=[Trigger events for devices with a matching property value.]' \
         '--tag-match=property[Trigger events for devices with a matching tag.]' \
         '--sysname-match=[Trigger events for devices with a matching sys device name.]' \
-        '--parent-match=[Trigger events for all children of a given device.]'
+        '--parent-match=[Trigger events for all children of a given device.]' \
+        '--uuid[Print synthetic uevent UUID.]'
 }
 
 (( $+functions[_udevadm_settle] )) ||
@@ -73,7 +76,7 @@ _udevadm_monitor(){
 (( $+functions[_udevadm_test] )) ||
 _udevadm_test(){
     _arguments \
-        '--action=[The action string.]:actions:(add change remove)' \
+        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem=[The subsystem string.]' \
         '--help[Print help text.]' \
         '*::devpath:_files -P /sys/ -W /sys'
@@ -83,34 +86,37 @@ _udevadm_test(){
 _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
     _arguments \
+        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--help[Print help text]' \
         '*::builtins:(blkid btrfs hwdb input_id net_id net_setup_link kmod path_id usb_id uaccess)'
     elif  (( CURRENT == 3 )); then
         _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '--help[Print help text]' \
             '*::syspath:_files -P /sys -W /sys'
     else
         _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '--help[Print help text]'
     fi
 }
 
 (( $+functions[_udevadm_mounts] )) ||
 _udevadm_mounts(){
-  local dev_tmp dpath_tmp mp_tmp mline
+    local dev_tmp dpath_tmp mp_tmp mline
 
     tmp=( "${(@f)$(< /proc/self/mounts)}" )
     dev_tmp=( "${(@)${(@)tmp%% *}:#none}" )
     mp_tmp=( "${(@)${(@)tmp#* }%% *}" )
 
-  local MATCH
-  mp_tmp=("${(@q)mp_tmp//(#m)\\[0-7](#c3)/${(#)$(( 8#${MATCH[2,-1]} ))}}")
-  dpath_tmp=( "${(@Mq)dev_tmp:#/*}" )
-  dev_tmp=( "${(@q)dev_tmp:#/*}" )
+    local MATCH
+    mp_tmp=("${(@q)mp_tmp//(#m)\\[0-7](#c3)/${(#)$(( 8#${MATCH[2,-1]} ))}}")
+    dpath_tmp=( "${(@Mq)dev_tmp:#/*}" )
+    dev_tmp=( "${(@q)dev_tmp:#/*}" )
 
-  _alternative \
-    'device-paths: device path:compadd -a dpath_tmp' \
-    'directories:mount point:compadd -a mp_tmp'
+    _alternative \
+        'device-paths: device path:compadd -a dpath_tmp' \
+        'directories:mount point:compadd -a mp_tmp'
 }
 
 (( $+functions[_udevadm_commands] )) ||

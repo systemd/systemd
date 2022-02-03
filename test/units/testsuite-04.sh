@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 set -o pipefail
+
+# Limit the maximum journal size
+trap "journalctl --rotate --vacuum-size=16M" EXIT
+
+# Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
+journalctl --relinquish-var
+for _ in {0..50}; do
+    dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
+done
+journalctl --rotate
+journalctl --flush
+journalctl --sync
+
+# Reset the ratelimit buckets for the subsequent tests below.
+systemctl restart systemd-journald
 
 # Test stdout stream
 
@@ -97,6 +113,11 @@ cmp /expected /output
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_LINE_BREAK | grep -Pc "^pid-change$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_PID | sort -u | grep -c "^.*$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=MESSAGE | grep -Pc "^(This will|usually fail|and be truncated)$") -eq 3 ]]
+
+# test that LogLevelMax can also suppress logging about services, not only by services
+systemctl start silent-success
+journalctl --sync
+[[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.

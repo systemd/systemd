@@ -99,6 +99,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--property=<replaceable>NAME</replaceable></option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, limit display to properties specified in the argument. The argument should
+            be a comma-separated list of property names. If not specified, all known properties
+            are shown.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--value</option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, print only their values, and skip the property name and <literal>=</literal>.</para>
+            <para>Cannot be used together with <option>-x/--export</option> or
+            <option>-P/--export-prefix</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
@@ -186,6 +204,45 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>The generated output shows the current device database entry in a terse format. Each line shown
+      is prefixed with one of the following characters:</para>
+
+      <table>
+        <title><command>udevadm info</command> output prefixes</title>
+        <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+          <colspec colname="prefix" />
+          <colspec colname="meaning" />
+          <thead>
+            <row>
+              <entry>Prefix</entry>
+              <entry>Meaning</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>P:</literal></entry>
+              <entry>Device path in <filename>/sys/</filename></entry>
+            </row>
+            <row>
+              <entry><literal>N:</literal></entry>
+              <entry>Kernel device node name</entry>
+            </row>
+            <row>
+              <entry><literal>L:</literal></entry>
+              <entry>Device node symlink priority</entry>
+            </row>
+            <row>
+              <entry><literal>S:</literal></entry>
+              <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>E:</literal></entry>
+              <entry>Device property</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     </refsect2>
 
     <refsect2><title>udevadm trigger
@@ -293,7 +350,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
-          <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
+          <term><option>--tag-match=<replaceable>TAG</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
             then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
@@ -334,6 +391,15 @@
             settle</command>. <command>udevadm settle</command> waits for all
             events to finish. This option only waits for events triggered by
             the same command to finish.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid</option></term>
+          <listitem>
+            <para>Trigger the synthetic device events, and associate a randomized UUID with each. These UUIDs
+            are printed to standard output, one line for each event. These UUIDs are included in the uevent
+            environment block (in the <literal>SYNTH_UUID=</literal> property) and may be used to track
+            delivery of the generated events.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -529,7 +595,7 @@
 
     <refsect2><title>udevadm test
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Simulate a udev event run for the given device, and print debug output.</para>
       <variablelist>
@@ -565,12 +631,24 @@
     <refsect2><title>udevadm test-builtin
       <arg choice="opt"><replaceable>options</replaceable></arg>
       <arg><replaceable>command</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
       for device <replaceable>DEVPATH</replaceable>, and print debug
       output.</para>
       <variablelist>
+        <varlistentry>
+          <term><option>-a</option></term>
+          <term><option>--action=<replaceable>ACTION</replaceable></option></term>
+          <listitem>
+            <para>Type of event to be simulated. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
+            to list the possible actions. The default value is <literal>add</literal>.</para>
+          </listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>

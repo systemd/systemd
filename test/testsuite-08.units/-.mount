@@ -1,11 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Before=local-fs.target
 
 [Mount]
 What=/dev/sda1
 Where=/
-Type=ext4
-Options=errors=remount-ro,noatime
+Options=noatime
 
 [Install]
 WantedBy=local-fs.target

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for find_executable() with MountAPIVFS=no
+
+[Service]
+Type=oneshot
+
+MountAPIVFS=false
+PrivateDevices=false
+PrivateMounts=true
+PrivateTmp=false
+PrivateUsers=false
+ProtectControlGroups=false
+ProtectKernelModules=false
+ProtectKernelTunables=false
+RootDirectory=/tmp/test-exec-mount-apivfs-no/root

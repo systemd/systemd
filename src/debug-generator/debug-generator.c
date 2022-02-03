@@ -5,7 +5,7 @@
 #include "alloc-util.h"
 #include "dropin.h"
 #include "generator.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -134,11 +134,11 @@ static int generate_wants_symlinks(void) {
                 if (!p)
                         return log_oom();
 
-                f = path_join(SYSTEM_DATA_UNIT_PATH, *u);
+                f = path_join(SYSTEM_DATA_UNIT_DIR, *u);
                 if (!f)
                         return log_oom();
 
-                mkdir_parents_label(p, 0755);
+                (void) mkdir_parents_label(p, 0755);
 
                 if (symlink(f, p) < 0)
                         r = log_error_errno(errno,

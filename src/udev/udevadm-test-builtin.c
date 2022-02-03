@@ -11,14 +11,16 @@
 #include "udevadm.h"
 #include "udevadm-util.h"
 
+static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static const char *arg_command = NULL;
 static const char *arg_syspath = NULL;
 
 static int help(void) {
         printf("%s test-builtin [OPTIONS] COMMAND DEVPATH\n\n"
                "Test a built-in command.\n\n"
-               "  -h --help     Print this message\n"
-               "  -V --version  Print version of the program\n\n"
+               "  -h --help               Print this message\n"
+               "  -V --version            Print version of the program\n\n"
+               "  -a --action=ACTION|help Set action string\n"
                "Commands:\n",
                program_invocation_short_name);
 
@@ -29,15 +31,23 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "version", no_argument, NULL, 'V' },
-                { "help",    no_argument, NULL, 'h' },
+                { "action",  required_argument, NULL, 'a' },
+                { "version", no_argument,       NULL, 'V' },
+                { "help",    no_argument,       NULL, 'h' },
                 {}
         };
 
-        int c;
+        int r, c;
 
-        while ((c = getopt_long(argc, argv, "Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "a:Vh", options, NULL)) >= 0)
                 switch (c) {
+                case 'a':
+                        r = parse_device_action(optarg, &arg_action);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid action '%s'", optarg);
+                        if (r == 0)
+                                return 0;
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':
@@ -45,7 +55,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         arg_command = argv[optind++];
@@ -56,12 +66,13 @@ static int parse_argv(int argc, char *argv[]) {
         arg_syspath = argv[optind++];
         if (!arg_syspath)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "syspath missing.");
+                                       "device is missing.");
 
         return 1;
 }
 
 int builtin_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         UdevBuiltinCommand cmd;
         int r;
@@ -81,13 +92,13 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        r = find_device(arg_syspath, "/sys", &dev);
+        r = find_device_with_action(arg_syspath, arg_action, &dev);
         if (r < 0) {
                 log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
                 goto finish;
         }
 
-        r = udev_builtin_run(dev, cmd, arg_command, true);
+        r = udev_builtin_run(dev, &rtnl, cmd, arg_command, true);
         if (r < 0)
                 log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
 

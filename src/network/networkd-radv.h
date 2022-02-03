@@ -14,8 +14,9 @@
 #include "conf-parser.h"
 #include "networkd-util.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
+typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,
@@ -28,19 +29,28 @@ typedef enum RADVPrefixDelegation {
 
 typedef struct Prefix {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
-        sd_radv_prefix *radv_prefix;
+        struct in6_addr prefix;
+        uint8_t prefixlen;
+        usec_t preferred_lifetime;
+        usec_t valid_lifetime;
+
+        bool onlink;
+        bool address_auto_configuration;
 
         bool assign;
         uint32_t route_metric;
+        Set *tokens;
 } Prefix;
 
 typedef struct RoutePrefix {
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
 
-        sd_radv_route_prefix *radv_route_prefix;
+        struct in6_addr prefix;
+        uint8_t prefixlen;
+        usec_t lifetime;
 } RoutePrefix;
 
 Prefix *prefix_free(Prefix *prefix);
@@ -50,22 +60,28 @@ void network_drop_invalid_prefixes(Network *network);
 void network_drop_invalid_route_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
-int radv_emit_dns(Link *link);
-int radv_configure(Link *link);
+int link_request_radv_addresses(Link *link);
+
+bool link_radv_enabled(Link *link);
+int radv_start(Link *link);
 int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
-                    uint32_t lifetime_preferred, uint32_t lifetime_valid);
+                    usec_t lifetime_preferred_usec, usec_t lifetime_valid_usec);
+
+int request_process_radv(Request *req);
+int link_request_radv(Link *link);
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
+CONFIG_PARSER_PROTOTYPE(config_parse_router_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
-CONFIG_PARSER_PROTOTYPE(config_parse_prefix_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
-CONFIG_PARSER_PROTOTYPE(config_parse_prefix_assign);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_token);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);

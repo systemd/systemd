@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.scope">
+<refentry id="systemd.scope" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.scope</title>
     <productname>systemd</productname>
@@ -89,6 +89,10 @@
   <refsect1>
     <title>Options</title>
 
+    <para>Socket files may include a [Unit] section, which is described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
     <para>Scope files may include a [Scope]
     section, which carries information about the scope and the
     units it contains. A number of options that may be used in
@@ -108,7 +112,18 @@
         active for longer than the specified time it is terminated and put into a failure state. Pass
         <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

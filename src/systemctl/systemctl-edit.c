@@ -5,7 +5,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -54,7 +54,7 @@ int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
@@ -526,6 +526,8 @@ int edit(int argc, char *argv[], void *userdata) {
         r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
+        if (strv_isempty(names))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
 
         STRV_FOREACH(tmp, names) {
                 r = unit_is_masked(bus, &lp, *tmp);

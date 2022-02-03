@@ -133,33 +133,48 @@
         <term><varname>RebootWatchdogSec=</varname></term>
         <term><varname>KExecWatchdogSec=</varname></term>
 
-        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
-        in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
-        <literal>d</literal>, <literal>w</literal>). If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
-        value, the watchdog hardware (<filename>/dev/watchdog</filename> or the path specified with
-        <varname>WatchdogDevice=</varname> or the kernel option <varname>systemd.watchdog-device=</varname>) will be
-        programmed to automatically reboot the system if it is not contacted within the specified timeout interval. The
-        system manager will ensure to contact it at least once in half the specified timeout interval. This feature
-        requires a hardware watchdog device to be present, as it is commonly the case in embedded and server
-        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in which case
-        the closest available timeout is picked. <varname>RebootWatchdogSec=</varname> may be used to configure the
-        hardware watchdog when the system is asked to reboot. It works as a safety net to ensure that the reboot takes
-        place even if a clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout
-        applies only to the second phase of the reboot, i.e. after all regular services are already terminated, and
-        after the system and service manager process (PID 1) got replaced by the <filename>systemd-shutdown</filename>
-        binary, see system <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details. During the first phase of the shutdown operation the system and service manager remains running
-        and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
-        phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
-        in the [Unit] section of the <filename>shutdown.target</filename> unit. By default
-        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>RebootWatchdogSec=</varname> to
-        10min. <varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
-        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on kexec (depending
-        on the specific hardware and/or driver), in this case the watchdog might not get disabled after kexec succeeds
-        and thus the system might get rebooted, unless <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.
-        For this reason it is recommended to enable <varname>KExecWatchdogSec=</varname> only if
-        <varname>RuntimeWatchdogSec=</varname> is also enabled.
-        These settings have no effect if a hardware watchdog is not available.</para></listitem>
+        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in
+        seconds (or in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>,
+        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>), or the special strings
+        <literal>off</literal> or <literal>default</literal>. If set to <literal>off</literal>
+        (alternatively: <literal>0</literal>) the watchdog logic is disabled: no watchdog device is opened,
+        configured, or pinged. If set to the special string <literal>default</literal> the watchdog is opened
+        and pinged in regular intervals, but the timeout is not changed from the default. If set to any other
+        time value the watchdog timeout is configured to the specified value (or a value close to it,
+        depending on hardware capabilities).</para>
+
+        <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
+        (<filename>/dev/watchdog0</filename> or the path specified with <varname>WatchdogDevice=</varname> or
+        the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
+        reboot the system if it is not contacted within the specified timeout interval. The system manager
+        will ensure to contact it at least once in half the specified timeout interval. This feature requires
+        a hardware watchdog device to be present, as it is commonly the case in embedded and server
+        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in
+        which case the closest available timeout is picked.</para>
+
+        <para><varname>RebootWatchdogSec=</varname> may be used to configure the hardware watchdog when the
+        system is asked to reboot. It works as a safety net to ensure that the reboot takes place even if a
+        clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout applies
+        only to the second phase of the reboot, i.e. after all regular services are already terminated, and
+        after the system and service manager process (PID 1) got replaced by the
+        <filename>systemd-shutdown</filename> binary, see system
+        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. During the first phase of the shutdown operation the system and service manager remains
+        running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a
+        timeout on this first phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and
+        <varname>JobTimeoutAction=</varname> in the [Unit] section of the
+        <filename>shutdown.target</filename> unit. By default <varname>RuntimeWatchdogSec=</varname> defaults
+        to 0 (off), and <varname>RebootWatchdogSec=</varname> to 10min.</para>
+
+        <para><varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
+        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on
+        kexec (depending on the specific hardware and/or driver), in this case the watchdog might not get
+        disabled after kexec succeeds and thus the system might get rebooted, unless
+        <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.  For this reason it is
+        recommended to enable <varname>KExecWatchdogSec=</varname> only if
+        <varname>RuntimeWatchdogSec=</varname> is also enabled.</para>
+
+        <para>These settings have no effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -167,7 +182,7 @@
 
         <listitem><para>Configure the hardware watchdog device that the
         runtime and shutdown watchdog timers will open and use. Defaults
-        to <filename>/dev/watchdog</filename>. This setting has no
+        to <filename>/dev/watchdog0</filename>. This setting has no
         effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
@@ -257,11 +272,17 @@
       <varlistentry>
         <term><varname>StatusUnitFormat=</varname></term>
 
-        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
-        <option>name</option>, the system manager will use unit names in status messages, instead of the
-        longer and more informative descriptions set with <varname>Description=</varname>, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        <listitem><para>Takes <option>name</option>, <option>description</option> or
+        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
+        names in status messages (e.g. <literal>systemd-journald.service</literal>), instead of the longer
+        and more informative descriptions set with <varname>Description=</varname> (e.g. <literal>Journal
+        Logging Service</literal>). If <option>combined</option>, the system manager will use both unit names
+        and descriptions in status messages (e.g. <literal>systemd-journald.service - Journal Logging
+        Service</literal>).</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about unit names and <varname>Description=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -328,6 +349,9 @@
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details about environment variables.</para>
 
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
         <para>Example:
 
         <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
@@ -342,14 +366,18 @@
         <term><varname>ManagerEnvironment=</varname></term>
 
         <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
-        environment variables just for the manager process itself. These variables are not inherited by
-        processes spawned by the service manager, use <varname>DefaultEnvironment=</varname> for that. Note
-        that these variables are merged into the existing environment block. In particular, in case of the
-        system manager, this includes variables set by the kernel based on the kernel command line.</para>
+        environment variables just for the manager process itself. In contrast to user managers, these variables
+        are not inherited by processes spawned by the system manager, use <varname>DefaultEnvironment=</varname>
+        for that. Note that these variables are merged into the existing environment block. In particular, in
+        case of the system manager, this includes variables set by the kernel based on the kernel command line.</para>
 
         <para>Setting environment variables for the manager process may be useful to modify its behaviour.
         See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
-        variables understood by <command>systemd</command>.</para></listitem>
+        variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -408,7 +436,23 @@
         <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
         see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Note that these resource limits are only defaults
-        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
+        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para>
+
+        <para>Most of these settings are unset, which means the resource limits are inherited from the kernel or, if
+        invoked in a container, from the container manager. However, the following have defaults:</para>
+        <itemizedlist>
+          <listitem><para><varname>DefaultLimitNOFILE=</varname> defaults to <literal>1024:&HIGH_RLIMIT_NOFILE;</literal>.
+          </para></listitem>
+
+          <listitem><para><varname>DefaultLimitCORE=</varname> does not have a default but it is worth mentioning that
+          <varname>RLIMIT_CORE</varname> is set to <literal>infinity</literal> by PID 1 which is inherited by its
+          children.</para></listitem>
+
+          <listitem><para>Note that the service manager internally increases <varname>RLIMIT_MEMLOCK</varname> for
+          itself, however the limit is reverted to the original value for child processes forked off.</para></listitem>
+        </itemizedlist>
+
+      </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -421,7 +465,60 @@
         for details. Note that this default is not used for services that have <varname>Delegate=</varname>
         turned on.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultOOMScoreAdjust=</varname></term>
+
+        <listitem><para>Configures the default OOM score adjustments of processes run by the service
+        manager. This defaults to unset (meaning the forked off processes inherit the service manager's OOM
+        score adjustment value), except if the service manager is run for an unprivileged user, in which case
+        this defaults to the service manager's OOM adjustment value plus 100 (this makes service processes
+        slightly more likely to be killed under memory pressure than the manager itself). This may be used to
+        pick a global default for the per-unit <varname>OOMScoreAdjust=</varname> setting. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Note that this setting has no effect on the OOM score adjustment value of the service
+        manager process itself, it retains the original value set during its invocation.</para></listitem>
+      </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>DefaultEnvironment=</varname> and
+    <varname>ManagerEnvironment=</varname> settings. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

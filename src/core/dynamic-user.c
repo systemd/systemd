@@ -19,7 +19,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-record.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
@@ -253,7 +253,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                         break;
 
                 default:
-                        assert_not_reached("unknown phase");
+                        assert_not_reached();
                 }
 
                 /* Make sure whatever we picked here actually is in the right range */

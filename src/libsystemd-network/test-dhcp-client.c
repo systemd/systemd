@@ -34,7 +34,7 @@ static be32_t xid;
 static sd_event_source *test_hangcheck;
 
 static int test_dhcp_hangcheck(sd_event_source *s, uint64_t usec, void *userdata) {
-        assert_not_reached("Test case should have completed in 2 seconds");
+        assert_not_reached();
 
         return 0;
 }
@@ -45,7 +45,7 @@ static void test_request_basic(sd_event *e) {
         sd_dhcp_client *client;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         /* Initialize client without Anonymize settings. */
         r = sd_dhcp_client_new(&client, false);
@@ -105,7 +105,7 @@ static void test_request_anonymize(sd_event *e) {
         sd_dhcp_client *client;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         /* Initialize client with Anonymize settings. */
         r = sd_dhcp_client_new(&client, true);
@@ -137,7 +137,7 @@ static void test_checksum(void) {
         };
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
@@ -145,20 +145,11 @@ static void test_checksum(void) {
 static void test_dhcp_identifier_set_iaid(void) {
         uint32_t iaid_legacy;
         be32_t iaid;
-        int ifindex;
 
-        for (;;) {
-                char ifname[IFNAMSIZ];
-
-                /* try to find an ifindex which does not exist. I causes dhcp_identifier_set_iaid()
-                 * to hash the MAC address. */
-                pseudo_random_bytes(&ifindex, sizeof(ifindex));
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        break;
-        }
-
-        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), true, &iaid_legacy) >= 0);
-        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), false, &iaid) >= 0);
+        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), /* legacy = */ true,
+                                           /* use_mac = */ true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), /* legacy = */ false,
+                                           /* use_mac = */ true, &iaid) >= 0);
 
         /* we expect, that the MAC address was hashed. The legacy value is in native
          * endianness. */
@@ -167,7 +158,7 @@ static void test_dhcp_identifier_set_iaid(void) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
         assert_se(iaid == iaid_legacy);
 #else
-        assert_se(iaid == __bswap_32(iaid_legacy));
+        assert_se(iaid == bswap_32(iaid_legacy));
 #endif
 }
 
@@ -180,7 +171,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 size_t duid_len;
 
                 assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
-                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, /* use_mac = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);
@@ -288,7 +279,7 @@ static void test_discover_message(sd_event *e) {
         int res, r;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
@@ -299,6 +290,7 @@ static void test_discover_message(sd_event *e) {
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
 
@@ -505,7 +497,7 @@ static void test_addr_acq(sd_event *e) {
         int res, r;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
@@ -516,6 +508,7 @@ static void test_addr_acq(sd_event *e) {
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);
 

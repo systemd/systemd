@@ -4,23 +4,25 @@
 #include <inttypes.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-util.h"
-#include "set.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Manager Manager;
+typedef struct Network Network;
+typedef struct Request Request;
 
 typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
-        NetworkConfigSection *section;
+        ConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         bool invert_rule;
+        bool priority_set;
 
         uint8_t tos;
         uint8_t type;
@@ -49,22 +51,33 @@ typedef struct RoutingPolicyRule {
         struct fib_rule_uid_range uid_range;
 
         int suppress_prefixlen;
+        int32_t suppress_ifgroup;
 } RoutingPolicyRule;
+
+const char *fr_act_type_full_to_string(int t) _const_;
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
+void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state);
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b);
+
 void network_drop_invalid_routing_policy_rules(Network *network);
 
-int link_set_routing_policy_rules(Link *link);
+int link_request_static_routing_policy_rules(Link *link);
+int request_process_routing_policy_rule(Request *req);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
 static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
         return manager_drop_routing_policy_rules_internal(m, true, NULL);
 }
-static inline int manager_drop_routing_policy_rules(Manager *m, const Link *except) {
-        return manager_drop_routing_policy_rules_internal(m, false, except);
+static inline int link_drop_managed_routing_policy_rules(Link *link) {
+        assert(link);
+        return manager_drop_routing_policy_rules_internal(link->manager, false, link);
 }
+void link_foreignize_routing_policy_rules(Link *link);
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
@@ -78,4 +91,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_ifgroup);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);

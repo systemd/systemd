@@ -256,6 +256,9 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 30L) != CURLE_OK)
                 return -EIO;
 
+        if (curl_easy_setopt(c, CURLOPT_PROTOCOLS, CURLPROTO_HTTP|CURLPROTO_HTTPS|CURLPROTO_FILE) != CURLE_OK)
+                return -EIO;
+
         *ret = TAKE_PTR(c);
         return 0;
 }

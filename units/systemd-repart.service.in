@@ -28,7 +28,7 @@ ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-repart --dry-run=no
+ExecStart={{ROOTBINDIR}}/systemd-repart --dry-run=no
 
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77

@@ -107,6 +107,8 @@
 #define BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED \
                                                "org.freedesktop.home1.TokenProtectedAuthenticationPathNeeded"
 #define BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED   "org.freedesktop.home1.TokenUserPresenceNeeded"
+#define BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED \
+                                               "org.freedesktop.home1.TokenUserVerificationNeeded"
 #define BUS_ERROR_TOKEN_ACTION_TIMEOUT         "org.freedesktop.home1.TokenActionTimeout"
 #define BUS_ERROR_TOKEN_PIN_LOCKED             "org.freedesktop.home1.TokenPinLocked"
 #define BUS_ERROR_TOKEN_BAD_PIN                "org.freedesktop.home1.BadPin"
@@ -124,5 +126,7 @@
 #define BUS_ERROR_TOO_MANY_OPERATIONS          "org.freedesktop.home1.TooManyOperations"
 #define BUS_ERROR_AUTHENTICATION_LIMIT_HIT     "org.freedesktop.home1.AuthenticationLimitHit"
 #define BUS_ERROR_HOME_CANT_AUTHENTICATE       "org.freedesktop.home1.HomeCantAuthenticate"
+#define BUS_ERROR_HOME_IN_USE                  "org.freedesktop.home1.HomeInUse"
+#define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

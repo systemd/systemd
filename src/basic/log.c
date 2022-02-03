@@ -39,6 +39,9 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
+static log_syntax_callback_t log_syntax_callback = NULL;
+static void *log_syntax_callback_userdata = NULL;
+
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
 static int log_facility = LOG_DAEMON;
@@ -355,7 +358,7 @@ void log_forget_fds(void) {
 }
 
 void log_set_max_level(int level) {
-        assert((level & LOG_PRIMASK) == level);
+        assert(level == LOG_NULL || (level & LOG_PRIMASK) == level);
 
         log_max_level = level;
 }
@@ -452,11 +455,6 @@ static int write_to_syslog(
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_time[64],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[5] = {};
-        struct msghdr msghdr = {
-                .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
-        };
         time_t t;
         struct tm tm;
 
@@ -474,15 +472,21 @@ static int write_to_syslog(
 
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        iovec[0] = IOVEC_MAKE_STRING(header_priority);
-        iovec[1] = IOVEC_MAKE_STRING(header_time);
-        iovec[2] = IOVEC_MAKE_STRING(program_invocation_short_name);
-        iovec[3] = IOVEC_MAKE_STRING(header_pid);
-        iovec[4] = IOVEC_MAKE_STRING(buffer);
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(header_priority),
+                IOVEC_MAKE_STRING(header_time),
+                IOVEC_MAKE_STRING(program_invocation_short_name),
+                IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(buffer),
+        };
+        const struct msghdr msghdr = {
+                .msg_iov = iovec,
+                .msg_iovlen = ELEMENTSOF(iovec),
+        };
 
         /* When using syslog via SOCK_STREAM separate the messages by NUL chars */
         if (syslog_is_stream)
-                iovec[4].iov_len++;
+                iovec[ELEMENTSOF(iovec) - 1].iov_len++;
 
         for (;;) {
                 ssize_t n;
@@ -491,11 +495,11 @@ static int write_to_syslog(
                 if (n < 0)
                         return -errno;
 
-                if (!syslog_is_stream ||
-                    (size_t) n >= IOVEC_TOTAL_SIZE(iovec, ELEMENTSOF(iovec)))
+                if (!syslog_is_stream)
                         break;
 
-                IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n);
+                if (IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n))
+                        break;
         }
 
         return 1;
@@ -520,7 +524,6 @@ static int write_to_kmsg(
 
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
                 return 0;
@@ -531,11 +534,13 @@ static int write_to_kmsg(
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        iovec[0] = IOVEC_MAKE_STRING(header_priority);
-        iovec[1] = IOVEC_MAKE_STRING(program_invocation_short_name);
-        iovec[2] = IOVEC_MAKE_STRING(header_pid);
-        iovec[3] = IOVEC_MAKE_STRING(buffer);
-        iovec[4] = IOVEC_MAKE_STRING("\n");
+        const struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(header_priority),
+                IOVEC_MAKE_STRING(program_invocation_short_name),
+                IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(buffer),
+                IOVEC_MAKE_STRING("\n"),
+        };
 
         if (writev(kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
                 return -errno;
@@ -606,23 +611,24 @@ static int write_to_journal(
                 const char *buffer) {
 
         char header[LINE_MAX];
-        struct iovec iovec[4] = {};
-        struct msghdr mh = {};
 
         if (journal_fd < 0)
                 return 0;
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        iovec[0] = IOVEC_MAKE_STRING(header);
-        iovec[1] = IOVEC_MAKE_STRING("MESSAGE=");
-        iovec[2] = IOVEC_MAKE_STRING(buffer);
-        iovec[3] = IOVEC_MAKE_STRING("\n");
+        struct iovec iovec[4] = {
+                IOVEC_MAKE_STRING(header),
+                IOVEC_MAKE_STRING("MESSAGE="),
+                IOVEC_MAKE_STRING(buffer),
+                IOVEC_MAKE_STRING("\n"),
+        };
+        const struct msghdr msghdr = {
+                .msg_iov = iovec,
+                .msg_iovlen = ELEMENTSOF(iovec),
+        };
 
-        mh.msg_iov = iovec;
-        mh.msg_iovlen = ELEMENTSOF(iovec);
-
-        if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)
+        if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 1;
@@ -861,12 +867,11 @@ _noreturn_ void log_assert_failed(
 }
 
 _noreturn_ void log_assert_failed_unreachable(
-                const char *text,
                 const char *file,
                 int line,
                 const char *func) {
-        log_assert(LOG_CRIT, text, file, line, func,
-                   "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
+        log_assert(LOG_CRIT, "Code should not be reached", file, line, func,
+                   "%s at %s:%u, function %s(). Aborting. 💥");
         abort();
 }
 
@@ -917,11 +922,8 @@ int log_format_iovec(
                 VA_FORMAT_ADVANCE(format, ap);
 
                 iovec[(*n)++] = IOVEC_MAKE_STRING(m);
-
-                if (newline_separator) {
-                        iovec[*n] = IOVEC_MAKE((char *)&nl, 1);
-                        (*n)++;
-                }
+                if (newline_separator)
+                        iovec[(*n)++] = IOVEC_MAKE((char *)&nl, 1);
 
                 format = va_arg(ap, char *);
         }
@@ -958,12 +960,9 @@ int log_struct_internal(
 
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
-                        struct iovec iovec[17] = {};
-                        size_t n = 0, i;
+                        struct iovec iovec[17];
+                        size_t n = 0;
                         int r;
-                        struct msghdr mh = {
-                                .msg_iov = iovec,
-                        };
                         bool fallback = false;
 
                         /* If the journal is available do structured logging.
@@ -976,12 +975,16 @@ int log_struct_internal(
                         if (r < 0)
                                 fallback = true;
                         else {
-                                mh.msg_iovlen = n;
-                                (void) sendmsg(journal_fd, &mh, MSG_NOSIGNAL);
+                                const struct msghdr msghdr = {
+                                        .msg_iov = iovec,
+                                        .msg_iovlen = n,
+                                };
+
+                                (void) sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL);
                         }
 
                         va_end(ap);
-                        for (i = 1; i < n; i += 2)
+                        for (size_t i = 1; i < n; i += 2)
                                 free(iovec[i].iov_base);
 
                         if (!fallback) {
@@ -1036,8 +1039,6 @@ int log_struct_iovec_internal(
                 size_t n_input_iovec) {
 
         PROTECT_ERRNO;
-        size_t i;
-        char *m;
 
         if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
@@ -1051,36 +1052,37 @@ int log_struct_iovec_internal(
                                LOG_TARGET_JOURNAL) &&
             journal_fd >= 0) {
 
-                struct iovec iovec[1 + n_input_iovec*2];
                 char header[LINE_MAX];
-                struct msghdr mh = {
-                        .msg_iov = iovec,
-                        .msg_iovlen = 1 + n_input_iovec*2,
-                };
-
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
-                iovec[0] = IOVEC_MAKE_STRING(header);
 
-                for (i = 0; i < n_input_iovec; i++) {
+                struct iovec iovec[1 + n_input_iovec*2];
+                iovec[0] = IOVEC_MAKE_STRING(header);
+                for (size_t i = 0; i < n_input_iovec; i++) {
                         iovec[1+i*2] = input_iovec[i];
                         iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
                 }
 
-                if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) >= 0)
+                const struct msghdr msghdr = {
+                        .msg_iov = iovec,
+                        .msg_iovlen = 1 + n_input_iovec*2,
+                };
+
+                if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) >= 0)
                         return -ERRNO_VALUE(error);
         }
 
-        for (i = 0; i < n_input_iovec; i++)
-                if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE="))
-                        break;
+        for (size_t i = 0; i < n_input_iovec; i++)
+                if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE=")) {
+                        char *m;
 
-        if (_unlikely_(i >= n_input_iovec)) /* Couldn't find MESSAGE=? */
-                return -ERRNO_VALUE(error);
+                        m = strndupa_safe((char*) input_iovec[i].iov_base + STRLEN("MESSAGE="),
+                                          input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
-        m = strndupa(input_iovec[i].iov_base + STRLEN("MESSAGE="),
-                     input_iovec[i].iov_len - STRLEN("MESSAGE="));
+                        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+                }
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+        /* Couldn't find MESSAGE=. */
+        return -ERRNO_VALUE(error);
 }
 
 int log_set_target_from_string(const char *e) {
@@ -1187,13 +1189,8 @@ static bool should_parse_proc_cmdline(void) {
         return getpid_cached() == p;
 }
 
-void log_parse_environment(void) {
+void log_parse_environment_variables(void) {
         const char *e;
-
-        /* Do not call from library code. */
-
-        if (should_parse_proc_cmdline())
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1218,6 +1215,15 @@ void log_parse_environment(void) {
         e = getenv("SYSTEMD_LOG_TID");
         if (e && log_show_tid_from_string(e) < 0)
                 log_warning("Failed to parse log tid '%s'. Ignoring.", e);
+}
+
+void log_parse_environment(void) {
+        /* Do not call from library code. */
+
+        if (should_parse_proc_cmdline())
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+
+        log_parse_environment_variables();
 }
 
 LogTarget log_get_target(void) {
@@ -1344,6 +1350,14 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          signal_to_string(si->ssi_signo));
 }
 
+void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata) {
+        assert(!log_syntax_callback || !cb);
+        assert(!log_syntax_callback_userdata || !userdata);
+
+        log_syntax_callback = cb;
+        log_syntax_callback_userdata = userdata;
+}
+
 int log_syntax_internal(
                 const char *unit,
                 int level,
@@ -1354,6 +1368,9 @@ int log_syntax_internal(
                 int line,
                 const char *func,
                 const char *format, ...) {
+
+        if (log_syntax_callback)
+                log_syntax_callback(unit, level, log_syntax_callback_userdata);
 
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
@@ -1429,10 +1446,9 @@ int log_syntax_invalid_utf8_internal(
         if (rvalue)
                 p = utf8_escape_invalid(rvalue);
 
-        log_syntax_internal(unit, level, config_file, config_line, 0, file, line, func,
-                            "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
-
-        return -EINVAL;
+        return log_syntax_internal(unit, level, config_file, config_line,
+                                   SYNTHETIC_ERRNO(EINVAL), file, line, func,
+                                   "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
 }
 
 void log_set_upgrade_syslog_to_journal(bool b) {

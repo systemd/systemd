@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
@@ -53,6 +54,7 @@ static const char *arg_machine = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
+static usec_t arg_network_timeout_usec = USEC_INFINITY;
 
 static void close_fd_input(Uploader *u);
 
@@ -210,6 +212,12 @@ int start_upload(Uploader *u,
                 if (!curl)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
                                                "Call to curl_easy_init failed.");
+
+                /* If configured, set a timeout for the curl operation. */
+                if (arg_network_timeout_usec != USEC_INFINITY)
+                        easy_setopt(curl, CURLOPT_TIMEOUT,
+                                    (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC),
+                                    LOG_ERR, return -EXFULL);
 
                 /* tell it to POST to the URL */
                 easy_setopt(curl, CURLOPT_POST, 1L,
@@ -431,7 +439,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
                 char *t;
                 size_t x;
 
-                t = strdupa(url);
+                t = strdupa_safe(url);
                 x = strlen(t);
                 while (x > 0 && t[x - 1] == '/')
                         t[x - 1] = '\0';
@@ -561,10 +569,11 @@ finalize:
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
-                { "Upload",  "URL",                    config_parse_string,         0, &arg_url    },
-                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key    },
-                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert   },
-                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust  },
+                { "Upload",  "URL",                    config_parse_string,         0, &arg_url                  },
+                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key                  },
+                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert                 },
+                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust                },
+                { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0, &arg_network_timeout_usec },
                 {}
         };
 
@@ -771,7 +780,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                argv[optind - 1]);
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         if (!arg_url)
@@ -803,7 +812,7 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open_container(j, arg_machine, 0);
 #pragma GCC diagnostic pop
         } else
-                r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
                                 arg_directory ? arg_directory : arg_file ? "files" : "journal");
@@ -812,7 +821,7 @@ static int open_journal(sd_journal **j) {
 
 static int run(int argc, char **argv) {
         _cleanup_(destroy_uploader) Uploader u = {};
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         bool use_journal;
         int r;
 

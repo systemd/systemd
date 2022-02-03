@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/***
-  Copyright © 2013 Jan Janssen
-***/
 
 #include "list.h"
 #include "util.h"
@@ -249,6 +246,15 @@ int main(int argc, const char *argv[]) {
                 LIST_REMOVE(item, head, &items[i]);
 
         assert_se(head == NULL);
+
+        LIST_PREPEND(item, head, items + 0);
+        LIST_PREPEND(item, head, items + 1);
+        LIST_PREPEND(item, head, items + 2);
+
+        assert_se(LIST_POP(item, head) == items + 2);
+        assert_se(LIST_POP(item, head) == items + 1);
+        assert_se(LIST_POP(item, head) == items + 0);
+        assert_se(LIST_POP(item, head) == NULL);
 
         return 0;
 }

@@ -12,6 +12,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-socket.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -22,7 +23,6 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "selinux-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -149,7 +149,7 @@ static int bus_socket_write_auth(sd_bus *b) {
         }
 
         if (k < 0)
-                return errno == EAGAIN ? 0 : -errno;
+                return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
 
         iovec_advance(b->auth_iovec, &b->auth_index, (size_t) k);
         return 1;
@@ -173,12 +173,12 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         if (!d)
                 return 0;
 
-        e = memmem(d + 2, b->rbuffer_size - (d - (char*) b->rbuffer) - 2, "\r\n", 2);
+        e = memmem_safe(d + 2, b->rbuffer_size - (d - (char*) b->rbuffer) - 2, "\r\n", 2);
         if (!e)
                 return 0;
 
         if (b->accept_fd) {
-                f = memmem(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
+                f = memmem_safe(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
                 if (!f)
                         return 0;
 
@@ -301,8 +301,8 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         uid_t u;
         int r;
 
-        /* We don't do any real authentication here. Instead, we if
-         * the owner of this bus wanted authentication he should have
+        /* We don't do any real authentication here. Instead, if
+         * the owner of this bus wanted authentication they should have
          * checked SO_PEERCRED before even creating the bus object. */
 
         if (!b->anonymous_auth && !b->ucred_valid)
@@ -399,7 +399,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
         for (;;) {
                 /* Check if line is complete */
                 line = (char*) b->rbuffer + b->auth_rbegin;
-                e = memmem(line, b->rbuffer_size - b->auth_rbegin, "\r\n", 2);
+                e = memmem_safe(line, b->rbuffer_size - b->auth_rbegin, "\r\n", 2);
                 if (!e)
                         return processed;
 
@@ -565,10 +565,11 @@ static int bus_socket_read_auth(sd_bus *b) {
                 } else
                         handle_cmsg = true;
         }
-        if (k == -EAGAIN)
-                return 0;
-        if (k < 0)
+        if (k < 0) {
+                if (ERRNO_IS_TRANSIENT(k))
+                        return 0;
                 return (int) k;
+        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* paranoia, we shouldn't have gotten any fds on EOF */
@@ -700,7 +701,7 @@ int bus_socket_start_auth(sd_bus *b) {
 static int bus_socket_inotify_setup(sd_bus *b) {
         _cleanup_free_ int *new_watches = NULL;
         _cleanup_free_ char *absolute = NULL;
-        size_t n_allocated = 0, n = 0, done = 0, i;
+        size_t n = 0, done = 0, i;
         unsigned max_follow = 32;
         const char *p;
         int wd, r;
@@ -726,7 +727,8 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         }
 
         /* Make sure the path is NUL terminated */
-        p = strndupa(b->sockaddr.un.sun_path, sizeof(b->sockaddr.un.sun_path));
+        p = strndupa_safe(b->sockaddr.un.sun_path,
+                          sizeof(b->sockaddr.un.sun_path));
 
         /* Make sure the path is absolute */
         r = path_make_absolute_cwd(p, &absolute);
@@ -737,7 +739,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
          * that exists we want to know when files are created or moved into it. For all parents of it we just care if
          * they are removed or renamed. */
 
-        if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+        if (!GREEDY_REALLOC(new_watches, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -786,7 +788,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+                if (!GREEDY_REALLOC(new_watches, n + 1)) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -963,8 +965,17 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->exec_path);
         assert(b->busexec_pid == 0);
 
-        log_debug("sd-bus: starting bus%s%s with %s...",
-                  b->description ? " " : "", strempty(b->description), b->exec_path);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *line = NULL;
+
+                if (b->exec_argv)
+                        line = quote_command_line(b->exec_argv, SHELL_ESCAPE_EMPTY);
+
+                log_debug("sd-bus: starting bus%s%s with %s%s",
+                          b->description ? " " : "", strempty(b->description),
+                          line ?: b->exec_path,
+                          b->exec_argv && !line ? "…" : "");
+        }
 
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
@@ -978,17 +989,17 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
-                if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
+                r = rearrange_stdio(s[1], s[1], STDERR_FILENO);
+                TAKE_FD(s[1]);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) rlimit_nofile_safe();
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
-                else {
-                        const char *argv[] = { b->exec_path, NULL };
-                        execvp(b->exec_path, (char**) argv);
-                }
+                else
+                        execvp(b->exec_path, STRV_MAKE(b->exec_path));
 
                 _exit(EXIT_FAILURE);
         }
@@ -1063,7 +1074,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         }
 
         if (k < 0)
-                return errno == EAGAIN ? 0 : -errno;
+                return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
 
         *idx += (size_t) k;
         return 1;
@@ -1220,10 +1231,11 @@ int bus_socket_read_message(sd_bus *bus) {
                 } else
                         handle_cmsg = true;
         }
-        if (k == -EAGAIN)
-                return 0;
-        if (k < 0)
+        if (k < 0) {
+                if (ERRNO_IS_TRANSIENT(k))
+                        return 0;
                 return (int) k;
+        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */

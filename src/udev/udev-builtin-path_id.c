@@ -11,12 +11,12 @@
 #include <getopt.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysexits.h"
@@ -66,7 +66,9 @@ static int format_lun_number(sd_device *dev, char **path) {
         if (!sysnum)
                 return -ENOENT;
 
-        lun = strtoul(sysnum, NULL, 10);
+        r = safe_atolu_full(sysnum, 10, &lun);
+        if (r < 0)
+                return r;
         if (lun < 256)
                 /* address method 0, peripheral device addressing with bus id of zero */
                 path_prepend(path, "lun-%lu", lun);
@@ -82,6 +84,13 @@ static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
 
         assert(dev);
         assert(subsys);
+
+        /* Unlike the function name, this drops multiple parent devices EXCEPT FOR THE LAST ONE.
+         * The last one will be dropped at the end of the loop in builtin_path_id().
+         * E.g.
+         * Input:  /sys/devices/pci0000:00/0000:00:14.0/usb1/1-1/1-1:1.0
+         * Output: /sys/devices/pci0000:00/0000:00:14.0/usb1
+         */
 
         for (parent = dev; ; ) {
                 const char *subsystem;
@@ -282,7 +291,7 @@ static sd_device *handle_scsi_ata(sd_device *parent, char **path, char **compat_
                 return NULL;
 
         if (bus != 0)
-                /* Devices behind port multiplier have a bus != 0*/
+                /* Devices behind port multiplier have a bus != 0 */
                 path_prepend(path, "ata-%s.%u.0", port_no, bus);
         else
                 /* Master/slave are distinguished by target id */
@@ -300,7 +309,6 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         int host, bus, target, lun;
         const char *name, *base, *pos;
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
         int basenum = -1;
 
         assert(parent);
@@ -338,30 +346,28 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         if (!pos)
                 return NULL;
 
-        base = strndupa(base, pos - base);
+        base = strndupa_safe(base, pos - base);
         dir = opendir(base);
         if (!dir)
                 return NULL;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                char *rest;
-                int i;
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                unsigned i;
 
-                if (dent->d_name[0] == '.')
+                if (de->d_name[0] == '.')
                         continue;
-                if (!IN_SET(dent->d_type, DT_DIR, DT_LNK))
+                if (!IN_SET(de->d_type, DT_DIR, DT_LNK))
                         continue;
-                if (!startswith(dent->d_name, "host"))
+                if (!startswith(de->d_name, "host"))
                         continue;
-                i = strtoul(&dent->d_name[4], &rest, 10);
-                if (rest[0] != '\0')
+                if (safe_atou_full(&de->d_name[4], 10, &i) < 0)
                         continue;
                 /*
                  * find the smallest number; the host really needs to export its
                  * own instance number per parent device; relying on the global host
                  * enumeration and plainly rebasing the numbers sounds unreliable
                  */
-                if (basenum == -1 || i < basenum)
+                if (basenum == -1 || (int) i < basenum)
                         basenum = i;
         }
         if (basenum == -1)
@@ -378,7 +384,6 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         const char *guid_str;
         _cleanup_free_ char *lun = NULL;
         char guid[39];
-        size_t i, k;
 
         assert(parent);
         assert(path);
@@ -396,7 +401,8 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
                 return NULL;
 
-        for (i = 1, k = 0; i < guid_str_len-1; i++) {
+        size_t k = 0;
+        for (size_t i = 1; i < guid_str_len-1; i++) {
                 if (guid_str[i] == '-')
                         continue;
                 guid[k++] = guid_str[i];
@@ -496,6 +502,10 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
                 return parent;
         port++;
 
+        /* USB host number may change across reboots (and probably even without reboot). The part after
+         * USB host number is determined by device topology and so does not change. Hence, drop the
+         * host number and always use '0' instead. */
+
         path_prepend(path, "usb-0:%s", port);
         return skip_subsystem(parent, "usb");
 }
@@ -533,7 +543,7 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
         return skip_subsystem(parent, "ap");
 }
 
-static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         sd_device *parent;
         _cleanup_free_ char *path = NULL;
         _cleanup_free_ char *compat_path = NULL;
@@ -681,11 +691,10 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         {
                 char tag[UDEV_NAME_SIZE];
-                size_t i;
-                const char *p;
+                size_t i = 0;
 
                 /* compose valid udev tag name */
-                for (p = path, i = 0; *p; p++) {
+                for (const char *p = path; *p; p++) {
                         if ((*p >= '0' && *p <= '9') ||
                             (*p >= 'A' && *p <= 'Z') ||
                             (*p >= 'a' && *p <= 'z') ||

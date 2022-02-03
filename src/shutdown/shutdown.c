@@ -149,7 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         if (!arg_verb)
@@ -307,10 +307,33 @@ static void bump_sysctl_printk_log_level(int min_level) {
                 log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }
 
+static void init_watchdog(void) {
+        const char *s;
+        int r;
+
+        s = getenv("WATCHDOG_DEVICE");
+        if (s) {
+                r = watchdog_set_device(s);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", s);
+        }
+
+        s = getenv("WATCHDOG_USEC");
+        if (s) {
+                usec_t usec;
+
+                r = safe_atou64(s, &usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m", s);
+                else
+                        (void) watchdog_setup(usec);
+        }
+}
+
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, use_watchdog = false, can_initrd;
+        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3], *watchdog_device;
+        char *arguments[3];
         int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
@@ -370,14 +393,7 @@ int main(int argc, char *argv[]) {
                    LOG_TARGET_KMSG))
                 bump_sysctl_printk_log_level(LOG_WARNING);
 
-        use_watchdog = getenv("WATCHDOG_USEC");
-        watchdog_device = getenv("WATCHDOG_DEVICE");
-        if (watchdog_device) {
-                r = watchdog_set_device(watchdog_device);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          watchdog_device);
-        }
+        init_watchdog();
 
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT|MCL_FUTURE);
@@ -409,8 +425,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 bool changed = false;
 
-                if (use_watchdog)
-                        (void) watchdog_ping();
+                (void) watchdog_ping();
 
                 /* Let's trim the cgroup tree on each iteration so
                    that we leave an empty cgroup tree around, so that
@@ -489,7 +504,7 @@ int main(int argc, char *argv[]) {
                 if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
                         /* There are things we cannot get rid of. Loop one more time
                          * with LOG_ERR to inform the user. Note that we don't need
-                         * to do this if there is a initrd to switch to, because that
+                         * to do this if there is an initrd to switch to, because that
                          * one is likely to get rid of the remaining mounts. If not,
                          * it will log about them. */
                         umount_log_level = LOG_ERR;
@@ -517,6 +532,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* We're done with the watchdog. */
+        watchdog_close(true);
         watchdog_free_device();
 
         arguments[0] = NULL;
@@ -610,7 +626,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown magic");
+                assert_not_reached();
         }
 
         (void) reboot(cmd);

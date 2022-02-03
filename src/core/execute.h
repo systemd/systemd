@@ -132,9 +132,15 @@ typedef enum ExecDirectoryType {
         _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
+typedef struct ExecDirectoryItem {
+        char *path;
+        char **symlinks;
+} ExecDirectoryItem;
+
 typedef struct ExecDirectory {
-        char **paths;
         mode_t mode;
+        size_t n_items;
+        ExecDirectoryItem *items;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
@@ -150,9 +156,16 @@ typedef enum ExecCleanMask {
         _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
+/* A credential configured with LoadCredential= */
+typedef struct ExecLoadCredential {
+        char *id, *path;
+        bool encrypted;
+} ExecLoadCredential;
+
 /* A credential configured with SetCredential= */
 typedef struct ExecSetCredential {
         char *id;
+        bool encrypted;
         void *data;
         size_t size;
 } ExecSetCredential;
@@ -219,6 +232,9 @@ struct ExecContext {
         bool tty_vhangup;
         bool tty_vt_disallocate;
 
+        unsigned tty_rows;
+        unsigned tty_cols;
+
         bool ignore_sigpipe;
 
         ExecKeyringMode keyring_mode;
@@ -247,6 +263,7 @@ struct ExecContext {
         char *smack_process_label;
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
+        char **exec_search_path;
         unsigned long mount_flags;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
@@ -256,6 +273,7 @@ struct ExecContext {
         size_t n_mount_images;
         MountImage *extension_images;
         size_t n_extension_images;
+        char **extension_directories;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -306,6 +324,9 @@ struct ExecContext {
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 
+        Set *restrict_filesystems;
+        bool restrict_filesystems_allow_list:1;
+
         Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
@@ -325,13 +346,20 @@ struct ExecContext {
         usec_t timeout_clean_usec;
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
-        char **load_credentials; /* pairs of output id, path/input id */
+        Hashmap *load_credentials; /* output id → ExecLoadCredential */
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         assert(c);
 
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
+static inline bool exec_context_restrict_filesystems_set(const ExecContext *c) {
+        assert(c);
+
+        return c->restrict_filesystems_allow_list ||
+          !set_isempty(c->restrict_filesystems);
 }
 
 static inline bool exec_context_with_rootfs(const ExecContext *c) {
@@ -343,21 +371,22 @@ static inline bool exec_context_with_rootfs(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1 << 0,
-        EXEC_APPLY_CHROOT      = 1 << 1,
-        EXEC_APPLY_TTY_STDIN   = 1 << 2,
-        EXEC_PASS_LOG_UNIT     = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1 << 6,
-        EXEC_IS_CONTROL        = 1 << 7,
-        EXEC_CONTROL_CGROUP    = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
-        EXEC_WRITE_CREDENTIALS = 1 << 9, /* Set up the credential store logic */
+        EXEC_APPLY_SANDBOXING      = 1 << 0,
+        EXEC_APPLY_CHROOT          = 1 << 1,
+        EXEC_APPLY_TTY_STDIN       = 1 << 2,
+        EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_BYPASS_BUS        = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_CGROUP_DELEGATE       = 1 << 6,
+        EXEC_IS_CONTROL            = 1 << 7,
+        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 10,
-        EXEC_SETENV_RESULT     = 1 << 11,
-        EXEC_SET_WATCHDOG      = 1 << 12,
+        EXEC_PASS_FDS              = 1 << 10,
+        EXEC_SETENV_RESULT         = 1 << 11,
+        EXEC_SET_WATCHDOG          = 1 << 12,
+        EXEC_SETENV_MONITOR_RESULT = 1 << 13, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -458,7 +487,14 @@ bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
 
+ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
+
+void exec_directory_done(ExecDirectory *d);
+int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks);
+
 extern const struct hash_ops exec_set_credential_hash_ops;
+extern const struct hash_ops exec_load_credential_hash_ops;
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;
@@ -477,6 +513,9 @@ ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
+
+const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;

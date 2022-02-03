@@ -2,6 +2,7 @@
 title: Locking Block Device Access
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Locking Block Device Access

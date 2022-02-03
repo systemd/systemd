@@ -20,6 +20,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -183,16 +184,11 @@ static int device_set_devgid(sd_device *device, const char *gid) {
         return 0;
 }
 
-static int device_set_action(sd_device *device, const char *action) {
-        sd_device_action_t a;
+int device_set_action(sd_device *device, sd_device_action_t a) {
         int r;
 
         assert(device);
-        assert(action);
-
-        a = device_action_from_string(action);
-        if (a < 0)
-                return a;
+        assert(a >= 0 && a < _SD_DEVICE_ACTION_MAX);
 
         r = device_add_property_internal(device, "ACTION", device_action_to_string(a));
         if (r < 0)
@@ -201,6 +197,19 @@ static int device_set_action(sd_device *device, const char *action) {
         device->action = a;
 
         return 0;
+}
+
+static int device_set_action_from_string(sd_device *device, const char *action) {
+        sd_device_action_t a;
+
+        assert(device);
+        assert(action);
+
+        a = device_action_from_string(action);
+        if (a < 0)
+                return a;
+
+        return device_set_action(device, a);
 }
 
 static int device_set_seqnum(sd_device *device, const char *str) {
@@ -221,6 +230,28 @@ static int device_set_seqnum(sd_device *device, const char *str) {
                 return r;
 
         device->seqnum = seqnum;
+
+        return 0;
+}
+
+static int device_set_diskseq(sd_device *device, const char *str) {
+        uint64_t diskseq;
+        int r;
+
+        assert(device);
+        assert(str);
+
+        r = safe_atou64(str, &diskseq);
+        if (r < 0)
+                return r;
+        if (diskseq == 0)
+                return -EINVAL;
+
+        r = device_add_property_internal(device, "DISKSEQ", str);
+        if (r < 0)
+                return r;
+
+        device->diskseq = diskseq;
 
         return 0;
 }
@@ -284,13 +315,17 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devgid to '%s': %m", value);
         } else if (streq(key, "ACTION")) {
-                r = device_set_action(device, value);
+                r = device_set_action_from_string(device, value);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set action to '%s': %m", value);
         } else if (streq(key, "SEQNUM")) {
                 r = device_set_seqnum(device, value);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set SEQNUM to '%s': %m", value);
+        } else if (streq(key, "DISKSEQ")) {
+                r = device_set_diskseq(device, value);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set DISKSEQ to '%s': %m", value);
         } else if (streq(key, "DEVLINKS")) {
                 for (const char *p = value;;) {
                         _cleanup_free_ char *word = NULL;
@@ -381,11 +416,19 @@ void device_seal(sd_device *device) {
 }
 
 static int device_verify(sd_device *device) {
+        int r;
+
         assert(device);
 
         if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
+
+        if (streq(device->subsystem, "drivers")) {
+                r = device_set_drivers_subsystem(device);
+                if (r < 0)
+                        return r;
+        }
 
         device->sealed = true;
 
@@ -479,7 +522,6 @@ static int device_update_properties_bufs(sd_device *device) {
         const char *val, *prop;
         _cleanup_free_ char **buf_strv = NULL;
         _cleanup_free_ uint8_t *buf_nulstr = NULL;
-        size_t allocated_nulstr = 0;
         size_t nulstr_len = 0, num = 0, i = 0;
 
         assert(device);
@@ -492,7 +534,7 @@ static int device_update_properties_bufs(sd_device *device) {
 
                 len = strlen(prop) + 1 + strlen(val);
 
-                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, allocated_nulstr, nulstr_len + len + 2);
+                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, nulstr_len + len + 2);
                 if (!buf_nulstr)
                         return -ENOMEM;
 
@@ -568,28 +610,142 @@ int device_get_devlink_priority(sd_device *device, int *priority) {
         return 0;
 }
 
-int device_get_watch_handle(sd_device *device, int *handle) {
+int device_get_watch_handle(sd_device *device) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *buf = NULL;
+        const char *id, *path_id;
+        int wd, r;
+
+        assert(device);
+
+        if (device->watch_handle >= 0)
+                return device->watch_handle;
+
+        r = device_get_device_id(device, &id);
+        if (r < 0)
+                return r;
+
+        path_id = strjoina("/run/udev/watch/", id);
+        r = readlink_malloc(path_id, &buf);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(buf, &wd);
+        if (r < 0)
+                return r;
+
+        if (wd < 0)
+                return -EBADF;
+
+        buf = mfree(buf);
+        xsprintf(path_wd, "/run/udev/watch/%d", wd);
+        r = readlink_malloc(path_wd, &buf);
+        if (r < 0)
+                return r;
+
+        if (!streq(buf, id))
+                return -EBADF;
+
+        return device->watch_handle = wd;
+}
+
+static void device_remove_watch_handle(sd_device *device) {
+        const char *id;
+        int wd;
+
+        assert(device);
+
+        /* First, remove the symlink from handle to device id. */
+        wd = device_get_watch_handle(device);
+        if (wd >= 0) {
+                char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+
+                xsprintf(path_wd, "/run/udev/watch/%d", wd);
+                if (unlink(path_wd) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_wd);
+        }
+
+        /* Next, remove the symlink from device id to handle. */
+        if (device_get_device_id(device, &id) >= 0) {
+                const char *path_id;
+
+                path_id = strjoina("/run/udev/watch/", id);
+                if (unlink(path_id) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_id);
+        }
+
+        device->watch_handle = -1;
+}
+
+int device_set_watch_handle(sd_device *device, int wd) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        const char *id, *path_id;
         int r;
 
         assert(device);
 
-        r = device_read_db(device);
+        if (wd >= 0 && wd == device_get_watch_handle(device))
+                return 0;
+
+        device_remove_watch_handle(device);
+
+        if (wd < 0)
+                /* negative wd means that the caller requests to clear saved watch handle. */
+                return 0;
+
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
-        if (device->watch_handle < 0)
-                return -ENOENT;
+        path_id = strjoina("/run/udev/watch/", id);
+        xsprintf(path_wd, "/run/udev/watch/%d", wd);
 
-        if (handle)
-                *handle = device->watch_handle;
+        r = mkdir_parents(path_wd, 0755);
+        if (r < 0)
+                return r;
+
+        if (symlink(id, path_wd) < 0)
+                return -errno;
+
+        if (symlink(path_wd + STRLEN("/run/udev/watch/"), path_id) < 0) {
+                r = -errno;
+                if (unlink(path_wd) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_wd);
+                return r;
+        }
+
+        device->watch_handle = wd;
 
         return 0;
 }
 
-void device_set_watch_handle(sd_device *device, int handle) {
-        assert(device);
+int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *id = NULL;
+        int r;
 
-        device->watch_handle = handle;
+        assert(ret);
+
+        if (wd < 0)
+                return -EBADF;
+
+        if (dirfd >= 0) {
+                xsprintf(path_wd, "%d", wd);
+                r = readlinkat_malloc(dirfd, path_wd, &id);
+        } else {
+                xsprintf(path_wd, "/run/udev/watch/%d", wd);
+                r = readlink_malloc(path_wd, &id);
+        }
+        if (r < 0)
+                return r;
+
+        return sd_device_new_from_device_id(ret, id);
 }
 
 int device_rename(sd_device *device, const char *name) {
@@ -629,6 +785,7 @@ int device_rename(sd_device *device, const char *name) {
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
+        const char *val;
         int r;
 
         assert(old_device);
@@ -642,14 +799,40 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        r = device_set_subsystem(ret, old_device->subsystem);
+        (void) sd_device_get_subsystem(old_device, &val);
+        r = device_set_subsystem(ret, val);
         if (r < 0)
                 return r;
+        if (streq_ptr(val, "drivers")) {
+                r = free_and_strdup(&ret->driver_subsystem, old_device->driver_subsystem);
+                if (r < 0)
+                        return r;
+        }
 
-        ret->devnum = old_device->devnum;
+        /* The device may be already removed. Let's copy minimal set of information to make
+         * device_get_device_id() work without uevent file. */
+
+        if (sd_device_get_property_value(old_device, "IFINDEX", &val) >= 0) {
+                r = device_set_ifindex(ret, val);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_property_value(old_device, "MAJOR", &val) >= 0) {
+                const char *minor = NULL;
+
+                (void) sd_device_get_property_value(old_device, "MINOR", &minor);
+                r = device_set_devnum(ret, val, minor);
+                if (r < 0)
+                        return r;
+        }
+
+        /* And then read uevent file, but ignore errors, as some devices seem to return a spurious
+         * error on read, e.g. -ENODEV, and even if ifindex or devnum is set in the above,
+         * sd_device_get_ifindex() or sd_device_get_devnum() fails. See. #19788. */
+        (void) device_read_uevent_file(ret);
 
         *new_device = TAKE_PTR(ret);
-
         return 0;
 }
 
@@ -669,31 +852,6 @@ int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
                 return r;
 
         ret->sealed = true;
-
-        *new_device = TAKE_PTR(ret);
-
-        return 0;
-}
-
-int device_new_from_synthetic_event(sd_device **new_device, const char *syspath, const char *action) {
-        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
-        int r;
-
-        assert(new_device);
-        assert(syspath);
-        assert(action);
-
-        r = sd_device_new_from_syspath(&ret, syspath);
-        if (r < 0)
-                return r;
-
-        r = device_read_uevent_file(ret);
-        if (r < 0)
-                return r;
-
-        r = device_set_action(ret, action);
-        if (r < 0)
-                return r;
 
         *new_device = TAKE_PTR(ret);
 
@@ -761,7 +919,7 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
         assert(device);
         assert(tag);
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
@@ -822,9 +980,6 @@ static bool device_has_info(sd_device *device) {
         if (!set_isempty(device->current_tags))
                 return true;
 
-        if (device->watch_handle >= 0)
-                return true;
-
         return false;
 }
 
@@ -846,7 +1001,7 @@ int device_update_db(sd_device *device) {
 
         has_info = device_has_info(device);
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
@@ -899,9 +1054,6 @@ int device_update_db(sd_device *device) {
 
                         if (device->devlink_priority != 0)
                                 fprintf(f, "L:%i\n", device->devlink_priority);
-
-                        if (device->watch_handle >= 0)
-                                fprintf(f, "W:%i\n", device->watch_handle);
                 }
 
                 if (device->usec_initialized > 0)
@@ -950,7 +1102,7 @@ int device_delete_db(sd_device *device) {
 
         assert(device);
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 

@@ -25,7 +25,7 @@
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {
-        _cleanup_(utxent_cleanup) bool utmpx = false;
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx *found, lookup = { .ut_type = RUN_LVL };
         const char *e;
 
@@ -87,7 +87,7 @@ static void init_entry(struct utmpx *store, usec_t t) {
 }
 
 static int write_entry_utmp(const struct utmpx *store) {
-        _cleanup_(utxent_cleanup) bool utmpx = false;
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
 
         assert(store);
 
@@ -215,13 +215,14 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx lookup = {
                 .ut_type = INIT_PROCESS /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
         }, store, store_wtmp, *found;
 
         assert(id);
 
-        setutxent();
+        utmpx = utxent_start();
 
         /* Copy the whole string if it fits, or just the suffix without the terminating NUL. */
         copy_suffix(store.ut_id, sizeof(store.ut_id), id);
@@ -339,8 +340,8 @@ int utmp_wall(
         bool (*match_tty)(const char *tty, void *userdata),
         void *userdata) {
 
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *stdin_tty = NULL;
-        char date[FORMAT_TIMESTAMP_MAX];
         struct utmpx *u;
         int r;
 
@@ -364,11 +365,11 @@ int utmp_wall(
                      "%s\r\n\r\n",
                      un ?: username, hn,
                      origin_tty ? " on " : "", strempty(origin_tty),
-                     format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
+                     FORMAT_TIMESTAMP(now(CLOCK_REALTIME)),
                      message) < 0)
                 return -ENOMEM;
 
-        setutxent();
+        utmpx = utxent_start();
 
         r = 0;
 

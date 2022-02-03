@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 TEST_REQUIRE_INSTALL_TESTS=0
@@ -11,7 +12,7 @@ TEST_NO_QEMU=1
 # Using timeout because if the test fails it can loop.
 # The reason is because the poweroff executed by end.service
 # could turn into a reboot if the test fails.
-NSPAWN_TIMEOUT=20
+NSPAWN_TIMEOUT=60
 
 # Remove this file if it exists. This is used along with
 # the make target "finish". Since concrete confirmation is

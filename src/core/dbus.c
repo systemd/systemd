@@ -33,7 +33,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "serialize.h"
@@ -925,14 +925,18 @@ int bus_init_private(Manager *m) {
 
                 r = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
         } else {
-                const char *e, *joined;
+                _cleanup_free_ char *joined = NULL;
+                const char *e;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                "XDG_RUNTIME_DIR is not set, refusing.");
 
-                joined = strjoina(e, "/systemd/private");
+                joined = path_join(e, "/systemd/private");
+                if (!joined)
+                        return log_oom();
+
                 r = sockaddr_un_set_path(&sa.un, joined);
         }
         if (r < 0)
@@ -1037,7 +1041,7 @@ void bus_done_private(Manager *m) {
 
         m->private_buses = set_free(m->private_buses);
 
-        m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
+        m->private_listen_event_source = sd_event_source_disable_unref(m->private_listen_event_source);
         m->private_listen_fd = safe_close(m->private_listen_fd);
 }
 

@@ -8,7 +8,7 @@
 #include "tests.h"
 #include "unit.h"
 
-static int test_default_memory_low(void) {
+TEST_RET(default_memory_low, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *root, *dml,
@@ -33,7 +33,7 @@ static int test_default_memory_low(void) {
         }
 
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* dml.slice has DefaultMemoryLow=50. Beyond that, individual subhierarchies look like this:
          *
@@ -91,28 +91,28 @@ static int test_default_memory_low(void) {
         assert_se(manager_load_startable_unit_or_warn(m, "dml.slice", NULL, &dml) >= 0);
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough.slice", NULL, &dml_passthrough) >= 0);
-        assert_se(UNIT_DEREF(dml_passthrough->slice) == dml);
+        assert_se(UNIT_GET_SLICE(dml_passthrough) == dml);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-empty.service", NULL, &dml_passthrough_empty) >= 0);
-        assert_se(UNIT_DEREF(dml_passthrough_empty->slice) == dml_passthrough);
+        assert_se(UNIT_GET_SLICE(dml_passthrough_empty) == dml_passthrough);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-dml.service", NULL, &dml_passthrough_set_dml) >= 0);
-        assert_se(UNIT_DEREF(dml_passthrough_set_dml->slice) == dml_passthrough);
+        assert_se(UNIT_GET_SLICE(dml_passthrough_set_dml) == dml_passthrough);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-ml.service", NULL, &dml_passthrough_set_ml) >= 0);
-        assert_se(UNIT_DEREF(dml_passthrough_set_ml->slice) == dml_passthrough);
+        assert_se(UNIT_GET_SLICE(dml_passthrough_set_ml) == dml_passthrough);
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-override.slice", NULL, &dml_override) >= 0);
-        assert_se(UNIT_DEREF(dml_override->slice) == dml);
+        assert_se(UNIT_GET_SLICE(dml_override) == dml);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-override-empty.service", NULL, &dml_override_empty) >= 0);
-        assert_se(UNIT_DEREF(dml_override_empty->slice) == dml_override);
+        assert_se(UNIT_GET_SLICE(dml_override_empty) == dml_override);
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-discard.slice", NULL, &dml_discard) >= 0);
-        assert_se(UNIT_DEREF(dml_discard->slice) == dml);
+        assert_se(UNIT_GET_SLICE(dml_discard) == dml);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-empty.service", NULL, &dml_discard_empty) >= 0);
-        assert_se(UNIT_DEREF(dml_discard_empty->slice) == dml_discard);
+        assert_se(UNIT_GET_SLICE(dml_discard_empty) == dml_discard);
         assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-set-ml.service", NULL, &dml_discard_set_ml) >= 0);
-        assert_se(UNIT_DEREF(dml_discard_set_ml->slice) == dml_discard);
+        assert_se(UNIT_GET_SLICE(dml_discard_set_ml) == dml_discard);
 
-        root = UNIT_DEREF(dml->slice);
-        assert_se(!UNIT_ISSET(root->slice));
+        assert_se(root = UNIT_GET_SLICE(dml));
+        assert_se(!UNIT_GET_SLICE(root));
 
         assert_se(unit_get_ancestor_memory_low(root) == CGROUP_LIMIT_MIN);
 
@@ -135,12 +135,4 @@ static int test_default_memory_low(void) {
         return 0;
 }
 
-int main(int argc, char* argv[]) {
-        int rc = EXIT_SUCCESS;
-
-        test_setup_logging(LOG_DEBUG);
-
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_default_memory_low());
-
-        return rc;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

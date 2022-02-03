@@ -50,15 +50,11 @@
     which configure resource control settings for the processes of the
     service.</para>
 
-    <para>If a service is requested under a certain name but no unit
-    configuration file is found, systemd looks for a SysV init script
-    by the same name (with the <filename>.service</filename> suffix
-    removed) and dynamically creates a service unit from that script.
-    This is useful for compatibility with SysV. Note that this
-    compatibility is quite comprehensive but not 100%. For details
-    about the incompatibilities, see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
-    with SysV</ulink> document.</para>
+    <para>If SysV init compat is enabled, systemd automatically creates service units that wrap SysV init
+    scripts (the service name is the same as the name of the script, with a <literal>.service</literal>
+    suffix added); see
+    <citerefentry><refentrytitle>systemd-sysv-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
 
     <para>The <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     command allows creating <filename>.service</filename> and <filename>.scope</filename> units dynamically
@@ -138,7 +134,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Service files must include a [Service]
+    <para>Service unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Service unit files must include a [Service]
     section, which carries information about the service and the
     process it supervises. A number of options that may be used in
     this section are shared with other unit types. These options are
@@ -259,24 +259,24 @@
         <term><varname>ExitType=</varname></term>
 
         <listitem>
-          <para>Configures the process exit type for this service unit. One of <option>main</option> or
+          <para>Specifies when the manager should consider the service to be finished. One of <option>main</option> or
           <option>cgroup</option>:</para>
 
           <itemizedlist>
             <listitem><para>If set to <option>main</option> (the default), the service manager
-            will consider the unit stopped when the main process, which is determined according to the `Type`, exits.
-            </para></listitem>
+            will consider the unit stopped when the main process, which is determined according to the
+            <varname>Type=</varname>, exits. Consequently, it cannot be used with
+            <varname>Type=</varname><option>oneshot</option>.</para></listitem>
 
-            <listitem><para>The <option>cgroup</option> exit type is meant for applications whose forking model is not
-            known ahead of time and which might not have a specific main process. The service will stay running as long
-            as at least one process in the cgroup is running. The exit status of the service is that of the last
-            process in the cgroup to exit.</para></listitem>
+            <listitem><para>If set to <option>cgroup</option>, the service will be considered running as long as at
+            least one process in the cgroup has not exited.</para></listitem>
           </itemizedlist>
 
           <para>It is generally recommended to use <varname>ExitType=</varname><option>main</option> when a service has
           a known forking model and a main process can reliably be determined. <varname>ExitType=</varname>
-          <option>cgroup</option> is well suited for transient or automatically generated services, such as graphical
-          applications inside of a desktop environment.</para>
+          <option>cgroup</option> is meant for applications whose forking model is not known ahead of time and which
+          might not have a specific main process. It is well suited for transient or automatically generated services,
+          such as graphical applications inside of a desktop environment.</para>
         </listitem>
       </varlistentry>
 
@@ -721,6 +721,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WatchdogSec=</varname></term>
         <listitem><para>Configures the watchdog timeout for a service.
         The watchdog is activated when the start-up is completed. The
@@ -1136,8 +1145,9 @@
 
     </variablelist>
 
-    <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <para id='shared-unit-options'>Check
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
     settings.</para>
   </refsect1>
@@ -1159,7 +1169,7 @@
     <literal>\;</literal>.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
     first item becomes the command to execute, and the subsequent items the arguments.</para>
 
     <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions

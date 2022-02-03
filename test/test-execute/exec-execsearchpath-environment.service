@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+ExecStart=/bin/sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6" && test "$$PATH" = "/tmp:/bin"'
+Type=oneshot
+ExecSearchPath=/tmp:/bin
+Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"

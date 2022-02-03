@@ -58,7 +58,6 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
 }
 
 static int warn_wall(Manager *m, usec_t n) {
-        char date[FORMAT_TIMESTAMP_MAX] = {};
         _cleanup_free_ char *l = NULL, *username = NULL;
         usec_t left;
         int r;
@@ -73,9 +72,9 @@ static int warn_wall(Manager *m, usec_t n) {
         r = asprintf(&l, "%s%sThe system is going down for %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
-                     m->scheduled_shutdown_type,
+                     handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)),
                      left ? "at " : "NOW",
-                     left ? format_timestamp(date, sizeof(date), m->scheduled_shutdown_timeout) : "");
+                     left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
         if (r < 0) {
                 log_oom();
                 return 0;
@@ -131,16 +130,14 @@ int manager_setup_wall_message_timer(Manager *m) {
 
         /* wall message handling */
 
-        if (isempty(m->scheduled_shutdown_type)) {
-                warn_wall(m, n);
+        if (!m->scheduled_shutdown_type)
                 return 0;
-        }
 
-        if (elapse < n)
+        if (elapse > 0 && elapse < n)
                 return 0;
 
         /* Warn immediately if less than 15 minutes are left */
-        if (elapse - n < 15 * USEC_PER_MINUTE) {
+        if (elapse == 0 || elapse - n < 15 * USEC_PER_MINUTE) {
                 r = warn_wall(m, n);
                 if (r == 0)
                         return 0;

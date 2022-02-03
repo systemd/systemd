@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # Test generation of ID dynamically based on SYSTEM_UGID_MAX and
 # replacement of all fields up to the login shell.
 #

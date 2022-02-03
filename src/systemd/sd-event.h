@@ -93,6 +93,7 @@ int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_sign
 int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_child_pidfd(sd_event *e, sd_event_source **s, int pidfd, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_inotify(sd_event *e, sd_event_source **s, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
+int sd_event_add_inotify_fd(sd_event *e, sd_event_source **s, int fd, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
@@ -165,6 +166,7 @@ int sd_event_source_set_exit_on_failure(sd_event_source *s, int b);
 int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, unsigned burst);
 int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, unsigned *ret_burst);
 int sd_event_source_is_ratelimited(sd_event_source *s);
+int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);

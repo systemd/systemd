@@ -613,6 +613,10 @@ DnsScopeMatch dns_scope_good_domain(
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, false, false) & flags) == 0)
                 return DNS_SCOPE_NO;
 
+        /* Never resolve empty name. */
+        if (dns_name_is_empty(domain))
+                return DNS_SCOPE_NO;
+
         /* Never resolve any loopback hostname or IP address via DNS, LLMNR or mDNS. Instead, always rely on
          * synthesized RRs for these. */
         if (is_localhost(domain) ||
@@ -620,18 +624,12 @@ DnsScopeMatch dns_scope_good_domain(
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Never respond to some of the domains listed in RFC6303 */
-        if (dns_name_endswith(domain, "0.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "255.255.255.255.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+        /* Never respond to some of the domains listed in RFC6303 + RFC6761 */
+        if (dns_name_dont_resolve(domain))
                 return DNS_SCOPE_NO;
 
-        /* Never respond to some of the domains listed in RFC6761 */
-        if (dns_name_endswith(domain, "invalid") > 0)
-                return DNS_SCOPE_NO;
-
-        /* Never go to network for the _gateway domain, it's something special, synthesized locally. */
-        if (is_gateway_hostname(domain))
+        /* Never go to network for the _gateway or _outbound domain — they're something special, synthesized locally. */
+        if (is_gateway_hostname(domain) || is_outbound_hostname(domain))
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {
@@ -739,6 +737,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "_gateway" with LLMNR, let local synthesizing logic handle that */
+                     !is_outbound_hostname(domain) && /* similar for "_outbound" */
                      dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
@@ -756,7 +755,7 @@ DnsScopeMatch dns_scope_good_domain(
         }
 
         default:
-                assert_not_reached("Unknown scope protocol");
+                assert_not_reached();
         }
 }
 
@@ -1451,12 +1450,18 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                   "_services._dns-sd._udp.local");
+                if (!rr)
+                        return log_oom();
+
                 rr->ptr.name = strdup(service_type);
+                if (!rr->ptr.name)
+                        return log_oom();
+
                 rr->ttl = MDNS_DEFAULT_TTL;
 
                 r = dns_zone_put(&scope->zone, scope, rr, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone: %m");
+                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone, ignoring: %m");
 
                 r = dns_answer_add(answer, rr, 0, 0, NULL);
                 if (r < 0)

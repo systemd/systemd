@@ -17,7 +17,7 @@
 [Login]
 #NAutoVTs=6
 #ReserveVT=6
-#KillUserProcesses=@KILL_USER_PROCESSES@
+#KillUserProcesses={{ "yes" if KILL_USER_PROCESSES else "no" }}
 #KillOnlyUsers=
 #KillExcludeUsers=root
 #InhibitDelayMaxSec=5
@@ -29,6 +29,7 @@
 #HandleLidSwitchExternalPower=suspend
 #HandleLidSwitchDocked=ignore
 #HandleRebootKey=reboot
+#HandleRebootKeyLongPress=poweroff
 #PowerKeyIgnoreInhibited=no
 #SuspendKeyIgnoreInhibited=no
 #HibernateKeyIgnoreInhibited=no
@@ -38,7 +39,7 @@
 #IdleAction=ignore
 #IdleActionSec=30min
 #RuntimeDirectorySize=10%
-#RuntimeDirectoryInodes=400k
+#RuntimeDirectoryInodesMax=400k
 #RemoveIPC=yes
 #InhibitorsMax=8192
 #SessionsMax=8192

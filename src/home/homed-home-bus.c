@@ -95,7 +95,7 @@ int bus_home_get_record_json(
                 trusted = false;
         }
 
-        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE;
+        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
                 flags |= USER_RECORD_ALLOW_PRIVILEGED;
         else
@@ -443,7 +443,7 @@ int bus_home_method_update(
         assert(message);
         assert(h);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -485,7 +485,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, error);
+        r = home_resize(h, sz, secret, /* automatic= */ false, error);
         if (r < 0)
                 return r;
 
@@ -796,76 +796,61 @@ const sd_bus_vtable home_vtable[] = {
                         property_get_user_record, 0,
                         SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION|SD_BUS_VTABLE_SENSITIVE),
 
-        SD_BUS_METHOD_WITH_NAMES("Activate",
-                                 "s",
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_activate,
-                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Activate",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_activate,
+                                SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD("Deactivate", NULL, NULL, bus_home_method_deactivate, 0),
         SD_BUS_METHOD("Unregister", NULL, NULL, bus_home_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("Realize",
-                                 "s",
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_realize,
-                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Realize",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_realize,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
 
         SD_BUS_METHOD("Remove", NULL, NULL, bus_home_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("Fixate",
-                                 "s",
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_fixate,
-                                 SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("Authenticate",
-                                 "s",
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_authenticate,
-                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("Update",
-                                 "s",
-                                 SD_BUS_PARAM(user_record),
-                                 NULL,,
-                                 bus_home_method_update,
-                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("Resize",
-                                 "ts",
-                                 SD_BUS_PARAM(size)
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_resize,
-                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("ChangePassword",
-                                 "ss",
-                                 SD_BUS_PARAM(new_secret)
-                                 SD_BUS_PARAM(old_secret),
-                                 NULL,,
-                                 bus_home_method_change_password,
-                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Fixate",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_fixate,
+                                SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Authenticate",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_authenticate,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Update",
+                                SD_BUS_ARGS("s", user_record),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_update,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Resize",
+                                SD_BUS_ARGS("t", size, "s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_resize,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("ChangePassword",
+                                SD_BUS_ARGS("s", new_secret, "s", old_secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_change_password,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD("Lock", NULL, NULL, bus_home_method_lock, 0),
-        SD_BUS_METHOD_WITH_NAMES("Unlock",
-                                 "s",
-                                 SD_BUS_PARAM(secret),
-                                 NULL,,
-                                 bus_home_method_unlock,
-                                 SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("Acquire",
-                                 "sb",
-                                 SD_BUS_PARAM(secret)
-                                 SD_BUS_PARAM(please_suspend),
-                                 "h",
-                                 SD_BUS_PARAM(send_fd),
-                                 bus_home_method_acquire,
-                                 SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD_WITH_NAMES("Ref",
-                                 "b",
-                                 SD_BUS_PARAM(please_suspend),
-                                 "h",
-                                 SD_BUS_PARAM(send_fd),
-                                 bus_home_method_ref,
-                                 0),
+        SD_BUS_METHOD_WITH_ARGS("Unlock",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_unlock,
+                                SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Acquire",
+                                SD_BUS_ARGS("s", secret, "b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_acquire,
+                                SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("Ref",
+                                SD_BUS_ARGS("b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_ref,
+                                0),
         SD_BUS_METHOD("Release", NULL, NULL, bus_home_method_release, 0),
         SD_BUS_VTABLE_END
 };
@@ -938,6 +923,12 @@ int bus_home_emit_remove(Home *h) {
         assert(h);
 
         if (!h->announced)
+                return 0;
+
+        if (!h->manager)
+                return 0;
+
+        if (!h->manager->bus)
                 return 0;
 
         r = bus_home_path(h, &path);

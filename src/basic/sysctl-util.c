@@ -5,11 +5,13 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "af-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 
@@ -33,10 +35,10 @@ char *sysctl_normalize(char *s) {
                         n = strpbrk(n + 1, "/.");
                 } while (n);
 
-        path_simplify(s, true);
+        path_simplify(s);
 
         /* Kill the leading slash, but keep the first character of the string in the same place. */
-        if (*s == '/' && *(s+1))
+        if (s[0] == '/' && s[1] != 0)
                 memmove(s, s+1, strlen(s));
 
         return s;
@@ -44,25 +46,19 @@ char *sysctl_normalize(char *s) {
 
 int sysctl_write(const char *property, const char *value) {
         char *p;
-        _cleanup_close_ int fd = -1;
 
         assert(property);
         assert(value);
 
-        log_debug("Setting '%s' to '%.*s'.", property, (int) strcspn(value, NEWLINE), value);
-
         p = strjoina("/proc/sys/", property);
-        fd = open(p, O_WRONLY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
 
-        if (!endswith(value, "\n"))
-                value = strjoina(value, "\n");
+        path_simplify(p);
+        if (!path_is_normalized(p))
+                return -EINVAL;
 
-        if (write(fd, value, strlen(value)) < 0)
-                return -errno;
+        log_debug("Setting '%s' to '%s'", p, value);
 
-        return 0;
+        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL);
 }
 
 int sysctl_writef(const char *property, const char *format, ...) {
@@ -83,48 +79,59 @@ int sysctl_writef(const char *property, const char *format, ...) {
 int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value) {
         const char *p;
 
-        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(property);
         assert(value);
 
-        p = strjoina("/proc/sys/net/ipv", af == AF_INET ? "4" : "6",
-                     ifname ? "/conf/" : "", strempty(ifname),
-                     property[0] == '/' ? "" : "/", property);
+        if (!IN_SET(af, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
 
-        log_debug("Setting '%s' to '%s'", p, value);
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
+                        return -EINVAL;
 
-        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+        } else
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
+
+        return sysctl_write(p, value);
 }
 
 int sysctl_read(const char *property, char **ret) {
         char *p;
+        int r;
 
         assert(property);
-        assert(ret);
 
         p = strjoina("/proc/sys/", property);
-        return read_full_virtual_file(p, ret, NULL);
+
+        path_simplify(p);
+        if (!path_is_normalized(p)) /* Filter out attempts to write to /proc/sys/../../…, just in case */
+                return -EINVAL;
+
+        r = read_full_virtual_file(p, ret, NULL);
+        if (r < 0)
+                return r;
+        if (ret)
+                delete_trailing_chars(*ret, NEWLINE);
+
+        return r;
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret) {
-        _cleanup_free_ char *value = NULL;
         const char *p;
-        int r;
 
-        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(property);
 
-        p = strjoina("/proc/sys/net/ipv", af == AF_INET ? "4" : "6",
-                     ifname ? "/conf/" : "", strempty(ifname),
-                     property[0] == '/' ? "" : "/", property);
+        if (!IN_SET(af, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
 
-        r = read_full_virtual_file(p, &value, NULL);
-        if (r < 0)
-                return r;
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
+                        return -EINVAL;
 
-        truncate_nl(value);
-        if (ret)
-                *ret = TAKE_PTR(value);
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+        } else
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
 
-        return r;
+        return sysctl_read(p, ret);
 }

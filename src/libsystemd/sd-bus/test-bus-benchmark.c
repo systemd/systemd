@@ -57,7 +57,7 @@ static void server(sd_bus *b, size_t *result) {
                         return;
 
                 } else if (!sd_bus_message_is_signal(m, NULL, NULL))
-                        assert_not_reached("Unknown method");
+                        assert_not_reached();
         }
 }
 

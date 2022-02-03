@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <net/if.h>
+#include <linux/if_arp.h>
 #include <linux/if_vlan.h>
 
 #include "parse-util.h"
@@ -23,12 +24,12 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
         r = sd_netlink_message_append_u16(req, IFLA_VLAN_ID, v->id);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_ID attribute: %m");
+                return r;
 
         if (v->protocol >= 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_VLAN_PROTOCOL, htobe16(v->protocol));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_PROTOCOL attribute: %m");
+                        return r;
         }
 
         if (v->gvrp != -1) {
@@ -53,24 +54,24 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
         r = sd_netlink_message_append_data(req, IFLA_VLAN_FLAGS, &flags, sizeof(struct ifla_vlan_flags));
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_FLAGS attribute: %m");
+                return r;
 
         if (!set_isempty(v->egress_qos_maps)) {
                 struct ifla_vlan_qos_mapping *m;
 
                 r = sd_netlink_message_open_container(req, IFLA_VLAN_EGRESS_QOS);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not open container IFLA_VLAN_EGRESS_QOS: %m");
+                        return r;
 
                 SET_FOREACH(m, v->egress_qos_maps) {
                         r = sd_netlink_message_append_data(req, IFLA_VLAN_QOS_MAPPING, m, sizeof(struct ifla_vlan_qos_mapping));
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_QOS_MAPPING attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not close container IFLA_VLAN_EGRESS_QOS: %m");
+                        return r;
         }
 
         if (!set_isempty(v->ingress_qos_maps)) {
@@ -78,17 +79,17 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 
                 r = sd_netlink_message_open_container(req, IFLA_VLAN_INGRESS_QOS);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not open container IFLA_VLAN_INGRESS_QOS: %m");
+                        return r;
 
                 SET_FOREACH(m, v->ingress_qos_maps) {
                         r = sd_netlink_message_append_data(req, IFLA_VLAN_QOS_MAPPING, m, sizeof(struct ifla_vlan_qos_mapping));
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_QOS_MAPPING attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not close container IFLA_VLAN_INGRESS_QOS: %m");
+                        return r;
         }
 
         return 0;
@@ -229,4 +230,5 @@ const NetDevVTable vlan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vlan_verify,
         .done = vlan_done,
+        .iftype = ARPHRD_ETHER,
 };

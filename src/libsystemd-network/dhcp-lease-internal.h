@@ -16,8 +16,6 @@ struct sd_dhcp_route {
         struct in_addr dst_addr;
         struct in_addr gw_addr;
         unsigned char dst_prefixlen;
-
-        uint8_t option;
 };
 
 struct sd_dhcp_raw_option {
@@ -52,8 +50,10 @@ struct sd_dhcp_lease {
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
-        struct sd_dhcp_route *static_route;
-        size_t static_route_size, static_route_allocated;
+        struct sd_dhcp_route *static_routes;
+        size_t n_static_routes;
+        struct sd_dhcp_route *classless_routes;
+        size_t n_classless_routes;
 
         uint16_t mtu; /* 0 if unset */
 
@@ -69,6 +69,12 @@ struct sd_dhcp_lease {
         size_t vendor_specific_len;
 
         char *timezone;
+
+        uint8_t sixrd_ipv4masklen;
+        uint8_t sixrd_prefixlen;
+        struct in6_addr sixrd_prefix;
+        struct in_addr *sixrd_br_addresses;
+        size_t sixrd_n_br_addresses;
 
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };

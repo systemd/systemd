@@ -225,7 +225,7 @@ static void client_context_read_basic(ClientContext *c) {
         if (get_process_exe(c->pid, &t) >= 0)
                 free_and_replace(c->exe, t);
 
-        if (get_process_cmdline(c->pid, SIZE_MAX, 0, &t) >= 0)
+        if (get_process_cmdline(c->pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &t) >= 0)
                 free_and_replace(c->cmdline, t);
 
         if (get_process_capeff(c->pid, &t) >= 0)
@@ -378,8 +378,8 @@ static int client_context_read_extra_fields(
                 Server *s,
                 ClientContext *c) {
 
-        size_t size = 0, n_iovec = 0, n_allocated = 0, left;
         _cleanup_free_ struct iovec *iovec = NULL;
+        size_t size = 0, n_iovec = 0, left;
         _cleanup_free_ void *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
@@ -445,7 +445,7 @@ static int client_context_read_extra_fields(
                 if (!journal_field_valid((const char *) field, eq - field, false))
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec+1))
+                if (!GREEDY_REALLOC(iovec, n_iovec+1))
                         return -ENOMEM;
 
                 iovec[n_iovec++] = IOVEC_MAKE(field, v);

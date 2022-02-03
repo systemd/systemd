@@ -20,28 +20,29 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static int here = 0, here2 = 0, here3 = 0;
-void *ignore_stdout_args[] = {&here, &here2, &here3};
+static void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here);
+        assert_se(fd >= 0);
+        assert_se(arg == &here);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func2(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here2);
+        assert_se(fd >= 0);
+        assert_se(arg == &here2);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func3(int fd, void *arg) {
-        assert(fd >= 0);
-        assert(arg == &here3);
+        assert_se(fd >= 0);
+        assert_se(arg == &here3);
         safe_close(fd);
 
         return 0;
@@ -53,10 +54,8 @@ static const gather_stdout_callback_t ignore_stdout[] = {
         ignore_stdout_func3,
 };
 
-static void test_execute_directory(bool gather_stdout) {
-        char template_lo[] = "/tmp/test-exec-util.lo.XXXXXXX";
-        char template_hi[] = "/tmp/test-exec-util.hi.XXXXXXX";
-        const char * dirs[] = {template_hi, template_lo, NULL};
+static void test_execute_directory_one(bool gather_stdout) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_lo = NULL, *tmp_hi = NULL;
         const char *name, *name2, *name3,
                 *overridden, *override,
                 *masked, *mask,
@@ -65,20 +64,22 @@ static void test_execute_directory(bool gather_stdout) {
 
         log_info("/* %s (%s) */", __func__, gather_stdout ? "gathering stdout" : "asynchronous");
 
-        assert_se(mkdtemp(template_lo));
-        assert_se(mkdtemp(template_hi));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.lo.XXXXXXX", &tmp_lo) >= 0);
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.hi.XXXXXXX", &tmp_hi) >= 0);
 
-        name = strjoina(template_lo, "/script");
-        name2 = strjoina(template_hi, "/script2");
-        name3 = strjoina(template_lo, "/useless");
-        overridden = strjoina(template_lo, "/overridden");
-        override = strjoina(template_hi, "/overridden");
-        masked = strjoina(template_lo, "/masked");
-        mask = strjoina(template_hi, "/masked");
-        masked2 = strjoina(template_lo, "/masked2");
-        mask2 = strjoina(template_hi, "/masked2");
-        masked2e = strjoina(template_lo, "/masked2e");
-        mask2e = strjoina(template_hi, "/masked2e");
+        const char * dirs[] = { tmp_hi, tmp_lo, NULL };
+
+        name = strjoina(tmp_lo, "/script");
+        name2 = strjoina(tmp_hi, "/script2");
+        name3 = strjoina(tmp_lo, "/useless");
+        overridden = strjoina(tmp_lo, "/overridden");
+        override = strjoina(tmp_hi, "/overridden");
+        masked = strjoina(tmp_lo, "/masked");
+        mask = strjoina(tmp_hi, "/masked");
+        masked2 = strjoina(tmp_lo, "/masked2");
+        mask2 = strjoina(tmp_hi, "/masked2");
+        masked2e = strjoina(tmp_lo, "/masked2e");
+        mask2e = strjoina(tmp_hi, "/masked2e");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
@@ -123,41 +124,43 @@ static void test_execute_directory(bool gather_stdout) {
         else
                 execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(chdir(template_lo) == 0);
+        assert_se(chdir(tmp_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        assert_se(chdir(template_hi) == 0);
+        assert_se(chdir(tmp_hi) == 0);
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
-
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
-static void test_execution_order(void) {
-        char template_lo[] = "/tmp/test-exec-util-lo.XXXXXXX";
-        char template_hi[] = "/tmp/test-exec-util-hi.XXXXXXX";
-        const char *dirs[] = {template_hi, template_lo, NULL};
+TEST(execute_directory) {
+        test_execute_directory_one(true);
+        test_execute_directory_one(false);
+}
+
+TEST(execution_order) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_lo = NULL, *tmp_hi = NULL;
         const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
         const char *output, *t;
         _cleanup_free_ char *contents = NULL;
 
-        assert_se(mkdtemp(template_lo));
-        assert_se(mkdtemp(template_hi));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util-lo.XXXXXXX", &tmp_lo) >= 0);
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util-hi.XXXXXXX", &tmp_hi) >= 0);
 
-        output = strjoina(template_hi, "/output");
+        const char *dirs[] = { tmp_hi, tmp_lo, NULL };
+
+        output = strjoina(tmp_hi, "/output");
 
         log_info("/* %s >>%s */", __func__, output);
 
         /* write files in "random" order */
-        name2 = strjoina(template_lo, "/90-bar");
-        name = strjoina(template_hi, "/80-foo");
-        name3 = strjoina(template_lo, "/last");
-        overridden = strjoina(template_lo, "/30-override");
-        override = strjoina(template_hi, "/30-override");
-        masked = strjoina(template_lo, "/10-masked");
-        mask = strjoina(template_hi, "/10-masked");
+        name2 = strjoina(tmp_lo, "/90-bar");
+        name = strjoina(tmp_hi, "/80-foo");
+        name3 = strjoina(tmp_lo, "/last");
+        overridden = strjoina(tmp_lo, "/30-override");
+        override = strjoina(tmp_hi, "/30-override");
+        masked = strjoina(tmp_lo, "/10-masked");
+        mask = strjoina(tmp_hi, "/10-masked");
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
         assert_se(write_string_file(name, t, WRITE_STRING_FILE_CREATE) == 0);
@@ -193,9 +196,6 @@ static void test_execution_order(void) {
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
-
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static int gather_stdout_one(int fd, void *arg) {
@@ -231,15 +231,14 @@ static int gather_stdout_three(int fd, void *arg) {
         return 0;
 }
 
-const gather_stdout_callback_t gather_stdout[] = {
+const gather_stdout_callback_t gather_stdouts[] = {
         gather_stdout_one,
         gather_stdout_two,
         gather_stdout_three,
 };
 
-static void test_stdout_gathering(void) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX";
-        const char *dirs[] = {template, NULL};
+TEST(stdout_gathering) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3;
         int r;
 
@@ -248,14 +247,14 @@ static void test_stdout_gathering(void) {
 
         void* args[] = {&tmp, &tmp, &output};
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
 
-        log_info("/* %s */", __func__);
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho a\necho b\necho c\n",
@@ -274,7 +273,8 @@ static void test_stdout_gathering(void) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -282,10 +282,10 @@ static void test_stdout_gathering(void) {
         assert_se(streq(output, "a\nb\nc\nd\n"));
 }
 
-static void test_environment_gathering(void) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
-        const char *dirs[] = {template, NULL};
+TEST(environment_gathering) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3, *old;
+        char **p;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
@@ -293,14 +293,14 @@ static void test_environment_gathering(void) {
 
         void* const args[] = { &tmp, &tmp, &env };
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
 
-        log_info("/* %s */", __func__);
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\n"
@@ -375,20 +375,19 @@ static void test_environment_gathering(void) {
         assert_se(set_unset_env("PATH", old, true) == 0);
 }
 
-static void test_error_catching(void) {
-        char template[] = "/tmp/test-exec-util.XXXXXXX";
-        const char *dirs[] = {template, NULL};
+TEST(error_catching) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         const char *name, *name2, *name3;
         int r;
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
 
-        log_info("/* %s */", __func__);
+        const char *dirs[] = { tmpdir, NULL };
 
         /* write files */
-        name = strjoina(template, "/10-foo");
-        name2 = strjoina(template, "/20-bar");
-        name3 = strjoina(template, "/30-last");
+        name = strjoina(tmpdir, "/10-foo");
+        name2 = strjoina(tmpdir, "/20-bar");
+        name3 = strjoina(tmpdir, "/30-last");
 
         assert_se(write_string_file(name,
                                     "#!/bin/sh\necho a\necho b\necho c\n",
@@ -413,7 +412,7 @@ static void test_error_catching(void) {
         assert_se(r == 42);
 }
 
-static void test_exec_command_flags_from_strv(void) {
+TEST(exec_command_flags_from_strv) {
         ExecCommandFlags flags = 0;
         char **valid_strv = STRV_MAKE("no-env-expand", "no-setuid", "ignore-failure");
         char **invalid_strv = STRV_MAKE("no-env-expand", "no-setuid", "nonexistent-option", "ignore-failure");
@@ -433,7 +432,7 @@ static void test_exec_command_flags_from_strv(void) {
         assert_se(r == -EINVAL);
 }
 
-static void test_exec_command_flags_to_strv(void) {
+TEST(exec_command_flags_to_strv) {
         _cleanup_strv_free_ char **opts = NULL, **empty_opts = NULL, **invalid_opts = NULL;
         ExecCommandFlags flags = 0;
         int r;
@@ -457,17 +456,4 @@ static void test_exec_command_flags_to_strv(void) {
         assert_se(r == -EINVAL);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_execute_directory(true);
-        test_execute_directory(false);
-        test_execution_order();
-        test_stdout_gathering();
-        test_environment_gathering();
-        test_error_catching();
-        test_exec_command_flags_from_strv();
-        test_exec_command_flags_to_strv();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

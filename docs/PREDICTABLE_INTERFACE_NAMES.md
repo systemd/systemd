@@ -2,6 +2,7 @@
 title: Predictable Network Interface Names
 category: Concepts
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Predictable Network Interface Names
@@ -53,7 +54,7 @@ With this new scheme you now get:
 * The same on all distributions that adopted systemd/udev
 * It's easy to opt out of the scheme (see below)
 
-Does this have any drawbacks? Yes, it does. Previously it was practically guaranteed that hosts equipped with a single ethernet card only had a single `eth0` interface. With this new scheme in place, an administrator now has to check first what the local interface name is before he can invoke commands on it where previously he had a good chance that `eth0` was the right name.
+Does this have any drawbacks? Yes, it does. Previously it was practically guaranteed that hosts equipped with a single ethernet card only had a single `eth0` interface. With this new scheme in place, an administrator now has to check first what the local interface name is before they can invoke commands on it, where previously they had a good chance that `eth0` was the right name.
 
 
 ## I don't like this, how do I disable this?
@@ -61,7 +62,7 @@ Does this have any drawbacks? Yes, it does. Previously it was practically guaran
 You basically have three options:
 
 1. You disable the assignment of fixed names, so that the unpredictable kernel names are used again. For this, simply mask udev's .link file for the default policy: `ln -s /dev/null /etc/systemd/network/99-default.link`
-1. You create your own manual naming scheme, for example by naming your interfaces `internet0`, `dmz0` or `lan0`. For that create your own `.link` files in `/etc/systemd/network/`, that choose an explicit name or a better naming scheme for one, some, or all of your interfaces. See [systemd.link(5)](http://www.freedesktop.org/software/systemd/man/systemd.link.html) for more information.
+1. You create your own manual naming scheme, for example by naming your interfaces `internet0`, `dmz0` or `lan0`. For that create your own `.link` files in `/etc/systemd/network/`, that choose an explicit name or a better naming scheme for one, some, or all of your interfaces. See [systemd.link(5)](https://www.freedesktop.org/software/systemd/man/systemd.link.html) for more information.
 1. You pass the `net.ifnames=0` on the kernel command line
 
 ## How does the new naming scheme look like, precisely?

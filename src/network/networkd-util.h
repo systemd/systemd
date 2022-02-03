@@ -11,15 +11,110 @@
 #include "network-util.h"
 #include "string-util.h"
 
-typedef struct NetworkConfigSection {
-        unsigned line;
-        bool invalid;
-        char filename[];
-} NetworkConfigSection;
+typedef struct Link Link;
+
+typedef enum NetworkConfigSource {
+        NETWORK_CONFIG_SOURCE_FOREIGN, /* configured by kernel */
+        NETWORK_CONFIG_SOURCE_STATIC,
+        NETWORK_CONFIG_SOURCE_IPV4LL,
+        NETWORK_CONFIG_SOURCE_DHCP4,
+        NETWORK_CONFIG_SOURCE_DHCP6,
+        NETWORK_CONFIG_SOURCE_DHCP_PD,
+        NETWORK_CONFIG_SOURCE_NDISC,
+        NETWORK_CONFIG_SOURCE_RUNTIME, /* through D-Bus method */
+        _NETWORK_CONFIG_SOURCE_MAX,
+        _NETWORK_CONFIG_SOURCE_INVALID = -EINVAL,
+} NetworkConfigSource;
+
+typedef enum NetworkConfigState {
+        NETWORK_CONFIG_STATE_PROBING     = 1 << 0, /* address is probing by IPv4ACD */
+        NETWORK_CONFIG_STATE_REQUESTING  = 1 << 1, /* request is queued */
+        NETWORK_CONFIG_STATE_CONFIGURING = 1 << 2, /* e.g. address_configure() is called, but no response is received yet */
+        NETWORK_CONFIG_STATE_CONFIGURED  = 1 << 3, /* e.g. address_configure() is called and received a response from kernel.
+                                                    * Note that address may not be ready yet, so please use address_is_ready()
+                                                    * to check whether the address can be usable or not. */
+        NETWORK_CONFIG_STATE_MARKED      = 1 << 4, /* used GC'ing the old config */
+        NETWORK_CONFIG_STATE_REMOVING    = 1 << 5, /* e.g. address_remove() is called, but no response is received yet */
+} NetworkConfigState;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
+CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
+
+const char *network_config_source_to_string(NetworkConfigSource s) _const_;
+
+int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
+
+#define DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(type, name)               \
+        static inline void name##_update_state(                         \
+                        type *t,                                        \
+                        NetworkConfigState mask,                        \
+                        NetworkConfigState value) {                     \
+                                                                        \
+                assert(t);                                              \
+                                                                        \
+                t->state = (t->state & ~mask) | (value & mask);         \
+        }                                                               \
+        static inline bool name##_exists(type *t) {                     \
+                assert(t);                                              \
+                                                                        \
+                if ((t->state & (NETWORK_CONFIG_STATE_CONFIGURING |     \
+                                 NETWORK_CONFIG_STATE_CONFIGURED)) == 0) \
+                        return false; /* Not assigned yet. */           \
+                if (FLAGS_SET(t->state, NETWORK_CONFIG_STATE_REMOVING)) \
+                        return false; /* Already removing. */           \
+                return true;                                            \
+        }                                                               \
+        static inline void name##_enter_requesting(type *t) {           \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_REQUESTING,    \
+                                    NETWORK_CONFIG_STATE_REQUESTING);   \
+        }                                                               \
+        static inline void name##_cancel_requesting(type *t) {          \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_REQUESTING,    \
+                                    0);                                 \
+        }                                                               \
+        static inline bool name##_is_requesting(type *t) {              \
+                return FLAGS_SET(t->state, NETWORK_CONFIG_STATE_REQUESTING); \
+        }                                                               \
+        static inline void name##_enter_configuring(type *t) {          \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_REQUESTING |   \
+                                    NETWORK_CONFIG_STATE_CONFIGURING,   \
+                                    NETWORK_CONFIG_STATE_CONFIGURING);  \
+        }                                                               \
+        static inline void name##_enter_configured(type *t) {           \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_CONFIGURING |  \
+                                    NETWORK_CONFIG_STATE_CONFIGURED,    \
+                                    NETWORK_CONFIG_STATE_CONFIGURED);   \
+        }                                                               \
+        static inline void name##_mark(type *t) {                       \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_MARKED,        \
+                                    NETWORK_CONFIG_STATE_MARKED);       \
+        }                                                               \
+        static inline void name##_unmark(type *t) {                     \
+                name##_update_state(t, NETWORK_CONFIG_STATE_MARKED, 0); \
+        }                                                               \
+        static inline bool name##_is_marked(type *t) {                  \
+                assert(t);                                              \
+                return FLAGS_SET(t->state, NETWORK_CONFIG_STATE_MARKED); \
+        }                                                               \
+        static inline void name##_enter_removing(type *t) {             \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_MARKED |       \
+                                    NETWORK_CONFIG_STATE_REMOVING,      \
+                                    NETWORK_CONFIG_STATE_REMOVING);     \
+        }                                                               \
+        static inline void name##_enter_removed(type *t) {              \
+                name##_update_state(t,                                  \
+                                    NETWORK_CONFIG_STATE_CONFIGURED |   \
+                                    NETWORK_CONFIG_STATE_REMOVING,      \
+                                    0);                                 \
+        }
 
 const char *address_family_to_string(AddressFamily b) _const_;
 AddressFamily address_family_from_string(const char *s) _pure_;
@@ -40,42 +135,15 @@ AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
 const char *dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
 sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
 
-int kernel_route_expiration_supported(void);
-
-static inline NetworkConfigSection* network_config_section_free(NetworkConfigSection *cs) {
-        return mfree(cs);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
-
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
-extern const struct hash_ops network_config_hash_ops;
-unsigned hashmap_find_free_section_line(Hashmap *hashmap);
-
-static inline bool section_is_invalid(NetworkConfigSection *section) {
-        /* If this returns false, then it does _not_ mean the section is valid. */
-
-        if (!section)
-                return false;
-
-        return section->invalid;
-}
-
-#define DEFINE_NETWORK_SECTION_FUNCTIONS(type, free_func)               \
-        static inline type* free_func##_or_set_invalid(type *p) {       \
-                assert(p);                                              \
-                                                                        \
-                if (p->section)                                         \
-                        p->section->invalid = true;                     \
-                else                                                    \
-                        free_func(p);                                   \
-                return NULL;                                            \
-        }                                                               \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
-
-static inline int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
-}
+int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
+#define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
+#define log_link_message_warning_errno(link, m, err, msg) log_link_message_full_errno(link, m, LOG_WARNING, err, msg)
+#define log_link_message_notice_errno(link, m, err, msg)  log_link_message_full_errno(link, m, LOG_NOTICE, err, msg)
+#define log_link_message_info_errno(link, m, err, msg)    log_link_message_full_errno(link, m, LOG_INFO, err, msg)
+#define log_link_message_debug_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_DEBUG, err, msg)
+#define log_message_full_errno(m, level, err, msg)        log_link_message_full_errno(NULL, m, level, err, msg)
+#define log_message_error_errno(m, err, msg)              log_message_full_errno(m, LOG_ERR, err, msg)
+#define log_message_warning_errno(m, err, msg)            log_message_full_errno(m, LOG_WARNING, err, msg)
+#define log_message_notice_errno(m, err, msg)             log_message_full_errno(m, LOG_NOTICE, err, msg)
+#define log_message_info_errno(m, err, msg)               log_message_full_errno(m, LOG_INFO, err, msg)
+#define log_message_debug_errno(m, err, msg)              log_message_full_errno(m, LOG_DEBUG, err, msg)

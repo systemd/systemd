@@ -2,12 +2,13 @@
 title: Container Interface
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # The Container Interface
 
 Also consult [Writing Virtual Machine or Container
-Managers](http://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
+Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
 
 systemd has a number of interfaces for interacting with container managers,
 when systemd is used inside of an OS container. If you work on a container
@@ -21,10 +22,12 @@ manager, please consider supporting the following interfaces.
    (that file overrides whatever is pre-initialized by the container manager).
 
 2. Make sure to pre-mount `/proc/`, `/sys/`, and `/sys/fs/selinux/` before
-   invoking systemd, and mount `/proc/sys/`, `/sys/`, and `/sys/fs/selinux/`
-   read-only in order to prevent the container from altering the host kernel's
-   configuration settings. (As a special exception, if your container has
-   network namespaces enabled, feel free to make `/proc/sys/net/` writable).
+   invoking systemd, and mount `/sys/`, `/sys/fs/selinux/` and `/proc/sys/`
+   read-only (the latter via e.g. a read-only bind mount on itself) in order
+   to prevent the container from altering the host kernel's configuration
+   settings. (As a special exception, if your container has network namespaces
+   enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
    systemd and various other subsystems (such as the SELinux userspace) have
    been modified to behave accordingly when these file systems are read-only.
    (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
@@ -34,15 +37,18 @@ manager, please consider supporting the following interfaces.
    in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
-   mount some suitable TTY to `/dev/console`. Also, make sure to create device
-   nodes for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`,
-   `/dev/urandom`, `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to
-   create `/dev/fd` or `/dev/stdout`, as systemd will do that on its own. Make
-   sure to set up a `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 —
-   or the `devices` cgroup controller — on cgroupv1 — so that no other devices
-   but these may be created in the container. Note that many systemd services
-   use `PrivateDevices=`, which means that systemd will set up a private
-   `/dev/` for them for which it needs to be able to create these device nodes.
+   mount some suitable TTY to `/dev/console`. If this is a pty, make sure to
+   not close the controlling pty during systemd's lifetime. PID1 will close
+   ttys, to avoid being killed by SAK. It only opens ttys for the time it
+   actually needs to print something. Also, make sure to create device nodes
+   for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`, `/dev/urandom`,
+   `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to create `/dev/fd`
+   or `/dev/stdout`, as systemd will do that on its own. Make sure to set up a
+   `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 — or the `devices`
+   cgroup controller — on cgroupv1 — so that no other devices but these may be
+   created in the container. Note that many systemd services use
+   `PrivateDevices=`, which means that systemd will set up a private `/dev/`
+   for them for which it needs to be able to create these device nodes.
    Dropping `CAP_MKNOD` for containers is hence generally not advisable, but
    see below.
 
@@ -140,7 +146,7 @@ manager, please consider supporting the following interfaces.
    `$CREDENTIALS_DIRECTORY` environment variable. If the container managers
    does this, the credentials passed to the service manager can be propagated
    to services via `LoadCredential=` (see ...). The container manager can
-   choose any path, but `/run/host/credentials` is recommended."
+   choose any path, but `/run/host/credentials` is recommended.
 
 ## Advanced Integration
 
@@ -271,7 +277,7 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
 1. Do not drop `CAP_MKNOD` from the container. `PrivateDevices=` is a commonly
    used service setting that provides a service with its own, private, minimal
    version of `/dev/`. To set this up systemd in the container needs this
-   capability. If you take away the capability than all services that set this
+   capability. If you take away the capability, then all services that set this
    flag will cease to work. Use `BPF_PROG_TYPE_CGROUP_DEVICE` BPF programs — on
    cgroupv2 — or the `devices` controller — on cgroupv1 — to restrict what
    device nodes the container can create instead of taking away the capability
@@ -328,6 +334,19 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    already, if network namespacing is used. Thus it is OK to mount the relevant
    sub-directories of `/sys/` writable, but make sure to leave the root of
    `/sys/` read-only.)
+
+8. Do not pass the `CAP_AUDIT_CONTROL`, `CAP_AUDIT_READ`, `CAP_AUDIT_WRITE`
+   capabilities to the container, in particular not to those making use of user
+   namespaces. The kernel's audit subsystem is still not virtualized for
+   containers, and passing these credentials is pointless hence, given the
+   actual attempt to make use of the audit subsystem will fail. Note that
+   systemd's audit support is partially conditioned on these capabilities, thus
+   by dropping them you ensure that you get an entirely clean boot, as systemd
+   will make no attempt to use it. If you pass the capabilities to the payload
+   systemd will assume that audit is available and works, and some components
+   will subsequently fail in various ways. Note that once the kernel learnt
+   native support for container-virtualized audit, adding the capability to the
+   container description will automatically make the container payload use it.
 
 ## Fully Unprivileged Container Payload
 

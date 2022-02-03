@@ -84,6 +84,30 @@ int event_reset_time(
         return created;
 }
 
+int event_reset_time_relative(
+                sd_event *e,
+                sd_event_source **s,
+                clockid_t clock,
+                uint64_t usec,
+                uint64_t accuracy,
+                sd_event_time_handler_t callback,
+                void *userdata,
+                int64_t priority,
+                const char *description,
+                bool force_reset) {
+
+        usec_t usec_now;
+        int r;
+
+        assert(e);
+
+        r = sd_event_now(e, clock, &usec_now);
+        if (r < 0)
+                return log_debug_errno(r, "sd-event: Failed to get the current time: %m");
+
+        return event_reset_time(e, s, clock, usec_add(usec_now, usec), accuracy, callback, userdata, priority, description, force_reset);
+}
+
 int event_source_disable(sd_event_source *s) {
         if (!s)
                 return 0;

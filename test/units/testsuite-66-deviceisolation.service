@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Service that uses device isolation
+
+[Service]
+DevicePolicy=strict
+DeviceAllow=/dev/null r
+StandardOutput=file:/tmp/testsuite66serviceresults
+ExecStartPre=rm -f /tmp/testsuite66serviceresults
+ExecStart=/bin/bash -c "while true; do sleep 0.01 && echo meow > /dev/null && echo thisshouldnotbehere; done"

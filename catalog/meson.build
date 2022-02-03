@@ -19,7 +19,7 @@ support_url = get_option('support-url')
 support_sed = 's~%SUPPORT_URL%~@0@~'.format(support_url)
 
 foreach file : in_files
-        custom_target(
+        catalogs += custom_target(
                 file,
                 input : file + '.in',
                 output: file,
@@ -30,5 +30,4 @@ foreach file : in_files
 endforeach
 
 meson.add_install_script('sh', '-c',
-                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'
-                         .format(rootbindir))
+                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'.format(rootbindir))

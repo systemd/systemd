@@ -112,7 +112,7 @@ assert_cc(IDX_FIRST == _IDX_SWAP_END);
 assert_cc(IDX_FIRST == _IDX_ITERATOR_FIRST);
 
 /* Storage space for the "swap" buckets.
- * All entry types can fit into a ordered_hashmap_entry. */
+ * All entry types can fit into an ordered_hashmap_entry. */
 struct swap_entries {
         struct ordered_hashmap_entry e[_IDX_SWAP_END - _IDX_SWAP_BEGIN];
 };
@@ -230,7 +230,7 @@ struct Set {
 
 typedef struct CacheMem {
         const void **ptr;
-        size_t n_populated, n_allocated;
+        size_t n_populated;
         bool active:1;
 } CacheMem;
 
@@ -401,7 +401,7 @@ static struct hashmap_base_entry* bucket_at_virtual(HashmapBase *h, struct swap_
         if (idx < _IDX_SWAP_END)
                 return &bucket_at_swap(swap, idx)->p.b;
 
-        assert_not_reached("Invalid index");
+        assert_not_reached();
 }
 
 static dib_raw_t* dib_raw_ptr(HashmapBase *h) {
@@ -513,7 +513,7 @@ static void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
                 return (void*) e->key;
 
         default:
-                assert_not_reached("Unknown hashmap type");
+                assert_not_reached();
         }
 }
 
@@ -1747,7 +1747,7 @@ HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
                 r = set_merge((Set*)copy, (Set*)h);
                 break;
         default:
-                assert_not_reached("Unknown hashmap type");
+                assert_not_reached();
         }
 
         if (r < 0)
@@ -1760,6 +1760,9 @@ char** _hashmap_get_strv(HashmapBase *h) {
         char **sv;
         Iterator i;
         unsigned idx, n;
+
+        if (!h)
+                return new0(char*, 1);
 
         sv = new(char*, n_entries(h)+1);
         if (!sv)
@@ -1897,10 +1900,10 @@ int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags
 }
 
 /* expand the cachemem if needed, return true if newly (re)activated. */
-static int cachemem_maintain(CacheMem *mem, unsigned size) {
+static int cachemem_maintain(CacheMem *mem, size_t size) {
         assert(mem);
 
-        if (!GREEDY_REALLOC(mem->ptr, mem->n_allocated, size)) {
+        if (!GREEDY_REALLOC(mem->ptr, size)) {
                 if (size > 0)
                         return -ENOMEM;
         }
@@ -1915,7 +1918,7 @@ static int cachemem_maintain(CacheMem *mem, unsigned size) {
 
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries) {
         bool sync_keys = false, sync_values = false;
-        unsigned size;
+        size_t size;
         int r;
 
         assert(cache);
@@ -1988,8 +1991,8 @@ IteratedCache* iterated_cache_free(IteratedCache *cache) {
 }
 
 int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret) {
-        size_t separator_len, allocated = 0, len = 0;
         _cleanup_free_ char *str = NULL;
+        size_t separator_len, len = 0;
         const char *value;
         bool first;
 
@@ -2013,7 +2016,7 @@ int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **
                 if (l == 0)
                         continue;
 
-                if (!GREEDY_REALLOC(str, allocated, len + l + (first ? 0 : separator_len) + (wrap_with_separator ? separator_len : 0) + 1))
+                if (!GREEDY_REALLOC(str, len + l + (first ? 0 : separator_len) + (wrap_with_separator ? separator_len : 0) + 1))
                         return -ENOMEM;
 
                 if (separator_len > 0 && !first) {

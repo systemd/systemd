@@ -5,12 +5,37 @@
 #include <assert.h>
 #endif
 
-#include "type.h"
+#include <limits.h>
+#include "types-fundamental.h"
 
+#define _align_(x) __attribute__((__aligned__(x)))
 #define _const_ __attribute__((__const__))
 #define _pure_ __attribute__((__pure__))
+#define _section_(x) __attribute__((__section__(x)))
+#define _packed_ __attribute__((__packed__))
+#define _retain_ __attribute__((__retain__))
+#define _used_ __attribute__((__used__))
 #define _unused_ __attribute__((__unused__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _likely_(x) (__builtin_expect(!!(x), 1))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
+#if __GNUC__ >= 7
+#define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#define _fallthrough_
+#endif
+/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
+ * compiler versions */
+#ifndef _noreturn_
+#if __STDC_VERSION__ >= 201112L
+#define _noreturn_ _Noreturn
+#else
+#define _noreturn_ __attribute__((__noreturn__))
+#endif
+#endif
+
+#define XSTRINGIFY(x) #x
+#define STRINGIFY(x) XSTRINGIFY(x)
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
@@ -28,8 +53,35 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
-#define assert(expr) do {} while (false)
+        void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
+
+        #ifdef NDEBUG
+                #define assert(expr)
+                #define assert_not_reached() __builtin_unreachable()
+        #else
+                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
+                #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+        #endif
+        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
+
+        #define memcpy(a, b, c) CopyMem((a), (b), (c))
+        #define free(a) FreePool(a)
 #endif
+
+/* This passes the argument through after (if asserts are enabled) checking that it is not null. */
+#define ASSERT_PTR(expr)                        \
+        ({                                      \
+                typeof(expr) _expr_ = (expr);   \
+                assert(_expr_);                 \
+                _expr_;                         \
+        })
+
+#define ASSERT_SE_PTR(expr)                     \
+        ({                                      \
+                typeof(expr) _expr_ = (expr);   \
+                assert_se(_expr_);              \
+                _expr_;                         \
+        })
 
 #if defined(static_assert)
 #define assert_cc(expr)                                                 \
@@ -44,6 +96,17 @@
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
 
+/* Note that this works differently from pthread_once(): this macro does
+ * not synchronize code execution, i.e. code that is run conditionalized
+ * on this macro will run concurrently to all other code conditionalized
+ * the same way, there's no ordering or completion enforced. */
+#define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
+#define __ONCE(o)                                                       \
+        ({                                                              \
+                static sd_bool (o) = sd_false;                          \
+                __sync_bool_compare_and_swap(&(o), sd_false, sd_true);  \
+        })
+
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
 #define __MAX(aq, a, bq, b)                             \
@@ -53,12 +116,29 @@
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-/* evaluates to (void) if _A or _B are not constant or of different types */
+#define IS_UNSIGNED_INTEGER_TYPE(type) \
+        (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
+         __builtin_types_compatible_p(typeof(type), unsigned short) ||  \
+         __builtin_types_compatible_p(typeof(type), unsigned) ||        \
+         __builtin_types_compatible_p(typeof(type), unsigned long) ||   \
+         __builtin_types_compatible_p(typeof(type), unsigned long long))
+
+#define IS_SIGNED_INTEGER_TYPE(type) \
+        (__builtin_types_compatible_p(typeof(type), signed char) ||   \
+         __builtin_types_compatible_p(typeof(type), signed short) ||  \
+         __builtin_types_compatible_p(typeof(type), signed) ||        \
+         __builtin_types_compatible_p(typeof(type), signed long) ||   \
+         __builtin_types_compatible_p(typeof(type), signed long long))
+
+/* Evaluates to (void) if _A or _B are not constant or of different types (being integers of different sizes
+ * is also OK as long as the signedness matches) */
 #define CONST_MAX(_A, _B) \
         (__builtin_choose_expr(                                         \
                 __builtin_constant_p(_A) &&                             \
                 __builtin_constant_p(_B) &&                             \
-                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
+                (__builtin_types_compatible_p(typeof(_A), typeof(_B)) || \
+                 (IS_UNSIGNED_INTEGER_TYPE(_A) && IS_UNSIGNED_INTEGER_TYPE(_B)) || \
+                 (IS_SIGNED_INTEGER_TYPE(_A) && IS_SIGNED_INTEGER_TYPE(_B))), \
                 ((_A) > (_B)) ? (_A) : (_B),                            \
                 VOID_0))
 
@@ -174,7 +254,7 @@
 
 #define IN_SET(x, ...)                          \
         ({                                      \
-                sd_bool _found = false;         \
+                sd_bool _found = sd_false;      \
                 /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
@@ -183,7 +263,7 @@
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
                 switch(x) {                     \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__) \
-                        _found = true;          \
+                        _found = sd_true;       \
                         break;                  \
                 default:                        \
                         break;                  \
@@ -195,7 +275,59 @@
  * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
 #define TAKE_PTR(ptr)                           \
         ({                                      \
-                typeof(ptr) _ptr_ = (ptr);      \
-                (ptr) = NULL;                   \
+                typeof(ptr) *_pptr_ = &(ptr);   \
+                typeof(ptr) _ptr_ = *_pptr_;    \
+                *_pptr_ = NULL;                 \
                 _ptr_;                          \
         })
+
+/*
+ * STRLEN - return the length of a string literal, minus the trailing NUL byte.
+ *          Contrary to strlen(), this is a constant expression.
+ * @x: a string literal.
+ */
+#define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
+
+#define mfree(memory)                           \
+        ({                                      \
+                free(memory);                   \
+                (typeof(memory)) NULL;          \
+        })
+
+static inline size_t ALIGN_TO(size_t l, size_t ali) {
+        /* sd-boot uses UINTN for size_t, let's make sure SIZE_MAX is correct. */
+        assert_cc(SIZE_MAX == ~(size_t)0);
+
+        /* Check that alignment is exponent of 2 */
+#if SIZE_MAX == UINT_MAX
+        assert(__builtin_popcount(ali) == 1);
+#elif SIZE_MAX == ULONG_MAX
+        assert(__builtin_popcountl(ali) == 1);
+#elif SIZE_MAX == ULLONG_MAX
+        assert(__builtin_popcountll(ali) == 1);
+#else
+        #error "Unexpected size_t"
+#endif
+
+        if (l > SIZE_MAX - (ali - 1))
+                return SIZE_MAX; /* indicate overflow */
+
+        return ((l + ali - 1) & ~(ali - 1));
+}
+
+/* Same as ALIGN_TO but callable in constant contexts. */
+#define CONST_ALIGN_TO(l, ali)                                         \
+        __builtin_choose_expr(                                         \
+                __builtin_constant_p(l) &&                             \
+                __builtin_constant_p(ali) &&                           \
+                __builtin_popcountll(ali) == 1 && /* is power of 2? */ \
+                (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
+                ((l) + (ali) - 1) & ~((ali) - 1),                      \
+                VOID_0)
+
+#define UPDATE_FLAG(orig, flag, b)                      \
+        ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
+#define SET_FLAG(v, flag, b) \
+        (v) = UPDATE_FLAG(v, flag, b)
+#define FLAGS_SET(v, flags) \
+        ((~(v) & (flags)) == 0)

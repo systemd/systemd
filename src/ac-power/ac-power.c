@@ -3,7 +3,7 @@
 #include <getopt.h>
 
 #include "main-func.h"
-#include "util.h"
+#include "udev-util.h"
 
 static bool arg_verbose = false;
 
@@ -53,7 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

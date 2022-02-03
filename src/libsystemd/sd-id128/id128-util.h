@@ -12,6 +12,8 @@
 
 char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]);
 
+#define ID128_TO_UUID_STRING(id) id128_to_uuid_string((id), (char[ID128_UUID_STRING_MAX]) {})
+
 bool id128_is_valid(const char *s) _pure_;
 
 typedef enum Id128Format {
@@ -36,3 +38,5 @@ int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;
 extern const struct hash_ops id128_hash_ops;
 
 sd_id128_t id128_make_v4_uuid(sd_id128_t id);
+
+int id128_get_product(sd_id128_t *ret);

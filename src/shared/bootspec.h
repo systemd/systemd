@@ -20,7 +20,7 @@ typedef enum BootEntryType {
 
 typedef struct BootEntry {
         BootEntryType type;
-        char *id;       /* This is the file basename without extension */
+        char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
         char *path;     /* This is the full path to the drop-in file */
         char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
@@ -76,7 +76,7 @@ static inline BootEntry* boot_config_default_entry(BootConfig *config) {
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
-int boot_entries_augment_from_loader(BootConfig *config, char **list, bool only_auto);
+int boot_entries_augment_from_loader(BootConfig *config, char **list);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;

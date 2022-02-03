@@ -8,8 +8,10 @@
 #include <sys/mount.h>
 
 #include "architecture.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -49,7 +51,8 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_DISCARD_ON_LOOP |
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
-        DISSECT_IMAGE_USR_NO_ROOT;
+        DISSECT_IMAGE_USR_NO_ROOT |
+        DISSECT_IMAGE_GROWFS;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -75,6 +78,7 @@ static int help(void) {
                "     --no-legend          Do not show the headers and footers\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
+               "     --growfs=BOOL        Grow file system to partition size, if marked\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
@@ -112,6 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_DISCARD,
                 ARG_FSCK,
+                ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
                 ARG_VERITY_DATA,
@@ -128,6 +133,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
+                { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
@@ -264,6 +270,14 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
+                case ARG_GROWFS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
+
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
+                        break;
+
                 case ARG_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
@@ -275,7 +289,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         }
@@ -332,7 +346,7 @@ static int parse_argv(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 
         return 1;
@@ -356,6 +370,46 @@ static int strv_pair_to_json(char **l, JsonVariant **ret) {
         return json_variant_new_array_strv(ret, jl);
 }
 
+static void strv_pair_print(char **l, const char *prefix) {
+        char **p, **q;
+
+        assert(prefix);
+
+        STRV_FOREACH_PAIR(p, q, l) {
+                if (p == l)
+                        printf("%s %s=%s\n", prefix, *p, *q);
+                else
+                        printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
+        }
+}
+
+static int get_sysext_scopes(DissectedImage *m, char ***ret_scopes) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+
+        assert(m);
+        assert(ret_scopes);
+
+        /* If there's no extension-release file its not a system extension. Otherwise the SYSEXT_SCOPE field
+         * indicates which scope it is for — and it defaults to "system" + "portable" if unset. */
+
+        if (!m->extension_release) {
+                *ret_scopes = NULL;
+                return 0;
+        }
+
+        e = strv_env_pairs_get(m->extension_release, "SYSEXT_SCOPE");
+        if (e)
+                l = strv_split(e, WHITESPACE);
+        else
+                l = strv_new("system", "portable");
+        if (!l)
+                return -ENOMEM;
+
+        *ret_scopes = TAKE_PTR(l);
+        return 1;
+}
+
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -366,22 +420,20 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(d);
 
         if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                char s[FORMAT_BYTES_MAX];
-                printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
-        }
+        else if (arg_json_format_flags & JSON_FORMAT_OFF)
+                printf("      Size: %s\n", FORMAT_BYTES(size));
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
 
-        r = dissected_image_acquire_metadata(m);
+        r = dissected_image_acquire_metadata(m, 0);
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
         if (r == -EUCLEAN)
@@ -395,47 +447,51 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                _cleanup_strv_free_ char **sysext_scopes = NULL;
+
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
                 if (!sd_id128_is_null(m->machine_id))
                         printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
 
-                if (!strv_isempty(m->machine_info)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->machine_info)
-                                printf("%s %s=%s\n",
-                                       p == m->machine_info ? "Mach. Info:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->os_release)
-                                printf("%s %s=%s\n",
-                                       p == m->os_release ? "OS Release:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->extension_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->extension_release)
-                                printf("%s %s=%s\n",
-                                       p == m->extension_release ? "Extension Release:" : "                  ",
-                                       *p, *q);
-                }
+                strv_pair_print(m->machine_info,
+                               "Mach. Info:");
+                strv_pair_print(m->os_release,
+                               "OS Release:");
+                strv_pair_print(m->extension_release,
+                               " Ext. Rel.:");
 
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
-                    !strv_isempty(m->extension_release) ||
-                    !strv_isempty(m->os_release))
+                    !strv_isempty(m->os_release) ||
+                    !strv_isempty(m->extension_release))
                         putc('\n', stdout);
+
+                printf("    Use As: %s bootable system for UEFI\n", COLOR_MARK_BOOL(m->partitions[PARTITION_ESP].found));
+
+                if (m->has_init_system >= 0)
+                        printf("            %s bootable system for container\n", COLOR_MARK_BOOL(m->has_init_system));
+
+                printf("            %s portable service\n",
+                       COLOR_MARK_BOOL(strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES")));
+
+                r = get_sysext_scopes(m, &sysext_scopes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse SYSEXT_SCOPE: %m");
+
+                printf("            %s extension for system\n",
+                       COLOR_MARK_BOOL(strv_contains(sysext_scopes, "system")));
+                printf("            %s extension for initrd\n",
+                       COLOR_MARK_BOOL(strv_contains(sysext_scopes, "initrd")));
+                printf("            %s extension for portable service\n",
+                       COLOR_MARK_BOOL(strv_contains(sysext_scopes, "portable")));
+
+                putc('\n', stdout);
         } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
+                _cleanup_strv_free_ char **sysext_scopes = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
                         r = strv_pair_to_json(m->machine_info, &mi);
@@ -455,6 +511,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                 return log_oom();
                 }
 
+                r = get_sysext_scopes(m, &sysext_scopes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse SYSEXT_SCOPE: %m");
+
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(basename(arg_image))),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
@@ -462,12 +522,18 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
                                                JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
-                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr))));
+                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr)),
+                                               JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(m->partitions[PARTITION_ESP].found)),
+                                               JSON_BUILD_PAIR_CONDITION(m->has_init_system >= 0, "useBootableContainer", JSON_BUILD_BOOLEAN(m->has_init_system)),
+                                               JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES"))),
+                                               JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
+                                               JSON_BUILD_PAIR("useInitRDExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
+                                               JSON_BUILD_PAIR("usePortableExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable")))));
                 if (r < 0)
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "growfs", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -504,10 +570,16 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 if (arg_verity_settings.data_path)
                         r = table_add_cell(t, NULL, TABLE_STRING, "external");
-                else if (dissected_image_can_do_verity(m, i))
-                        r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
+                else if (dissected_image_verity_candidate(m, i))
+                        r = table_add_cell(t, NULL, TABLE_STRING,
+                                           dissected_image_verity_sig_ready(m, i) ? "signed" :
+                                           yes_no(dissected_image_verity_ready(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(t, TABLE_BOOLEAN, (int) p->growfs);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -566,7 +638,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
-        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -612,7 +684,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -665,7 +737,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
 
-                (void) copy_xattr(source_fd, target_fd);
+                (void) copy_xattr(source_fd, target_fd, 0);
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
@@ -734,7 +806,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
-                (void) copy_xattr(source_fd, target_fd);
+                (void) copy_xattr(source_fd, target_fd, 0);
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
@@ -781,10 +853,18 @@ static int run(int argc, char *argv[]) {
                         arg_image,
                         &arg_verity_settings,
                         NULL,
+                        d->diskseq,
                         d->uevent_seqnum_not_before,
                         d->timestamp_not_before,
                         arg_flags,
                         &m);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_load_verity_sig_partition(
+                        m,
+                        d->fd,
+                        &arg_verity_settings);
         if (r < 0)
                 return r;
 
@@ -804,7 +884,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 
         return r;

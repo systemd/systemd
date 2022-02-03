@@ -17,16 +17,22 @@ shared_sources = files('''
         bitmap.c
         bitmap.h
         blkid-util.h
+        blockdev-util.c
+        blockdev-util.h
         bond-util.c
         bond-util.h
         boot-timestamps.c
         boot-timestamps.h
         bootspec.c
         bootspec.h
+        bpf-dlopen.c
+        bpf-dlopen.h
         bpf-program.c
         bpf-program.h
         bridge-util.c
         bridge-util.h
+        btrfs-util.c
+        btrfs-util.h
         bus-get-properties.c
         bus-get-properties.h
         bus-locator.c
@@ -69,20 +75,30 @@ shared_sources = files('''
         condition.h
         conf-parser.c
         conf-parser.h
+        copy.c
+        copy.h
         coredump-util.c
         coredump-util.h
         cpu-set-util.c
         cpu-set-util.h
+        creds-util.c
+        creds-util.h
         cryptsetup-util.c
         cryptsetup-util.h
         daemon-util.h
+        data-fd-util.c
+        data-fd-util.h
         dev-setup.c
         dev-setup.h
+        device-nodes.c
+        device-nodes.h
         devnode-acl.h
         discover-image.c
         discover-image.h
         dissect-image.c
         dissect-image.h
+        dlfcn-util.c
+        dlfcn-util.h
         dm-util.c
         dm-util.h
         dns-domain.c
@@ -91,6 +107,8 @@ shared_sources = files('''
         dropin.h
         efi-loader.c
         efi-loader.h
+        elf-util.c
+        elf-util.h
         enable-mempool.c
         env-file-label.c
         env-file-label.h
@@ -102,6 +120,7 @@ shared_sources = files('''
         exit-status.h
         extension-release.c
         extension-release.h
+        fdisk-util.h
         fdset.c
         fdset.h
         fileio-label.c
@@ -125,6 +144,8 @@ shared_sources = files('''
         group-record.h
         hostname-setup.c
         hostname-setup.h
+        hwdb-util.c
+        hwdb-util.h
         id128-print.c
         id128-print.h
         idn-util.c
@@ -133,15 +154,19 @@ shared_sources = files('''
         ima-util.h
         import-util.c
         import-util.h
+        in-addr-prefix-util.c
+        in-addr-prefix-util.h
         initreq.h
+        install-file.c
+        install-file.h
         install-printf.c
         install-printf.h
         install.c
         install.h
-        ipvlan-util.c
-        ipvlan-util.h
         ip-protocol-list.c
         ip-protocol-list.h
+        ipvlan-util.c
+        ipvlan-util.h
         journal-importer.c
         journal-importer.h
         journal-util.c
@@ -151,8 +176,12 @@ shared_sources = files('''
         json.h
         kbd-util.c
         kbd-util.h
+        keyring-util.h
+        keyring-util.c
         killall.c
         killall.h
+        label.c
+        label.h
         libcrypt-util.c
         libcrypt-util.h
         libfido2-util.c
@@ -182,6 +211,8 @@ shared_sources = files('''
         macvlan-util.c
         macvlan-util.h
         main-func.h
+        mkdir-label.c
+        mkdir-label.h
         mkfs-util.c
         mkfs-util.h
         module-util.h
@@ -193,6 +224,10 @@ shared_sources = files('''
         net-condition.h
         netif-naming-scheme.c
         netif-naming-scheme.h
+        netif-sriov.c
+        netif-sriov.h
+        netif-util.c
+        netif-util.h
         nscd-flush.h
         nsflags.c
         nsflags.h
@@ -206,6 +241,8 @@ shared_sources = files('''
         pager.h
         parse-argument.c
         parse-argument.h
+        parse-socket-bind-item.c
+        parse-socket-bind-item.h
         pe-header.h
         pkcs11-util.c
         pkcs11-util.h
@@ -219,21 +256,30 @@ shared_sources = files('''
         pwquality-util.h
         qrcode-util.c
         qrcode-util.h
+        quota-util.c
+        quota-util.h
         reboot-util.c
         reboot-util.h
         resize-fs.c
         resize-fs.h
         resolve-util.c
         resolve-util.h
+        rm-rf.c
+        rm-rf.h
         seccomp-util.h
         securebits-util.c
         securebits-util.h
+        selinux-util.c
+        selinux-util.h
         serialize.c
         serialize.h
         service-util.c
         service-util.h
         sleep-config.c
         sleep-config.h
+        smack-util.c
+        smack-util.h
+        socket-label.c
         socket-netlink.c
         socket-netlink.h
         spawn-ask-password-agent.c
@@ -252,6 +298,8 @@ shared_sources = files('''
         tpm2-util.h
         udev-util.c
         udev-util.h
+        uid-alloc-range.c
+        uid-alloc-range.h
         uid-range.c
         uid-range.h
         user-record-nss.c
@@ -260,11 +308,15 @@ shared_sources = files('''
         user-record-show.h
         user-record.c
         user-record.h
+        userdb-dropin.c
+        userdb-dropin.h
         userdb.c
         userdb.h
         utmp-wtmp.h
         varlink.c
         varlink.h
+        verb-log-control.c
+        verb-log-control.h
         verbs.c
         verbs.h
         vlan-util.c
@@ -380,14 +432,14 @@ target2 = custom_target(
 shared_generated_gperf_headers = [target1, target2]
 shared_sources += shared_generated_gperf_headers
 
-libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
+libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
                   libblkid,
-                  libbpf,
                   libcap,
                   libcrypt,
+                  libdl,
                   libgcrypt,
                   libiptc,
                   libkmod,
@@ -409,18 +461,19 @@ libshared_static = static_library(
         shared_sources,
         include_directories : includes,
         dependencies : libshared_deps,
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)
 
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
+        c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
                       libsystemd_static],
-        c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
         install : true,
         install_dir : rootlibexecdir)

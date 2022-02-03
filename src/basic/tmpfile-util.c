@@ -65,16 +65,9 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        int fd = -1;  /* avoid false maybe-uninitialized warning */
-
         assert(pattern);
-
-        RUN_WITH_UMASK(0077)
-                fd = mkostemp(pattern, O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        BLOCK_WITH_UMASK(0077);
+        return RET_NERRNO(mkostemp(pattern, O_CLOEXEC));
 }
 
 int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
@@ -123,13 +116,10 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
                 return -EINVAL;
 
         if (d)  {
-                char *j;
-
-                j = path_join(d, nf);
-                if (!j)
+                if (!path_extend(&d, nf))
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(TAKE_PTR(d));
         } else
                 *ret = TAKE_PTR(nf);
 
@@ -168,13 +158,10 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
                 return -EINVAL;
 
         if (d) {
-                char *j;
-
-                j = path_join(d, nf);
-                if (!j)
+                if (!path_extend(&d, nf))
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(TAKE_PTR(d));
         } else
                 *ret = TAKE_PTR(nf);
 
@@ -219,7 +206,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_simplify(t, false);
+        *ret = path_simplify(t);
         return 0;
 }
 
@@ -289,8 +276,6 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
 }
 
 int link_tmpfile(int fd, const char *path, const char *target) {
-        int r;
-
         assert(fd >= 0);
         assert(target);
 
@@ -301,20 +286,10 @@ int link_tmpfile(int fd, const char *path, const char *target) {
          * Note that in both cases we will not replace existing files. This is because linkat() does not support this
          * operation currently (renameat2() does), and there is no nice way to emulate this. */
 
-        if (path) {
-                r = rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
-                if (r < 0)
-                        return r;
-        } else {
-                char proc_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
+        if (path)
+                return rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
 
-                xsprintf(proc_fd_path, "/proc/self/fd/%i", fd);
-
-                if (linkat(AT_FDCWD, proc_fd_path, AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
-                        return -errno;
-        }
-
-        return 0;
+        return RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW));
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {

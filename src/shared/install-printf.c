@@ -13,12 +13,10 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-static int specifier_prefix_and_instance(char specifier, const void *data, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         _cleanup_free_ char *prefix = NULL;
         int r;
-
-        assert(i);
 
         r = unit_name_to_prefix_and_instance(i->name, &prefix);
         if (r < 0)
@@ -37,11 +35,9 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
         return 0;
 }
 
-static int specifier_name(char specifier, const void *data, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+static int specifier_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         char *ans;
-
-        assert(i);
 
         if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance)
                 return unit_name_replace_instance(i->name, i->default_instance, ret);
@@ -53,20 +49,16 @@ static int specifier_name(char specifier, const void *data, const void *userdata
         return 0;
 }
 
-static int specifier_prefix(char specifier, const void *data, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
-
-        assert(i);
+static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
 
         return unit_name_to_prefix(i->name, ret);
 }
 
-static int specifier_instance(char specifier, const void *data, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = userdata;
+static int specifier_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
         char *instance;
         int r;
-
-        assert(i);
 
         r = unit_name_to_instance(i->name, &instance);
         if (r < 0)
@@ -82,12 +74,14 @@ static int specifier_instance(char specifier, const void *data, const void *user
         return 0;
 }
 
-static int specifier_last_component(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_last_component(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
 
-        r = specifier_prefix(specifier, data, userdata, &prefix);
+        assert(ret);
+
+        r = specifier_prefix(specifier, data, root, userdata, &prefix);
         if (r < 0)
                 return r;
 
@@ -103,7 +97,7 @@ static int specifier_last_component(char specifier, const void *data, const void
         return 0;
 }
 
-int install_full_printf(const UnitFileInstallInfo *i, const char *format, char **ret) {
+int install_full_printf_internal(const UnitFileInstallInfo *i, const char *format, size_t max_length, const char *root, char **ret) {
         /* This is similar to unit_name_printf() */
 
         const Specifier table[] = {
@@ -123,5 +117,5 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, table, i, ret);
+        return specifier_printf(format, max_length, table, root, i, ret);
 }

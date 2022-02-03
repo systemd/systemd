@@ -22,7 +22,7 @@
 static JsonDispatchFlags json_dispatch_flags = 0;
 
 static void setup_logging(void) {
-        log_parse_environment();
+        log_parse_environment_variables();
 
         if (DEBUG_LOGGING)
                 json_dispatch_flags = JSON_LOG;
@@ -41,6 +41,9 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool error_shall_fallback(const char *error_id) {
+        /* The Varlink errors where we shall signal "please fallback" back to the NSS stack, so that some
+         * fallback module can be loaded. (These are mostly all Varlink-internal errors, as apparently we
+         * then were unable to even do IPC with systemd-resolved.) */
         return STR_IN_SET(error_id,
                           VARLINK_ERROR_DISCONNECTED,
                           VARLINK_ERROR_TIMEOUT,
@@ -48,6 +51,16 @@ static bool error_shall_fallback(const char *error_id) {
                           VARLINK_ERROR_INTERFACE_NOT_FOUND,
                           VARLINK_ERROR_METHOD_NOT_FOUND,
                           VARLINK_ERROR_METHOD_NOT_IMPLEMENTED);
+}
+
+static bool error_shall_try_again(const char *error_id) {
+        /* The Varlink errors where we shall signal "can't answer now but might be able to later" back to the
+         * NSS stack. These are all errors that indicate lack of configuration or network problems. */
+        return STR_IN_SET(error_id,
+                          "io.systemd.Resolve.NoNameServers",
+                          "io.systemd.Resolve.QueryTimedOut",
+                          "io.systemd.Resolve.MaxAttemptsReached",
+                          "io.systemd.Resolve.NetworkDown");
 }
 
 static int connect_to_resolved(Varlink **ret) {
@@ -82,7 +95,7 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
 
 static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *ifi = userdata;
-        intmax_t t;
+        int64_t t;
 
         assert(variant);
         assert(ifi);
@@ -100,7 +113,7 @@ static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDis
 
 static int json_dispatch_family(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *family = userdata;
-        intmax_t t;
+        int64_t t;
 
         assert(variant);
         assert(family);
@@ -160,7 +173,7 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                intmax_t b;
+                int64_t b;
 
                 if (!json_variant_is_integer(i))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
@@ -185,19 +198,29 @@ static const JsonDispatch address_parameters_dispatch_table[] = {
         {}
 };
 
-static uint64_t query_flags(void) {
-        uint64_t f = 0;
+static uint64_t query_flag(
+                const char *name,
+                const int value,
+                uint64_t flag) {
         int r;
 
-        /* Allow callers to turn off validation, when we resolve via nss-resolve */
+        r = getenv_bool_secure(name);
+        if (r >= 0)
+                return r == value ? flag : 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $%s, ignoring.", name);
+        return 0;
+}
 
-        r = getenv_bool_secure("SYSTEMD_NSS_RESOLVE_VALIDATE");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_NSS_RESOLVE_VALIDATE value, ignoring.");
-        else if (r == 0)
-                f |= SD_RESOLVED_NO_VALIDATE;
-
-        return f;
+static uint64_t query_flags(void) {
+        /* Allow callers to turn off validation, synthetization, caching, etc., when we resolve via
+         * nss-resolve. */
+        return  query_flag("SYSTEMD_NSS_RESOLVE_VALIDATE", 0, SD_RESOLVED_NO_VALIDATE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_SYNTHESIZE", 0, SD_RESOLVED_NO_SYNTHESIZE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_CACHE", 0, SD_RESOLVED_NO_CACHE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_ZONE", 0, SD_RESOLVED_NO_ZONE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR", 0, SD_RESOLVED_NO_TRUST_ANCHOR) |
+                query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", 0, SD_RESOLVED_NO_NETWORK);
 }
 
 enum nss_status _nss_resolve_gethostbyname4_r(
@@ -242,9 +265,11 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -341,6 +366,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 enum nss_status _nss_resolve_gethostbyname3_r(
@@ -390,9 +421,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -508,6 +541,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 typedef struct ResolveAddressReply {
@@ -594,9 +633,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
-                if (!error_shall_fallback(error_id))
-                        goto not_found;
-                goto fail;
+                if (error_shall_try_again(error_id))
+                        goto try_again;
+                if (error_shall_fallback(error_id))
+                        goto fail;
+                goto not_found;
         }
 
         r = json_dispatch(rparams, resolve_address_reply_dispatch_table, NULL, json_dispatch_flags, &p);
@@ -694,6 +735,12 @@ fail:
 not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
+
+try_again:
+        UNPROTECT_ERRNO;
+        *errnop = -r;
+        *h_errnop = TRY_AGAIN;
+        return NSS_STATUS_TRYAGAIN;
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(resolve);

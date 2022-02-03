@@ -105,20 +105,12 @@ static void sd_eviocrevoke(int fd) {
 
 static int sd_drmsetmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_SET_MASTER, 0));
 }
 
 static int sd_drmdropmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_DROP_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_DROP_MASTER, 0));
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {
@@ -141,7 +133,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                          * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
-                                close_nointr(fd);
+                                (void) close_nointr(fd);
                                 return r;
                         }
                 } else
@@ -384,14 +376,19 @@ error:
 }
 
 void session_device_free(SessionDevice *sd) {
+        int r;
+
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+        if (sd->pushed_fd) {
+                r = sd_notifyf(false,
+                               "FDSTOREREMOVE=1\n"
+                               "FDNAME=session-%s-device-%u-%u",
+                               sd->session->id, major(sd->dev), minor(sd->dev));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+        }
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);

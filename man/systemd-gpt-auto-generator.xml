@@ -110,6 +110,12 @@
             <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
+            <entry>77055800-792c-4f94-b39a-98c91b762bb6</entry>
+            <entry><filename>Root Partition (LoongArch 64)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On LoongArch 64-bit systems, the first LoongArch 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
             <entry>60d5a7fe-8e7d-435c-b714-3dd8162144e1</entry>
             <entry><filename>Root Partition (RISCV-V 32)</filename></entry>
             <entry><filename>/</filename></entry>
@@ -220,6 +226,11 @@
       format as well. In this case, a device mapper device is set up under the name <filename>/dev/mapper/root</filename>,
       and a <filename>sysroot.mount</filename> is set up that mounts the device under <filename>/sysroot</filename>.
       For more information, see <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+
+    <para>The root partition can be specified by symlinking <filename>/run/systemd/volatile-root</filename>
+    to <filename>/dev/block/$major:$minor</filename>. This is especially useful if the root mount has been
+    replaced by some form of volatile file system (overlayfs).
     </para>
 
     <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP

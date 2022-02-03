@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cryptenroll-recovery.h"
+#include "glyph-util.h"
 #include "json.h"
-#include "locale-util.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
 #include "recovery-key.h"
@@ -76,7 +76,7 @@ int enroll_recovery(
 
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING("systemd-recovery")),
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-recovery")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string)))));
         if (r < 0) {
                 log_error_errno(r, "Failed to prepare recovery key JSON token object: %m");

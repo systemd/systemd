@@ -32,13 +32,13 @@ static uint8_t advertisement[] = {
         0x20, 0x01, 0x0d, 0xb8,  0xde, 0xad, 0xbe, 0xef,
         0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
         /* Prefix Information Option */
-        0x03, 0x04, 0x40, 0xc0,  0x00, 0x27, 0x8d, 0x00,
-        0x00, 0x09, 0x3a, 0x80,  0x00, 0x00, 0x00, 0x00,
+        0x03, 0x04, 0x40, 0xc0,  0x00, 0x00, 0x0e, 0x10,
+        0x00, 0x00, 0x07, 0x08,  0x00, 0x00, 0x00, 0x00,
         0x20, 0x01, 0x0d, 0xb8,  0x0b, 0x16, 0xd0, 0x0d,
         0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
         /* Prefix Information Option */
-        0x03, 0x04, 0x30, 0xc0,  0x00, 0x27, 0x8d, 0x00,
-        0x00, 0x09, 0x3a, 0x80,  0x00, 0x00, 0x00, 0x00,
+        0x03, 0x04, 0x30, 0xc0,  0x00, 0x00, 0x0e, 0x10,
+        0x00, 0x00, 0x07, 0x08,  0x00, 0x00, 0x00, 0x00,
         0x20, 0x01, 0x0d, 0xb8,  0xc0, 0x01, 0x0d, 0xad,
         0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
         /* Recursive DNS Server Option */
@@ -111,7 +111,7 @@ static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
 static void test_radv_prefix(void) {
         sd_radv_prefix *p;
 
-        printf("* %s\n", __FUNCTION__);
+        printf("* %s\n", __func__);
 
         assert_se(sd_radv_prefix_new(&p) >= 0);
 
@@ -123,15 +123,15 @@ static void test_radv_prefix(void) {
         assert_se(sd_radv_prefix_set_address_autoconfiguration(p, true) >= 0);
         assert_se(sd_radv_prefix_set_address_autoconfiguration(p, false) >= 0);
 
-        assert_se(sd_radv_prefix_set_valid_lifetime(NULL, true) < 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, ~0) >= 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, 42) >= 0);
-        assert_se(sd_radv_prefix_set_valid_lifetime(p, 0) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(NULL, 1, 1) < 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 0, 0) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 300 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        assert_se(sd_radv_prefix_set_valid_lifetime(p, 300 * USEC_PER_SEC, USEC_PER_YEAR) >= 0);
 
-        assert_se(sd_radv_prefix_set_preferred_lifetime(NULL, true) < 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, ~0) >= 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 42) >= 0);
-        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 0) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(NULL, 1, 1) < 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 0, 0) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 300 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        assert_se(sd_radv_prefix_set_preferred_lifetime(p, 300 * USEC_PER_SEC, USEC_PER_YEAR) >= 0);
 
         assert_se(sd_radv_prefix_set_prefix(NULL, NULL, 0) < 0);
         assert_se(sd_radv_prefix_set_prefix(p, NULL, 0) < 0);
@@ -153,7 +153,7 @@ static void test_radv_prefix(void) {
 static void test_radv(void) {
         sd_radv *ra;
 
-        printf("* %s\n", __FUNCTION__);
+        printf("* %s\n", __func__);
 
         assert_se(sd_radv_new(&ra) >= 0);
         assert_se(ra);
@@ -180,7 +180,9 @@ static void test_radv(void) {
 
         assert_se(sd_radv_set_router_lifetime(NULL, 0) < 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, ~0) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, USEC_INFINITY) < 0);
+        assert_se(sd_radv_set_router_lifetime(ra, USEC_PER_YEAR) < 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
 
         assert_se(sd_radv_set_preference(NULL, 0) < 0);
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_LOW) >= 0);
@@ -189,7 +191,7 @@ static void test_radv(void) {
         assert_se(sd_radv_set_preference(ra, ~0) < 0);
 
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 42000) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) < 0);
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
         assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
@@ -295,7 +297,7 @@ static void test_ra(void) {
         sd_radv *ra;
         unsigned i;
 
-        printf("* %s\n", __FUNCTION__);
+        printf("* %s\n", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
@@ -308,7 +310,7 @@ static void test_ra(void) {
 
         assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
         assert_se(sd_radv_set_mac(ra, &mac_addr) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 180) >= 0);
+        assert_se(sd_radv_set_router_lifetime(ra, 180 * USEC_PER_SEC) >= 0);
         assert_se(sd_radv_set_hop_limit(ra, 64) >= 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
@@ -323,13 +325,14 @@ static void test_ra(void) {
 
                 assert_se(sd_radv_prefix_set_prefix(p, &prefix[i].address,
                                                     prefix[i].prefixlen) >= 0);
-                if (prefix[i].valid)
-                        assert_se(sd_radv_prefix_set_valid_lifetime(p, prefix[i].valid) >= 0);
-                if (prefix[i].preferred)
-                        assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred) >= 0);
+                if (prefix[i].valid > 0)
+                        assert_se(sd_radv_prefix_set_valid_lifetime(p, prefix[i].valid * USEC_PER_SEC, USEC_INFINITY) >= 0);
+                if (prefix[i].preferred > 0)
+                        assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred * USEC_PER_SEC, USEC_INFINITY) >= 0);
 
-                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].successful);
-                assert_se(sd_radv_add_prefix(ra, p, false) < 0);
+                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].successful);
+                /* If the previous sd_radv_add_prefix() succeeds, then also the second call should also succeed. */
+                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].successful);
 
                 p = sd_radv_prefix_unref(p);
                 assert_se(!p);

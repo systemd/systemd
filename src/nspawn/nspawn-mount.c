@@ -4,12 +4,13 @@
 #include <linux/magic.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "label.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nspawn-mount.h"
@@ -382,39 +383,28 @@ int tmpfs_patch_options(
                 const char *selinux_apifs_context,
                 char **ret) {
 
-        char *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
 
-        if (uid_shift != UID_INVALID) {
-                if (asprintf(&buf, "%s%suid=" UID_FMT ",gid=" UID_FMT,
-                             strempty(options), options ? "," : "",
-                             uid_shift, uid_shift) < 0)
-                        return -ENOMEM;
+        assert(ret);
 
-                options = buf;
-        }
-
-#if HAVE_SELINUX
-        if (selinux_apifs_context) {
-                char *t;
-
-                t = strjoin(strempty(options), options ? "," : "",
-                            "context=\"", selinux_apifs_context, "\"");
-                free(buf);
-                if (!t)
-                        return -ENOMEM;
-
-                buf = t;
-        }
-#endif
-
-        if (!buf && options) {
+        if (options) {
                 buf = strdup(options);
                 if (!buf)
                         return -ENOMEM;
         }
-        *ret = buf;
 
-        return !!buf;
+        if (uid_shift != UID_INVALID)
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+                        return -ENOMEM;
+
+#if HAVE_SELINUX
+        if (selinux_apifs_context)
+                if (strextendf_with_separator(&buf, ",", "context=\"%s\"", selinux_apifs_context) < 0)
+                        return -ENOMEM;
+#endif
+
+        *ret = TAKE_PTR(buf);
+        return !!*ret;
 }
 
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
@@ -682,9 +672,10 @@ int mount_all(const char *dest,
         return 0;
 }
 
-static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
+static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts, bool *idmapped) {
         unsigned long flags = *mount_flags;
         char *opts = NULL;
+        bool flag_idmapped = *idmapped;
         int r;
 
         assert(options);
@@ -702,32 +693,43 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         flags |= MS_REC;
                 else if (streq(word, "norbind"))
                         flags &= ~MS_REC;
+                else if (streq(word, "idmap"))
+                        flag_idmapped = true;
+                else if (streq(word, "noidmap"))
+                        flag_idmapped = false;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid bind mount option: %s", word);
         }
 
         *mount_flags = flags;
+        *idmapped = flag_idmapped;
         /* in the future mount_opts will hold string options for mount(2) */
         *mount_opts = opts;
 
         return 0;
 }
 
-static int mount_bind(const char *dest, CustomMount *m) {
+static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *mount_opts = NULL, *where = NULL;
         unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
         int r;
+        bool idmapped = false;
 
         assert(dest);
         assert(m);
 
         if (m->options) {
-                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
+                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts, &idmapped);
                 if (r < 0)
                         return r;
         }
+
+        /* If this is a bind mount from a temporary sources change ownership of the source to the container's
+         * root UID. Otherwise it would always show up as "nobody" if user namespacing is used. */
+        if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
+                return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -775,6 +777,12 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 r = bind_remount_recursive(where, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Read-only bind mount failed: %m");
+        }
+
+        if (idmapped) {
+                r = remount_idmap(where, uid_shift, uid_range);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
 
         return 0;
@@ -916,6 +924,7 @@ int mount_custom(
                 const char *dest,
                 CustomMount *mounts, size_t n,
                 uid_t uid_shift,
+                uid_t uid_range,
                 const char *selinux_apifs_context,
                 MountSettingsMask mount_settings) {
         int r;
@@ -937,7 +946,7 @@ int mount_custom(
                 switch (m->type) {
 
                 case CUSTOM_MOUNT_BIND:
-                        r = mount_bind(dest, m);
+                        r = mount_bind(dest, m, uid_shift, uid_range);
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
@@ -957,7 +966,7 @@ int mount_custom(
                         break;
 
                 default:
-                        assert_not_reached("Unknown custom mount type");
+                        assert_not_reached();
                 }
 
                 if (r < 0)

@@ -644,14 +644,12 @@ static int on_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static int on_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+static int on_stream_packet(DnsStream *s, DnsPacket *p) {
         DnsTransaction *t;
 
         assert(s);
-
-        /* Take ownership of packet to be able to receive new packets */
-        assert_se(p = dns_stream_take_read_packet(s));
+        assert(s->manager);
+        assert(p);
 
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (t && t->stream == s) /* Validate that the stream we got this on actually is the stream the
@@ -673,6 +671,7 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
+        usec_t stream_timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
@@ -707,6 +706,14 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s = dns_stream_ref(t->server->stream);
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
+
+                /* Lower timeout in DNS-over-TLS opportunistic mode. In environments where DoT is blocked
+                 * without ICMP response overly long delays when contacting DoT servers are nasty, in
+                 * particular if multiple DNS servers are defined which we try in turn and all are
+                 * blocked. Hence, substantially lower the timeout in that case. */
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) &&
+                    dns_server_get_dns_over_tls_mode(t->server) == DNS_OVER_TLS_OPPORTUNISTIC)
+                        stream_timeout_usec = DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC;
 
                 type = DNS_STREAM_LOOKUP;
                 break;
@@ -745,7 +752,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa);
+                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa,
+                                   on_stream_packet, on_stream_complete, stream_timeout_usec);
                 if (r < 0)
                         return r;
 
@@ -767,9 +775,6 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s->server = dns_server_ref(t->server);
                         t->server->stream = dns_stream_ref(s);
                 }
-
-                s->complete = on_stream_complete;
-                s->on_packet = on_stream_packet;
 
                 /* The interface index is difficult to determine if we are
                  * connecting to the local host, hence fill this in right away
@@ -1091,7 +1096,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 break;
 
         default:
-                assert_not_reached("Invalid DNS protocol.");
+                assert_not_reached();
         }
 
         if (t->received != p) {
@@ -1142,22 +1147,35 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 break;
                         }
 
-                        /* Reduce this feature level by one and try again. */
-                        switch (t->current_feature_level) {
-                        case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
-                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
-                                break;
-                        case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
-                                /* Skip plain TLS when TLS is not supported */
-                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
-                                break;
-                        default:
-                                t->clamp_feature_level_servfail = t->current_feature_level - 1;
-                        }
+                        /* SERVFAIL can happen for many reasons and may be transient.
+                         * To avoid unnecessary downgrades retry once with the initial level.
+                         * Check for clamp_feature_level_servfail having an invalid value as a sign that this is the
+                         * first attempt to downgrade. If so, clamp to the current value so that the transaction
+                         * is retried without actually downgrading. If the next try also fails we will downgrade by
+                         * hitting the else branch below. */
+                        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL &&
+                            t->clamp_feature_level_servfail < 0) {
+                                t->clamp_feature_level_servfail = t->current_feature_level;
+                                log_debug("Server returned error %s, retrying transaction.",
+                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+                        } else {
+                                /* Reduce this feature level by one and try again. */
+                                switch (t->current_feature_level) {
+                                case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
+                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+                                        break;
+                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
+                                        /* Skip plain TLS when TLS is not supported */
+                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
+                                        break;
+                                default:
+                                        t->clamp_feature_level_servfail = t->current_feature_level - 1;
+                                }
 
-                        log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
-                                  dns_rcode_to_string(DNS_PACKET_RCODE(p)),
-                                  dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
+                                log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
+                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                                          dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
+                        }
 
                         dns_transaction_retry(t, false /* use the same server */);
                         return;
@@ -1184,7 +1202,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 break;
 
         default:
-                assert_not_reached("Invalid DNS protocol.");
+                assert_not_reached();
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -1528,7 +1546,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                         break;
 
                 default:
-                        assert_not_reached("Invalid DNS protocol.");
+                        assert_not_reached();
                 }
 
                 log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
@@ -1567,7 +1585,7 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 return t->scope->resend_timeout;
 
         default:
-                assert_not_reached("Invalid DNS protocol.");
+                assert_not_reached();
         }
 }
 
@@ -1959,7 +1977,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         accuracy = MDNS_JITTER_RANGE_USEC;
                         break;
                 default:
-                        assert_not_reached("bad protocol");
+                        assert_not_reached();
                 }
 
                 assert(!t->timeout_event_source);
@@ -3530,7 +3548,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         break;
 
                 default:
-                        assert_not_reached("Unexpected NSEC result.");
+                        assert_not_reached();
                 }
         }
 
@@ -3538,31 +3556,31 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
-        [DNS_TRANSACTION_NULL] = "null",
-        [DNS_TRANSACTION_PENDING] = "pending",
-        [DNS_TRANSACTION_VALIDATING] = "validating",
-        [DNS_TRANSACTION_RCODE_FAILURE] = "rcode-failure",
-        [DNS_TRANSACTION_SUCCESS] = "success",
-        [DNS_TRANSACTION_NO_SERVERS] = "no-servers",
-        [DNS_TRANSACTION_TIMEOUT] = "timeout",
+        [DNS_TRANSACTION_NULL]                 = "null",
+        [DNS_TRANSACTION_PENDING]              = "pending",
+        [DNS_TRANSACTION_VALIDATING]           = "validating",
+        [DNS_TRANSACTION_RCODE_FAILURE]        = "rcode-failure",
+        [DNS_TRANSACTION_SUCCESS]              = "success",
+        [DNS_TRANSACTION_NO_SERVERS]           = "no-servers",
+        [DNS_TRANSACTION_TIMEOUT]              = "timeout",
         [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED] = "attempts-max-reached",
-        [DNS_TRANSACTION_INVALID_REPLY] = "invalid-reply",
-        [DNS_TRANSACTION_ERRNO] = "errno",
-        [DNS_TRANSACTION_ABORTED] = "aborted",
-        [DNS_TRANSACTION_DNSSEC_FAILED] = "dnssec-failed",
-        [DNS_TRANSACTION_NO_TRUST_ANCHOR] = "no-trust-anchor",
-        [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED] = "rr-type-unsupported",
-        [DNS_TRANSACTION_NETWORK_DOWN] = "network-down",
-        [DNS_TRANSACTION_NOT_FOUND] = "not-found",
-        [DNS_TRANSACTION_NO_SOURCE] = "no-source",
-        [DNS_TRANSACTION_STUB_LOOP] = "stub-loop",
+        [DNS_TRANSACTION_INVALID_REPLY]        = "invalid-reply",
+        [DNS_TRANSACTION_ERRNO]                = "errno",
+        [DNS_TRANSACTION_ABORTED]              = "aborted",
+        [DNS_TRANSACTION_DNSSEC_FAILED]        = "dnssec-failed",
+        [DNS_TRANSACTION_NO_TRUST_ANCHOR]      = "no-trust-anchor",
+        [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED]  = "rr-type-unsupported",
+        [DNS_TRANSACTION_NETWORK_DOWN]         = "network-down",
+        [DNS_TRANSACTION_NOT_FOUND]            = "not-found",
+        [DNS_TRANSACTION_NO_SOURCE]            = "no-source",
+        [DNS_TRANSACTION_STUB_LOOP]            = "stub-loop",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
 static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MAX] = {
-        [DNS_TRANSACTION_NETWORK] = "network",
-        [DNS_TRANSACTION_CACHE] = "cache",
-        [DNS_TRANSACTION_ZONE] = "zone",
+        [DNS_TRANSACTION_NETWORK]      = "network",
+        [DNS_TRANSACTION_CACHE]        = "cache",
+        [DNS_TRANSACTION_ZONE]         = "zone",
         [DNS_TRANSACTION_TRUST_ANCHOR] = "trust-anchor",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);

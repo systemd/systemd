@@ -15,3 +15,5 @@ struct local_address {
 int local_addresses(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
 
 int local_gateways(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
+
+int local_outbounds(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);

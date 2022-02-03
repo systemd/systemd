@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.network</title>
@@ -52,9 +53,9 @@
 
     <para>Along with the netdev file <filename>foo.netdev</filename>, a "drop-in" directory
     <filename>foo.netdev.d/</filename> may exist. All files with the suffix <literal>.conf</literal>
-    from this directory will be parsed after the file itself is parsed. This is useful to alter or
-    add configuration settings, without having to modify the main configuration file. Each drop-in
-    file must have appropriate section headers.</para>
+    from this directory will be merged in the alphanumeric order and parsed after the main file itself
+    has been parsed. This is useful to alter or add configuration settings, without having to modify
+    the main configuration file. Each drop-in file must have appropriate section headers.</para>
 
     <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
     directories can be placed in <filename>/usr/lib/systemd/network</filename> or
@@ -93,13 +94,13 @@
           <entry>A dummy device drops all packets sent to it.</entry></row>
 
           <row><entry><varname>gre</varname></entry>
-          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
+          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details. Name <literal>gre0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>gretap</varname></entry>
-          <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
+          <entry>A Level 2 GRE tunnel over IPv4. Name <literal>gretap0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>erspan</varname></entry>
-          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch.</entry></row>
+          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch. Name <literal>erspan0</literal> should not be used, as the kernel creates a device with this name when the corresponding kernel module is loaded.</entry></row>
 
           <row><entry><varname>ip6gre</varname></entry>
           <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
@@ -188,6 +189,9 @@
 
           <row><entry><varname>batadv</varname></entry>
           <entry><ulink url="https://www.open-mesh.org/projects/open-mesh/wiki">B.A.T.M.A.N. Advanced</ulink> is a routing protocol for multi-hop mobile ad-hoc networks which operates on layer 2.</entry></row>
+
+          <row><entry><varname>ipoib</varname></entry>
+          <entry>An IP over Infiniband subinterface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -197,67 +201,16 @@
   <refsect1>
     <title>[Match] Section Options</title>
 
-    <para>A virtual network device is only created if the
-    [Match] section matches the current
-    environment, or if the section is empty. The following keys are
-    accepted:</para>
+    <para>A virtual network device is only created if the [Match] section matches the current
+    environment, or if the section is empty. The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Host=</varname></term>
-        <listitem>
-          <para>Matches against the hostname or machine ID of the host. See
-          <literal>ConditionHost=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Virtualization=</varname></term>
-        <listitem>
-          <para>Checks whether the system is executed in a virtualized environment and optionally test
-          whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>KernelCommandLine=</varname></term>
-        <listitem>
-          <para>Checks whether a specific kernel command line option is set. See
-          <literal>ConditionKernelCommandLine=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>KernelVersion=</varname></term>
-        <listitem>
-          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
-          certain expression. See <literal>ConditionKernelVersion=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Architecture=</varname></term>
-        <listitem>
-          <para>Checks whether the system is running on a specific architecture. See
-          <literal>ConditionArchitecture=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
-          </para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="systemd.link.xml" xpointer="host" />
+      <xi:include href="systemd.link.xml" xpointer="virtualization" />
+      <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
+      <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="architecture" />
+      <xi:include href="systemd.link.xml" xpointer="firmware" />
     </variablelist>
   </refsect1>
 
@@ -304,15 +257,22 @@
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-          devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
-          supported. Please specify it in [Link] section of the corresponding
+          <para>Specifies the MAC address to use for the device, or takes the special value
+          <literal>none</literal>. When <literal>none</literal>, <command>systemd-networkd</command>
+          does not request the MAC address for the device, and the kernel will assign a random MAC
+          address. For <literal>tun</literal>, <literal>tap</literal>, or <literal>l2tp</literal>
+          devices, the <varname>MACAddress=</varname> setting in the [NetDev] section is not
+          supported and will be ignored. Please specify it in the [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
-          physical interface. For other kind of netdevs, if this option is not set, then MAC address is
-          generated based on the interface name and the
+          file. If this option is not set, <literal>vlan</literal> device inherits the MAC address of
+          the master interface. For other kind of netdevs, if this option is not set, then the MAC
+          address is generated based on the interface name and the
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+          <para>Note, even if <literal>none</literal> is specified, <command>systemd-udevd</command>
+          will assign the persistent MAC address for the device, as <filename>99-default.link</filename>
+          has <varname>MACAddressPolicy=persistent</varname>. So, it is also necessary to create a
+          custom .link file for the device, if the MAC address assignment is not desired.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -379,7 +339,7 @@
         <term><varname>DefaultPVID=</varname></term>
         <listitem>
           <para>This specifies the default port VLAN ID of a newly attached bridge port.
-          Set this to an integer in the range 1–4094 or <literal>none</literal> to disable the PVID.</para>
+          Set this to an integer in the range 1…4094 or <literal>none</literal> to disable the PVID.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -449,7 +409,7 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>The VLAN ID to use. An integer in the range 0–4094.
+          <para>The VLAN ID to use. An integer in the range 0…4094.
           This setting is compulsory.</para>
         </listitem>
       </varlistentry>
@@ -496,24 +456,14 @@
       </varlistentry>
       <varlistentry>
         <term><varname>EgressQOSMaps=</varname></term>
-        <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for outgoing frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>IngressQOSMaps=</varname></term>
         <listitem>
-          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>) to VLAN header
-          PCP field for incoming frames. Takes a whitespace-separated list of unsigned integer pairs in the format
-          <literal>from</literal>-<literal>to</literal>, e.g., <literal>21-7 45-5</literal> ranges 1–4294967294.
-          Note that <literal>from</literal> must be greater than or equal to <literal>to</literal>. When unset,
-          the kernel's default will be used.
-          </para>
+          <para>Defines a mapping of Linux internal packet priority (<constant>SO_PRIORITY</constant>)
+          to VLAN header PCP field for outgoing and incoming frames, respectively. Takes a
+          whitespace-separated list of integer pairs, where each integer must be in the range
+          1…4294967294, in the format <literal>from</literal>-<literal>to</literal>, e.g.,
+          <literal>21-7 45-5</literal>. Note that <literal>from</literal> must be greater than or equal
+          to <literal>to</literal>. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -623,7 +573,11 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>Configures local IP address.</para>
+          <para>Configures local IP address. It must be an address on the underlying interface of the
+          VXLAN interface, or one of the special values <literal>ipv4_link_local</literal>,
+          <literal>ipv6_link_local</literal>, <literal>dhcp4</literal>, <literal>dhcp6</literal>, and
+          <literal>slaac</literal>. If one of the special values is specified, an address which matches
+          the corresponding type on the underlying interface will be used. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -643,7 +597,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
-          Takes <literal>inherit</literal> or a number in the range 0–255. 0 is a special
+          Takes <literal>inherit</literal> or a number in the range 0…255. 0 is a special
           value meaning inherit the inner protocol's TTL value. <literal>inherit</literal>
           means that it will inherit the outer protocol's TTL value.</para>
         </listitem>
@@ -779,6 +733,14 @@
           default will be used.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
+          interface. Defaults to false, which means that a .network file that requests this VXLAN interface
+          using <varname>VXLAN=</varname> is required for the VXLAN to be created.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -855,14 +817,6 @@
           <para>Accepts the same key as in [VXLAN] section.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>Independent=</varname></term>
-        <listitem>
-          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
-          interface. Defaults to false, which means that a .network file that requests this tunnel using
-          <varname>Tunnel=</varname> is required for the tunnel to be created.</para>
-        </listitem>
-      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -902,7 +856,7 @@
       <varlistentry>
         <term><varname>TunnelId=</varname></term>
         <listitem>
-          <para>Specifies the tunnel identifier. Takes an number in the range 1–4294967295. The value used
+          <para>Specifies the tunnel identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
           compulsory.</para>
         </listitem>
@@ -991,7 +945,7 @@
       <varlistentry>
         <term><varname>SessionId=</varname></term>
         <listitem>
-          <para>Specifies the session identifier. Takes an number in the range 1–4294967295. The value used
+          <para>Specifies the session identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>SessionId=</literal> value being used at the peer. This setting is
           compulsory.</para>
         </listitem>
@@ -999,7 +953,7 @@
       <varlistentry>
         <term><varname>PeerSessionId=</varname></term>
         <listitem>
-          <para>Specifies the peer session identifier. Takes an number in the range 1–4294967295.
+          <para>Specifies the peer session identifier. Takes an number in the range 1…4294967295.
           The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
           This setting is compulsory.</para>
         </listitem>
@@ -1097,7 +1051,7 @@
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
-          <para>Takes a absolute path to a file which contains a 128-bit key encoded in a hexadecimal string,
+          <para>Takes an absolute path to a file which contains a 128-bit key encoded in a hexadecimal string,
           which will be used in the transmission channel. When this option is specified,
           <varname>Key=</varname> is ignored. Note that the file must be readable by the user
           <literal>systemd-network</literal>, so it should be, e.g., owned by
@@ -1198,8 +1152,13 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>A static local address for tunneled packets. It must be an address on another interface of
-          this host, or the special value <literal>any</literal>.</para>
+          <para>A static local address for tunneled packets. It must be an address on another interface
+          of this host, or one of the special values <literal>any</literal>,
+          <literal>ipv4_link_local</literal>, <literal>ipv6_link_local</literal>,
+          <literal>dhcp4</literal>, <literal>dhcp6</literal>, and <literal>slaac</literal>. If one
+          of the special values except for <literal>any</literal> is specified, an address which
+          matches the corresponding type on the underlying interface will be used. Defaults to
+          <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1223,7 +1182,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on tunneled packets. N is a
-          number in the range 1–255. 0 is a special value meaning that
+          number in the range 1…255. 0 is a special value meaning that
           packets inherit the TTL value. The default value for IPv4
           tunnels is 0 (inherit). The default value for IPv6 tunnels is
           64.</para>
@@ -1245,7 +1204,7 @@
           It is only used for IPv6 tunnels.
           A flow label of zero is used to indicate packets that have
           not been labeled.
-          It can be configured to a value in the range 0–0xFFFFF, or be
+          It can be configured to a value in the range 0…0xFFFFF, or be
           set to <literal>inherit</literal>, in which case the original flowlabel is used.</para>
         </listitem>
       </varlistentry>
@@ -1270,7 +1229,7 @@
           value of zero means that a packet carrying that option may not enter
           another tunnel before exiting the current tunnel.
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
-          The valid range is 0–255 and <literal>none</literal>. Defaults to 4.
+          The valid range is 0…255 and <literal>none</literal>. Defaults to 4.
         </para>
         </listitem>
       </varlistentry>
@@ -1612,6 +1571,29 @@
           <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes a negative boolean value, one of the predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, names
+          defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. When <literal>off</literal> the routes to the
+          addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
+          Defaults to false. This setting will be ignored when the same setting is specified in the
+          [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to 0
+          for IPv4 addresses, and 1024 for IPv6 addresses. This setting will be ignored when the same
+          setting is specified in the [WireGuardPeer] section.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1662,15 +1644,15 @@
           <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
           from which this peer is allowed to send incoming traffic and to
           which outgoing traffic for this peer is directed.</para>
+
           <para>The catch-all 0.0.0.0/0 may be specified for matching all IPv4 addresses,
           and ::/0 may be specified for matching all IPv6 addresses.</para>
-          <para>Note that this only affects "routing inside the network interface itself",
-          as in, which wireguard peer packets with a specific destination address are sent to,
-          and what source addresses are accepted from which peer.</para>
-          <para>To cause packets to be sent via wireguard in first place, a route needs
-          to be added, as well - either in the <literal>[Routes]</literal> section on the
-          <literal>.network</literal> matching the wireguard interface, or outside of networkd.
-          </para>
+
+          <para>Note that this only affects <emphasis>routing inside the network interface itself</emphasis>,
+          i.e. the packets that pass through the tunnel itself. To cause packets to be sent via the tunnel in
+          the first place, an appropriate route needs to be added as well — either in the
+          <literal>[Routes]</literal> section on the <literal>.network</literal> matching the wireguard
+          interface, or externally to <filename>systemd-networkd</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1694,6 +1676,27 @@
           interval of 25 seconds. If set to 0 or "off", this option is
           disabled. By default or when unspecified, this option is off.
           Most users will not need this.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteTable=</varname></term>
+        <listitem>
+          <para>The table identifier for the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes a negative boolean value, one of the predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, names
+          defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number in the range 1…4294967295. Defaults to unset, and the value specified in the
+          same setting in the [WireGuard] section will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The priority of the routes to the addresses specified in the
+          <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to
+          unset, and the value specified in the same setting in the [WireGuard] section will be used.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1765,7 +1768,7 @@
         <listitem>
           <para>Specifies the delay before a link is enabled after a
           link up status has been detected. This value is rounded down
-          to a multiple of MIIMonitorSec. The default value is
+          to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1775,7 +1778,7 @@
         <listitem>
           <para>Specifies the delay before a link is disabled after a
           link down status has been detected. This value is rounded
-          down to a multiple of MIIMonitorSec. The default value is
+          down to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
         </listitem>
       </varlistentry>
@@ -1785,7 +1788,7 @@
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
           driver sends learning packets to each slave peer switch.
-          The valid range is 1–0x7fffffff; the default value is 1. This option
+          The valid range is 1…0x7fffffff; the default value is 1. This option
           has an effect only for the balance-tlb and balance-alb modes.</para>
         </listitem>
       </varlistentry>
@@ -1812,7 +1815,7 @@
         <term><varname>AdUserPortKey=</varname></term>
         <listitem>
           <para>Specifies the 802.3ad user defined portion of the port key. Takes a number in the range
-          0–1023.</para>
+          0…1023.</para>
         </listitem>
       </varlistentry>
 
@@ -1866,8 +1869,8 @@
         <term><varname>ARPIPTargets=</varname></term>
         <listitem>
           <para>Specifies the IP addresses to use as ARP monitoring peers when
-          ARPIntervalSec is greater than 0. These are the targets of the ARP request
-          sent to determine the health of the link to the targets.
+          <varname>ARPIntervalSec=</varname> is greater than 0. These are the targets of the ARP
+          request sent to determine the health of the link to the targets.
           Specify these values in IPv4 dotted decimal format. At least one IP
           address must be given for ARP monitoring to function. The
           maximum number of targets that can be specified is 16. The
@@ -1879,7 +1882,7 @@
       <varlistentry>
         <term><varname>ARPAllTargets=</varname></term>
         <listitem>
-          <para>Specifies the quantity of ARPIPTargets that must be reachable
+          <para>Specifies the quantity of <varname>ARPIPTargets=</varname> that must be reachable
           in order for the ARP monitor to consider a slave as being up.
           This option affects only active-backup mode for slaves with
           ARPValidate enabled. Possible values are
@@ -1910,7 +1913,7 @@
           <para>Specifies the number of IGMP membership reports to be issued after
           a failover event. One membership report is issued immediately after
           the failover, subsequent packets are sent in each 200ms interval.
-          The valid range is 0–255. Defaults to 1. A value of 0
+          The valid range is 0…255. Defaults to 1. A value of 0
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
@@ -1922,7 +1925,7 @@
         <listitem>
           <para>Specify the number of packets to transmit through a slave before
           moving to the next one. When set to 0, then a slave is chosen at
-          random. The valid range is 0–65535. Defaults to 1. This option
+          random. The valid range is 0…65535. Defaults to 1. This option
           only has effect when in balance-rr mode.
           </para>
         </listitem>
@@ -1937,7 +1940,7 @@
           a peer notification is sent on the  bonding device and each
           VLAN sub-device.  This is repeated at each link monitor interval
           (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
-          greater than 1. The valid range is 0–255. The default value is 1.
+          greater than 1. The valid range is 0…255. The default value is 1.
           These options affect only the active-backup mode.
           </para>
         </listitem>
@@ -1991,7 +1994,7 @@
         <term><varname>InterfaceId=</varname></term>
         <listitem>
           <para>Sets the ID/key of the xfrm interface which needs to be associated with a SA/policy.
-          Can be decimal or hexadecimal, valid range is 0-0xffffffff, defaults to 0.</para>
+          Can be decimal or hexadecimal, valid range is 1-0xffffffff. This is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2025,9 +2028,9 @@
 
   <refsect1>
     <title>[BatmanAdvanced] Section Options</title>
-    <para>The [BatmanAdvanced] section only applies for
-    netdevs of kind <literal>batadv</literal> and accepts the
-    following keys:</para>
+
+    <para>The [BatmanAdvanced] section only applies for netdevs of kind <literal>batadv</literal> and accepts
+    the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2070,7 +2073,7 @@
       <varlistentry>
         <term><varname>HopPenalty=</varname></term>
         <listitem>
-          <para>The hop penalty setting allows to modify
+          <para>The hop penalty setting allows one to modify
           <citerefentry project='mankier'><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           preference for multihop routes vs. short routes. This integer value is applied to the
           TQ (Transmit Quality) of each forwarded OGM (Originator Message), thereby propagating the
@@ -2119,6 +2122,49 @@
           of <citerefentry><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
           cannot be changed after interface creation. Defaults to <literal>batman-v</literal>.
           </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPoIB] Section Options</title>
+    <para>The [IPoIB] section only applies for netdevs of kind <literal>ipoib</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PartitionKey=</varname></term>
+        <listitem>
+          <para>Takes an integer in the range 1…0xffff, except for 0x8000. Defaults to unset, and the
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_mode'>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>Takes one of the special values <literal>datagram</literal> or
+          <literal>connected</literal>. Defaults to unset, and the kernel's default is used.</para>
+
+          <para>When <literal>datagram</literal>, the Infiniband unreliable datagram (UD) transport is
+          used, and so the interface MTU is equal to the IB L2 MTU minus the IPoIB encapsulation
+          header (4 bytes). For example, in a typical IB fabric with a 2K MTU, the IPoIB MTU will be
+          2048 - 4 = 2044 bytes.</para>
+
+          <para>When <literal>connected</literal>, the Infiniband reliable connected (RC) transport is
+          used. Connected mode takes advantage of the connected nature of the IB transport and allows
+          an MTU up to the maximal IP packet size of 64K, which reduces the number of IP packets needed
+          for handling large UDP datagrams, TCP segments, etc and increases the performance for large
+          messages.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='ipoib_umcast'>
+        <term><varname>IgnoreUserspaceMulticastGroup=</varname></term>
+        <listitem>
+          <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
+          userspace. Defaults to unset, and the kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

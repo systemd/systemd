@@ -50,7 +50,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 char *_argv[2];
 
                 if (stdout_fd >= 0) {
-                        r = rearrange_stdio(STDIN_FILENO, stdout_fd, STDERR_FILENO);
+                        r = rearrange_stdio(STDIN_FILENO, TAKE_FD(stdout_fd), STDERR_FILENO);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }
@@ -449,7 +449,16 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
+        /* Refuse invalid fds, regardless if fexecve() use is enabled or not */
+        if (executable_fd < 0)
+                return -EBADF;
+
+        /* Block any attempts on exploiting Linux' liberal argv[] handling, i.e. CVE-2021-4034 and suchlike */
+        if (isempty(executable) || strv_isempty(argv))
+                return -EINVAL;
+
 #if ENABLE_FEXECVE
+
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
         if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
@@ -469,4 +478,83 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
 #endif
                 execve(executable, argv, envp);
         return -errno;
+}
+
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+        bool stdout_is_tty, stderr_is_tty;
+        size_t n, i;
+        va_list ap;
+        char **l;
+        int r;
+
+        assert(path);
+
+        /* Spawns a temporary TTY agent, making sure it goes away when we go away */
+
+        r = safe_fork_full(name,
+                           except,
+                           n_except,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                           ret_pid);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* In the child: */
+
+        stdout_is_tty = isatty(STDOUT_FILENO);
+        stderr_is_tty = isatty(STDERR_FILENO);
+
+        if (!stdout_is_tty || !stderr_is_tty) {
+                int fd;
+
+                /* Detach from stdout/stderr and reopen /dev/tty for them. This is important to ensure that
+                 * when systemctl is started via popen() or a similar call that expects to read EOF we
+                 * actually do generate EOF and not delay this indefinitely by keeping an unused copy of
+                 * stdin around. */
+                fd = open("/dev/tty", O_WRONLY);
+                if (fd < 0) {
+                        if (errno != ENXIO) {
+                                log_error_errno(errno, "Failed to open /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        /* If we get ENXIO here we have no controlling TTY even though stdout/stderr are
+                         * connected to a TTY. That's a weird setup, but let's handle it gracefully: let's
+                         * skip the forking of the agents, given the TTY setup is not in order. */
+                } else {
+                        if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        fd = safe_close_above_stdio(fd);
+                }
+        }
+
+        (void) rlimit_nofile_safe();
+
+        /* Count arguments */
+        va_start(ap, path);
+        for (n = 0; va_arg(ap, char*); n++)
+                ;
+        va_end(ap);
+
+        /* Allocate strv */
+        l = newa(char*, n + 1);
+
+        /* Fill in arguments */
+        va_start(ap, path);
+        for (i = 0; i <= n; i++)
+                l[i] = va_arg(ap, char*);
+        va_end(ap);
+
+        execv(path, l);
+        _exit(EXIT_FAILURE);
 }

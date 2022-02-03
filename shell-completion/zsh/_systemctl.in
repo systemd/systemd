@@ -1,4 +1,4 @@
-#compdef systemctl                    -*- shell-script -*-
+#compdef systemctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemctl_commands] )) || _systemctl_commands()
@@ -433,7 +433,7 @@ done
         if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
                ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
         then
-            _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
+            _sys_all_properties=( ${${(M)${(f)"$({{ROOTLIBEXECDIR}}/systemd --dump-bus-properties)"}}} )
             _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
         fi
         _values -s , "${_sys_all_properties[@]}"
@@ -485,7 +485,7 @@ _arguments -s \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \
     "--no-wall[Don't send wall message before halt/power-off/reboot]" \
-    '--global[Enable/disable/mask unit files globally]' \
+    '--global[Enable/disable/mask default user unit files globally]' \
     "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
     '--no-ask-password[Do not ask for system passwords]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \

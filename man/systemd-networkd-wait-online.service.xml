@@ -18,12 +18,14 @@
 
   <refnamediv>
     <refname>systemd-networkd-wait-online.service</refname>
+    <refname>systemd-networkd-wait-online@.service</refname>
     <refname>systemd-networkd-wait-online</refname>
     <refpurpose>Wait for network to come online</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-networkd-wait-online.service</filename></para>
+    <para><filename>systemd-networkd-wait-online@.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
   </refsynopsisdiv>
 
@@ -38,6 +40,17 @@
     to be fully configured or failed, and for at least one link to be online. Here, online means that
     the link's operational state is equal or higher than <literal>degraded</literal>. The threshold
     can be configured by <option>--operational-state=</option> option.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online.service</filename> invokes
+    <command>systemd-networkd-wait-online</command> without any options. Thus, it waits for all managed
+    interfaces to be configured or failed, and for at least one to be online.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online@.service</filename> takes an interface
+    name, and invokes <command>systemd-networkd-wait-online</command> with <option>-i</option> and the
+    specified interface name. Thus, wait for the specified interface to be configured and online. For
+    example, <filename>systemd-networkd-wait-online@eth0.service</filename> waits for
+    <filename>eth0</filename> to be configured by <command>systemd-networkd</command> and online.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -92,8 +105,12 @@
         <listitem><para>Waiting for an IPv4 address of each network interface to be configured. If this
         option is specified with <option>--any</option>, then
         <command>systemd-networkd-wait-online</command> exits with success when at least one interface
-        becomes online and has an IPv4 address. The option is applied only for the operational state
-        <literal>degraded</literal> or above. If neither <option>--ipv4</option> nor
+        becomes online and has an IPv4 address. If the required minimum operational state is
+        below <literal>routable</literal>, then each link (or at least one link with
+        <option>--any</option>) must have an IPv4 link-local or routable address. If the required
+        minimum operational state is <literal>routable</literal>, then each link must have an IPv4
+        routable address.</para>
+        <para>If neither <option>--ipv4</option> nor
         <option>--ipv6</option> is specified, then the value from
         <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
         file is used if present.</para></listitem>
@@ -106,8 +123,12 @@
         <listitem><para>Waiting for an IPv6 address of each network interface to be configured. If this
         option is specified with <option>--any</option>, then
         <command>systemd-networkd-wait-online</command> exits with success when at least one interface
-        becomes online and has an IPv6 address. The option is applied only for the operational state
-        <literal>degraded</literal> or above. If neither <option>--ipv4</option> nor
+        becomes online and has an IPv6 address. If the required minimum operational state is
+        below <literal>routable</literal>, then each link (or at least one link with
+        <option>--any</option>) must have an IPv6 link-local or routable address. If the required
+        minimum operational state is <literal>routable</literal>, then each link must have an IPv6
+        routable address.</para>
+        <para>If neither <option>--ipv4</option> nor
         <option>--ipv6</option> is specified, then the value from
         <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
         file is used if present.</para></listitem>

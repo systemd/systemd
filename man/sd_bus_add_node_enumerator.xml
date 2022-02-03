@@ -58,8 +58,9 @@
 
     <para><parameter>callback</parameter> is called with the path and userdata pointer registered
     with <function>sd_bus_add_node_enumerator()</function>. When called, it should store all the
-    child object paths of the given path prefix in <parameter>ret_nodes</parameter> and return the
-    number of child objects under the given prefix. If an error occurs, it can either return a
+    child object paths of the given path prefix in <parameter>ret_nodes</parameter> with a NULL
+    terminator item. The callback should return a non-negative value on success.
+    If an error occurs, it can either return a
     negative integer, set <parameter>ret_error</parameter> to a non-empty error or do both. Any
     errors returned by the callback are encoded as D-Bus errors and sent back to the caller. Errors
     in <parameter>ret_error</parameter> take priority over negative return values.</para>

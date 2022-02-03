@@ -3,10 +3,11 @@
 #include "random-util.h"
 #include "set.h"
 #include "strv.h"
+#include "tests.h"
 
 const bool mempool_use_allowed = VALGRIND;
 
-static void test_set_steal_first(void) {
+TEST(set_steal_first) {
         _cleanup_set_free_ Set *m = NULL;
         int seen[3] = {};
         char *val;
@@ -33,7 +34,7 @@ static void item_seen(Item *item) {
         item->seen++;
 }
 
-static void test_set_free_with_destructor(void) {
+TEST(set_free_with_destructor) {
         Set *m;
         struct Item items[4] = {};
         unsigned i;
@@ -51,7 +52,7 @@ static void test_set_free_with_destructor(void) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
-static void test_set_free_with_hash_ops(void) {
+TEST(set_free_with_hash_ops) {
         Set *m;
         struct Item items[4] = {};
         unsigned i;
@@ -67,7 +68,7 @@ static void test_set_free_with_hash_ops(void) {
         assert_se(items[3].seen == 0);
 }
 
-static void test_set_put(void) {
+TEST(set_put) {
         _cleanup_set_free_ Set *m = NULL;
 
         m = set_new(&string_hash_ops);
@@ -89,7 +90,7 @@ static void test_set_put(void) {
         assert_se(strv_length(t) == 3);
 }
 
-static void test_set_put_strdup(void) {
+TEST(set_put_strdup) {
         _cleanup_set_free_ Set *m = NULL;
 
         assert_se(set_put_strdup(&m, "aaa") == 1);
@@ -100,7 +101,7 @@ static void test_set_put_strdup(void) {
         assert_se(set_size(m) == 2);
 }
 
-static void test_set_put_strdupv(void) {
+TEST(set_put_strdupv) {
         _cleanup_set_free_ Set *m = NULL;
 
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "aaa")) == 2);
@@ -108,7 +109,7 @@ static void test_set_put_strdupv(void) {
         assert_se(set_size(m) == 3);
 }
 
-static void test_set_ensure_allocated(void) {
+TEST(set_ensure_allocated) {
         _cleanup_set_free_ Set *m = NULL;
 
         assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
@@ -117,7 +118,37 @@ static void test_set_ensure_allocated(void) {
         assert_se(set_size(m) == 0);
 }
 
-static void test_set_ensure_put(void) {
+TEST(set_copy) {
+        Set *s, *copy;
+        char *key1, *key2, *key3, *key4;
+
+        key1 = strdup("key1");
+        assert_se(key1);
+        key2 = strdup("key2");
+        assert_se(key2);
+        key3 = strdup("key3");
+        assert_se(key3);
+        key4 = strdup("key4");
+        assert_se(key4);
+
+        s = set_new(&string_hash_ops);
+        assert_se(s);
+
+        assert_se(set_put(s, key1) >= 0);
+        assert_se(set_put(s, key2) >= 0);
+        assert_se(set_put(s, key3) >= 0);
+        assert_se(set_put(s, key4) >= 0);
+
+        copy = set_copy(s);
+        assert_se(copy);
+
+        assert_se(set_equal(s, copy));
+
+        set_free(s);
+        set_free_free(copy);
+}
+
+TEST(set_ensure_put) {
         _cleanup_set_free_ Set *m = NULL;
 
         assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 1);
@@ -129,7 +160,7 @@ static void test_set_ensure_put(void) {
         assert_se(set_size(m) == 2);
 }
 
-static void test_set_ensure_consume(void) {
+TEST(set_ensure_consume) {
         _cleanup_set_free_ Set *m = NULL;
         char *s, *t;
 
@@ -151,7 +182,7 @@ static void test_set_ensure_consume(void) {
         assert_se(set_size(m) == 2);
 }
 
-static void test_set_strjoin(void) {
+TEST(set_strjoin) {
         _cleanup_set_free_ Set *m = NULL;
         _cleanup_free_ char *joined = NULL;
 
@@ -228,7 +259,7 @@ static void test_set_strjoin(void) {
         assert_se(STR_IN_SET(joined, "xxxaaaxxxbbbxxx", "xxxbbbxxxaaaxxx"));
 }
 
-static void test_set_equal(void) {
+TEST(set_equal) {
         _cleanup_set_free_ Set *a = NULL, *b = NULL;
         void *p;
         int r;
@@ -299,18 +330,4 @@ static void test_set_equal(void) {
         assert_se(set_equal(b, a));
 }
 
-int main(int argc, const char *argv[]) {
-        test_set_steal_first();
-        test_set_free_with_destructor();
-        test_set_free_with_hash_ops();
-        test_set_put();
-        test_set_put_strdup();
-        test_set_put_strdupv();
-        test_set_ensure_allocated();
-        test_set_ensure_put();
-        test_set_ensure_consume();
-        test_set_strjoin();
-        test_set_equal();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

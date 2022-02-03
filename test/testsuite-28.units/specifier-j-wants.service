@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Wants with percent-j specifier
 Wants=specifier-j-depends-%j.service

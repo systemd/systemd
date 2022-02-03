@@ -176,6 +176,7 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
 
 int deserialize_environment(const char *value, char ***list) {
         _cleanup_free_ char *unescaped = NULL;
+        ssize_t l;
         int r;
 
         assert(value);
@@ -183,9 +184,9 @@ int deserialize_environment(const char *value, char ***list) {
 
         /* Changes the *environment strv inline. */
 
-        r = cunescape(value, 0, &unescaped);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unescape: %m");
+        l = cunescape(value, 0, &unescaped);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape: %m");
 
         r = strv_env_replace_consume(list, TAKE_PTR(unescaped));
         if (r < 0)

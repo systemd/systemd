@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ftw.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -194,7 +193,7 @@ static int list_locales(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of locales: %m");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
         strv_print(l);
 
         return 0;
@@ -234,7 +233,7 @@ static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of keymaps: %m");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         strv_print(l);
 
@@ -293,7 +292,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         else if (streq(argv[0], "list-x11-keymap-options"))
                 look_for = OPTIONS;
         else
-                assert_not_reached("Wrong parameter");
+                assert_not_reached();
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -363,7 +362,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         strv_sort(list);
         strv_uniq(list);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         strv_print(list);
         return 0;
@@ -474,7 +473,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -513,7 +512,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0)
-                return bus_log_connect_error(r);
+                return bus_log_connect_error(r, arg_transport);
 
         return localectl_main(bus, argc, argv);
 }

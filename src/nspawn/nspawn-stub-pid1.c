@@ -180,7 +180,7 @@ int stub_pid1(sd_id128_t uuid) {
 
                         state = STATE_REBOOT;
                 else
-                        assert_not_reached("Got unexpected signal");
+                        assert_not_reached();
 
                 r = kill_and_sigcont(pid, SIGTERM);
 

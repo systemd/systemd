@@ -7,6 +7,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "env-util.h"
 #include "errno-list.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -36,19 +37,17 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
         if (name)
                 return name;
 
-        snprintf(buf, buf_len, "%i", family);
+        (void) snprintf(buf, buf_len, "%i", family);
         return buf;
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
-        int n = 0;
+        int r, n = 0;
 
         for (const struct gaih_addrtuple *it = tuples; it; it = it->next) {
                 _cleanup_free_ char *a = NULL;
                 union in_addr_union u;
-                int r;
                 char family_name[DECIMAL_STR_MAX(int)];
-                char ifname[IF_NAMESIZE + 1];
 
                 memcpy(&u, it->addr, 16);
                 r = in_addr_to_string(it->family, &u, &a);
@@ -56,21 +55,13 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 if (r == -EAFNOSUPPORT)
                         assert_se(a = hexmem(it->addr, 16));
 
-                if (it->scopeid == 0)
-                        goto numerical_index;
-
-                if (!format_ifname(it->scopeid, ifname)) {
-                        log_warning_errno(errno, "if_indextoname(%d) failed: %m", it->scopeid);
-                numerical_index:
-                        xsprintf(ifname, "%i", it->scopeid);
-                };
-
-                log_info("        \"%s\" %s %s %%%s",
+                log_info("        \"%s\" %s %s %s",
                          it->name,
                          af_to_string(it->family, family_name, sizeof family_name),
                          a,
-                         ifname);
-                n ++;
+                         FORMAT_IFNAME_FULL(it->scopeid, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
+
+                n++;
         }
         return n;
 }
@@ -145,7 +136,9 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         if (STR_IN_SET(module, "resolve", "mymachines") && status == NSS_STATUS_UNAVAIL)
                 return;
 
-        if (STR_IN_SET(module, "myhostname", "resolve") && streq(name, "localhost")) {
+        if (STR_IN_SET(module, "myhostname", "resolve") &&
+            streq(name, "localhost") &&
+            getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                 assert_se(status == NSS_STATUS_SUCCESS);
                 assert_se(n == 2);
         }
@@ -354,15 +347,13 @@ static void test_byaddr(void *handle,
 
 static int make_addresses(struct local_address **addresses) {
         int n;
-        size_t n_alloc;
         _cleanup_free_ struct local_address *addrs = NULL;
 
         n = local_addresses(NULL, 0, AF_UNSPEC, &addrs);
         if (n < 0)
                 log_info_errno(n, "Failed to query local addresses: %m");
 
-        n_alloc = n; /* we _can_ do that */
-        assert_se(GREEDY_REALLOC(addrs, n_alloc, n + 3));
+        assert_se(GREEDY_REALLOC(addrs, n + 3));
 
         addrs[n++] = (struct local_address) { .family = AF_INET,
                                               .address.in = { htobe32(0x7F000001) } };
@@ -406,7 +397,6 @@ static int parse_argv(int argc, char **argv,
 
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
-        size_t n_allocated = 0;
         const char *p;
         int r, n = 0;
 
@@ -430,7 +420,7 @@ static int parse_argv(int argc, char **argv,
 #if ENABLE_NSS_MYMACHINES
                                 "mymachines",
 #endif
-                                "dns");
+                                NULL);
         assert_se(modules);
 
         if (argc > 2) {
@@ -446,7 +436,7 @@ static int parse_argv(int argc, char **argv,
                                 if (r < 0)
                                         return r;
                         } else {
-                                assert_se(GREEDY_REALLOC0(addrs, n_allocated, n + 1));
+                                assert_se(GREEDY_REALLOC0(addrs, n + 1));
 
                                 addrs[n++] = (struct local_address) { .family = family,
                                                                       .address = address };
@@ -455,8 +445,7 @@ static int parse_argv(int argc, char **argv,
         } else {
                 _cleanup_free_ char *hostname;
                 assert_se(hostname = gethostname_malloc());
-
-                assert_se(names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname));
+                assert_se(names = strv_new("localhost", "_gateway", "_outbound", "foo_no_such_host", hostname));
 
                 n = make_addresses(&addrs);
                 assert_se(n >= 0);

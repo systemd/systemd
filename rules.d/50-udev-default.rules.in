@@ -36,10 +36,11 @@ SUBSYSTEM=="dvb", GROUP="video"
 SUBSYSTEM=="media", GROUP="video"
 SUBSYSTEM=="cec", GROUP="video"
 
-SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
-SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
+SUBSYSTEM=="kfd", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 
 SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
+SUBSYSTEM=="misc", KERNEL=="sgx_vepc", GROUP="sgx", MODE="0660"
 
 # When using static_node= with non-default permissions, also update
 # tmpfiles.d/static-nodes-permissions.conf.in to keep permissions synchronized.
@@ -48,11 +49,6 @@ SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
-
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
 SUBSYSTEM=="firewire", TEST=="units", TEST=="model", \
   IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}mo$attr{model}units$attr{units}'"
@@ -94,12 +90,14 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
 # The static_node is required on s390x and ppc (they are using MODULE_ALIAS)
-KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=kvm"
+KERNEL=="kvm", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=kvm"
+
+KERNEL=="vfio", MODE="0666", OPTIONS+="static_node=vfio/vfio"
 
 KERNEL=="vsock", MODE="0666"
-KERNEL=="vhost-vsock", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-vsock"
+KERNEL=="vhost-vsock", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=vhost-vsock"
 
-KERNEL=="vhost-net", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-net"
+KERNEL=="vhost-net", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=vhost-net"
 
 KERNEL=="udmabuf", GROUP="kvm"
 
@@ -107,7 +105,13 @@ SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
 
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK += "ptp_hyperv"
 
-SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_name}"
-SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_version}"
+SUBSYSTEM!="dmi", GOTO="dmi_end"
+ENV{ID_VENDOR}="$attr{sys_vendor}"
+ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="|product_name", ENV{ID_MODEL}="$attr{product_name}"
+ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_MODEL}="$attr{product_version}"
+# fallback to board information
+ENV{ID_VENDOR}=="", ENV{ID_VENDOR}="$attr{board_vendor}"
+ENV{ID_MODEL}=="", ENV{ID_MODEL}="$attr{board_name}"
+LABEL="dmi_end"
 
 LABEL="default_end"

@@ -19,7 +19,7 @@
 #include "hashmap.h"
 #include "machine-dbus.h"
 #include "machine.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -292,9 +292,9 @@ int machine_load(Machine *m) {
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
         if (netif) {
-                size_t allocated = 0, nr = 0;
-                const char *p;
                 _cleanup_free_ int *ni = NULL;
+                size_t nr = 0;
+                const char *p;
 
                 p = netif;
                 for (;;) {
@@ -314,14 +314,13 @@ int machine_load(Machine *m) {
                         if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC(ni, allocated, nr + 1))
+                        if (!GREEDY_REALLOC(ni, nr + 1))
                                 return log_oom();
 
                         ni[nr++] = r;
                 }
 
-                free(m->netif);
-                m->netif = TAKE_PTR(ni);
+                free_and_replace(m->netif, ni);
                 m->n_netif = nr;
         }
 
@@ -576,14 +575,8 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         if (!m->unit)
                 return -ESRCH;
 
-        if (who == KILL_LEADER) {
-                /* If we shall simply kill the leader, do so directly */
-
-                if (kill(m->leader, signo) < 0)
-                        return -errno;
-
-                return 0;
-        }
+        if (who == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
+                return RET_NERRNO(kill(m->leader, signo));
 
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);

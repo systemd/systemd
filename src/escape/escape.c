@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
@@ -119,7 +120,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind >= argc)
@@ -171,8 +172,36 @@ static int run(int argc, char *argv[]) {
                 case ACTION_ESCAPE:
                         if (arg_path) {
                                 r = unit_name_path_escape(*i, &e);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (r == -EINVAL) {
+                                                /* If escaping failed because the string was invalid, let's print a
+                                                 * friendly message about it. Catch these specific error cases
+                                                 * explicitly. */
+
+                                                if (!path_is_valid(*i))
+                                                        return log_error_errno(r, "Input '%s' is not a valid file system path, failed to escape.", *i);
+                                                if (!path_is_absolute(*i))
+                                                        return log_error_errno(r, "Input '%s' is not an absolute file system path, failed to escape.", *i);
+                                                if (!path_is_normalized(*i))
+                                                        return log_error_errno(r, "Input '%s' is not a normalized file system path, failed to escape.", *i);
+                                        }
+
+                                        /* All other error cases. */
                                         return log_error_errno(r, "Failed to escape string: %m");
+                                }
+
+                                /* If the escaping worked, then still warn if the path is not like we'd like
+                                 * it. Because that means escaping is not necessarily reversible. */
+
+                                if (!path_is_valid(*i))
+                                        log_warning("Input '%s' is not a valid file system path, escaping is likely not going be reversible.", *i);
+                                else if (!path_is_absolute(*i))
+                                        log_warning("Input '%s' is not an absolute file system path, escaping is likely not going to be reversible.", *i);
+
+                                /* Note that we don't complain about paths not being normalized here, because
+                                 * some forms of non-normalization is actually OK, such as a series // and
+                                 * unit_name_path_escape() will clean those up silently, and the reversal is
+                                 * "close enough" to be OK. */
                         } else {
                                 e = unit_name_escape(*i);
                                 if (!e)
@@ -188,13 +217,8 @@ static int run(int argc, char *argv[]) {
 
                                 free_and_replace(e, x);
                         } else if (arg_suffix) {
-                                char *x;
-
-                                x = strjoin(e, ".", arg_suffix);
-                                if (!x)
+                                if (!strextend(&e, ".", arg_suffix))
                                         return log_oom();
-
-                                free_and_replace(e, x);
                         }
 
                         break;

@@ -59,10 +59,10 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         fd = open(TUN_DEV, O_RDWR|O_CLOEXEC);
         if (fd < 0)
-                return log_netdev_error_errno(netdev, -errno,  "Failed to open tun dev: %m");
+                return log_netdev_error_errno(netdev, errno,  "Failed to open tun dev: %m");
 
         if (ioctl(fd, TUNSETIFF, ifr) < 0)
-                return log_netdev_error_errno(netdev, -errno, "TUNSETIFF failed on tun dev: %m");
+                return log_netdev_error_errno(netdev, errno, "TUNSETIFF failed on tun dev: %m");
 
         if (netdev->kind == NETDEV_KIND_TAP)
                 t = TAP(netdev);
@@ -79,7 +79,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                         return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
 
                 if (ioctl(fd, TUNSETOWNER, uid) < 0)
-                        return log_netdev_error_errno(netdev, -errno, "TUNSETOWNER failed on tun dev: %m");
+                        return log_netdev_error_errno(netdev, errno, "TUNSETOWNER failed on tun dev: %m");
         }
 
         if (t->group_name) {
@@ -90,12 +90,12 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                         return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
 
                 if (ioctl(fd, TUNSETGROUP, gid) < 0)
-                        return log_netdev_error_errno(netdev, -errno, "TUNSETGROUP failed on tun dev: %m");
+                        return log_netdev_error_errno(netdev, errno, "TUNSETGROUP failed on tun dev: %m");
 
         }
 
         if (ioctl(fd, TUNSETPERSIST, 1) < 0)
-                return log_netdev_error_errno(netdev, -errno, "TUNSETPERSIST failed on tun dev: %m");
+                return log_netdev_error_errno(netdev, errno, "TUNSETPERSIST failed on tun dev: %m");
 
         return 0;
 }
@@ -136,7 +136,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    "Please set it in the corresponding .network file.",
                                    netdev_kind_to_string(netdev->kind), filename);
 
-        if (netdev->mac)
+        if (netdev->hw_addr.length > 0)
                 log_netdev_warning(netdev,
                                    "MACAddress= configured for %s device in %s will be ignored.\n"
                                    "Please set it in the corresponding .network file.",
@@ -152,6 +152,7 @@ const NetDevVTable tun_vtable = {
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .iftype = ARPHRD_NONE,
 };
 
 const NetDevVTable tap_vtable = {
@@ -161,4 +162,5 @@ const NetDevVTable tap_vtable = {
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .iftype = ARPHRD_ETHER,
 };

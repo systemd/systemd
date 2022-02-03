@@ -247,7 +247,10 @@ Gateway=192.168.250.1
 [Bridge]
 Priority=28
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port1', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port1', '--timeout=5'])
         self.assertEqual(self.read_attr('port1', 'brport/priority'), '28')
 
     def test_bridge_port_priority_set_zero(self):
@@ -257,7 +260,10 @@ Priority=28
 [Bridge]
 Priority=0
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port2', '--timeout=5'])
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
     def test_bridge_port_property(self):
@@ -274,7 +280,10 @@ AllowPortToBeRoot=true
 Cost=555
 Priority=23
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port2', '--timeout=5'])
 
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '23')
         self.assertEqual(self.read_attr('port2', 'brport/hairpin_mode'), '1')
@@ -414,6 +423,7 @@ DHCP={dhcp_mode}
             out = subprocess.check_output(['networkctl', '-n', '0', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
             self.assertRegex(out, br'State:\s+routable.*configured')
+            self.assertRegex(out, br'Online state:\s+online')
             self.assertRegex(out, br'Address:\s+192.168.5.\d+')
             if ipv6:
                 self.assertRegex(out, br'2600::')
@@ -627,7 +637,7 @@ Name={}
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=False
-DNSSECNegativeTrustAnchors=megasearch.net
+DNSSECNegativeTrustAnchors=search.example.com
 '''.format(self.iface))
 
         # create second device/dnsmasq for a .company/.lab VPN interface
@@ -673,8 +683,8 @@ DNSSECNegativeTrustAnchors=company lab
         self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
 
         # test general domains
-        out = subprocess.check_output(['resolvectl', 'query', 'megasearch.net'])
-        self.assertIn(b'megasearch.net: 192.168.42.1', out)
+        out = subprocess.check_output(['resolvectl', 'query', 'search.example.com'])
+        self.assertIn(b'search.example.com: 192.168.42.1', out)
 
         with open(self.dnsmasq_log) as f:
             general_log = f.read()
@@ -688,8 +698,8 @@ DNSSECNegativeTrustAnchors=company lab
         self.assertNotIn('.company', general_log)
 
         # general domains should not be sent to the VPN DNS
-        self.assertRegex(general_log, 'query.*megasearch.net')
-        self.assertNotIn('megasearch.net', vpn_log)
+        self.assertRegex(general_log, 'query.*search.example.com')
+        self.assertNotIn('search.example.com', vpn_log)
 
     def test_resolved_etc_hosts(self):
         '''resolved queries to /etc/hosts'''

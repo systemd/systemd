@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -30,48 +31,22 @@
 #define EFI_N_RETRIES_TOTAL 25
 #define EFI_RETRY_DELAY (50 * USEC_PER_MSEC)
 
-char* efi_variable_path(sd_id128_t vendor, const char *name) {
-        char *p;
-
-        if (asprintf(&p,
-                     "/sys/firmware/efi/efivars/%s-" SD_ID128_UUID_FORMAT_STR,
-                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
-                return NULL;
-
-        return p;
-}
-
-static char* efi_variable_cache_path(sd_id128_t vendor, const char *name) {
-        char *p;
-
-        if (asprintf(&p,
-                     "/run/systemd/efivars/%s-" SD_ID128_UUID_FORMAT_STR,
-                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
-                return NULL;
-
-        return p;
-}
-
 int efi_get_variable(
-                sd_id128_t vendor,
-                const char *name,
+                const char *variable,
                 uint32_t *ret_attribute,
                 void **ret_value,
                 size_t *ret_size) {
 
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *p = NULL;
         _cleanup_free_ void *buf = NULL;
         struct stat st;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
         uint32_t a;
         ssize_t n;
 
-        assert(name);
+        assert(variable);
 
-        p = efi_variable_path(vendor, name);
-        if (!p)
-                return -ENOMEM;
+        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
 
         if (!ret_value && !ret_size && !ret_attribute) {
                 /* If caller is not interested in anything, just check if the variable exists and is
@@ -136,7 +111,8 @@ int efi_get_variable(
                         return log_debug_errno(errno, "Failed to read value of EFI variable %s: %m", p);
                 assert(n <= st.st_size - 4);
 
-                /* Always NUL terminate (3 bytes, to properly protect UTF-16, even if truncated in the middle of a character) */
+                /* Always NUL-terminate (3 bytes, to properly protect UTF-16, even if truncated in the middle
+                 * of a character) */
                 ((char*) buf)[n] = 0;
                 ((char*) buf)[n + 1] = 0;
                 ((char*) buf)[n + 2] = 0;
@@ -145,13 +121,10 @@ int efi_get_variable(
                 n = st.st_size - 4;
 
         if (DEBUG_LOGGING) {
-                char ts[FORMAT_TIMESPAN_MAX];
-                usec_t end;
-
-                end = now(CLOCK_MONOTONIC);
+                usec_t end = now(CLOCK_MONOTONIC);
                 if (end > begin + EFI_RETRY_DELAY)
-                        log_debug("Detected slow EFI variable read access on " SD_ID128_FORMAT_STR "-%s: %s",
-                                  SD_ID128_FORMAT_VAL(vendor), name, format_timespan(ts, sizeof(ts), end - begin, 1));
+                        log_debug("Detected slow EFI variable read access on %s: %s",
+                                  variable, FORMAT_TIMESPAN(end - begin, 1));
         }
 
         /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
@@ -169,13 +142,13 @@ int efi_get_variable(
         return 0;
 }
 
-int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
+int efi_get_variable_string(const char *variable, char **p) {
         _cleanup_free_ void *s = NULL;
         size_t ss = 0;
         int r;
         char *x;
 
-        r = efi_get_variable(vendor, name, NULL, &s, &ss);
+        r = efi_get_variable(variable, NULL, &s, &ss);
         if (r < 0)
                 return r;
 
@@ -187,28 +160,43 @@ int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
         return 0;
 }
 
-int efi_set_variable(
-                sd_id128_t vendor,
-                const char *name,
-                const void *value,
-                size_t size) {
+static int efi_verify_variable(const char *variable, uint32_t attr, const void *value, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        size_t n;
+        uint32_t a;
+        int r;
 
+        assert(variable);
+        assert(value || size == 0);
+
+        r = efi_get_variable(variable, &a, &buf, &n);
+        if (r < 0)
+                return r;
+
+        return a == attr && memcmp_nn(buf, n, value, size) == 0;
+}
+
+int efi_set_variable(const char *variable, const void *value, size_t size) {
         struct var {
                 uint32_t attr;
                 char buf[];
         } _packed_ * _cleanup_free_ buf = NULL;
-        _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
+        uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         bool saved_flags_valid = false;
         unsigned saved_flags;
         int r;
 
-        assert(name);
+        assert(variable);
         assert(value || size == 0);
 
-        p = efi_variable_path(vendor, name);
-        if (!p)
-                return -ENOMEM;
+        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
+
+        /* size 0 means removal, empty variable would not be enough for that */
+        if (size > 0 && efi_verify_variable(variable, attr, value, size) > 0) {
+                log_debug("Variable '%s' is already in wanted state, skipping write.", variable);
+                return 0;
+        }
 
         /* Newer efivarfs protects variables that are not in an allow list with FS_IMMUTABLE_FL by default,
          * to protect them for accidental removal and modification. We are not changing these variables
@@ -241,7 +229,7 @@ int efi_set_variable(
                 goto finish;
         }
 
-        buf->attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
+        buf->attr = attr;
         memcpy(buf->buf, value, size);
 
         r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
@@ -274,14 +262,14 @@ finish:
         return r;
 }
 
-int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) {
+int efi_set_variable_string(const char *variable, const char *value) {
         _cleanup_free_ char16_t *u16 = NULL;
 
-        u16 = utf8_to_utf16(v, strlen(v));
+        u16 = utf8_to_utf16(value, strlen(value));
         if (!u16)
                 return -ENOMEM;
 
-        return efi_set_variable(vendor, name, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
+        return efi_set_variable(variable, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
 bool is_efi_boot(void) {
@@ -300,7 +288,7 @@ bool is_efi_boot(void) {
         return cache;
 }
 
-static int read_flag(const char *varname) {
+static int read_flag(const char *variable) {
         _cleanup_free_ void *v = NULL;
         uint8_t b;
         size_t s;
@@ -309,7 +297,7 @@ static int read_flag(const char *varname) {
         if (!is_efi_boot()) /* If this is not an EFI boot, assume the queried flags are zero */
                 return 0;
 
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
+        r = efi_get_variable(variable, NULL, &v, &s);
         if (r < 0)
                 return r;
 
@@ -324,22 +312,36 @@ bool is_efi_secure_boot(void) {
         static int cache = -1;
 
         if (cache < 0)
-                cache = read_flag("SecureBoot");
+                cache = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
 
         return cache > 0;
 }
 
-bool is_efi_secure_boot_setup_mode(void) {
-        static int cache = -1;
+SecureBootMode efi_get_secure_boot_mode(void) {
+        static SecureBootMode cache = _SECURE_BOOT_INVALID;
 
-        if (cache < 0)
-                cache = read_flag("SetupMode");
+        if (cache != _SECURE_BOOT_INVALID)
+                return cache;
 
-        return cache > 0;
+        int secure = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+        if (secure < 0) {
+                if (secure != -ENOENT)
+                        log_debug_errno(secure, "Error reading SecureBoot EFI variable: %m");
+                return (cache = SECURE_BOOT_UNSUPPORTED);
+        }
+
+        /* We can assume false for all these if they are abscent (AuditMode and
+         * DeployedMode may not exist on older firmware). */
+        int audit    = read_flag(EFI_GLOBAL_VARIABLE(AuditMode));
+        int deployed = read_flag(EFI_GLOBAL_VARIABLE(DeployedMode));
+        int setup    = read_flag(EFI_GLOBAL_VARIABLE(SetupMode));
+        log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d",
+                  secure, audit, deployed, setup);
+
+        return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0));
 }
 
-int cache_efi_options_variable(void) {
-        _cleanup_free_ char *line = NULL, *cachepath = NULL;
+static int read_efi_options_variable(char **line) {
         int r;
 
         /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
@@ -350,38 +352,38 @@ int cache_efi_options_variable(void) {
          * (NB: For testing purposes, we still check the $SYSTEMD_EFI_OPTIONS env var before accessing this
          * cache, even when in SecureBoot mode.) */
         if (is_efi_secure_boot()) {
-                _cleanup_free_ char *k = NULL;
-
-                k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
-                if (!k)
-                        return -ENOMEM;
-
                 /* Let's be helpful with the returned error and check if the variable exists at all. If it
                  * does, let's return a recognizable error (EPERM), and if not ENODATA. */
 
-                if (access(k, F_OK) < 0)
+                if (access(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), F_OK) < 0)
                         return errno == ENOENT ? -ENODATA : -errno;
 
                 return -EPERM;
         }
 
-        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", &line);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), line);
         if (r == -ENOENT)
                 return -ENODATA;
+        return r;
+}
+
+int cache_efi_options_variable(void) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        r = read_efi_options_variable(&line);
         if (r < 0)
                 return r;
 
-        cachepath = efi_variable_cache_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
-        if (!cachepath)
-                return -ENOMEM;
-
-        return write_string_file(cachepath, line, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
+        return write_string_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), line,
+                                 WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
 }
 
 int systemd_efi_options_variable(char **line) {
         const char *e;
-        _cleanup_free_ char *cachepath = NULL;
         int r;
+
+        /* Returns the contents of the variable for current boot from the cache. */
 
         assert(line);
 
@@ -398,11 +400,37 @@ int systemd_efi_options_variable(char **line) {
                 return 0;
         }
 
-        cachepath = efi_variable_cache_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
-        if (!cachepath)
-                return -ENOMEM;
+        r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), line);
+        if (r == -ENOENT)
+                return -ENODATA;
+        return r;
+}
 
-        r = read_one_line_file(cachepath, line);
+static inline int compare_stat_mtime(const struct stat *a, const struct stat *b) {
+        return CMP(timespec_load(&a->st_mtim), timespec_load(&b->st_mtim));
+}
+
+int systemd_efi_options_efivarfs_if_newer(char **line) {
+        struct stat a = {}, b;
+        int r;
+
+        if (stat(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &a) < 0 && errno != ENOENT)
+                return log_debug_errno(errno, "Failed to stat EFI variable SystemdOptions: %m");
+
+        if (stat(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &b) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to stat "EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions))": %m");
+        } else if (compare_stat_mtime(&a, &b) > 0)
+                log_debug("Variable SystemdOptions in evifarfs is newer than in cache.");
+        else {
+                log_debug("Variable SystemdOptions in cache is up to date.");
+                *line = NULL;
+                return 0;
+        }
+
+        r = read_efi_options_variable(line);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read SystemdOptions EFI variable: %m");
         if (r == -ENOENT)
                 return -ENODATA;
         return r;

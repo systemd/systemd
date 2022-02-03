@@ -85,6 +85,14 @@
   </refsect1>
 
   <refsect1>
+    <title>Options</title>
+
+    <para>Target unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    No options specific to this file type are supported.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Example</title>
 
     <example>

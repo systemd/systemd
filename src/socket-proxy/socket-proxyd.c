@@ -190,7 +190,7 @@ static int connection_shovel(
                         } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (!IN_SET(errno, EAGAIN, EINTR))
+                        } else if (!ERRNO_IS_TRANSIENT(errno))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
 
@@ -202,7 +202,7 @@ static int connection_shovel(
                         } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (!IN_SET(errno, EAGAIN, EINTR))
+                        } else if (!ERRNO_IS_TRANSIENT(errno))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);
@@ -438,7 +438,8 @@ static int resolve_remote(Connection *c) {
 
         service = strrchr(arg_remote_host, ':');
         if (service) {
-                node = strndupa(arg_remote_host, service - arg_remote_host);
+                node = strndupa_safe(arg_remote_host,
+                                     service - arg_remote_host);
                 service++;
         } else {
                 node = arg_remote_host;
@@ -657,7 +658,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind >= argc)

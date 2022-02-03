@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
@@ -121,6 +122,16 @@ uint64_t oomd_pgscan_rate(const OomdCGroupContext *c) {
         return c->pgscan - last_pgscan;
 }
 
+bool oomd_mem_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
+        uint64_t mem_threshold;
+
+        assert(ctx);
+        assert(threshold_permyriad <= 10000);
+
+        mem_threshold = ctx->mem_total * threshold_permyriad / (uint64_t) 10000;
+        return LESS_BY(ctx->mem_total, ctx->mem_used) < mem_threshold;
+}
+
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
         uint64_t swap_threshold;
 
@@ -185,8 +196,18 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
         else
                 r = cg_kill(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
-        if (r < 0)
+
+        /* The cgroup could have been cleaned up after we have sent SIGKILL to all of the processes, but before
+         * we could do one last iteration of cgroup.procs to check. Or the service unit could have exited and
+         * was removed between picking candidates and coming into this function. In either case, let's log
+         * about it let the caller decide what to do once they know how many PIDs were killed. */
+        if (IN_SET(r, -ENOENT, -ENODEV))
+                log_debug_errno(r, "Error when sending SIGKILL to processes in cgroup path %s, ignoring: %m", path);
+        else if (r < 0)
                 return r;
+
+        if (set_isempty(pids_killed))
+                log_debug("Nothing killed when attempting to kill %s", path);
 
         r = increment_oomd_xattr(path, "user.oomd_kill", set_size(pids_killed));
         if (r < 0)
@@ -213,8 +234,6 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r == 0)
-                        continue; /* We didn't find anything to kill */
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -227,7 +246,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return 1;
+                return r;
         }
 
         return ret;
@@ -253,8 +272,6 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r == 0)
-                        continue; /* We didn't find anything to kill */
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -267,7 +284,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return 1;
+                return r;
         }
 
         return ret;
@@ -333,7 +350,11 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                         return log_debug_errno(r, "Error getting memory.low from %s: %m", path);
 
                 r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.swap.current", &ctx->swap_usage);
-                if (r < 0)
+                if (r == -ENODATA)
+                        /* The kernel can be compiled without support for memory.swap.* files,
+                         * or it can be disabled with boot param 'swapaccount=0' */
+                        log_once(LOG_WARNING, "No kernel support for memory.swap.current from %s (try boot param swapaccount=1), ignoring.", path);
+                else if (r < 0)
                         return log_debug_errno(r, "Error getting memory.swap.current from %s: %m", path);
 
                 r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "memory.stat", STRV_MAKE("pgscan"), &val);
@@ -353,45 +374,77 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         return 0;
 }
 
-int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret) {
+int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext *ret) {
         _cleanup_fclose_ FILE *f = NULL;
+        unsigned field_filled = 0;
         OomdSystemContext ctx = {};
+        uint64_t mem_free, swap_free;
         int r;
 
-        assert(proc_swaps_path);
+        enum {
+                MEM_TOTAL = 1U << 0,
+                MEM_FREE = 1U << 1,
+                SWAP_TOTAL = 1U << 2,
+                SWAP_FREE = 1U << 3,
+                ALL = MEM_TOTAL|MEM_FREE|SWAP_TOTAL|SWAP_FREE,
+        };
+
+        assert(proc_meminfo_path);
         assert(ret);
 
-        f = fopen(proc_swaps_path, "re");
+        f = fopen(proc_meminfo_path, "re");
         if (!f)
                 return -errno;
 
-        (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
-
         for (;;) {
-                uint64_t total, used;
+                _cleanup_free_ char *line = NULL;
+                char *word;
 
-                r = fscanf(f,
-                           "%*s "          /* device/file */
-                           "%*s "          /* type of swap */
-                           "%" PRIu64 " "  /* swap size */
-                           "%" PRIu64 " "  /* used */
-                           "%*s\n",        /* priority */
-                           &total, &used);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
 
-                if (r == EOF && feof(f))
-                         break;
+                if ((word = startswith(line, "MemTotal:"))) {
+                        field_filled |= MEM_TOTAL;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &ctx.mem_total);
+                } else if ((word = startswith(line, "MemFree:"))) {
+                        field_filled |= MEM_FREE;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &mem_free);
+                } else if ((word = startswith(line, "SwapTotal:"))) {
+                        field_filled |= SWAP_TOTAL;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &ctx.swap_total);
+                } else if ((word = startswith(line, "SwapFree:"))) {
+                        field_filled |= SWAP_FREE;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &swap_free);
+                } else
+                        continue;
 
-                if (r != 2) {
-                        if (ferror(f))
-                                return log_debug_errno(errno, "Error reading from %s: %m", proc_swaps_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Error converting '%s' from %s to uint64_t: %m", line, proc_meminfo_path);
 
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse values from %s: %m", proc_swaps_path);
-                }
-
-                ctx.swap_total += total * 1024U;
-                ctx.swap_used += used * 1024U;
+                if (field_filled == ALL)
+                        break;
         }
+
+        if (field_filled != ALL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is missing expected fields", proc_meminfo_path);
+
+        if (mem_free > ctx.mem_total)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "MemFree (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ") %m",
+                                       mem_free,
+                                       ctx.mem_total);
+
+        if (swap_free > ctx.swap_total)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ") %m",
+                                       swap_free,
+                                       ctx.swap_total);
+
+        ctx.mem_used = ctx.mem_total - mem_free;
+        ctx.swap_used = ctx.swap_total - swap_free;
 
         *ret = ctx;
         return 0;
@@ -456,8 +509,6 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 }
 
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
-        char swap[FORMAT_BYTES_MAX];
-
         assert(ctx);
         assert(f);
 
@@ -466,7 +517,7 @@ void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const 
                         "%sPath: %s\n"
                         "%s\tSwap Usage: %s\n",
                         strempty(prefix), ctx->path,
-                        strempty(prefix), format_bytes(swap, sizeof(swap), ctx->swap_usage));
+                        strempty(prefix), FORMAT_BYTES(ctx->swap_usage));
         else
                 fprintf(f,
                         "%sPath: %s\n"
@@ -476,9 +527,6 @@ void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const 
 }
 
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
-        char tbuf[FORMAT_TIMESPAN_MAX], mem_use[FORMAT_BYTES_MAX];
-        char mem_min[FORMAT_BYTES_MAX], mem_low[FORMAT_BYTES_MAX];
-
         assert(ctx);
         assert(f);
 
@@ -488,13 +536,13 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                 "%s\tPressure: Avg10: %lu.%02lu Avg60: %lu.%02lu Avg300: %lu.%02lu Total: %s\n"
                 "%s\tCurrent Memory Usage: %s\n",
                 strempty(prefix), ctx->path,
-                strempty(prefix), LOAD_INT(ctx->mem_pressure_limit), LOAD_FRAC(ctx->mem_pressure_limit),
+                strempty(prefix), LOADAVG_INT_SIDE(ctx->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(ctx->mem_pressure_limit),
                 strempty(prefix),
-                LOAD_INT(ctx->memory_pressure.avg10), LOAD_FRAC(ctx->memory_pressure.avg10),
-                LOAD_INT(ctx->memory_pressure.avg60), LOAD_FRAC(ctx->memory_pressure.avg60),
-                LOAD_INT(ctx->memory_pressure.avg300), LOAD_FRAC(ctx->memory_pressure.avg300),
-                format_timespan(tbuf, sizeof(tbuf), ctx->memory_pressure.total, USEC_PER_SEC),
-                strempty(prefix), format_bytes(mem_use, sizeof(mem_use), ctx->current_memory_usage));
+                LOADAVG_INT_SIDE(ctx->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(ctx->memory_pressure.avg10),
+                LOADAVG_INT_SIDE(ctx->memory_pressure.avg60), LOADAVG_DECIMAL_SIDE(ctx->memory_pressure.avg60),
+                LOADAVG_INT_SIDE(ctx->memory_pressure.avg300), LOADAVG_DECIMAL_SIDE(ctx->memory_pressure.avg300),
+                FORMAT_TIMESPAN(ctx->memory_pressure.total, USEC_PER_SEC),
+                strempty(prefix), FORMAT_BYTES(ctx->current_memory_usage));
 
         if (!empty_or_root(ctx->path))
                 fprintf(f,
@@ -502,21 +550,23 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                         "%s\tMemory Low: %s\n"
                         "%s\tPgscan: %" PRIu64 "\n"
                         "%s\tLast Pgscan: %" PRIu64 "\n",
-                        strempty(prefix), format_bytes_cgroup_protection(mem_min, sizeof(mem_min), ctx->memory_min),
-                        strempty(prefix), format_bytes_cgroup_protection(mem_low, sizeof(mem_low), ctx->memory_low),
+                        strempty(prefix), FORMAT_BYTES_CGROUP_PROTECTION(ctx->memory_min),
+                        strempty(prefix), FORMAT_BYTES_CGROUP_PROTECTION(ctx->memory_low),
                         strempty(prefix), ctx->pgscan,
                         strempty(prefix), ctx->last_pgscan);
 }
 
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix) {
-        char used[FORMAT_BYTES_MAX], total[FORMAT_BYTES_MAX];
-
         assert(ctx);
         assert(f);
 
         fprintf(f,
+                "%sMemory: Used: %s Total: %s\n"
                 "%sSwap: Used: %s Total: %s\n",
                 strempty(prefix),
-                format_bytes(used, sizeof(used), ctx->swap_used),
-                format_bytes(total, sizeof(total), ctx->swap_total));
+                FORMAT_BYTES(ctx->mem_used),
+                FORMAT_BYTES(ctx->mem_total),
+                strempty(prefix),
+                FORMAT_BYTES(ctx->swap_used),
+                FORMAT_BYTES(ctx->swap_total));
 }

@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="bootctl" conditional='ENABLE_EFI'
+<refentry id="bootctl" conditional='HAVE_GNU_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>bootctl</title>
@@ -99,8 +99,8 @@
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
 
-        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string as
-        argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
+        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
+        pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
         the <option>set-default</option> will set it persistently for all future boots.</para></listitem>
 
         <listitem><para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,
@@ -111,9 +111,28 @@
         see <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> for details.
         These special IDs are primarily useful as a quick way to persistently make the currently booted boot loader
         entry the default choice, or to upgrade the default boot loader entry for the next boot to the default boot
-        loader entry for all future boots, but may be used for other operations too.
-        When an empty string ("") is specified as an ID, then the corresponding EFI variable will be unset.
+        loader entry for all future boots, but may be used for other operations too.</para>
+
+        <para>If set to <option>@saved</option> the chosen entry will be saved as an EFI variable
+        on every boot and automatically selected the next time the boot loader starts.</para>
+
+        <para>When an empty string ("") is specified as an ID, then the corresponding EFI variable will be unset.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>set-timeout</option> <replaceable>TIMEOUT</replaceable></term>
+        <term><option>set-timeout-oneshot</option> <replaceable>TIMEOUT</replaceable></term>
+
+        <listitem><para>Sets the boot loader menu timeout in seconds. The <option>set-timeout-oneshot</option>
+        command will set the timeout only for the next boot. See
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details about the syntax of time spans.</para>
+
+        <para>If this is set to <option>menu-hidden</option> or <option>0</option> no menu is shown and
+        the default entry will be booted immediately, while setting this to <option>menu-force</option>
+        disables the timeout while always showing the menu. When an empty string ("") is specified the
+        bootloader will revert to its default menu timeout.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -233,14 +252,43 @@
 
       <varlistentry>
         <term><option>--graceful</option></term>
-        <listitem><para>Ignore failure when the EFI System Partition cannot be found, or when EFI variables
-        cannot be written. Currently only applies to random seed operations.</para></listitem>
+        <listitem><para>Ignore failure when the EFI System Partition cannot be found, when EFI variables
+        cannot be written, or a different or newer boot loader is already installed. Currently only applies
+        to random seed and update operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--make-machine-id-directory=yes|no</option></term>
+        <listitem><para>Control creation and deletion of the top-level machine ID directory on the file
+        system containing boot loader entries (i.e. beneath the file system returned by the
+        <option>--print-boot-path</option> option, see above) during <option>install</option> and
+        <option>remove</option>, respectively. Defaults to <literal>no</literal>. See
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about the machine ID concept and file.</para>
+
+        <para>Overriding this may be desirable to hide the machine ID from the (unencrypted) ESP, configure a
+        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        script, or, conversely, commit a transient machine ID.</para>
+
+        <para>The top-level machine ID directory is useful to allow smooth multi-boot installations: each
+        installed OS instance will have a different machine ID and thus a separate directory to place its
+        boot-time resources in. If this feature is turned off with this option, care needs to be taken that
+        multiple OS instances do not place conflicting files on the shared ESP and Extended Boot Loader
+        Partitions, or that multiple OS instances are not possible.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Signed .efi files</title>
+    <para><command>bootctl</command> <option>install</option> and <option>update</option> will look for a
+    <command>systemd-boot</command> file ending with the <literal>.efi.signed</literal> suffix first, and copy
+    that instead of the normal <literal>.efi</literal> file. This allows distributions or end-users to provide
+    signed images for UEFI SecureBoot.</para>
   </refsect1>
 
   <refsect1>

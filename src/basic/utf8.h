@@ -21,13 +21,15 @@ static inline char *utf8_is_valid(const char *s) {
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 
+int utf8_to_ascii(const char *str, char replacement_char, char **ret);
+
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char *utf8_escape_invalid(const char *s);
-char *utf8_escape_non_printable_full(const char *str, size_t console_width);
+char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
 static inline char *utf8_escape_non_printable(const char *str) {
-        return utf8_escape_non_printable_full(str, SIZE_MAX);
+        return utf8_escape_non_printable_full(str, SIZE_MAX, false);
 }
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);

@@ -4,9 +4,14 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "copy.h"
+#include "dropin.h"
 #include "errno-list.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -14,19 +19,26 @@
 #include "missing_prctl.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "service.h"
+#include "signal-util.h"
+#include "static-destruct.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
+static char *user_runtime_unit_dir = NULL;
 static bool can_unshare;
+
+STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -79,16 +91,15 @@ static void check_main_result(const char *file, unsigned line, const char *func,
         exec_status_dump(&service->main_exec_status, stdout, "\t");
 
         if (cld_dumped_to_killed(service->main_exec_status.code) != cld_dumped_to_killed(code_expected)) {
-                log_error("%s:%u:%s %s: exit code %d, expected %d",
-                          file, line, func,
-                          unit->id,
+                log_error("%s:%u:%s %s: can_unshare=%s: exit code %d, expected %d",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service->main_exec_status.code, code_expected);
                 abort();
         }
 
         if (service->main_exec_status.status != status_expected) {
-                log_error("%s:%u:%s: %s: exit status %d, expected %d",
-                          file, line, func, unit->id,
+                log_error("%s:%u:%s: %s: can_unshare=%s: exit status %d, expected %d",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service->main_exec_status.status, status_expected);
                 abort();
         }
@@ -106,9 +117,8 @@ static void check_service_result(const char *file, unsigned line, const char *fu
         service = SERVICE(unit);
 
         if (service->result != result_expected) {
-                log_error("%s:%u:%s: %s: service end result %s, expected %s",
-                          file, line, func,
-                          unit->id,
+                log_error("%s:%u:%s: %s: can_unshare=%s: service end result %s, expected %s",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service_result_to_string(service->result),
                           service_result_to_string(result_expected));
                 abort();
@@ -164,7 +174,7 @@ static bool check_user_has_group_with_same_name(const char *name) {
         struct passwd *p;
         struct group *g;
 
-        assert(name);
+        assert_se(name);
 
         p = getpwnam(name);
         if (!p ||
@@ -265,6 +275,93 @@ static void test_exec_workingdirectory(Manager *m) {
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
+static void test_exec_execsearchpath(Manager *m) {
+        assert_se(mkdir_p("/tmp/test-exec_execsearchpath", 0755) >= 0);
+
+        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, 0, 0, COPY_REPLACE) >= 0);
+
+        test(m, "exec-execsearchpath.service", 0, CLD_EXITED);
+
+        assert_se(rm_rf("/tmp/test-exec_execsearchpath", REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+
+        test(m, "exec-execsearchpath.service", EXIT_EXEC, CLD_EXITED);
+}
+
+static void test_exec_execsearchpath_specifier(Manager *m) {
+        test(m, "exec-execsearchpath-unit-specifier.service", 0, CLD_EXITED);
+}
+
+static void test_exec_execsearchpath_environment(Manager *m) {
+        test(m, "exec-execsearchpath-environment.service", 0, CLD_EXITED);
+        test(m, "exec-execsearchpath-environment-path-set.service", 0, CLD_EXITED);
+}
+
+static void test_exec_execsearchpath_environment_files(Manager *m) {
+        static const char path_not_set[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n"
+                "VAR5=password\\with\\backslashes";
+
+        static const char path_set[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n"
+                "VAR5=password\\with\\backslashes\n"
+                "PATH=/usr";
+
+        int r;
+
+        r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile.conf", path_not_set, WRITE_STRING_FILE_CREATE);
+
+        assert_se(r == 0);
+
+        test(m, "exec-execsearchpath-environmentfile.service", 0, CLD_EXITED);
+
+        (void) unlink("/tmp/test-exec_environmentfile.conf");
+
+
+        r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
+
+        assert_se(r == 0);
+
+        test(m, "exec-execsearchpath-environmentfile-set.service", 0, CLD_EXITED);
+
+        (void) unlink("/tmp/test-exec_environmentfile-set.conf");
+}
+
+static void test_exec_execsearchpath_passenvironment(Manager *m) {
+        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
+        assert_se(setenv("VAR2", "word3", 1) == 0);
+        assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        assert_se(setenv("VAR4", "new\nline", 1) == 0);
+        assert_se(setenv("VAR5", "passwordwithbackslashes", 1) == 0);
+
+        test(m, "exec-execsearchpath-passenvironment.service", 0, CLD_EXITED);
+
+        assert_se(setenv("PATH", "/usr", 1) == 0);
+        test(m, "exec-execsearchpath-passenvironment-set.service", 0, CLD_EXITED);
+
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
+        assert_se(unsetenv("VAR4") == 0);
+        assert_se(unsetenv("VAR5") == 0);
+        assert_se(unsetenv("PATH") == 0);
+}
+
 static void test_exec_personality(Manager *m) {
 #if defined(__x86_64__)
         test(m, "exec-personality-x86-64.service", 0, CLD_EXITED);
@@ -284,6 +381,8 @@ static void test_exec_personality(Manager *m) {
 
 #elif defined(__i386__)
         test(m, "exec-personality-x86.service", 0, CLD_EXITED);
+#elif defined(__loongarch64)
+        test(m, "exec-personality-loongarch64.service", 0, CLD_EXITED);
 #else
         log_notice("Unknown personality, skipping %s", __func__);
 #endif
@@ -408,6 +507,190 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
+static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        char **result = userdata;
+        char buf[4096];
+        ssize_t l;
+
+        assert_se(s);
+        assert_se(fd >= 0);
+
+        l = read(fd, buf, sizeof(buf) - 1);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        goto reenable;
+
+                return 0;
+        }
+        if (l == 0)
+                return 0;
+
+        buf[l] = '\0';
+        if (result)
+                assert_se(strextend(result, buf));
+        else
+                log_error("ldd: %s", buf);
+
+reenable:
+        /* Re-enable the event source if we did not encounter EOF */
+        assert_se(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT) >= 0);
+        return 0;
+}
+
+static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        pid_t *pid = userdata;
+
+        assert_se(pid);
+
+        (void) kill(*pid, SIGKILL);
+
+        return 1;
+}
+
+static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        int ret = -EIO;
+
+        assert_se(si);
+
+        if (si->si_code == CLD_EXITED)
+                ret = si->si_status;
+
+        sd_event_exit(sd_event_source_get_event(s), ret);
+        return 1;
+}
+
+static int find_libraries(const char *exec, char ***ret) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
+        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_strv_free_ char **libraries = NULL;
+        _cleanup_free_ char *result = NULL;
+        pid_t pid;
+        int r;
+
+        assert_se(exec);
+        assert_se(ret);
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+
+        assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
+        assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);
+
+        r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        assert_se(r >= 0);
+        if (r == 0) {
+                if (rearrange_stdio(-1, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
+                        _exit(EXIT_FAILURE);
+
+                (void) close_all_fds(NULL, 0);
+
+                execlp("ldd", "ldd", exec, NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        outpipe[1] = safe_close(outpipe[1]);
+        errpipe[1] = safe_close(errpipe[1]);
+
+        assert_se(sd_event_new(&e) >= 0);
+
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
+                                             10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid) >= 0);
+        assert_se(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result) >= 0);
+        assert_se(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL) >= 0);
+        assert_se(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL) >= 0);
+        /* SIGCHLD should be processed after IO is complete */
+        assert_se(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1) >= 0);
+
+        assert_se(sd_event_loop(e) >= 0);
+
+        _cleanup_strv_free_ char **v = NULL;
+        assert_se(strv_split_newlines_full(&v, result, 0) >= 0);
+
+        char **q;
+        STRV_FOREACH(q, v) {
+                _cleanup_free_ char *word = NULL;
+                const char *p = *q;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (path_is_absolute(word)) {
+                        assert_se(strv_consume(&libraries, TAKE_PTR(word)) >= 0);
+                        continue;
+                }
+
+                word = mfree(word);
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (!streq_ptr(word, "=>"))
+                        continue;
+
+                word = mfree(word);
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (path_is_absolute(word)) {
+                        assert_se(strv_consume(&libraries, TAKE_PTR(word)) >= 0);
+                        continue;
+                }
+        }
+
+        *ret = TAKE_PTR(libraries);
+        return 0;
+}
+
+static void test_exec_mount_apivfs(Manager *m) {
+        _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
+        _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
+        int r;
+
+        assert_se(user_runtime_unit_dir);
+
+        r = find_executable("touch", &fullpath_touch);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
+                return;
+        }
+        r = find_executable("test", &fullpath_test);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find 'test' command: %m", __func__);
+                return;
+        }
+
+        assert_se(find_libraries(fullpath_touch, &libraries) >= 0);
+        assert_se(find_libraries(fullpath_test, &libraries_test) >= 0);
+        assert_se(strv_extend_strv(&libraries, libraries_test, true) >= 0);
+
+        assert_se(strextend(&data, "[Service]\n"));
+        assert_se(strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n"));
+        assert_se(strextend(&data, "ExecStart=", fullpath_test, " -f /aaa\n"));
+        assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n"));
+        assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n"));
+
+        char **p;
+        STRV_FOREACH(p, libraries)
+                assert_se(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
+
+        assert_se(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data) >= 0);
+
+        assert_se(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755) >= 0);
+
+        test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
+        (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
 static void test_exec_noexecpaths(Manager *m) {
 
         test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
@@ -432,8 +715,10 @@ static void test_exec_systemcallfilter(Manager *m) {
 
         test(m, "exec-systemcallfilter-not-failing.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-not-failing2.service", 0, CLD_EXITED);
+        test(m, "exec-systemcallfilter-not-failing3.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
+        test(m, "exec-systemcallfilter-failing3.service", SIGSYS, CLD_KILLED);
 
         r = find_executable("python3", NULL);
         if (r < 0) {
@@ -826,6 +1111,10 @@ static void test_exec_condition(Manager *m) {
         test_service(m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
 }
 
+static void test_exec_umask_namespace(Manager *m) {
+        test(m, "exec-umask-namespace.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+}
+
 typedef struct test_entry {
         test_function_t f;
         const char *name;
@@ -844,7 +1133,7 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
@@ -871,6 +1160,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
+                entry(test_exec_mount_apivfs),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
@@ -896,12 +1186,18 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_unsetenvironment),
                 entry(test_exec_user),
                 entry(test_exec_workingdirectory),
+                entry(test_exec_execsearchpath),
+                entry(test_exec_execsearchpath_environment),
+                entry(test_exec_execsearchpath_environment_files),
+                entry(test_exec_execsearchpath_passenvironment),
                 {},
         };
         static const test_entry system_tests[] = {
                 entry(test_exec_dynamicuser),
                 entry(test_exec_specifier),
+                entry(test_exec_execsearchpath_specifier),
                 entry(test_exec_systemcallfilter_system),
+                entry(test_exec_umask_namespace),
                 {},
         };
         int r;
@@ -924,17 +1220,19 @@ int main(int argc, char *argv[]) {
         can_unshare = have_namespaces();
 
         /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0)
-                return log_tests_skipped("not root");
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return log_tests_skipped("not privileged");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        _cleanup_free_ char *unit_dir = NULL;
+        _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
+        assert_se(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
+        assert_se(unit_paths = strjoin(unit_dir, ":", user_runtime_unit_dir));
+        assert_se(set_unit_path(unit_paths) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),

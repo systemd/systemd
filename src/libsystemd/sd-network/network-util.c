@@ -1,32 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-id128.h"
+#include "sd-network.h"
 
 #include "alloc-util.h"
-#include "arphrd-list.h"
-#include "device-util.h"
-#include "fd-util.h"
 #include "network-util.h"
-#include "siphash24.h"
-#include "sparse-endian.h"
 #include "string-table.h"
 #include "strv.h"
 
 bool network_is_online(void) {
-        _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
+        _cleanup_free_ char *online_state = NULL;
+        LinkOnlineState state;
         int r;
 
-        r = sd_network_get_carrier_state(&carrier_state);
-        if (r < 0) /* if we don't know anything, we consider the system online */
-                return true;
+        r = sd_network_get_online_state(&online_state);
+        if (r < 0)
+                state = _LINK_ONLINE_STATE_INVALID;
+        else
+                state = link_online_state_from_string(online_state);
 
-        r = sd_network_get_address_state(&addr_state);
-        if (r < 0) /* if we don't know anything, we consider the system online */
+        if (state >= LINK_ONLINE_STATE_PARTIAL)
                 return true;
+        else if (state < 0) {
+                _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
 
-        if (STR_IN_SET(carrier_state, "degraded-carrier", "carrier") &&
-            STR_IN_SET(addr_state, "routable", "degraded"))
-                return true;
+                r = sd_network_get_carrier_state(&carrier_state);
+                if (r < 0) /* if we don't know anything, we consider the system online */
+                        return true;
+
+                r = sd_network_get_address_state(&addr_state);
+                if (r < 0) /* if we don't know anything, we consider the system online */
+                        return true;
+
+                /* we don't know the online state for certain, so make an educated guess */
+                if (STR_IN_SET(carrier_state, "degraded-carrier", "carrier") &&
+                    STR_IN_SET(addr_state, "routable", "degraded"))
+                        return true;
+        }
 
         return false;
 }
@@ -72,6 +81,14 @@ static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
+
+static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
+        [LINK_ONLINE_STATE_OFFLINE] = "offline",
+        [LINK_ONLINE_STATE_PARTIAL] = "partial",
+        [LINK_ONLINE_STATE_ONLINE]  = "online",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out) {
         LinkOperationalStateRange range = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
@@ -119,71 +136,22 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
         return 0;
 }
 
-char *link_get_type_string(sd_device *device, unsigned short iftype) {
-        const char *t;
-        char *p;
-
-        if (device &&
-            sd_device_get_devtype(device, &t) >= 0 &&
-            !isempty(t))
-                return strdup(t);
-
-        t = arphrd_to_name(iftype);
-        if (!t)
-                return NULL;
-
-        p = strdup(t);
-        if (!p)
-                return NULL;
-
-        return ascii_strlower(p);
-}
-
-const char *net_get_name_persistent(sd_device *device) {
-        const char *name, *field;
-
-        assert(device);
-
-        /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
-                if (sd_device_get_property_value(device, field, &name) >= 0)
-                        return name;
-
-        return NULL;
-}
-
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
-
-int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result) {
-        size_t l, sz = 0;
-        const char *name;
+int network_link_get_operational_state(int ifindex, LinkOperationalState *ret) {
+        _cleanup_free_ char *str = NULL;
+        LinkOperationalState s;
         int r;
-        uint8_t *v;
 
-        assert(device);
+        assert(ifindex > 0);
+        assert(ret);
 
-        /* net_get_name_persistent() will return one of the device names based on stable information about
-         * the device. If this is not available, we fall back to using the actual device name. */
-        name = net_get_name_persistent(device);
-        if (!name && use_sysname)
-                (void) sd_device_get_sysname(device, &name);
-        if (!name)
-                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
-                                              "No stable identifying information found");
-
-        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
-        l = strlen(name);
-        sz = sizeof(sd_id128_t) + l;
-        v = newa(uint8_t, sz);
-
-        /* Fetch some persistent data unique to this machine */
-        r = sd_id128_get_machine((sd_id128_t*) v);
+        r = sd_network_link_get_operational_state(ifindex, &str);
         if (r < 0)
-                 return r;
-        memcpy(v + sizeof(sd_id128_t), name, l);
+                return r;
 
-        /* Let's hash the machine ID plus the device name. We use
-         * a fixed, but originally randomly created hash key here. */
-        *result = htole64(siphash24(v, sz, HASH_KEY.bytes));
+        s = link_operstate_from_string(str);
+        if (s < 0)
+                return s;
+
+        *ret = s;
         return 0;
 }

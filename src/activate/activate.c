@@ -9,6 +9,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -121,11 +122,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char *name, char **argv, char **env, int start_fd, size_t n_fds) {
+static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
-        _cleanup_free_ char *joined = NULL;
-        size_t n_env = 0, length;
-        const char *tocopy;
+        const char *var;
         char **s;
         int r;
 
@@ -133,55 +132,16 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--inetd only supported for single file descriptors.");
 
-        length = strv_length(arg_setenv);
-
-        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, LISTEN_FDNAMES, NULL */
-        envp = new0(char *, length + 8);
-        if (!envp)
-                return log_oom();
-
-        STRV_FOREACH(s, arg_setenv) {
-
-                if (strchr(*s, '=')) {
-                        char *k;
-
-                        k = strdup(*s);
-                        if (!k)
-                                return log_oom();
-
-                        envp[n_env++] = k;
-                } else {
-                        _cleanup_free_ char *p = NULL;
-                        const char *n;
-
-                        p = strjoin(*s, "=");
-                        if (!p)
-                                return log_oom();
-
-                        n = strv_find_prefix(env, p);
-                        if (!n)
-                                continue;
-
-                        envp[n_env] = strdup(n);
-                        if (!envp[n_env])
-                                return log_oom();
-
-                        n_env++;
-                }
-        }
-
-        FOREACH_STRING(tocopy, "TERM=", "PATH=", "USER=", "HOME=") {
+        FOREACH_STRING(var, "TERM", "PATH", "USER", "HOME") {
                 const char *n;
 
-                n = strv_find_prefix(env, tocopy);
+                n = strv_find_prefix(environ, var);
                 if (!n)
                         continue;
 
-                envp[n_env] = strdup(n);
-                if (!envp[n_env])
-                        return log_oom();
-
-                n_env++;
+                r = strv_extend(&envp, n);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_inetd) {
@@ -201,16 +161,17 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         safe_close(start_fd);
                 }
 
-                if (asprintf((char **) (envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
-                        return log_oom();
+                r = strv_extendf(&envp, "LISTEN_FDS=%zu", n_fds);
+                if (r < 0)
+                        return r;
 
-                if (asprintf((char **) (envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
-                        return log_oom();
+                r = strv_extendf(&envp, "LISTEN_PID=" PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
 
                 if (arg_fdnames) {
                         _cleanup_free_ char *names = NULL;
                         size_t len;
-                        char *e;
 
                         len = strv_length(arg_fdnames);
                         if (len == 1)
@@ -226,15 +187,23 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         if (!names)
                                 return log_oom();
 
-                        e = strjoin("LISTEN_FDNAMES=", names);
-                        if (!e)
+                        char *t = strjoin("LISTEN_FDNAMES=", names);
+                        if (!t)
                                 return log_oom();
 
-                        envp[n_env++] = e;
+                        r = strv_consume(&envp, t);
+                        if (r < 0)
+                                return r;
                 }
         }
 
-        joined = strv_join(argv, " ");
+        STRV_FOREACH(s, arg_setenv) {
+                r = strv_env_replace_strdup(&envp, *s);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *joined = strv_join(argv, " ");
         if (!joined)
                 return log_oom();
 
@@ -244,7 +213,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
         return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
 }
 
-static int fork_and_exec_process(const char *child, char **argv, char **env, int fd) {
+static int fork_and_exec_process(const char *child, char **argv, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
@@ -260,7 +229,7 @@ static int fork_and_exec_process(const char *child, char **argv, char **env, int
                 return r;
         if (r == 0) {
                 /* In the child */
-                exec_process(child, argv, env, fd, 1);
+                exec_process(child, argv, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
@@ -268,7 +237,7 @@ static int fork_and_exec_process(const char *child, char **argv, char **env, int
         return 0;
 }
 
-static int do_accept(const char *name, char **argv, char **envp, int fd) {
+static int do_accept(const char *name, char **argv, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -1;
 
@@ -284,7 +253,7 @@ static int do_accept(const char *name, char **argv, char **envp, int fd) {
         (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        return fork_and_exec_process(name, argv, envp, fd_accepted);
+        return fork_and_exec_process(name, argv, fd_accepted);
 }
 
 /* SIGCHLD handler. */
@@ -414,10 +383,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E':
-                        r = strv_extend(&arg_setenv, optarg);
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
                         if (r < 0)
-                                return log_oom();
-
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
                         break;
 
                 case ARG_FDNAME: {
@@ -453,7 +421,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind == argc)
@@ -471,7 +439,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char **argv, char **envp) {
+int main(int argc, char **argv) {
         int r, n;
         int epoll_fd = -1;
 
@@ -508,14 +476,14 @@ int main(int argc, char **argv, char **envp) {
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
-                        r = do_accept(argv[optind], argv + optind, envp, event.data.fd);
+                        r = do_accept(argv[optind], argv + optind, event.data.fd);
                         if (r < 0)
                                 return EXIT_FAILURE;
                 } else
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, (size_t) n);
+        exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
 
         return EXIT_SUCCESS;
 }

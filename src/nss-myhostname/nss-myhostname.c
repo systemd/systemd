@@ -39,10 +39,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         const char *canonical = NULL;
         int n_addresses = 0;
         uint32_t local_address_ipv4;
-        struct local_address *a;
         size_t l, idx, ms;
         char *r_name;
-        unsigned n;
 
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
@@ -54,8 +52,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         assert(h_errnop);
 
         if (is_localhost(name)) {
-                /* We respond to 'localhost', so that /etc/hosts
-                 * is optional */
+                /* We respond to 'localhost', so that /etc/hosts is optional */
 
                 canonical = "localhost";
                 local_address_ipv4 = htobe32(INADDR_LOOPBACK);
@@ -67,6 +64,14 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, AF_UNSPEC, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();
@@ -129,7 +134,9 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         /* Fourth, fill actual addresses in, but in backwards order */
-        for (a = addresses + n_addresses - 1, n = 0; (int) n < n_addresses; n++, a--) {
+        for (int i = n_addresses; i > 0; i--) {
+                struct local_address *a = addresses + i - 1;
+
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
@@ -342,6 +349,14 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, af, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();

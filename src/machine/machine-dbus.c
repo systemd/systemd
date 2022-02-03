@@ -73,11 +73,17 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "unregister",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -101,11 +107,17 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(m);
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "terminate",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -147,11 +159,17 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "kill",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -439,11 +457,16 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(m);
 
+        const char *details[] = {
+                "machine", m->name,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -526,11 +549,17 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "login",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" : "org.freedesktop.machine1.login",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -688,7 +717,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         description = strjoina("Shell for User ", user);
         r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
                                   "StandardInputFileDescriptor", "h", slave,
                                   "StandardOutputFileDescriptor", "h", slave,
@@ -696,6 +725,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                   "SendSIGHUP", "b", true,
                                   "IgnoreSIGPIPE", "b", false,
                                   "KillMode", "s", "mixed",
+                                  "TTYPath", "s", pty_name,
                                   "TTYReset", "b", true,
                                   "UtmpIdentifier", "s", utmp_id,
                                   "UtmpMode", "s", "user",
@@ -834,11 +864,19 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "bind",
+                "src", src,
+                "dest", dest,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -898,11 +936,19 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         else if (!path_is_absolute(dest))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "copy",
+                "src", src,
+                "dest", dest,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -929,7 +975,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         host_basename = basename(host_path);
 
         container_basename = basename(container_path);
-        t = strdupa(container_path);
+        t = strdupa_safe(container_path);
         container_dirname = dirname(t);
 
         hostfd = open_parent(host_path, O_CLOEXEC, 0);
@@ -1012,11 +1058,17 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         assert(message);
         assert(m);
 
+        const char *details[] = {
+                "machine", m->name,
+                "verb", "open_root_directory",
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,

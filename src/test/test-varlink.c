@@ -26,7 +26,7 @@ static int block_write_fd = -1;
 static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;
         JsonVariant *a, *b;
-        intmax_t x, y;
+        int64_t x, y;
         int r;
 
         a = json_variant_by_key(parameters, "a");
@@ -72,8 +72,8 @@ static int reply(Varlink *link, JsonVariant *parameters, const char *error_id, V
 static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
         uid_t uid = UID_INVALID;
 
-        assert(s);
-        assert(link);
+        assert_se(s);
+        assert_se(link);
 
         assert_se(varlink_get_peer_uid(link, &uid) >= 0);
         assert_se(getuid() == uid);
@@ -126,7 +126,7 @@ static void flood_test(const char *address) {
         assert_se(varlink_set_description(c, "overload-client") >= 0);
         assert_se(varlink_attach_event(c, e, k) >= 0);
         assert_se(varlink_bind_reply(c, overload_reply) >= 0);
-        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_STRING("bar")))) >= 0);
+        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >= 0);
 
         /* Unblock it */
         log_debug("Unblocking server...");

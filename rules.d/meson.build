@@ -19,6 +19,7 @@ rules = files('''
         60-persistent-v4l.rules
         60-sensor.rules
         60-serial.rules
+        70-camera.rules
         70-joystick.rules
         70-mouse.rules
         70-touchpad.rules
@@ -42,18 +43,16 @@ install_data(rules,
 
 all_rules = rules
 
-rules_in = '''
-        50-udev-default.rules
-        64-btrfs.rules
-        99-systemd.rules
-'''.split()
+rules_in = ['50-udev-default.rules',
+            '64-btrfs.rules',
+            '99-systemd.rules']
 
 foreach file : rules_in
-        gen = configure_file(
+        all_rules += custom_target(
+                file,
                 input : file + '.in',
-                output : file,
-                configuration : substs)
-        install_data(gen,
-                     install_dir : udevrulesdir)
-        all_rules += gen
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                install : true,
+                install_dir : udevrulesdir)
 endforeach

@@ -5,12 +5,12 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 
 char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]) {
         unsigned n, k = 0;
@@ -167,10 +167,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
                 return r;
 
         if (do_sync) {
-                if (fsync(fd) < 0)
-                        return -errno;
-
-                r = fsync_directory_of_file(fd);
+                r = fsync_full(fd);
                 if (r < 0)
                         return r;
         }
@@ -210,3 +207,25 @@ sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
 }
 
 DEFINE_HASH_OPS(id128_hash_ops, sd_id128_t, id128_hash_func, id128_compare_func);
+
+int id128_get_product(sd_id128_t *ret) {
+        sd_id128_t uuid;
+        int r;
+
+        assert(ret);
+
+        /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
+         * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
+
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
+        if (r == -ENOENT)
+                r = id128_read("/proc/device-tree/vm,uuid", ID128_UUID, &uuid);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
+                return -EADDRNOTAVAIL; /* Recognizable error */
+
+        *ret = uuid;
+        return 0;
+}

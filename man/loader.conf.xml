@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="loader.conf" conditional='ENABLE_EFI'
+<refentry id="loader.conf" conditional='HAVE_GNU_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>loader.conf</title>
@@ -41,8 +41,8 @@
     a comment line. Empty and comment lines are ignored.</para>
 
     <para>Boolean arguments may be written as
-    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>1</literal> or
-    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>0</literal>.
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
     </para>
   </refsect1>
 
@@ -58,7 +58,47 @@
         <listitem><para>A glob pattern to select the default entry. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
-        </para></listitem>
+        </para>
+
+        <para>If set to <literal>@saved</literal> the chosen entry will be saved as an EFI variable
+        on every boot and automatically selected the next time the boot loader starts.</para>
+
+        <table>
+          <title>Automatically detected entries will use the following names:</title>
+
+          <tgroup cols='2'>
+            <colspec colname='name' />
+            <colspec colname='expl' />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>auto-efi-default</entry>
+                <entry>EFI Default Loader</entry>
+              </row>
+              <row>
+                <entry>auto-efi-shell</entry>
+                <entry>EFI Shell</entry>
+              </row>
+              <row>
+                <entry>auto-osx</entry>
+                <entry>macOS</entry>
+              </row>
+              <row>
+                <entry>auto-reboot-to-firmware-setup</entry>
+                <entry>Reboot Into Firmware Interface</entry>
+              </row>
+              <row>
+                <entry>auto-windows</entry>
+                <entry>Windows Boot Manager</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -69,9 +109,10 @@
         will be stored as an EFI variable in that case, overriding this option.
         </para>
 
-        <para>If the timeout is disabled, the default entry will be booted
-        immediately. The menu can be shown by pressing and holding a key before
-        systemd-boot is launched.</para>
+        <para>If set to <literal>menu-hidden</literal> or <literal>0</literal> no menu
+        is shown and the default entry will be booted immediately. The menu can be shown
+        by pressing and holding a key before systemd-boot is launched. Setting this to
+        <literal>menu-force</literal> disables the timeout while always showing the menu.</para>
         </listitem>
       </varlistentry>
 
@@ -150,8 +191,38 @@
       <varlistentry>
         <term>auto-firmware</term>
 
-        <listitem><para>Takes a boolean argument. Enable (the default) or disable
-        the "Reboot into firmware" entry.</para></listitem>
+        <listitem><para>A boolean controlling the presence of the "Reboot into firmware" entry
+        (enabled by default). If this is disabled, the firmware interface may still be reached
+        by using the <keycap>f</keycap> key.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>beep</term>
+
+        <listitem><para>Beep n times when the n-th entry in the boot menu is shown (default disabled).
+        Currently, only x86 is supported, where it uses the PC speaker.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>reboot-for-bitlocker</term>
+
+        <listitem><para>Work around BitLocker requiring a recovery key when the boot loader was
+        updated (enabled by default).</para>
+
+        <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found
+        and Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal>
+        EFI variable and restart the system. The firmware will then start Windows Boot Manager
+        directly, leaving the TPM PCRs in expected states so that Windows can unseal the encryption
+        key. This allows systemd-boot to be updated without having to provide the recovery key for
+        BitLocker drive unlocking.</para>
+
+        <para>Note that the PCRs that Windows uses can be configured with the
+        <literal>Configure TPM platform validation profile for native UEFI firmware configurations</literal>
+        group policy under <literal>Computer Configuration\Administrative Templates\Windows Components\BitLocker Drive Encryption</literal>.
+        When secure boot is enabled, changing this to PCRs <literal>0,2,7,11</literal> should be safe.
+        The TPM key protector needs to be removed and then added back for the PCRs on an already
+        encrypted drive to change. If PCR 4 is not measured, this setting can be disabled to speed
+        up booting into Windows.</para></listitem>
       </varlistentry>
 
       <varlistentry>

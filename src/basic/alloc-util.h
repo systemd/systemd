@@ -22,20 +22,25 @@ typedef void (*free_func_t)(void *p);
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
 
+#define alloca_safe(n)                                                  \
+        ({                                                              \
+                size_t _nn_ = n;                                        \
+                assert(_nn_ <= ALLOCA_MAX);                             \
+                alloca(_nn_ == 0 ? 1 : _nn_);                           \
+        })                                                              \
+
 #define newa(t, n)                                                      \
         ({                                                              \
                 size_t _n_ = n;                                         \
                 assert(!size_multiply_overflow(sizeof(t), _n_));        \
-                assert(sizeof(t)*_n_ <= ALLOCA_MAX);                    \
-                (t*) alloca((sizeof(t)*_n_) ?: 1);                      \
+                (t*) alloca_safe(sizeof(t)*_n_);                        \
         })
 
 #define newa0(t, n)                                                     \
         ({                                                              \
                 size_t _n_ = n;                                         \
                 assert(!size_multiply_overflow(sizeof(t), _n_));        \
-                assert(sizeof(t)*_n_ <= ALLOCA_MAX);                    \
-                (t*) alloca0((sizeof(t)*_n_) ?: 1);                     \
+                (t*) alloca0((sizeof(t)*_n_));                          \
         })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
@@ -44,16 +49,13 @@ typedef void (*free_func_t)(void *p);
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
-static inline void *mfree(void *memory) {
-        free(memory);
-        return NULL;
-}
-
 #define free_and_replace(a, b)                  \
         ({                                      \
-                free(a);                        \
-                (a) = (b);                      \
-                (b) = NULL;                     \
+                typeof(a)* _a = &(a);           \
+                typeof(b)* _b = &(b);           \
+                free(*_a);                      \
+                (*_a) = (*_b);                  \
+                (*_b) = NULL;                   \
                 0;                              \
         })
 
@@ -64,20 +66,25 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
         ({                                      \
                 void *_q_;                      \
                 size_t _l_ = l;                 \
-                assert(_l_ <= ALLOCA_MAX);      \
-                _q_ = alloca(_l_ ?: 1);         \
-                memcpy(_q_, p, _l_);            \
+                _q_ = alloca_safe(_l_);         \
+                memcpy_safe(_q_, p, _l_);       \
         })
 
 #define memdupa_suffix0(p, l)                   \
         ({                                      \
                 void *_q_;                      \
                 size_t _l_ = l;                 \
-                assert(_l_ <= ALLOCA_MAX);      \
-                _q_ = alloca(_l_ + 1);          \
+                _q_ = alloca_safe(_l_ + 1);     \
                 ((uint8_t*) _q_)[_l_] = 0;      \
-                memcpy(_q_, p, _l_);            \
+                memcpy_safe(_q_, p, _l_);       \
         })
+
+static inline void unsetp(void *p) {
+        /* A trivial "destructor" that can be used in cases where we want to
+         * unset a pointer from a _cleanup_ function. */
+
+        *(void**)p = NULL;
+}
 
 static inline void freep(void *p) {
         *(void**)p = mfree(*(void**) p);
@@ -121,22 +128,21 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t n
         return memdup_suffix0(p, size * need);
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
+void* greedy_realloc(void **p, size_t need, size_t size);
+void* greedy_realloc0(void **p, size_t need, size_t size);
 
-#define GREEDY_REALLOC(array, allocated, need)                          \
-        greedy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+#define GREEDY_REALLOC(array, need)                                     \
+        greedy_realloc((void**) &(array), (need), sizeof((array)[0]))
 
-#define GREEDY_REALLOC0(array, allocated, need)                         \
-        greedy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+#define GREEDY_REALLOC0(array, need)                                    \
+        greedy_realloc0((void**) &(array), (need), sizeof((array)[0]))
 
 #define alloca0(n)                                      \
         ({                                              \
                 char *_new_;                            \
                 size_t _len_ = n;                       \
-                assert(_len_ <= ALLOCA_MAX);            \
-                _new_ = alloca(_len_ ?: 1);             \
-                (void *) memset(_new_, 0, _len_);       \
+                _new_ = alloca_safe(_len_);             \
+                memset(_new_, 0, _len_);                \
         })
 
 /* It's not clear what alignment glibc/gcc alloca() guarantee, hence provide a guaranteed safe version */
@@ -145,8 +151,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 void *_ptr_;                                            \
                 size_t _mask_ = (align) - 1;                            \
                 size_t _size_ = size;                                   \
-                assert(_size_ <= ALLOCA_MAX);                           \
-                _ptr_ = alloca((_size_ + _mask_) ?: 1);                 \
+                _ptr_ = alloca_safe(_size_ + _mask_);                   \
                 (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
         })
 
@@ -155,7 +160,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 void *_new_;                                            \
                 size_t _xsize_ = (size);                                \
                 _new_ = alloca_align(_xsize_, (align));                 \
-                (void*)memset(_new_, 0, _xsize_);                       \
+                memset(_new_, 0, _xsize_);                              \
         })
 
 #if HAS_FEATURE_MEMORY_SANITIZER
@@ -163,3 +168,39 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
 #else
 #  define msan_unpoison(r, s)
 #endif
+
+/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), in a way that
+ * is compatible with _FORTIFY_SOURCES. If _FORTIFY_SOURCES is used many memory operations will take the
+ * object size as returned by __builtin_object_size() into account. Hence, let's return the smaller size of
+ * malloc_usable_size() and __builtin_object_size() here, so that we definitely operate in safe territory by
+ * both the compiler's and libc's standards. Note that __builtin_object_size() evaluates to SIZE_MAX if the
+ * size cannot be determined, hence the MIN() expression should be safe with dynamically sized memory,
+ * too. Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
+ * __builtin_object_size() returns SIZE_MAX too, hence we also return a sensible value of 0 in this corner
+ * case. */
+#define MALLOC_SIZEOF_SAFE(x) \
+        MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
+
+/* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
+ * that fit into the specified memory block */
+#define MALLOC_ELEMENTSOF(x) \
+        (__builtin_choose_expr(                                         \
+                __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
+                VOID_0))
+
+
+/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
+#define strdupa_safe(s)                                                 \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strlen(_t));                \
+        })
+
+#define strndupa_safe(s, n)                                             \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strnlen(_t, (n)));          \
+        })
+
+#include "memory-util.h"

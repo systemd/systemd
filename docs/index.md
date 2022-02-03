@@ -1,5 +1,6 @@
 ---
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 systemd is a suite of basic building blocks for a Linux system. It provides a system and service manager that runs as PID 1 and starts the rest of the system.
@@ -67,9 +68,9 @@ Welcome to <span style="color:blue">Fedora 20 (Heisenbug)</span>!
          Starting Recreate Volatile Files and Directories...
          Starting Trigger Flushing of Journal to Persistent Storage...
 [  <span style="color:green">OK</span>  ] Started Recreate Volatile Files and Directories.
-         Starting Update UTMP about System Reboot/Shutdown...
+         Starting Record System Reboot/Shutdown in UTMP...
 [  <span style="color:green">OK</span>  ] Started Trigger Flushing of Journal to Persistent Storage.
-[  <span style="color:green">OK</span>  ] Started Update UTMP about System Reboot/Shutdown.
+[  <span style="color:green">OK</span>  ] Started Record System Reboot/Shutdown in UTMP.
 [  <span style="color:green">OK</span>  ] Reached target System Initialization.
 [  <span style="color:green">OK</span>  ] Reached target Timers.
 [  <span style="color:green">OK</span>  ] Listening on D-Bus System Message Bus Socket.

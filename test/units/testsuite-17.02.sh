@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 set -o pipefail
 
@@ -7,6 +8,7 @@ mkdir -p /run/udev/rules.d/
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
 ACTION=="remove", GOTO="lo_end"
 
+SUBSYSTEM=="net", KERNEL=="lo", OPTIONS="log_level=debug"
 SUBSYSTEM=="net", KERNEL=="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/net/devices/lo"
 
 ACTION!="change", GOTO="lo_end"

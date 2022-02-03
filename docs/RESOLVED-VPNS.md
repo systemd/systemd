@@ -2,6 +2,7 @@
 title: systemd-resolved and VPNs
 category: Networking
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # `systemd-resolved.service` and VPNs
@@ -65,7 +66,7 @@ a network interface may configure.
    differentiate them. i.e. `~foo.com` is a configured routing domain, while
    `foo.com` would be a configured search domain.
 
-   One routing domain is particular interesting: `~.` — the catch-all routing
+   One routing domain is particularly interesting: `~.` — the catch-all routing
    domain. (The *dot* domain `.` is how DNS denotes the "root" domain, i.e. the
    parent domain of all domains, but itself.) When used on an interface any DNS
    traffic is preferably routed to its DNS servers. (A search domain – i.e. `.`

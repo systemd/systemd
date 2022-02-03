@@ -15,6 +15,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -23,7 +27,6 @@
 #include "device-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "mount-setup.h"
@@ -34,6 +37,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
@@ -409,6 +413,10 @@ static int delete_loopback(const char *device) {
                         return -EBUSY; /* propagate original error */
                 }
 
+#if HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
                 if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR)) /* someone else already set LO_FLAGS_AUTOCLEAR for us? fine by us */
                         return -EBUSY; /* propagate original error */
 
@@ -433,6 +441,10 @@ static int delete_loopback(const char *device) {
 
                 return 1;
         }
+
+#if HAVE_VALGRIND_MEMCHECK_H
+        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
 
         /* Linux makes LOOP_CLR_FD succeed whenever LO_FLAGS_AUTOCLEAR is set without actually doing
          * anything. Very confusing. Let's hence not claim we did anything in this case. */
@@ -460,7 +472,7 @@ static int delete_dm(MountPoint *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
 
-        if (ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
+        return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {
                         DM_VERSION_MAJOR,
                         DM_VERSION_MINOR,
@@ -468,10 +480,7 @@ static int delete_dm(MountPoint *m) {
                 },
                 .data_size = sizeof(struct dm_ioctl),
                 .dev = m->devnum,
-        }) < 0)
-                return -errno;
-
-        return 0;
+        }));
 }
 
 static int delete_md(MountPoint *m) {
@@ -488,10 +497,7 @@ static int delete_md(MountPoint *m) {
         if (fsync(fd) < 0)
                 log_debug_errno(errno, "Failed to sync MD block device %s, ignoring: %m", m->path);
 
-        if (ioctl(fd, STOP_ARRAY, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
 }
 
 static bool nonunmountable_path(const char *path) {
@@ -516,7 +522,7 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Remounting '%s' read-only in with options '%s'.", m->path, m->remount_options);
+                log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
 
                 /* Start the mount operation here in the child */
                 r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
@@ -560,7 +566,7 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
                  * rather than blocking indefinitely. If the filesysten is
                  * "busy", this may allow processes to die, thus making the
                  * filesystem less busy so the unmount might succeed (rather
-                 * then return EBUSY).*/
+                 * than return EBUSY). */
                 r = umount2(m->path, MNT_FORCE);
                 if (r < 0)
                         log_full_errno(umount_log_level, errno, "Failed to unmount %s: %m", m->path);

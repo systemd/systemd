@@ -102,13 +102,13 @@ int bus_image_common_get_metadata(
                 Image *image,
                 sd_bus_error *error) {
 
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
-        /* Unused for now, but added to the DBUS methods for future-proofing */
-        uint64_t input_flags = 0;
+        PortableFlags flags = 0;
         size_t i;
         int r;
 
@@ -133,14 +133,17 @@ int bus_image_common_get_metadata(
 
         if (sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions") ||
             sd_bus_message_is_method_call(message, NULL, "GetMetadataWithExtensions")) {
+                uint64_t input_flags = 0;
+
                 r = sd_bus_message_read(message, "t", &input_flags);
                 if (r < 0)
                         return r;
-                /* Let clients know that this version doesn't support any flags */
-                if (input_flags != 0)
+
+                if ((input_flags & ~_PORTABLE_MASK_PUBLIC) != 0)
                         return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
                                                           "Invalid 'flags' parameter '%" PRIu64 "'",
                                                           input_flags);
+                flags |= input_flags;
         }
 
         r = bus_image_acquire(m,
@@ -161,7 +164,9 @@ int bus_image_common_get_metadata(
                         matches,
                         extension_images,
                         &os_release,
+                        &extension_releases,
                         &unit_files,
+                        NULL,
                         error);
         if (r < 0)
                 return r;
@@ -185,6 +190,32 @@ int bus_image_common_get_metadata(
         r = sd_bus_message_open_container(reply, 'a', "{say}");
         if (r < 0)
                 return r;
+
+        /* If it was requested, also send back the extension path and the content
+         * of each extension-release file. Behind a flag, as it's an incompatible
+         * change. */
+        if (FLAGS_SET(flags, PORTABLE_INSPECT_EXTENSION_RELEASES)) {
+                PortableMetadata *extension_release;
+
+                ORDERED_HASHMAP_FOREACH(extension_release, extension_releases) {
+
+                        r = sd_bus_message_open_container(reply, 'e', "say");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(reply, "s", extension_release->image_path);
+                        if (r < 0)
+                                return r;
+
+                        r = append_fd(reply, extension_release);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(reply);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         for (i = 0; i < hashmap_size(unit_files); i++) {
 
@@ -221,6 +252,7 @@ static int bus_image_method_get_state(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_strv_free_ char **extension_images = NULL;
         Image *image = userdata;
         PortableState state;
         int r;
@@ -228,9 +260,28 @@ static int bus_image_method_get_state(
         assert(message);
         assert(image);
 
+        if (sd_bus_message_is_method_call(message, NULL, "GetStateWithExtensions")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+
+                /* No flags are supported by this method for now. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
+        }
+
         r = portable_get_state(
                         sd_bus_message_get_bus(message),
                         image->path,
+                        extension_images,
                         0,
                         &state,
                         error);
@@ -461,6 +512,7 @@ int bus_image_common_remove(
         r = portable_get_state(
                         sd_bus_message_get_bus(message),
                         image->path,
+                        NULL,
                         0,
                         &state,
                         error);
@@ -845,6 +897,12 @@ const sd_bus_vtable image_vtable[] = {
                                 SD_BUS_RESULT("s", state),
                                 bus_image_method_get_state,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetStateWithExtensions",
+                                SD_BUS_ARGS("as", extensions,
+                                            "t", flags),
+                                SD_BUS_RESULT("s", state),
+                                bus_image_method_get_state,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Attach",
                                 SD_BUS_ARGS("as", matches,
                                             "s", profile,
@@ -1073,8 +1131,8 @@ not_found:
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        size_t n_allocated = 0, n = 0;
         Manager *m = userdata;
+        size_t n = 0;
         Image *image;
         int r;
 
@@ -1097,7 +1155,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(l, n_allocated, n+2)) {
+                if (!GREEDY_REALLOC(l, n+2)) {
                         free(p);
                         return -ENOMEM;
                 }

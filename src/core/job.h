@@ -6,7 +6,9 @@
 #include "sd-event.h"
 
 #include "list.h"
+#include "unit-dependency-atom.h"
 #include "unit-name.h"
+#include "unit.h"
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
@@ -122,6 +124,8 @@ struct Job {
         LIST_HEAD(JobDependency, subject_list);
         LIST_HEAD(JobDependency, object_list);
 
+        LIST_HEAD(Unit, triggered_by);
+
         /* Used for graph algs as a "I have been here" marker */
         Job* marker;
         unsigned generation;
@@ -158,6 +162,7 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
+        bool return_skip_on_cond_failure:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
@@ -240,4 +245,6 @@ JobResult job_result_from_string(const char *s) _pure_;
 
 const char* job_type_to_access_method(JobType t);
 
-int job_compare(Job *a, Job *b, UnitDependency assume_dep);
+int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep);
+
+void job_add_triggering_unit(Job *j, Unit *u);

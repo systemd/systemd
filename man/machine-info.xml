@@ -29,13 +29,13 @@
     <para>The <filename>/etc/machine-info</filename> file contains
     machine metadata.</para>
 
-    <para>The basic file format of <filename>machine-info</filename>
-    is a newline-separated list of environment-like shell-compatible
-    variable assignments. It is possible to source the configuration
-    from shell scripts, however, beyond mere variable assignments no
-    shell features are supported, allowing applications to read the
-    file without implementing a shell compatible execution
-    engine.</para>
+    <para>The format of <filename>machine-info</filename> is a newline-separated list of environment-like
+    shell-compatible variable assignments, ignoring comments and empty lines. It is possible to source the
+    configuration from shell scripts, however, beyond mere variable assignments no shell features are
+    supported, allowing applications to read the file without implementing a shell compatible execution
+    engine. See
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    detailed description of the format.</para>
 
     <para><filename>/etc/machine-info</filename> contains metadata about the machine that is set by the user
     or administrator. The settings configured here have the highest precedence. When not set, appropriate
@@ -127,6 +127,31 @@
         be as generic as <literal>Berlin, Germany</literal> or as
         specific as <literal>Left Rack, 2nd Shelf</literal>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>KERNEL_INSTALL_MACHINE_ID=</varname></term>
+
+        <listitem><para>Specifies the installation-specific installation directory
+        <command>kernel-install</command> should use. The value must be a valid machine ID (32 hexadecimal
+        characters). This would generally be the original machine-id that was used when the boot loader
+        entries for this installation were first added. When not set, the current value of
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VENDOR=</varname></term>
+
+        <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI
+        or hwdb will be used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MODEL=</varname></term>
+
+        <listitem><para>Specifies the hardware model. If unspecified, the hardware model set in DMI or
+        hwdb will be used.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

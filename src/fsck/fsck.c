@@ -52,7 +52,7 @@ static void start_target(const char *target, const char *mode) {
                 return;
         }
 
-        log_info("Running request %s/start/replace", target);
+        log_info("Running request %s/start/%s", target, mode);
 
         /* Start these units only if we can replace base.target with it */
         r = sd_bus_call_method(bus,
@@ -412,10 +412,7 @@ static int run(int argc, char *argv[]) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
                         return -EINVAL;
-                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED))
-                        /* Some other problem */
-                        start_target(SPECIAL_EMERGENCY_TARGET, "replace");
-                else
+                } else if (!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
                         log_warning("Ignoring error.");
         }
 

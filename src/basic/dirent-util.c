@@ -5,10 +5,12 @@
 
 #include "dirent-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
-int dirent_ensure_type(DIR *d, struct dirent *de) {
-        struct stat st;
+static int dirent_ensure_type(DIR *d, struct dirent *de) {
+        STRUCT_STATX_DEFINE(sx);
+        int r;
 
         assert(d);
         assert(de);
@@ -16,18 +18,22 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
         if (de->d_type != DT_UNKNOWN)
                 return 0;
 
-        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                return -errno;
+        if (dot_or_dot_dot(de->d_name)) {
+                de->d_type = DT_DIR;
+                return 0;
+        }
 
-        de->d_type =
-                S_ISREG(st.st_mode)  ? DT_REG  :
-                S_ISDIR(st.st_mode)  ? DT_DIR  :
-                S_ISLNK(st.st_mode)  ? DT_LNK  :
-                S_ISFIFO(st.st_mode) ? DT_FIFO :
-                S_ISSOCK(st.st_mode) ? DT_SOCK :
-                S_ISCHR(st.st_mode)  ? DT_CHR  :
-                S_ISBLK(st.st_mode)  ? DT_BLK  :
-                                       DT_UNKNOWN;
+        /* Let's ask only for the type, nothing else. */
+        r = statx_fallback(dirfd(d), de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
+        if (r < 0)
+                return r;
+
+        assert(FLAGS_SET(sx.stx_mask, STATX_TYPE));
+        de->d_type = IFTODT(sx.stx_mode);
+
+        /* If the inode is passed too, update the field, i.e. report most recent data */
+        if (FLAGS_SET(sx.stx_mask, STATX_INO))
+                de->d_ino = sx.stx_ino;
 
         return 0;
 }
@@ -59,13 +65,41 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-struct dirent* readdir_no_dot(DIR *dirp) {
-        struct dirent* d;
+struct dirent *readdir_ensure_type(DIR *d) {
+        int r;
+
+        assert(d);
+
+        /* Like readdir(), but fills in .d_type if it is DT_UNKNOWN */
 
         for (;;) {
-                d = readdir(dirp);
-                if (d && dot_or_dot_dot(d->d_name))
-                        continue;
-                return d;
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir(d);
+                if (!de)
+                        return NULL;
+
+                r = dirent_ensure_type(d, de);
+                if (r >= 0)
+                        return de;
+                if (r != -ENOENT) {
+                        errno = -r; /* We want to be compatible with readdir(), hence propagate error via errno here */
+                        return NULL;
+                }
+
+                /* Vanished by now? Then skip immediately to next */
+        }
+}
+
+struct dirent *readdir_no_dot(DIR *d) {
+        assert(d);
+
+        for (;;) {
+                struct dirent *de;
+
+                de = readdir_ensure_type(d);
+                if (!de || !dot_or_dot_dot(de->d_name))
+                        return de;
         }
 }

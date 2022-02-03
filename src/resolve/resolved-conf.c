@@ -35,14 +35,15 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         if (r < 0)
                 return r;
 
-        /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
-        if (!dns_server_address_valid(family, &address))
-                return 0;
-
-        /* By default, the port number is determined with the transaction feature level.
+        /* By default, the port number is determined by the transaction feature level.
          * See dns_transaction_port() and dns_server_port(). */
         if (IN_SET(port, 53, 853))
                 port = 0;
+
+        /* Refuse 0.0.0.0, 127.0.0.53, 127.0.0.54 and the rest of our own stub DNS listeners. */
+        if (!dns_server_address_valid(family, &address) ||
+            manager_server_address_is_stub(m, family, &address, port ?: 53))
+                return -ELOOP;
 
         /* Filter out duplicates */
         s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
@@ -56,7 +57,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name);
 }
 
-int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string, bool ignore_self_quietly) {
         int r;
 
         assert(m);
@@ -66,17 +67,16 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, 0);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        break;
 
                 r = manager_add_dns_server_by_string(m, type, word);
-                if (r < 0)
+                if (r == -ELOOP)
+                        log_full(ignore_self_quietly ? LOG_DEBUG : LOG_INFO,
+                                 "DNS server string '%s' points to our own listener, ignoring.", word);
+                else if (r < 0)
                         log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
         }
-
-        return 0;
 }
 
 static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
@@ -121,17 +121,13 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        break;
 
                 r = manager_add_search_domain_by_string(m, word);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
         }
-
-        return 0;
 }
 
 int config_parse_dns_servers(
@@ -159,7 +155,7 @@ int config_parse_dns_servers(
                 dns_server_unlink_all(manager_get_first_dns_server(m, ltype));
         else {
                 /* Otherwise, add to the list */
-                r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
+                r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue, false);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DNS server string '%s', ignoring.", rvalue);
@@ -167,8 +163,7 @@ int config_parse_dns_servers(
                 }
         }
 
-        /* If we have a manual setting, then we stop reading
-         * /etc/resolv.conf */
+        /* If we have a manual setting, then we stop reading /etc/resolv.conf */
         if (ltype == DNS_SERVER_SYSTEM)
                 m->read_resolv_conf = false;
         if (ltype == DNS_SERVER_FALLBACK)
@@ -210,8 +205,7 @@ int config_parse_search_domains(
                 }
         }
 
-        /* If we have a manual setting, then we stop reading
-         * /etc/resolv.conf */
+        /* If we have a manual setting, then we stop reading /etc/resolv.conf */
         m->read_resolv_conf = false;
 
         return 0;
@@ -255,7 +249,7 @@ int config_parse_dnssd_service_name(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, specifier_table, NULL, &name);
+        r = specifier_printf(rvalue, DNS_LABEL_MAX, specifier_table, NULL, NULL, &name);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid service instance name template '%s', ignoring assignment: %m", rvalue);
@@ -395,7 +389,7 @@ int config_parse_dnssd_txt(
                         break;
 
                 default:
-                        assert_not_reached("Unknown type of Txt config");
+                        assert_not_reached();
                 }
 
                 LIST_INSERT_AFTER(items, txt_data->txt, last, i);
@@ -493,19 +487,19 @@ int manager_parse_config_file(Manager *m) {
                 return r;
 
         if (m->need_builtin_fallbacks) {
-                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
+                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS, false);
                 if (r < 0)
                         return r;
         }
 
-#if ! HAVE_GCRYPT
+#if !HAVE_OPENSSL_OR_GCRYPT
         if (m->dnssec_mode != DNSSEC_NO) {
-                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without a cryptographic library. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
         }
 #endif
 
-#if ! ENABLE_DNS_OVER_TLS
+#if !ENABLE_DNS_OVER_TLS
         if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
                 log_warning("DNS-over-TLS option cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;

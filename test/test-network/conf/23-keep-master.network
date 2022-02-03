@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+KeepMaster=true
+ActiveSlave=true
+
+[Bridge]
+Cost=400
+HairPin = true
+FastLeave = true
+UnicastFlood = true
+MulticastFlood = false
+MulticastToUnicast = true
+NeighborSuppression = true
+Learning = false
+Priority = 23
+UseBPDU = true
+AllowPortToBeRoot=true

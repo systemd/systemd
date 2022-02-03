@@ -8,7 +8,6 @@
 # Luna Jernberg <bittin@reimu.nl>, 2020.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-02-10 15:40+0000\n"
@@ -119,7 +118,8 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "Autentisering krävs för att ändra lösenorded för en användares hemarea."
+msgstr ""
+"Autentisering krävs för att ändra lösenorded för en användares hemarea."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"

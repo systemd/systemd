@@ -105,7 +105,7 @@
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:*
- KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
@@ -195,7 +195,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:*
 # Packard Bell and Gateway models
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*:*
- KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for comunication key
+ KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
 
 ###########################################################
 # Alienware
@@ -230,6 +230,14 @@ evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 # USB keyboard in Asus FX503VD
 evdev:input:b0003v0B05p1869*
  KEYBOARD_KEY_ff31007c=f20                              # Remap micmute to f20
+
+# Asus TF103C misses the home button in its PNP0C40 GPIO resources
+# causing the volume-button mappings to be off by one, correct this
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
+ KEYBOARD_KEY_1=volumeup
+
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
+ KEYBOARD_KEY_0=volumedown
 
 ###########################################################
 # BenQ
@@ -380,11 +388,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 # Dell Precision microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
+# Dell XPS microphone mute
+evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:*
  KEYBOARD_KEY_100150=f20                                # Mic mute toggle, should be micmute
 
 # Dell Latitude privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
- KEYBOARD_KEY_12001=f20                                 # Mic mute toggle, should be micmute
+# Dell Precision privacy microphone mute
+evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
+ KEYBOARD_KEY_120001=f20                                # Mic mute toggle, should be micmute
 
 ###########################################################
 # Everex
@@ -494,9 +506,6 @@ evdev:input:b0003v0458p0708*
 # Hewlett Packard
 ###########################################################
 
-evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
- KEYBOARD_KEY_8=unknown                                 # Use hp-wireless instead
-
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
  KEYBOARD_KEY_81=fn_esc
@@ -560,8 +569,9 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
 
-evdev:name:Intel HID events:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
- KEYBOARD_KEY_08=unknown                               # rfkill is also reported by HP Wireless hotkeys
+# HP Laptop 15s-eq0023nl
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPLaptop15s-eq0*:sku9MG38EA#ABZ:*
+ KEYBOARD_KEY_9d=102nd                                  # Greater than/Less than
 
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:*
@@ -623,11 +633,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:*
 # HP EliteBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook*:*
+# HP Elite Dragonfly
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonfly*:*
 # HP ProBook 440 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:*
-# several HP ProBooks 4xx
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook4*:*
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*4*:*
+# HP ProBook
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*:*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
@@ -706,6 +718,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
 evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
  KEYBOARD_KEY_0=unknown
+
+# HP Omen 15
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnOMENLaptop15*:pvr*
+ KEYBOARD_KEY_a1=!calc
 
 ##########################################################
 # Huawei
@@ -878,6 +894,15 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPadFlex5*:*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
+evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ KEYBOARD_KEY_62=unknown  # Touchpad on, also emitted by "Ideapad extra buttons", ignore
+ KEYBOARD_KEY_63=unknown  # Touchpad off, also emitted by "Ideapad extra buttons", ignore
+
 # Fix for volume keys on Lenovo Yoga S940
 # For 10th gen it should be pn81Q8 instead of pn81Q7 but
 # I don't have a device to test
@@ -911,6 +936,19 @@ evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90007=mail
  KEYBOARD_KEY_90008=www
 
+# Lenovo Ideapad D330-10IGM
+evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
+ KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
+
+###########################################################
+# LG
+###########################################################
+
+# LG Gram
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLGElectronics:pn1*.AAS*:*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
 
 ###########################################################
 # Logitech
@@ -1293,7 +1331,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
- KEYBOARD_KEY_56=backslash                              # Secondary backslash key
  KEYBOARD_KEY_f1=f20                                    # Fn+F5 Micmute
  KEYBOARD_KEY_76=f21                                    # Fn+F4 Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
@@ -1475,7 +1512,7 @@ evdev:input:b0003v047FpC006*
 
 # If you're using an us layout keyboard in one of the below models of
 # Purism Librem 13 consider copying this file to /etc/systemd/hwdb.d/
-# to enable the following rule acording to your model.
+# to enable the following rule according to your model.
 #
 # There's a bug in the keyboards firmware and the additional rule
 # will make your keyboard behave as expected.
@@ -1618,6 +1655,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*SX20S*:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
  KEYBOARD_KEY_ad=leftmeta
+
+# Galaxy Book (2021) NP750XDA-KD4SE
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn750XDA:pvr*
+ KEYBOARD_KEY_81=!esc 		
+ KEYBOARD_KEY_ce=!prog1 	# Fn+F1 launch settings
+ KEYBOARD_KEY_ae=!volumedown 	# Fn+F7 volume down
+ KEYBOARD_KEY_b0=!volumeup	# Fn+F8 volume up
+
 
 ###########################################################
 # SONY

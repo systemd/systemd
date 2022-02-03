@@ -23,7 +23,3 @@ int dev_is_devtmpfs(void);
 
 const char *mount_propagation_flags_to_string(unsigned long flags);
 int mount_propagation_flags_from_string(const char *name, unsigned long *ret);
-
-/* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
-int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
-int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);

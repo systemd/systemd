@@ -792,10 +792,13 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
         l = recvmsg_safe(fd, &mh, 0);
-        if (IN_SET(l, -EAGAIN, -EINTR))
-                return 0;
-        if (l <= 0)
+        if (l < 0) {
+                if (ERRNO_IS_TRANSIENT(l))
+                        return 0;
                 return l;
+        }
+        if (l == 0)
+                return 0;
 
         assert(!(mh.msg_flags & MSG_TRUNC));
 
@@ -880,8 +883,16 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu",
-                  dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *sender_address = NULL, *destination_address = NULL;
+
+                (void) in_addr_to_string(p->family, &p->sender, &sender_address);
+                (void) in_addr_to_string(p->family, &p->destination, &destination_address);
+
+                log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu, sender=%s, destination=%s",
+                          dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize,
+                          strna(sender_address), strna(destination_address));
+        }
 
         *ret = TAKE_PTR(p);
         return 1;
@@ -1097,17 +1108,26 @@ uint32_t manager_find_mtu(Manager *m) {
         uint32_t mtu = 0;
         Link *l;
 
-        /* If we don't know on which link a DNS packet would be
-         * delivered, let's find the largest MTU that works on all
-         * interfaces we know of */
+        /* If we don't know on which link a DNS packet would be delivered, let's find the largest MTU that
+         * works on all interfaces we know of that have an IP address associated */
 
         HASHMAP_FOREACH(l, m->links) {
-                if (l->mtu <= 0)
+                /* Let's filter out links without IP addresses (e.g. AF_CAN links and suchlike) */
+                if (!l->addresses)
+                        continue;
+
+                /* Safety check: MTU shorter than what we need for the absolutely shortest DNS request? Then
+                 * let's ignore this link. */
+                if (l->mtu < MIN(UDP4_PACKET_HEADER_SIZE + DNS_PACKET_HEADER_SIZE,
+                                 UDP6_PACKET_HEADER_SIZE + DNS_PACKET_HEADER_SIZE))
                         continue;
 
                 if (mtu <= 0 || l->mtu < mtu)
                         mtu = l->mtu;
         }
+
+        if (mtu == 0) /* found nothing? then let's assume the typical Ethernet MTU for lack of anything more precise */
+                return 1500;
 
         return mtu;
 }
@@ -1141,15 +1161,16 @@ void manager_refresh_rrs(Manager *m) {
         m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
+        HASHMAP_FOREACH(l, m->links)
+                link_add_rrs(l, true);
+
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
                 HASHMAP_FOREACH(s, m->dnssd_services)
                         if (dnssd_update_rrs(s) < 0)
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->name);
 
-        HASHMAP_FOREACH(l, m->links) {
-                link_add_rrs(l, true);
+        HASHMAP_FOREACH(l, m->links)
                 link_add_rrs(l, false);
-        }
 }
 
 static int manager_next_random_name(const char *old, char **ret_new) {
@@ -1515,7 +1536,6 @@ void manager_reset_server_features(Manager *m) {
 
 void manager_cleanup_saved_user(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
 
         assert(m);
 
@@ -1599,28 +1619,35 @@ bool manager_next_dnssd_names(Manager *m) {
         return tried;
 }
 
-bool manager_server_is_stub(Manager *m, DnsServer *s) {
+bool manager_server_address_is_stub(Manager *m, int family, const union in_addr_union *address, uint16_t port) {
         DnsStubListenerExtra *l;
 
         assert(m);
-        assert(s);
+        assert(address);
 
         /* Safety check: we generally already skip the main stub when parsing configuration. But let's be
          * extra careful, and check here again */
-        if (s->family == AF_INET &&
-            s->address.in.s_addr == htobe32(INADDR_DNS_STUB) &&
-            dns_server_port(s) == 53)
+        if (family == AF_INET &&
+            address->in.s_addr == htobe32(INADDR_DNS_STUB) &&
+            port == 53)
                 return true;
 
         /* Main reason to call this is to check server data against the extra listeners, and filter things
          * out. */
         ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners)
-                if (s->family == l->family &&
-                    in_addr_equal(s->family, &s->address, &l->address) &&
-                    dns_server_port(s) == dns_stub_listener_extra_port(l))
+                if (family == l->family &&
+                    in_addr_equal(family, address, &l->address) &&
+                    port == dns_stub_listener_extra_port(l))
                         return true;
 
         return false;
+}
+
+bool manager_server_is_stub(Manager *m, DnsServer *s) {
+        assert(m);
+        assert(s);
+
+        return manager_server_address_is_stub(m, s->family, &s->address, dns_server_port(s));
 }
 
 int socket_disable_pmtud(int fd, int af) {

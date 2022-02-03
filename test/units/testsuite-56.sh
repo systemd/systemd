@@ -15,26 +15,34 @@ disown
 # process tree: systemd -> bash -> bash -> sleep
 ((sleep infinity); true) &
 
+systemd-notify --ready
+
+# Run the stop/kill command
+\$1 &
+
 # process tree: systemd -> bash -> sleep
 sleep infinity
 EOF
 chmod +x /tmp/test56-exit-cgroup.sh
 
 # service should be stopped cleanly
-(sleep 1; systemctl stop one) &
-systemd-run --wait --unit=one -p ExitType=cgroup /tmp/test56-exit-cgroup.sh
+systemd-run --wait --unit=one -p Type=notify -p ExitType=cgroup \
+    /tmp/test56-exit-cgroup.sh 'systemctl stop one'
 
 # same thing with a truthy exec condition
-(sleep 1; systemctl stop two) &
-systemd-run --wait --unit=two -p ExitType=cgroup -p ExecCondition=true /tmp/test56-exit-cgroup.sh
+systemd-run --wait --unit=two -p Type=notify -p ExitType=cgroup \
+    -p ExecCondition=true \
+    /tmp/test56-exit-cgroup.sh 'systemctl stop two'
 
 # false exec condition: systemd-run should exit immediately with status code: 1
-systemd-run --wait --unit=three -p ExitType=cgroup -p ExecCondition=false /tmp/test56-exit-cgroup.sh \
+systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
+    -p ExecCondition=false \
+    /tmp/test56-exit-cgroup.sh \
     && { echo 'unexpected success'; exit 1; }
 
-# service should exit uncleanly
-(sleep 1; systemctl kill --signal 9 four) &
-systemd-run --wait --unit=four -p ExitType=cgroup /tmp/test56-exit-cgroup.sh \
+# service should exit uncleanly (main process exits with SIGKILL)
+systemd-run --wait --unit=four -p Type=notify -p ExitType=cgroup \
+    /tmp/test56-exit-cgroup.sh 'systemctl kill --signal 9 four' \
     && { echo 'unexpected success'; exit 1; }
 
 
@@ -48,48 +56,22 @@ sleep infinity &
 
 # process tree: systemd -> bash -> sleep
 ((sleep infinity); true) &
+
+systemd-notify --ready
+
+# Run the stop/kill command after this bash process exits
+(sleep 1; \$1) &
 EOF
 chmod +x /tmp/test56-exit-cgroup-parentless.sh
 
 # service should be stopped cleanly
-(sleep 1; systemctl stop five) &
-systemd-run --wait --unit=five -p ExitType=cgroup /tmp/test56-exit-cgroup-parentless.sh
+systemd-run --wait --unit=five -p Type=notify -p ExitType=cgroup \
+    /tmp/test56-exit-cgroup-parentless.sh 'systemctl stop five'
 
-# service should exit uncleanly
-(sleep 1; systemctl kill --signal 9 six) &
-systemd-run --wait --unit=six -p ExitType=cgroup /tmp/test56-exit-cgroup-parentless.sh \
-    && { echo 'unexpected success'; exit 1; }
+# service should still exit cleanly despite SIGKILL (the main process already exited cleanly)
+systemd-run --wait --unit=six -p Type=notify -p ExitType=cgroup \
+    /tmp/test56-exit-cgroup-parentless.sh 'systemctl kill --signal 9 six'
 
-
-# Multiple level process tree, parent process exits uncleanly but last process exits cleanly
-cat >/tmp/test56-exit-cgroup-clean.sh <<EOF
-#!/usr/bin/env bash
-set -eux
-
-# process tree: systemd -> bash -> sleep
-(sleep 1; true) &
-
-exit 255
-EOF
-chmod +x /tmp/test56-exit-cgroup-clean.sh
-
-# service should exit cleanly and be garbage-collected
-systemd-run --wait --unit=seven -p ExitType=cgroup /tmp/test56-exit-cgroup-clean.sh
-
-
-# Multiple level process tree, parent process exits cleanly but last process exits uncleanly
-cat >/tmp/test56-exit-cgroup-unclean.sh <<EOF
-#!/usr/bin/env bash
-set -eux
-
-# process tree: systemd -> bash -> sleep
-(sleep 1; exit 255) &
-EOF
-chmod +x /tmp/test56-exit-cgroup-unclean.sh
-
-# service should exit uncleanly after 1 second
-systemd-run --wait --unit=eight -p ExitType=cgroup /tmp/test56-exit-cgroup-unclean.sh \
-    && { echo 'unexpected success'; exit 1; }
 
 systemd-analyze log-level info
 

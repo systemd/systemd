@@ -17,7 +17,7 @@ void traffic_control_free(TrafficControl *tc) {
                 tclass_free(TC_TO_TCLASS(tc));
                 break;
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 
@@ -31,7 +31,7 @@ static int traffic_control_configure(Link *link, TrafficControl *tc) {
         case TC_KIND_TCLASS:
                 return tclass_configure(link, TC_TO_TCLASS(tc));
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 
@@ -52,7 +52,7 @@ int link_configure_traffic_control(Link *link) {
         ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
                 r = traffic_control_configure(link, tc);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "Could not create send configuration message: %m");
         }
 
         if (link->tc_messages == 0)
@@ -72,7 +72,7 @@ static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_ro
         case TC_KIND_TCLASS:
                 return tclass_section_verify(TC_TO_TCLASS(tc));
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 

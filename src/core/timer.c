@@ -65,8 +65,8 @@ static void timer_done(Unit *u) {
 
         timer_free_values(t);
 
-        t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
-        t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
+        t->monotonic_event_source = sd_event_source_disable_unref(t->monotonic_event_source);
+        t->realtime_event_source = sd_event_source_disable_unref(t->realtime_event_source);
 
         free(t->stamp_path);
 }
@@ -234,7 +234,6 @@ static int timer_load(Unit *u) {
 }
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX];
         Timer *t = TIMER(u);
         Unit *trigger;
         TimerValue *v;
@@ -257,7 +256,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(t->persistent),
                 prefix, yes_no(t->wake_system),
-                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
+                prefix, FORMAT_TIMESPAN(t->accuracy_usec, 1),
                 prefix, yes_no(t->remain_after_elapse),
                 prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
@@ -274,15 +273,12 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 prefix,
                                 timer_base_to_string(v->base),
                                 strna(p));
-                } else  {
-                        char timespan1[FORMAT_TIMESPAN_MAX];
-
+                } else
                         fprintf(f,
                                 "%s%s: %s\n",
                                 prefix,
                                 timer_base_to_string(v->base),
-                                format_timespan(timespan1, sizeof(timespan1), v->value, 0));
-                }
+                                FORMAT_TIMESPAN(v->value, 0));
 }
 
 static void timer_set_state(Timer *t, TimerState state) {
@@ -296,8 +292,8 @@ static void timer_set_state(Timer *t, TimerState state) {
         t->state = state;
 
         if (state != TIMER_WAITING) {
-                t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
-                t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
+                t->monotonic_event_source = sd_event_source_disable_unref(t->monotonic_event_source);
+                t->realtime_event_source = sd_event_source_disable_unref(t->realtime_event_source);
                 t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
                 t->next_elapse_realtime = USEC_INFINITY;
         }
@@ -355,7 +351,6 @@ static void timer_enter_elapsed(Timer *t, bool leave_around) {
 }
 
 static void add_random(Timer *t, usec_t *v) {
-        char s[FORMAT_TIMESPAN_MAX];
         usec_t add;
 
         assert(t);
@@ -373,7 +368,7 @@ static void add_random(Timer *t, usec_t *v) {
         else
                 *v += add;
 
-        log_unit_debug(UNIT(t), "Adding %s random time.", format_timespan(s, sizeof(s), add, 0));
+        log_unit_debug(UNIT(t), "Adding %s random time.", FORMAT_TIMESPAN(add, 0));
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change) {
@@ -478,7 +473,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 break;
 
                         default:
-                                assert_not_reached("Unknown timer base");
+                                assert_not_reached();
                         }
 
                         v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
@@ -508,13 +503,12 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         }
 
         if (found_monotonic) {
-                char buf[FORMAT_TIMESPAN_MAX];
                 usec_t left;
 
                 add_random(t, &t->next_elapse_monotonic_or_boottime);
 
                 left = usec_sub_unsigned(t->next_elapse_monotonic_or_boottime, triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)));
-                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
+                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", FORMAT_TIMESPAN(left, 0));
 
                 if (t->monotonic_event_source) {
                         r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
@@ -546,11 +540,9 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         }
 
         if (found_realtime) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-
                 add_random(t, &t->next_elapse_realtime);
 
-                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", FORMAT_TIMESTAMP(t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
                         r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
@@ -635,12 +627,6 @@ static int timer_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -664,12 +650,9 @@ static int timer_start(Unit *u) {
                         ft = timespec_load(&st.st_mtim);
                         if (ft < now(CLOCK_REALTIME))
                                 t->last_trigger.realtime = ft;
-                        else {
-                                char z[FORMAT_TIMESTAMP_MAX];
-
+                        else
                                 log_unit_warning(u, "Not using persistent file timestamp %s as it is in the future.",
-                                                 format_timestamp(z, sizeof(z), ft));
-                        }
+                                                 FORMAT_TIMESTAMP(ft));
 
                 } else if (errno == ENOENT)
                         /* The timer has never run before, make sure a stamp file exists. */
@@ -808,7 +791,7 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
                 break;
 
         default:
-                assert_not_reached("Unknown timer state");
+                assert_not_reached();
         }
 }
 
@@ -901,20 +884,35 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
+static int timer_can_start(Unit *u) {
+        Timer *t = TIMER(u);
+        int r;
+
+        assert(t);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 1;
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
-        [TIMER_ACTIVE] = "OnActiveSec",
-        [TIMER_BOOT] = "OnBootSec",
-        [TIMER_STARTUP] = "OnStartupSec",
-        [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
+        [TIMER_ACTIVE]        = "OnActiveSec",
+        [TIMER_BOOT]          = "OnBootSec",
+        [TIMER_STARTUP]       = "OnStartupSec",
+        [TIMER_UNIT_ACTIVE]   = "OnUnitActiveSec",
         [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
-        [TIMER_CALENDAR] = "OnCalendar"
+        [TIMER_CALENDAR]      = "OnCalendar"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
-        [TIMER_SUCCESS] = "success",
-        [TIMER_FAILURE_RESOURCES] = "resources",
+        [TIMER_SUCCESS]                 = "success",
+        [TIMER_FAILURE_RESOURCES]       = "resources",
         [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
@@ -960,4 +958,6 @@ const UnitVTable timer_vtable = {
         .timezone_change = timer_timezone_change,
 
         .bus_set_property = bus_timer_set_property,
+
+        .can_start = timer_can_start,
 };

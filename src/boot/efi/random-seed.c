@@ -12,43 +12,41 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-#define EFI_RNG_GUID &(EFI_GUID) EFI_RNG_PROTOCOL_GUID
+#define EFI_RNG_GUID &(const EFI_GUID) EFI_RNG_PROTOCOL_GUID
 
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
-static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
-        _cleanup_freepool_ VOID *data = NULL;
+static EFI_STATUS acquire_rng(UINTN size, void **ret) {
+        _cleanup_freepool_ void *data = NULL;
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
+        assert(ret);
+
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = LibLocateProtocol(EFI_RNG_GUID, (VOID**) &rng);
+        err = LibLocateProtocol((EFI_GUID*) EFI_RNG_GUID, (void**) &rng);
         if (EFI_ERROR(err))
                 return err;
         if (!rng)
                 return EFI_UNSUPPORTED;
 
-        data = AllocatePool(size);
-        if (!data)
-                return log_oom();
+        data = xallocate_pool(size);
 
-        err = uefi_call_wrapper(rng->GetRNG, 3, rng, NULL, size, data);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to acquire RNG data: %r\n", err);
-                return err;
-        }
+        err = rng->GetRNG(rng, NULL, size, data);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
 
         *ret = TAKE_PTR(data);
         return EFI_SUCCESS;
 }
 
-static VOID hash_once(
-                const VOID *old_seed,
-                const VOID *rng,
+static void hash_once(
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
                 UINTN counter,
                 UINT8 ret[static HASH_VALUE_SIZE]) {
@@ -65,6 +63,9 @@ static VOID hash_once(
 
         struct sha256_ctx hash;
 
+        assert(old_seed);
+        assert(system_token_size == 0 || system_token);
+
         sha256_init_ctx(&hash);
         sha256_process_bytes(old_seed, size, &hash);
         if (rng)
@@ -76,23 +77,25 @@ static VOID hash_once(
 }
 
 static EFI_STATUS hash_many(
-                const VOID *old_seed,
-                const VOID *rng,
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
                 UINTN counter_start,
                 UINTN n,
-                VOID **ret) {
+                void **ret) {
 
-        _cleanup_freepool_ VOID *output = NULL;
+        _cleanup_freepool_ void *output = NULL;
+
+        assert(old_seed);
+        assert(system_token_size == 0 || system_token);
+        assert(ret);
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
 
-        output = AllocatePool(n * HASH_VALUE_SIZE);
-        if (!output)
-                return log_oom();
+        output = xallocate_pool(n * HASH_VALUE_SIZE);
 
         for (UINTN i = 0; i < n; i++)
                 hash_once(old_seed, rng, size,
@@ -105,17 +108,22 @@ static EFI_STATUS hash_many(
 }
 
 static EFI_STATUS mangle_random_seed(
-                const VOID *old_seed,
-                const VOID *rng,
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
-                VOID **ret_new_seed,
-                VOID **ret_for_kernel) {
+                void **ret_new_seed,
+                void **ret_for_kernel) {
 
-        _cleanup_freepool_ VOID *new_seed = NULL, *for_kernel = NULL;
+        _cleanup_freepool_ void *new_seed = NULL, *for_kernel = NULL;
         EFI_STATUS err;
         UINTN n;
+
+        assert(old_seed);
+        assert(system_token_size == 0 || system_token);
+        assert(ret_new_seed);
+        assert(ret_for_kernel);
 
         /* This takes the old seed file contents, an (optional) random number acquired from the UEFI RNG, an
          * (optional) system 'token' installed once by the OS installer in an EFI variable, and hashes them
@@ -141,22 +149,23 @@ static EFI_STATUS mangle_random_seed(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
+static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         _cleanup_freepool_ CHAR8 *data = NULL;
         EFI_STATUS err;
         UINTN size;
 
+        assert(ret);
+        assert(ret_size);
+
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
-                        Print(L"Failed to read LoaderSystemToken EFI variable: %r", err);
+                        log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
                 return err;
         }
 
-        if (size <= 0) {
-                Print(L"System token too short, ignoring.");
-                return EFI_NOT_FOUND;
-        }
+        if (size <= 0)
+                return log_error_status_stall(EFI_NOT_FOUND, L"System token too short, ignoring.");
 
         *ret = TAKE_PTR(data);
         *ret_size = size;
@@ -164,9 +173,9 @@ static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         return EFI_SUCCESS;
 }
 
-static VOID validate_sha256(void) {
+static void validate_sha256(void) {
 
-#ifndef __OPTIMIZE__
+#ifdef EFI_DEBUG
         /* Let's validate our SHA256 implementation. We stole it from glibc, and converted it to UEFI
          * style. We better check whether it does the right stuff. We use the simpler test vectors from the
          * SHA spec. Note that we strip this out in optimization builds. */
@@ -208,23 +217,20 @@ static VOID validate_sha256(void) {
                 sha256_process_bytes(array[i].string, strlena((const CHAR8*) array[i].string), &hash);
                 sha256_finish_ctx(&hash, result);
 
-                if (CompareMem(result, array[i].hash, HASH_VALUE_SIZE) != 0) {
-                        Print(L"SHA256 failed validation.\n");
-                        uefi_call_wrapper(BS->Stall, 1, 120 * 1000 * 1000);
-                        return;
-                }
+                assert(CompareMem(result, array[i].hash, HASH_VALUE_SIZE) == 0);
         }
 
-        Print(L"SHA256 validated\n");
 #endif
 }
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
-        _cleanup_freepool_ VOID *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
-        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_freepool_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
         EFI_STATUS err;
+
+        assert(root_dir);
 
         validate_sha256();
 
@@ -243,53 +249,41 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (mode != RANDOM_SEED_ALWAYS && EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        err = root_dir->Open(root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
-                if (err != EFI_NOT_FOUND)
-                        Print(L"Failed to open random seed file: %r\n", err);
+                if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
+                        log_error_stall(L"Failed to open random seed file: %r", err);
                 return err;
         }
 
-        info = LibFileInfo(handle);
-        if (!info)
-                return log_oom();
+        err = get_file_info_harder(handle, &info, NULL);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to get file info for random seed: %r");
 
         size = info->FileSize;
-        if (size < RANDOM_MAX_SIZE_MIN) {
-                Print(L"Random seed file is too short?\n");
-                return EFI_INVALID_PARAMETER;
-        }
+        if (size < RANDOM_MAX_SIZE_MIN)
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too short.");
 
-        if (size > RANDOM_MAX_SIZE_MAX) {
-                Print(L"Random seed file is too large?\n");
-                return EFI_INVALID_PARAMETER;
-        }
+        if (size > RANDOM_MAX_SIZE_MAX)
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
 
-        seed = AllocatePool(size);
-        if (!seed)
-                return log_oom();
+        seed = xallocate_pool(size);
 
         rsize = size;
-        err = uefi_call_wrapper(handle->Read, 3, handle, &rsize, seed);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to read random seed file: %r\n", err);
-                return err;
-        }
-        if (rsize != size) {
-                Print(L"Short read on random seed file\n");
-                return EFI_PROTOCOL_ERROR;
-        }
+        err = handle->Read(handle, &rsize, seed);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
+        if (rsize != size)
+                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
 
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, 0);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to seek to beginning of random seed file: %r\n", err);
-                return err;
-        }
+        err = handle->SetPosition(handle, 0);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
 
         /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
          * idea to use it because it helps us for cases where users mistakenly include a random seed in
          * golden master images that are replicated many times. */
-        (VOID) acquire_rng(size, &rng); /* It's fine if this fails */
+        (void) acquire_rng(size, &rng); /* It's fine if this fails */
 
         /* Calculate new random seed for the disk and what to pass to the kernel */
         err = mangle_random_seed(seed, rng, size, system_token, system_token_size, &new_seed, &for_kernel);
@@ -298,28 +292,20 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         /* Update the random seed on disk before we use it */
         wsize = size;
-        err = uefi_call_wrapper(handle->Write, 3, handle, &wsize, new_seed);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to write random seed file: %r\n", err);
-                return err;
-        }
-        if (wsize != size) {
-                Print(L"Short write on random seed file\n");
-                return EFI_PROTOCOL_ERROR;
-        }
+        err = handle->Write(handle, &wsize, new_seed);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+        if (wsize != size)
+                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
 
-        err = uefi_call_wrapper(handle->Flush, 1, handle);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to flush random seed file: %r\n");
-                return err;
-        }
+        err = handle->Flush(handle);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
         /* We are good to go */
         err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to write random seed to EFI variable: %r\n", err);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
 
         return EFI_SUCCESS;
 }

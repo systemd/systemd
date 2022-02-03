@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -189,7 +190,7 @@ static int field_set_test(const Set *fields, const char *name, size_t n) {
         if (!fields)
                 return 1;
 
-        s = strndupa(name, n);
+        s = strndupa_safe(name, n);
         return set_contains(fields, s);
 }
 
@@ -416,7 +417,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 default:
-                        assert_not_reached("Unknown time format");
+                        assert_not_reached();
                 }
         }
 
@@ -579,10 +580,9 @@ static int output_short(
                 }
         }
 
-        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len)) {
-                char bytes[FORMAT_BYTES_MAX];
-                fprintf(f, "[%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
-        } else {
+        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len))
+                fprintf(f, "[%s blob data]\n", FORMAT_BYTES(message_len));
+        else {
 
                 /* URLify config_file string in message, if the message starts with it.
                  * Skip URLification if the highlighted pattern overlaps. */
@@ -726,16 +726,13 @@ static int output_verbose(
                                         p, valuelen,
                                         NULL);
                         fputs(off, f);
-                } else {
-                        char bytes[FORMAT_BYTES_MAX];
-
+                } else
                         fprintf(f, "    %s%.*s=[%s blob data]%s\n",
                                 on,
                                 (int) (c - (const char*) data),
                                 (const char*) data,
-                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1),
+                                FORMAT_BYTES(length - (c - (const char *) data) - 1),
                                 off);
-                }
         }
 
         if (r < 0)
@@ -756,13 +753,12 @@ static int output_export(
                 const Set *output_fields,
                 const size_t highlight[2]) {
 
-        sd_id128_t boot_id;
-        char sid[SD_ID128_STRING_MAX];
-        int r;
-        usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
+        usec_t realtime, monotonic;
+        sd_id128_t boot_id;
         const void *data;
         size_t length;
+        int r;
 
         assert(j);
 
@@ -788,7 +784,7 @@ static int output_export(
                 cursor,
                 realtime,
                 monotonic,
-                sd_id128_to_string(boot_id, sid));
+                SD_ID128_TO_STRING(boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 size_t fieldlen;
@@ -976,7 +972,7 @@ static int update_json_data_split(
         if (!journal_field_valid(data, fieldlen, true))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-        name = strndupa(data, fieldlen);
+        name = strndupa_safe(data, fieldlen);
         if (output_fields && !set_contains(output_fields, name))
                 return 0;
 

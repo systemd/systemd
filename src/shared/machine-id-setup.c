@@ -9,7 +9,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -23,6 +22,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 #include "umask-util.h"
 #include "util.h"
 #include "virt.h"
@@ -60,19 +60,14 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 return 0;
                         }
 
-                } else if (detect_vm() == VIRTUALIZATION_KVM) {
+                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU)) {
 
-                        /* If we are not running in a container, see if we are
-                         * running in qemu/kvm and a machine ID was passed in
-                         * via -uuid on the qemu/kvm command line */
+                        /* If we are not running in a container, see if we are running in a VM that provides
+                         * a system UUID via the SMBIOS/DMI interfaces.  Such environments include QEMU/KVM
+                         * with the -uuid on the qemu command line or the Amazon EC2 Nitro hypervisor. */
 
-                        if (id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, ret) >= 0) {
-                                log_info("Initializing machine ID from KVM UUID.");
-                                return 0;
-                        }
-                        /* on POWER, it's exported here instead */
-                        if (id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, ret) >= 0) {
-                                log_info("Initializing machine ID from KVM UUID.");
+                        if (id128_get_product(ret) >= 0) {
+                                log_info("Initializing machine ID from VM UUID.");
                                 return 0;
                         }
                 }

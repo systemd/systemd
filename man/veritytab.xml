@@ -33,12 +33,12 @@ This is based on crypttab(5).
     <title>Description</title>
 
     <para>The <filename>/etc/veritytab</filename> file describes
-    verity integrity protected block devices that are set up during
+    verity protected block devices that are set up during
     system boot.</para>
 
     <para>Empty lines and lines starting with the <literal>#</literal>
     character are ignored. Each of the remaining lines describes one
-    verity integrity protected block device. Fields are delimited by
+    verity protected block device. Fields are delimited by
     white space.</para>
 
     <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>data-device</replaceable> <replaceable>hash-device</replaceable> <replaceable>roothash</replaceable> <replaceable>options</replaceable></programlisting>
@@ -65,7 +65,7 @@ This is based on crypttab(5).
         <term><option>restart-on-corruption</option></term>
         <term><option>panic-on-corruption</option></term>
 
-        <listitem><para>Defines what to do if data integrity problem is detected (data corruption). Without these
+        <listitem><para>Defines what to do if a data verity problem is detected (data corruption). Without these
         options kernel fails the IO operation with I/O error. With <literal>--ignore-corruption</literal> option the
         corruption is only logged. With <literal>--restart-on-corruption</literal> or
         <literal>--panic-on-corruption</literal> the kernel is restarted (panicked) immediately.
@@ -149,18 +149,18 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>x-initrd.attach</option></term>
 
-        <listitem><para>Setup this verity integrity protected block device in the initramfs, similarly to
+        <listitem><para>Setup this verity protected block device in the initramfs, similarly to
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         units marked with <option>x-initrd.mount</option>.</para>
 
         <para>Although it's not necessary to mark the mount entry for the root file system with
         <option>x-initrd.mount</option>, <option>x-initrd.attach</option> is still recommended with
-        the verity integrity protected block device containing the root file system as otherwise systemd
+        the verity protected block device containing the root file system as otherwise systemd
         will attempt to detach the device during the regular system shutdown while it's still in
         use. With this option the device will still be detached but later after the root file
         system is unmounted.</para>
 
-        <para>All other verity integrity protected block devices that contain file systems mounted in the
+        <para>All other verity protected block devices that contain file systems mounted in the
         initramfs should use this option.</para>
         </listitem>
       </varlistentry>
@@ -176,7 +176,7 @@ This is based on crypttab(5).
     <title>Examples</title>
     <example>
       <title>/etc/veritytab example</title>
-      <para>Set up two verity integrity protected block devices. One using device blocks, another using files.</para>
+      <para>Set up two verity protected block devices. One using device blocks, another using files.</para>
 
       <programlisting>usr  PARTUUID=783e45ae-7aa3-484a-beef-a80ff9c19cbb PARTUUID=21dc1dfe-4c33-8b48-98a9-918a22eb3e37 36e3f740ad502e2c25e2a23d9c7c17bf0fdad2300b7580842d4b7ec1fb0fa263 auto
 data /etc/data /etc/hash a5ee4b42f70ae1f46a08a7c92c2e0a20672ad2f514792730f5d49d7606ab8fdf auto

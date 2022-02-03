@@ -37,7 +37,6 @@ typedef struct LookupParameters {
 
 static int add_nss_service(JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *status = NULL, *z = NULL;
-        char buf[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -54,7 +53,7 @@ static int add_nss_service(JsonVariant **v) {
                 return r;
 
         status = json_variant_ref(json_variant_by_key(*v, "status"));
-        z = json_variant_ref(json_variant_by_key(status, sd_id128_to_string(mid, buf)));
+        z = json_variant_ref(json_variant_by_key(status, SD_ID128_TO_STRING(mid)));
 
         if (json_variant_by_key(z, "service"))
                 return 0;
@@ -63,7 +62,7 @@ static int add_nss_service(JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&status, buf, z);
+        r = json_variant_set_field(&status, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
@@ -88,7 +87,7 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
         } else
                 trusted = peer_uid == 0 || peer_uid == ur->uid;
 
-        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE;
+        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
                 flags |= USER_RECORD_ALLOW_PRIVILEGED;
         else
@@ -113,6 +112,22 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
                                           JSON_BUILD_PAIR("incomplete", JSON_BUILD_BOOLEAN(stripped->incomplete))));
 }
 
+static int userdb_flags_from_service(Varlink *link, const char *service, UserDBFlags *ret) {
+        assert(link);
+        assert(ret);
+
+        if (streq_ptr(service, "io.systemd.NameServiceSwitch"))
+                *ret = USERDB_NSS_ONLY|USERDB_AVOID_MULTIPLEXER;
+        else if (streq_ptr(service, "io.systemd.DropIn"))
+                *ret = USERDB_DROPIN_ONLY|USERDB_AVOID_MULTIPLEXER;
+        else if (streq_ptr(service, "io.systemd.Multiplexer"))
+                *ret = USERDB_AVOID_MULTIPLEXER;
+        else
+                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+
+        return 0;
+}
+
 static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
         static const JsonDispatch dispatch_table[] = {
@@ -127,6 +142,7 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
+        UserDBFlags userdb_flags;
         int r;
 
         assert(parameters);
@@ -135,109 +151,58 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        if (streq_ptr(p.service, "io.systemd.NameServiceSwitch")) {
-                if (uid_is_valid(p.uid))
-                        r = nss_user_record_by_uid(p.uid, true, &hr);
-                else if (p.user_name)
-                        r = nss_user_record_by_name(p.user_name, true, &hr);
-                else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
+        r = userdb_flags_from_service(link, p.service, &userdb_flags);
+        if (r != 0) /* return value of < 0 means error (as usual); > 0 means 'already processed and replied,
+                     * we are done'; == 0 means 'not processed, caller should process now' */
+                return r;
 
-                        setpwent();
+        if (uid_is_valid(p.uid))
+                r = userdb_by_uid(p.uid, userdb_flags, &hr);
+        else if (p.user_name)
+                r = userdb_by_name(p.user_name, userdb_flags, &hr);
+        else {
+                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                        for (;;) {
-                                _cleanup_(user_record_unrefp) UserRecord *z = NULL;
-                                _cleanup_free_ char *sbuf = NULL;
-                                struct passwd *pw;
-                                struct spwd spwd;
+                r = userdb_all(userdb_flags, &iterator);
+                if (IN_SET(r, -ESRCH, -ENOLINK))
+                        /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
+                         * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
+                         * was off and no other suitable source or entries were found). Let's hide this
+                         * implementation detail and always return NoRecordFound in this case, since from a
+                         * client's perspective it's irrelevant if there was no entry at all or just not on
+                         * the service that the query was limited to. */
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                if (r < 0)
+                        return r;
 
-                                errno = 0;
-                                pw = getpwent();
-                                if (!pw) {
-                                        if (errno != 0)
-                                                log_debug_errno(errno, "Failure while iterating through NSS user database, ignoring: %m");
+                for (;;) {
+                        _cleanup_(user_record_unrefp) UserRecord *z = NULL;
 
-                                        break;
-                                }
-
-                                r = nss_spwd_for_passwd(pw, &spwd, &sbuf);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to acquire shadow entry for user %s, ignoring: %m", pw->pw_name);
-
-                                r = nss_passwd_to_user_record(pw, NULL, &z);
-                                if (r < 0) {
-                                        endpwent();
-                                        return r;
-                                }
-
-                                if (last) {
-                                        r = varlink_notify(link, last);
-                                        if (r < 0) {
-                                                endpwent();
-                                                return r;
-                                        }
-
-                                        last = json_variant_unref(last);
-                                }
-
-                                r = build_user_json(link, z, &last);
-                                if (r < 0) {
-                                        endpwent();
-                                        return r;
-                                }
-                        }
-
-                        endpwent();
-
-                        if (!last)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                        return varlink_reply(link, last);
-                }
-
-        } else if (streq_ptr(p.service, "io.systemd.Multiplexer")) {
-
-                if (uid_is_valid(p.uid))
-                        r = userdb_by_uid(p.uid, USERDB_AVOID_MULTIPLEXER, &hr);
-                else if (p.user_name)
-                        r = userdb_by_name(p.user_name, USERDB_AVOID_MULTIPLEXER, &hr);
-                else {
-                        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                        _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
-
-                        r = userdb_all(USERDB_AVOID_MULTIPLEXER, &iterator);
+                        r = userdb_iterator_get(iterator, &z);
+                        if (r == -ESRCH)
+                                break;
                         if (r < 0)
                                 return r;
 
-                        for (;;) {
-                                _cleanup_(user_record_unrefp) UserRecord *z = NULL;
-
-                                r = userdb_iterator_get(iterator, &z);
-                                if (r == -ESRCH)
-                                        break;
+                        if (last) {
+                                r = varlink_notify(link, last);
                                 if (r < 0)
                                         return r;
 
-                                if (last) {
-                                        r = varlink_notify(link, last);
-                                        if (r < 0)
-                                                return r;
-
-                                        last = json_variant_unref(last);
-                                }
-
-                                r = build_user_json(link, z, &last);
-                                if (r < 0)
-                                        return r;
+                                last = json_variant_unref(last);
                         }
 
-                        if (!last)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                        return varlink_reply(link, last);
+                        r = build_user_json(link, z, &last);
+                        if (r < 0)
+                                return r;
                 }
-        } else
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+
+                if (!last)
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+
+                return varlink_reply(link, last);
+        }
         if (r == -ESRCH)
                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0) {
@@ -274,7 +239,7 @@ static int build_group_json(Varlink *link, GroupRecord *gr, JsonVariant **ret) {
         } else
                 trusted = peer_uid == 0;
 
-        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE;
+        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
                 flags |= USER_RECORD_ALLOW_PRIVILEGED;
         else
@@ -313,6 +278,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
+        UserDBFlags userdb_flags;
         int r;
 
         assert(parameters);
@@ -321,110 +287,51 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         if (r < 0)
                 return r;
 
-        if (streq_ptr(p.service, "io.systemd.NameServiceSwitch")) {
+        r = userdb_flags_from_service(link, p.service, &userdb_flags);
+        if (r != 0)
+                return r;
 
-                if (gid_is_valid(p.gid))
-                        r = nss_group_record_by_gid(p.gid, true, &g);
-                else if (p.group_name)
-                        r = nss_group_record_by_name(p.group_name, true, &g);
-                else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
+        if (gid_is_valid(p.gid))
+                r = groupdb_by_gid(p.gid, userdb_flags, &g);
+        else if (p.group_name)
+                r = groupdb_by_name(p.group_name, userdb_flags, &g);
+        else {
+                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                        setgrent();
+                r = groupdb_all(userdb_flags, &iterator);
+                if (IN_SET(r, -ESRCH, -ENOLINK))
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                if (r < 0)
+                        return r;
 
-                        for (;;) {
-                                _cleanup_(group_record_unrefp) GroupRecord *z = NULL;
-                                _cleanup_free_ char *sbuf = NULL;
-                                struct group *grp;
-                                struct sgrp sgrp;
+                for (;;) {
+                        _cleanup_(group_record_unrefp) GroupRecord *z = NULL;
 
-                                errno = 0;
-                                grp = getgrent();
-                                if (!grp) {
-                                        if (errno != 0)
-                                                log_debug_errno(errno, "Failure while iterating through NSS group database, ignoring: %m");
-
-                                        break;
-                                }
-
-                                r = nss_sgrp_for_group(grp, &sgrp, &sbuf);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to acquire shadow entry for group %s, ignoring: %m", grp->gr_name);
-
-                                r = nss_group_to_group_record(grp, r >= 0 ? &sgrp : NULL, &z);
-                                if (r < 0) {
-                                        endgrent();
-                                        return r;
-                                }
-
-                                if (last) {
-                                        r = varlink_notify(link, last);
-                                        if (r < 0) {
-                                                endgrent();
-                                                return r;
-                                        }
-
-                                        last = json_variant_unref(last);
-                                }
-
-                                r = build_group_json(link, z, &last);
-                                if (r < 0) {
-                                        endgrent();
-                                        return r;
-                                }
-                        }
-
-                        endgrent();
-
-                        if (!last)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                        return varlink_reply(link, last);
-                }
-
-        } else if (streq_ptr(p.service, "io.systemd.Multiplexer")) {
-
-                if (gid_is_valid(p.gid))
-                        r = groupdb_by_gid(p.gid, USERDB_AVOID_MULTIPLEXER, &g);
-                else if (p.group_name)
-                        r = groupdb_by_name(p.group_name, USERDB_AVOID_MULTIPLEXER, &g);
-                else {
-                        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                        _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
-
-                        r = groupdb_all(USERDB_AVOID_MULTIPLEXER, &iterator);
+                        r = groupdb_iterator_get(iterator, &z);
+                        if (r == -ESRCH)
+                                break;
                         if (r < 0)
                                 return r;
 
-                        for (;;) {
-                                _cleanup_(group_record_unrefp) GroupRecord *z = NULL;
-
-                                r = groupdb_iterator_get(iterator, &z);
-                                if (r == -ESRCH)
-                                        break;
+                        if (last) {
+                                r = varlink_notify(link, last);
                                 if (r < 0)
                                         return r;
 
-                                if (last) {
-                                        r = varlink_notify(link, last);
-                                        if (r < 0)
-                                                return r;
-
-                                        last = json_variant_unref(last);
-                                }
-
-                                r = build_group_json(link, z, &last);
-                                if (r < 0)
-                                        return r;
+                                last = json_variant_unref(last);
                         }
 
-                        if (!last)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                        return varlink_reply(link, last);
+                        r = build_group_json(link, z, &last);
+                        if (r < 0)
+                                return r;
                 }
-        } else
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+
+                if (!last)
+                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+
+                return varlink_reply(link, last);
+        }
         if (r == -ESRCH)
                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0) {
@@ -451,7 +358,10 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 {}
         };
 
+        _cleanup_free_ char *last_user_name = NULL, *last_group_name = NULL;
+        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         LookupParameters p = {};
+        UserDBFlags userdb_flags;
         int r;
 
         assert(parameters);
@@ -460,167 +370,58 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        if (streq_ptr(p.service, "io.systemd.NameServiceSwitch")) {
+        r = userdb_flags_from_service(link, p.service, &userdb_flags);
+        if (r != 0)
+                return r;
 
-                if (p.group_name) {
-                        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-                        const char *last = NULL;
-                        char **i;
+        if (p.group_name)
+                r = membershipdb_by_group(p.group_name, userdb_flags, &iterator);
+        else if (p.user_name)
+                r = membershipdb_by_user(p.user_name, userdb_flags, &iterator);
+        else
+                r = membershipdb_all(userdb_flags, &iterator);
+        if (IN_SET(r, -ESRCH, -ENOLINK))
+                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        if (r < 0)
+                return r;
 
-                        r = nss_group_record_by_name(p.group_name, true, &g);
-                        if (r == -ESRCH)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-                        if (r < 0)
-                                return r;
+        for (;;) {
+                _cleanup_free_ char *user_name = NULL, *group_name = NULL;
 
-                        STRV_FOREACH(i, g->members) {
-
-                                if (p.user_name && !streq_ptr(p.user_name, *i))
-                                        continue;
-
-                                if (last) {
-                                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
-                                                                            JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last)),
-                                                                            JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(g->group_name))));
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                last = *i;
-                        }
-
-                        if (!last)
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                                              JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last)),
-                                                              JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(g->group_name))));
-                } else {
-                        _cleanup_free_ char *last_user_name = NULL, *last_group_name = NULL;
-
-                        setgrent();
-
-                        for (;;) {
-                                struct group *grp;
-                                const char* two[2], **users, **i;
-
-                                errno = 0;
-                                grp = getgrent();
-                                if (!grp) {
-                                        if (errno != 0)
-                                                log_debug_errno(errno, "Failure while iterating through NSS group database, ignoring: %m");
-
-                                        break;
-                                }
-
-                                if (p.user_name) {
-                                        if (!strv_contains(grp->gr_mem, p.user_name))
-                                                continue;
-
-                                        two[0] = p.user_name;
-                                        two[1] = NULL;
-
-                                        users = two;
-                                } else
-                                        users = (const char**) grp->gr_mem;
-
-                                STRV_FOREACH(i, users) {
-
-                                        if (last_user_name) {
-                                                assert(last_group_name);
-
-                                                r = varlink_notifyb(link, JSON_BUILD_OBJECT(
-                                                                                    JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                                                    JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
-                                                if (r < 0) {
-                                                        endgrent();
-                                                        return r;
-                                                }
-
-                                                free(last_user_name);
-                                                free(last_group_name);
-                                        }
-
-                                        last_user_name = strdup(*i);
-                                        last_group_name = strdup(grp->gr_name);
-                                        if (!last_user_name || !last_group_name) {
-                                                endgrent();
-                                                return -ENOMEM;
-                                        }
-                                }
-                        }
-
-                        endgrent();
-
-                        if (!last_user_name) {
-                                assert(!last_group_name);
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-                        }
-
-                        assert(last_group_name);
-
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                                              JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                              JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
-                }
-
-        } else if (streq_ptr(p.service, "io.systemd.Multiplexer")) {
-
-                _cleanup_free_ char *last_user_name = NULL, *last_group_name = NULL;
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-
-                if (p.group_name)
-                        r = membershipdb_by_group(p.group_name, USERDB_AVOID_MULTIPLEXER, &iterator);
-                else if (p.user_name)
-                        r = membershipdb_by_user(p.user_name, USERDB_AVOID_MULTIPLEXER, &iterator);
-                else
-                        r = membershipdb_all(USERDB_AVOID_MULTIPLEXER, &iterator);
+                r = membershipdb_iterator_get(iterator, &user_name, &group_name);
+                if (r == -ESRCH)
+                        break;
                 if (r < 0)
                         return r;
 
-                for (;;) {
-                        _cleanup_free_ char *user_name = NULL, *group_name = NULL;
+                /* If both group + user are specified do a-posteriori filtering */
+                if (p.group_name && p.user_name && !streq(group_name, p.group_name))
+                        continue;
 
-                        r = membershipdb_iterator_get(iterator, &user_name, &group_name);
-                        if (r == -ESRCH)
-                                break;
+                if (last_user_name) {
+                        assert(last_group_name);
+
+                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
+                                                            JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
+                                                            JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
                         if (r < 0)
                                 return r;
-
-                        /* If both group + user are specified do a-posteriori filtering */
-                        if (p.group_name && p.user_name && !streq(group_name, p.group_name))
-                                continue;
-
-                        if (last_user_name) {
-                                assert(last_group_name);
-
-                                r = varlink_notifyb(link, JSON_BUILD_OBJECT(
-                                                                    JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                                    JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
-                                if (r < 0)
-                                        return r;
-
-                                free(last_user_name);
-                                free(last_group_name);
-                        }
-
-                        last_user_name = TAKE_PTR(user_name);
-                        last_group_name = TAKE_PTR(group_name);
                 }
 
-                if (!last_user_name) {
-                        assert(!last_group_name);
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-                }
-
-                assert(last_group_name);
-
-                return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                                      JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                      JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
+                free_and_replace(last_user_name, user_name);
+                free_and_replace(last_group_name, group_name);
         }
 
-        return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+        if (!last_user_name) {
+                assert(!last_group_name);
+                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        }
+
+        assert(last_group_name);
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
+                                              JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
 }
 
 static int process_connection(VarlinkServer *server, int fd) {
@@ -713,27 +514,21 @@ static int run(int argc, char *argv[]) {
 
                 n = now(CLOCK_MONOTONIC);
                 if (n >= usec_add(start_time, RUNTIME_MAX_USEC)) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         log_debug("Exiting worker, ran for %s, that's enough.",
-                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, start_time), 0));
+                                  FORMAT_TIMESPAN(usec_sub_unsigned(n, start_time), 0));
                         break;
                 }
 
                 if (last_busy_usec == USEC_INFINITY)
                         last_busy_usec = n;
                 else if (listen_idle_usec != USEC_INFINITY && n >= usec_add(last_busy_usec, listen_idle_usec)) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         log_debug("Exiting worker, been idle for %s.",
-                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, last_busy_usec), 0));
+                                  FORMAT_TIMESPAN(usec_sub_unsigned(n, last_busy_usec), 0));
                         break;
                 }
 
                 (void) rename_process("systemd-userwork: waiting...");
-
-                fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-                if (fd < 0)
-                        fd = -errno;
-
+                fd = RET_NERRNO(accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
                 (void) rename_process("systemd-userwork: processing...");
 
                 if (fd == -EAGAIN)

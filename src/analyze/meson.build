@@ -4,6 +4,8 @@ systemd_analyze_sources = files('''
         analyze.c
         analyze-condition.c
         analyze-condition.h
+        analyze-elf.c
+        analyze-elf.h
         analyze-verify.c
         analyze-verify.h
         analyze-security.c
@@ -11,9 +13,9 @@ systemd_analyze_sources = files('''
 '''.split())
 
 tests += [
-        [['src/analyze/test-verify.c',
-          'src/analyze/analyze-verify.c',
-          'src/analyze/analyze-verify.h'],
+        [files('test-verify.c',
+               'analyze-verify.c',
+               'analyze-verify.h'),
          [libcore,
           libshared],
          [],

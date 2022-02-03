@@ -70,7 +70,6 @@ systemd_resolved_sources = files('''
         resolved-socket-graveyard.h
         resolved-varlink.c
         resolved-varlink.h
-        resolved.c
 '''.split())
 
 resolvectl_sources = files('''
@@ -120,7 +119,8 @@ basic_dns_sources += custom_target(
 libsystemd_resolve_core = static_library(
         'systemd-resolve-core',
         basic_dns_sources,
-        include_directories : includes)
+        include_directories : includes,
+        build_by_default : false)
 
 systemd_resolved_sources += custom_target(
         'resolved_gperf.c',
@@ -134,7 +134,7 @@ systemd_resolved_sources += custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_dependencies = [threads, libgpg_error, libm]
+systemd_resolved_dependencies = [threads, libm] + [lib_openssl_or_gcrypt]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
                 systemd_resolved_sources += files(
@@ -158,74 +158,83 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.resolve1.policy',
                      install_dir : polkitpolicydir)
-
-        resolved_conf = configure_file(
-                input : 'resolved.conf.in',
-                output : 'resolved.conf',
-                configuration : substs)
-        if install_sysconfdir_samples
-                install_data(resolved_conf,
-                             install_dir : pkgsysconfdir)
-        endif
-
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
 endif
 
+custom_target(
+        'resolved.conf',
+        input : 'resolved.conf.in',
+        output : 'resolved.conf',
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
+        install_dir : pkgsysconfdir)
+
 ############################################################
 
 tests += [
-        [['src/resolve/test-resolve-tables.c'],
+        [files('test-resolve-tables.c'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
           libm]],
 
-        [['src/resolve/test-dns-packet.c'],
+        [files('test-dns-packet.c'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
           libm]],
 
-        [['src/resolve/test-resolved-etc-hosts.c',
-          'src/resolve/resolved-etc-hosts.c',
-          'src/resolve/resolved-etc-hosts.h'],
+        [files('test-resolved-etc-hosts.c',
+               'resolved-etc-hosts.c',
+               'resolved-etc-hosts.h'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
           libm]],
 
-        [['src/resolve/test-resolved-packet.c'],
+        [files('test-resolved-packet.c'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
           libm]],
 
-        [['src/resolve/test-dnssec.c'],
-         [libsystemd_resolve_core,
-          libshared],
-         [libgcrypt,
-          libgpg_error,
-          libm]],
+        [files('test-resolved-stream.c')
+         + basic_dns_sources + systemd_resolved_sources,
+         [libshared],
+         [lib_openssl_or_gcrypt,
+          libm]
+         + systemd_resolved_dependencies,
+         resolve_includes],
 
-        [['src/resolve/test-dnssec-complex.c'],
+        [files('test-dnssec.c'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
+          libm],
+         [], 'HAVE_OPENSSL_OR_GCRYPT'],
+
+        [files('test-dnssec-complex.c'),
+         [libsystemd_resolve_core,
+          libshared],
+         [lib_openssl_or_gcrypt,
           libm],
          [], '', 'manual'],
 ]
 
 fuzzers += [
-        [['src/resolve/fuzz-dns-packet.c'],
+        [files('fuzz-dns-packet.c'),
          [libsystemd_resolve_core,
           libshared],
-         [libgcrypt,
-          libgpg_error,
+         [lib_openssl_or_gcrypt,
+          libm]],
+        [files('fuzz-etc-hosts.c',
+          'resolved-etc-hosts.c',
+          'resolved-etc-hosts.h'),
+         [libsystemd_resolve_core,
+          libshared],
+         [lib_openssl_or_gcrypt,
           libm]],
 ]
+
+systemd_resolved_sources += files('resolved.c')

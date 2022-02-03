@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -21,9 +22,7 @@
         "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
         "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
-static void test_default_term_for_tty(void) {
-        log_info("/* %s */", __func__);
-
+TEST(default_term_for_tty) {
         puts(default_term_for_tty("/dev/tty23"));
         puts(default_term_for_tty("/dev/ttyS23"));
         puts(default_term_for_tty("/dev/tty0"));
@@ -38,13 +37,11 @@ static void test_default_term_for_tty(void) {
         puts(default_term_for_tty("console"));
 }
 
-static void test_read_one_char(void) {
+TEST(read_one_char) {
         _cleanup_fclose_ FILE *file = NULL;
         char r;
         bool need_nl;
         char name[] = "/tmp/test-read_one_char.XXXXXX";
-
-        log_info("/* %s */", __func__);
 
         assert_se(fmkostemp_safe(name, "r+", &file) == 0);
 
@@ -68,11 +65,9 @@ static void test_read_one_char(void) {
         assert_se(unlink(name) >= 0);
 }
 
-static void test_getttyname_malloc(void) {
+TEST(getttyname_malloc) {
         _cleanup_free_ char *ttyname = NULL;
         _cleanup_close_ int master = -1;
-
-        log_info("/* %s */", __func__);
 
         assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
         assert_se(getttyname_malloc(master, &ttyname) >= 0);
@@ -129,16 +124,12 @@ static const Color colors[] = {
         { "highlight-grey-underline", ansi_highlight_grey_underline },
 };
 
-static void test_colors(void) {
-        log_info("/* %s */", __func__);
-
+TEST(colors) {
         for (size_t i = 0; i < ELEMENTSOF(colors); i++)
                 printf("<%s%s%s>\n", colors[i].func(), colors[i].name, ansi_normal());
 }
 
-static void test_text(void) {
-        log_info("/* %s */", __func__);
-
+TEST(text) {
         for (size_t i = 0; !streq(colors[i].name, "underline"); i++) {
                 bool blwh = strstr(colors[i].name, "black")
                         || strstr(colors[i].name, "white");
@@ -153,14 +144,27 @@ static void test_text(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
+TEST(get_ctty) {
+        _cleanup_free_ char *ctty = NULL;
+        struct stat st;
+        dev_t devnr;
+        int r;
 
-        test_default_term_for_tty();
-        test_read_one_char();
-        test_getttyname_malloc();
-        test_colors();
-        test_text();
+        r = get_ctty(0, &devnr, &ctty);
+        if (r < 0) {
+                log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
+                return;
+        }
 
-        return 0;
+        /* In almost all cases STDIN will match our controlling TTY. Let's verify that and then compare paths */
+        assert_se(fstat(STDIN_FILENO, &st) >= 0);
+        if (S_ISCHR(st.st_mode) && st.st_rdev == devnr) {
+                _cleanup_free_ char *stdin_name = NULL;
+
+                assert_se(getttyname_malloc(STDIN_FILENO, &stdin_name) >= 0);
+                assert_se(path_equal(stdin_name, ctty));
+        } else
+                log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

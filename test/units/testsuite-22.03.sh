@@ -1,8 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Basic tests for types creating/writing files
-#
-
 set -eux
 set -o pipefail
 

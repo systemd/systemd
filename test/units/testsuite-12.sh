@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 set -o pipefail
+
+echo "g adm - - -" | systemd-sysusers -
 
 U=/run/systemd/system/test12.socket
 cat >$U <<EOF

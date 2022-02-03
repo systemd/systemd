@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Match]
 Name=veth99
 
@@ -14,3 +15,4 @@ Hostname=test-hostname
 ClientIdentifier=mac
 VendorClassIdentifier=SusantVendorTest
 RouteTable=211
+Label=test-label

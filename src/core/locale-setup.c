@@ -85,7 +85,7 @@ int locale_setup(char ***environment) {
         else {
                 char **merged;
 
-                merged = strv_env_merge(2, *environment, add);
+                merged = strv_env_merge(*environment, add);
                 if (!merged)
                         return -ENOMEM;
 

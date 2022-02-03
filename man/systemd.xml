@@ -74,8 +74,8 @@
     configuration files, whose syntax and basic set of options is
     described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    however some are created automatically from other configuration,
-    dynamically from system state or programmatically at runtime.
+    however some are created automatically from other configuration
+    files, dynamically from system state or programmatically at runtime.
     Units may be "active" (meaning started, bound, plugged in, …,
     depending on the unit type, see below), or "inactive" (meaning
     stopped, unbound, unplugged, …), as well as in the process of
@@ -586,6 +586,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>SIGRTMIN+25</constant></term>
+
+        <listitem><para>Upon receiving this signal the systemd manager will reexecute itself. This
+        is mostly equivalent to <command>systemctl daemon-reexec</command> except that it will be
+        done asynchronously.</para>
+
+        <para>The systemd system manager treats this signal the same way as
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
 
         <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
@@ -840,9 +851,11 @@
       <varlistentry>
         <term><varname>systemd.status_unit_format=</varname></term>
 
-        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
-        <option>name</option>, the system manager will use unit names in status messages. If specified,
-        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <listitem><para>Takes <option>name</option>, <option>description</option> or
+        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
+        names in status messages. If <option>combined</option>, the system manager will use unit names and
+        description in status messages. When specified, overrides the system manager configuration file
+        option <option>StatusUnitFormat=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -1184,7 +1197,7 @@
         <varlistentry>
           <term><option>--log-time=</option></term>
 
-          <listitem><para>Prefix messages with timestamp. See <varname>systemd.log_time</varname> above.
+          <listitem><para>Prefix console messages with timestamp. See <varname>systemd.log_time</varname> above.
           </para></listitem>
         </varlistentry>
 

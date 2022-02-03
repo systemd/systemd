@@ -63,14 +63,16 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current system hostname and related information. If no command is specified,
+        <listitem><para>Show system hostname and related information. If no command is specified,
         this is the implied default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-hostname <replaceable>NAME</replaceable></command></term>
+        <term><command>hostname</command> [<replaceable>NAME</replaceable>]</term>
 
-        <listitem><para>Set the system hostname to <replaceable>NAME</replaceable>. By default, this will alter the
+        <listitem><para>If no argument is given, print the system hostname. If an
+        optional argument <replaceable>NAME</replaceable> is provided then the command changes the
+        system hostname to <replaceable>NAME</replaceable>. By default, this will alter the
         pretty, the static, and the transient hostname alike; however, if one or more of <option>--static</option>,
         <option>--transient</option>, <option>--pretty</option> are used, only the selected hostnames are changed. If
         the pretty hostname is being set, and static or transient are being set as well, the specified hostname will be
@@ -82,35 +84,29 @@
         <para>The static and transient hostnames must each be either a single DNS label (a string composed of
         7-bit ASCII lower-case characters and no spaces or dots, limited to the format allowed for DNS domain
         name labels), or a sequence of such labels separated by single dots that forms a valid DNS FQDN. The
-        hostname must be at most 64 characters, which is a Linux limitation (DNS allows longer names).</para>
-
-        <para>Pass the empty string <literal></literal> as the hostname to reset the selected hostnames to
-        their default (usually <literal>&FALLBACK_HOSTNAME;</literal>).</para></listitem>
+        hostname must be at most 64 characters, which is a Linux limitation (DNS allows longer names).</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-icon-name <replaceable>NAME</replaceable></command></term>
+        <term><command>icon-name</command> [<replaceable>NAME</replaceable>]</term>
 
-        <listitem><para>Set the system icon name to
-        <replaceable>NAME</replaceable>. The icon name is used by some
+        <listitem><para>If no argument is given, print the icon name of the system. If an
+        optional argument <replaceable>NAME</replaceable> is provided then the command changes the
+        icon name to <replaceable>NAME</replaceable>. The icon name is used by some
         graphical applications to visualize this host. The icon name
         should follow the <ulink
         url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
-        Naming Specification</ulink>.</para>
-
-        <para>Pass an empty string to reset the icon name to the
-        default value, which is determined from chassis type (see
-        below) and possibly other parameters.</para></listitem>
+        Naming Specification</ulink>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-chassis <replaceable>TYPE</replaceable></command></term>
+        <term><command>chassis</command> [<replaceable>TYPE</replaceable>]</term>
 
-        <listitem><para>Set the chassis type to
-        <replaceable>TYPE</replaceable>. The chassis type is used by
-        some graphical applications to visualize the host or alter
-        user interaction. Currently, the following chassis types are
-        defined:
+        <listitem><para>If no argument is given, print the chassis type. If an
+        optional argument <replaceable>TYPE</replaceable> is provided then the command changes the
+        chassis type to <replaceable>TYPE</replaceable>. The chassis type is used by
+        some graphical applications to visualize the host or alter user interaction.
+        Currently, the following chassis types are defined:
         <literal>desktop</literal>,
         <literal>laptop</literal>,
         <literal>convertible</literal>,
@@ -123,43 +119,36 @@
         <literal>vm</literal> and
         <literal>container</literal> for virtualized systems that lack
         an immediate physical chassis.</para>
-
-        <para>Pass an empty string to reset the chassis type to the
-        default value which is determined from the firmware and
-        possibly other parameters.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-deployment <replaceable>ENVIRONMENT</replaceable></command></term>
+        <term><command>deployment</command> [<replaceable>ENVIRONMENT</replaceable>]</term>
 
-        <listitem><para>Set the deployment environment description.
-        <replaceable>ENVIRONMENT</replaceable> must be a single word
-        without any control characters. One of the following is
-        suggested:
+        <listitem><para>If no argument is given, print the deployment environment. If an
+        optional argument <replaceable>ENVIRONMENT</replaceable> is provided then the command changes the
+        deployment environment to <replaceable>ENVIRONMENT</replaceable>.
+        Argument <replaceable>ENVIRONMENT</replaceable>
+        must be a single word without any control characters. One of the following is suggested:
         <literal>development</literal>,
         <literal>integration</literal>,
         <literal>staging</literal>,
         <literal>production</literal>.
         </para>
-
-        <para>Pass an empty string to reset to the default empty
-        value.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-location <replaceable>LOCATION</replaceable></command></term>
+        <term><command>location</command> [<replaceable>LOCATION</replaceable>]</term>
 
-        <listitem><para>Set the location string for the system, if it
-        is known. <replaceable>LOCATION</replaceable> should be a
+        <listitem><para>If no argument is given, print the location string for the system. If an
+        optional argument <replaceable>LOCATION</replaceable> is provided then the command changes the
+        location string for the system to <replaceable>LOCATION</replaceable>.
+        Argument <replaceable>LOCATION</replaceable> should be a
         human-friendly, free-form string describing the physical
         location of the system, if it is known and applicable. This
         may be as generic as <literal>Berlin, Germany</literal> or as
         specific as <literal>Left Rack, 2nd Shelf</literal>.</para>
-
-        <para>Pass an empty string to reset to the default empty
-        value.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -195,6 +184,7 @@
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
   </refsect1>
 

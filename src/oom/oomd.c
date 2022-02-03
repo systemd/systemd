@@ -105,7 +105,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unknown option code.");
+                        assert_not_reached();
                 }
 
         if (optind < argc)
@@ -116,10 +116,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(notify_on_cleanup) const char *notify_msg = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_msg = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_free_ char *swap = NULL;
         unsigned long long s = 0;
+        CGroupMask mask;
         int r;
 
         log_setup();
@@ -134,6 +135,12 @@ static int run(int argc, char *argv[]) {
 
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */
+
+        int n = sd_listen_fds(0);
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Received too many file descriptors");
+
+        int fd = n == 1 ? SD_LISTEN_FDS_START : -1;
 
         /* SwapTotal is always available in /proc/meminfo and defaults to 0, even on swap-disabled kernels. */
         r = get_proc_field("/proc/meminfo", "SwapTotal", WHITESPACE, &swap);
@@ -153,6 +160,13 @@ static int run(int argc, char *argv[]) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the unified cgroups hierarchy");
 
+        r = cg_mask_supported(&mask);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get supported cgroup controllers: %m");
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the cgroup memory controller.");
+
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         if (arg_mem_pressure_usec > 0 && arg_mem_pressure_usec < 1 * USEC_PER_SEC)
@@ -167,7 +181,8 @@ static int run(int argc, char *argv[]) {
                         arg_dry_run,
                         arg_swap_used_limit_permyriad,
                         arg_mem_pressure_limit_permyriad,
-                        arg_mem_pressure_usec);
+                        arg_mem_pressure_usec,
+                        fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 

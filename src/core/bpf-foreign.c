@@ -1,11 +1,13 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bpf-foreign.h"
 #include "bpf-program.h"
 #include "cgroup.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "stat-util.h"
 
 typedef struct BPFForeignKey BPFForeignKey;
 struct BPFForeignKey {
@@ -49,7 +51,7 @@ static void bpf_foreign_key_hash_func(const BPFForeignKey *p, struct siphash *h)
 
 DEFINE_PRIVATE_HASH_OPS_FULL(bpf_foreign_by_key_hash_ops,
                 BPFForeignKey, bpf_foreign_key_hash_func, bpf_foreign_key_compare_func, free,
-                BPFProgram, bpf_program_unref);
+                BPFProgram, bpf_program_free);
 
 static int attach_programs(Unit *u, const char *path, Hashmap* foreign_by_key, uint32_t attach_flags) {
         const BPFForeignKey *key;
@@ -76,13 +78,21 @@ static int bpf_foreign_prepare(
                 Unit *u,
                 enum bpf_attach_type attach_type,
                 const char *bpffs_path) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         _cleanup_free_ BPFForeignKey *key = NULL;
         uint32_t prog_id;
         int r;
 
         assert(u);
         assert(bpffs_path);
+
+        r = path_is_fs_type(bpffs_path, BPF_FS_MAGIC);
+        if (r < 0)
+                return log_unit_error_errno(u, r,
+                                "Failed to determine filesystem type of %s: %m", bpffs_path);
+        if (r == 0)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                "Path in BPF filesystem is expected.");
 
         r = bpf_program_new_from_bpffs_path(bpffs_path, &prog);
         if (r < 0)
@@ -109,16 +119,6 @@ static int bpf_foreign_prepare(
         TAKE_PTR(prog);
 
         return 0;
-}
-
-int bpf_foreign_supported(void) {
-        int r;
-
-        r = cg_all_unified();
-        if (r <= 0)
-                return r;
-
-        return path_is_mount_point("/sys/fs/bpf", NULL, 0);
 }
 
 int bpf_foreign_install(Unit *u) {

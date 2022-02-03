@@ -19,5 +19,5 @@ ConditionPathIsReadWrite=/proc/sys/net/
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-sysctl
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sysctl
 TimeoutSec=90s

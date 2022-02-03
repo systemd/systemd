@@ -128,7 +128,6 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
 
 static int numa_max_node(void) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r, max_node = 0;
 
         d = opendir("/sys/devices/system/node");
@@ -138,8 +137,6 @@ static int numa_max_node(void) {
         FOREACH_DIRENT(de, d, break) {
                 int node;
                 const char *n;
-
-                (void) dirent_ensure_type(d, de);
 
                 if (de->d_type != DT_DIR)
                         continue;

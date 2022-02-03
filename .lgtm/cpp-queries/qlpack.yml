@@ -1,0 +1,11 @@
+---
+# vi: ts=2 sw=2 et syntax=yaml:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+library: false
+name: systemd/cpp-queries
+version: 0.0.1
+dependencies:
+  codeql/cpp-all: "*"
+  codeql/suite-helpers: "*"
+extractor: cpp

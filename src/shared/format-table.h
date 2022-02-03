@@ -16,6 +16,7 @@ typedef enum TableDataType {
         TABLE_STRV_WRAPPED,
         TABLE_PATH,
         TABLE_BOOLEAN,
+        TABLE_BOOLEAN_CHECKMARK,
         TABLE_TIMESTAMP,
         TABLE_TIMESTAMP_UTC,
         TABLE_TIMESTAMP_RELATIVE,
@@ -33,6 +34,7 @@ typedef enum TableDataType {
         TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT64,
+        TABLE_UINT64_HEX,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
@@ -43,6 +45,7 @@ typedef enum TableDataType {
         TABLE_GID,
         TABLE_PID,
         TABLE_SIGNAL,
+        TABLE_MODE,     /* as in UNIX file mode (mode_t), in typical octal output */
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
@@ -105,7 +108,8 @@ int table_set_display_internal(Table *t, size_t first_column, ...);
 int table_set_sort_internal(Table *t, size_t first_column, ...);
 #define table_set_sort(...) table_set_sort_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_reverse(Table *t, size_t column, bool b);
-int table_hide_column_from_display(Table *t, size_t column);
+int table_hide_column_from_display_internal(Table *t, ...);
+#define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, (size_t) -1)
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
@@ -126,6 +130,8 @@ int table_to_json(Table *t, JsonVariant **ret);
 int table_print_json(Table *t, FILE *f, JsonFormatFlags json_flags);
 
 int table_print_with_pager(Table *t, JsonFormatFlags json_format_flags, PagerFlags pager_flags, bool show_header);
+
+int table_set_json_field_name(Table *t, size_t column, const char *name);
 
 #define table_log_add_error(r) \
         log_error_errno(r, "Failed to add cell(s) to table: %m")

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "def.h"
@@ -12,54 +13,34 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-int procfs_tasks_get_limit(uint64_t *ret) {
+int procfs_get_pid_max(uint64_t *ret) {
         _cleanup_free_ char *value = NULL;
-        uint64_t pid_max, threads_max;
         int r;
 
         assert(ret);
-
-        /* So there are two sysctl files that control the system limit of processes:
-         *
-         * 1. kernel.threads-max: this is probably the sysctl that makes more sense, as it directly puts a limit on
-         *    concurrent tasks.
-         *
-         * 2. kernel.pid_max: this limits the numeric range PIDs can take, and thus indirectly also limits the number
-         *    of concurrent threads. AFAICS it's primarily a compatibility concept: some crappy old code used a signed
-         *    16bit type for PIDs, hence the kernel provides a way to ensure the PIDs never go beyond INT16_MAX by
-         *    default.
-         *
-         * By default #2 is set to much lower values than #1, hence the limit people come into contact with first, as
-         * it's the lowest boundary they need to bump when they want higher number of processes.
-         *
-         * Also note the weird definition of #2: PIDs assigned will be kept below this value, which means the number of
-         * tasks that can be created is one lower, as PID 0 is not a valid process ID. */
 
         r = read_one_line_file("/proc/sys/kernel/pid_max", &value);
         if (r < 0)
                 return r;
 
-        r = safe_atou64(value, &pid_max);
-        if (r < 0)
-                return r;
+        return safe_atou64(value, ret);
+}
 
-        value = mfree(value);
+int procfs_get_threads_max(uint64_t *ret) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        assert(ret);
+
         r = read_one_line_file("/proc/sys/kernel/threads-max", &value);
         if (r < 0)
                 return r;
 
-        r = safe_atou64(value, &threads_max);
-        if (r < 0)
-                return r;
-
-        /* Subtract one from pid_max, since PID 0 is not a valid PID */
-        *ret = MIN(pid_max-1, threads_max);
-        return 0;
+        return safe_atou64(value, ret);
 }
 
 int procfs_tasks_set_limit(uint64_t limit) {
         char buffer[DECIMAL_STR_MAX(uint64_t)+1];
-        _cleanup_free_ char *value = NULL;
         uint64_t pid_max;
         int r;
 
@@ -74,10 +55,7 @@ int procfs_tasks_set_limit(uint64_t limit) {
          * set it to the maximum. */
         limit = CLAMP(limit, 20U, TASKS_MAX);
 
-        r = read_one_line_file("/proc/sys/kernel/pid_max", &value);
-        if (r < 0)
-                return r;
-        r = safe_atou64(value, &pid_max);
+        r = procfs_get_pid_max(&pid_max);
         if (r < 0)
                 return r;
 
@@ -98,14 +76,10 @@ int procfs_tasks_set_limit(uint64_t limit) {
                 /* Hmm, we couldn't write this? If so, maybe it was already set properly? In that case let's not
                  * generate an error */
 
-                value = mfree(value);
-                if (read_one_line_file("/proc/sys/kernel/threads-max", &value) < 0)
+                if (procfs_get_threads_max(&threads_max) < 0)
                         return r; /* return original error */
 
-                if (safe_atou64(value, &threads_max) < 0)
-                        return r; /* return original error */
-
-                if (MIN(pid_max-1, threads_max) != limit)
+                if (MIN(pid_max - 1, threads_max) != limit)
                         return r; /* return original error */
 
                 /* Yay! Value set already matches what we were trying to set, hence consider this a success. */
@@ -134,7 +108,7 @@ int procfs_tasks_get_current(uint64_t *ret) {
 
         p++;
         n = strspn(p, DIGITS);
-        nr = strndupa(p, n);
+        nr = strndupa_safe(p, n);
 
         return safe_atou64(nr, ret);
 }
@@ -201,6 +175,49 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
+int convert_meminfo_value_to_uint64_bytes(const char *word, uint64_t *ret) {
+        _cleanup_free_ char *w = NULL;
+        char *digits, *e;
+        uint64_t v;
+        size_t n;
+        int r;
+
+        assert(word);
+        assert(ret);
+
+        w = strdup(word);
+        if (!w)
+                return -ENOMEM;
+
+        /* Determine length of numeric value */
+        n = strspn(w, WHITESPACE);
+        digits = w + n;
+        n = strspn(digits, DIGITS);
+        if (n == 0)
+                return -EINVAL;
+        e = digits + n;
+
+        /* Ensure the line ends in " kB" */
+        n = strspn(e, WHITESPACE);
+        if (n == 0)
+                return -EINVAL;
+        if (!streq(e + n, "kB"))
+                return -EINVAL;
+
+        *e = 0;
+        r = safe_atou64(digits, &v);
+        if (r < 0)
+                return r;
+        if (v == UINT64_MAX)
+                return -EINVAL;
+
+        if (v > UINT64_MAX/1024)
+                return -EOVERFLOW;
+
+        *ret = v * 1024U;
+        return 0;
+}
+
 int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         uint64_t mem_total = UINT64_MAX, mem_free = UINT64_MAX;
         _cleanup_fclose_ FILE *f = NULL;
@@ -213,8 +230,7 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 uint64_t *v;
-                char *p, *e;
-                size_t n;
+                char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -233,25 +249,9 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                                 continue;
                 }
 
-                /* Determine length of numeric value */
-                n = strspn(p, DIGITS);
-                if (n == 0)
-                        return -EINVAL;
-                e = p + n;
-
-                /* Ensure the line ends in " kB" */
-                n = strspn(e, WHITESPACE);
-                if (n == 0)
-                        return -EINVAL;
-                if (!streq(e + n, "kB"))
-                        return -EINVAL;
-
-                *e = 0;
-                r = safe_atou64(p, v);
+                r = convert_meminfo_value_to_uint64_bytes(p, v);
                 if (r < 0)
                         return r;
-                if (*v == UINT64_MAX)
-                        return -EINVAL;
 
                 if (mem_total != UINT64_MAX && mem_free != UINT64_MAX)
                         break;
@@ -261,8 +261,8 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                 return -EINVAL;
 
         if (ret_total)
-                *ret_total = mem_total * 1024U;
+                *ret_total = mem_total;
         if (ret_used)
-                *ret_used = (mem_total - mem_free) * 1024U;
+                *ret_used = mem_total - mem_free;
         return 0;
 }

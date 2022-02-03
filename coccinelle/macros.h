@@ -1,4 +1,6 @@
-/* Collected macros from our systemd codebase to make the cocci semantic
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/*
+ * Collected macros from our systemd codebase to make the cocci semantic
  * parser happy. Inspired by the original cocci macros file
  * /usr/lib64/coccinelle/standard.h (including the YACFE_* symbols)
  */
@@ -163,7 +165,7 @@
         } while (false)
 
 #define LIST_JUST_US(name,item)                                         \
-        (!(item)->name##_prev && !(item)->name##_next)                  \
+        (!(item)->name##_prev && !(item)->name##_next)
 #define LIST_FOREACH(name,i,head)                                       \
         for ((i) = (head); (i); (i) = (i)->name##_next)
 #define LIST_FOREACH_SAFE(name,i,n,head)                                \

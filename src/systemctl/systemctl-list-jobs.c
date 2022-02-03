@@ -73,7 +73,7 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
                 return 0;
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         table = table_new("job", "unit", "type", "state");
         if (!table)
@@ -131,7 +131,6 @@ int list_jobs(int argc, char *argv[], void *userdata) {
         _cleanup_free_ struct job_info *jobs = NULL;
         const char *name, *type, *state;
         bool skipped = false;
-        size_t size = 0;
         unsigned c = 0;
         sd_bus *bus;
         uint32_t id;
@@ -157,7 +156,7 @@ int list_jobs(int argc, char *argv[], void *userdata) {
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(jobs, size, c + 1))
+                if (!GREEDY_REALLOC(jobs, c + 1))
                         return log_oom();
 
                 jobs[c++] = job;
@@ -169,7 +168,7 @@ int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return output_jobs_list(bus, jobs, c, skipped);
 }

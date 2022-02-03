@@ -13,6 +13,10 @@ libcore_sources = '''
         bpf-firewall.h
         bpf-foreign.c
         bpf-foreign.h
+        bpf-lsm.c
+        bpf-lsm.h
+        bpf-socket-bind.c
+        bpf-socket-bind.h
         cgroup.c
         cgroup.h
         core-varlink.c
@@ -69,8 +73,6 @@ libcore_sources = '''
         generator-setup.h
         ima-setup.c
         ima-setup.h
-        ip-address-access.c
-        ip-address-access.h
         job.c
         job.h
         kill.c
@@ -83,6 +85,10 @@ libcore_sources = '''
         load-fragment.h
         locale-setup.c
         locale-setup.h
+        manager-dump.c
+        manager-dump.h
+        manager-serialize.c
+        manager-serialize.h
         manager.c
         manager.h
         mount.c
@@ -91,6 +97,8 @@ libcore_sources = '''
         namespace.h
         path.c
         path.h
+        restrict-ifaces.c
+        restrict-ifaces.h
         scope.c
         scope.h
         selinux-access.c
@@ -105,8 +113,6 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
-        socket-bind.c
-        socket-bind.h
         socket.c
         socket.h
         swap.c
@@ -117,6 +123,8 @@ libcore_sources = '''
         timer.h
         transaction.c
         transaction.h
+        unit-dependency-atom.c
+        unit-dependency-atom.h
         unit-printf.c
         unit-printf.h
         unit-serialize.c
@@ -125,17 +133,25 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+subdir('bpf')
+
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
+        subdir('bpf/restrict_fs')
+        libcore_sources += [restrict_fs_skel_h]
+endif
+
+subdir('bpf/restrict_ifaces')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [restrict_ifaces_skel_h]
 endif
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
-        input : 'load-fragment-gperf.gperf.m4',
+        input : 'load-fragment-gperf.gperf.in',
         output: 'load-fragment-gperf.gperf',
-        command : [meson_apply_m4, config_h, '@INPUT@'],
-        capture : true)
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'])
 
 load_fragment_gperf_c = custom_target(
         'load-fragment-gperf.c',
@@ -151,15 +167,21 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-libcore = static_library(
-        'core',
+libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
+
+libcore = shared_library(
+        libcore_name,
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
+        c_args : ['-fvisibility=default'],
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libshared_sym_path],
+        link_with : libshared,
         dependencies : [versiondep,
                         threads,
-                        libbpf,
+                        libdl,
                         librt,
                         libseccomp,
                         libpam,
@@ -168,27 +190,31 @@ libcore = static_library(
                         libapparmor,
                         libselinux,
                         libmount,
-                        libacl])
+                        libblkid,
+                        libacl],
+        install : true,
+        install_dir : rootlibexecdir)
 
 core_includes = [includes, include_directories('.')]
 
 systemd_sources = files('main.c')
 
-in_files = [['system.conf',      pkgsysconfdir],
-            ['user.conf',        pkgsysconfdir],
-            ['systemd.pc',       pkgconfigdatadir]]
+in_files = [['system.conf',                     pkgsysconfdir],
+            ['user.conf',                       pkgsysconfdir],
+            ['systemd.pc',                      pkgconfigdatadir],
+            ['org.freedesktop.systemd1.policy', polkitpolicydir]]
 
 foreach item : in_files
         file = item[0]
         dir = item[1]
-        if install_sysconfdir_samples or dir != pkgsysconfdir
-                configure_file(
-                        input : file + '.in',
-                        output : file,
-                        configuration : substs,
-                        install_dir : dir == 'no' ? '' : dir)
-        endif
 
+        custom_target(
+                file,
+                input : file + '.in',
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                install : (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no'),
+                install_dir : dir)
 endforeach
 
 install_data('org.freedesktop.systemd1.conf',
@@ -196,28 +222,21 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-policy = configure_file(
-        input : 'org.freedesktop.systemd1.policy.in',
-        output : 'org.freedesktop.systemd1.policy',
-        configuration : substs)
-install_data(policy,
-             install_dir : polkitpolicydir)
-
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'system')))
-        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
-        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
+        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'system'))
+        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'user'))
+        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
 endif
 
 ############################################################
 
 fuzzers += [
-        [['src/core/fuzz-unit-file.c'],
+        [files('fuzz-unit-file.c'),
          [libcore,
           libshared],
          [libmount]],

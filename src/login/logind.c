@@ -27,6 +27,7 @@
 #include "logind-user-dbus.h"
 #include "logind.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
@@ -53,6 +54,7 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
+                .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
 
@@ -140,6 +142,8 @@ static Manager* manager_unref(Manager *m) {
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
+        sd_event_source_unref(m->reboot_key_long_press_event_source);
+
 #if ENABLE_UTMP
         sd_event_source_unref(m->utmp_event_source);
 #endif
@@ -164,7 +168,6 @@ static Manager* manager_unref(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
-        free(m->scheduled_shutdown_type);
         free(m->scheduled_shutdown_tty);
         free(m->wall_message);
         free(m->action_job);
@@ -241,7 +244,6 @@ static int manager_enumerate_buttons(Manager *m) {
 
 static int manager_enumerate_seats(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -283,7 +285,6 @@ static int manager_enumerate_seats(Manager *m) {
 
 static int manager_enumerate_linger_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -299,7 +300,6 @@ static int manager_enumerate_linger_users(Manager *m) {
         FOREACH_DIRENT(de, d, return -errno) {
                 int k;
 
-                dirent_ensure_type(d, de);
                 if (!dirent_is_file(de))
                         continue;
 
@@ -313,7 +313,6 @@ static int manager_enumerate_linger_users(Manager *m) {
 
 static int manager_enumerate_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r, k;
 
         assert(m);
@@ -439,7 +438,7 @@ static int deliver_fd(Manager *m, const char *fdname, int fd) {
 
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int n;
+        int r, n;
 
         /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
          * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
@@ -460,9 +459,11 @@ static int manager_attach_fds(Manager *m) {
                 safe_close(fd);
 
                 /* Remove from fdstore as well */
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=%s", fdnames[i]);
+                r = sd_notifyf(false,
+                               "FDSTOREREMOVE=1\n"
+                               "FDNAME=%s", fdnames[i]);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
         }
 
         return 0;
@@ -470,7 +471,6 @@ static int manager_attach_fds(Manager *m) {
 
 static int manager_enumerate_sessions(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0, k;
 
         assert(m);
@@ -512,7 +512,6 @@ static int manager_enumerate_sessions(Manager *m) {
 
 static int manager_enumerate_inhibitors(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -1156,7 +1155,7 @@ static int manager_run(Manager *m) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_set_facility(LOG_AUTH);

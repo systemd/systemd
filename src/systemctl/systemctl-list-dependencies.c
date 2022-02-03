@@ -157,7 +157,7 @@ int list_dependencies(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to expand names: %m");
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         STRV_FOREACH(u, units) {
                 if (u != units)

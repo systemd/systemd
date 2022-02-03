@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "bootspec.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -36,7 +38,7 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(r,
                                        "No kexec kernel loaded and autodetection failed.\n%s",
                                        is_efi_boot()
-                                       ? "Cannot automatically load kernel: ESP partition mount point not found."
+                                       ? "Cannot automatically load kernel: ESP mount point not found."
                                        : "Automatic loading works only on systems booted with EFI.");
         if (r < 0)
                 return r;
@@ -211,8 +213,8 @@ int start_special(int argc, char *argv[], void *userdata) {
                         r = logind_reboot(a);
                         if (r >= 0)
                                 return r;
-                        if (IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
-                                /* Requested operation is not supported or already in progress */
+                        if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                                /* Requested operation requires auth, is not supported or already in progress */
                                 return r;
 
                         /* On all other errors, try low-level operation. In order to minimize the difference

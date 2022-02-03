@@ -6,6 +6,7 @@
 #include <linux/if.h>
 #include <linux/fib_rules.h>
 #include <linux/nexthop.h>
+#include <linux/nl80211.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -26,6 +27,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-address-pool.h"
+#include "networkd-address.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
@@ -34,9 +36,12 @@
 #include "networkd-neighbor.h"
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
+#include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
+#include "networkd-wifi.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -57,10 +62,12 @@ static int manager_reset_all(Manager *m) {
 
         assert(m);
 
-        HASHMAP_FOREACH(link, m->links) {
-                r = link_carrier_reset(link);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not reset carrier: %m");
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                r = link_reconfigure_after_sleep(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                        link_enter_failed(link);
+                }
         }
 
         return 0;
@@ -100,47 +107,25 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
                 (void) manager_set_hostname(m, m->dynamic_hostname);
         if (m->dynamic_timezone)
                 (void) manager_set_timezone(m, m->dynamic_timezone);
-        if (!set_isempty(m->links_requesting_uuid))
+        if (m->product_uuid_requested)
                 (void) manager_request_product_uuid(m);
 
         return 0;
 }
 
-int manager_connect_bus(Manager *m) {
+static int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
-
-        if (m->bus)
-                return 0;
+        assert(!m->bus);
 
         r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-network");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.DHCPServer", dhcp_server_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add link enumerator: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add network object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add network enumerator: %m");
+                return r;
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
@@ -245,7 +230,51 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_CONFIG, 0,
+                           &manager_genl_process_nl80211_config, NULL, m, "network-genl_process_nl80211_config");
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_MLME, 0,
+                           &manager_genl_process_nl80211_mlme, NULL, m, "network-genl_process_nl80211_mlme");
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         return 0;
+}
+
+static int manager_setup_rtnl_filter(Manager *manager) {
+        struct sock_filter filter[] = {
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                      /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr), 1, 0),         /* A (packet length) >= sizeof(struct nlmsghdr) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                /* Always accept multipart message. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_flags)), /* A <- message flags */
+                BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, htobe16(NLM_F_MULTI), 0, 1),           /* message flags has NLM_F_MULTI ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+                /* Accept all message types except for RTM_NEWNEIGH or RTM_DELNEIGH. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct nlmsghdr, nlmsg_type)),  /* A <- message type */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_NEWNEIGH), 2, 0),           /* message type == RTM_NEWNEIGH ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, htobe16(RTM_DELNEIGH), 1, 0),           /* message type == RTM_DELNEIGH ? */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+                /* Check the packet length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                      /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct nlmsghdr) + sizeof(struct ndmsg), 1, 0),
+                                                                                            /* packet length >= sizeof(struct nlmsghdr) + sizeof(struct ndmsg) ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                /* Reject the message when the neighbor state does not have NUD_PERMANENT flag. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, sizeof(struct nlmsghdr) + offsetof(struct ndmsg, ndm_state)),
+                                                                                            /* A <- neighbor state */
+                BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, htobe16(NUD_PERMANENT), 1, 0),         /* neighbor state has NUD_PERMANENT ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* reject */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                      /* accept */
+        };
+
+        assert(manager);
+        assert(manager->rtnl);
+
+        return sd_netlink_attach_filter(manager->rtnl, ELEMENTSOF(filter), filter);
 }
 
 static int manager_connect_rtnl(Manager *m) {
@@ -322,7 +351,7 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return manager_setup_rtnl_filter(m);
 }
 
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
@@ -369,27 +398,10 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+int manager_setup(Manager *m) {
         int r;
 
-        m = new(Manager, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (Manager) {
-                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
-                .manage_foreign_routes = true,
-                .manage_foreign_rules = true,
-                .ethtool_fd = -1,
-                .dhcp_duid.type = DUID_TYPE_EN,
-                .dhcp6_duid.type = DUID_TYPE_EN,
-                .duid_product_uuid.type = DUID_TYPE_UUID,
-        };
-
-        m->state_file = strdup("/run/systemd/netif/state");
-        if (!m->state_file)
-                return -ENOMEM;
+        assert(m);
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -406,11 +418,22 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_post(m->event, NULL, manager_process_requests, m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_rtnl(m);
         if (r < 0)
                 return r;
 
         r = manager_connect_genl(m);
+        if (r < 0)
+                return r;
+
+        if (m->test_mode)
+                return 0;
+
+        r = manager_connect_bus(m);
         if (r < 0)
                 return r;
 
@@ -430,8 +453,33 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(m);
+        m->state_file = strdup("/run/systemd/netif/state");
+        if (!m->state_file)
+                return -ENOMEM;
 
+        return 0;
+}
+
+int manager_new(Manager **ret, bool test_mode) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        m = new(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (Manager) {
+                .test_mode = test_mode,
+                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
+                .manage_foreign_routes = true,
+                .manage_foreign_rules = true,
+                .ethtool_fd = -1,
+                .dhcp_duid.type = DUID_TYPE_EN,
+                .dhcp6_duid.type = DUID_TYPE_EN,
+                .duid_product_uuid.type = DUID_TYPE_UUID,
+        };
+
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -443,16 +491,18 @@ Manager* manager_free(Manager *m) {
 
         free(m->state_file);
 
-        HASHMAP_FOREACH(link, m->links)
+        HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
 
-        m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
-        m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
+        m->request_queue = ordered_set_free(m->request_queue);
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
-        m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);
-        m->links = hashmap_free_with_destructor(m->links, link_unref);
+        m->links_by_name = hashmap_free(m->links_by_name);
+        m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
+        m->links_by_dhcp_pd_subnet_prefix = hashmap_free(m->links_by_dhcp_pd_subnet_prefix);
+        m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
+        m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
@@ -462,10 +512,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->route_table_names_by_number);
         hashmap_free(m->route_table_numbers_by_name);
 
-        /* routing_policy_rule_free() access m->rules and m->rules_foreign.
-         * So, it is necessary to set NULL after the sets are freed. */
-        m->rules = set_free(m->rules);
-        m->rules_foreign = set_free(m->rules_foreign);
+        set_free(m->rules);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
@@ -479,7 +526,6 @@ Manager* manager_free(Manager *m) {
         m->routes_foreign = set_free(m->routes_foreign);
 
         m->nexthops = set_free(m->nexthops);
-        m->nexthops_foreign = set_free(m->nexthops_foreign);
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
@@ -517,7 +563,7 @@ int manager_start(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 r = link_save(link);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
@@ -540,7 +586,7 @@ int manager_load_config(Manager *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return manager_build_dhcp_pd_subnet_ids(m);
 }
 
 bool manager_should_reload(Manager *m) {
@@ -549,15 +595,15 @@ bool manager_should_reload(Manager *m) {
 
 static int manager_enumerate_internal(
                 Manager *m,
+                sd_netlink *nl,
                 sd_netlink_message *req,
-                int (*process)(sd_netlink *, sd_netlink_message *, Manager *),
-                const char *name) {
+                int (*process)(sd_netlink *, sd_netlink_message *, Manager *)) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        int r;
+        int k, r;
 
         assert(m);
-        assert(m->rtnl);
+        assert(nl);
         assert(req);
         assert(process);
 
@@ -565,22 +611,14 @@ static int manager_enumerate_internal(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0) {
-                if (name && (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))) {
-                        log_debug_errno(r, "%s are not supported by the kernel. Ignoring.", name);
-                        return 0;
-                }
-
+        r = sd_netlink_call(nl, req, 0, &reply);
+        if (r < 0)
                 return r;
-        }
 
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
-                int k;
-
                 m->enumerating = true;
 
-                k = process(m->rtnl, reply_one, m);
+                k = process(nl, reply_one, m);
                 if (k < 0 && r >= 0)
                         r = k;
 
@@ -601,7 +639,7 @@ static int manager_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_link, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
 }
 
 static int manager_enumerate_addresses(Manager *m) {
@@ -615,7 +653,7 @@ static int manager_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_address, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_address);
 }
 
 static int manager_enumerate_neighbors(Manager *m) {
@@ -629,7 +667,7 @@ static int manager_enumerate_neighbors(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_neighbor, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_neighbor);
 }
 
 static int manager_enumerate_routes(Manager *m) {
@@ -646,7 +684,7 @@ static int manager_enumerate_routes(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_route, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_route);
 }
 
 static int manager_enumerate_rules(Manager *m) {
@@ -663,7 +701,7 @@ static int manager_enumerate_rules(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_rule, "Routing policy rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_rule);
 }
 
 static int manager_enumerate_nexthop(Manager *m) {
@@ -677,7 +715,50 @@ static int manager_enumerate_nexthop(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_nexthop, "Nexthop rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop);
+}
+
+static int manager_enumerate_nl80211_config(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_INTERFACE, &req);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_config);
+}
+
+static int manager_enumerate_nl80211_mlme(Manager *m) {
+        Link *link;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+
+                if (link->wlan_iftype != NL80211_IFTYPE_STATION)
+                        continue;
+
+                r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_STATION, &req);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(req, NL80211_ATTR_IFINDEX, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_mlme);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int manager_enumerate(Manager *m) {
@@ -695,56 +776,38 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate neighbors: %m");
 
+        /* NextHop support is added in kernel v5.3 (65ee00a9409f751188a8cdc0988167858eb4a536),
+         * and older kernels return -EOPNOTSUPP, or -EINVAL if SELinux is enabled. */
         r = manager_enumerate_nexthop(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
+        if (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))
+                log_debug_errno(r, "Could not enumerate nexthops, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate nexthops: %m");
 
         r = manager_enumerate_routes(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routes: %m");
 
+        /* If kernel is built with CONFIG_FIB_RULES=n, it returns -EOPNOTSUPP. */
         r = manager_enumerate_rules(m);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate routing policy rules, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
 
+        r = manager_enumerate_nl80211_config(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN interfaces, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN interfaces: %m");
+
+        r = manager_enumerate_nl80211_mlme(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN stations, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN stations: %m");
+
         return 0;
-}
-
-Link* manager_find_uplink(Manager *m, Link *exclude) {
-        _cleanup_free_ struct local_address *gateways = NULL;
-        int n;
-
-        assert(m);
-
-        /* Looks for a suitable "uplink", via black magic: an
-         * interface that is up and where the default route with the
-         * highest priority points to. */
-
-        n = local_gateways(m->rtnl, 0, AF_UNSPEC, &gateways);
-        if (n < 0) {
-                log_warning_errno(n, "Failed to determine list of default gateways: %m");
-                return NULL;
-        }
-
-        for (int i = 0; i < n; i++) {
-                Link *link;
-
-                link = hashmap_get(m->links, INT_TO_PTR(gateways[i].ifindex));
-                if (!link) {
-                        log_debug("Weird, found a gateway for a link we don't know. Ignoring.");
-                        continue;
-                }
-
-                if (link == exclude)
-                        continue;
-
-                if (link->operstate < LINK_OPERSTATE_ROUTABLE)
-                        continue;
-
-                return link;
-        }
-
-        return NULL;
 }
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

@@ -12,23 +12,28 @@
 #include "macro.h"
 
 void initialize_libgcrypt(bool secmem);
-int string_hashsum(const char *s, size_t len, int md_algorithm, char **out);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, gcry_md_close, NULL);
 #endif
 
+#if !PREFER_OPENSSL
+#  if HAVE_GCRYPT
+int string_hashsum(const char *s, size_t len, int md_algorithm, char **out);
+#  endif
+
 static inline int string_hashsum_sha224(const char *s, size_t len, char **out) {
-#if HAVE_GCRYPT
+#  if HAVE_GCRYPT
         return string_hashsum(s, len, GCRY_MD_SHA224, out);
-#else
+#  else
         return -EOPNOTSUPP;
-#endif
+#  endif
 }
 
 static inline int string_hashsum_sha256(const char *s, size_t len, char **out) {
-#if HAVE_GCRYPT
+#  if HAVE_GCRYPT
         return string_hashsum(s, len, GCRY_MD_SHA256, out);
-#else
+#  else
         return -EOPNOTSUPP;
-#endif
+#  endif
 }
+#endif

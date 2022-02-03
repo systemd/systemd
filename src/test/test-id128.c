@@ -12,19 +12,18 @@
 #include "id128-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
 
-int main(int argc, char *argv[]) {
+TEST(id128) {
         sd_id128_t id, id2;
         char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
-        int r;
 
         assert_se(sd_id128_randomize(&id) == 0);
         printf("random: %s\n", sd_id128_to_string(id, t));
@@ -146,16 +145,16 @@ int main(int argc, char *argv[]) {
         assert_se(id128_read_fd(fd, ID128_UUID, &id2) >= 0);
         assert_se(sd_id128_equal(id, id2));
 
-        r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id);
-        if (r == -EOPNOTSUPP)
-                log_info("khash not supported on this kernel, skipping sd_id128_get_machine_app_specific() checks");
-        else {
-                assert_se(r >= 0);
-                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
-                assert_se(sd_id128_equal(id, id2));
-                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
-                assert_se(!sd_id128_equal(id, id2));
-        }
+        assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id) >= 0);
+        assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
+        assert_se(sd_id128_equal(id, id2));
+        assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
+        assert_se(!sd_id128_equal(id, id2));
+}
+
+TEST(sd_id128_get_invocation) {
+        sd_id128_t id;
+        int r;
 
         /* Query the invocation ID */
         r = sd_id128_get_invocation(&id);
@@ -163,6 +162,27 @@ int main(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
         else
                 log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
-
-        return 0;
 }
+
+TEST(benchmark_sd_id128_get_machine_app_specific) {
+        unsigned iterations = slow_tests_enabled() ? 1000000 : 1000;
+        usec_t t, q;
+
+        log_info("/* %s (%u iterations) */", __func__, iterations);
+
+        sd_id128_t id = ID128_WALDI, id2;
+
+        t = now(CLOCK_MONOTONIC);
+
+        for (unsigned i = 0; i < iterations; i++) {
+                id.qwords[1] = i;
+
+                assert_se(sd_id128_get_machine_app_specific(id, &id2) >= 0);
+        }
+
+        q = now(CLOCK_MONOTONIC) - t;
+
+        log_info("%lf µs each\n", (double) q / iterations);
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);

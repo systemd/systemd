@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "efi-loader-features.h"
+#include "efivars-fundamental.h"
 #include "efivars.h"
 
 #if ENABLE_EFI

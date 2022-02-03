@@ -68,7 +68,6 @@ typedef struct JournalFile {
         bool compress_lz4:1;
         bool compress_zstd:1;
         bool seal:1;
-        bool defrag_on_close:1;
         bool close_fd:1;
         bool archive:1;
         bool keyed_hash:1;
@@ -93,7 +92,6 @@ typedef struct JournalFile {
         uint64_t current_xor_hash;
 
         JournalMetrics metrics;
-        MMapCache *mmap;
 
         sd_event_source *post_change_timer;
         usec_t post_change_timer_period;
@@ -108,7 +106,6 @@ typedef struct JournalFile {
         uint64_t compress_threshold_bytes;
 #if HAVE_COMPRESSION
         void *compress_buffer;
-        size_t compress_buffer_size;
 #endif
 
 #if HAVE_GCRYPT
@@ -139,28 +136,13 @@ int journal_file_open(
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline(JournalFile *f, bool wait);
-bool journal_file_is_offlining(JournalFile *f);
+int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
-
-int journal_file_open_reliably(
-                const char *fname,
-                int flags,
-                mode_t mode,
-                bool compress,
-                uint64_t compress_threshold_bytes,
-                bool seal,
-                JournalMetrics *metrics,
-                MMapCache *mmap_cache,
-                Set *deferred_closes,
-                JournalFile *template,
-                JournalFile **ret);
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
 #define VALID64(x) (((x) & 7ULL) == 0ULL)
@@ -203,12 +185,16 @@ static inline bool VALID_EPOCH(uint64_t u) {
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
+int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
+
+int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
+int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
 uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
-int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);
+int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *ret_offset);
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -216,38 +202,38 @@ int journal_file_append_entry(
                 const struct iovec iovec[], unsigned n_iovec,
                 uint64_t *seqno,
                 Object **ret,
-                uint64_t *offset);
+                uint64_t *ret_offset);
 
-int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
-int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
+int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *ret_offset);
+int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *ret_offset);
 
-int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret, uint64_t *offset);
-int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
+int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret, uint64_t *ret_offset);
+int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *ret_offset);
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
-int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
+int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret, uint64_t *ret_offset);
 
-int journal_file_next_entry_for_data(JournalFile *f, Object *o, uint64_t p, uint64_t data_offset, direction_t direction, Object **ret, uint64_t *offset);
+int journal_file_next_entry_for_data(JournalFile *f, Object *d, direction_t direction, Object **ret, uint64_t *ret_offset);
 
-int journal_file_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_move_to_entry_by_realtime(JournalFile *f, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
+int journal_file_move_to_entry_by_offset(JournalFile *f, uint64_t p, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_realtime(JournalFile *f, uint64_t realtime, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *ret_offset);
 
-int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, uint64_t data_offset, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, uint64_t data_offset, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, uint64_t data_offset, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
-int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, uint64_t data_offset, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
+int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, Object *d, uint64_t p, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret, uint64_t *ret_offset);
+int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *ret_offset);
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p);
 
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_archive(JournalFile *f);
+int journal_file_archive(JournalFile *f, char **ret_previous_path);
 JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
-int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
 
 int journal_file_dispose(int dir_fd, const char *fname);
 
@@ -260,7 +246,7 @@ void journal_default_metrics(JournalMetrics *m, int fd);
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to);
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
-bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level);
 
 int journal_file_map_data_hash_table(JournalFile *f);
 int journal_file_map_field_hash_table(JournalFile *f);
@@ -273,3 +259,5 @@ static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
 uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
 
 bool journal_field_valid(const char *p, size_t l, bool allow_protected);
+
+const char* journal_object_type_to_string(ObjectType type) _const_;

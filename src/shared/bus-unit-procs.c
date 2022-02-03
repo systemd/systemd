@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-unit-procs.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
-#include "locale-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -46,7 +46,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                 if (!e)
                         return -EINVAL;
 
-                pp = strndupa(path, e - path);
+                pp = strndupa_safe(path, e - path);
 
                 r = add_cgroup(cgroups, pp, false, &parent);
                 if (r < 0)
@@ -188,11 +188,13 @@ static int dump_processes(
                         more = i+1 < n || cg->children;
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
 
-                        fprintf(stdout, "%s%s%*"PID_PRI" %s\n",
+                        fprintf(stdout, "%s%s%s%*"PID_PRI" %s%s\n",
                                 prefix,
                                 special,
+                                ansi_grey(),
                                 width, pids[i],
-                                name);
+                                name,
+                                ansi_normal());
                 }
         }
 
@@ -255,7 +257,7 @@ static int dump_extra_processes(
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         struct CGroupInfo *cg;
-        size_t n_allocated = 0, n = 0, k;
+        size_t n = 0, k;
         int width, r;
 
         /* Prints the extra processes, i.e. those that are in cgroups we haven't displayed yet. We show them as
@@ -275,7 +277,7 @@ static int dump_extra_processes(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + hashmap_size(cg->pids)))
+                if (!GREEDY_REALLOC(pids, n + hashmap_size(cg->pids)))
                         return -ENOMEM;
 
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids) {

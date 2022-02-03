@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "glyph-util.h"
 #include "kbd-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
-static void test_get_locales(void) {
+TEST(get_locales) {
         _cleanup_strv_free_ char **locales = NULL;
         char **p;
         int r;
@@ -21,9 +23,7 @@ static void test_get_locales(void) {
         }
 }
 
-static void test_locale_is_valid(void) {
-        log_info("/* %s */", __func__);
-
+TEST(locale_is_valid) {
         assert_se(locale_is_valid("en_EN.utf8"));
         assert_se(locale_is_valid("fr_FR.utf8"));
         assert_se(locale_is_valid("fr_FR@euro"));
@@ -36,9 +36,7 @@ static void test_locale_is_valid(void) {
         assert_se(!locale_is_valid("\x01gar\x02 bage\x03"));
 }
 
-static void test_locale_is_installed(void) {
-        log_info("/* %s */", __func__);
-
+TEST(locale_is_installed) {
         /* Always available */
         assert_se(locale_is_installed("POSIX") > 0);
         assert_se(locale_is_installed("C") > 0);
@@ -58,12 +56,10 @@ static void test_locale_is_installed(void) {
         assert_se(locale_is_installed("zz_ZZ") == 0);
 }
 
-static void test_keymaps(void) {
+TEST(keymaps) {
         _cleanup_strv_free_ char **kmaps = NULL;
         char **p;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(!keymap_is_valid(""));
         assert_se(!keymap_is_valid("/usr/bin/foo"));
@@ -88,10 +84,8 @@ static void test_keymaps(void) {
 }
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
-static void dump_special_glyphs(void) {
-        assert_cc(SPECIAL_GLYPH_TOUCH + 1 == _SPECIAL_GLYPH_MAX);
-
-        log_info("/* %s */", __func__);
+TEST(dump_special_glyphs) {
+        assert_cc(SPECIAL_GLYPH_SPARKLES + 1 == _SPECIAL_GLYPH_MAX);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
@@ -120,15 +114,9 @@ static void dump_special_glyphs(void) {
         dump_glyph(SPECIAL_GLYPH_DEPRESSED_SMILEY);
         dump_glyph(SPECIAL_GLYPH_LOCK_AND_KEY);
         dump_glyph(SPECIAL_GLYPH_TOUCH);
+        dump_glyph(SPECIAL_GLYPH_RECYCLING);
+        dump_glyph(SPECIAL_GLYPH_DOWNLOAD);
+        dump_glyph(SPECIAL_GLYPH_SPARKLES);
 }
 
-int main(int argc, char *argv[]) {
-        test_get_locales();
-        test_locale_is_valid();
-        test_locale_is_installed();
-        test_keymaps();
-
-        dump_special_glyphs();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

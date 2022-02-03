@@ -188,6 +188,15 @@ Support: %SUPPORT_URL%
 System shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
 
+-- c14aaf76ec284a5fa1f105f88dfb061c
+Subject: System factory reset initiated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+System factory reset has been initiated. The precise operation this
+executes is implementation-defined, but typically has the effect of
+reverting the system's state and configuration to vendor defaults.
+
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: A start job for unit @UNIT@ has begun execution
 Defined-By: systemd

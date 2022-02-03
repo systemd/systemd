@@ -53,11 +53,10 @@ static void patch_realtime(
                 const struct stat *st,
                 unsigned long long *realtime) {
 
-        usec_t x, crtime = 0;
+        usec_t x;
 
-        /* The timestamp was determined by the file name, but let's
-         * see if the file might actually be older than the file name
-         * suggested... */
+        /* The timestamp was determined by the file name, but let's see if the file might actually be older
+         * than the file name suggested... */
 
         assert(fd >= 0);
         assert(fn);
@@ -76,15 +75,12 @@ static void patch_realtime(
         if (x > 0 && x != USEC_INFINITY && x < *realtime)
                 *realtime = x;
 
-        /* Let's read the original creation time, if possible. Ideally
-         * we'd just query the creation time the FS might provide, but
-         * unfortunately there's currently no sane API to query
-         * it. Hence let's implement this manually... */
+        /* Let's read the original creation time, if possible. Ideally we'd just query the creation time the
+         * FS might provide, but unfortunately there's currently no sane API to query it. Hence let's
+         * implement this manually... */
 
-        if (fd_getcrtime_at(fd, fn, &crtime, 0) >= 0) {
-                if (crtime < *realtime)
-                        *realtime = crtime;
-        }
+        if (fd_getcrtime_at(fd, fn, AT_SYMLINK_FOLLOW, &x) >= 0 && x < *realtime)
+                *realtime = x;
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
@@ -127,12 +123,10 @@ int journal_directory_vacuum(
                 bool verbose) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
-        size_t n_list = 0, n_allocated = 0, i;
+        size_t n_list = 0, i;
         _cleanup_closedir_ DIR *d = NULL;
         struct vacuum_info *list = NULL;
         usec_t retention_limit = 0;
-        char sbytes[FORMAT_BYTES_MAX];
-        struct dirent *de;
         int r;
 
         assert(directory);
@@ -148,7 +142,6 @@ int journal_directory_vacuum(
                 return -errno;
 
         FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
-
                 unsigned long long seqnum = 0, realtime;
                 _cleanup_free_ char *p = NULL;
                 sd_id128_t seqnum_id;
@@ -206,6 +199,9 @@ int journal_directory_vacuum(
                 } else if (endswith(de->d_name, ".journal~")) {
                         unsigned long long tmp;
 
+                        /* seqnum_id won't be initialised before use below, so set to 0 */
+                        seqnum_id = SD_ID128_NULL;
+
                         /* Vacuum corrupted files */
 
                         if (q < 1 + 16 + 1 + 16 + 8 + 1) {
@@ -251,7 +247,7 @@ int journal_directory_vacuum(
                         if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
+                                         "Deleted empty archived journal %s/%s (%s).", directory, p, FORMAT_BYTES(size));
 
                                 freed += size;
                         } else if (r != -ENOENT)
@@ -262,7 +258,7 @@ int journal_directory_vacuum(
 
                 patch_realtime(dirfd(d), p, &st, &realtime);
 
-                if (!GREEDY_REALLOC(list, n_allocated, n_list + 1)) {
+                if (!GREEDY_REALLOC(list, n_list + 1)) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -293,7 +289,8 @@ int journal_directory_vacuum(
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
                 if (r >= 0) {
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).",
+                                 directory, list[i].filename, FORMAT_BYTES(list[i].usage));
                         freed += list[i].usage;
 
                         if (list[i].usage < sum)
@@ -315,7 +312,8 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.", format_bytes(sbytes, sizeof(sbytes), freed), directory);
+        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
+                 FORMAT_BYTES(freed), directory);
 
         return r;
 }

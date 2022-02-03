@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+#include <linux/if_bridge.h>
 
 #include "bridge.h"
 #include "netlink-util.h"
@@ -8,11 +11,16 @@
 #include "string-table.h"
 #include "vlan-util.h"
 
+assert_cc((int) MULTICAST_ROUTER_NONE            == (int) MDB_RTR_TYPE_DISABLED);
+assert_cc((int) MULTICAST_ROUTER_TEMPORARY_QUERY == (int) MDB_RTR_TYPE_TEMP_QUERY);
+assert_cc((int) MULTICAST_ROUTER_PERMANENT       == (int) MDB_RTR_TYPE_PERM);
+assert_cc((int) MULTICAST_ROUTER_TEMPORARY       == (int) MDB_RTR_TYPE_TEMP);
+
 static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
-        [MULTICAST_ROUTER_NONE] = "no",
+        [MULTICAST_ROUTER_NONE]            = "no",
         [MULTICAST_ROUTER_TEMPORARY_QUERY] = "query",
-        [MULTICAST_ROUTER_PERMANENT] = "permanent",
-        [MULTICAST_ROUTER_TEMPORARY] = "temporary",
+        [MULTICAST_ROUTER_PERMANENT]       = "permanent",
+        [MULTICAST_ROUTER_TEMPORARY]       = "temporary",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
@@ -37,167 +45,127 @@ static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Ne
         return 1;
 }
 
-static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message *req) {
         Bridge *b;
         int r;
 
-        assert(netdev);
-
-        b = BRIDGE(netdev);
-
-        assert(b);
-
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, netdev->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink flags: %m");
+        assert_se(b = BRIDGE(netdev));
 
         r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                return r;
 
         r = sd_netlink_message_open_container_union(req, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+                return r;
 
         /* convert to jiffes */
         if (b->forward_delay != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_FORWARD_DELAY, usec_to_jiffies(b->forward_delay));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_FORWARD_DELAY attribute: %m");
+                        return r;
         }
 
         if (b->hello_time > 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_HELLO_TIME, usec_to_jiffies(b->hello_time));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_HELLO_TIME attribute: %m");
+                        return r;
         }
 
         if (b->max_age > 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_MAX_AGE, usec_to_jiffies(b->max_age));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MAX_AGE attribute: %m");
+                        return r;
         }
 
         if (b->ageing_time != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_AGEING_TIME, usec_to_jiffies(b->ageing_time));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_AGEING_TIME attribute: %m");
+                        return r;
         }
 
         if (b->priority > 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_PRIORITY, b->priority);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_PRIORITY attribute: %m");
+                        return r;
         }
 
         if (b->group_fwd_mask > 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_GROUP_FWD_MASK, b->group_fwd_mask);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_GROUP_FWD_MASK attribute: %m");
+                        return r;
         }
 
         if (b->default_pvid != VLANID_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_DEFAULT_PVID, b->default_pvid);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_DEFAULT_PVID attribute: %m");
+                        return r;
         }
 
         if (b->mcast_querier >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_QUERIER, b->mcast_querier);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_QUERIER attribute: %m");
+                        return r;
         }
 
         if (b->mcast_snooping >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_SNOOPING, b->mcast_snooping);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_SNOOPING attribute: %m");
+                        return r;
         }
 
         if (b->vlan_filtering >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_VLAN_FILTERING, b->vlan_filtering);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_FILTERING attribute: %m");
+                        return r;
         }
 
         if (b->vlan_protocol >= 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_PROTOCOL, b->vlan_protocol);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_PROTOCOL attribute: %m");
+                        return r;
         }
 
         if (b->stp >= 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_STP_STATE, b->stp);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_STP_STATE attribute: %m");
+                        return r;
         }
 
         if (b->igmp_version > 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_IGMP_VERSION, b->igmp_version);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_IGMP_VERSION attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+                return r;
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
-                               netdev_destroy_callback, netdev);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-        netdev_ref(netdev);
-
-        return r;
+        return 0;
 }
 
-static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not set bridge interface: %m");
-                return 1;
-        }
-
-        return 1;
-}
-
-int link_set_bridge(Link *link) {
+static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
-        assert(link);
-        assert(link->network);
+        assert(netdev);
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
 
-        r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
+        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set message family: %m");
+                return log_link_error_errno(link, r, "Could not set netlink message flags: %m");
 
-        r = sd_netlink_message_open_container(req, IFLA_PROTINFO);
+        r = netdev_bridge_post_create_message(netdev, req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
         if (link->network->use_bpdu >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->use_bpdu);
@@ -296,9 +264,9 @@ int link_set_bridge(Link *link) {
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bridge_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
-        link_ref(link);
+        netdev_ref(netdev);
 
         return r;
 }
@@ -411,4 +379,6 @@ const NetDevVTable bridge_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
+        .generate_mac = true,
 };

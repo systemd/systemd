@@ -1,0 +1,802 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <getopt.h>
+#include <unistd.h>
+
+#include "creds-util.h"
+#include "dirent-util.h"
+#include "escape.h"
+#include "fileio.h"
+#include "format-table.h"
+#include "hexdecoct.h"
+#include "io-util.h"
+#include "json.h"
+#include "main-func.h"
+#include "memory-util.h"
+#include "missing_magic.h"
+#include "pager.h"
+#include "parse-argument.h"
+#include "pretty-print.h"
+#include "process-util.h"
+#include "stat-util.h"
+#include "string-table.h"
+#include "terminal-util.h"
+#include "tpm2-util.h"
+#include "verbs.h"
+
+typedef enum TranscodeMode {
+        TRANSCODE_OFF,
+        TRANSCODE_BASE64,
+        TRANSCODE_UNBASE64,
+        TRANSCODE_HEX,
+        TRANSCODE_UNHEX,
+        _TRANSCODE_MAX,
+        _TRANSCODE_INVALID = -EINVAL,
+} TranscodeMode;
+
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
+static bool arg_system = false;
+static TranscodeMode arg_transcode = TRANSCODE_OFF;
+static int arg_newline = -1;
+static sd_id128_t arg_with_key = SD_ID128_NULL;
+static const char *arg_tpm2_device = NULL;
+static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static const char *arg_name = NULL;
+static bool arg_name_any = false;
+static usec_t arg_timestamp = USEC_INFINITY;
+static usec_t arg_not_after = USEC_INFINITY;
+static bool arg_pretty = false;
+
+static const char* transcode_mode_table[_TRANSCODE_MAX] = {
+        [TRANSCODE_OFF] = "off",
+        [TRANSCODE_BASE64] = "base64",
+        [TRANSCODE_UNBASE64] = "unbase64",
+        [TRANSCODE_HEX] = "hex",
+        [TRANSCODE_UNHEX] = "unhex",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
+
+static int open_credential_directory(DIR **ret) {
+        _cleanup_free_ char *j = NULL;
+        const char *p;
+        DIR *d;
+        int r;
+
+        if (arg_system) {
+                _cleanup_free_ char *cd = NULL;
+
+                r = getenv_for_pid(1, "CREDENTIALS_DIRECTORY", &cd);
+                if (r < 0)
+                        return r;
+                if (!cd)
+                        return -ENXIO;
+
+                if (!path_is_absolute(cd) || !path_is_normalized(cd))
+                        return -EINVAL;
+
+                j = path_join("/proc/1/root", cd);
+                if (!j)
+                        return -ENOMEM;
+
+                p = j;
+        } else {
+                r = get_credentials_dir(&p);
+                if (r < 0)
+                        return r;
+        }
+
+        d = opendir(p);
+        if (!d)
+                return -errno;
+
+        *ret = d;
+        return 0;
+}
+
+static int verb_list(int argc, char **argv, void *userdata) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
+        int r;
+
+        r = open_credential_directory(&d);
+        if (r == -ENXIO)
+                return log_error_errno(r, "No credentials received. (i.e. $CREDENTIALS_PATH not set or pointing to empty directory.)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to open credentials directory: %m");
+
+        t = table_new("name", "secure", "size");
+        if (!t)
+                return log_oom();
+
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 100);
+
+        for (;;) {
+                _cleanup_close_ int fd = -1;
+                const char *secure, *secure_color = NULL;
+                struct dirent *de;
+                struct stat st;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno == 0)
+                                break;
+
+                        return log_error_errno(errno, "Failed to read credentials directory: %m");
+                }
+
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
+                if (!credential_name_valid(de->d_name))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0) {
+                        if (errno == ENOENT) /* Vanished by now? */
+                                continue;
+
+                        return log_error_errno(errno, "Failed to open credential '%s': %m", de->d_name);
+                }
+
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat credential '%s': %m", de->d_name);
+
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                if ((st.st_mode & 0377) != 0) {
+                        secure = "insecure"; /* Anything that is accessible more than read-only to its owner is insecure */
+                        secure_color = ansi_highlight_red();
+                } else {
+                        r = fd_is_fs_type(fd, RAMFS_MAGIC);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine backing file system of '%s': %m", de->d_name);
+
+                        secure = r ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
+                        secure_color = r ? ansi_highlight_green() : ansi_highlight_yellow4();
+                }
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, de->d_name,
+                                TABLE_STRING, secure,
+                                TABLE_SET_COLOR, secure_color,
+                                TABLE_SIZE, (uint64_t) st.st_size);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && table_get_rows(t) <= 1) {
+                log_info("No credentials");
+                return 0;
+        }
+
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
+static int transcode(
+                const void *input,
+                size_t input_size,
+                void **ret_output,
+                size_t *ret_output_size) {
+
+        int r;
+
+        assert(input);
+        assert(input_size);
+        assert(ret_output);
+        assert(ret_output_size);
+
+        switch (arg_transcode) {
+
+        case TRANSCODE_BASE64: {
+                char *buf;
+                ssize_t l;
+
+                l = base64mem_full(input, input_size, 79, &buf);
+                if (l < 0)
+                        return l;
+
+                *ret_output = buf;
+                *ret_output_size = l;
+                return 0;
+        }
+
+        case TRANSCODE_UNBASE64:
+                r = unbase64mem_full(input, input_size, true, ret_output, ret_output_size);
+                if (r == -EPIPE) /* Uneven number of chars */
+                        return -EINVAL;
+
+                return r;
+
+        case TRANSCODE_HEX: {
+                char *buf;
+
+                buf = hexmem(input, input_size);
+                if (!buf)
+                        return -ENOMEM;
+
+                *ret_output = buf;
+                *ret_output_size = input_size * 2;
+                return 0;
+        }
+
+        case TRANSCODE_UNHEX:
+                r = unhexmem_full(input, input_size, true, ret_output, ret_output_size);
+                if (r == -EPIPE) /* Uneven number of chars */
+                        return -EINVAL;
+
+                return r;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int print_newline(FILE *f, const char *data, size_t l) {
+        int fd;
+
+        assert(f);
+        assert(data || l == 0);
+
+        /* If turned off explicitly, don't print newline */
+        if (arg_newline == 0)
+                return 0;
+
+        /* If data already has newline, don't print either */
+        if (l > 0 && data[l-1] == '\n')
+                return 0;
+
+        /* Don't bother unless this is a tty */
+        fd = fileno(f);
+        if (fd >= 0 && isatty(fd) <= 0)
+                return 0;
+
+        if (fputc('\n', f) != '\n')
+                return log_error_errno(errno, "Failed to write trailing newline: %m");
+
+        return 1;
+}
+
+static int write_blob(FILE *f, const void *data, size_t size) {
+        _cleanup_(erase_and_freep) void *transcoded = NULL;
+        int r;
+
+        if (arg_transcode == TRANSCODE_OFF &&
+            arg_json_format_flags != JSON_FORMAT_OFF) {
+
+                _cleanup_(erase_and_freep) char *suffixed = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                if (memchr(data, 0, size))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Credential data contains embedded NUL, can't parse as JSON.");
+
+                suffixed = memdup_suffix0(data, size);
+                if (!suffixed)
+                        return log_oom();
+
+                r = json_parse(suffixed, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON: %m");
+
+                json_variant_dump(v, arg_json_format_flags, f, NULL);
+                return 0;
+        }
+
+        if (arg_transcode != TRANSCODE_OFF) {
+                r = transcode(data, size, &transcoded, &size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transcode data: %m");
+
+                data = transcoded;
+        }
+
+        if (fwrite(data, 1, size, f) != size)
+                return log_error_errno(errno, "Failed to write credential data: %m");
+
+        r = print_newline(f, data, size);
+        if (r < 0)
+                return r;
+
+        if (fflush(f) != 0)
+                return log_error_errno(errno, "Failed to flush output: %m");
+
+        return 0;
+}
+
+static int verb_cat(int argc, char **argv, void *userdata) {
+        _cleanup_(closedirp) DIR *d = NULL;
+        int r, ret = 0;
+        char **cn;
+
+        r = open_credential_directory(&d);
+        if (r == -ENXIO)
+                return log_error_errno(r, "No credentials passed.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to open credentials directory: %m");
+
+        STRV_FOREACH(cn, strv_skip(argv, 1)) {
+                _cleanup_(erase_and_freep) void *data = NULL;
+                size_t size = 0;
+
+                if (!credential_name_valid(*cn)) {
+                        log_error("Credential name '%s' is not valid.", *cn);
+                        if (ret >= 0)
+                                ret = -EINVAL;
+                        continue;
+                }
+
+                r = read_full_file_full(
+                                dirfd(d), *cn,
+                                UINT64_MAX, SIZE_MAX,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
+                                NULL,
+                                (char**) &data, &size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read credential '%s': %m", *cn);
+                        if (ret >= 0)
+                                ret = r;
+                        continue;
+                }
+
+                r = write_blob(stdout, data, size);
+                if (r < 0)
+                        return r;
+        }
+
+        return ret;
+}
+
+static int verb_encrypt(int argc, char **argv, void *userdata) {
+        _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
+        _cleanup_(erase_and_freep) char *plaintext = NULL;
+        const char *input_path, *output_path, *name;
+        _cleanup_free_ void *output = NULL;
+        size_t plaintext_size, output_size;
+        ssize_t base64_size;
+        usec_t timestamp;
+        int r;
+
+        assert(argc == 3);
+
+        input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
+
+        if (input_path)
+                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &plaintext, &plaintext_size);
+        else
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, &plaintext, &plaintext_size);
+        if (r == -E2BIG)
+                return log_error_errno(r, "Plaintext too long for credential (allowed size: %zu).", (size_t) CREDENTIAL_SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read plaintext: %m");
+
+        output_path = empty_or_dash(argv[2]) ? NULL : argv[2];
+
+        if (arg_name_any)
+                name = NULL;
+        else if (arg_name)
+                name = arg_name;
+        else if (output_path) {
+                r = path_extract_filename(output_path, &fname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", output_path);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Path '%s' refers to directory, refusing.", output_path);
+
+                name = fname;
+        } else {
+                log_warning("No credential name specified, not embedding credential name in encrypted data. (Disable this warning with --name=)");
+                name = NULL;
+        }
+
+        timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
+
+        if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
+
+        r = encrypt_credential_and_warn(
+                        arg_with_key,
+                        name,
+                        timestamp,
+                        arg_not_after,
+                        arg_tpm2_device,
+                        arg_tpm2_pcr_mask,
+                        plaintext, plaintext_size,
+                        &output, &output_size);
+        if (r < 0)
+                return r;
+
+        base64_size = base64mem_full(output, output_size, arg_pretty ? 69 : 79, &base64_buf);
+        if (base64_size < 0)
+                return base64_size;
+
+        if (arg_pretty) {
+                _cleanup_free_ char *escaped = NULL, *indented = NULL, *j = NULL;
+
+                if (name) {
+                        escaped = cescape(name);
+                        if (!escaped)
+                                return log_oom();
+                }
+
+                indented = strreplace(base64_buf, "\n", " \\\n        ");
+                if (!indented)
+                        return log_oom();
+
+                j = strjoin("SetCredentialEncrypted=", name, ": \\\n        ", indented, "\n");
+                if (!j)
+                        return log_oom();
+
+                free_and_replace(base64_buf, j);
+        }
+
+        if (output_path)
+                r = write_string_file(output_path, base64_buf, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE);
+        else
+                r = write_string_stream(stdout, base64_buf, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write result: %m");
+
+        return EXIT_SUCCESS;
+}
+
+static int verb_decrypt(int argc, char **argv, void *userdata) {
+        _cleanup_(erase_and_freep) void *plaintext = NULL;
+        _cleanup_free_ char *input = NULL, *fname = NULL;
+        _cleanup_fclose_ FILE *output_file = NULL;
+        const char *input_path, *output_path, *name;
+        size_t input_size, plaintext_size;
+        usec_t timestamp;
+        FILE *f;
+        int r;
+
+        assert(IN_SET(argc, 2, 3));
+
+        input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
+
+        if (input_path)
+                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &input, &input_size);
+        else
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, &input, &input_size);
+        if (r == -E2BIG)
+                return log_error_errno(r, "Data too long for encrypted credential (allowed size: %zu).", (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+
+        output_path = (argc < 3 || isempty(argv[2]) || streq(argv[2], "-")) ? NULL : argv[2];
+
+        if (arg_name_any)
+                name = NULL;
+        else if (arg_name)
+                name = arg_name;
+        else if (input_path) {
+                r = path_extract_filename(input_path, &fname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", input_path);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Path '%s' refers to directory, refusing.", input_path);
+
+                name = fname;
+        } else {
+                log_warning("No credential name specified, not validating credential name embedded in encrypted data. (Disable this warning with --name=.)");
+                name = NULL;
+        }
+
+        timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
+
+        r = decrypt_credential_and_warn(
+                        name,
+                        timestamp,
+                        arg_tpm2_device,
+                        input, input_size,
+                        &plaintext, &plaintext_size);
+        if (r < 0)
+                return r;
+
+        if (output_path) {
+                output_file = fopen(output_path, "we");
+                if (!output_file)
+                        return log_error_errno(errno, "Failed to create output file '%s': %m", output_path);
+
+                f = output_file;
+        } else
+                f = stdout;
+
+        r = write_blob(f, plaintext, plaintext_size);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
+}
+
+static int verb_setup(int argc, char **argv, void *userdata) {
+        size_t size;
+        int r;
+
+        r = get_credential_host_secret(CREDENTIAL_SECRET_GENERATE|CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED, NULL, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup credentials host key: %m");
+
+        log_info("%zu byte credentials host key set up.", size);
+
+        return EXIT_SUCCESS;
+}
+
+static int verb_help(int argc, char **argv, void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-creds", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
+               "\n%5$sDisplay and Process Credentials.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "  list                    Show installed and available versions\n"
+               "  cat CREDENTIAL...       Show specified credentials\n"
+               "  setup                   Generate credentials host key, if not existing yet\n"
+               "  encrypt INPUT OUTPUT    Encrypt plaintext credential file and write to\n"
+               "                          ciphertext credential file\n"
+               "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
+               "                          plaintext credential file\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "\n%3$sOptions:%4$s\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate JSON output\n"
+               "     --system             Show credentials passed to system\n"
+               "     --transcode=base64|unbase64|hex|unhex\n"
+               "                          Transcode credential data\n"
+               "     --newline=auto|yes|no\n"
+               "                          Suffix output with newline\n"
+               "  -p --pretty             Output as SetCredentialEncrypted= line\n"
+               "     --name=NAME          Override filename included in encrypted credential\n"
+               "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
+               "     --not-after=TIME     Include specified invalidation time in encrypted\n"
+               "                          credential\n"
+               "     --with-key=host|tpm2|host+tpm2|auto\n"
+               "                          Which keys to encrypt with\n"
+               "  -H                      Shortcut for --with-key=host\n"
+               "  -T                      Shortcut for --with-key=tpm2\n"
+               "     --tpm2-device=PATH\n"
+               "                          Pick TPM2 device\n"
+               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
+               "                          Specify TPM2 PCRs to seal against\n"
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
+        );
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
+                ARG_JSON,
+                ARG_SYSTEM,
+                ARG_TRANSCODE,
+                ARG_NEWLINE,
+                ARG_WITH_KEY,
+                ARG_TPM2_DEVICE,
+                ARG_TPM2_PCRS,
+                ARG_NAME,
+                ARG_TIMESTAMP,
+                ARG_NOT_AFTER,
+        };
+
+        static const struct option options[] = {
+                { "help",        no_argument,       NULL, 'h'             },
+                { "version",     no_argument,       NULL, ARG_VERSION     },
+                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
+                { "no-legend",   no_argument,       NULL, ARG_NO_LEGEND   },
+                { "json",        required_argument, NULL, ARG_JSON        },
+                { "system",      no_argument,       NULL, ARG_SYSTEM      },
+                { "transcode",   required_argument, NULL, ARG_TRANSCODE   },
+                { "newline",     required_argument, NULL, ARG_NEWLINE     },
+                { "pretty",      no_argument,       NULL, 'p'             },
+                { "with-key",    required_argument, NULL, ARG_WITH_KEY    },
+                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
+                { "tpm2-pcrs",   required_argument, NULL, ARG_TPM2_PCRS   },
+                { "name",        required_argument, NULL, ARG_NAME        },
+                { "timestamp",   required_argument, NULL, ARG_TIMESTAMP   },
+                { "not-after",   required_argument, NULL, ARG_NOT_AFTER   },
+                {}
+        };
+
+        int c, r;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "hHTp", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        return verb_help(0, NULL, NULL);
+
+                case ARG_VERSION:
+                        return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_system = true;
+                        break;
+
+                case ARG_TRANSCODE:
+                        if (parse_boolean(optarg) == 0) /* If specified as "false", turn transcoding off */
+                                arg_transcode = TRANSCODE_OFF;
+                        else {
+                                TranscodeMode m;
+
+                                m = transcode_mode_from_string(optarg);
+                                if (m < 0)
+                                        return log_error_errno(m, "Failed to parse transcode mode: %m");
+
+                                arg_transcode = m;
+                        }
+
+                        break;
+
+                case ARG_NEWLINE:
+                        if (isempty(optarg) || streq(optarg, "auto"))
+                                arg_newline = -1;
+                        else {
+                                bool b;
+
+                                r = parse_boolean_argument("--newline=", optarg, &b);
+                                if (r < 0)
+                                        return r;
+
+                                arg_newline = b;
+                        }
+                        break;
+
+                case 'p':
+                        arg_pretty = true;
+                        break;
+
+                case ARG_WITH_KEY:
+                        if (isempty(optarg) || streq(optarg, "auto"))
+                                arg_with_key = SD_ID128_NULL;
+                        else if (streq(optarg, "host"))
+                                arg_with_key = CRED_AES256_GCM_BY_HOST;
+                        else if (streq(optarg, "tpm2"))
+                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        else if (STR_IN_SET(optarg, "host+tpm2", "tpm2+host"))
+                                arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
+
+                        break;
+
+                case 'H':
+                        arg_with_key = CRED_AES256_GCM_BY_HOST;
+                        break;
+
+                case 'T':
+                        arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        break;
+
+                case ARG_TPM2_DEVICE:
+                        if (streq(optarg, "list"))
+                                return tpm2_list_devices();
+
+                        arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
+                        break;
+
+                case ARG_TPM2_PCRS:
+                        if (isempty(optarg)) {
+                                arg_tpm2_pcr_mask = 0;
+                                break;
+                        }
+
+                        uint32_t mask;
+                        r = tpm2_parse_pcrs(optarg, &mask);
+                        if (r < 0)
+                                return r;
+
+                        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                                arg_tpm2_pcr_mask = mask;
+                        else
+                                arg_tpm2_pcr_mask |= mask;
+
+                        break;
+
+                case ARG_NAME:
+                        if (isempty(optarg)) {
+                                arg_name = NULL;
+                                arg_name_any = true;
+                                break;
+                        }
+
+                        if (!credential_name_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
+
+                        arg_name = optarg;
+                        arg_name_any = false;
+                        break;
+
+                case ARG_TIMESTAMP:
+                        r = parse_timestamp(optarg, &arg_timestamp);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+
+                        break;
+
+                case ARG_NOT_AFTER:
+                        r = parse_timestamp(optarg, &arg_not_after);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
+
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
+
+        return 1;
+}
+
+static int creds_main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "list",    VERB_ANY, 1,        VERB_DEFAULT, verb_list    },
+                { "cat",     2,        VERB_ANY, 0,            verb_cat     },
+                { "encrypt", 3,        3,        0,            verb_encrypt },
+                { "decrypt", 2,        3,        0,            verb_decrypt },
+                { "setup",   VERB_ANY, 1,        0,            verb_setup   },
+                { "help",    VERB_ANY, 1,        0,            verb_help    },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        return creds_main(argc, argv);
+}
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

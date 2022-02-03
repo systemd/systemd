@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
 
 # Exclude following paths from the Coccinelle transformations
 EXCLUDED_PATHS=(
@@ -10,19 +12,20 @@ EXCLUDED_PATHS=(
     "src/libsystemd/sd-journal/lookup3.c"
 )
 
-top="$(git rev-parse --show-toplevel)"
-args=
+TOP_DIR="$(git rev-parse --show-toplevel)"
+ARGS=()
 
 # Create an array from files tracked by git...
-mapfile -t files < <(git ls-files ':/*.[ch]')
+mapfile -t FILES < <(git ls-files ':/*.[ch]')
 # ...and filter everything that matches patterns from EXCLUDED_PATHS
 for excl in "${EXCLUDED_PATHS[@]}"; do
-    files=(${files[@]//$excl})
+    # shellcheck disable=SC2206
+    FILES=(${FILES[@]//$excl})
 done
 
 case "$1" in
     -i)
-        args="$args --in-place"
+        ARGS+=(--in-place)
         shift
         ;;
 esac
@@ -32,12 +35,14 @@ if ! parallel -h >/dev/null; then
     exit 1
 fi
 
-for SCRIPT in ${@-$top/coccinelle/*.cocci}; do
-    echo "--x-- Processing $SCRIPT --x--"
-    TMPFILE=`mktemp`
-    echo "+ spatch --sp-file $SCRIPT $args ..."
+[[ ${#@} -ne 0 ]] && SCRIPTS=("$@") || SCRIPTS=("$TOP_DIR"/coccinelle/*.cocci)
+
+for script in "${SCRIPTS[@]}"; do
+    echo "--x-- Processing $script --x--"
+    TMPFILE="$(mktemp)"
+    echo "+ spatch --sp-file $script ${ARGS[*]} ..."
     parallel --halt now,fail=1 --keep-order --noswap --max-args=20 \
-             spatch --macro-file="$top/coccinelle/macros.h" --sp-file $SCRIPT $args ::: "${files[@]}" \
+             spatch --macro-file="$TOP_DIR/coccinelle/macros.h" --sp-file "$script" "${ARGS[@]}" ::: "${FILES[@]}" \
              2>"$TMPFILE" || cat "$TMPFILE"
-    echo -e "--x-- Processed $SCRIPT --x--\n"
+    echo -e "--x-- Processed $script --x--\n"
 done

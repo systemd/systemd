@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
         OBJECT_PATH_FOREACH_PREFIX(prefix, "/") {
                 log_info("<%s>", prefix);
-                assert_not_reached("???");
+                assert_not_reached();
         }
 
         r = 0;

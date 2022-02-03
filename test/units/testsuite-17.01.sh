@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 set -o pipefail
 
@@ -6,7 +7,7 @@ mkdir -p /run/udev/rules.d/
 
 rm -f /run/udev/rules.d/50-testsuite.rules
 udevadm control --reload
-udevadm trigger /dev/sda
+udevadm trigger --settle /dev/sda
 
 while : ; do
     (
@@ -20,10 +21,11 @@ while : ; do
 done
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="block", KERNEL=="sda", OPTIONS="log_level=debug"
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="sda", ENV{SYSTEMD_WANTS}="foobar.service"
 EOF
 udevadm control --reload
-udevadm trigger /dev/sda
+udevadm trigger --settle /dev/sda
 
 while : ; do
     (
@@ -37,10 +39,11 @@ while : ; do
 done
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="block", KERNEL=="sda", OPTIONS="log_level=debug"
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="sda", ENV{SYSTEMD_WANTS}="waldo.service"
 EOF
 udevadm control --reload
-udevadm trigger /dev/sda
+udevadm trigger --settle /dev/sda
 
 while : ; do
     (
@@ -56,7 +59,7 @@ done
 rm /run/udev/rules.d/50-testsuite.rules
 
 udevadm control --reload
-udevadm trigger /dev/sda
+udevadm trigger --settle /dev/sda
 
 while : ; do
     (

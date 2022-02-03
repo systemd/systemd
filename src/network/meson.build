@@ -13,11 +13,15 @@ sources = files('''
         netdev/dummy.h
         netdev/ifb.c
         netdev/ifb.h
+        netdev/ipoib.c
+        netdev/ipoib.h
         netdev/ipvlan.c
         netdev/ipvlan.h
         netdev/macvlan.c
         netdev/macvlan.h
         netdev/netdev.c
+        netdev/netdev-util.c
+        netdev/netdev-util.h
         netdev/netdev.h
         netdev/nlmon.c
         netdev/nlmon.h
@@ -51,34 +55,46 @@ sources = files('''
         netdev/macsec.h
         netdev/xfrm.c
         netdev/xfrm.h
+        networkd-address-generation.c
+        networkd-address-generation.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
         networkd-address-pool.h
         networkd-address.c
         networkd-address.h
-        networkd-brvlan.c
-        networkd-brvlan.h
+        networkd-bridge-fdb.c
+        networkd-bridge-fdb.h
+        networkd-bridge-mdb.c
+        networkd-bridge-mdb.h
+        networkd-bridge-vlan.c
+        networkd-bridge-vlan.h
         networkd-can.c
         networkd-can.h
         networkd-conf.c
         networkd-conf.h
         networkd-dhcp-common.c
         networkd-dhcp-common.h
+        networkd-dhcp-prefix-delegation.c
+        networkd-dhcp-prefix-delegation.h
         networkd-dhcp-server-bus.c
         networkd-dhcp-server-bus.h
+        networkd-dhcp-server-static-lease.c
+        networkd-dhcp-server-static-lease.h
         networkd-dhcp-server.c
         networkd-dhcp-server.h
         networkd-dhcp4.c
         networkd-dhcp4.h
         networkd-dhcp6.c
         networkd-dhcp6.h
-        networkd-fdb.c
-        networkd-fdb.h
+        networkd-ipv4acd.c
+        networkd-ipv4acd.h
         networkd-ipv4ll.c
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
+        networkd-json.c
+        networkd-json.h
         networkd-link-bus.c
         networkd-link-bus.h
         networkd-link.c
@@ -91,8 +107,6 @@ sources = files('''
         networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
-        networkd-mdb.c
-        networkd-mdb.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c
@@ -105,10 +119,16 @@ sources = files('''
         networkd-network.h
         networkd-nexthop.c
         networkd-nexthop.h
+        networkd-queue.c
+        networkd-queue.h
+        networkd-route-util.c
+        networkd-route-util.h
         networkd-route.c
         networkd-route.h
         networkd-routing-policy-rule.c
         networkd-routing-policy-rule.h
+        networkd-setlink.c
+        networkd-setlink.h
         networkd-speed-meter.c
         networkd-speed-meter.h
         networkd-sriov.c
@@ -217,7 +237,8 @@ libnetworkd_core = static_library(
         'networkd-core',
         sources,
         include_directories : network_includes,
-        link_with : [networkd_link_with])
+        link_with : networkd_link_with,
+        build_by_default : false)
 
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('org.freedesktop.network1.conf',
@@ -242,14 +263,14 @@ if conf.get('ENABLE_NETWORKD') == 1
 endif
 
 fuzzers += [
-        [['src/network/fuzz-netdev-parser.c'],
+        [files('fuzz-netdev-parser.c'),
          [libnetworkd_core,
           libsystemd_network,
           networkd_link_with],
          [threads],
          network_includes],
 
-        [['src/network/fuzz-network-parser.c'],
+        [files('fuzz-network-parser.c'),
          [libnetworkd_core,
           libsystemd_network,
           networkd_link_with],
@@ -258,25 +279,37 @@ fuzzers += [
 ]
 
 tests += [
-        [['src/network/test-networkd-conf.c'],
+        [files('test-networkd-address.c'),
          [libnetworkd_core,
           libsystemd_network],
          [],
          network_includes],
 
-        [['src/network/test-network.c'],
+        [files('test-networkd-conf.c'),
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_includes],
+
+        [files('test-networkd-util.c'),
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_includes],
+
+        [files('test-network.c'),
          [libnetworkd_core,
           libsystemd_network],
          [threads],
          network_includes],
 
-        [['src/network/test-network-tables.c'],
+        [files('test-network-tables.c'),
          [libnetworkd_core,
           libsystemd_network],
          [threads],
          network_includes],
 
-        [['src/network/generator/test-network-generator.c',
-          'src/network/generator/network-generator.c',
-          'src/network/generator/network-generator.h']],
+        [files('generator/test-network-generator.c',
+               'generator/network-generator.c',
+               'generator/network-generator.h')],
 ]

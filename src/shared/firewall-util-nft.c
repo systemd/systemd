@@ -561,7 +561,7 @@ static int nft_add_element(sd_netlink *nfnl, sd_netlink_message **ret,
         /*
          * Ideally there would be an API that provides:
          *
-         * 1) a init function to add the main ruleset skeleton
+         * 1) an init function to add the main ruleset skeleton
          * 2) a function that populates the sets with all known address/port pairs to s/dnat for
          * 3) a function that can remove address/port pairs again.
          *
@@ -649,7 +649,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         msgcnt++;
         assert(msgcnt < NFT_INIT_MSGS);
         /* Set F_EXCL so table add fails if the table already exists. */
-        r = sd_nfnl_nft_message_new_table(nfnl, &batch[msgcnt], family, NFT_SYSTEMD_TABLE_NAME, NLM_F_EXCL | NLM_F_ACK);
+        r = sd_nfnl_nft_message_new_table(nfnl, &batch[msgcnt], family, NFT_SYSTEMD_TABLE_NAME);
         if (r < 0)
                 goto out_unref;
 

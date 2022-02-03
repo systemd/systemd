@@ -15,6 +15,6 @@
 [Remote]
 # Seal=false
 # SplitMode=host
-# ServerKeyFile=@CERTIFICATEROOT@/private/journal-remote.pem
-# ServerCertificateFile=@CERTIFICATEROOT@/certs/journal-remote.pem
-# TrustedCertificateFile=@CERTIFICATEROOT@/ca/trusted.pem
+# ServerKeyFile={{CERTIFICATE_ROOT}}/private/journal-remote.pem
+# ServerCertificateFile={{CERTIFICATE_ROOT}}/certs/journal-remote.pem
+# TrustedCertificateFile={{CERTIFICATE_ROOT}}/ca/trusted.pem

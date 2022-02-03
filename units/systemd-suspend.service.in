@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Suspend
+Description=System Suspend
 Documentation=man:systemd-suspend.service(8)
 DefaultDependencies=no
 Requires=sleep.target
@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-sleep suspend
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep suspend

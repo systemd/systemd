@@ -19,36 +19,33 @@ libudev_sources = files(
 libudev_includes = [includes, include_directories('.')]
 
 libudev_sym = files('libudev.sym')
-libudev_sym_path = join_paths(meson.current_source_dir(), 'libudev.sym')
+libudev_sym_path = meson.current_source_dir() / 'libudev.sym'
 
 install_headers('libudev.h')
-libudev_h_path = join_paths(meson.current_source_dir(), 'libudev.h')
+libudev_h_path = meson.current_source_dir() / 'libudev.h'
 
 libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
         include_directories : includes,
-        c_args : ['-fvisibility=default'])
-
-libudev_static = static_library(
-        'udev_static',
-        include_directories : includes,
-        link_with : udev_link_with,
-        link_whole : libudev_basic)
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)
 
 static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
-configure_file(
+custom_target(
+        'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',
-        configuration : substs,
-        install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
+        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        install : pkgconfiglibdir != 'no',
+        install_dir : pkgconfiglibdir)
 
 ############################################################
 
 tests += [
-        [['src/libudev/test-libudev.c'],
+        [files('test-libudev.c'),
          [libshared,
-          libudev_static]],
+          libudev_basic]],
 ]

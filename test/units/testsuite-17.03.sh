@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 
 test_rule="/run/udev/rules.d/49-test.rules"
@@ -7,9 +7,14 @@ test_rule="/run/udev/rules.d/49-test.rules"
 setup() {
     mkdir -p "${test_rule%/*}"
     cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
-    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' >"${test_rule}"
-    echo "event_timeout=30" >>/etc/udev/udev.conf
-    echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
+    cat >"${test_rule}" <<EOF
+ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", OPTIONS="log_level=debug"
+ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", PROGRAM=="/bin/sleep 60"
+EOF
+    cat >>/etc/udev/udev.conf <<EOF
+event_timeout=10
+timeout_signal=SIGABRT
+EOF
 
     systemctl restart systemd-udevd.service
 }
@@ -23,15 +28,15 @@ teardown() {
 }
 
 run_test() {
-    since="$(date +%T)"
+    since="$(date '+%F %T')"
 
-    echo add >/sys/class/net/lo/uevent
+    SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
     for _ in {1..20}; do
-        sleep 5
         if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
             return 0
         fi
+        sleep .5
     done
 
     return 1

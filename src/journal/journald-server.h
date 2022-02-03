@@ -10,12 +10,13 @@ typedef struct Server Server;
 
 #include "conf-parser.h"
 #include "hashmap.h"
-#include "journal-file.h"
 #include "journald-context.h"
 #include "journald-rate-limit.h"
 #include "journald-stream.h"
 #include "list.h"
+#include "managed-journal-file.h"
 #include "prioq.h"
+#include "ratelimit.h"
 #include "time-util.h"
 #include "varlink.h"
 
@@ -88,14 +89,13 @@ struct Server {
         sd_event_source *watchdog_event_source;
         sd_event_source *idle_event_source;
 
-        JournalFile *runtime_journal;
-        JournalFile *system_journal;
+        ManagedJournalFile *runtime_journal;
+        ManagedJournalFile *system_journal;
         OrderedHashmap *user_journals;
 
         uint64_t seqnum;
 
         char *buffer;
-        size_t buffer_size;
 
         JournalRateLimit *ratelimit;
         usec_t sync_interval_usec;
@@ -143,6 +143,7 @@ struct Server {
 
         uint64_t *kernel_seqnum;
         bool dev_kmsg_readable:1;
+        RateLimit kmsg_own_ratelimit;
 
         bool send_watchdog:1;
         bool sent_notify_ready:1;
@@ -191,6 +192,9 @@ struct Server {
 
 /* kmsg: Maximum number of extra fields we'll import from udev's devices */
 #define N_IOVEC_UDEV_FIELDS 32
+
+/* audit: Maximum number of extra fields we'll import from audit messages */
+#define N_IOVEC_AUDIT_FIELDS 64
 
 void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_ _printf_(4,0);

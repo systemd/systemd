@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for specifiers with exec search path
+
+[Service]
+Type=oneshot
+ExecSearchPath=/tmp:/bin:/usr/bin:%V
+ExecStart=/bin/sh -x -c 'test %V = /var/tmp && test "$$PATH" = "/tmp:/bin:/usr/bin:/var/tmp"'

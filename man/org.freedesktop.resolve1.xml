@@ -308,12 +308,15 @@ node /org/freedesktop/resolve1 {
       records of many types, it is crucial that clients using this API understand that the RR data originates
       from the network and should be thoroughly validated before use.</para>
 
-      <para><function>ResolveService()</function> may be used to resolve a DNS SRV service record, as well as the
-      hostnames referenced in it, and possibly an accompanying DNS-SD TXT record containing additional
-      service metadata. The primary benefit of using this method over <function>ResolveRecord()</function>
-      specifying the SRV type is that it will resolve the SRV and TXT RRs as well as the hostnames referenced
-      in the SRV in a single operation. As parameters it takes a Linux network interface index, a service
-      name, a service type and a service domain. This method may be invoked in three different modes:</para>
+      <para><function>ResolveService()</function> may be used to resolve a DNS
+      <constant class="dns">SRV</constant> service record, as well as the hostnames referenced in it, and
+      possibly an accompanying DNS-SD <constant class="dns">TXT</constant> record containing additional
+      service metadata.  The primary benefit of using this method over <function>ResolveRecord()</function>
+      specifying the <constant class="dns">SRV</constant> type is that it will resolve the
+      <constant class="dns">SRV</constant> and <constant class="dns">TXT</constant> RRs as well as the
+      hostnames referenced in the SRV in a single operation. As parameters it takes a Linux network interface
+      index, a service name, a service type and a service domain. This method may be invoked in three
+      different modes:</para>
 
       <orderedlist>
         <listitem><para>To resolve a DNS-SD service, specify the service name (e.g. <literal>Lennart's
@@ -323,13 +326,13 @@ node /org/freedesktop/resolve1 {
         specifications). However, if necessary, IDNA conversion is applied to the domain parameter.</para>
         </listitem>
 
-        <listitem><para>To resolve a plain SRV record, set the service name parameter to the empty string
-        and set the service type and domain properly. (IDNA conversion is applied to the domain, if
-        necessary.)</para></listitem>
+        <listitem><para>To resolve a plain <constant class="dns">SRV</constant> record, set the service name
+        parameter to the empty string and set the service type and domain properly. (IDNA conversion is
+        applied to the domain, if necessary.)</para></listitem>
 
-        <listitem><para>Alternatively, leave both the service name and type empty and specify the full
-        domain name of the SRV record (i.e. prefixed with the service type) in the domain parameter. (No IDNA
-        conversion is applied in this mode.)</para></listitem>
+        <listitem><para>Alternatively, leave both the service name and type empty and specify the full domain
+        name of the <constant class="dns">SRV</constant> record (i.e. prefixed with the service type) in the
+        domain parameter. (No IDNA conversion is applied in this mode.)</para></listitem>
       </orderedlist>
 
       <para>The <varname>family</varname> parameter of the <function>ResolveService()</function> method encodes
@@ -339,15 +342,16 @@ node /org/freedesktop/resolve1 {
       <varname>flags</varname> parameter takes a couple of flags that may be used to alter the resolver
       operation.</para>
 
-      <para>On completion, <function>ResolveService()</function> returns an array of SRV record structures. Each
-      items consisting of the priority, weight and port fields as well as the hostname to contact, as encoded in the SRV
+      <para>On completion, <function>ResolveService()</function> returns an array of
+      <constant class="dns">SRV</constant> record structures. Each items consisting of the priority, weight and port
+      fields as well as the hostname to contact, as encoded in the <constant class="dns">SRV</constant>
       record. Immediately following is an array of the addresses of this hostname, with each item consisting
       of the interface index, the address family and the address data in a byte array. This address array is
-      followed by the canonicalized hostname. After this array of SRV record structures an array of byte
-      arrays follows that encodes the TXT RR strings, in case DNS-SD look-ups are enabled. The next parameters
-      are the canonical service name, type and domain. This may or may not be identical to the parameters
-      passed in. Finally, a <varname>flags</varname> field is returned that contains information about the
-      resolver operation performed.</para>
+      followed by the canonicalized hostname. After this array of <constant class="dns">SRV</constant> record
+      structures an array of byte arrays follows that encodes the TXT RR strings, in case DNS-SD look-ups are
+      enabled. The next parameters are the canonical service name, type and domain. This may or may not be
+      identical to the parameters passed in. Finally, a <varname>flags</varname> field is returned that
+      contains information about the resolver operation performed.</para>
 
       <para>The <function>ResetStatistics()</function> method resets the various statistics counters that
       <filename>systemd-resolved</filename> maintains to zero. (For details, see the statistics properties below.)</para>
@@ -436,16 +440,30 @@ node /org/freedesktop/resolve1 {
         and recommended. However, the following flags are defined to alter the look-up:</para>
 
         <programlisting>
-#define SD_RESOLVED_DNS           (UINT64_C(1) &lt;&lt; 0)
-#define SD_RESOLVED_LLMNR_IPV4    (UINT64_C(1) &lt;&lt; 1)
-#define SD_RESOLVED_LLMNR_IPV6    (UINT64_C(1) &lt;&lt; 2)
-#define SD_RESOLVED_MDNS_IPV4     (UINT64_C(1) &lt;&lt; 3)
-#define SD_RESOLVED_MDNS_IPV6     (UINT64_C(1) &lt;&lt; 4)
-#define SD_RESOLVED_NO_CNAME      (UINT64_C(1) &lt;&lt; 5)
-#define SD_RESOLVED_NO_TXT        (UINT64_C(1) &lt;&lt; 6)
-#define SD_RESOLVED_NO_ADDRESS    (UINT64_C(1) &lt;&lt; 7)
-#define SD_RESOLVED_NO_SEARCH     (UINT64_C(1) &lt;&lt; 8)
-#define SD_RESOLVED_AUTHENTICATED (UINT64_C(1) &lt;&lt; 9)
+#define SD_RESOLVED_DNS               (UINT64_C(1) &lt;&lt;  0)
+#define SD_RESOLVED_LLMNR_IPV4        (UINT64_C(1) &lt;&lt;  1)
+#define SD_RESOLVED_LLMNR_IPV6        (UINT64_C(1) &lt;&lt;  2)
+#define SD_RESOLVED_MDNS_IPV4         (UINT64_C(1) &lt;&lt;  3)
+#define SD_RESOLVED_MDNS_IPV6         (UINT64_C(1) &lt;&lt;  4)
+#define SD_RESOLVED_NO_CNAME          (UINT64_C(1) &lt;&lt;  5)
+#define SD_RESOLVED_NO_TXT            (UINT64_C(1) &lt;&lt;  6)
+#define SD_RESOLVED_NO_ADDRESS        (UINT64_C(1) &lt;&lt;  7)
+#define SD_RESOLVED_NO_SEARCH         (UINT64_C(1) &lt;&lt;  8)
+#define SD_RESOLVED_AUTHENTICATED     (UINT64_C(1) &lt;&lt;  9)
+#define SD_RESOLVED_NO_VALIDATE       (UINT64_C(1) &lt;&lt; 10)
+#define SD_RESOLVED_NO_SYNTHESIZE     (UINT64_C(1) &lt;&lt; 11)
+#define SD_RESOLVED_NO_CACHE          (UINT64_C(1) &lt;&lt; 12)
+#define SD_RESOLVED_NO_ZONE           (UINT64_C(1) &lt;&lt; 13)
+#define SD_RESOLVED_NO_TRUST_ANCHOR   (UINT64_C(1) &lt;&lt; 14)
+#define SD_RESOLVED_NO_NETWORK        (UINT64_C(1) &lt;&lt; 15)
+#define SD_RESOLVED_REQUIRE_PRIMARY   (UINT64_C(1) &lt;&lt; 16)
+#define SD_RESOLVED_CLAMP_TTL         (UINT64_C(1) &lt;&lt; 17)
+#define SD_RESOLVED_CONFIDENTIAL      (UINT64_C(1) &lt;&lt; 18)
+#define SD_RESOLVED_SYNTHETIC         (UINT64_C(1) &lt;&lt; 19)
+#define SD_RESOLVED_FROM_CACHE        (UINT64_C(1) &lt;&lt; 20)
+#define SD_RESOLVED_FROM_ZONE         (UINT64_C(1) &lt;&lt; 21)
+#define SD_RESOLVED_FROM_TRUST_ANCHOR (UINT64_C(1) &lt;&lt; 22)
+#define SD_RESOLVED_FROM_NETWORK      (UINT64_C(1) &lt;&lt; 23)
         </programlisting>
 
         <para>On input, the first five flags control the protocols to use for the look-up. They refer to
@@ -471,9 +489,9 @@ node /org/freedesktop/resolve1 {
         when the flag is off, CNAME/DNAME RRs are followed.</para>
 
         <para>The NO_TXT and NO_ADDRESS flags only influence operation of the
-        <function>ResolveService()</function> method. They are only defined for input, not output. If
-        NO_TXT set, the DNS-SD TXT RR look-up is not done in the same operation. If NO_ADDRESS is specified,
-        the hostnames discovered are not implicitly translated to their addresses.</para>
+        <function>ResolveService()</function> method. They are only defined for input, not output. If NO_TXT
+        is set, the DNS-SD TXT RR look-up is not done in the same operation. If NO_ADDRESS is set, the
+        discovered hostnames are not implicitly translated to their addresses.</para>
 
         <para>The NO_SEARCH flag turns off the search domain logic. It is only defined for input in
         <function>ResolveHostname()</function>. When specified, single-label hostnames are not qualified
@@ -482,15 +500,41 @@ node /org/freedesktop/resolve1 {
         multi-label hostnames are never subject to search list expansion.</para>
 
         <para>The AUTHENTICATED bit is defined only in the output flags of the four functions. If set, the
-        returned data has been fully authenticated. Specifically, this bit is set for all DNSSEC-protected data
-        for which a full trust chain may be established to a trusted domain anchor. It is also set for locally
-        synthesized data, such as <literal>localhost</literal> or data from
-        <filename>/etc/hosts</filename>. Moreover, it is set for all LLMNR or mDNS RRs which originate from the
-        local host. Applications that require authenticated RR data for operation should check this flag before
-        trusting the data. Note that <filename>systemd-resolved</filename> will never return invalidated data, hence this flag
-        simply allows to discern the cases where data is known to be trustable, or where there is proof that
-        the data is "rightfully" unauthenticated (which includes cases where the underlying protocol or server
-        does not support authenticating data).</para>
+        returned data has been fully authenticated. Specifically, this bit is set for all DNSSEC-protected
+        data for which a full trust chain may be established to a trusted domain anchor. It is also set for
+        locally synthesized data, such as <literal>localhost</literal> or data from
+        <filename>/etc/hosts</filename>. Moreover, it is set for all LLMNR or mDNS RRs which originate from
+        the local host. Applications that require authenticated RR data for operation should check this flag
+        before trusting the data. Note that <filename>systemd-resolved</filename> will never return
+        invalidated data, hence this flag simply allows one to discern the cases where data is known to be
+        trusted, or where there is proof that the data is "rightfully" unauthenticated (which includes cases
+        where the underlying protocol or server does not support authenticating data).</para>
+
+        <para>NO_VALIDATE can be set to disable validation via DNSSEC even if it would normally be used.
+        </para>
+
+        <para>The next four flags allow disabling certain sources during resolution. NO_SYNTHESIZE disables
+        synthetic records, e.g. the local host name, see section SYNTHETIC RECORDS in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for more information. NO_CACHE disables the use of the cache of previously resolved records. NO_ZONE
+        disables answers using locally registered public LLMNR/mDNS resource records. NO_TRUST_ANCHOR
+        disables answers using locally configured trust anchors. NO_NETWORK requires all answers to be
+        provided without using the network, i.e. either from local sources or the cache.</para>
+
+        <para>With REQUIRE_PRIMARY the request must be answered from a "primary" answer, i.e. not from
+        resource records acquired as a side-effect of a previous transaction.</para>
+
+        <para>With CLAMP_TTL, if reply is answered from cache, the TTLs will be adjusted by age of cache
+        entry.</para>
+
+        <para>The next six bits flags are used in output and provide information about the source of the answer.
+        CONFIDENTIAL means the query was resolved via encrypted channels or never left this system.
+        FROM_SYNTHETIC means the query was (at least partially) synthesized.
+        FROM_CACHE means the query was answered (at least partially) using the cache.
+        FROM_ZONE means the query was answered (at least partially) using LLMNR/mDNS.
+        FROM_TRUST_ANCHOR means the query was answered (at least partially) using local trust anchors.
+        FROM_NETWORK means the query was answered (at least partially) using the network.
+        </para>
       </refsect3>
     </refsect2>
 
@@ -779,8 +823,8 @@ node /org/freedesktop/resolve1/link/_1 {
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchService</constant></term>
-      <listitem><para>A service look-up was successful, but the SRV record reported that the service is not
-      available.</para></listitem></varlistentry>
+      <listitem><para>A service look-up was successful, but the <constant class="dns">SRV</constant> record
+      reported that the service is not available.</para></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.DnssecFailed</constant></term>
       <listitem><para>The acquired response did not pass DNSSEC validation.</para></listitem>

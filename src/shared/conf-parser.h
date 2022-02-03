@@ -6,8 +6,10 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "time-util.h"
@@ -89,7 +91,7 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *latest_mtime);      /* input/output, possibly NULL */
+                struct stat *ret_stat);     /* possibly NULL */
 
 int config_parse_many_nulstr(
                 const char *conf_file,      /* possibly NULL */
@@ -99,7 +101,7 @@ int config_parse_many_nulstr(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
 
 int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */
@@ -110,7 +112,44 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
+
+typedef struct ConfigSection {
+        unsigned line;
+        bool invalid;
+        char filename[];
+} ConfigSection;
+
+static inline ConfigSection* config_section_free(ConfigSection *cs) {
+        return mfree(cs);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
+
+int config_section_new(const char *filename, unsigned line, ConfigSection **s);
+extern const struct hash_ops config_section_hash_ops;
+unsigned hashmap_find_free_section_line(Hashmap *hashmap);
+
+static inline bool section_is_invalid(ConfigSection *section) {
+        /* If this returns false, then it does _not_ mean the section is valid. */
+
+        if (!section)
+                return false;
+
+        return section->invalid;
+}
+
+#define DEFINE_SECTION_CLEANUP_FUNCTIONS(type, free_func)               \
+        static inline type* free_func##_or_set_invalid(type *p) {       \
+                assert(p);                                              \
+                                                                        \
+                if (p->section)                                         \
+                        p->section->invalid = true;                     \
+                else                                                    \
+                        free_func(p);                                   \
+                return NULL;                                            \
+        }                                                               \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
@@ -124,6 +163,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_double);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_size);
 CONFIG_PARSER_PROTOTYPE(config_parse_si_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
+CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64_infinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_bool);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
@@ -147,8 +187,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
-CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addr);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_ether_addr);
+CONFIG_PARSER_PROTOTYPE(config_parse_ether_addrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
 CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 

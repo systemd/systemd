@@ -9,7 +9,7 @@ typedef struct BPFProgram BPFProgram;
 
 int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool allow_list);
 int bpf_devices_apply_policy(
-                BPFProgram *prog,
+                BPFProgram **prog,
                 CGroupDevicePolicy policy,
                 bool allow_list,
                 const char *cgroup_path,

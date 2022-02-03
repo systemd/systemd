@@ -31,7 +31,7 @@
 #include "tmpfile-util.h"
 #include "unaligned.h"
 
-int sd_dhcp_lease_get_address(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -42,7 +42,7 @@ int sd_dhcp_lease_get_address(const sd_dhcp_lease *lease, struct in_addr *addr) 
         return 0;
 }
 
-int sd_dhcp_lease_get_broadcast(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -53,7 +53,7 @@ int sd_dhcp_lease_get_broadcast(const sd_dhcp_lease *lease, struct in_addr *addr
         return 0;
 }
 
-int sd_dhcp_lease_get_lifetime(const sd_dhcp_lease *lease, uint32_t *lifetime) {
+int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
         assert_return(lease, -EINVAL);
         assert_return(lifetime, -EINVAL);
 
@@ -64,7 +64,7 @@ int sd_dhcp_lease_get_lifetime(const sd_dhcp_lease *lease, uint32_t *lifetime) {
         return 0;
 }
 
-int sd_dhcp_lease_get_t1(const sd_dhcp_lease *lease, uint32_t *t1) {
+int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint32_t *t1) {
         assert_return(lease, -EINVAL);
         assert_return(t1, -EINVAL);
 
@@ -75,7 +75,7 @@ int sd_dhcp_lease_get_t1(const sd_dhcp_lease *lease, uint32_t *t1) {
         return 0;
 }
 
-int sd_dhcp_lease_get_t2(const sd_dhcp_lease *lease, uint32_t *t2) {
+int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint32_t *t2) {
         assert_return(lease, -EINVAL);
         assert_return(t2, -EINVAL);
 
@@ -86,7 +86,7 @@ int sd_dhcp_lease_get_t2(const sd_dhcp_lease *lease, uint32_t *t2) {
         return 0;
 }
 
-int sd_dhcp_lease_get_mtu(const sd_dhcp_lease *lease, uint16_t *mtu) {
+int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);
         assert_return(mtu, -EINVAL);
 
@@ -98,42 +98,43 @@ int sd_dhcp_lease_get_mtu(const sd_dhcp_lease *lease, uint16_t *mtu) {
 }
 
 int sd_dhcp_lease_get_servers(
-                const sd_dhcp_lease *lease,
+                sd_dhcp_lease *lease,
                 sd_dhcp_lease_server_type_t what,
                 const struct in_addr **addr) {
 
         assert_return(lease, -EINVAL);
         assert_return(what >= 0, -EINVAL);
         assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
-        assert_return(addr, -EINVAL);
 
         if (lease->servers[what].size <= 0)
                 return -ENODATA;
 
-        *addr = lease->servers[what].addr;
+        if (addr)
+                *addr = lease->servers[what].addr;
+
         return (int) lease->servers[what].size;
 }
 
-int sd_dhcp_lease_get_dns(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS, addr);
 }
-int sd_dhcp_lease_get_ntp(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP, addr);
 }
-int sd_dhcp_lease_get_sip(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP, addr);
 }
-int sd_dhcp_lease_get_pop3(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_pop3(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_POP3, addr);
 }
-int sd_dhcp_lease_get_smtp(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_smtp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SMTP, addr);
 }
-int sd_dhcp_lease_get_lpr(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_lpr(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_LPR, addr);
 }
 
-int sd_dhcp_lease_get_domainname(const sd_dhcp_lease *lease, const char **domainname) {
+int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
         assert_return(lease, -EINVAL);
         assert_return(domainname, -EINVAL);
 
@@ -144,7 +145,7 @@ int sd_dhcp_lease_get_domainname(const sd_dhcp_lease *lease, const char **domain
         return 0;
 }
 
-int sd_dhcp_lease_get_hostname(const sd_dhcp_lease *lease, const char **hostname) {
+int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
         assert_return(lease, -EINVAL);
         assert_return(hostname, -EINVAL);
 
@@ -155,7 +156,7 @@ int sd_dhcp_lease_get_hostname(const sd_dhcp_lease *lease, const char **hostname
         return 0;
 }
 
-int sd_dhcp_lease_get_root_path(const sd_dhcp_lease *lease, const char **root_path) {
+int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         assert_return(lease, -EINVAL);
         assert_return(root_path, -EINVAL);
 
@@ -166,7 +167,7 @@ int sd_dhcp_lease_get_root_path(const sd_dhcp_lease *lease, const char **root_pa
         return 0;
 }
 
-int sd_dhcp_lease_get_router(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -177,7 +178,7 @@ int sd_dhcp_lease_get_router(const sd_dhcp_lease *lease, const struct in_addr **
         return (int) lease->router_size;
 }
 
-int sd_dhcp_lease_get_netmask(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -188,7 +189,7 @@ int sd_dhcp_lease_get_netmask(const sd_dhcp_lease *lease, struct in_addr *addr) 
         return 0;
 }
 
-int sd_dhcp_lease_get_server_identifier(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -199,7 +200,7 @@ int sd_dhcp_lease_get_server_identifier(const sd_dhcp_lease *lease, struct in_ad
         return 0;
 }
 
-int sd_dhcp_lease_get_next_server(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -214,28 +215,41 @@ int sd_dhcp_lease_get_next_server(const sd_dhcp_lease *lease, struct in_addr *ad
  * The returned routes array must be freed by the caller.
  * Route objects have the same lifetime of the lease and must not be freed.
  */
-int sd_dhcp_lease_get_routes(const sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
-        sd_dhcp_route **ret;
-        unsigned i;
+static int dhcp_lease_get_routes(sd_dhcp_route *routes, size_t n_routes, sd_dhcp_route ***ret) {
+        assert(routes || n_routes == 0);
 
-        assert_return(lease, -EINVAL);
-        assert_return(routes, -EINVAL);
-
-        if (lease->static_route_size <= 0)
+        if (n_routes <= 0)
                 return -ENODATA;
 
-        ret = new(sd_dhcp_route *, lease->static_route_size);
-        if (!ret)
-                return -ENOMEM;
+        if (ret) {
+                sd_dhcp_route **buf;
 
-        for (i = 0; i < lease->static_route_size; i++)
-                ret[i] = &lease->static_route[i];
+                buf = new(sd_dhcp_route*, n_routes);
+                if (!buf)
+                        return -ENOMEM;
 
-        *routes = ret;
-        return (int) lease->static_route_size;
+                for (size_t i = 0; i < n_routes; i++)
+                        buf[i] = &routes[i];
+
+                *ret = buf;
+        }
+
+        return (int) n_routes;
 }
 
-int sd_dhcp_lease_get_search_domains(const sd_dhcp_lease *lease, char ***domains) {
+int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+        assert_return(lease, -EINVAL);
+
+        return dhcp_lease_get_routes(lease->static_routes, lease->n_static_routes, ret);
+}
+
+int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+        assert_return(lease, -EINVAL);
+
+        return dhcp_lease_get_routes(lease->classless_routes, lease->n_classless_routes, ret);
+}
+
+int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
         size_t r;
 
         assert_return(lease, -EINVAL);
@@ -250,7 +264,34 @@ int sd_dhcp_lease_get_search_domains(const sd_dhcp_lease *lease, char ***domains
         return -ENODATA;
 }
 
-int sd_dhcp_lease_get_vendor_specific(const sd_dhcp_lease *lease, const void **data, size_t *data_len) {
+int sd_dhcp_lease_get_6rd(
+                sd_dhcp_lease *lease,
+                uint8_t *ret_ipv4masklen,
+                uint8_t *ret_prefixlen,
+                struct in6_addr *ret_prefix,
+                const struct in_addr **ret_br_addresses,
+                size_t *ret_n_br_addresses) {
+
+        assert_return(lease, -EINVAL);
+
+        if (lease->sixrd_n_br_addresses <= 0)
+                return -ENODATA;
+
+        if (ret_ipv4masklen)
+                *ret_ipv4masklen = lease->sixrd_ipv4masklen;
+        if (ret_prefixlen)
+                *ret_prefixlen = lease->sixrd_prefixlen;
+        if (ret_prefix)
+                *ret_prefix = lease->sixrd_prefix;
+        if (ret_br_addresses)
+                *ret_br_addresses = lease->sixrd_br_addresses;
+        if (ret_n_br_addresses)
+                *ret_n_br_addresses = lease->sixrd_n_br_addresses;
+
+        return 0;
+}
+
+int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len) {
         assert_return(lease, -EINVAL);
         assert_return(data, -EINVAL);
         assert_return(data_len, -EINVAL);
@@ -284,10 +325,12 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
 
-        free(lease->static_route);
+        free(lease->static_routes);
+        free(lease->classless_routes);
         free(lease->client_id);
         free(lease->vendor_specific);
         strv_free(lease->search_domains);
+        free(lease->sixrd_br_addresses);
         return mfree(lease);
 }
 
@@ -438,99 +481,144 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
         return lease_parse_in_addrs(option + 1, len - 1, ret, n_ret);
 }
 
-static int lease_parse_routes(
-                const uint8_t *option, size_t len,
-                struct sd_dhcp_route **routes, size_t *routes_size, size_t *routes_allocated) {
+static int lease_parse_static_routes(sd_dhcp_lease *lease, const uint8_t *option, size_t len) {
+        int r;
 
-        struct in_addr addr;
-
+        assert(lease);
         assert(option || len <= 0);
-        assert(routes);
-        assert(routes_size);
-        assert(routes_allocated);
-
-        if (len <= 0)
-                return 0;
 
         if (len % 8 != 0)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(*routes, *routes_allocated, *routes_size + (len / 8)))
-                return -ENOMEM;
-
         while (len >= 8) {
-                struct sd_dhcp_route *route = *routes + *routes_size;
-                int r;
+                struct in_addr dst, gw;
+                uint8_t prefixlen;
 
-                route->option = SD_DHCP_OPTION_STATIC_ROUTE;
-                r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
-                if (r < 0) {
-                        log_debug("Failed to determine destination prefix length from class based IP, ignoring");
-                        continue;
-                }
-
-                assert_se(lease_parse_be32(option, 4, &addr.s_addr) >= 0);
-                route->dst_addr = inet_makeaddr(inet_netof(addr), 0);
+                assert_se(lease_parse_be32(option, 4, &dst.s_addr) >= 0);
                 option += 4;
 
-                assert_se(lease_parse_be32(option, 4, &route->gw_addr.s_addr) >= 0);
+                assert_se(lease_parse_be32(option, 4, &gw.s_addr) >= 0);
                 option += 4;
 
                 len -= 8;
-                (*routes_size)++;
+
+                r = in4_addr_default_prefixlen(&dst, &prefixlen);
+                if (r < 0) {
+                        log_debug("sd-dhcp-lease: cannot determine class of received static route, ignoring.");
+                        continue;
+                }
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                if (!GREEDY_REALLOC(lease->static_routes, lease->n_static_routes + 1))
+                        return -ENOMEM;
+
+                lease->static_routes[lease->n_static_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                };
         }
 
         return 0;
 }
 
 /* parses RFC3442 Classless Static Route Option */
-static int lease_parse_classless_routes(
-                const uint8_t *option, size_t len,
-                struct sd_dhcp_route **routes, size_t *routes_size, size_t *routes_allocated) {
-
+static int lease_parse_classless_routes(sd_dhcp_lease *lease, const uint8_t *option, size_t len) {
+        assert(lease);
         assert(option || len <= 0);
-        assert(routes);
-        assert(routes_size);
-        assert(routes_allocated);
 
-        if (len <= 0)
-                return 0;
-
-        /* option format: (subnet-mask-width significant-subnet-octets gateway-ip)*  */
+        /* option format: (subnet-mask-width significant-subnet-octets gateway-ip) */
 
         while (len > 0) {
-                uint8_t dst_octets;
-                struct sd_dhcp_route *route;
+                uint8_t prefixlen, dst_octets;
+                struct in_addr dst = {}, gw;
 
-                if (!GREEDY_REALLOC(*routes, *routes_allocated, *routes_size + 1))
-                        return -ENOMEM;
-
-                route = *routes + *routes_size;
-                route->option = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE;
-
-                dst_octets = (*option == 0 ? 0 : ((*option - 1) / 8) + 1);
-                route->dst_prefixlen = *option;
+                prefixlen = *option;
                 option++;
                 len--;
+
+                dst_octets = DIV_ROUND_UP(prefixlen, 8);
 
                 /* can't have more than 4 octets in IPv4 */
                 if (dst_octets > 4 || len < dst_octets)
                         return -EINVAL;
 
-                route->dst_addr.s_addr = 0;
-                memcpy(&route->dst_addr.s_addr, option, dst_octets);
+                memcpy(&dst, option, dst_octets);
                 option += dst_octets;
                 len -= dst_octets;
 
                 if (len < 4)
                         return -EINVAL;
 
-                assert_se(lease_parse_be32(option, 4, &route->gw_addr.s_addr) >= 0);
+                assert_se(lease_parse_be32(option, 4, &gw.s_addr) >= 0);
                 option += 4;
                 len -= 4;
 
-                (*routes_size)++;
+                if (!GREEDY_REALLOC(lease->classless_routes, lease->n_classless_routes + 1))
+                        return -ENOMEM;
+
+                lease->classless_routes[lease->n_classless_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                };
         }
+
+        return 0;
+}
+
+static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t len) {
+        uint8_t ipv4masklen, prefixlen;
+        struct in6_addr prefix;
+        _cleanup_free_ struct in_addr *br_addresses = NULL;
+        size_t n_br_addresses;
+
+        assert(lease);
+        assert(option);
+
+        /* See RFC 5969 Section 7.1.1 */
+
+        if (lease->sixrd_n_br_addresses > 0)
+                /* Multiple 6rd option?? */
+                return -EINVAL;
+
+        /* option-length: The length of the DHCP option in octets (22 octets with one BR IPv4 address). */
+        if (len < 2 + sizeof(struct in6_addr) + sizeof(struct in_addr) ||
+            (len - 2 - sizeof(struct in6_addr)) % sizeof(struct in_addr) != 0)
+                return -EINVAL;
+
+        /* IPv4MaskLen: The number of high-order bits that are identical across all CE IPv4 addresses
+         *              within a given 6rd domain. This may be any value between 0 and 32. Any value
+         *              greater than 32 is invalid. */
+        ipv4masklen = option[0];
+        if (ipv4masklen > 32)
+                return -EINVAL;
+
+        /* 6rdPrefixLen: The IPv6 prefix length of the SP's 6rd IPv6 prefix in number of bits. For the
+         *               purpose of bounds checking by DHCP option processing, the sum of
+         *               (32 - IPv4MaskLen) + 6rdPrefixLen MUST be less than or equal to 128. */
+        prefixlen = option[1];
+        if (32 - ipv4masklen + prefixlen > 128)
+                return -EINVAL;
+
+        /* 6rdPrefix: The service provider's 6rd IPv6 prefix represented as a 16-octet IPv6 address.
+         *            The bits in the prefix after the 6rdPrefixlen number of bits are reserved and
+         *            MUST be initialized to zero by the sender and ignored by the receiver. */
+        memcpy(&prefix, option + 2, sizeof(struct in6_addr));
+        (void) in6_addr_mask(&prefix, prefixlen);
+
+        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relay(s) for a given 6rd domain. */
+        n_br_addresses = (len - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr);
+        br_addresses = newdup(struct in_addr, option + 2 + sizeof(struct in6_addr), n_br_addresses);
+        if (!br_addresses)
+                return -ENOMEM;
+
+        lease->sixrd_ipv4masklen = ipv4masklen;
+        lease->sixrd_prefixlen = prefixlen;
+        lease->sixrd_prefix = prefix;
+        lease->sixrd_br_addresses = TAKE_PTR(br_addresses);
+        lease->sixrd_n_br_addresses = n_br_addresses;
 
         return 0;
 }
@@ -616,7 +704,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:
-                r = lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
+                r = lease_parse_static_routes(lease, option, len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse static routes, ignoring: %m");
                 break;
@@ -675,11 +763,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
-                r = lease_parse_classless_routes(
-                                option, len,
-                                &lease->static_route,
-                                &lease->static_route_size,
-                                &lease->static_route_allocated);
+                r = lease_parse_classless_routes(lease, option, len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse classless routes, ignoring: %m");
                 break;
@@ -694,7 +778,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
 
                 if (!timezone_is_valid(tz, LOG_DEBUG)) {
-                        log_debug_errno(r, "Timezone is not valid, ignoring: %m");
+                        log_debug("Timezone is not valid, ignoring.");
                         return 0;
                 }
 
@@ -719,6 +803,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 }
 
                 lease->vendor_specific_len = len;
+                break;
+
+        case SD_DHCP_OPTION_6RD:
+                r = lease_parse_6rd(lease, option, len);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse 6rd option, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_PRIVATE_BASE ... SD_DHCP_OPTION_PRIVATE_LAST:
@@ -747,7 +837,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
 
         while (pos < len) {
                 _cleanup_free_ char *name = NULL;
-                size_t n = 0, allocated = 0;
+                size_t n = 0;
                 size_t jump_barrier = pos, next_chunk = 0;
                 bool first = true;
 
@@ -767,7 +857,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                                 if (pos >= len)
                                         return -EBADMSG;
 
-                                if (!GREEDY_REALLOC(name, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                                if (!GREEDY_REALLOC(name, n + !first + DNS_LABEL_ESCAPED_MAX))
                                         return -ENOMEM;
 
                                 if (first)
@@ -806,7 +896,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                                 return -EBADMSG;
                 }
 
-                if (!GREEDY_REALLOC(name, allocated, n + 1))
+                if (!GREEDY_REALLOC(name, n + 1))
                         return -ENOMEM;
                 name[n] = 0;
 
@@ -820,7 +910,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                       pos = next_chunk;
         }
 
-        *domains = TAKE_PTR(names);
+        strv_free_and_replace(*domains, names);
 
         return cnt;
 }
@@ -868,7 +958,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
-int dhcp_lease_save(const sd_dhcp_lease *lease, const char *lease_file) {
+int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct sd_dhcp_raw_option *option;
@@ -880,7 +970,7 @@ int dhcp_lease_save(const sd_dhcp_lease *lease, const char *lease_file) {
         const char *string;
         uint16_t mtu;
         _cleanup_free_ sd_dhcp_route **routes = NULL;
-        char **search_domains = NULL;
+        char **search_domains;
         uint32_t t1, t2, lifetime;
         int r;
 
@@ -979,9 +1069,14 @@ int dhcp_lease_save(const sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "ROOT_PATH=%s\n", string);
 
-        r = sd_dhcp_lease_get_routes(lease, &routes);
+        r = sd_dhcp_lease_get_static_routes(lease, &routes);
         if (r > 0)
-                serialize_dhcp_routes(f, "ROUTES", routes, r);
+                serialize_dhcp_routes(f, "STATIC_ROUTES", routes, r);
+
+        routes = mfree(routes);
+        r = sd_dhcp_lease_get_classless_routes(lease, &routes);
+        if (r > 0)
+                serialize_dhcp_routes(f, "CLASSLESS_ROUTES", routes, r);
 
         r = sd_dhcp_lease_get_timezone(lease, &string);
         if (r >= 0)
@@ -1029,6 +1124,18 @@ int dhcp_lease_save(const sd_dhcp_lease *lease, const char *lease_file) {
         return 0;
 }
 
+static char **private_options_free(char **options) {
+        if (!options)
+                return NULL;
+
+        for (unsigned i = 0; i < SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1; i++)
+                free(options[i]);
+
+        return mfree(options);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
+
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
@@ -1045,14 +1152,15 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *smtp = NULL,
                 *lpr = NULL,
                 *mtu = NULL,
-                *routes = NULL,
+                *static_routes = NULL,
+                *classless_routes = NULL,
                 *domains = NULL,
                 *client_id_hex = NULL,
                 *vendor_specific_hex = NULL,
                 *lifetime = NULL,
                 *t1 = NULL,
-                *t2 = NULL,
-                *options[SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1] = {};
+                *t2 = NULL;
+        _cleanup_(private_options_freep) char **options = NULL;
 
         int r, i;
 
@@ -1062,6 +1170,10 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         r = dhcp_lease_new(&lease);
         if (r < 0)
                 return r;
+
+        options = new0(char*, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
+        if (!options)
+                return -ENOMEM;
 
         r = parse_env_file(NULL, lease_file,
                            "ADDRESS", &address,
@@ -1081,7 +1193,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "HOSTNAME", &lease->hostname,
                            "DOMAIN_SEARCH_LIST", &domains,
                            "ROOT_PATH", &lease->root_path,
-                           "ROUTES", &routes,
+                           "STATIC_ROUTES", &static_routes,
+                           "CLASSLESS_ROUTES", &classless_routes,
                            "CLIENTID", &client_id_hex,
                            "TIMEZONE", &lease->timezone,
                            "VENDOR_SPECIFIC", &vendor_specific_hex,
@@ -1228,14 +1341,22 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         lease->search_domains = TAKE_PTR(a);
         }
 
-        if (routes) {
+        if (static_routes) {
                 r = deserialize_dhcp_routes(
-                                &lease->static_route,
-                                &lease->static_route_size,
-                                &lease->static_route_allocated,
-                                routes);
+                                &lease->static_routes,
+                                &lease->n_static_routes,
+                                static_routes);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse DHCP routes %s, ignoring: %m", routes);
+                        log_debug_errno(r, "Failed to parse DHCP static routes %s, ignoring: %m", static_routes);
+        }
+
+        if (classless_routes) {
+                r = deserialize_dhcp_routes(
+                                &lease->classless_routes,
+                                &lease->n_classless_routes,
+                                classless_routes);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse DHCP classless routes %s, ignoring: %m", classless_routes);
         }
 
         if (lifetime) {
@@ -1313,7 +1434,7 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
         return 0;
 }
 
-int sd_dhcp_lease_get_client_id(const sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len) {
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len) {
         assert_return(lease, -EINVAL);
         assert_return(client_id, -EINVAL);
         assert_return(client_id_len, -EINVAL);
@@ -1348,7 +1469,7 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
         return 0;
 }
 
-int sd_dhcp_lease_get_timezone(const sd_dhcp_lease *lease, const char **tz) {
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **tz) {
         assert_return(lease, -EINVAL);
         assert_return(tz, -EINVAL);
 
@@ -1359,7 +1480,7 @@ int sd_dhcp_lease_get_timezone(const sd_dhcp_lease *lease, const char **tz) {
         return 0;
 }
 
-int sd_dhcp_route_get_destination(const sd_dhcp_route *route, struct in_addr *destination) {
+int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination) {
         assert_return(route, -EINVAL);
         assert_return(destination, -EINVAL);
 
@@ -1367,7 +1488,7 @@ int sd_dhcp_route_get_destination(const sd_dhcp_route *route, struct in_addr *de
         return 0;
 }
 
-int sd_dhcp_route_get_destination_prefix_length(const sd_dhcp_route *route, uint8_t *length) {
+int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length) {
         assert_return(route, -EINVAL);
         assert_return(length, -EINVAL);
 
@@ -1375,16 +1496,10 @@ int sd_dhcp_route_get_destination_prefix_length(const sd_dhcp_route *route, uint
         return 0;
 }
 
-int sd_dhcp_route_get_gateway(const sd_dhcp_route *route, struct in_addr *gateway) {
+int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway) {
         assert_return(route, -EINVAL);
         assert_return(gateway, -EINVAL);
 
         *gateway = route->gw_addr;
         return 0;
-}
-
-int sd_dhcp_route_get_option(const sd_dhcp_route *route) {
-        assert_return(route, -EINVAL);
-
-        return route->option;
 }

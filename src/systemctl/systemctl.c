@@ -65,7 +65,7 @@ char **arg_states = NULL;
 char **arg_properties = NULL;
 bool arg_all = false;
 enum dependency arg_dependency = DEPENDENCY_FORWARD;
-const char *arg_job_mode = "replace";
+const char *_arg_job_mode = NULL;
 UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 bool arg_wait = false;
 bool arg_no_block = false;
@@ -75,7 +75,7 @@ bool arg_no_wtmp = false;
 bool arg_no_sync = false;
 bool arg_no_wall = false;
 bool arg_no_reload = false;
-bool arg_value = false;
+BusPrintPropertyFlags arg_print_flags = 0;
 bool arg_show_types = false;
 int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
@@ -112,18 +112,23 @@ bool arg_read_only = false;
 bool arg_mkdir = false;
 bool arg_marked = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(_arg_job_mode, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kill_who, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemctl", "1", &link);
         if (r < 0)
@@ -272,7 +277,7 @@ static int systemctl_help(void) {
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not ask for system passwords\n"
-               "     --global            Enable/disable/mask unit files globally\n"
+               "     --global            Enable/disable/mask default user unit files globally\n"
                "     --runtime           Enable/disable/mask unit files temporarily until next\n"
                "                         reboot\n"
                "  -f --force             When enabling unit files, override existing symlinks\n"
@@ -541,7 +546,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'P':
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         _fallthrough_;
 
                 case 'p':
@@ -566,11 +571,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                         /* If the user asked for a particular property, show it, even if it is empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
                         break;
 
                 case 'a':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         arg_all = true;
                         break;
 
@@ -593,23 +599,23 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case ARG_JOB_MODE:
-                        arg_job_mode = optarg;
+                        _arg_job_mode = optarg;
                         break;
 
                 case ARG_FAIL:
-                        arg_job_mode = "fail";
+                        _arg_job_mode = "fail";
                         break;
 
                 case ARG_IRREVERSIBLE:
-                        arg_job_mode = "replace-irreversibly";
+                        _arg_job_mode = "replace-irreversibly";
                         break;
 
                 case ARG_IGNORE_DEPENDENCIES:
-                        arg_job_mode = "ignore-dependencies";
+                        _arg_job_mode = "ignore-dependencies";
                         break;
 
                 case ARG_USER:
@@ -916,8 +922,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
+
+        /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
+         * passwords */
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                arg_ask_password = false;
 
         if (arg_transport == BUS_TRANSPORT_REMOTE && arg_scope != UNIT_FILE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1158,6 +1169,10 @@ static int run(int argc, char *argv[]) {
                 r = logind_cancel_shutdown();
                 break;
 
+        case ACTION_SHOW_SHUTDOWN:
+                r = logind_show_shutdown();
+                break;
+
         case ACTION_RUNLEVEL:
                 r = runlevel_main();
                 break;
@@ -1178,7 +1193,7 @@ static int run(int argc, char *argv[]) {
 
         case _ACTION_INVALID:
         default:
-                assert_not_reached("Unknown action");
+                assert_not_reached();
         }
 
 finish:

@@ -21,6 +21,8 @@ sources = files('''
         journald-syslog.h
         journald-wall.c
         journald-wall.h
+        managed-journal-file.c
+        managed-journal-file.h
 '''.split())
 
 sources += custom_target(
@@ -33,7 +35,8 @@ libjournal_core = static_library(
         'journal-core',
         sources,
         include_directories : includes,
-        install : false)
+        dependencies: threads,
+        build_by_default : false)
 
 journal_includes = [includes, include_directories('.')]
 
@@ -78,7 +81,7 @@ endif
 ############################################################
 
 tests += [
-        [['src/journal/test-journal-syslog.c'],
+        [files('test-journal-syslog.c'),
          [libjournal_core,
           libshared],
          [threads,
@@ -86,47 +89,67 @@ tests += [
           liblz4,
           libselinux]],
 
-        [['src/journal/test-journal-config.c'],
+        [files('test-journal-config.c'),
          [libjournal_core,
           libshared],
          [libxz,
           liblz4,
           libselinux]],
+
+        [files('test-journal.c'),
+         [libjournal_core,
+          libshared]],
+
+        [files('test-journal-stream.c'),
+         [libjournal_core,
+          libshared]],
+
+         [files('test-journal-flush.c'),
+          [libjournal_core,
+           libshared]],
+
+        [files('test-journal-verify.c'),
+         [libjournal_core,
+          libshared]],
+
+        [files('test-journal-interleaving.c'),
+         [libjournal_core,
+          libshared]],
 ]
 
 fuzzers += [
-        [['src/journal/fuzz-journald-audit.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-audit.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/journal/fuzz-journald-kmsg.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-kmsg.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/journal/fuzz-journald-native.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-native.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/journal/fuzz-journald-native-fd.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-native-fd.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/journal/fuzz-journald-stream.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-stream.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/journal/fuzz-journald-syslog.c',
-          'src/journal/fuzz-journald.c'],
+        [files('fuzz-journald-syslog.c',
+               'fuzz-journald.c'),
          [libjournal_core,
           libshared],
          [libselinux]],

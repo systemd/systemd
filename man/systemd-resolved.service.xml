@@ -59,12 +59,19 @@
       <command>systemd-resolved</command>.</para></listitem>
 
       <listitem><para>Additionally, <command>systemd-resolved</command> provides a local DNS stub listener on
-      IP address 127.0.0.53 on the local loopback interface. Programs issuing DNS requests directly,
-      bypassing any local API may be directed to this stub, in order to connect them to
+      the IP addresses 127.0.0.53 and 127.0.0.54 on the local loopback interface. Programs issuing DNS
+      requests directly, bypassing any local API may be directed to this stub, in order to connect them to
       <command>systemd-resolved</command>. Note however that it is strongly recommended that local programs
       use the glibc NSS or bus APIs instead (as described above), as various network resolution concepts
       (such as link-local addressing, or LLMNR Unicode domains) cannot be mapped to the unicast DNS
-      protocol.</para></listitem>
+      protocol.</para>
+
+      <para id="proxy-stub">The DNS stub resolver on 127.0.0.53 provides the full feature set of the local
+      resolver, which includes offering LLMNR/MulticastDNS resolution. The DNS stub resolver on 127.0.0.54
+      provides a more limited resolver, that operates in "proxy" mode only, i.e. it will pass most DNS
+      messages relatively unmodified to the current upstream DNS servers and back, but not try to process the
+      messages locally, and hence does not validate DNSSEC, or offer up LLMNR/MulticastDNS. (It will
+      translate to DNS-over-TLS communication if needed however.)</para></listitem>
     </itemizedlist>
 
     <para>The DNS servers contacted are determined from the global settings in
@@ -104,6 +111,13 @@
       gateway addresses, ordered by their metric. This assigns a stable hostname to the current gateway,
       useful for referencing it independently of the current network configuration state.</para></listitem>
 
+      <listitem><para>The hostname <literal>_outbound</literal> is resolved to the local IPv4 and IPv6
+      addresses that are most likely used for communication with other hosts. This is determined by
+      requesting a routing decision to the configured default gateways from the kernel and then using the
+      local IP addresses selected by this decision. This hostname is only available if there is at least one
+      local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
+      useful for referencing them independently of the current network configuration state.</para></listitem>
+
       <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their
       configured addresses and back, but they will not affect lookups for non-address types (like MX).
       Support for <filename>/etc/hosts</filename> may be disabled with <varname>ReadEtcHosts=no</varname>,
@@ -131,13 +145,14 @@
 
       <listitem><para>Queries for the address records (A and AAAA) of single-label non-synthesized names are
       resolved via unicast DNS using search domains. For any interface which defines search domains, such
-      look-ups are routed to that interface, suffixed with each of the search domains defined on that
-      interface in turn. When global search domains are defined, such look-ups are routed to all interfaces,
-      suffixed by each of the global search domains in turn. Additionally, lookup of single-label names via
-      unicast DNS may be enabled with the <varname>ResolveUnicastSingleLabel=yes</varname> setting. The
-      details of which servers are queried and how the final reply is chosen are described below. Note that
-      this means that address queries for single-label names are never sent out to remote DNS servers by
-      default, and resoulution is only possible if search domains are defined.</para></listitem>
+      look-ups are routed to the servers defined for that interface, suffixed with each of those search
+      domains. When global search domains are defined, such look-ups are routed to the global servers. For
+      each search domain, queries are performed by suffixing the name with each of the search domains in
+      turn. Additionally, lookup of single-label names via unicast DNS may be enabled with the
+      <varname>ResolveUnicastSingleLabel=yes</varname> setting. The details of which servers are queried and
+      how the final reply is chosen are described below. Note that this means that address queries for
+      single-label names are never sent out to remote DNS servers by default, and resolution is only
+      possible if search domains are defined.</para></listitem>
 
       <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are resolved using
       MulticastDNS on all local interfaces where MulticastDNS is enabled. As with LLMNR, IPv4 address lookups
@@ -234,7 +249,7 @@
       control of the client library. <filename>nss-dns</filename> will first try to resolve names using
       search domains and even if those queries are routed to <filename>systemd-resolved</filename>, it will
       send them out over the network using the usual rules for multi-label name routing <footnote><para>For
-      example, if <filename>/etc/nsswitch.conf</filename> has <programlisting>nameserver 127.0.0.53
+      example, if <filename>/etc/resolv.conf</filename> has <programlisting>nameserver 127.0.0.53
 search foobar.com barbar.com
       </programlisting>and we look up <literal>localhost</literal>, <filename>nss-dns</filename> will send
       the following queries to <filename>systemd-resolved</filename> listening on 127.0.0.53:53: first
@@ -267,7 +282,7 @@ search foobar.com barbar.com
       fragility in both directions: a valid global name could be obscured by a local name, and resolution of
       a relative local name could suddenly break when a new top-level domain is created, or when a new
       subdomain of a top-level domain in registered. Resolving any given name as either relative or absolute
-      avoids this ambiguity.)</para></footnote></para></listitem>
+      avoids this ambiguity.</para></footnote></para></listitem>
 
       <listitem><para>This resolver has a notion of the special <literal>.local</literal> domain used for
       MulticastDNS, and will not route queries with that suffix to unicast DNS servers unless explicitly

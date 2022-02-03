@@ -26,6 +26,8 @@ int find_key_file(
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
                                 (char**) ret_key, ret_key_size);
+                if (r == -E2BIG)
+                        return log_error_errno(r, "Key file '%s' too large.", key_file);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load key file '%s': %m", key_file);
 
@@ -46,6 +48,10 @@ int find_key_file(
                                 (char**) ret_key, ret_key_size);
                 if (r >= 0)
                         return 1;
+                if (r == -E2BIG) {
+                        log_warning_errno(r, "Key file '%s' too large, ignoring.", key_file);
+                        continue;
+                }
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to load key file '%s': %m", key_file);
         }

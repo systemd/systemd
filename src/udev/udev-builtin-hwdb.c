@@ -60,7 +60,7 @@ static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
                 return NULL;
         (void) sd_device_get_sysattr_value(dev, "product", &n);
 
-        snprintf(s, size, "usb:v%04Xp%04X:%s", vn, pn, strempty(n));
+        (void) snprintf(s, size, "usb:v%04Xp%04X:%s", vn, pn, strempty(n));
         return s;
 }
 
@@ -118,7 +118,7 @@ next:
         return r;
 }
 
-static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_hwdb(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         static const struct option options[] = {
                 { "filter", required_argument, NULL, 'f' },
                 { "device", required_argument, NULL, 'd' },

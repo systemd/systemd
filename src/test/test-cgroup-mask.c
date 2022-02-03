@@ -26,7 +26,7 @@ static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         log_info("Got mask: %s\n", g_store);
 }
 
-static int test_cgroup_mask(void) {
+TEST_RET(cgroup_mask, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep, *nomem_parent, *nomem_leaf;
@@ -60,7 +60,7 @@ static int test_cgroup_mask(void) {
                 m->default_tasks_accounting = false;
         m->default_tasks_max = TASKS_MAX_UNSET;
 
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
         assert_se(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent) >= 0);
@@ -70,13 +70,13 @@ static int test_cgroup_mask(void) {
         assert_se(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep) >= 0);
         assert_se(manager_load_startable_unit_or_warn(m, "nomem.slice", NULL, &nomem_parent) >= 0);
         assert_se(manager_load_startable_unit_or_warn(m, "nomemleaf.service", NULL, &nomem_leaf) >= 0);
-        assert_se(UNIT_DEREF(son->slice) == parent);
-        assert_se(UNIT_DEREF(daughter->slice) == parent);
-        assert_se(UNIT_DEREF(parent_deep->slice) == parent);
-        assert_se(UNIT_DEREF(grandchild->slice) == parent_deep);
-        assert_se(UNIT_DEREF(nomem_leaf->slice) == nomem_parent);
-        root = UNIT_DEREF(parent->slice);
-        assert_se(UNIT_DEREF(nomem_parent->slice) == root);
+        assert_se(UNIT_GET_SLICE(son) == parent);
+        assert_se(UNIT_GET_SLICE(daughter) == parent);
+        assert_se(UNIT_GET_SLICE(parent_deep) == parent);
+        assert_se(UNIT_GET_SLICE(grandchild) == parent_deep);
+        assert_se(UNIT_GET_SLICE(nomem_leaf) == nomem_parent);
+        root = UNIT_GET_SLICE(parent);
+        assert_se(UNIT_GET_SLICE(nomem_parent) == root);
 
         /* Verify per-unit cgroups settings. */
         ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(son), CGROUP_MASK_CPU);
@@ -138,9 +138,9 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
         assert_se(streq_ptr(b, t));
 }
 
-static void test_cg_mask_to_string(void) {
+TEST(cg_mask_to_string) {
         test_cg_mask_to_string_one(0, NULL);
-        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices bpf-foreign bpf-socket-bind");
+        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices bpf-foreign bpf-socket-bind bpf-restrict-network-interfaces");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT, "cpuacct");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUSET, "cpuset");
@@ -156,13 +156,4 @@ static void test_cg_mask_to_string(void) {
         test_cg_mask_to_string_one(CGROUP_MASK_IO|CGROUP_MASK_BLKIO, "io blkio");
 }
 
-int main(int argc, char* argv[]) {
-        int rc = EXIT_SUCCESS;
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_cg_mask_to_string();
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
-
-        return rc;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

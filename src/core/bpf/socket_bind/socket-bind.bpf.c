@@ -39,6 +39,11 @@ static __always_inline bool match_af(
         return r->address_family == AF_UNSPEC || address_family == r->address_family;
 }
 
+static __always_inline bool match_protocol(
+                __u32 protocol, const struct socket_bind_rule *r) {
+        return r->protocol == 0 || r->protocol == protocol;
+}
+
 static __always_inline bool match_user_port(
                 __u16 port, const struct socket_bind_rule *r) {
         return r->nr_ports == 0 ||
@@ -47,9 +52,12 @@ static __always_inline bool match_user_port(
 
 static __always_inline bool match(
                 __u8 address_family,
+                __u32 protocol,
                 __u16 port,
                 const struct socket_bind_rule *r) {
-        return match_af(address_family, r) && match_user_port(port, r);
+        return match_af(address_family, r) &&
+                match_protocol(protocol, r) &&
+                match_user_port(port, r);
 }
 
 static __always_inline bool match_rules(
@@ -67,7 +75,7 @@ static __always_inline bool match_rules(
                 if (!rule)
                         break;
 
-                if (match(ctx->user_family, port, rule))
+                if (match(ctx->user_family, ctx->protocol, port, rule))
                         return true;
         }
 

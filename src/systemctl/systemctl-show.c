@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "af-list.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -16,6 +17,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "ip-protocol-list.h"
 #include "journal-file.h"
 #include "list.h"
 #include "locale-util.h"
@@ -27,6 +29,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "special.h"
 #include "string-table.h"
 #include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"
@@ -39,7 +42,7 @@
 
 static OutputFlags get_output_flags(void) {
         return
-                arg_all * OUTPUT_SHOW_ALL |
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
@@ -87,7 +90,7 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i, bo
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_STRUCT, is_ex_prop ? "sasasttttuii" : "sasbttttuii");
         if (r < 0)
                 return bus_log_parse_error(r);
-        else if (r == 0)
+        if (r == 0)
                 return 0;
 
         r = sd_bus_message_read(m, "s", &path);
@@ -189,6 +192,8 @@ typedef struct UnitStatusInfo {
         usec_t active_exit_timestamp;
         usec_t inactive_enter_timestamp;
 
+        uint64_t runtime_max_sec;
+
         bool need_daemon_reload;
         bool transient;
 
@@ -246,6 +251,7 @@ typedef struct UnitStatusInfo {
         uint64_t memory_max;
         uint64_t memory_swap_max;
         uint64_t memory_limit;
+        uint64_t memory_available;
         uint64_t cpu_usage_nsec;
         uint64_t tasks_current;
         uint64_t tasks_max;
@@ -297,8 +303,7 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
-        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss, *fs;
+        const char *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
         usec_t timestamp;
@@ -323,7 +328,7 @@ static void print_status_info(
         printf("\n");
 
         if (i->following)
-                printf("   Follow: unit currently follows state of %s\n", i->following);
+                printf("    Follows: unit currently follows state of %s\n", i->following);
 
         if (STRPTR_IN_SET(i->load_state, "error", "not-found", "bad-setting")) {
                 on = ansi_highlight_red();
@@ -416,14 +421,19 @@ static void print_status_info(
                     STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
                                                                             i->active_exit_timestamp;
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
-        s2 = format_timestamp_style(since2, sizeof(since2), timestamp, arg_timestamp_style);
+        if (timestamp > 0 && timestamp < USEC_INFINITY) {
+                printf(" since %s; %s\n",
+                       FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
+                       FORMAT_TIMESTAMP_RELATIVE(timestamp));
+                if (streq_ptr(i->active_state, "active") && i->runtime_max_sec < USEC_INFINITY) {
+                        usec_t until_timestamp;
 
-        if (s1)
-                printf(" since %s; %s\n", s2, s1);
-        else if (s2)
-                printf(" since %s\n", s2);
-        else
+                        until_timestamp = usec_add(timestamp, i->runtime_max_sec);
+                        printf("      Until: %s; %s\n",
+                               FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
+                               FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
+                }
+        } else
                 printf("\n");
 
         STRV_FOREACH(t, i->triggered_by) {
@@ -439,24 +449,18 @@ static void print_status_info(
         }
 
         if (endswith(i->id, ".timer")) {
-                char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
-                     tstamp2[FORMAT_TIMESTAMP_MAX];
-                const char *next_rel_time, *next_time;
-                dual_timestamp nw, next = {i->next_elapse_real,
-                                           i->next_elapse_monotonic};
+                dual_timestamp nw, next = {i->next_elapse_real, i->next_elapse_monotonic};
                 usec_t next_elapse;
-
-                printf("    Trigger: ");
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_rel_time = format_timestamp_relative(tstamp1, sizeof tstamp1, next_elapse);
-                next_time = format_timestamp_style(tstamp2, sizeof tstamp2, next_elapse, arg_timestamp_style);
 
-                if (next_time && next_rel_time)
-                        printf("%s; %s\n", next_time, next_rel_time);
+                if (next_elapse > 0 && next_elapse < USEC_INFINITY)
+                        printf("    Trigger: %s; %s\n",
+                               FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style),
+                               FORMAT_TIMESTAMP_RELATIVE(next_elapse));
                 else
-                        printf("n/a\n");
+                        printf("    Trigger: n/a\n");
         }
 
         STRV_FOREACH(t, i->triggers) {
@@ -475,12 +479,10 @@ static void print_status_info(
                 UnitCondition *c;
                 int n = 0;
 
-                s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
-                s2 = format_timestamp_style(since2, sizeof(since2), i->condition_timestamp, arg_timestamp_style);
-
-                printf("  Condition: start %scondition failed%s at %s%s%s\n",
+                printf("  Condition: start %scondition failed%s at %s; %s\n",
                        ansi_highlight_yellow(), ansi_normal(),
-                       s2, s1 ? "; " : "", strempty(s1));
+                       FORMAT_TIMESTAMP_STYLE(i->condition_timestamp, arg_timestamp_style),
+                       FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp));
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
@@ -497,12 +499,10 @@ static void print_status_info(
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
-                s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
-                s2 = format_timestamp_style(since2, sizeof(since2), i->assert_timestamp, arg_timestamp_style);
-
-                printf("     Assert: start %sassertion failed%s at %s%s%s\n",
+                printf("     Assert: start %sassertion failed%s at %s; %s\n",
                        ansi_highlight_red(), ansi_normal(),
-                       s2, s1 ? "; " : "", strempty(s1));
+                       FORMAT_TIMESTAMP_STYLE(i->assert_timestamp, arg_timestamp_style),
+                       FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp));
                 if (i->failed_assert_trigger)
                         printf("             none of the trigger assertions were met\n");
                 else if (i->failed_assert)
@@ -648,21 +648,15 @@ static void print_status_info(
         if (i->status_errno > 0)
                 printf("      Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
 
-        if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX) {
-                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
-
+        if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
                 printf("         IP: %s in, %s out\n",
-                        format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
-                        format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
-        }
+                       FORMAT_BYTES(i->ip_ingress_bytes),
+                       FORMAT_BYTES(i->ip_egress_bytes));
 
-        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX) {
-                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
-
+        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX)
                 printf("         IO: %s read, %s written\n",
-                        format_bytes(buf_in, sizeof(buf_in), i->io_read_bytes),
-                        format_bytes(buf_out, sizeof(buf_out), i->io_write_bytes));
-        }
+                        FORMAT_BYTES(i->io_read_bytes),
+                        FORMAT_BYTES(i->io_write_bytes));
 
         if (i->tasks_current != UINT64_MAX) {
                 printf("      Tasks: %" PRIu64, i->tasks_current);
@@ -674,39 +668,42 @@ static void print_status_info(
         }
 
         if (i->memory_current != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
-                printf("     Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
+                printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX ||
+                    i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
                         printf(" (");
                         if (i->memory_min > 0) {
-                                printf("%smin: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_min));
+                                printf("%smin: %s", prefix, FORMAT_BYTES_CGROUP_PROTECTION(i->memory_min));
                                 prefix = " ";
                         }
                         if (i->memory_low > 0) {
-                                printf("%slow: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_low));
+                                printf("%slow: %s", prefix, FORMAT_BYTES_CGROUP_PROTECTION(i->memory_low));
                                 prefix = " ";
                         }
                         if (i->memory_high != CGROUP_LIMIT_MAX) {
-                                printf("%shigh: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_high));
+                                printf("%shigh: %s", prefix, FORMAT_BYTES(i->memory_high));
                                 prefix = " ";
                         }
                         if (i->memory_max != CGROUP_LIMIT_MAX) {
-                                printf("%smax: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_max));
+                                printf("%smax: %s", prefix, FORMAT_BYTES(i->memory_max));
                                 prefix = " ";
                         }
                         if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
-                                printf("%sswap max: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_swap_max));
+                                printf("%sswap max: %s", prefix, FORMAT_BYTES(i->memory_swap_max));
                                 prefix = " ";
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
-                                printf("%slimit: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_limit));
+                                printf("%slimit: %s", prefix, FORMAT_BYTES(i->memory_limit));
+                                prefix = " ";
+                        }
+                        if (i->memory_available != CGROUP_LIMIT_MAX) {
+                                printf("%savailable: %s", prefix, FORMAT_BYTES(i->memory_available));
                                 prefix = " ";
                         }
                         printf(")");
@@ -714,10 +711,8 @@ static void print_status_info(
                 printf("\n");
         }
 
-        if (i->cpu_usage_nsec != UINT64_MAX) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                printf("        CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
-        }
+        if (i->cpu_usage_nsec != UINT64_MAX)
+                printf("        CPU: %s\n", FORMAT_TIMESPAN(i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
 
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -726,14 +721,10 @@ static void print_status_info(
 
                 printf("     CGroup: %s\n", i->control_group);
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+                c = LESS_BY(columns(), strlen(prefix));
 
                 r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
-                if (r == -EBADR) {
+                if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) {
                         unsigned k = 0;
                         pid_t extra[2];
 
@@ -955,7 +946,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char bus_type;
         const char *contents;
         int r;
@@ -980,9 +971,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return r;
 
                         if (i >= 0 && i <= 255)
-                                bus_print_property_valuef(name, expected_value, value, "%"PRIi32, i);
-                        else if (all)
-                                bus_print_property_value(name, expected_value, value, "[not set]");
+                                bus_print_property_valuef(name, expected_value, flags, "%"PRIi32, i);
+                        else if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY))
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
 
                         return 1;
                 } else if (streq(name, "NUMAPolicy")) {
@@ -992,7 +983,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return r;
 
-                        bus_print_property_valuef(name, expected_value, value, "%s", strna(mpol_to_string(i)));
+                        bus_print_property_valuef(name, expected_value, flags, "%s", strna(mpol_to_string(i)));
 
                         return 1;
                 }
@@ -1008,9 +999,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
-                        else if (all)
-                                bus_print_property_value(name, expected_value, value, "");
+                                bus_print_property_valuef(name, expected_value, flags, "%"PRIu32, u);
+                        else
+                                bus_print_property_value(name, expected_value, flags, NULL);
 
                         return 1;
 
@@ -1021,8 +1012,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, s);
+                        bus_print_property_value(name, expected_value, flags, s);
 
                         return 1;
 
@@ -1034,13 +1024,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (!isempty(a) || !isempty(b))
-                                bus_print_property_valuef(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
-                        else if (all)
-                                bus_print_property_value(name, expected_value, value, "");
+                                bus_print_property_valuef(name, expected_value, flags, "%s \"%s\"", strempty(a), strempty(b));
+                        else
+                                bus_print_property_value(name, expected_value, flags, NULL);
 
                         return 1;
 
-                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies")) {
+                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces", "RestrictFileSystems")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int allow_list;
 
@@ -1060,11 +1050,11 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || allow_list || !strv_isempty(l)) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || allow_list || !strv_isempty(l)) {
                                 bool first = true;
                                 char **i;
 
-                                if (!value) {
+                                if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                                         fputs(name, stdout);
                                         fputc('=', stdout);
                                 }
@@ -1094,9 +1084,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (!isempty(s))
-                                bus_print_property_valuef(name, expected_value, value, "%s%s", ignore ? "-" : "", s);
-                        else if (all)
-                                bus_print_property_value(name, expected_value, value, "");
+                                bus_print_property_valuef(name, expected_value, flags, "%s%s", ignore ? "-" : "", s);
+                        else
+                                bus_print_property_value(name, expected_value, flags, NULL);
 
                         return 1;
 
@@ -1123,10 +1113,10 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         n_status /= sizeof(int32_t);
                         n_signal /= sizeof(int32_t);
 
-                        if (all || n_status > 0 || n_signal > 0) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || n_status > 0 || n_signal > 0) {
                                 bool first = true;
 
-                                if (!value) {
+                                if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                                         fputs(name, stdout);
                                         fputc('=', stdout);
                                 }
@@ -1174,8 +1164,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
-
+                                bus_print_property_valuef(name, expected_value, flags, "%s (ignore_errors=%s)", path, yes_no(ignore));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1193,7 +1182,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1211,7 +1200,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1229,15 +1218,12 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
-                                char timespan1[FORMAT_TIMESPAN_MAX] = "n/a", timespan2[FORMAT_TIMESPAN_MAX] = "n/a";
-
-                                (void) format_timespan(timespan1, sizeof timespan1, v, 0);
-                                (void) format_timespan(timespan2, sizeof timespan2, next_elapse, 0);
-
-                                bus_print_property_valuef(name, expected_value, value,
-                                                          "{ %s=%s ; next_elapse=%s }", base, timespan1, timespan2);
-                        }
+                        while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags,
+                                                          "{ %s=%s ; next_elapse=%s }",
+                                                          base,
+                                                          strna(FORMAT_TIMESPAN(v, 0)),
+                                                          strna(FORMAT_TIMESPAN(next_elapse, 0)));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1255,13 +1241,10 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
-                                char timestamp[FORMAT_TIMESTAMP_MAX] = "n/a";
-
-                                (void) format_timestamp_style(timestamp, sizeof(timestamp), next_elapse, arg_timestamp_style);
-                                bus_print_property_valuef(name, expected_value, value,
-                                                          "{ %s=%s ; next_elapse=%s }", base, spec, timestamp);
-                        }
+                        while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags,
+                                                          "{ %s=%s ; next_elapse=%s }", base, spec,
+                                                          FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1280,7 +1263,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
-                                char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
                                 _cleanup_strv_free_ char **optv = NULL;
                                 _cleanup_free_ char *tt = NULL, *o = NULL;
 
@@ -1293,26 +1275,26 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                         o = strv_join(optv, " ");
 
-                                        bus_print_property_valuef(name, expected_value, value,
+                                        bus_print_property_valuef(name, expected_value, flags,
                                                                   "{ path=%s ; argv[]=%s ; flags=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   strna(o),
-                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
-                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
                                                                   info.code == CLD_EXITED ? "" : "/",
                                                                   strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
                                 } else
-                                        bus_print_property_valuef(name, expected_value, value,
+                                        bus_print_property_valuef(name, expected_value, flags,
                                                                   "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   yes_no(info.ignore),
-                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
-                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
@@ -1338,7 +1320,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &path, &rwm)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path), strna(rwm));
+                                bus_print_property_valuef(name, expected_value, flags, "%s %s", strna(path), strna(rwm));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1358,7 +1340,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &weight)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
+                                bus_print_property_valuef(name, expected_value, flags, "%s %"PRIu64, strna(path), weight);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1379,7 +1361,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &bandwidth)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
+                                bus_print_property_valuef(name, expected_value, flags, "%s %"PRIu64, strna(path), bandwidth);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1391,7 +1373,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 }  else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
                             streq(name, "IODeviceLatencyTargetUSec")) {
-                        char ts[FORMAT_TIMESPAN_MAX];
                         const char *path;
                         uint64_t target;
 
@@ -1400,8 +1381,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &target)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path),
-                                                          format_timespan(ts, sizeof(ts), target, 1));
+                                bus_print_property_valuef(name, expected_value, flags, "%s %s", strna(path),
+                                                          FORMAT_TIMESPAN(target, 1));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1425,8 +1406,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (n < 0)
                                 return log_oom();
 
-                        if (all || !isempty(h))
-                                bus_print_property_value(name, expected_value, value, h);
+                        bus_print_property_value(name, expected_value, flags, h);
 
                         return 1;
 
@@ -1486,8 +1466,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(addresses))
-                                bus_print_property_value(name, expected_value, value, strempty(addresses));
+                        bus_print_property_value(name, expected_value, flags, addresses);
 
                         return 1;
 
@@ -1525,8 +1504,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(paths))
-                                bus_print_property_value(name, expected_value, value, strempty(paths));
+                        bus_print_property_value(name, expected_value, flags, paths);
 
                         return 1;
 
@@ -1557,8 +1535,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(paths))
-                                bus_print_property_value(name, expected_value, value, strempty(paths));
+                        bus_print_property_value(name, expected_value, flags, paths);
 
                         return 1;
 
@@ -1605,11 +1582,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(fields))
-                                bus_print_property_value(name, expected_value, value, strempty(fields));
+                        bus_print_property_value(name, expected_value, flags, fields);
 
                         return 1;
-                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "CPUAffinity", "NUMAMask", "AllowedCPUs", "AllowedMemoryNodes", "EffectiveCPUs", "EffectiveMemoryNodes")) {
+                } else if (contents[0] == SD_BUS_TYPE_BYTE &&
+                           STR_IN_SET(name,
+                                      "CPUAffinity", "NUMAMask", "AllowedCPUs", "AllowedMemoryNodes",
+                                      "EffectiveCPUs", "EffectiveMemoryNodes")) {
+
                         _cleanup_free_ char *affinity = NULL;
                         _cleanup_(cpu_set_reset) CPUSet set = {};
                         const void *a;
@@ -1627,8 +1607,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (!affinity)
                                 return log_oom();
 
-                        if (all || !isempty(affinity))
-                                bus_print_property_value(name, expected_value, value, affinity);
+                        bus_print_property_value(name, expected_value, flags, affinity);
 
                         return 1;
                 } else if (streq(name, "MountImages")) {
@@ -1645,11 +1624,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 r = sd_bus_message_enter_container(m, 'r', "ssba(ss)");
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
 
                                 r = sd_bus_message_read(m, "ssb", &source, &destination, &ignore_enoent);
-                                if (r <= 0)
-                                        break;
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
 
                                 str = strjoin(ignore_enoent ? "-" : "",
                                               source,
@@ -1660,39 +1641,87 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 r = sd_bus_message_enter_container(m, 'a', "(ss)");
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
-                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0) {
-                                        _cleanup_free_ char *previous = NULL;
-
-                                        previous = TAKE_PTR(str);
-                                        str = strjoin(strempty(previous), previous ? ":" : "", partition, ":", mount_options);
-                                        if (!str)
+                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0)
+                                        if (!strextend_with_separator(&str, ":", partition, mount_options))
                                                 return log_oom();
-                                }
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
                                 if (!strextend_with_separator(&paths, " ", str))
                                         return log_oom();
 
                                 r = sd_bus_message_exit_container(m);
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
 
                                 r = sd_bus_message_exit_container(m);
                                 if (r < 0)
-                                        return r;
+                                        return bus_log_parse_error(r);
                         }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(paths))
-                                bus_print_property_value(name, expected_value, value, strempty(paths));
+                        bus_print_property_value(name, expected_value, flags, paths);
+
+                        return 1;
+
+                } else if (streq(name, "ExtensionImages")) {
+                        _cleanup_free_ char *paths = NULL;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sba(ss))");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *str = NULL;
+                                const char *source, *partition, *mount_options;
+                                int ignore_enoent;
+
+                                r = sd_bus_message_enter_container(m, 'r', "sba(ss)");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                r = sd_bus_message_read(m, "sb", &source, &ignore_enoent);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                str = strjoin(ignore_enoent ? "-" : "", source);
+                                if (!str)
+                                        return log_oom();
+
+                                r = sd_bus_message_enter_container(m, 'a', "(ss)");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0)
+                                        if (!strextend_with_separator(&str, ":", partition, mount_options))
+                                                return log_oom();
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (!strextend_with_separator(&paths, " ", str))
+                                        return log_oom();
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        bus_print_property_value(name, expected_value, flags, paths);
 
                         return 1;
 
@@ -1704,7 +1733,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &a, &p)) > 0)
-                                bus_print_property_valuef(name, expected_value, value, "%s:%s", a, p);
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1715,24 +1744,53 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
                 } else if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                         uint16_t nr_ports, port_min;
-                        const char *family;
-                        int af;
+                        int32_t af, ip_protocol;
 
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iqq)");
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iiqq)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
-                        while ((r = sd_bus_message_read(m, "(iqq)", &af, &nr_ports, &port_min)) > 0) {
-                                family = af == AF_INET ? "IPv4:" : af == AF_INET6 ? "IPv6:" : "";
+                        while ((r = sd_bus_message_read(m, "(iiqq)", &af, &ip_protocol, &nr_ports, &port_min)) > 0) {
+                                const char *family, *colon1, *protocol = "", *colon2 = "";
+
+                                family = strempty(af_to_ipv4_ipv6(af));
+                                colon1 = isempty(family) ? "" : ":";
+
+                                if (ip_protocol != 0) {
+                                        protocol = ip_protocol_to_tcp_udp(ip_protocol);
+                                        colon2 = "";
+                                }
+
                                 if (nr_ports == 0)
-                                        bus_print_property_valuef(name, expected_value, value, "%sany", family);
+                                        bus_print_property_valuef(name, expected_value, flags, "%s%s%s%sany",
+                                                        family, colon1, protocol, colon2);
                                 else if (nr_ports == 1)
                                         bus_print_property_valuef(
-                                                        name, expected_value, value, "%s%hu", family, port_min);
+                                                        name, expected_value, flags, "%s%s%s%s%hu",
+                                                        family, colon1, protocol, colon2, port_min);
                                 else
                                         bus_print_property_valuef(
-                                                        name, expected_value, value, "%s%hu-%hu", family, port_min,
+                                                        name, expected_value, flags, "%s%s%s%s%hu-%hu",
+                                                        family, colon1, protocol, colon2, port_min,
                                                         (uint16_t) (port_min + nr_ports - 1));
                         }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+                } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+                        const char *a, *p;
+                        uint64_t symlink_flags;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sst)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1802,6 +1860,7 @@ static int show_one(
                 { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
                 { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
+                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
@@ -1833,6 +1892,7 @@ static int show_one(
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
                 { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                        },
@@ -1875,6 +1935,7 @@ static int show_one(
                 .memory_max = CGROUP_LIMIT_MAX,
                 .memory_swap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = UINT64_MAX,
+                .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,
                 .tasks_max = UINT64_MAX,
@@ -1904,12 +1965,12 @@ static int show_one(
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
         if (unit && streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                log_full(show_mode == SYSTEMCTL_SHOW_STATUS ? LOG_ERR : LOG_DEBUG,
+                log_full(show_mode == SYSTEMCTL_SHOW_PROPERTIES ? LOG_DEBUG : LOG_ERR,
                          "Unit %s could not be found.", unit);
 
                 if (show_mode == SYSTEMCTL_SHOW_STATUS)
                         return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-                else if (show_mode == SYSTEMCTL_SHOW_HELP)
+                if (show_mode == SYSTEMCTL_SHOW_HELP)
                         return -ENOENT;
         }
 
@@ -1935,7 +1996,7 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
+        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, &found_properties);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -1986,7 +2047,7 @@ static int show_all(
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         c = (unsigned) r;
 
@@ -2002,7 +2063,7 @@ static int show_all(
                 r = show_one(bus, p, u->id, SYSTEMCTL_SHOW_STATUS, new_line, ellipsized);
                 if (r < 0)
                         return r;
-                else if (r > 0 && ret == 0)
+                if (r > 0 && ret == 0)
                         ret = r;
         }
 
@@ -2010,11 +2071,12 @@ static int show_all(
 }
 
 static int show_system_status(sd_bus *bus) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
+        static const char prefix[] = "           ";
         _cleanup_free_ char *hn = NULL;
         const char *on, *off;
+        unsigned c;
         int r;
 
         hn = gethostname_malloc();
@@ -2044,7 +2106,7 @@ static int show_system_status(sd_bus *bus) {
                 off = ansi_normal();
         }
 
-        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
+        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ?: hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
@@ -2053,24 +2115,19 @@ static int show_system_status(sd_bus *bus) {
         printf("   Failed: %" PRIu32 " units\n", mi.n_failed_units);
 
         printf("    Since: %s; %s\n",
-               format_timestamp_style(since2, sizeof(since2), mi.timestamp, arg_timestamp_style),
-               format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
+               FORMAT_TIMESTAMP_STYLE(mi.timestamp, arg_timestamp_style),
+               FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
-        printf("   CGroup: %s\n", mi.control_group ?: "/");
-        if (IN_SET(arg_transport,
-                   BUS_TRANSPORT_LOCAL,
-                   BUS_TRANSPORT_MACHINE)) {
-                static const char prefix[] = "           ";
-                unsigned c;
+        printf("   CGroup: %s\n", empty_to_root(mi.control_group));
 
-                c = columns();
-                if (c > sizeof(prefix) - 1)
-                        c -= sizeof(prefix) - 1;
-                else
-                        c = 0;
+        c = LESS_BY(columns(), strlen(prefix));
 
+        r = unit_show_processes(bus, SPECIAL_ROOT_SLICE, mi.control_group, prefix, c, get_output_flags(), &error);
+        if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) /* Compatibility for really old systemd versions */
                 show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, get_output_flags());
-        }
+        else if (r < 0)
+                log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
+                                  arg_host ?: hn, bus_error_message(&error, r));
 
         return 0;
 }
@@ -2096,7 +2153,7 @@ int show(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         /* If no argument is specified inspect the manager itself */
         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
@@ -2143,7 +2200,7 @@ int show(int argc, char *argv[], void *userdata) {
                         r = show_one(bus, path, unit, show_mode, &new_line, &ellipsized);
                         if (r < 0)
                                 return r;
-                        else if (r > 0 && ret == 0)
+                        if (r > 0 && ret == 0)
                                 ret = r;
                 }
 

@@ -38,10 +38,8 @@ static void test_rm_rf_chmod_inner(void) {
         assert_se(access(d, F_OK) < 0 && errno == ENOENT);
 }
 
-static void test_rm_rf_chmod(void) {
+TEST(rm_rf_chmod) {
         int r;
-
-        log_info("/* %s */", __func__);
 
         if (getuid() == 0) {
                 /* This test only works unpriv (as only then the access mask for the owning user matters),
@@ -65,10 +63,4 @@ static void test_rm_rf_chmod(void) {
         test_rm_rf_chmod_inner();
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_rm_rf_chmod();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

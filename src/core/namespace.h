@@ -74,6 +74,7 @@ struct NamespaceInfo {
         bool mount_apivfs;
         bool protect_hostname;
         bool private_ipc;
+        bool mount_nosuid;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
@@ -120,6 +121,7 @@ int setup_namespace(
                 char **exec_paths,
                 char **no_exec_paths,
                 char **empty_directories,
+                char **exec_dir_symlinks,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
@@ -140,6 +142,7 @@ int setup_namespace(
                 const char *root_verity,
                 const MountImage *extension_images,
                 size_t n_extension_images,
+                char **extension_directories,
                 const char *propagate_dir,
                 const char *incoming_dir,
                 const char *notify_socket,

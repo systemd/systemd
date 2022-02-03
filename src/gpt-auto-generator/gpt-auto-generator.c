@@ -194,6 +194,7 @@ static int add_mount(
                 const char *where,
                 const char *fstype,
                 bool rw,
+                bool growfs,
                 const char *options,
                 const char *description,
                 const char *post) {
@@ -271,8 +272,18 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        if (post)
-                return generator_add_symlink(arg_dest, post, "requires", unit);
+        if (growfs) {
+                r = generator_hook_up_growfs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
+        if (post) {
+                r = generator_add_symlink(arg_dest, post, "requires", unit);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -321,17 +332,20 @@ static int add_partition_mount(
                         where,
                         p->fstype,
                         p->rw,
+                        p->growfs,
                         NULL,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(const char *path) {
-        _cleanup_free_ char *name = NULL, *unit = NULL;
+static int add_swap(DissectedPartition *p) {
+        const char *what;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(path);
+        assert(p);
+        assert(p->node);
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
         r = fstab_has_fstype("swap");
@@ -342,9 +356,17 @@ static int add_swap(const char *path) {
                 return 0;
         }
 
-        log_debug("Adding swap: %s", path);
+        if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                if (r < 0)
+                        return r;
+                what = crypto_what;
+        } else
+                what = p->node;
 
-        r = unit_name_from_path(path, ".swap", &name);
+        log_debug("Adding swap: %s", what);
+
+        r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
@@ -362,7 +384,7 @@ static int add_swap(const char *path) {
                 "Description=Swap Partition\n"
                 "Documentation=man:systemd-gpt-auto-generator(8)\n");
 
-        r = generator_write_blockdev_dependency(f, path);
+        r = generator_write_blockdev_dependency(f, what);
         if (r < 0)
                 return r;
 
@@ -370,7 +392,7 @@ static int add_swap(const char *path) {
                 "\n"
                 "[Swap]\n"
                 "What=%s\n",
-                path);
+                what);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -385,6 +407,7 @@ static int add_automount(
                 const char *where,
                 const char *fstype,
                 bool rw,
+                bool growfs,
                 const char *options,
                 const char *description,
                 usec_t timeout) {
@@ -406,6 +429,7 @@ static int add_automount(
                       where,
                       fstype,
                       rw,
+                      growfs,
                       opt,
                       description,
                       NULL);
@@ -481,7 +505,8 @@ static int add_xbootldr(DissectedPartition *p) {
                              p->node,
                              "/boot",
                              p->fstype,
-                             true,
+                             /* rw= */ true,
+                             /* growfs= */ false,
                              esp_or_xbootldr_options(p),
                              "Boot Loader Partition",
                              120 * USEC_PER_SEC);
@@ -555,7 +580,8 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              p->node,
                              esp_path,
                              p->fstype,
-                             true,
+                             /* rw= */ true,
+                             /* growfs= */ false,
                              esp_or_xbootldr_options(p),
                              "EFI System Partition Automount",
                              120 * USEC_PER_SEC);
@@ -617,7 +643,7 @@ static int add_root_mount(void) {
         int r;
 
         if (!is_efi_boot()) {
-                log_debug("Not a EFI boot, not creating root mount.");
+                log_debug("Not an EFI boot, not creating root mount.");
                 return 0;
         }
 
@@ -651,7 +677,8 @@ static int add_root_mount(void) {
                         "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
                         NULL,
-                        arg_root_rw > 0,
+                        /* rw= */ arg_root_rw > 0,
+                        /* growfs= */ false,
                         NULL,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
@@ -672,6 +699,7 @@ static int enumerate_partitions(dev_t devnum) {
         r = dissect_image(
                         fd,
                         NULL, NULL,
+                        /* diskseq= */ 0,
                         UINT64_MAX,
                         USEC_INFINITY,
                         DISSECT_IMAGE_GPT_ONLY|
@@ -686,7 +714,7 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions[PARTITION_SWAP].node);
+                k = add_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
@@ -737,41 +765,36 @@ static int enumerate_partitions(dev_t devnum) {
 }
 
 static int add_mounts(void) {
-        dev_t devno;
+        _cleanup_free_ char *p = NULL;
         int r;
+        dev_t devno;
 
-        r = get_block_device_harder("/", &devno);
-        if (r == -EUCLEAN)
-                return btrfs_log_dev_root(LOG_ERR, r, "root file system");
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine block device of root file system: %m");
-        if (r == 0) { /* Not backed by block device */
-                r = get_block_device_harder("/usr", &devno);
+        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
+         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
+         * here. */
+        r = readlink_malloc("/run/systemd/volatile-root", &p);
+        if (r == -ENOENT) { /* volatile-root not found */
+                r = get_block_device_harder("/", &devno);
                 if (r == -EUCLEAN)
-                        return btrfs_log_dev_root(LOG_ERR, r, "/usr");
+                        return btrfs_log_dev_root(LOG_ERR, r, "root file system");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
-                if (r == 0) {
-                        _cleanup_free_ char *p = NULL;
-                        mode_t m;
-
-                        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
-                         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
-                         * here. */
-                        r = readlink_malloc("/run/systemd/volatile-root", &p);
-                        if (r == -ENOENT) {
-                                log_debug("Neither root nor /usr file system are on a (single) block device.");
-                                return 0;
-                        }
+                        return log_error_errno(r, "Failed to determine block device of root file system: %m");
+                if (r == 0) { /* Not backed by block device */
+                        r = get_block_device_harder("/usr", &devno);
+                        if (r == -EUCLEAN)
+                                return btrfs_log_dev_root(LOG_ERR, r, "/usr");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
-
-                        r = device_path_parse_major_minor(p, &m, &devno);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
-                        if (!S_ISBLK(m))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
+                                return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
                 }
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+        else {
+                mode_t m;
+                r = device_path_parse_major_minor(p, &m, &devno);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse major/minor device node: %m");
+                if (!S_ISBLK(m))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
         }
 
         return enumerate_partitions(devno);

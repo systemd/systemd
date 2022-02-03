@@ -91,6 +91,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">filesystems</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">calendar</arg>
       <arg choice="plain" rep="repeat"><replaceable>SPEC</replaceable></arg>
     </cmdsynopsis>
@@ -411,6 +417,14 @@ Conditions succeeded.</programlisting>
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze filesystems <optional><replaceable>SET</replaceable>...</optional></command></title>
+
+      <para>This command will list filesystems in the specified filesystem set
+      <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
+      <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze calendar <replaceable>EXPRESSION</replaceable>...</command></title>
 
       <para>This command will parse and normalize repetitive calendar time events, and will calculate when
@@ -537,7 +551,8 @@ NAutoVTs=8
       <title><command>systemd-analyze verify <replaceable>FILE</replaceable>...</command></title>
 
       <para>This command will load unit files and print warnings if any errors are detected. Files specified
-      on the command line will be loaded, but also any other units referenced by them. The full unit search
+      on the command line will be loaded, but also any other units referenced by them. A unit's name on disk
+      can be overridden by specifying an alias after a colon; see below for an example. The full unit search
       path is formed by combining the directories for all command line arguments, and the usual unit load
       paths. The variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or
       augment the compiled in set of unit load paths; see
@@ -599,6 +614,27 @@ Service a.service not loaded, a.socket cannot be started.
 Service b@0.service not loaded, b.socket cannot be started.
         </programlisting>
       </example>
+
+      <example>
+        <title>Aliasing a unit</title>
+
+        <programlisting>$ cat /tmp/source
+[Unit]
+Description=Hostname printer
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/echo %H
+MysteryKey=true
+
+$ systemd-analyze verify /tmp/source
+Failed to prepare filename /tmp/source: Invalid argument
+
+$ systemd-analyze verify /tmp/source:alias.service
+/tmp/systemd-analyze-XXXXXX/alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
+        </programlisting>
+      </example>
+
     </refsect2>
 
     <refsect2>
@@ -644,6 +680,39 @@ Service b@0.service not loaded, b.socket cannot be started.
 → Overall exposure level for systemd-logind.service: 4.1 OK 🙂
 </programlisting>
       </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze inspect-elf <replaceable>FILE</replaceable>...</command></title>
+
+      <para>This command will load the specified file(s), and if they are ELF objects (executables,
+      libraries, core files, etc.) it will parse the embedded packaging metadata, if any, and print
+      it in a table or json format. See the <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">
+      Packaging Metadata</ulink> documentation for more information.</para>
+
+      <example>
+        <title>Table output</title>
+
+        <programlisting>$ systemd-analyze inspect-elf --json=pretty /tmp/core.fsverity.1000.f77dac5dc161402aa44e15b7dd9dcf97.58561.1637106137000000
+{
+        "elfType" : "coredump",
+        "elfArchitecture" : "AMD x86-64",
+        "/home/bluca/git/fsverity-utils/fsverity" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "7c895ecd2a271f93e96268f479fdc3c64a2ec4ee"
+        },
+        "/home/bluca/git/fsverity-utils/libfsverity.so.0" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
+        }
+}
+        </programlisting>
+      </example>
+
     </refsect2>
   </refsect1>
 
@@ -745,10 +814,398 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--recursive-errors=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Control verification of units and their dependencies and whether
+        <command>systemd-analyze verify</command> exits with a non-zero process exit status or not. With
+        <command>yes</command>, return a non-zero process exit status when warnings arise during verification
+        of either the specified unit or any of its associated dependencies. This is the default. With
+        <command>no</command>, return a non-zero process exit status when warnings arise during verification
+        of only the specified unit. With <command>one</command>, return a non-zero process exit status when
+        warnings arise during verification of either the specified unit or its immediate dependencies. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command>, show config files underneath
-        the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
+        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
+        operate on files inside the specified image path <replaceable>PATH</replaceable>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, perform an offline security review
+        of the specified unit file(s), i.e. does not have to rely on PID 1 to acquire security
+        information for the files like the <command>security</command> verb when used by itself does.
+        This means that <option>--offline=</option> can be used with <option>--root=</option> and
+        <option>--image=</option> as well. If a unit's overall exposure level is above that set by
+        <option>--threshold=</option> (default value is 100), <option>--offline=</option> will return
+        an error.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--profile=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command> <option>--offline=</option>, takes into
+        consideration the specified portable profile when assessing the unit(s) settings.
+        The profile can be passed by name, in which case the well-known system locations will
+        be searched, or it can be the full path to a specific drop-in file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--threshold=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to set a custom value
+        to compare the overall exposure level with, for the specified unit file(s). If a unit's
+        overall exposure level, is greater than that set by the user, <command>security</command>
+        will return an error. <option>--threshold=</option> can be used with <option>--offline=</option>
+        as well and its default value is 100.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--security-policy=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to define a custom set of
+        requirements formatted as a JSON file against which to compare the specified unit file(s)
+        and determine their overall exposure level to security threats.</para>
+
+        <table>
+          <title>Accepted Assessment Test Identifiers</title>
+
+          <tgroup cols='1'>
+            <colspec colname='directive' />
+            <thead>
+              <row>
+                <entry>Assessment Test Identifier</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>UserOrDynamicUser</entry>
+              </row>
+              <row>
+                <entry>SupplementaryGroups</entry>
+              </row>
+              <row>
+                <entry>PrivateMounts</entry>
+              </row>
+              <row>
+                <entry>PrivateDevices</entry>
+              </row>
+              <row>
+                <entry>PrivateTmp</entry>
+              </row>
+              <row>
+                <entry>PrivateNetwork</entry>
+              </row>
+              <row>
+                <entry>PrivateUsers</entry>
+              </row>
+              <row>
+                <entry>ProtectControlGroups</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelModules</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelTunables</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelLogs</entry>
+              </row>
+              <row>
+                <entry>ProtectClock</entry>
+              </row>
+              <row>
+                <entry>ProtectHome</entry>
+              </row>
+              <row>
+                <entry>ProtectHostname</entry>
+              </row>
+              <row>
+                <entry>ProtectSystem</entry>
+              </row>
+              <row>
+                <entry>RootDirectoryOrRootImage</entry>
+              </row>
+              <row>
+                <entry>LockPersonality</entry>
+              </row>
+              <row>
+                <entry>MemoryDenyWriteExecute</entry>
+              </row>
+              <row>
+                <entry>NoNewPrivileges</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SET_UID_GID_PCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_PTRACE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TIME</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_RAWIO</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_MODULE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_AUDIT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYSLOG</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_NICE_RESOURCE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MKNOD</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_CHOWN_FSETID_SETFCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_DAC_FOWNER_IPC_OWNER</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_KILL</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_BIND_SERVICE_BROADCAST_RAW</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_BOOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MAC</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LINUX_IMMUTABLE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_IPC_LOCK</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_CHROOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_BLOCK_SUSPEND</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_WAKE_ALARM</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LEASE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TTY_CONFIG</entry>
+              </row>
+              <row>
+                <entry>UMask</entry>
+              </row>
+              <row>
+                <entry>KeyringMode</entry>
+              </row>
+              <row>
+                <entry>ProtectProc</entry>
+              </row>
+              <row>
+                <entry>ProcSubset</entry>
+              </row>
+              <row>
+                <entry>NotifyAccess</entry>
+              </row>
+              <row>
+                <entry>RemoveIPC</entry>
+              </row>
+              <row>
+                <entry>Delegate</entry>
+              </row>
+              <row>
+                <entry>RestrictRealtime</entry>
+              </row>
+              <row>
+                <entry>RestrictSUIDSGID</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_user</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_mnt</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_ipc</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_pid</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_cgroup</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_uts</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_net</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_INET_INET6</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_UNIX</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_NETLINK</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_PACKET</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_OTHER</entry>
+              </row>
+              <row>
+                <entry>SystemCallArchitectures</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_swap</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_obsolete</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_clock</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_cpu_emulation</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_debug</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_mount</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_module</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_raw_io</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_reboot</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_privileged</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_resources</entry>
+              </row>
+              <row>
+                <entry>IPAddressDeny</entry>
+              </row>
+              <row>
+                <entry>DeviceAllow</entry>
+              </row>
+              <row>
+                <entry>AmbientCapabilities</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+          <example>
+          <title>JSON Policy</title>
+          <para>The JSON file passed as a path parameter to <option>--security-policy=</option>
+          has a top-level JSON object, with keys being the assessment test identifiers mentioned
+          above. The values in the file should be JSON objects with one or more of the
+          following fields: description_na (string), description_good (string), description_bad
+          (string), weight (unsigned integer), and range (unsigned integer). If any of these fields
+          corresponding to a specific id of the unit file is missing from the JSON object, the
+          default built-in field value corresponding to that same id is used for security analysis
+          as default. The weight and range fields are used in determining the overall exposure level
+          of the unit files: the value of each setting is assigned a badness score, which is multiplied
+          by the policy weight and divided by the policy range to determine the overall exposure that
+          the setting implies. The computed badness is summed across all settings in the unit file,
+          normalized to the 1…100 range, and used to determine the overall exposure level of the unit.
+          By allowing users to manipulate these fields, the 'security' verb gives them the option to
+          decide for themself which ids are more important and hence should have a greater effect on
+          the exposure level. A weight of <literal>0</literal> means the setting will not be
+          checked.</para>
+
+          <programlisting>
+          {
+            "PrivateDevices":
+              {
+              "description_good": "Service has no access to hardware devices",
+              "description_bad": "Service potentially has access to hardware devices",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateMounts":
+              {
+              "description_good": "Service cannot install system mounts",
+              "description_bad": "Service may install system mounts",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateNetwork":
+              {
+              "description_good": "Service has no access to the host's network",
+              "description_bad": "Service has access to the host's network",
+              "weight": 2500,
+              "range": 1
+              },
+            "PrivateTmp":
+              {
+              "description_good": "Service has no access to other software's temporary files",
+              "description_bad": "Service has access to other software's temporary files",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateUsers":
+              {
+              "description_good": "Service does not have access to other users",
+              "description_bad": "Service has access to other users",
+              "weight": 1000,
+              "range": 1
+              }
+          }
+            </programlisting>
+          </example>
+        </listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>With the <command>security</command> command, generate a JSON formatted
+        output of the security analysis table. The format is a JSON array with objects
+        containing the following fields: <varname>set</varname> which indicates if the setting has
+        been enabled or not, <varname>name</varname> which is what is used to refer to the setting,
+        <varname>json_field</varname> which is the JSON compatible identifier of the setting,
+        <varname>description</varname> which is an outline of the setting state, and
+        <varname>exposure</varname> which is a number in the range 0.0…10.0, where a higher value
+        corresponds to a higher security threat. The JSON version of the table is printed to standard
+        output. The <replaceable>MODE</replaceable> passed to the option can be one of three:
+        <option>off</option> which is the default, <option>pretty</option> and <option>short</option>
+        which respectively output a prettified or shorted JSON version of the security table.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -765,8 +1222,28 @@ Service b@0.service not loaded, b.socket cannot be started.
         to the specified point in time. If not specified defaults to the current time.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--unit=<replaceable>UNIT</replaceable></option></term>
+
+        <listitem><para>When used with the <command>condition</command> command, evaluate all the
+        <varname index="false">Condition*=...</varname> and <varname index="false">Assert*=...</varname>
+        assignments in the specified unit file. The full unit search path is formed by combining the
+        directories for the specified unit with the usual unit load paths. The variable
+        <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or augment the
+        compiled in set of unit load paths; see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
+        units files present in the directory containing the specified unit will be used in preference to the
+        other paths.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress hints and other non-essential output.</para></listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />

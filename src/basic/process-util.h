@@ -13,7 +13,6 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
-#include "ioprio.h"
 #include "macro.h"
 #include "time-util.h"
 
@@ -35,19 +34,21 @@
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
         PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
+        PROCESS_CMDLINE_QUOTE         = 1 << 2,
+        PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
-int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line);
-int get_process_exe(pid_t pid, char **name);
-int get_process_uid(pid_t pid, uid_t *uid);
-int get_process_gid(pid_t pid, gid_t *gid);
-int get_process_capeff(pid_t pid, char **capeff);
-int get_process_cwd(pid_t pid, char **cwd);
-int get_process_root(pid_t pid, char **root);
-int get_process_environ(pid_t pid, char **environ);
-int get_process_ppid(pid_t pid, pid_t *ppid);
-int get_process_umask(pid_t pid, mode_t *umask);
+int get_process_comm(pid_t pid, char **ret);
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
+int get_process_exe(pid_t pid, char **ret);
+int get_process_uid(pid_t pid, uid_t *ret);
+int get_process_gid(pid_t pid, gid_t *ret);
+int get_process_capeff(pid_t pid, char **ret);
+int get_process_cwd(pid_t pid, char **ret);
+int get_process_root(pid_t pid, char **ret);
+int get_process_environ(pid_t pid, char **ret);
+int get_process_ppid(pid_t pid, pid_t *ret);
+int get_process_umask(pid_t pid, mode_t *ret);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
@@ -80,8 +81,6 @@ int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
 
-_noreturn_ void freeze(void);
-
 bool oom_score_adjust_is_valid(int oa);
 
 #ifndef PERSONALITY_INVALID
@@ -96,9 +95,6 @@ const char *personality_to_string(unsigned long);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
-
-int ioprio_class_to_string_alloc(int i, char **s);
-int ioprio_class_from_string(const char *s);
 
 const char *sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
@@ -130,19 +126,9 @@ static inline bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
-static inline bool ioprio_class_is_valid(int i) {
-        return IN_SET(i, IOPRIO_CLASS_NONE, IOPRIO_CLASS_RT, IOPRIO_CLASS_BE, IOPRIO_CLASS_IDLE);
-}
-
-static inline bool ioprio_priority_is_valid(int i) {
-        return i >= 0 && i < IOPRIO_BE_NR;
-}
-
 static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }
-
-int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
 void reset_cached_pid(void);
@@ -163,6 +149,7 @@ typedef enum ForkFlags {
         FORK_RLIMIT_NOFILE_SAFE = 1 << 10, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
         FORK_STDOUT_TO_STDERR   = 1 << 11, /* Make stdout a copy of stderr */
         FORK_FLUSH_STDIO        = 1 << 12, /* fflush() stdout (and stderr) before forking */
+        FORK_NEW_USERNS         = 1 << 13, /* Run child in its own user namespace */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
@@ -173,9 +160,8 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
 
 int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
 
-int fork_agent(const char *name, const int except[], size_t n_except, pid_t *pid, const char *path, ...) _sentinel_;
-
 int set_oom_score_adjust(int value);
+int get_oom_score_adjust(int *ret);
 
 /* The highest possibly (theoretic) pid_t value on this architecture. */
 #define PID_T_MAX ((pid_t) INT32_MAX)
@@ -192,8 +178,9 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
 #define TAKE_PID(pid)                           \
         ({                                      \
-                pid_t _pid_ = (pid);            \
-                (pid) = 0;                      \
+                pid_t *_ppid_ = &(pid);         \
+                pid_t _pid_ = *_ppid_;          \
+                *_ppid_ = 0;                    \
                 _pid_;                          \
         })
 
@@ -202,3 +189,5 @@ int pidfd_get_pid(int fd, pid_t *ret);
 int setpriority_closest(int priority);
 
 bool invoked_as(char *argv[], const char *token);
+
+_noreturn_ void freeze(void);

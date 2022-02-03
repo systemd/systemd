@@ -8,6 +8,7 @@
 #include "dev-setup.h"
 #include "label.h"
 #include "log.h"
+#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "umask-util.h"
@@ -81,13 +82,12 @@ int make_inaccessible_nodes(
                 { "inaccessible/blk",  S_IFBLK  | 0000 },
         };
 
-        _cleanup_umask_ mode_t u;
         int r;
 
         if (!parent_dir)
                 parent_dir = "/run/systemd";
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         /* Set up inaccessible (and empty) file nodes of all types. This are used to as mount sources for over-mounting
          * ("masking") file nodes that shall become inaccessible and empty for specific containers or services. We try

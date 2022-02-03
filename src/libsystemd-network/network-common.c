@@ -2,23 +2,14 @@
 
 #include "format-util.h"
 #include "network-common.h"
-#include "string-util.h"
 
-const char *get_ifname(int ifindex, char **ifname) {
-        char buf[IF_NAMESIZE + 1];
-
+int get_ifname(int ifindex, char **ifname) {
         assert(ifname);
 
         /* This sets ifname only when it is not set yet. */
 
         if (*ifname)
-                return *ifname;
+                return 0;
 
-        if (ifindex <= 0)
-                return NULL;
-
-        if (!format_ifname(ifindex, buf))
-                return NULL;
-
-        return *ifname = strdup(buf);
+        return format_ifname_alloc(ifindex, ifname);
 }

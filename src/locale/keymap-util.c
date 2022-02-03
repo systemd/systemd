@@ -18,7 +18,7 @@
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -648,9 +648,10 @@ int find_legacy_keymap(Context *c, char **ret) {
                  */
                 char *l, *v = NULL, *converted;
 
-                l = strndupa(c->x11_layout, strcspn(c->x11_layout, ","));
+                l = strndupa_safe(c->x11_layout, strcspn(c->x11_layout, ","));
                 if (c->x11_variant)
-                        v = strndupa(c->x11_variant, strcspn(c->x11_variant, ","));
+                        v = strndupa_safe(c->x11_variant,
+                                          strcspn(c->x11_variant, ","));
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
@@ -691,7 +692,7 @@ int find_language_fallback(const char *lang, char **language) {
                 }
         }
 
-        assert_not_reached("should not be here");
+        assert_not_reached();
 }
 
 int x11_convert_to_vconsole(Context *c) {
@@ -845,7 +846,7 @@ int locale_gen_enable_locale(const char *locale) {
                 r = copy_access(fileno(fr), fileno(fw));
                 if (r < 0)
                         return r;
-                r = copy_xattr(fileno(fr), fileno(fw));
+                r = copy_xattr(fileno(fr), fileno(fw), COPY_ALL_XATTRS);
                 if (r < 0)
                         return r;
         }

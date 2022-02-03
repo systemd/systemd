@@ -2,6 +2,7 @@
 title: Native Journal Protocol
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Native Journal Protocol
@@ -16,7 +17,7 @@ layout: default
 
 The latter is what this document is about: if you are developing a program and
 want to pass structured log data to `journald`, it's the Journal's native
-protocol what you want to use. The systemd project provides the
+protocol that you want to use. The systemd project provides the
 [`sd_journal_print(3)`](https://www.freedesktop.org/software/systemd/man/sd_journal_print.html)
 API that implements the client side of this protocol. This document explains
 what this interface does behind the scenes, in case you'd like to implement a
@@ -184,7 +185,7 @@ took place for the current program.
 
 If you are looking for alternative implementations of this protocol (besides
 systemd's own in `sd_journal_print()`), consider
-[GLib's](https://gitlab.gnome.org/GNOME/glib/-/blob/master/glib/gmessages.c) or
+[GLib's](https://gitlab.gnome.org/GNOME/glib/-/blob/main/glib/gmessages.c) or
 [`dbus-broker`'s](https://github.com/bus1/dbus-broker/blob/main/src/util/log.c).
 
 And that's already all there is to it.

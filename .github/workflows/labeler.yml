@@ -1,12 +1,22 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
 name: "Pull Request Labeler"
+
 on:
 - pull_request_target
+
+permissions:
+  contents: read
 
 jobs:
   triage:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
-    - uses: actions/labeler@main
+    - uses: actions/labeler@69da01b8e0929f147b8943611bee75ee4175a49e
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml

@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.socket">
+<refentry id="systemd.socket" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.socket</title>
     <productname>systemd</productname>
@@ -99,8 +99,8 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), receiving only
     the sockets configured through socket-activation from the host's namespace. In such a set-up communication within
     the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
-    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a a
-    much more restrictive configuration.</para>
+    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a
+    restrictive configuration.</para>
   </refsect1>
 
   <refsect1>
@@ -159,7 +159,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Socket files must include a [Socket] section, which carries
+    <para>Socket unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Socket unit files must include a [Socket] section, which carries
     information about the socket or FIFO it supervises. A number of
     options that may be used in this section are shared with other
     unit types. These options are documented in
@@ -388,36 +392,32 @@
 
       <varlistentry>
         <term><varname>Accept=</varname></term>
-        <listitem><para>Takes a boolean argument. If yes, a service
-        instance is spawned for each incoming connection and only the
-        connection socket is passed to it. If no, all listening
-        sockets themselves are passed to the started service unit, and
-        only one service unit is spawned for all connections (also see
-        above). This value is ignored for datagram sockets and FIFOs
-        where a single service unit unconditionally handles all
-        incoming traffic. Defaults to <option>no</option>. For
-        performance reasons, it is recommended to write new daemons
-        only in a way that is suitable for
-        <option>Accept=no</option>. A daemon listening on an
-        <constant>AF_UNIX</constant> socket may, but does not need to,
-        call
-        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on the received socket before exiting. However, it must not
-        unlink the socket from a file system. It should not invoke
-        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on sockets it got with <varname>Accept=no</varname>, but it
-        may do so for sockets it got with
-        <varname>Accept=yes</varname> set. Setting
-        <varname>Accept=yes</varname> is mostly useful to allow
-        daemons designed for usage with
-        <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        to work unmodified with systemd socket
-        activation.</para>
+        <listitem><para>Takes a boolean argument. If yes, a service instance is spawned for each incoming
+        connection and only the connection socket is passed to it. If no, all listening sockets themselves
+        are passed to the started service unit, and only one service unit is spawned for all connections
+        (also see above). This value is ignored for datagram sockets and FIFOs where a single service unit
+        unconditionally handles all incoming traffic. Defaults to <option>no</option>. For performance
+        reasons, it is recommended to write new daemons only in a way that is suitable for
+        <option>Accept=no</option>. A daemon listening on an <constant>AF_UNIX</constant> socket may, but
+        does not need to, call
+        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry> on the
+        received socket before exiting. However, it must not unlink the socket from a file system. It should
+        not invoke
+        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on
+        sockets it got with <varname>Accept=no</varname>, but it may do so for sockets it got with
+        <varname>Accept=yes</varname> set. Setting <varname>Accept=yes</varname> is mostly useful to allow
+        daemons designed for usage with <citerefentry
+        project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> to work
+        unmodified with systemd socket activation.</para>
 
         <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
         contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
         is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
-        protocol.</para></listitem>
+        protocol.</para>
+
+        <para>It is recommended to set <varname>CollectMode=inactive-or-failed</varname> for service
+        instances activated via <varname>Accept=yes</varname>, to ensure that failed connection services are
+        cleaned up and released from memory, and do not accumulate.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -629,10 +629,12 @@
          resulting SELinux context originate from either the target
          binary that is effectively triggered by socket unit or from
          the value of the <varname>SELinuxContext=</varname> option.
-         This configuration option only affects sockets with
-         <varname>Accept=</varname> mode set to
-         <literal>yes</literal>. Also note that this option is useful
-         only when MLS/MCS SELinux policy is deployed. Defaults to
+         This configuration option applies only when activated service
+         is passed in single socket file descriptor, i.e. service
+         instances that have standard input connected to a socket or
+         services triggered by exactly one socket unit. Also note
+         that this option is useful only when MLS/MCS SELinux policy
+         is deployed. Defaults to
          <literal>false</literal>. </para></listitem>
       </varlistentry>
 
@@ -822,7 +824,7 @@
         <term><varname>TriggerLimitIntervalSec=</varname></term>
         <term><varname>TriggerLimitBurst=</varname></term>
 
-        <listitem><para>Configures a limit on how often this socket unit my be activated within a specific time
+        <listitem><para>Configures a limit on how often this socket unit may be activated within a specific time
         interval. The <varname>TriggerLimitIntervalSec=</varname> may be used to configure the length of the time
         interval in the usual time units <literal>us</literal>, <literal>ms</literal>, <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>, … and defaults to 2s (See
@@ -837,12 +839,7 @@
 
     </variablelist>
 
-    <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
-
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

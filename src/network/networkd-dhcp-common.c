@@ -9,7 +9,7 @@
 #include "dhcp6-internal.h"
 #include "escape.h"
 #include "hexdecoct.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -18,6 +18,35 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "vrf.h"
+
+static uint32_t link_get_vrf_table(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;
+}
+
+uint32_t link_get_dhcp4_route_table(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        /* When the interface is part of an VRF use the VRFs routing table, unless
+         * another table is explicitly specified. */
+
+        if (link->network->dhcp_route_table_set)
+                return link->network->dhcp_route_table;
+        return link_get_vrf_table(link);
+}
+
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->network->ipv6_accept_ra_route_table_set)
+                return link->network->ipv6_accept_ra_route_table;
+        return link_get_vrf_table(link);
+}
 
 bool link_dhcp_enabled(Link *link, int family) {
         assert(link);
@@ -30,6 +59,13 @@ bool link_dhcp_enabled(Link *link, int family) {
                 return false;
 
         if (link->iftype == ARPHRD_CAN)
+                return false;
+
+        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) &&
+            !streq_ptr(link->kind, "wwan"))
+                /* Currently, only interfaces whose MAC address length is ETH_ALEN or INFINIBAND_ALEN
+                 * are supported. Note, wwan interfaces may be assigned MAC address slightly later.
+                 * Hence, let's wait for a while.*/
                 return false;
 
         if (!link->network)
@@ -96,109 +132,63 @@ const DUID *link_get_duid(Link *link, int family) {
         return duid;
 }
 
-static int link_configure_and_start_dhcp_delayed(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!link->dhcp_client) {
-                r = dhcp4_configure(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!link->dhcp6_client) {
-                r = dhcp6_configure(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!link_has_carrier(link))
-                return 0;
-
-        r = dhcp4_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
-
-        r = ndisc_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
-
-        r = dhcp6_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
-
-        return 0;
-}
-
 static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = userdata;
         const sd_bus_error *e;
         const void *a;
         size_t sz;
-        Link *link;
         int r;
 
         assert(m);
         assert(manager);
+
+        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
+         * even if the method fails. */
+        manager->has_product_uuid = true;
 
         e = sd_bus_message_get_error(m);
         if (e) {
                 r = sd_bus_error_get_errno(e);
                 log_warning_errno(r, "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
                                   bus_error_message(e, r));
-                goto configure;
+                return 0;
         }
 
         r = sd_bus_message_read_array(m, 'y', &a, &sz);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
-                goto configure;
+                return 0;
         }
 
         if (sz != sizeof(sd_id128_t)) {
                 log_warning("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
-                goto configure;
+                return 0;
         }
+
+        log_debug("Successfully obtained product UUID");
 
         memcpy(&manager->duid_product_uuid.raw_data, a, sz);
         manager->duid_product_uuid.raw_data_len = sz;
 
-configure:
-        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
-         * even if the method fails. */
-        manager->has_product_uuid = true;
-
-        while ((link = set_steal_first(manager->links_requesting_uuid))) {
-                r = link_configure_and_start_dhcp_delayed(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                link_unref(link);
-        }
-
-        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
-
-        return 1;
+        return 0;
 }
 
 int manager_request_product_uuid(Manager *m) {
+        static bool bus_method_is_called = false;
         int r;
 
         assert(m);
 
-        if (m->product_uuid_requested)
+        if (bus_method_is_called)
                 return 0;
 
-        log_debug("Requesting product UUID");
-
-        if (sd_bus_is_ready(m->bus) <= 0) {
+        if (sd_bus_is_ready(m->bus) <= 0 && !m->product_uuid_requested) {
                 log_debug("Not connected to system bus, requesting product UUID later.");
+                m->product_uuid_requested = true;
                 return 0;
         }
+
+        m->product_uuid_requested = false;
 
         r = sd_bus_call_method_async(
                         m->bus,
@@ -214,7 +204,9 @@ int manager_request_product_uuid(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get product UUID: %m");
 
-        m->product_uuid_requested = true;
+        log_debug("Requesting product UUID.");
+
+        bus_method_is_called = true;
 
         return 0;
 }
@@ -239,16 +231,36 @@ int dhcp_configure_duid(Link *link, const DUID *duid) {
         if (r < 0) {
                 log_link_warning_errno(link, r,
                                        "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
+
+                m->has_product_uuid = true; /* Do not request UUID again on failure. */
                 return 1;
         }
 
-        r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
-        if (r < 0)
-                return log_oom();
-        if (r > 0)
-                link_ref(link);
-
         return 0;
+}
+
+bool address_is_filtered(int family, const union in_addr_union *address, uint8_t prefixlen, Set *allow_list, Set *deny_list) {
+        struct in_addr_prefix *p;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (allow_list) {
+                SET_FOREACH(p, allow_list)
+                        if (p->family == family &&
+                            p->prefixlen <= prefixlen &&
+                            in_addr_prefix_covers(family, &p->address, p->prefixlen, address) > 0)
+                                return false;
+
+                return true;
+        }
+
+        SET_FOREACH(p, deny_list)
+                if (p->family == family &&
+                    in_addr_prefix_intersect(family, &p->address, p->prefixlen, address, prefixlen) > 0)
+                        return true;
+
+        return false;
 }
 
 int config_parse_dhcp(
@@ -296,7 +308,7 @@ int config_parse_dhcp(
         return 0;
 }
 
-int config_parse_dhcp_route_metric(
+int config_parse_dhcp_or_ra_route_metric(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -314,6 +326,7 @@ int config_parse_dhcp_route_metric(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -324,17 +337,24 @@ int config_parse_dhcp_route_metric(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_route_metric = metric;
                 network->dhcp_route_metric_set = true;
-        } else if (STRPTR_IN_SET(section, "DHCPv6", "IPv6AcceptRA")) {
+                break;
+        case AF_INET6:
                 network->ipv6_accept_ra_route_metric = metric;
                 network->ipv6_accept_ra_route_metric_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_route_metric_set)
                         network->dhcp_route_metric = metric;
                 if (!network->ipv6_accept_ra_route_metric_set)
                         network->ipv6_accept_ra_route_metric = metric;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -357,6 +377,7 @@ int config_parse_dhcp_use_dns(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -367,17 +388,24 @@ int config_parse_dhcp_use_dns(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_dns = r;
                 network->dhcp_use_dns_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_dns = r;
                 network->dhcp6_use_dns_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_dns_set)
                         network->dhcp_use_dns = r;
                 if (!network->dhcp6_use_dns_set)
                         network->dhcp6_use_dns = r;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -400,6 +428,7 @@ int config_parse_dhcp_use_domains(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -410,17 +439,24 @@ int config_parse_dhcp_use_domains(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_domains = d;
                 network->dhcp_use_domains_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_domains = d;
                 network->dhcp6_use_domains_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_domains_set)
                         network->dhcp_use_domains = d;
                 if (!network->dhcp6_use_domains_set)
                         network->dhcp6_use_domains = d;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -443,6 +479,7 @@ int config_parse_dhcp_use_ntp(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -453,23 +490,30 @@ int config_parse_dhcp_use_ntp(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_ntp = r;
                 network->dhcp_use_ntp_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_ntp = r;
                 network->dhcp6_use_ntp_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_ntp_set)
                         network->dhcp_use_ntp = r;
                 if (!network->dhcp6_use_ntp_set)
                         network->dhcp6_use_ntp = r;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
 }
 
-int config_parse_section_route_table(
+int config_parse_dhcp_or_ra_route_table(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -487,8 +531,9 @@ int config_parse_section_route_table(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_INET, AF_INET6));
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = safe_atou32(rvalue, &rt);
         if (r < 0) {
@@ -497,27 +542,33 @@ int config_parse_section_route_table(
                 return 0;
         }
 
-        if (STRPTR_IN_SET(section, "DHCP", "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_route_table = rt;
                 network->dhcp_route_table_set = true;
-        } else { /* section is IPv6AcceptRA */
+                break;
+        case AF_INET6:
                 network->ipv6_accept_ra_route_table = rt;
                 network->ipv6_accept_ra_route_table_set = true;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
 }
 
-int config_parse_iaid(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_iaid(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         uint32_t iaid;
@@ -540,8 +591,8 @@ int config_parse_iaid(const char *unit,
                 network->dhcp_iaid = iaid;
                 network->dhcp_iaid_set = true;
                 if (!network->dhcp6_iaid_set_explicitly) {
-                        /* Backward compatibility. Previously, IAID is shared by DHCP4 and DHCP6.
-                         * If DHCP6 IAID is not specified explicitly, then use DHCP4 IAID for DHCP6. */
+                        /* Backward compatibility. Previously, IAID is shared by DHCPv4 and DHCPv6.
+                         * If DHCPv6 IAID is not specified explicitly, then use DHCPv4 IAID for DHCPv6. */
                         network->dhcp6_iaid = iaid;
                         network->dhcp6_iaid_set = true;
                 }
@@ -628,8 +679,10 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL, *old4 = NULL;
-        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL, *old6 = NULL;
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL;
+        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
+        _unused_ _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *old4 = NULL;
+        _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **options = data;
@@ -1033,7 +1086,7 @@ int config_parse_manager_duid_type(
 
         assert(manager);
 
-        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+        /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
         r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
@@ -1063,7 +1116,7 @@ int config_parse_network_duid_type(
         if (r < 0)
                 return r;
 
-        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
         return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
 }
 
@@ -1158,7 +1211,7 @@ int config_parse_manager_duid_rawdata(
 
         assert(manager);
 
-        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+        /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
         r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
@@ -1188,6 +1241,84 @@ int config_parse_network_duid_rawdata(
         if (r < 0)
                 return r;
 
-        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
         return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
+}
+
+int config_parse_uplink(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        bool accept_none = true;
+        int *index, r;
+        char **name;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        if (streq(section, "DHCPServer")) {
+                index = &network->dhcp_server_uplink_index;
+                name = &network->dhcp_server_uplink_name;
+        } else if (streq(section, "IPv6SendRA")) {
+                index = &network->router_uplink_index;
+                name = &network->router_uplink_name;
+        } else if (STR_IN_SET(section, "DHCPv6PrefixDelegation", "DHCPPrefixDelegation")) {
+                index = &network->dhcp_pd_uplink_index;
+                name = &network->dhcp_pd_uplink_name;
+                accept_none = false;
+        } else
+                assert_not_reached();
+
+        if (isempty(rvalue) || streq(rvalue, ":auto")) {
+                *index = UPLINK_INDEX_AUTO;
+                *name = mfree(*name);
+                return 0;
+        }
+
+        if (accept_none && streq(rvalue, ":none")) {
+                *index = UPLINK_INDEX_NONE;
+                *name = mfree(*name);
+                return 0;
+        }
+
+        if (!accept_none && streq(rvalue, ":self")) {
+                *index = UPLINK_INDEX_SELF;
+                *name = mfree(*name);
+                return 0;
+        }
+
+        r = parse_ifindex(rvalue);
+        if (r > 0) {
+                *index = r;
+                *name = mfree(*name);
+                return 0;
+        }
+
+        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid interface name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        /* The interface name will be resolved later. */
+        r = free_and_strdup_warn(name, rvalue);
+        if (r < 0)
+                return r;
+
+        /* Note, if uplink_name is set, then uplink_index will be ignored. So, the below does not mean
+         * an uplink interface will be selected automatically. */
+        *index = UPLINK_INDEX_AUTO;
+        return 0;
 }

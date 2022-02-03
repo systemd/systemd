@@ -34,10 +34,12 @@ union sd_id128 {
         uint64_t qwords[2];
 };
 
-#define SD_ID128_STRING_MAX 33
+#define SD_ID128_STRING_MAX 33U
 
 char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]);
 int sd_id128_from_string(const char *s, sd_id128_t *ret);
+
+#define SD_ID128_TO_STRING(id) sd_id128_to_string((id), (char[SD_ID128_STRING_MAX]) {})
 
 int sd_id128_randomize(sd_id128_t *ret);
 
@@ -63,7 +65,9 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_FORMAT_STR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
 #define SD_ID128_FORMAT_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 
-/* Like SD_ID128_FORMAT_STR, but formats as UUID, not in plain format */
+/* Like SD_ID128_FORMAT_STR, but formats as UUID, not in plain format (Strictly Big Endian byte order,
+ * i.e. treats everything as RFC4122 Variant 1 UUIDs, even if variant says otherwise, but matching other
+ * Linux userspace behaviour.) */
 #define SD_ID128_UUID_FORMAT_STR "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
 
 #define SD_ID128_CONST_STR(x)                                           \
@@ -104,6 +108,9 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 
 #define SD_ID128_MAKE_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
         #a #b #c #d #e #f #g #h #i #j #k #l #m #n #o #p
+
+#define SD_ID128_MAKE_UUID_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
+        #a #b #c #d "-" #e #f "-" #g #h "-" #i #j "-" #k #l #m #n #o #p
 
 _sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;

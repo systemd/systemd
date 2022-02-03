@@ -22,8 +22,8 @@ if conf.get('ENABLE_PORTABLED') == 1
         install_data('org.freedesktop.portable1.policy',
                      install_dir : polkitpolicydir)
 
-        install_data('profile/default/service.conf', install_dir : join_paths(profiledir, 'default'))
-        install_data('profile/nonetwork/service.conf', install_dir : join_paths(profiledir, 'nonetwork'))
-        install_data('profile/strict/service.conf', install_dir : join_paths(profiledir, 'strict'))
-        install_data('profile/trusted/service.conf', install_dir : join_paths(profiledir, 'trusted'))
+        install_data('profile/default/service.conf', install_dir : profiledir / 'default')
+        install_data('profile/nonetwork/service.conf', install_dir : profiledir / 'nonetwork')
+        install_data('profile/strict/service.conf', install_dir : profiledir / 'strict')
+        install_data('profile/trusted/service.conf', install_dir : profiledir / 'trusted')
 endif

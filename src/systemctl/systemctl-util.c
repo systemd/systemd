@@ -10,6 +10,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "chase-symlinks.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "exit-status.h"
@@ -52,7 +53,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 else
                         r = bus_connect_transport(arg_transport, arg_host, user, &buses[focus]);
                 if (r < 0)
-                        return bus_log_connect_error(r);
+                        return bus_log_connect_error(r, arg_transport);
 
                 (void) sd_bus_set_allow_interactive_authorization(buses[focus], arg_ask_password);
         }
@@ -158,7 +159,6 @@ int get_unit_list(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        size_t size = c;
         int r;
         bool fallback = false;
 
@@ -218,7 +218,7 @@ int get_unit_list(
                 if (!output_show_unit(&u, fallback ? patterns : NULL))
                         continue;
 
-                if (!GREEDY_REALLOC(*unit_infos, size, c+1))
+                if (!GREEDY_REALLOC(*unit_infos, c+1))
                         return log_oom();
 
                 (*unit_infos)[c++] = u;
@@ -261,17 +261,16 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
         if (expanded) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t allocated, n;
+                size_t n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
                 n = strv_length(mangled);
-                allocated = n + 1;
 
                 for (int i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
+                        if (!GREEDY_REALLOC(mangled, n+2))
                                 return log_oom();
 
                         mangled[n] = strdup(unit_infos[i].id);
@@ -932,6 +931,6 @@ int halt_now(enum action a) {
                                              (arg_dry_run ? REBOOT_DRY_RUN : 0));
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 }

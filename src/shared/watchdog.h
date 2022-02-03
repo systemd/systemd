@@ -6,8 +6,8 @@
 #include "time-util.h"
 #include "util.h"
 
-int watchdog_set_device(char *path);
-int watchdog_set_timeout(usec_t *usec);
+int watchdog_set_device(const char *path);
+int watchdog_setup(usec_t timeout);
 int watchdog_ping(void);
 void watchdog_close(bool disarm);
 usec_t watchdog_runtime_wait(void);

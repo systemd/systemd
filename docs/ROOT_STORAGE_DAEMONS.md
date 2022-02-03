@@ -2,6 +2,7 @@
 title: Storage Daemons for the Root File System
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # systemd and Storage Daemons for the Root File System

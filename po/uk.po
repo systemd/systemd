@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
+#
 # Ukrainian translation for systemd.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 # Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2021-01-09 10:51+0000\n"

@@ -119,6 +119,7 @@ struct Service {
         usec_t timeout_abort_usec;
         bool timeout_abort_set;
         usec_t runtime_max_usec;
+        usec_t runtime_rand_extra_usec;
         ServiceTimeoutFailureMode timeout_start_failure_mode;
         ServiceTimeoutFailureMode timeout_stop_failure_mode;
 
@@ -156,8 +157,11 @@ struct Service {
         DynamicCreds dynamic_creds;
 
         pid_t main_pid, control_pid;
+
+        /* if we are a socket activated service instance, store information of the connection/peer/socket */
         int socket_fd;
-        SocketPeer *peer;
+        SocketPeer *socket_peer;
+        UnitRef accept_socket;
         bool socket_fd_selinux_context_net;
 
         bool permissions_start_only;
@@ -184,8 +188,6 @@ struct Service {
 
         char *status_text;
         int status_errno;
-
-        UnitRef accept_socket;
 
         sd_event_source *timer_event_source;
         PathSpec *pid_file_pathspec;
@@ -225,7 +227,7 @@ static inline usec_t service_get_watchdog_usec(Service *s) {
 
 extern const UnitVTable service_vtable;
 
-int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
+int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_close_socket_fd(Service *s);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;

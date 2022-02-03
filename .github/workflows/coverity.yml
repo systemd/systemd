@@ -1,5 +1,6 @@
 ---
 # vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 name: Coverity
 
@@ -7,6 +8,9 @@ on:
   schedule:
     # Run Coverity daily at midnight
     - cron:  '0 0 * * *'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,7 +25,7 @@ jobs:
       CURRENT_REF:                      "${{ github.ref }}"
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
       - name: Set the $COVERITY_SCAN_NOTIFICATION_EMAIL env variable
         run: echo "COVERITY_SCAN_NOTIFICATION_EMAIL=$(git log -1 ${{ github.sha }} --pretty=\"%aE\")" >> $GITHUB_ENV

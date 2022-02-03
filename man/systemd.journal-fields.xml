@@ -128,7 +128,7 @@
           datagram. This field is only included if the <varname>MESSAGE=</varname>
           field was modified compared to the original payload or the timestamp could
           not be located properly and is not included in
-          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when when
+          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when
           the message contains leading or trailing whitespace (trailing and leading
           whitespace is stripped), or it contains an embedded
           <constant>NUL</constant> byte (the <constant>NUL</constant> byte and
@@ -515,11 +515,10 @@
     <title>Address Fields</title>
 
     <para>During serialization into external formats, such as the
-    <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-    Export Format</ulink> or the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
-    JSON Format</ulink>, the addresses of journal entries are
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
+    or the
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink>,
+    the addresses of journal entries are
     serialized into fields prefixed with double underscores. Note that
     these are not proper fields when stored in the journal but for
     addressing metadata of entries. They cannot be written as part of

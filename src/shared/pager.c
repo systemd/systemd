@@ -83,23 +83,24 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
         return r;
 }
 
-int pager_open(PagerFlags flags) {
+void pager_open(PagerFlags flags) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 }, exe_name_pipe[2] = { -1, -1 };
         _cleanup_strv_free_ char **pager_args = NULL;
+        _cleanup_free_ char *l = NULL;
         const char *pager, *less_opts;
         int r;
 
         if (flags & PAGER_DISABLE)
-                return 0;
+                return;
 
         if (pager_pid > 0)
-                return 1;
+                return;
 
         if (terminal_is_dumb())
-                return 0;
+                return;
 
         if (!is_main_thread())
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Pager invoked from wrong thread.");
+                return (void) log_error_errno(SYNTHETIC_ERRNO(EPERM), "Pager invoked from wrong thread.");
 
         pager = getenv("SYSTEMD_PAGER");
         if (!pager)
@@ -108,11 +109,11 @@ int pager_open(PagerFlags flags) {
         if (pager) {
                 pager_args = strv_split(pager, WHITESPACE);
                 if (!pager_args)
-                        return log_oom();
+                        return (void) log_oom();
 
                 /* If the pager is explicitly turned off, honour it */
                 if (strv_isempty(pager_args) || strv_equal(pager_args, STRV_MAKE("cat")))
-                        return 0;
+                        return;
         }
 
         /* Determine and cache number of columns/lines before we spawn the pager so that we get the value from the
@@ -121,23 +122,27 @@ int pager_open(PagerFlags flags) {
         (void) lines();
 
         if (pipe2(fd, O_CLOEXEC) < 0)
-                return log_error_errno(errno, "Failed to create pager pipe: %m");
+                return (void) log_error_errno(errno, "Failed to create pager pipe: %m");
 
         /* This is a pipe to feed the name of the executed pager binary into the parent */
         if (pipe2(exe_name_pipe, O_CLOEXEC) < 0)
-                return log_error_errno(errno, "Failed to create exe_name pipe: %m");
+                return (void) log_error_errno(errno, "Failed to create exe_name pipe: %m");
 
         /* Initialize a good set of less options */
         less_opts = getenv("SYSTEMD_LESS");
         if (!less_opts)
                 less_opts = "FRSXMK";
-        if (flags & PAGER_JUMP_TO_END)
-                less_opts = strjoina(less_opts, " +G");
+        if (flags & PAGER_JUMP_TO_END) {
+                l = strjoin(less_opts, " +G");
+                if (!l)
+                        return (void) log_oom();
+                less_opts = l;
+        }
 
         /* We set SIGINT as PR_DEATHSIG signal here, to match the "K" parameter we set in $LESS, which enables SIGINT behaviour. */
         r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGINT|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pager_pid);
         if (r < 0)
-                return r;
+                return;
         if (r == 0) {
                 const char *less_charset, *exe;
 
@@ -245,26 +250,22 @@ int pager_open(PagerFlags flags) {
         stored_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
         if (dup2(fd[1], STDOUT_FILENO) < 0) {
                 stored_stdout = safe_close(stored_stdout);
-                return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
+                return (void) log_error_errno(errno, "Failed to duplicate pager pipe: %m");
         }
         stdout_redirected = true;
 
         stored_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
         if (dup2(fd[1], STDERR_FILENO) < 0) {
                 stored_stderr = safe_close(stored_stderr);
-                return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
+                return (void) log_error_errno(errno, "Failed to duplicate pager pipe: %m");
         }
         stderr_redirected = true;
 
         exe_name_pipe[1] = safe_close(exe_name_pipe[1]);
 
         r = no_quit_on_interrupt(TAKE_FD(exe_name_pipe[0]), less_opts);
-        if (r < 0)
-                return r;
         if (r > 0)
                 (void) ignore_signals(SIGINT);
-
-        return 1;
 }
 
 void pager_close(void) {
@@ -286,7 +287,7 @@ void pager_close(void) {
         stdout_redirected = stderr_redirected = false;
 
         (void) kill(pager_pid, SIGCONT);
-        (void) wait_for_terminate(pager_pid, NULL);
+        (void) wait_for_terminate(TAKE_PID(pager_pid), NULL);
         pager_pid = 0;
 }
 
@@ -309,8 +310,8 @@ int show_man_page(const char *desc, bool null_stdio) {
         if (e) {
                 char *page = NULL, *section = NULL;
 
-                page = strndupa(desc, e - desc);
-                section = strndupa(e + 1, desc + k - e - 2);
+                page = strndupa_safe(desc, e - desc);
+                section = strndupa_safe(e + 1, desc + k - e - 2);
 
                 args[1] = section;
                 args[2] = page;

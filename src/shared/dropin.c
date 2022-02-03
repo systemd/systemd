@@ -6,13 +6,13 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "dirent-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"

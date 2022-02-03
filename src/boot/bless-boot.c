@@ -14,6 +14,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "sync-util.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
@@ -89,7 +90,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -161,7 +162,7 @@ static int parse_counter(
                                        "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s",
                                        path);
 
-        z = strndupa(e, k);
+        z = strndupa_safe(e, k);
         r = safe_atou64(z, &left);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse 'tries left' counter from LoaderBootCountPath: %s", path);
@@ -177,7 +178,7 @@ static int parse_counter(
                                                "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s",
                                                path);
 
-                z = strndupa(e, k);
+                z = strndupa_safe(e, k);
                 r = safe_atou64(z, &done);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse 'tries done' counter from LoaderBootCountPath: %s", path);
@@ -212,7 +213,7 @@ static int acquire_boot_count_path(
         uint64_t left, done;
         int r;
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderBootCountPath", &path);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderBootCountPath), &path);
         if (r == -ENOENT)
                 return -EUNATCH; /* in this case, let the caller print a message */
         if (r < 0)

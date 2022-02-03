@@ -26,10 +26,12 @@ assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 #  error Unknown time_t size
 #endif
 
-#if defined __x86_64__ && defined __ILP32__
+#if SIZEOF_TIMEX_MEMBER == 8
 #  define PRI_TIMEX PRIi64
-#else
+#elif SIZEOF_TIMEX_MEMBER == 4
 #  define PRI_TIMEX "li"
+#else
+#  error Unknown timex member size
 #endif
 
 #if SIZEOF_RLIM_T == 8
@@ -61,10 +63,23 @@ typedef enum {
         FORMAT_IFNAME_IFINDEX_WITH_PERCENT = (1 << 1) | FORMAT_IFNAME_IFINDEX,
 } FormatIfnameFlag;
 
-char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag);
-static inline char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]) {
-        return format_ifname_full(ifindex, buf, 0);
+int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]);
+int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret);
+
+static inline int format_ifname(int ifindex, char buf[static IF_NAMESIZE]) {
+        return format_ifname_full(ifindex, 0, buf);
 }
+static inline int format_ifname_alloc(int ifindex, char **ret) {
+        return format_ifname_full_alloc(ifindex, 0, ret);
+}
+
+static inline char *_format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {
+        (void) format_ifname_full(ifindex, flag, buf);
+        return buf;
+}
+
+#define FORMAT_IFNAME_FULL(index, flag) _format_ifname_full(index, flag, (char[IF_NAMESIZE]){})
+#define FORMAT_IFNAME(index) _format_ifname_full(index, 0, (char[IF_NAMESIZE]){})
 
 typedef enum {
         FORMAT_BYTES_USE_IEC     = 1 << 0,
@@ -74,16 +89,17 @@ typedef enum {
 
 #define FORMAT_BYTES_MAX 16U
 
-char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
+char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
 
+_warn_unused_result_
 static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
 }
 
-static inline char *format_bytes_cgroup_protection(char *buf, size_t l, uint64_t t) {
-        if (t == CGROUP_LIMIT_MAX) {
-                (void) snprintf(buf, l, "%s", "infinity");
-                return buf;
-        }
-        return format_bytes(buf, l, t);
-}
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define FORMAT_BYTES(t) format_bytes((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t)
+#define FORMAT_BYTES_FULL(t, flag) format_bytes_full((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t, flag)
+
+#define FORMAT_BYTES_CGROUP_PROTECTION(t) (t == CGROUP_LIMIT_MAX ? "infinity" : FORMAT_BYTES(t))

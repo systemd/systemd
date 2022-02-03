@@ -11,14 +11,17 @@
 #include "special.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
-static void test_basic_mask_and_enable(const char *root) {
+static char *root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(root, rm_rf_physical_and_freep);
+
+TEST(basic_mask_and_enable) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
-
-        test_setup_logging(LOG_DEBUG);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "a.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);
@@ -196,7 +199,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
-static void test_linked_units(const char *root) {
+TEST(linked_units) {
         const char *p, *q;
         UnitFileState state;
         UnitFileChange *changes = NULL;
@@ -284,9 +287,9 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -305,9 +308,9 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -326,9 +329,9 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
-        assert(!p && !q);
+        assert_se(!p && !q);
         unit_file_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -342,7 +345,7 @@ static void test_linked_units(const char *root) {
         changes = NULL; n_changes = 0;
 }
 
-static void test_default(const char *root) {
+TEST(default) {
         _cleanup_free_ char *def = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
@@ -378,7 +381,7 @@ static void test_default(const char *root) {
         assert_se(streq_ptr(def, "test-default-real.target"));
 }
 
-static void test_add_dependency(const char *root) {
+TEST(add_dependency) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         const char *p;
@@ -405,7 +408,7 @@ static void test_add_dependency(const char *root) {
         changes = NULL; n_changes = 0;
 }
 
-static void test_template_enable(const char *root) {
+TEST(template_enable) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileState state;
@@ -519,7 +522,7 @@ static void test_template_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "template-symlink@quux.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
-static void test_indirect(const char *root) {
+TEST(indirect) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileState state;
@@ -568,7 +571,7 @@ static void test_indirect(const char *root) {
         changes = NULL; n_changes = 0;
 }
 
-static void test_preset_and_list(const char *root) {
+TEST(preset_and_list) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0, i;
         const char *p, *q;
@@ -675,13 +678,11 @@ static void test_preset_and_list(const char *root) {
         assert_se(got_yes && got_no);
 }
 
-static void test_revert(const char *root) {
+TEST(revert) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
-
-        assert(root);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "xx.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "yy.service", NULL) == -ENOENT);
@@ -710,8 +711,7 @@ static void test_revert(const char *root) {
         changes = NULL; n_changes = 0;
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/xx.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
-        assert_se(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE) >= 0);
+        assert_se(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         /* Revert the dropin file */
         assert_se(unit_file_revert(UNIT_FILE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
@@ -726,7 +726,7 @@ static void test_revert(const char *root) {
         changes = NULL; n_changes = 0;
 }
 
-static void test_preset_order(const char *root) {
+TEST(preset_order) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         const char *p;
@@ -773,7 +773,7 @@ static void test_preset_order(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 }
 
-static void test_static_instance(const char *root) {
+TEST(static_instance) {
         UnitFileState state;
         const char *p;
 
@@ -795,7 +795,7 @@ static void test_static_instance(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "static-instance@foo.service", &state) >= 0 && state == UNIT_FILE_STATIC);
 }
 
-static void test_with_dropin(const char *root) {
+TEST(with_dropin) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
@@ -813,10 +813,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -826,10 +825,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -839,10 +837,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-3.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -852,10 +849,9 @@ static void test_with_dropin(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-4a.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-4a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -928,7 +924,7 @@ static void test_with_dropin(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-4b.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
-static void test_with_dropin_template(const char *root) {
+TEST(with_dropin_template) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
@@ -944,10 +940,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1@.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -957,10 +952,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2@instance-1.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -971,10 +965,9 @@ static void test_with_dropin_template(const char *root) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-3@.service.d/dropin.conf");
-        assert_se(mkdir_parents(p, 0755) >= 0);
         assert_se(write_string_file(p,
                                     "[Install]\n"
-                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
@@ -1029,7 +1022,7 @@ static void test_with_dropin_template(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3@instance-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
-static void test_preset_multiple_instances(const char *root) {
+TEST(preset_multiple_instances) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         const char *p;
@@ -1103,16 +1096,16 @@ static void verify_one(
                        i->name, alias, r, expected,
                        alias2 ? " [" : "", strempty(alias2),
                        alias2 ? "]" : "");
-        assert(r == expected);
+        assert_se(r == expected);
 
         /* This is test for "instance propagation". This propagation matters mostly for WantedBy= and
          * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
          * an Alias=alias@.service an instantiated template template@instance. In that case the instance name
          * should be propagated into the alias as alias@instance. */
-        assert(streq_ptr(alias2, updated_name));
+        assert_se(streq_ptr(alias2, updated_name));
 }
 
-static void test_verify_alias(void) {
+TEST(verify_alias) {
         const UnitFileInstallInfo
                 plain_service    = { .name = (char*) "plain.service" },
                 bare_template    = { .name = (char*) "template1@.service" },
@@ -1249,11 +1242,10 @@ static void test_verify_alias(void) {
         verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
 }
 
-int main(int argc, char *argv[]) {
-        char root[] = "/tmp/rootXXXXXX";
+static int intro(void) {
         const char *p;
 
-        assert_se(mkdtemp(root));
+        assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/");
         assert_se(mkdir_p(p, 0755) >= 0);
@@ -1276,23 +1268,8 @@ int main(int argc, char *argv[]) {
         p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
 
-        test_basic_mask_and_enable(root);
-        test_linked_units(root);
-        test_default(root);
-        test_add_dependency(root);
-        test_template_enable(root);
-        test_indirect(root);
-        test_preset_and_list(root);
-        test_preset_order(root);
-        test_preset_multiple_instances(root);
-        test_revert(root);
-        test_static_instance(root);
-        test_with_dropin(root);
-        test_with_dropin_template(root);
-
-        assert_se(rm_rf(root, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-
-        test_verify_alias();
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

@@ -25,11 +25,38 @@ __contains_word () {
     done
 }
 
+__get_machines() {
+    local a b
+    machinectl list --full --no-legend --no-pager 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
+}
+
 _hostnamectl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-    local OPTS='-h --help --version --transient --static --pretty
-                --no-ask-password -H --host -M --machine'
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --transient --static --pretty --no-ask-password'
+        [ARG]='-H --host -M --machine --json'
+    )
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --json)
+                comps=$( hostnamectl --json=help 2>/dev/null )
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
 
     if [[ $cur = -* ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
@@ -38,9 +65,9 @@ _hostnamectl() {
 
     local -A VERBS=(
         [STANDALONE]='status'
-        [ICONS]='set-icon-name'
-        [NAME]='set-hostname set-deployment set-location'
-        [CHASSIS]='set-chassis'
+        [ICONS]='icon-name'
+        [NAME]='hostname deployment location'
+        [CHASSIS]='chassis'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -50,7 +77,7 @@ _hostnamectl() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
     elif __contains_word "$verb" ${VERBS[CHASSIS]}; then
         comps='desktop laptop convertible server tablet handset watch embedded vm container'

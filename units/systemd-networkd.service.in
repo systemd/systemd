@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Network Service
+Description=Network Configuration
 Documentation=man:systemd-networkd.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
@@ -23,7 +23,7 @@ AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET
 BusName=org.freedesktop.network1
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
 DeviceAllow=char-* rw
-ExecStart=!!@rootlibexecdir@/systemd-networkd
+ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-networkd
 ExecReload=networkctl reload
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -38,7 +38,7 @@ ProtectSystem=strict
 Restart=on-failure
 RestartKillSignal=SIGUSR2
 RestartSec=0
-RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET AF_ALG
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
@@ -49,12 +49,16 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-network
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
 WantedBy=multi-user.target
 Also=systemd-networkd.socket
 Alias=dbus-org.freedesktop.network1.service
+
+# The output from this generator is used by udevd and networkd. Enable it by
+# default when enabling systemd-networkd.service.
+Also=systemd-network-generator.service
 
 # We want to enable systemd-networkd-wait-online.service whenever this service
 # is enabled. systemd-networkd-wait-online.service has

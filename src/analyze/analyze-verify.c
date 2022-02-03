@@ -11,11 +11,32 @@
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
 
-static int prepare_filename(const char *filename, char **ret) {
+static void log_syntax_callback(const char *unit, int level, void *userdata) {
+        Set **s = userdata;
+        int r;
+
+        assert(userdata);
+        assert(unit);
+
+        if (level > LOG_WARNING)
+                return;
+
+        if (*s == POINTER_MAX)
+                return;
+
+        r = set_put_strdup(s, unit);
+        if (r < 0) {
+                set_free_free(*s);
+                *s = POINTER_MAX;
+        }
+}
+
+int verify_prepare_filename(const char *filename, char **ret) {
         int r;
         const char *name;
         _cleanup_free_ char *abspath = NULL;
@@ -52,7 +73,7 @@ static int prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-static int generate_path(char **var, char **filenames) {
+int verify_generate_path(char **var, char **filenames) {
         const char *old;
         char **filename;
 
@@ -115,7 +136,7 @@ static int verify_socket(Unit *u) {
         return 0;
 }
 
-int verify_executable(Unit *u, const ExecCommand *exec) {
+int verify_executable(Unit *u, const ExecCommand *exec, const char *root) {
         int r;
 
         if (!exec)
@@ -124,14 +145,14 @@ int verify_executable(Unit *u, const ExecCommand *exec) {
         if (exec->flags & EXEC_COMMAND_IGNORE_FAILURE)
                 return 0;
 
-        r = find_executable_full(exec->path, false, NULL, NULL);
+        r = find_executable_full(exec->path, root, NULL, false, NULL, NULL);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Command %s is not executable: %m", exec->path);
 
         return 0;
 }
 
-static int verify_executables(Unit *u) {
+static int verify_executables(Unit *u, const char *root) {
         ExecCommand *exec;
         int r = 0, k;
         unsigned i;
@@ -141,20 +162,20 @@ static int verify_executables(Unit *u) {
         exec =  u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
                 u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
                 u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
-        k = verify_executable(u, exec);
+        k = verify_executable(u, exec, root);
         if (k < 0 && r == 0)
                 r = k;
 
         if (u->type == UNIT_SERVICE)
                 for (i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++) {
-                        k = verify_executable(u, SERVICE(u)->exec_command[i]);
+                        k = verify_executable(u, SERVICE(u)->exec_command[i], root);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
 
         if (u->type == UNIT_SOCKET)
                 for (i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++) {
-                        k = verify_executable(u, SOCKET(u)->exec_command[i]);
+                        k = verify_executable(u, SOCKET(u)->exec_command[i], root);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -189,7 +210,7 @@ static int verify_documentation(Unit *u, bool check_man) {
         return r;
 }
 
-static int verify_unit(Unit *u, bool check_man) {
+static int verify_unit(Unit *u, bool check_man, const char *root) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
 
@@ -207,7 +228,7 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
-        k = verify_executables(u);
+        k = verify_executables(u, root);
         if (k < 0 && r == 0)
                 r = k;
 
@@ -218,13 +239,22 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+static void set_destroy_ignore_pointer_max(Set** s) {
+        if (*s == POINTER_MAX)
+                return;
+        set_free_free(*s);
+}
+
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, RecursiveErrors recursive_errors, const char *root) {
         const ManagerTestRunFlags flags =
-                MANAGER_TEST_RUN_BASIC |
+                MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                (recursive_errors == RECURSIVE_ERRORS_NO) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
+        _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
@@ -233,8 +263,13 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         if (strv_isempty(filenames))
                 return 0;
 
+        /* Allow systemd-analyze to hook in a callback function so that it can get
+         * all the required log data from the function itself without having to rely
+         * on a global set variable for the same */
+        set_log_syntax_callback(log_syntax_callback, &s);
+
         /* set the path */
-        r = generate_path(&var, filenames);
+        r = verify_generate_path(&var, filenames);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit load path: %m");
 
@@ -246,7 +281,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
         if (r < 0)
                 return r;
 
@@ -259,7 +294,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
                 log_debug("Handling %s...", *filename);
 
-                k = prepare_filename(*filename, &prepared);
+                k = verify_prepare_filename(*filename, &prepared);
                 if (k < 0) {
                         log_error_errno(k, "Failed to prepare filename %s: %m", *filename);
                         if (r == 0)
@@ -278,10 +313,39 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         }
 
         for (i = 0; i < count; i++) {
-                k = verify_unit(units[i], check_man);
+                k = verify_unit(units[i], check_man, root);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
-        return r;
+        if (s == POINTER_MAX)
+                return log_oom();
+
+        if (set_isempty(s) || r != 0)
+                return r;
+
+        /* If all previous verifications succeeded, then either the recursive parsing of all the
+         * associated dependencies with RECURSIVE_ERRORS_YES or the parsing of the specified unit file
+         * with RECURSIVE_ERRORS_NO must have yielded a syntax warning and hence, a non-empty set. */
+        if (IN_SET(recursive_errors, RECURSIVE_ERRORS_YES, RECURSIVE_ERRORS_NO))
+                return -ENOTRECOVERABLE;
+
+        /* If all previous verifications succeeded, then the non-empty set could have resulted from
+         * a syntax warning encountered during the recursive parsing of the specified unit file and
+         * its direct dependencies. Hence, search for any of the filenames in the set and if found,
+         * return a non-zero process exit status. */
+        if (recursive_errors == RECURSIVE_ERRORS_ONE)
+                STRV_FOREACH(filename, filenames)
+                        if (set_contains(s, basename(*filename)))
+                                return -ENOTRECOVERABLE;
+
+        return 0;
 }
+
+static const char* const recursive_errors_table[_RECURSIVE_ERRORS_MAX] = {
+        [RECURSIVE_ERRORS_NO]  = "no",
+        [RECURSIVE_ERRORS_YES] = "yes",
+        [RECURSIVE_ERRORS_ONE] = "one",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors);

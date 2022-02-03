@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Copyright © 2016 Zeal Jagannatha
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
+
+[Distribution]
+Distribution=arch
+
+[Packages]
+BuildPackages=
+        acl
+        bzip2
+        clang
+        cryptsetup
+        curl
+        dbus
+        diffutils
+        docbook-xsl
+        elfutils
+        gcc
+        git
+        gnu-efi-libs
+        gnutls
+        gperf
+        inetutils
+        iptables
+        kmod
+        libbpf
+        libcap
+        libgcrypt
+        libidn2
+        libmicrohttpd
+        libseccomp
+        libutil-linux
+        libxkbcommon
+        libxslt
+        llvm
+        lz4
+        meson
+        pam
+        pkgconfig
+        python
+        python-lxml
+        python-jinja
+        qrencode
+        rsync
+        xz
+        zstd
+
+Packages=
+        gdb
+        libbpf
+        libidn2
+        nano
+        qrencode
+        strace
+        # For testing "systemd-analyze verify".
+        man-db
+        # For testing systemd's bash completion scripts.
+        bash-completion
+        # For testing systemd's zsh completion scripts
+        # Run `autoload -Uz compinit; compinit` from a zsh shell in the booted image to enable completions.
+        zsh

@@ -5,6 +5,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "exec-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -54,7 +55,7 @@ static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userda
                 else
                         assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
         } else
-                assert_not_reached("Yuck!");
+                assert_not_reached();
 
         return 1;
 }
@@ -169,7 +170,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
                         got_c = true;
                 }
         } else
-                assert_not_reached("Huh?");
+                assert_not_reached();
 
         return 2;
 }
@@ -403,8 +404,8 @@ struct inotify_context {
 static void maybe_exit(sd_event_source *s, struct inotify_context *c) {
         unsigned n;
 
-        assert(s);
-        assert(c);
+        assert_se(s);
+        assert_se(c);
 
         if (!c->delete_self_handler_called)
                 return;
@@ -438,13 +439,12 @@ static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, v
                 log_info("inotify-handler <%s>: overflow", description);
                 c->create_overflow |= bit;
         } else if (ev->mask & IN_CREATE) {
-                unsigned i;
+                if (streq(ev->name, "sub"))
+                        log_debug("inotify-handler <%s>: create on %s", description, ev->name);
+                else {
+                        unsigned i;
 
-                log_debug("inotify-handler <%s>: create on %s", description, ev->name);
-
-                if (!streq(ev->name, "sub")) {
                         assert_se(safe_atou(ev->name, &i) >= 0);
-
                         assert_se(i < c->n_create_events);
                         c->create_called[i] |= bit;
                 }
@@ -452,7 +452,7 @@ static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, v
                 log_info("inotify-handler <%s>: delete of %s", description, ev->name);
                 assert_se(streq(ev->name, "sub"));
         } else
-                assert_not_reached("unexpected inotify event");
+                assert_not_reached();
 
         maybe_exit(s, c);
         return 1;
@@ -470,7 +470,7 @@ static int delete_self_handler(sd_event_source *s, const struct inotify_event *e
         } else if (ev->mask & IN_IGNORED) {
                 log_info("delete-self-handler: ignore");
         } else
-                assert_not_reached("unexpected inotify event (delete-self)");
+                assert_not_reached();
 
         maybe_exit(s, c);
         return 1;
@@ -623,6 +623,11 @@ static int ratelimit_time_handler(sd_event_source *s, uint64_t usec, void *userd
         return 0;
 }
 
+static int expired = -1;
+static int ratelimit_expired(sd_event_source *s, void *userdata) {
+        return ++expired;
+}
+
 static void test_ratelimit(void) {
         _cleanup_close_pair_ int p[2] = {-1, -1};
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -686,12 +691,19 @@ static void test_ratelimit(void) {
 
         assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) >= 0);
 
+        /* Set callback that will be invoked when we leave rate limited state. */
+        assert_se(sd_event_source_set_ratelimit_expire_callback(s, ratelimit_expired) >= 0);
+
         do {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
         } while (!sd_event_source_is_ratelimited(s));
 
         log_info("ratelimit_time_handler: called 10 more times, event source got ratelimited");
         assert_se(count == 20);
+
+        /* Dispatch the event loop once more and check that ratelimit expiration callback got called */
+        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        assert_se(expired == 0);
 }
 
 static void test_simple_timeout(void) {
@@ -713,6 +725,40 @@ static void test_simple_timeout(void) {
         assert_se(t >= usec_add(f, some_time));
 }
 
+static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        sd_event_source **p = userdata;
+
+        assert_se(ev);
+        assert_se(p);
+        assert_se(*p == s);
+
+        assert_se(FLAGS_SET(ev->mask, IN_ATTRIB));
+
+        assert_se(sd_event_exit(sd_event_source_get_event(s), 0) >= 0);
+
+        *p = sd_event_source_unref(*p); /* here's what we actually intend to test: we destroy the event
+                                         * source from inside the event source handler */
+        return 1;
+}
+
+static void test_inotify_self_destroy(void) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        char path[] = "/tmp/inotifyXXXXXX";
+        _cleanup_close_ int fd = -1;
+
+        /* Tests that destroying an inotify event source from its own handler is safe */
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        fd = mkostemp_safe(path);
+        assert_se(fd >= 0);
+        assert_se(sd_event_add_inotify_fd(e, &s, fd, IN_ATTRIB, inotify_self_destroy_handler, &s) >= 0);
+        fd = safe_close(fd);
+        assert_se(unlink(path) >= 0); /* This will trigger IN_ATTRIB because link count goes to zero */
+        assert_se(sd_event_loop(e) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -730,6 +776,8 @@ int main(int argc, char *argv[]) {
         test_pidfd();
 
         test_ratelimit();
+
+        test_inotify_self_destroy();
 
         return 0;
 }

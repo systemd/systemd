@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-network-generator.service" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd-network-generator.service">
 
   <refentryinfo>
     <title>systemd-network-generator.service</title>
@@ -59,6 +59,7 @@
 
       <varlistentry>
         <term><varname>ifname=</varname></term>
+        <term><varname>net.ifname-policy=</varname></term>
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
@@ -88,6 +89,8 @@
 
     <para>See
     <citerefentry project='man-pages'><refentrytitle>dracut.kernel</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for option syntax and details.</para>
   </refsect1>
 

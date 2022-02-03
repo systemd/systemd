@@ -11,14 +11,18 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
+#include "fs-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
+#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -31,11 +35,15 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "uid-alloc-range.h"
+#include "user-record-pwquality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record-pwquality.h"
 #include "user-record.h"
 #include "user-util.h"
+
+/* Retry to deactivate home directories again and again every 15s until it works */
+#define RETRY_DEACTIVATE_USEC (15U * USEC_PER_SEC)
 
 #define HOME_USERS_MAX 500
 #define PENDING_OPERATIONS_MAX 100
@@ -129,6 +137,8 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                 .worker_stdout_fd = -1,
                 .sysfs = TAKE_PTR(ns),
                 .signed_locally = -1,
+                .pin_fd = -1,
+                .luks_lock_fd = -1,
         };
 
         r = hashmap_put(m->homes_by_name, home->user_name, home);
@@ -145,12 +155,13 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                         return r;
         }
 
-        r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET, &home->record);
+        r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &home->record);
         if (r < 0)
                 return r;
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
+        (void) manager_schedule_rebalance(m, /* immediately= */ false);
 
         if (ret)
                 *ret = TAKE_PTR(home);
@@ -183,6 +194,8 @@ Home *home_free(Home *h) {
 
                 if (h->manager->gc_focus == h)
                         h->manager->gc_focus = NULL;
+
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         }
 
         user_record_unref(h->record);
@@ -201,6 +214,11 @@ Home *home_free(Home *h) {
         h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
 
         h->current_operation = operation_unref(h->current_operation);
+
+        safe_close(h->pin_fd);
+        safe_close(h->luks_lock_fd);
+
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
 
         return mfree(h);
 }
@@ -243,7 +261,7 @@ int home_set_record(Home *h, UserRecord *hr) {
                 if (!new_hr)
                         return -ENOMEM;
 
-                r = user_record_load(new_hr, v, USER_RECORD_LOAD_REFUSE_SECRET);
+                r = user_record_load(new_hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return r;
 
@@ -289,9 +307,9 @@ int home_save_record(Home *h) {
                 return r;
 
         (void) mkdir("/var/lib/systemd/", 0755);
-        (void) mkdir("/var/lib/systemd/home/", 0700);
+        (void) mkdir(home_record_dir(), 0700);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
 
         r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
@@ -305,7 +323,7 @@ int home_unlink_record(Home *h) {
 
         assert(h);
 
-        fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
+        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 
@@ -314,6 +332,141 @@ int home_unlink_record(Home *h) {
                 return -errno;
 
         return 0;
+}
+
+static void home_unpin(Home *h) {
+        assert(h);
+
+        if (h->pin_fd < 0)
+                return;
+
+        h->pin_fd = safe_close(h->pin_fd);
+        log_debug("Successfully closed pin fd on home for %s.", h->user_name);
+}
+
+static void home_pin(Home *h) {
+        const char *path;
+
+        assert(h);
+
+        if (h->pin_fd >= 0) /* Already pinned? */
+                return;
+
+        path = user_record_home_directory(h->record);
+        if (!path) {
+                log_warning("No home directory path to pin for %s, ignoring.", h->user_name);
+                return;
+        }
+
+        h->pin_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (h->pin_fd < 0) {
+                log_warning_errno(errno, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
+                return;
+        }
+
+        log_debug("Successfully pinned home directory '%s'.", path);
+}
+
+static void home_update_pin_fd(Home *h, HomeState state) {
+        assert(h);
+
+        if (state < 0)
+                state = home_get_state(h);
+
+        return HOME_STATE_SHALL_PIN(state) ? home_pin(h) : home_unpin(h);
+}
+
+static void home_maybe_close_luks_lock_fd(Home *h, HomeState state) {
+        assert(h);
+
+        if (h->luks_lock_fd < 0)
+                return;
+
+        if (state < 0)
+                state = home_get_state(h);
+
+        /* Keep the lock as long as the home dir is active or has some operation going */
+        if (HOME_STATE_IS_EXECUTING_OPERATION(state) || HOME_STATE_IS_ACTIVE(state) || state == HOME_LOCKED)
+                return;
+
+        h->luks_lock_fd = safe_close(h->luks_lock_fd);
+        log_debug("Successfully closed LUKS backing file lock for %s.", h->user_name);
+}
+
+static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
+        assert(h);
+
+        /* Free the deactivation retry event source if we won't need it anymore. Specifically, we'll free the
+         * event source whenever the home directory is already deactivated (and we thus where successful) or
+         * if we start executing an operation that indicates that the home directory is going to be used or
+         * operated on again. Also, if the home is referenced again stop the timer */
+
+        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) &&
+            !h->ref_event_source_dont_suspend &&
+            !h->ref_event_source_please_suspend)
+                return;
+
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+}
+
+static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error);
+static void home_start_retry_deactivate(Home *h);
+
+static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *userdata) {
+        Home *h = userdata;
+        HomeState state;
+
+        assert(s);
+        assert(h);
+
+        /* 15s after the last attempt to deactivate the home directory passed. Let's try it one more time. */
+
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+
+        state = home_get_state(h);
+        if (!HOME_STATE_MAY_RETRY_DEACTIVATE(state))
+                return 0;
+
+        if (IN_SET(state, HOME_ACTIVE, HOME_LINGERING)) {
+                log_info("Again trying to deactivate home directory.");
+
+                /* If we are not executing any operation, let's start deactivating now. Note that this will
+                 * restart our timer again, we are gonna be called again if this doesn't work. */
+                (void) home_deactivate_internal(h, /* force= */ false, NULL);
+        } else
+                /* if we are executing an operation (specifically, area already running a deactivation
+                 * operation), then simply reque the timer, so that we retry again. */
+                home_start_retry_deactivate(h);
+
+        return 0;
+}
+
+static void home_start_retry_deactivate(Home *h) {
+        int r;
+
+        assert(h);
+        assert(h->manager);
+
+        /* Already allocated? */
+        if (h->retry_deactivate_event_source)
+                return;
+
+        /* If the home directory is being used now don't start the timer */
+        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+                return;
+
+        r = sd_event_add_time_relative(
+                        h->manager->event,
+                        &h->retry_deactivate_event_source,
+                        CLOCK_MONOTONIC,
+                        RETRY_DEACTIVATE_USEC,
+                        1*USEC_PER_MINUTE,
+                        home_on_retry_deactivate,
+                        h);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to install retry-deactivate event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(h->retry_deactivate_event_source, "retry-deactivate");
 }
 
 static void home_set_state(Home *h, HomeState state) {
@@ -330,11 +483,16 @@ static void home_set_state(Home *h, HomeState state) {
                  home_state_to_string(old_state),
                  home_state_to_string(new_state));
 
+        home_update_pin_fd(h, new_state);
+        home_maybe_close_luks_lock_fd(h, new_state);
+        home_maybe_stop_retry_deactivate(h, new_state);
+
         if (HOME_STATE_IS_EXECUTING_OPERATION(old_state) && !HOME_STATE_IS_EXECUTING_OPERATION(new_state)) {
                 /* If we just finished executing some operation, process the queue of pending operations. And
                  * enqueue it for GC too. */
 
                 home_schedule_operation(h, NULL, NULL);
+                manager_reschedule_rebalance(h->manager);
                 manager_enqueue_gc(h->manager, h);
         }
 }
@@ -384,7 +542,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET);
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to load home record identity: %m");
 
@@ -461,7 +619,9 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         case -ERFKILL:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
         case -EMEDIUMTYPE:
-                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires presence confirmation.");
+        case -ENOCSI:
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED, "Security token requires user verification.");
         case -ENOSTR:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
         case -EOWNERDEAD:
@@ -480,6 +640,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_NO_DISK_SPACE, "Not enough disk space for home %s", h->user_name);
         case -EKEYREVOKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_CANT_AUTHENTICATE, "Home %s has no password or other authentication mechanism defined.", h->user_name);
+        case -EADDRINUSE:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_IN_USE, "Home %s is currently being used elsewhere.", h->user_name);
         }
 
         return 0;
@@ -569,6 +731,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         /* Reset the state to "invalid", which makes home_get_state() test if the image exists and returns
          * HOME_ABSENT vs. HOME_INACTIVE as necessary. */
         home_set_state(h, _HOME_STATE_INVALID);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         return;
 
 fail:
@@ -623,6 +786,9 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
@@ -645,6 +811,9 @@ static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
 finish:
         h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        if (r >= 0)
+                (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
@@ -683,6 +852,8 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
 
         /* Unload this record from memory too now. */
         h = home_free(h);
+
+        (void) manager_schedule_rebalance(m, /* immediately= */ true);
         return;
 
 fail:
@@ -727,6 +898,8 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
         h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, _HOME_STATE_INVALID);
+
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
 }
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
@@ -760,6 +933,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         log_debug("Change operation of %s completed.", h->user_name);
+        (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         r = 0;
 
 finish:
@@ -954,7 +1128,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
                 break;
 
         default:
-                assert_not_reached("Unexpected state after worker exited");
+                assert_not_reached();
         }
 
         return 0;
@@ -1011,18 +1185,28 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         if (r < 0)
                 return r;
         if (r == 0) {
+                _cleanup_free_ char *joined = NULL;
                 const char *homework, *suffix, *unix_path;
 
                 /* Child */
 
                 suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-                if (suffix)
-                        unix_path = strjoina("/run/systemd/home/notify.", suffix);
-                else
+                if (suffix) {
+                        joined = strjoin("/run/systemd/home/notify.", suffix);
+                        if (!joined)
+                                return log_oom();
+                        unix_path = joined;
+                } else
                         unix_path = "/run/systemd/home/notify";
 
                 if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* If we haven't locked the device yet, ask for a lock to be taken and be passed back to us via sd_notify(). */
+                if (setenv("SYSTEMD_LUKS_LOCK", one_zero(h->luks_lock_fd < 0), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_LUKS_LOCK: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -1042,13 +1226,12 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
-                r = rearrange_stdio(stdin_fd, stdout_fd, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(stdin_fd), TAKE_FD(stdout_fd), STDERR_FILENO); /* fds are invalidated by rearrange_stdio() even on failure */
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                stdin_fd = stdout_fd = -1; /* have been invalidated by rearrange_stdio() */
 
                 /* Allow overriding the homework path via an environment variable, to make debugging
                  * easier. */
@@ -1094,15 +1277,15 @@ static int home_ratelimit(Home *h, sd_bus_error *error) {
         }
 
         if (ret == 0) {
-                char buf[FORMAT_TIMESPAN_MAX];
                 usec_t t, n;
 
                 n = now(CLOCK_REALTIME);
                 t = user_record_ratelimit_next_try(h->record);
 
                 if (t != USEC_INFINITY && t > n)
-                        return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again in %s!",
-                                                 format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC));
+                        return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT,
+                                                 "Too many login attempts, please try again in %s!",
+                                                 FORMAT_TIMESPAN(t - n, USEC_PER_SEC));
 
                 return sd_bus_error_set(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again later.");
         }
@@ -1146,6 +1329,7 @@ int home_fixate(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ALREADY_FIXATED, "Home %s is already fixated.", h->user_name);
         case HOME_UNFIXATED:
@@ -1187,6 +1371,11 @@ int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
         case HOME_ACTIVE:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ALREADY_ACTIVE, "Home %s is already active.", h->user_name);
+        case HOME_LINGERING:
+                /* If we are lingering, i.e. active but are supposed to be deactivated, then cancel this
+                 * timer if the user explicitly asks us to be active */
+                h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+                return 0;
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
@@ -1233,6 +1422,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1242,7 +1432,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        return home_authenticate_internal(h, secret, state == HOME_ACTIVE ? HOME_AUTHENTICATING_WHILE_ACTIVE : HOME_AUTHENTICATING, error);
+        return home_authenticate_internal(h, secret, HOME_STATE_IS_ACTIVE(state) ? HOME_AUTHENTICATING_WHILE_ACTIVE : HOME_AUTHENTICATING, error);
 }
 
 static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
@@ -1250,12 +1440,22 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
 
         assert(h);
 
+        home_unpin(h); /* unpin so that we can deactivate */
+
         r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL);
         if (r < 0)
-                return r;
+                /* Operation failed before it even started, reacquire pin fd, if state still dictates so */
+                home_update_pin_fd(h, _HOME_STATE_INVALID);
+        else {
+                home_set_state(h, HOME_DEACTIVATING);
+                r = 0;
+        }
 
-        home_set_state(h, HOME_DEACTIVATING);
-        return 0;
+        /* Let's start a timer to retry deactivation in 15. We'll stop the timer once we manage to deactivate
+         * the home directory again, or we we start any other operation. */
+        home_start_retry_deactivate(h);
+
+        return r;
 }
 
 int home_deactivate(Home *h, bool force, sd_bus_error *error) {
@@ -1270,6 +1470,7 @@ int home_deactivate(Home *h, bool force, sd_bus_error *error) {
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1306,6 +1507,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_ABSENT:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_LOCKED:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
@@ -1344,6 +1546,7 @@ int home_remove(Home *h, sd_bus_error *error) {
         case HOME_DIRTY:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
@@ -1408,7 +1611,7 @@ static int home_update_internal(
                 return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_DOWNGRADE, "Refusing to update to older home record.");
 
         if (!secret && FLAGS_SET(hr->mask, USER_RECORD_SECRET)) {
-                r = user_record_clone(hr, USER_RECORD_EXTRACT_SECRET, &saved_secret);
+                r = user_record_clone(hr, USER_RECORD_EXTRACT_SECRET|USER_RECORD_PERMISSIVE, &saved_secret);
                 if (r < 0)
                         return r;
 
@@ -1443,7 +1646,7 @@ static int home_update_internal(
                 return r;
         }
 
-        r = user_record_extend_with_binding(hr, h->record, USER_RECORD_LOAD_MASK_SECRET, &new_hr);
+        r = user_record_extend_with_binding(hr, h->record, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &new_hr);
         if (r < 0)
                 return r;
 
@@ -1482,6 +1685,7 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1495,11 +1699,16 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_UPDATING_WHILE_ACTIVE : HOME_UPDATING);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_UPDATING_WHILE_ACTIVE : HOME_UPDATING);
         return 0;
 }
 
-int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error) {
+int home_resize(Home *h,
+                uint64_t disk_size,
+                UserRecord *secret,
+                bool automatic,
+                sd_bus_error *error) {
+
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
         HomeState state;
         int r;
@@ -1517,6 +1726,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1525,6 +1735,12 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
         r = home_ratelimit(h, error);
         if (r < 0)
                 return r;
+
+        /* If the user didn't specify any size explicitly and rebalancing is on, then the disk size is
+         * determined by automatic rebalancing and hence not user configured but determined by us and thus
+         * applied anyway. */
+        if (disk_size == UINT64_MAX && h->record->rebalance_weight != REBALANCE_WEIGHT_OFF)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Disk size is being determined by automatic disk space rebalancing.");
 
         if (disk_size == UINT64_MAX || disk_size == h->record->disk_size) {
                 if (h->record->disk_size == UINT64_MAX)
@@ -1537,13 +1753,18 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
                 if (h->signed_locally <= 0) /* Don't allow changing of records not signed only by us */
                         return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_SIGNED, "Home %s is signed and cannot be modified locally.", h->user_name);
 
-                r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET, &c);
+                r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
                 if (r < 0)
                         return r;
 
                 r = user_record_set_disk_size(c, disk_size);
                 if (r == -ERANGE)
                         return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "Requested size for home %s out of acceptable range.", h->user_name);
+                if (r < 0)
+                        return r;
+
+                /* If user picked an explicit size, then turn off rebalancing, so that we don't undo what user chose */
+                r = user_record_set_rebalance_weight(c, REBALANCE_WEIGHT_OFF);
                 if (r < 0)
                         return r;
 
@@ -1561,11 +1782,11 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, "resize", c, secret, error);
+        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, error);
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_RESIZING_WHILE_ACTIVE : HOME_RESIZING);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_RESIZING_WHILE_ACTIVE : HOME_RESIZING);
         return 0;
 }
 
@@ -1613,6 +1834,7 @@ int home_passwd(Home *h,
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1626,7 +1848,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET, &c);
+        r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
         if (r < 0)
                 return r;
 
@@ -1678,7 +1900,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_PASSWD_WHILE_ACTIVE : HOME_PASSWD);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_PASSWD_WHILE_ACTIVE : HOME_PASSWD);
         return 0;
 }
 
@@ -1697,6 +1919,7 @@ int home_unregister(Home *h, sd_bus_error *error) {
         case HOME_DIRTY:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
@@ -1724,6 +1947,7 @@ int home_lock(Home *h, sd_bus_error *error) {
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is already locked.", h->user_name);
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1764,6 +1988,7 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_ABSENT:
         case HOME_INACTIVE:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_DIRTY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_LOCKED, "Home %s is not locked.", h->user_name);
         case HOME_LOCKED:
@@ -1786,7 +2011,7 @@ HomeState home_get_state(Home *h) {
         /* Otherwise, let's see if the home directory is mounted. If so, we assume for sure the home
          * directory is active */
         if (user_record_test_home_directory(h->record) == USER_TEST_MOUNTED)
-                return HOME_ACTIVE;
+                return h->retry_deactivate_event_source ? HOME_LINGERING : HOME_ACTIVE;
 
         /* And if we see the image being gone, we report this as absent */
         r = user_record_test_image_path(h->record);
@@ -1799,28 +2024,49 @@ HomeState home_get_state(Home *h) {
         return HOME_INACTIVE;
 }
 
-void home_process_notify(Home *h, char **l) {
+void home_process_notify(Home *h, char **l, int fd) {
+        _cleanup_close_ int taken_fd = TAKE_FD(fd);
         const char *e;
         int error;
         int r;
 
         assert(h);
 
-        e = strv_env_get(l, "ERRNO");
-        if (!e) {
-                log_debug("Got notify message lacking ERRNO= field, ignoring.");
+        e = strv_env_get(l, "SYSTEMD_LUKS_LOCK_FD");
+        if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
+                if (r > 0) {
+                        if (taken_fd < 0)
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+
+                        safe_close(h->luks_lock_fd);
+                        h->luks_lock_fd = TAKE_FD(taken_fd);
+
+                        log_debug("Successfully acquired LUKS lock fd from worker.");
+
+                        /* Immediately check if we actually want to keep it */
+                        home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
+                } else {
+                        if (taken_fd >= 0)
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+
+                        h->luks_lock_fd = safe_close(h->luks_lock_fd);
+                }
+
                 return;
         }
 
+        e = strv_env_get(l, "ERRNO");
+        if (!e)
+                return (void) log_debug("Got notify message lacking both ERRNO= and SYSTEMD_LUKS_LOCK_FD= field, ignoring.");
+
         r = safe_atoi(e, &error);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
-                return;
-        }
-        if (error <= 0) {
-                log_debug("Error number is out of range: %i", error);
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
+        if (error <= 0)
+                return (void) log_debug("Error number is out of range: %i", error);
 
         h->worker_error_code = error;
 }
@@ -1899,29 +2145,27 @@ static int home_get_disk_status_luks(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX,
                 stat_used = UINT64_MAX, fs_size = UINT64_MAX, header_size = 0;
-
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
+        struct stat st;
         const char *hd;
         int r;
 
         assert(h);
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
 
         if (state != HOME_ABSENT) {
                 const char *ip;
 
                 ip = user_record_image_path(h->record);
                 if (ip) {
-                        struct stat st;
-
                         if (stat(ip, &st) < 0)
                                 log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", ip);
                         else if (S_ISREG(st.st_mode)) {
@@ -1969,10 +2213,25 @@ static int home_get_disk_status_luks(
         if (!hd)
                 goto finish;
 
+        if (stat(hd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", hd);
+                goto finish;
+        }
+
+        r = stat_verify_directory(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Home directory %s is not a directory, ignoring: %m", hd);
+                goto finish;
+        }
+
+        access_mode = st.st_mode & 07777;
+
         if (statfs(hd, &sfs) < 0) {
                 log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", hd);
                 goto finish;
         }
+
+        fstype = sfs.f_type;
 
         disk_free = sfs.f_bsize * sfs.f_bavail;
         fs_size = sfs.f_bsize * sfs.f_blocks;
@@ -2003,11 +2262,20 @@ finish:
         if (disk_floor == UINT64_MAX)
                 disk_floor = minimal_size_by_fs_name(user_record_file_system_type(h->record));
 
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
 }
@@ -2019,20 +2287,20 @@ static int home_get_disk_status_directory(
                 uint64_t *ret_disk_usage,
                 uint64_t *ret_disk_free,
                 uint64_t *ret_disk_ceiling,
-                uint64_t *ret_disk_floor) {
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
+        mode_t access_mode = MODE_INVALID;
+        statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
         const char *path = NULL;
         int r;
 
-        assert(ret_disk_size);
-        assert(ret_disk_usage);
-        assert(ret_disk_free);
-        assert(ret_disk_ceiling);
-        assert(ret_disk_floor);
+        assert(h);
 
         if (HOME_STATE_IS_ACTIVE(state))
                 path = user_record_home_directory(h->record);
@@ -2055,6 +2323,8 @@ static int home_get_disk_status_directory(
 
                 /* We don't initialize disk_usage from statfs() data here, since the device is likely not used
                  * by us alone, and disk_usage should only reflect our own use. */
+
+                fstype = sfs.f_type;
         }
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME)) {
@@ -2143,13 +2413,94 @@ static int home_get_disk_status_directory(
         }
 
 finish:
-        *ret_disk_size = disk_size;
-        *ret_disk_usage = disk_usage;
-        *ret_disk_free = disk_free;
-        *ret_disk_ceiling = disk_ceiling;
-        *ret_disk_floor = disk_floor;
+        if (ret_disk_size)
+                *ret_disk_size = disk_size;
+        if (ret_disk_usage)
+                *ret_disk_usage = disk_usage;
+        if (ret_disk_free)
+                *ret_disk_free = disk_free;
+        if (ret_disk_ceiling)
+                *ret_disk_ceiling = disk_ceiling;
+        if (ret_disk_floor)
+                *ret_disk_floor = disk_floor;
+        if (ret_fstype)
+                *ret_fstype = fstype;
+        if (ret_access_mode)
+                *ret_access_mode = access_mode;
 
         return 0;
+}
+
+static int home_get_disk_status_internal(
+                Home *h,
+                HomeState state,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
+
+        assert(h);
+        assert(h->record);
+
+        switch (h->record->storage) {
+
+        case USER_LUKS:
+                return home_get_disk_status_luks(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
+
+        case USER_CLASSIC:
+        case USER_DIRECTORY:
+        case USER_SUBVOLUME:
+        case USER_FSCRYPT:
+        case USER_CIFS:
+                return home_get_disk_status_directory(h, state, ret_disk_size, ret_disk_usage, ret_disk_free, ret_disk_ceiling, ret_disk_floor, ret_fstype, ret_access_mode);
+
+        default:
+                /* don't know */
+
+                if (ret_disk_size)
+                        *ret_disk_size = UINT64_MAX;
+                if (ret_disk_usage)
+                        *ret_disk_usage = UINT64_MAX;
+                if (ret_disk_free)
+                        *ret_disk_free = UINT64_MAX;
+                if (ret_disk_ceiling)
+                        *ret_disk_ceiling = UINT64_MAX;
+                if (ret_disk_floor)
+                        *ret_disk_floor = UINT64_MAX;
+                if (ret_fstype)
+                        *ret_fstype = 0;
+                if (ret_access_mode)
+                        *ret_access_mode = MODE_INVALID;
+
+                return 0;
+        }
+}
+
+int home_get_disk_status(
+                Home *h,
+                uint64_t *ret_disk_size,
+                uint64_t *ret_disk_usage,
+                uint64_t *ret_disk_free,
+                uint64_t *ret_disk_ceiling,
+                uint64_t *ret_disk_floor,
+                statfs_f_type_t *ret_fstype,
+                mode_t *ret_access_mode) {
+
+        assert(h);
+
+        return home_get_disk_status_internal(
+                        h,
+                        home_get_state(h),
+                        ret_disk_size,
+                        ret_disk_usage,
+                        ret_disk_free,
+                        ret_disk_ceiling,
+                        ret_disk_floor,
+                        ret_fstype,
+                        ret_access_mode);
 }
 
 int home_augment_status(
@@ -2160,7 +2511,9 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        char ids[SD_ID128_STRING_MAX];
+        statfs_f_type_t magic;
+        const char *fstype;
+        mode_t access_mode;
         HomeState state;
         sd_id128_t id;
         int r;
@@ -2177,29 +2530,19 @@ int home_augment_status(
 
         state = home_get_state(h);
 
-        switch (h->record->storage) {
+        r = home_get_disk_status_internal(
+                        h, state,
+                        &disk_size,
+                        &disk_usage,
+                        &disk_free,
+                        &disk_ceiling,
+                        &disk_floor,
+                        &magic,
+                        &access_mode);
+        if (r < 0)
+                return r;
 
-        case USER_LUKS:
-                r = home_get_disk_status_luks(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case USER_CLASSIC:
-        case USER_DIRECTORY:
-        case USER_SUBVOLUME:
-        case USER_FSCRYPT:
-        case USER_CIFS:
-                r = home_get_disk_status_directory(h, state, &disk_size, &disk_usage, &disk_free, &disk_ceiling, &disk_floor);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        default:
-                ; /* unset */
-        }
+        fstype = fs_type_to_string(magic);
 
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
@@ -2211,20 +2554,22 @@ int home_augment_status(
         r = json_build(&status,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Home")),
+                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
                                        JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
                                        JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
                                        JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", JSON_BUILD_UNSIGNED(disk_ceiling)),
                                        JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", JSON_BUILD_UNSIGNED(disk_floor)),
-                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally))
+                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally)),
+                                       JSON_BUILD_PAIR_CONDITION(fstype, "fileSystemType", JSON_BUILD_STRING(fstype)),
+                                       JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", JSON_BUILD_UNSIGNED(access_mode))
                        ));
         if (r < 0)
                 return r;
 
         j = json_variant_ref(h->record->json);
         v = json_variant_ref(json_variant_by_key(j, "status"));
-        m = json_variant_ref(json_variant_by_key(v, sd_id128_to_string(id, ids)));
+        m = json_variant_ref(json_variant_by_key(v, SD_ID128_TO_STRING(id)));
 
         r = json_variant_filter(&m, STRV_MAKE("diskSize", "diskUsage", "diskFree", "diskCeiling", "diskFloor", "signedLocally"));
         if (r < 0)
@@ -2234,7 +2579,7 @@ int home_augment_status(
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, ids, m);
+        r = json_variant_set_field(&v, SD_ID128_TO_STRING(id), m);
         if (r < 0)
                 return r;
 
@@ -2370,6 +2715,7 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 for_state = HOME_AUTHENTICATING_FOR_ACQUIRE;
                 call = home_authenticate_internal;
                 break;
@@ -2424,6 +2770,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
                         break;
 
                 case HOME_ACTIVE:
+                case HOME_LINGERING:
                         r = home_deactivate_internal(h, false, &error);
                         break;
 
@@ -2468,6 +2815,7 @@ static int home_dispatch_lock_all(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 log_info("Locking home %s.", h->user_name);
                 r = home_lock(h, &error);
                 break;
@@ -2512,6 +2860,7 @@ static int home_dispatch_deactivate_all(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 log_info("Deactivating home %s.", h->user_name);
                 r = home_deactivate_internal(h, false, &error);
                 break;
@@ -2557,6 +2906,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 r = home_deactivate_internal(h, false, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
@@ -2598,6 +2948,7 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
 
         case HOME_ACTIVE:
         case HOME_LOCKED:
+        case HOME_LINGERING:
                 r = home_deactivate_internal(h, true, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to forcibly deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
@@ -2650,6 +3001,8 @@ static int on_pending(sd_event_source *s, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to disable event source: %m");
 
+        /* No operations pending anymore, maybe this is a good time to trigger a rebalancing */
+        manager_reschedule_rebalance(h->manager);
         return 0;
 }
 
@@ -2806,6 +3159,35 @@ int home_wait_for_worker(Home *h) {
         return 1;
 }
 
+bool home_shall_rebalance(Home *h) {
+        HomeState state;
+
+        assert(h);
+
+        /* Determines if the home directory is a candidate for rebalancing */
+
+        if (!user_record_shall_rebalance(h->record))
+                return false;
+
+        state = home_get_state(h);
+        if (!HOME_STATE_SHALL_REBALANCE(state))
+                return false;
+
+        return true;
+}
+
+bool home_is_busy(Home *h) {
+        assert(h);
+
+        if (h->current_operation)
+                return true;
+
+        if (!ordered_set_isempty(h->pending_operations))
+                return true;
+
+        return HOME_STATE_IS_EXECUTING_OPERATION(home_get_state(h));
+}
+
 static const char* const home_state_table[_HOME_STATE_MAX] = {
         [HOME_UNFIXATED]                   = "unfixated",
         [HOME_ABSENT]                      = "absent",
@@ -2818,6 +3200,7 @@ static const char* const home_state_table[_HOME_STATE_MAX] = {
         [HOME_ACTIVATING_FOR_ACQUIRE]      = "activating-for-acquire",
         [HOME_DEACTIVATING]                = "deactivating",
         [HOME_ACTIVE]                      = "active",
+        [HOME_LINGERING]                   = "lingering",
         [HOME_LOCKING]                     = "locking",
         [HOME_LOCKED]                      = "locked",
         [HOME_UNLOCKING]                   = "unlocking",

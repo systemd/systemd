@@ -3,6 +3,8 @@
 
 option('version-tag', type : 'string',
        description : 'override the git version string')
+option('shared-lib-tag', type : 'string',
+       description : 'override the private shared library version tag (defaults to project version)')
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
@@ -23,6 +25,9 @@ option('link-networkd-shared', type: 'boolean',
        description : 'link systemd-networkd and its helpers to libsystemd-shared.so')
 option('link-timesyncd-shared', type: 'boolean',
        description : 'link systemd-timesyncd and its helpers to libsystemd-shared.so')
+option('link-boot-shared', type: 'boolean',
+       description : 'link bootctl and systemd-bless-boot against libsystemd-shared.so')
+
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : '''install a static library for libsystemd''')
@@ -174,6 +179,8 @@ option('dbussessionservicedir', type : 'string',
        description : 'D-Bus session service directory')
 option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
+option('dbus-interfaces-dir', type : 'string',
+       description : 'export D-Bus introspection XML as standalone files')
 option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
 option('pkgconfiglibdir', type : 'string', value : '',
@@ -182,10 +189,14 @@ option('xinitrcdir', type : 'string', value : '',
        description : 'directory for xinitrc files')
 option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
        description : 'directory for rpm macros ["no" disables]')
+option('update-helper-user-timeout', type : 'string', value : '15s',
+       description : 'how long to wait for user manager operations')
 option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('libcryptsetup-plugins-dir', type : 'string',
+       description : 'directory for libcryptsetup plugins')
 option('docdir', type : 'string',
        description : 'documentation directory')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
@@ -196,14 +207,18 @@ option('fallback-hostname', type : 'string', value : 'localhost',
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
-option('default-net-naming-scheme', type : 'combo',
-       choices : ['latest', 'v238', 'v239', 'v240'],
+option('extra-net-naming-schemes', type : 'string',
+       description : 'comma-separated list of extra net.naming-scheme= definitions')
+option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
-       choices : ['description', 'name'],
+       choices : ['description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
+option('clock-valid-range-usec-max', type : 'integer', value : '473364000000000', # 15 years
+       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
+
 option('system-alloc-uid-min', type : 'integer', value : '-1',
        description : 'minimum system UID used when allocating')
 option('system-alloc-gid-min', type : 'integer', value : '-1',
@@ -220,10 +235,6 @@ option('container-uid-base-min', type : 'integer', value : 0x00080000,
        description : 'minimum container UID base')
 option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
        description : 'maximum container UID base')
-option('tty-gid', type : 'integer', value : 5,
-       description : 'the numeric GID of the "tty" group')
-option('users-gid', type : 'integer', value : '-1',
-       description : 'the numeric GID of the "users" group')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
 option('wheel-group', type : 'boolean',
@@ -234,6 +245,49 @@ option('nobody-user', type : 'string',
 option('nobody-group', type : 'string',
        description : 'The name of the nobody group (the one with GID 65534)',
        value : 'nobody')
+option('adm-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "adm" group')
+option('audio-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "audio" group')
+option('cdrom-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "cdrom" group')
+option('dialout-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "dialout" group')
+option('disk-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "disk" group')
+option('input-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "input" group')
+option('kmem-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "kmem" group')
+option('kvm-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "kvm" group')
+option('lp-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "lp" group')
+option('render-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "render" group')
+option('sgx-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "sgx" group')
+option('tape-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "tape" group')
+option('tty-gid', type : 'integer', value : 5,
+       description : 'the numeric GID of the "tty" group')
+option('users-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "users" group')
+option('utmp-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "utmp" group')
+option('video-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "video" group')
+option('wheel-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "wheel" group')
+option('systemd-journal-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-journal group')
+option('systemd-network-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-network user')
+option('systemd-resolve-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-resolve user')
+option('systemd-timesync-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-timesync user')
+
 option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
 option('group-render-mode', type : 'string', value : '0666',
@@ -313,6 +367,8 @@ option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libµhttpd support')
 option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup support')
+option('libcryptsetup-plugins', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcurl support')
 option('idn', type : 'boolean',
@@ -331,6 +387,8 @@ option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnutls support')
 option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'openssl support')
+option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
+       description : 'whether to use openssl or gcrypt where both are supported')
 option('p11kit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'p11kit support')
 option('libfido2', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -360,16 +418,34 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnu-efi support for sd-boot')
-option('efi-cc', type : 'array',
-       description : 'the compiler to use for EFI modules')
-option('efi-ld', type : 'string', value : 'ld',
+# Note that LLD does not support PE/COFF relocations
+# https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
+option('efi-ld', type : 'combo', choices : ['auto', 'bfd', 'gold'],
        description : 'the linker to use for EFI modules')
 option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('tpm-pcrindex', type : 'integer', value : 8,
-       description : 'TPM PCR register number to use')
+option('sbat-distro', type : 'string', value : 'auto',
+       description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
+option('sbat-distro-generation', type : 'integer', value : 1,
+       description : 'SBAT distribution generation')
+option('sbat-distro-summary', type : 'string',
+       description : 'SBAT distribution summary, e.g. Fedora')
+option('sbat-distro-pkgname', type : 'string',
+       description : 'SBAT distribution package name, e.g. systemd')
+option('sbat-distro-version', type : 'string',
+       description : 'SBAT distribution package version, e.g. 248-7.fc34')
+option('sbat-distro-url', type : 'string',
+       description : 'SBAT distribution URL, e.g. https://src.fedoraproject.org/rpms/systemd')
+option('efi-color-normal', type : 'string', value : 'lightgray,black',
+       description : 'general boot loader color in "foreground,background" form, see constants from eficon.h')
+option('efi-color-entry', type : 'string', value : 'lightgray,black',
+       description : 'boot loader color for entries')
+option('efi-color-highlight', type : 'string', value : 'black,lightgray',
+       description : 'boot loader color for selected entries')
+option('efi-color-edit', type : 'string', value : 'black,lightgray',
+       description : 'boot loader color for option line edit')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
@@ -381,7 +457,7 @@ option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
 option('slow-tests', type : 'boolean', value : 'false',
        description : 'run the slow tests by default')
 option('fuzz-tests', type : 'boolean', value : 'false',
-       description : 'run the fuzzer regression tests by default')
+       description : 'run the fuzzer regression tests by default (with sanitizers)')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
 
@@ -392,6 +468,8 @@ option('ok-color', type : 'combo',
                   'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
+option('urlify', type : 'boolean', value : 'true',
+       description : 'enable pager Hyperlink ANSI sequence support')
 option('fexecve', type : 'boolean', value : 'false',
        description : 'use fexecve() to spawn children')
 

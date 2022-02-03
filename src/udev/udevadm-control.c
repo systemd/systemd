@@ -48,7 +48,7 @@ static int help(void) {
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
@@ -86,6 +86,11 @@ int control_main(int argc, char *argv[], void *userdata) {
         r = udev_ctrl_new(&uctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
+
+        /* See comments in on_post() in udevd.c. */
+        r = udev_ctrl_send_pid(uctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send pid of this process: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -171,7 +176,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option.");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

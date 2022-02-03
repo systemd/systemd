@@ -47,8 +47,8 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
         if (cname->key->type == DNS_TYPE_CNAME)
                 return dns_resource_key_new(key->class, key->type, cname->cname.name);
         else {
+                _cleanup_free_ char *destination = NULL;
                 DnsResourceKey *k;
-                char *destination = NULL;
 
                 r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
                 if (r < 0)
@@ -58,8 +58,9 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
 
                 k = dns_resource_key_new_consume(key->class, key->type, destination);
                 if (!k)
-                        return mfree(destination);
+                        return NULL;
 
+                TAKE_PTR(destination);
                 return k;
         }
 }
@@ -322,10 +323,10 @@ char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t bu
         c = dns_class_to_string(key->class);
         t = dns_type_to_string(key->type);
 
-        snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
-                 dns_resource_key_name(key),
-                 strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
-                 strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
+        (void) snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
+                        dns_resource_key_name(key),
+                        strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
+                        strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
 
         return ans;
 }
@@ -381,8 +382,8 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
                 .n_ref = 1,
                 .key = dns_resource_key_ref(key),
                 .expiry = USEC_INFINITY,
-                .n_skip_labels_signer = UINT_MAX,
-                .n_skip_labels_source = UINT_MAX,
+                .n_skip_labels_signer = UINT8_MAX,
+                .n_skip_labels_source = UINT8_MAX,
         };
 
         return rr;
@@ -795,14 +796,12 @@ static char *format_txt(DnsTxtItem *first) {
                 return NULL;
 
         LIST_FOREACH(items, i, first) {
-                size_t j;
-
                 if (i != first)
                         *(p++) = ' ';
 
                 *(p++) = '"';
 
-                for (j = 0; j < i->length; j++) {
+                for (size_t j = 0; j < i->length; j++) {
                         if (i->data[j] < ' ' || i->data[j] == '"' || i->data[j] >= 127) {
                                 *(p++) = '\\';
                                 *(p++) = '0' + (i->data[j] / 100);
@@ -1258,7 +1257,7 @@ int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's signer, if it is known. */
 
-        if (rr->n_skip_labels_signer == UINT_MAX)
+        if (rr->n_skip_labels_signer == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1281,7 +1280,7 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's synthesizing source, if it is known. */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1315,7 +1314,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
 
         /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         if (rr->n_skip_labels_source == 0)
@@ -1615,9 +1614,11 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 copy->nsec.next_domain_name = strdup(rr->nsec.next_domain_name);
                 if (!copy->nsec.next_domain_name)
                         return NULL;
-                copy->nsec.types = bitmap_copy(rr->nsec.types);
-                if (!copy->nsec.types)
-                        return NULL;
+                if (rr->nsec.types) {
+                        copy->nsec.types = bitmap_copy(rr->nsec.types);
+                        if (!copy->nsec.types)
+                                return NULL;
+                }
                 break;
 
         case DNS_TYPE_DS:
@@ -1642,9 +1643,11 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 if (!copy->nsec3.next_hashed_name)
                         return NULL;
                 copy->nsec3.next_hashed_name_size = rr->nsec3.next_hashed_name_size;
-                copy->nsec3.types = bitmap_copy(rr->nsec3.types);
-                if (!copy->nsec3.types)
-                        return NULL;
+                if (rr->nsec3.types) {
+                        copy->nsec3.types = bitmap_copy(rr->nsec3.types);
+                        if (!copy->nsec3.types)
+                                return NULL;
+                }
                 break;
 
         case DNS_TYPE_TLSA:
@@ -1868,9 +1871,9 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
-        [DNSSEC_DIGEST_SHA1] = "SHA-1",
-        [DNSSEC_DIGEST_SHA256] = "SHA-256",
+        [DNSSEC_DIGEST_SHA1]            = "SHA-1",
+        [DNSSEC_DIGEST_SHA256]          = "SHA-256",
         [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
-        [DNSSEC_DIGEST_SHA384] = "SHA-384",
+        [DNSSEC_DIGEST_SHA384]          = "SHA-384",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);

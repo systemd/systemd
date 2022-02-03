@@ -14,14 +14,12 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-static int test_add_acls_for_user(void) {
+TEST_RET(add_acls_for_user) {
         char fn[] = "/tmp/test-empty.XXXXXX";
         _cleanup_close_ int fd = -1;
         char *cmd;
         uid_t uid;
         int r;
-
-        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -71,6 +69,4 @@ static int test_add_acls_for_user(void) {
         return 0;
 }
 
-int main(int argc, char **argv) {
-        return test_add_acls_for_user();
-}
+DEFINE_TEST_MAIN(LOG_INFO);

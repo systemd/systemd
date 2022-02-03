@@ -77,7 +77,7 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
 }
 
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret) {
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
         TrafficControl *existing;
         QDisc *q = NULL;
@@ -88,7 +88,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         assert(filename);
         assert(section_line > 0);
 
-        r = network_config_section_new(filename, section_line, &n);
+        r = config_section_new(filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -126,7 +126,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         qdisc->network = network;
         qdisc->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_put(&network->tc_by_section, &network_config_hash_ops, qdisc->section, TC(qdisc));
+        r = ordered_hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, qdisc->section, TC(qdisc));
         if (r < 0)
                 return r;
 
@@ -141,7 +141,7 @@ QDisc* qdisc_free(QDisc *qdisc) {
         if (qdisc->network && qdisc->section)
                 ordered_hashmap_remove(qdisc->network->tc_by_section, qdisc->section);
 
-        network_config_section_free(qdisc->section);
+        config_section_free(qdisc->section);
 
         free(qdisc->tca_kind);
         return mfree(qdisc);
@@ -184,16 +184,16 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
 
         r = sd_rtnl_message_new_qdisc(link->manager->rtnl, &req, RTM_NEWQDISC, qdisc->family, link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
+                return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
 
         r = sd_rtnl_message_set_qdisc_parent(req, qdisc->parent);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create tcm_parent message: %m");
+                return r;
 
         if (qdisc->handle != TC_H_UNSPEC) {
                 r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
+                        return r;
         }
 
         if (QDISC_VTABLE(qdisc)) {
@@ -204,7 +204,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                 } else {
                         r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                                return r;
                 }
 
                 if (QDISC_VTABLE(qdisc)->fill_message) {
@@ -215,12 +215,12 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         } else {
                 r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                        return r;
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
         link->tc_messages++;

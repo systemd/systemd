@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include "cryptsetup-util.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "time-util.h"
 
@@ -22,8 +23,11 @@ int acquire_fido2_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
+                bool headless,
+                Fido2EnrollFlags required,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size);
+                size_t *ret_decrypted_key_size,
+                AskPasswordFlags ask_password_flags);
 
 int find_fido2_auto_data(
                 struct crypt_device *cd,
@@ -32,7 +36,8 @@ int find_fido2_auto_data(
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
-                int *ret_keyslot);
+                int *ret_keyslot,
+                Fido2EnrollFlags *ret_required);
 
 #else
 
@@ -49,8 +54,11 @@ static inline int acquire_fido2_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
+                bool headless,
+                Fido2EnrollFlags required,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size) {
+                size_t *ret_decrypted_key_size,
+                AskPasswordFlags ask_password_flags) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 token support not available.");
@@ -63,7 +71,8 @@ static inline int find_fido2_auto_data(
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
-                int *ret_keyslot) {
+                int *ret_keyslot,
+                Fido2EnrollFlags *ret_required) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 token support not available.");

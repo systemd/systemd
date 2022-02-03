@@ -21,12 +21,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "inotify-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
@@ -37,6 +37,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -73,10 +74,7 @@ int chvt(int vt) {
                 vt = tiocl[0] <= 0 ? 1 : tiocl[0];
         }
 
-        if (ioctl(fd, VT_ACTIVATE, vt) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, VT_ACTIVATE, vt));
 }
 
 int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
@@ -240,22 +238,27 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        /* We leave locked terminal attributes untouched, so that
-         * Plymouth may set whatever it wants to set, and we don't
-         * interfere with that. */
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        (void) ioctl(fd, TIOCNXCL);
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
 
         /* Switch to text mode */
         if (switch_to_text)
-                (void) ioctl(fd, KDSETMODE, KD_TEXT);
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
 
         /* Set default keyboard mode */
         (void) vt_reset_keyboard(fd);
 
         if (tcgetattr(fd, &termios) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
                 goto finish;
         }
 
@@ -311,14 +314,13 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
+        _cleanup_close_ int fd = -1;
         unsigned c = 0;
-        int fd;
 
         /*
-         * If a TTY is in the process of being closed opening it might
-         * cause EIO. This is horribly awful, but unlikely to be
-         * changed in the kernel. Hence we work around this problem by
-         * retrying a couple of times.
+         * If a TTY is in the process of being closed opening it might cause EIO. This is horribly awful, but
+         * unlikely to be changed in the kernel. Hence we work around this problem by retrying a couple of
+         * times.
          *
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
@@ -338,16 +340,14 @@ int open_terminal(const char *name, int mode) {
                 if (c >= 20)
                         return -errno;
 
-                usleep(50 * USEC_PER_MSEC);
+                (void) usleep(50 * USEC_PER_MSEC);
                 c++;
         }
 
-        if (isatty(fd) <= 0) {
-                safe_close(fd);
-                return -ENOTTY;
-        }
+        if (isatty(fd) < 1)
+                return negative_errno();
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 int acquire_terminal(
@@ -406,8 +406,7 @@ int acquire_terminal(
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                r = ioctl(fd, TIOCSCTTY,
-                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
+                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE));
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
@@ -454,7 +453,7 @@ int acquire_terminal(
 
                         l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
-                                if (IN_SET(errno, EINTR, EAGAIN))
+                                if (ERRNO_IS_TRANSIENT(errno))
                                         continue;
 
                                 return -errno;
@@ -497,7 +496,7 @@ int release_terminal(void) {
          * by our own TIOCNOTTY */
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
-        r = ioctl(fd, TIOCNOTTY) < 0 ? -errno : 0;
+        r = RET_NERRNO(ioctl(fd, TIOCNOTTY));
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
@@ -506,11 +505,7 @@ int release_terminal(void) {
 
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, TIOCVHANGUP) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
 int terminal_vhangup(const char *name) {
@@ -854,6 +849,39 @@ unsigned lines(void) {
         return cached_lines;
 }
 
+int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols) {
+        struct winsize ws;
+
+        if (rows == UINT_MAX && cols == UINT_MAX)
+                return 0;
+
+        if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
+                return log_debug_errno(errno,
+                                       "TIOCGWINSZ ioctl for getting %s size failed, not setting terminal size: %m",
+                                       ident ?: "TTY");
+
+        if (rows == UINT_MAX)
+                rows = ws.ws_row;
+        else if (rows > USHRT_MAX)
+                rows = USHRT_MAX;
+
+        if (cols == UINT_MAX)
+                cols = ws.ws_col;
+        else if (cols > USHRT_MAX)
+                cols = USHRT_MAX;
+
+        if (rows == ws.ws_row && cols == ws.ws_col)
+                return 0;
+
+        ws.ws_row = rows;
+        ws.ws_col = cols;
+
+        if (ioctl(fd, TIOCSWINSZ, &ws) < 0)
+                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident ?: "TTY");
+
+        return 0;
+}
+
 /* intended to be used as a SIGWINCH sighandler */
 void columns_lines_cache_reset(int signum) {
         cached_columns = 0;
@@ -960,7 +988,9 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
-        _cleanup_free_ char *fn = NULL, *b = NULL;
+        char pty[STRLEN("/dev/pts/") + DECIMAL_STR_MAX(dev_t) + 1];
+        _cleanup_free_ char *buf = NULL;
+        const char *fn = NULL, *w;
         dev_t devnr;
         int r;
 
@@ -968,44 +998,53 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
         if (r < 0)
                 return r;
 
-        r = device_path_make_canonical(S_IFCHR, devnr, &fn);
+        r = device_path_make_canonical(S_IFCHR, devnr, &buf);
         if (r < 0) {
+                struct stat st;
+
                 if (r != -ENOENT) /* No symlink for this in /dev/char/? */
                         return r;
 
-                if (major(devnr) == 136) {
-                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
-                         * Linux device model. This means we have no nice way to match them up against their actual
-                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
-                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
-                         * this. */
+                /* Maybe this is PTY? PTY devices are not listed in /dev/char/, as they don't follow the
+                 * Linux device model and hence device_path_make_canonical() doesn't work for them. Let's
+                 * assume this is a PTY for a moment, and check if the device node this would then map to in
+                 * /dev/pts/ matches the one we are looking for. This way we don't have to hardcode the major
+                 * number (which is 136 btw), but we still rely on the fact that PTY numbers map directly to
+                 * the minor number of the pty. */
+                xsprintf(pty, "/dev/pts/%u", minor(devnr));
 
-                        if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
-                                return -ENOMEM;
-                } else {
-                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
-                         * something vaguely useful. */
+                if (stat(pty, &st) < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
 
-                        r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
+                } else if (S_ISCHR(st.st_mode) && devnr == st.st_rdev) /* Bingo! */
+                        fn = pty;
+
+                if (!fn) {
+                        /* Doesn't exist, or not a PTY? Probably something similar to the PTYs which have no
+                         * symlink in /dev/char/. Let's return something vaguely useful. */
+                        r = device_path_make_major_minor(S_IFCHR, devnr, &buf);
                         if (r < 0)
                                 return r;
+
+                        fn = buf;
                 }
-        }
+        } else
+                fn = buf;
 
-        if (!b) {
-                const char *w;
+        w = path_startswith(fn, "/dev/");
+        if (!w)
+                return -EINVAL;
 
-                w = path_startswith(fn, "/dev/");
-                if (w) {
-                        b = strdup(w);
-                        if (!b)
-                                return -ENOMEM;
-                } else
-                        b = TAKE_PTR(fn);
-        }
+        if (ret) {
+                _cleanup_free_ char *b = NULL;
 
-        if (ret)
+                b = strdup(w);
+                if (!b)
+                        return -ENOMEM;
+
                 *ret = TAKE_PTR(b);
+        }
 
         if (ret_devnr)
                 *ret_devnr = devnr;
@@ -1314,10 +1353,7 @@ int vt_reset_keyboard(int fd) {
         /* If we can't read the default, then default to unicode. It's 2017 after all. */
         kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
 
-        if (ioctl(fd, KDSKBMODE, kb) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
 }
 
 int vt_restore(int fd) {
@@ -1325,6 +1361,9 @@ int vt_restore(int fd) {
                 .mode = VT_AUTO,
         };
         int r, q = 0;
+
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
@@ -1358,6 +1397,9 @@ int vt_release(int fd, bool restore) {
         /* This function releases the VT by acknowledging the VT-switch signal
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
+
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;

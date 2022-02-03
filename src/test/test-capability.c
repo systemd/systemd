@@ -159,9 +159,15 @@ static void test_drop_privileges_fail(void) {
 }
 
 static void test_drop_privileges(void) {
+        fork_test(test_drop_privileges_fail);
+
+        if (have_effective_cap(CAP_NET_RAW) == 0) /* The remaining two tests only work if we have CAP_NET_RAW
+                                                   * in the first place. If we are run in some restricted
+                                                   * container environment we might not. */
+                return;
+
         fork_test(test_drop_privileges_keep_net_raw);
         fork_test(test_drop_privileges_dontkeep_net_raw);
-        fork_test(test_drop_privileges_fail);
 }
 
 static void test_have_effective_cap(void) {
@@ -188,7 +194,7 @@ static void test_update_inherited_set(void) {
 
         assert_se(!capability_update_inherited_set(caps, set));
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_SET);
+        assert_se(fv == CAP_SET);
 
         cap_free(caps);
 }
@@ -242,7 +248,7 @@ static void test_ensure_cap_64bit(void) {
 }
 
 int main(int argc, char *argv[]) {
-        bool run_ambient = false;  /* avoid false maybe-uninitialized warning */
+        bool run_ambient;
 
         test_setup_logging(LOG_INFO);
 

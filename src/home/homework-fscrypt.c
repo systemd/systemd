@@ -10,11 +10,13 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
+#include "homework-mount.h"
 #include "homework-quota.h"
 #include "memory-util.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "nulstr-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -278,11 +280,10 @@ static int fscrypt_setup(
         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to set up home directory with provided passwords.");
 }
 
-int home_prepare_fscrypt(
+int home_setup_fscrypt(
                 UserRecord *h,
-                bool already_activated,
-                PasswordCache *cache,
-                HomeSetup *setup) {
+                HomeSetup *setup,
+                const PasswordCache *cache) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct fscrypt_policy policy = {};
@@ -291,8 +292,9 @@ int home_prepare_fscrypt(
         int r;
 
         assert(h);
-        assert(setup);
         assert(user_record_storage(h) == USER_FSCRYPT);
+        assert(setup);
+        assert(setup->root_fd < 0);
 
         assert_se(ip = user_record_image_path(h));
 
@@ -361,6 +363,33 @@ int home_prepare_fscrypt(
                         _exit(EXIT_SUCCESS);
                 }
         }
+
+        /* We'll bind mount the image directory to a new mount point where we'll start adjusting it. Only
+         * once that's complete we'll move the thing to its final place eventually. */
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        setup->undo_mount = true;
+
+        /* Turn off any form of propagation for this */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        if (r < 0)
+                return r;
+
+        /* Adjust MS_SUID and similar flags */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        if (r < 0)
+                return r;
+
+        safe_close(setup->root_fd);
+        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
+                return log_error_errno(errno, "Failed to open home directory: %m");
 
         return 0;
 }
@@ -457,15 +486,16 @@ finish:
 
 int home_create_fscrypt(
                 UserRecord *h,
+                HomeSetup *setup,
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
         _cleanup_(rm_rf_physical_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_close_ int mount_fd = -1;
         struct fscrypt_policy policy = {};
         size_t volume_key_size = 512 / 8;
-        _cleanup_close_ int root_fd = -1;
         _cleanup_free_ char *d = NULL;
         uint32_t nr = 0;
         const char *ip;
@@ -474,6 +504,7 @@ int home_create_fscrypt(
 
         assert(h);
         assert(user_record_storage(h) == USER_FSCRYPT);
+        assert(setup);
         assert(ret_home);
 
         assert_se(ip = user_record_image_path(h));
@@ -489,11 +520,15 @@ int home_create_fscrypt(
 
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */
 
-        root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (root_fd < 0)
+        r = home_unshare_and_mkdir();
+        if (r < 0)
+                return r;
+
+        setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open temporary home directory: %m");
 
-        if (ioctl(root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
+        if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno)) {
                         log_error_errno(errno, "File system does not support fscrypt: %m");
                         return -ENOLINK; /* make recognizable */
@@ -527,13 +562,13 @@ int home_create_fscrypt(
 
         log_info("Uploaded volume key to kernel.");
 
-        if (ioctl(root_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy) < 0)
+        if (ioctl(setup->root_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy) < 0)
                 return log_error_errno(errno, "Failed to set fscrypt policy on directory: %m");
 
         log_info("Encryption policy set.");
 
         STRV_FOREACH(i, effective_passwords) {
-                r = fscrypt_slot_set(root_fd, volume_key, volume_key_size, *i, nr);
+                r = fscrypt_slot_set(setup->root_fd, volume_key, volume_key_size, *i, nr);
                 if (r < 0)
                         return r;
 
@@ -542,15 +577,30 @@ int home_create_fscrypt(
 
         (void) home_update_quota_classic(h, temporary);
 
-        r = home_populate(h, root_fd);
+        r = home_shift_uid(setup->root_fd, HOME_RUNTIME_WORK_DIR, h->uid, h->uid, &mount_fd);
+        if (r > 0)
+                setup->undo_mount = true; /* If uidmaps worked we have a mount to undo again */
+
+        if (mount_fd >= 0) {
+                /* If we have established a new mount, then we can use that as new root fd to our home directory. */
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
+
+                mount_fd = safe_close(mount_fd);
+        }
+
+        r = home_populate(h, setup->root_fd);
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, NULL);
         if (r < 0)
                 return r;
 
-        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET, &new_home);
+        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &new_home);
         if (r < 0)
                 return log_error_errno(r, "Failed to clone record: %m");
 
@@ -571,6 +621,12 @@ int home_create_fscrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to add binding to record: %m");
 
+        setup->root_fd = safe_close(setup->root_fd);
+
+        r = home_setup_undo_mount(setup, LOG_ERR);
+        if (r < 0)
+                return r;
+
         if (rename(temporary, ip) < 0)
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
 
@@ -585,7 +641,7 @@ int home_create_fscrypt(
 int home_passwd_fscrypt(
                 UserRecord *h,
                 HomeSetup *setup,
-                PasswordCache *cache,               /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                const PasswordCache *cache,         /* the passwords acquired via PKCS#11/FIDO2 security tokens */
                 char **effective_passwords          /* new passwords */) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
@@ -636,7 +692,6 @@ int home_passwd_fscrypt(
                         continue;
 
                 if (fremovexattr(setup->root_fd, xa) < 0)
-
                         if (errno != ENODATA)
                                 log_warning_errno(errno, "Failed to remove xattr %s: %m", xa);
         }

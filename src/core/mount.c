@@ -17,7 +17,7 @@
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount.h"
 #include "mountpoint-util.h"
@@ -66,12 +66,22 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_CLEANING);
 }
 
-static bool mount_is_automount(const MountParameters *p) {
-        assert(p);
+static MountParameters* get_mount_parameters_fragment(Mount *m) {
+        assert(m);
 
-        return fstab_test_option(p->options,
-                                 "comment=systemd.automount\0"
-                                 "x-systemd.automount\0");
+        if (m->from_fragment)
+                return &m->parameters_fragment;
+
+        return NULL;
+}
+
+static MountParameters* get_mount_parameters(Mount *m) {
+        assert(m);
+
+        if (m->from_proc_self_mountinfo)
+                return &m->parameters_proc_self_mountinfo;
+
+        return get_mount_parameters_fragment(m);
 }
 
 static bool mount_is_network(const MountParameters *p) {
@@ -116,14 +126,31 @@ static bool mount_is_bind(const MountParameters *p) {
         return false;
 }
 
-static bool mount_is_bound_to_device(const Mount *m) {
+static bool mount_is_bound_to_device(Mount *m) {
         const MountParameters *p;
 
-        if (m->from_fragment)
-                return true;
+        assert(m);
 
-        p = &m->parameters_proc_self_mountinfo;
+        /* Determines whether to place a Requires= or BindsTo= dependency on the backing device unit. We do
+         * this by checking for the x-systemd.device-bound mount option. Iff it is set we use BindsTo=,
+         * otherwise Requires=. But note that we might combine the latter with StopPropagatedFrom=, see
+         * below. */
+
+        p = get_mount_parameters(m);
+        if (!p)
+                return false;
+
         return fstab_test_option(p->options, "x-systemd.device-bound\0");
+}
+
+static bool mount_propagate_stop(Mount *m) {
+        assert(m);
+
+        if (mount_is_bound_to_device(m)) /* If we are using BindsTo= the stop propagation is implicit, no need to bother */
+                return false;
+
+        return m->from_fragment; /* let's propagate stop whenever this is an explicitly configured unit,
+                                  * otherwise let's not bother. */
 }
 
 static bool mount_needs_quota(const MountParameters *p) {
@@ -144,6 +171,7 @@ static bool mount_needs_quota(const MountParameters *p) {
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -201,8 +229,7 @@ static void mount_unwatch_control_pid(Mount *m) {
         if (m->control_pid <= 0)
                 return;
 
-        unit_unwatch_pid(UNIT(m), m->control_pid);
-        m->control_pid = 0;
+        unit_unwatch_pid(UNIT(m), TAKE_PID(m->control_pid));
 }
 
 static void mount_parameters_done(MountParameters *p) {
@@ -231,25 +258,7 @@ static void mount_done(Unit *u) {
 
         mount_unwatch_control_pid(m);
 
-        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
-}
-
-static MountParameters* get_mount_parameters_fragment(Mount *m) {
-        assert(m);
-
-        if (m->from_fragment)
-                return &m->parameters_fragment;
-
-        return NULL;
-}
-
-static MountParameters* get_mount_parameters(Mount *m) {
-        assert(m);
-
-        if (m->from_proc_self_mountinfo)
-                return &m->parameters_proc_self_mountinfo;
-
-        return get_mount_parameters_fragment(m);
+        m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -367,8 +376,9 @@ static int mount_add_device_dependencies(Mount *m) {
                 return 0;
 
         /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
-         * races when devices are unplugged. But the user can still force this dep with an appropriate option
-         * (or udev property) so the mount units are automatically stopped when the device disappears
+         * races when mounts are established by other tools with different backing devices than what we
+         * maintain. The user can still force this to be a BindsTo= dependency with an appropriate option (or
+         * udev property) so the mount units are automatically stopped when the device disappears
          * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
@@ -378,6 +388,11 @@ static int mount_add_device_dependencies(Mount *m) {
         r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
         if (r < 0)
                 return r;
+        if (mount_propagate_stop(m)) {
+                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, mask);
+                if (r < 0)
+                        return r;
+        }
 
         return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
 }
@@ -461,7 +476,7 @@ static int mount_add_default_ordering_dependencies(
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!mount_is_nofail(m) && !mount_is_automount(p)) {
+        if (!mount_is_nofail(m)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
                 if (r < 0)
                         return r;
@@ -611,7 +626,7 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        path_simplify(m->where, false);
+        path_simplify(m->where);
 
         if (!u->description) {
                 r = unit_set_description(u, m->where);
@@ -659,6 +674,7 @@ static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r, q = 0;
 
+        assert(m);
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
@@ -695,7 +711,7 @@ static void mount_set_state(Mount *m, MountState state) {
         m->state = state;
 
         if (!MOUNT_STATE_WITH_PROCESS(state)) {
-                m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+                m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
                 mount_unwatch_control_pid(m);
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
@@ -747,7 +763,6 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX];
         Mount *m = MOUNT(u);
         MountParameters *p;
 
@@ -788,7 +803,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->lazy_unmount),
                 prefix, yes_no(m->force_unmount),
                 prefix, yes_no(m->read_write_only),
-                prefix, format_timespan(buf, sizeof(buf), m->timeout_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC));
 
         if (m->control_pid > 0)
                 fprintf(f,
@@ -1012,8 +1027,10 @@ static void mount_enter_mounting(Mount *m) {
                 r = mkdir_p_label(p->what, m->directory_mode);
                 /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
                  * totally OK, in case the user wants us to overmount a non-directory inode. */
-                if (r < 0 && r != -EEXIST)
+                if (r < 0 && r != -EEXIST) {
                         log_unit_error_errno(UNIT(m), r, "Failed to make bind mount source '%s': %m", p->what);
+                        goto fail;
+                }
         }
 
         if (p) {
@@ -1145,12 +1162,6 @@ static int mount_start(Unit *u) {
 
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -1201,7 +1212,7 @@ static int mount_stop(Unit *u) {
                 return 0;
 
         default:
-                assert_not_reached("Unexpected state.");
+                assert_not_reached();
         }
 }
 
@@ -1241,6 +1252,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         Mount *m = MOUNT(u);
         int r;
 
+        assert(m);
         assert(u);
         assert(key);
         assert(value);
@@ -1361,7 +1373,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else if (code == CLD_DUMPED)
                 f = MOUNT_FAILURE_CORE_DUMP;
         else
-                assert_not_reached("Unknown code");
+                assert_not_reached();
 
         if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
                 mount_set_reload_result(m, f);
@@ -1443,7 +1455,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         default:
-                assert_not_reached("Uh, control process died at wrong time.");
+                assert_not_reached();
         }
 
         /* Notify clients about changed exit status */
@@ -1519,7 +1531,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         default:
-                assert_not_reached("Timeout at wrong time.");
+                assert_not_reached();
         }
 
         return 0;
@@ -1559,9 +1571,13 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
+        r = mount_add_non_exec_dependencies(MOUNT(u));
+        if (r < 0)
+                return r;
+
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
          * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
-         * to.*/
+         * to. */
         MOUNT(u)->from_proc_self_mountinfo = true;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
@@ -1690,11 +1706,18 @@ static int mount_setup_unit(
                         .burst = 1,
                 };
 
+                if (r == -ENAMETOOLONG)
+                        return log_struct_errno(
+                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                        "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
+                                        "MOUNT_POINT=%s", where,
+                                        LOG_MESSAGE("Mount point path '%s' too long to fit into unit name, ignoring mount point.", where));
+
                 return log_struct_errno(
                                 ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
                                 "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
                                 "MOUNT_POINT=%s", where,
-                                LOG_MESSAGE("Failed to generate valid unit name from path '%s', ignoring mount point: %m", where));
+                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m", where));
         }
 
         u = manager_get_unit(m, e);
@@ -1757,7 +1780,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 static void mount_shutdown(Manager *m) {
         assert(m);
 
-        m->mount_event_source = sd_event_source_unref(m->mount_event_source);
+        m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
         m->mount_monitor = NULL;
@@ -1767,6 +1790,9 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = MOUNT(u);
         usec_t t;
         int r;
+
+        assert(m);
+        assert(u);
 
         if (!m->timer_event_source)
                 return 0;
@@ -1810,6 +1836,27 @@ static bool mount_is_mounted(Mount *m) {
         assert(m);
 
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
+}
+
+static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Job *j;
+
+        assert(m);
+
+        /* Let's enqueue all start jobs that were previously skipped because of active ratelimit. */
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (j->unit->type != UNIT_MOUNT)
+                        continue;
+
+                job_add_to_run_queue(j);
+        }
+
+        /* By entering ratelimited state we made all mount start jobs not runnable, now rate limit is over so
+         * let's make sure we dispatch them in the next iteration. */
+        manager_trigger_run_queue(m);
+
+        return 0;
 }
 
 static void mount_enumerate(Manager *m) {
@@ -1863,6 +1910,12 @@ static void mount_enumerate(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
                         goto fail;
+                }
+
+                r = sd_event_source_set_ratelimit_expire_callback(m->mount_event_source, mount_on_ratelimit_expire);
+                if (r < 0) {
+                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
+                         goto fail;
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
@@ -2097,7 +2150,7 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         m->clean_result = MOUNT_FAILURE_RESOURCES;
-        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+        m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
         return r;
 }
 
@@ -2109,8 +2162,26 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
+static int mount_can_start(Unit *u) {
+        Mount *m = MOUNT(u);
+        int r;
+
+        assert(m);
+
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 1;
+}
+
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
-        [MOUNT_EXEC_MOUNT] = "ExecMount",
+        [MOUNT_EXEC_MOUNT]   = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
         [MOUNT_EXEC_REMOUNT] = "ExecRemount",
 };
@@ -2118,14 +2189,14 @@ static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
 static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
-        [MOUNT_SUCCESS] = "success",
-        [MOUNT_FAILURE_RESOURCES] = "resources",
-        [MOUNT_FAILURE_TIMEOUT] = "timeout",
-        [MOUNT_FAILURE_EXIT_CODE] = "exit-code",
-        [MOUNT_FAILURE_SIGNAL] = "signal",
-        [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
+        [MOUNT_SUCCESS]                 = "success",
+        [MOUNT_FAILURE_RESOURCES]       = "resources",
+        [MOUNT_FAILURE_TIMEOUT]         = "timeout",
+        [MOUNT_FAILURE_EXIT_CODE]       = "exit-code",
+        [MOUNT_FAILURE_SIGNAL]          = "signal",
+        [MOUNT_FAILURE_CORE_DUMP]       = "core-dump",
         [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
-        [MOUNT_FAILURE_PROTOCOL] = "protocol",
+        [MOUNT_FAILURE_PROTOCOL]        = "protocol",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
@@ -2146,6 +2217,7 @@ const UnitVTable mount_vtable = {
 
         .can_transient = true,
         .can_fail = true,
+        .exclude_from_switch_root_serialization = true,
 
         .init = mount_init,
         .load = mount_load,
@@ -2205,4 +2277,6 @@ const UnitVTable mount_vtable = {
                         [JOB_TIMEOUT]    = "Timed out unmounting %s.",
                 },
         },
+
+        .can_start = mount_can_start,
 };

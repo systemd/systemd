@@ -445,7 +445,7 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         return 1;

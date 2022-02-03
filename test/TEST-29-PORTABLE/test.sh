@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
@@ -20,7 +21,6 @@ test_append_files() {
         instmods overlay =overlayfs
         install_dmevent
         generate_module_dependencies
-        inst_binary losetup
         inst_binary mksquashfs
         inst_binary unsquashfs
         install_verity_minimal

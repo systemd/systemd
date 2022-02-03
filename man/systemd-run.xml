@@ -239,11 +239,15 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
-        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>-E <replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
 
-        <listitem><para>Runs the service process with the specified environment variable set.
-        Also see <varname>Environment=</varname> in
+        <listitem><para>Runs the service process with the specified environment variable set. This parameter
+        may be used more than once to set multiple variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        program environment will be used.</para>
+
+        <para>Also see <varname>Environment=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
@@ -475,10 +479,10 @@ Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisti
     <example>
       <title>Allowing access to the tty</title>
 
-      <para>The following command invokes <filename>/bin/bash</filename> as a service
-      passing its standard input, output and error to the calling TTY.</para>
+      <para>The following command invokes <citerefentry><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      as a service passing its standard input, output and error to the calling TTY.</para>
 
-      <programlisting># systemd-run -t --send-sighup /bin/bash</programlisting>
+      <programlisting># systemd-run -t --send-sighup bash</programlisting>
     </example>
 
     <example>

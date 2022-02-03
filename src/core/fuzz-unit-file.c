@@ -2,10 +2,10 @@
 
 #include "conf-parser.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fuzz.h"
 #include "install.h"
 #include "load-fragment.h"
+#include "manager-dump.h"
 #include "string-util.h"
 #include "unit-serialize.h"
 #include "utf8.h"
@@ -21,10 +21,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         const char *name;
         long offset;
 
-        if (size == 0)
-                return 0;
-
-        f = fmemopen_unlocked((char*) data, size, "re");
+        f = data_to_file(data, size);
         assert_se(f);
 
         if (read_line(f, LINE_MAX, &p) < 0)

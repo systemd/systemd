@@ -115,27 +115,27 @@
     <constant>EPOLLRDHUP</constant>, <constant>EPOLLPRI</constant>,
     and <constant>EPOLLET</constant>, see
     <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for details. The <parameter>handler</parameter> shall reference a
-    function to call when the event source is triggered. The
-    <parameter>userdata</parameter> pointer will be passed to the
-    handler function, and may be chosen freely by the caller. The
-    handler will also be passed the file descriptor the event was seen
-    on, as well as the actual event flags. It's generally a subset of
-    the events watched, however may additionally include
-    <constant>EPOLLERR</constant> and <constant>EPOLLHUP</constant>.
-    </para>
+    for details.</para>
 
-    <para>By default, an event source will stay enabled
-    continuously (<constant>SD_EVENT_ON</constant>), but this may be
-    changed with
+    <para>The <parameter>handler</parameter> is a function to call when the event source is triggered or
+    <constant>NULL</constant>. The <parameter>userdata</parameter> pointer will be passed to the handler
+    function, and may be chosen freely by the caller. The handler will also be passed the file descriptor the
+    event was seen on, as well as the actual event flags. It's generally a subset of the events watched,
+    however may additionally include <constant>EPOLLERR</constant> and <constant>EPOLLHUP</constant>. The
+    handler may return negative to signal an error (see below), other return values are ignored. If
+    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
+    used.</para>
+
+    <para>By default, an event source will stay enabled continuously (<constant>SD_EVENT_ON</constant>), but
+    this may be changed with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If the handler function returns a negative error code, it will be
-    disabled after the invocation, even if the
-    <constant>SD_EVENT_ON</constant> mode was requested before. Note
-    that an event source set to <constant>SD_EVENT_ON</constant> will
-    fire continuously unless data is read from or written to the file
-    descriptor to reset the mask of events seen.
-    </para>
+    If the handler function returns a negative error code, it will either be disabled after the invocation,
+    even if the <constant>SD_EVENT_ON</constant> mode was requested before, or it will cause the loop to
+    terminate, see
+    <citerefentry><refentrytitle>sd_event_source_set_exit_on_failure</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Note that an event source set to <constant>SD_EVENT_ON</constant> will fire continuously unless data is
+    read from or written to the file descriptor to reset the mask of events seen.</para>
 
     <para>Setting the I/O event mask to watch for to 0 does not mean
     that the event source won't be triggered anymore, as

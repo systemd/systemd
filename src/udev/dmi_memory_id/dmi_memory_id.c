@@ -183,7 +183,7 @@ static void dmi_memory_device_string(
                 const struct dmi_header *h, uint8_t s) {
         char *str;
 
-        str = strdupa(dmi_string(h, s));
+        str = strdupa_safe(dmi_string(h, s));
         str = strstrip(str);
         if (!isempty(str))
                 printf("MEMORY_DEVICE_%u_%s=%s\n", slot_num, attr_suffix, str);
@@ -539,7 +539,7 @@ static void dmi_table_decode(const uint8_t *buf, size_t len, uint16_t num) {
 
                 /* If a short entry is found (less than 4 bytes), not only it
                  * is invalid, but we cannot reliably locate the next entry.
-                 * Better stop at this point, and let the user know his/her
+                 * Better stop at this point, and let the user know their
                  * table is broken. */
                 if (h.length < 4)
                         break;
@@ -665,7 +665,7 @@ static int parse_argv(int argc, char * const *argv) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         return 1;

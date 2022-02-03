@@ -3,12 +3,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
-#include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+
+/* include missing_syscall_def.h earlier to make __SNR_foo mapped to __NR_foo. */
+#include "missing_syscall_def.h"
+#include <seccomp.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -283,6 +286,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@default",
                 .help = "System calls that are always permitted",
                 .value =
+                "arch_prctl\0"      /* Used during platform-specific initialization by ld-linux.so. */
                 "brk\0"
                 "cacheflush\0"
                 "clock_getres\0"
@@ -310,6 +314,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "getpgrp\0"
                 "getpid\0"
                 "getppid\0"
+                "getrandom\0"
                 "getresgid\0"
                 "getresgid32\0"
                 "getresuid\0"
@@ -323,6 +328,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "membarrier\0"
                 "mmap\0"
                 "mmap2\0"
+                "mprotect\0"
                 "munmap\0"
                 "nanosleep\0"
                 "pause\0"
@@ -330,6 +336,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "restart_syscall\0"
                 "rseq\0"
                 "rt_sigreturn\0"
+                "sched_getaffinity\0"
                 "sched_yield\0"
                 "set_robust_list\0"
                 "set_thread_area\0"
@@ -514,6 +521,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "epoll_ctl\0"
                 "epoll_ctl_old\0"
                 "epoll_pwait\0"
+                "epoll_pwait2\0"
                 "epoll_wait\0"
                 "epoll_wait_old\0"
                 "eventfd\0"
@@ -545,6 +553,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "msgsnd\0"
                 "pipe\0"
                 "pipe2\0"
+                "process_madvise\0"
                 "process_vm_readv\0"
                 "process_vm_writev\0"
                 "semctl\0"
@@ -593,6 +602,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fsopen\0"
                 "fspick\0"
                 "mount\0"
+                "mount_setattr\0"
                 "move_mount\0"
                 "open_tree\0"
                 "pivot_root\0"
@@ -706,7 +716,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@process",
                 .help = "Process control, execution, namespacing operations",
                 .value =
-                "arch_prctl\0"
                 "capget\0"      /* Able to query arbitrary processes */
                 "clone\0"
                 "clone3\0"
@@ -855,12 +864,10 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "get_mempolicy\0"
                 "getcpu\0"
                 "getpriority\0"
-                "getrandom\0"
                 "ioctl\0"
                 "ioprio_get\0"
                 "kcmp\0"
                 "madvise\0"
-                "mprotect\0"
                 "mremap\0"
                 "name_to_handle_at\0"
                 "oldolduname\0"
@@ -871,7 +878,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "remap_file_pages\0"
                 "sched_get_priority_max\0"
                 "sched_get_priority_min\0"
-                "sched_getaffinity\0"
                 "sched_getattr\0"
                 "sched_getparam\0"
                 "sched_getscheduler\0"
@@ -1733,13 +1739,11 @@ int seccomp_memory_deny_write_execute(void) {
                 if (r < 0)
                         continue;
 
-#ifdef __NR_pkey_mprotect
                 r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(pkey_mprotect),
                                                1,
                                                SCMP_A2(SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC));
                 if (r < 0)
                         continue;
-#endif
 
                 if (shmat_syscall > 0) {
                         r = add_seccomp_syscall_filter(seccomp, arch, shmat_syscall,
@@ -1785,6 +1789,10 @@ int seccomp_restrict_archs(Set *archs) {
 
         for (unsigned i = 0; seccomp_local_archs[i] != SECCOMP_LOCAL_ARCH_END; ++i) {
                 uint32_t arch = seccomp_local_archs[i];
+
+                /* See above comment, our "native" architecture is never blocked. */
+                if (arch == seccomp_arch_native())
+                        continue;
 
                 /* That architecture might have already been blocked by a previous call to seccomp_restrict_archs. */
                 if (arch == SECCOMP_LOCAL_ARCH_BLOCKED)
@@ -2056,7 +2064,6 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
         else
                 any = true;
 
-#if SCMP_SYS(open) > 0
         r = seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
@@ -2068,7 +2075,6 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
                 log_debug_errno(r, "Failed to add filter for open: %m");
         else
                 any = true;
-#endif
 
         r = seccomp_rule_add_exact(
                         seccomp,
@@ -2195,6 +2201,99 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
 
         *error = e;
         *name = TAKE_PTR(n);
+
+        return 0;
+}
+
+static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
+        bool any = false;
+        int r;
+
+        /* Blocks open() with the specified flag, where flag is O_SYNC or so. This makes these calls return
+         * EINVAL, in the hope the client code will retry without O_SYNC then.  */
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EINVAL),
+                        SCMP_SYS(open),
+                        1,
+                        SCMP_A1(SCMP_CMP_MASKED_EQ, flag, flag));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for open: %m");
+        else
+                any = true;
+
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EINVAL),
+                        SCMP_SYS(openat),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, flag, flag));
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat: %m");
+        else
+                any = true;
+
+#if defined(__SNR_openat2)
+        /* The new openat2() system call can't be filtered sensibly, see above. */
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(ENOSYS),
+                        SCMP_SYS(openat2),
+                        0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat2: %m");
+        else
+                any = true;
+#endif
+
+        return any ? 0 : r;
+}
+
+int seccomp_suppress_sync(void) {
+        uint32_t arch;
+        int r;
+
+        /* This is mostly identical to SystemCallFilter=~@sync:0, but simpler to use, and separately
+         * manageable, and also masks O_SYNC/O_DSYNC */
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                const char *c;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                NULSTR_FOREACH(c, syscall_filter_sets[SYSCALL_FILTER_SET_SYNC].value) {
+                        int id;
+
+                        id = seccomp_syscall_resolve_name(c);
+                        if (id == __NR_SCMP_ERROR) {
+                                log_debug("System call %s is not known, ignoring.", c);
+                                continue;
+                        }
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
+                                        id,
+                                        0);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to add filter for system call %s, ignoring: %m", c);
+                }
+
+                (void) block_open_flag(seccomp, O_SYNC);
+#if O_DSYNC != O_SYNC
+                (void) block_open_flag(seccomp, O_DSYNC);
+#endif
+
+                r = seccomp_load(seccomp);
+                if (ERRNO_IS_SECCOMP_FATAL(r))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to apply sync() suppression for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
 
         return 0;
 }

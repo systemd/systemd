@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # udev test
 #
@@ -1162,6 +1163,21 @@ EOF
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
 SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
+EOF
+        },
+        {
+                desc            => "symlink with env which contain slash (see #19309)",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+                                exp_links       => ["first", "name-aaa_bbb_ccc-end",
+                                                    "another_symlink", "a", "b", "c"],
+                                not_exp_links   => ["ame-aaa/bbb/ccc-end"],
+                        }],
+                rules           => <<EOF
+ENV{WITH_SLASH}="aaa/bbb/ccc"
+OPTIONS="string_escape=replace", ENV{REPLACED}="\$env{WITH_SLASH}"
+SYMLINK="  first  name-\$env{REPLACED}-end another_symlink a b c "
 EOF
         },
         {

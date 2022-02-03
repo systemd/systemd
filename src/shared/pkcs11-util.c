@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "ask-password-api.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -174,6 +175,55 @@ char *pkcs11_token_model(const CK_TOKEN_INFO *token_info) {
         return t;
 }
 
+int pkcs11_token_login_by_pin(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                const CK_TOKEN_INFO *token_info,
+                const char *token_label,
+                const void *pin,
+                size_t pin_size) {
+
+        CK_RV rv;
+
+        assert(m);
+        assert(token_info);
+
+        if (FLAGS_SET(token_info->flags, CKF_PROTECTED_AUTHENTICATION_PATH)) {
+                rv = m->C_Login(session, CKU_USER, NULL, 0);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
+                return 0;
+        }
+
+        if (!FLAGS_SET(token_info->flags, CKF_LOGIN_REQUIRED)) {
+                log_info("No login into security token '%s' required.", token_label);
+                return 0;
+        }
+
+        if (!pin)
+                return -ENOANO;
+
+        rv = m->C_Login(session, CKU_USER, (CK_UTF8CHAR*) pin, pin_size);
+        if (rv == CKR_OK)  {
+                log_info("Successfully logged into security token '%s'.", token_label);
+                return 0;
+        }
+
+        if (rv == CKR_PIN_LOCKED)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "PIN has been locked, please reset PIN of security token '%s'.", token_label);
+        if (!IN_SET(rv, CKR_PIN_INCORRECT, CKR_PIN_LEN_RANGE))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+        return log_notice_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                "PIN for token '%s' is incorrect, please try again.",
+                                token_label);
+}
+
 int pkcs11_token_login(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
@@ -184,6 +234,7 @@ int pkcs11_token_login(
                 const char *key_name,
                 const char *credential_name,
                 usec_t until,
+                bool headless,
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
@@ -207,24 +258,12 @@ int pkcs11_token_login(
         if (uri_result != P11_KIT_URI_OK)
                 return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
 
-        if (FLAGS_SET(token_info->flags, CKF_PROTECTED_AUTHENTICATION_PATH)) {
-                rv = m->C_Login(session, CKU_USER, NULL, 0);
-                if (rv != CKR_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+        r = pkcs11_token_login_by_pin(m, session, token_info, token_label, /* pin= */ NULL, 0);
+        if (r == 0 && ret_used_pin)
+                *ret_used_pin = NULL;
 
-                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
-                if (ret_used_pin)
-                        *ret_used_pin = NULL;
-                return 0;
-        }
-
-        if (!FLAGS_SET(token_info->flags, CKF_LOGIN_REQUIRED)) {
-                log_info("No login into security token '%s' required.", token_label);
-                if (ret_used_pin)
-                        *ret_used_pin = NULL;
-                return 0;
-        }
+        if (r != -ENOANO) /* pin required */
+                return r;
 
         token_uri_escaped = cescape(token_uri_string);
         if (!token_uri_escaped)
@@ -244,10 +283,10 @@ int pkcs11_token_login(
                         if (!passwords)
                                 return log_oom();
 
-                        string_erase(e);
-                        if (unsetenv("PIN") < 0)
-                                return log_error_errno(errno, "Failed to unset $PIN: %m");
-                } else {
+                        assert_se(unsetenv_erase("PIN") >= 0);
+                } else if (headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
+                else {
                         _cleanup_free_ char *text = NULL;
 
                         if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
@@ -276,28 +315,19 @@ int pkcs11_token_login(
                 }
 
                 STRV_FOREACH(i, passwords) {
-                        rv = m->C_Login(session, CKU_USER, (CK_UTF8CHAR*) *i, strlen(*i));
-                        if (rv == CKR_OK)  {
+                        r = pkcs11_token_login_by_pin(m, session, token_info, token_label, *i, strlen(*i));
+                        if (r == 0 && ret_used_pin) {
+                                char *c;
 
-                                if (ret_used_pin) {
-                                        char *c;
+                                c = strdup(*i);
+                                if (!c)
+                                        return log_oom();
 
-                                        c = strdup(*i);
-                                        if (!c)
-                                                return log_oom();
-
-                                        *ret_used_pin = c;
-                                }
-
-                                log_info("Successfully logged into security token '%s'.", token_label);
-                                return 0;
+                                *ret_used_pin = c;
                         }
-                        if (rv == CKR_PIN_LOCKED)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "PIN has been locked, please reset PIN of security token '%s'.", token_label);
-                        if (!IN_SET(rv, CKR_PIN_INCORRECT, CKR_PIN_LEN_RANGE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+                        if (r != -ENOLCK)
+                                return r;
 
                         /* Referesh the token info, so that we can prompt knowing the new flags if they changed. */
                         rv = m->C_GetTokenInfo(slotid, &updated_token_info);
@@ -307,7 +337,6 @@ int pkcs11_token_login(
                                                        slotid, p11_kit_strerror(rv));
 
                         token_info = &updated_token_info;
-                        log_notice("PIN for token '%s' is incorrect, please try again.", token_label);
                 }
         }
 
@@ -960,7 +989,7 @@ static int pkcs11_acquire_certificate_callback(
 
         /* Called for every token matching our URI */
 
-        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, &pin_used);
+        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, false, &pin_used);
         if (r < 0)
                 return r;
 
@@ -1152,3 +1181,71 @@ int pkcs11_find_token_auto(char **ret) {
                                "PKCS#11 tokens not supported on this build.");
 #endif
 }
+
+#if HAVE_P11KIT
+void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data) {
+        erase_and_free(data->decrypted_key);
+
+        if (data->free_encrypted_key)
+                free(data->encrypted_key);
+}
+
+int pkcs11_crypt_device_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        pkcs11_crypt_device_callback_data *data = userdata;
+        CK_OBJECT_HANDLE object;
+        int r;
+
+        assert(m);
+        assert(slot_info);
+        assert(token_info);
+        assert(uri);
+        assert(data);
+
+        /* Called for every token matching our URI */
+
+        r = pkcs11_token_login(
+                        m,
+                        session,
+                        slot_id,
+                        token_info,
+                        data->friendly_name,
+                        "drive-harddisk",
+                        "pkcs11-pin",
+                        "cryptsetup.pkcs11-pin",
+                        data->until,
+                        data->headless,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        /* We are likely called during early boot, where entropy is scarce. Mix some data from the PKCS#11
+         * token, if it supports that. It should be cheap, given that we already are talking to it anyway and
+         * shouldn't hurt. */
+        (void) pkcs11_token_acquire_rng(m, session);
+
+        r = pkcs11_token_find_private_key(m, session, uri, &object);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_decrypt_data(
+                        m,
+                        session,
+                        object,
+                        data->encrypted_key,
+                        data->encrypted_key_size,
+                        &data->decrypted_key,
+                        &data->decrypted_key_size);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+#endif

@@ -10,15 +10,16 @@
 set -e
 
 export SYSTEMD_LOG_LEVEL=info
-ROOTDIR=$(dirname $(dirname $(readlink -f $0)))
-SYSTEMD_HWDB=./systemd-hwdb
+ROOTDIR="$(dirname "$(dirname "$(readlink -f "$0")")")"
+SYSTEMD_HWDB="${1:?missing argument}"
 
 if [ ! -x "$SYSTEMD_HWDB" ]; then
-    echo "$SYSTEMD_HWDB does not exist, please build first"
+    echo "$SYSTEMD_HWDB is not executable" >&2
     exit 1
 fi
 
-D=$(mktemp --tmpdir --directory "hwdb-test.XXXXXXXXXX")
+D="$(mktemp --tmpdir --directory "hwdb-test.XXXXXXXXXX")"
+# shellcheck disable=SC2064
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/etc/udev"
 ln -s "$ROOTDIR/hwdb.d" "$D/etc/udev/hwdb.d"

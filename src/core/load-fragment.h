@@ -4,6 +4,10 @@
 #include "conf-parser.h"
 #include "unit.h"
 
+/* These functions are declared in the header to make them accessible to unit tests. */
+bool contains_instance_specifier_superset(const char *s);
+int unit_is_likely_recursive_template_dependency(Unit *u, const char *name, const char *format);
+
 /* Config-parsing helpers relevant only for sources under src/core/ */
 int parse_crash_chvt(const char *value, int *data);
 int parse_confirm_spawn(const char *value, char **console);
@@ -19,6 +23,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_obsolete_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_string_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_colon_separated_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_documentation);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_listen);
@@ -102,8 +107,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
-CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpus);
-CONFIG_PARSER_PROTOTYPE(config_parse_allowed_mems);
+CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
 CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
@@ -114,6 +118,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_namespaces);
+CONFIG_PARSER_PROTOTYPE(config_parse_restrict_filesystems);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_proc);
@@ -142,6 +147,9 @@ CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
+CONFIG_PARSER_PROTOTYPE(config_parse_restrict_network_interfaces);
+CONFIG_PARSER_PROTOTYPE(config_parse_watchdog_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_tty_size);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

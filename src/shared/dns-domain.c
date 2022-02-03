@@ -407,7 +407,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 
 int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_ret) {
         _cleanup_free_ char *ret = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         const char *p;
         bool first = true;
         int r;
@@ -439,7 +439,7 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                 }
 
                 if (_ret) {
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        if (!GREEDY_REALLOC(ret, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
                         r = dns_label_escape(label, r, ret + n + !first, DNS_LABEL_ESCAPED_MAX);
@@ -471,12 +471,12 @@ finish:
         if (_ret) {
                 if (n == 0) {
                         /* Nothing appended? If so, generate at least a single dot, to indicate the DNS root domain */
-                        if (!GREEDY_REALLOC(ret, allocated, 2))
+                        if (!GREEDY_REALLOC(ret, 2))
                                 return -ENOMEM;
 
                         ret[n++] = '.';
                 } else {
-                        if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                        if (!GREEDY_REALLOC(ret, n + 1))
                                 return -ENOMEM;
                 }
 
@@ -680,7 +680,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         }
 
         /* Found it! Now generate the new name */
-        prefix = strndupa(name, saved_before - name);
+        prefix = strndupa_safe(name, saved_before - name);
 
         r = dns_name_concat(prefix, new_suffix, 0, ret);
         if (r < 0)
@@ -985,7 +985,7 @@ bool dns_service_name_is_valid(const char *name) {
         l = strlen(name);
         if (l <= 0)
                 return false;
-        if (l > 63)
+        if (l > DNS_LABEL_MAX)
                 return false;
 
         return true;
@@ -1028,7 +1028,7 @@ static bool dns_service_name_label_is_valid(const char *label, size_t n) {
         if (memchr(label, 0, n))
                 return false;
 
-        s = strndupa(label, n);
+        s = strndupa_safe(label, n);
         return dns_service_name_is_valid(s);
 }
 
@@ -1191,13 +1191,11 @@ int dns_name_skip(const char *a, unsigned n_labels, const char **ret) {
 
 int dns_name_count_labels(const char *name) {
         unsigned n = 0;
-        const char *p;
         int r;
 
         assert(name);
 
-        p = name;
-        for (;;) {
+        for (const char *p = name;;) {
                 r = dns_name_parent(&p);
                 if (r < 0)
                         return r;
@@ -1210,7 +1208,7 @@ int dns_name_count_labels(const char *name) {
                 n++;
         }
 
-        return (int) n;
+        return n;
 }
 
 int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
@@ -1337,7 +1335,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         return -EINVAL;
 #elif HAVE_LIBIDN
         _cleanup_free_ char *buf = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         bool first = true;
         int r, q;
 
@@ -1359,7 +1357,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 if (q > 0)
                         r = q;
 
-                if (!GREEDY_REALLOC(buf, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                if (!GREEDY_REALLOC(buf, n + !first + DNS_LABEL_ESCAPED_MAX))
                         return -ENOMEM;
 
                 r = dns_label_escape(label, r, buf + n + !first, DNS_LABEL_ESCAPED_MAX);
@@ -1377,7 +1375,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         if (n > DNS_HOSTNAME_MAX)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(buf, allocated, n + 1))
+        if (!GREEDY_REALLOC(buf, n + 1))
                 return -ENOMEM;
 
         buf[n] = 0;
@@ -1416,4 +1414,19 @@ int dns_name_dot_suffixed(const char *name) {
                 if (r == 0)
                         return false;
         }
+}
+
+bool dns_name_dont_resolve(const char *name) {
+
+        /* Never respond to some of the domains listed in RFC6303 */
+        if (dns_name_endswith(name, "0.in-addr.arpa") > 0 ||
+            dns_name_equal(name, "255.255.255.255.in-addr.arpa") > 0 ||
+            dns_name_equal(name, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+                return true;
+
+        /* Never respond to some of the domains listed in RFC6761 */
+        if (dns_name_endswith(name, "invalid") > 0)
+                return true;
+
+        return false;
 }

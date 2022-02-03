@@ -6,23 +6,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
-#include "label.h"
 #include "machined-varlink.h"
 #include "machined.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -137,7 +136,6 @@ static int manager_add_host_machine(Manager *m) {
 
 static int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         assert(m);
@@ -352,17 +350,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = manager_run(m);
 
+        (void) sd_notify(false, NOTIFY_STOPPING);
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
-
         return r;
 }
 

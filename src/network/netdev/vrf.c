@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include <netinet/in.h>
+#include <linux/if_arp.h>
 
 #include "vrf.h"
 
@@ -18,9 +20,9 @@ static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         r = sd_netlink_message_append_u32(m, IFLA_VRF_TABLE, v->table);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IPLA_VRF_TABLE attribute: %m");
+                return r;
 
-        return r;
+        return 0;
 }
 
 const NetDevVTable vrf_vtable = {
@@ -28,5 +30,6 @@ const NetDevVTable vrf_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "VRF\0",
         .fill_message_create = netdev_vrf_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

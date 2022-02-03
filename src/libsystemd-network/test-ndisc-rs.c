@@ -31,7 +31,6 @@ static send_ra_t send_ra_function;
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
-        char buf[FORMAT_TIMESTAMP_MAX];
         uint8_t hop_limit;
         uint64_t t, flags;
         uint32_t mtu;
@@ -45,7 +44,7 @@ static void router_dump(sd_ndisc_router *rt) {
         assert_se(sd_ndisc_router_get_address(rt, &addr) == -ENODATA);
 
         assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
-        log_info("Timestamp: %s", format_timestamp(buf, sizeof(buf), t));
+        log_info("Timestamp: %s", FORMAT_TIMESTAMP(t));
 
         assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &t) >= 0);
         log_info("Monotonic: %" PRIu64, t);
@@ -243,7 +242,6 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
                 ND_RA_FLAG_MANAGED
         };
         uint64_t flags;
-        uint32_t mtu;
 
         assert_se(nd);
 
@@ -264,8 +262,6 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
                 return;
         }
 
-        assert_se(sd_ndisc_get_mtu(nd, &mtu) == -ENODATA);
-
         sd_event_exit(e, 0);
 }
 
@@ -274,7 +270,7 @@ static void test_rs(void) {
         sd_ndisc *nd;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         send_ra_function = send_ra;
 
@@ -318,9 +314,6 @@ static int test_timeout_value(uint8_t flags) {
         static usec_t last = 0;
         sd_ndisc *nd = test_timeout_nd;
         usec_t min, max;
-        char time_string_min[FORMAT_TIMESPAN_MAX];
-        char time_string_nd[FORMAT_TIMESPAN_MAX];
-        char time_string_max[FORMAT_TIMESPAN_MAX];
 
         assert_se(nd);
         assert_se(nd->event);
@@ -348,17 +341,12 @@ static int test_timeout_value(uint8_t flags) {
                         NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 10;
         }
 
-        format_timespan(time_string_min, FORMAT_TIMESPAN_MAX,
-                        min, USEC_PER_MSEC);
-        format_timespan(time_string_nd, FORMAT_TIMESPAN_MAX,
-                        nd->retransmit_time, USEC_PER_MSEC);
-        format_timespan(time_string_max, FORMAT_TIMESPAN_MAX,
-                        max, USEC_PER_MSEC);
-
         log_info("backoff timeout interval %2d %s%s <= %s <= %s",
                  count,
-                 (last * 2 > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL)? "(max) ": "",
-                 time_string_min, time_string_nd, time_string_max);
+                 last * 2 > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL ? "(max) ": "",
+                 FORMAT_TIMESPAN(min, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(max, USEC_PER_MSEC));
 
         assert_se(min <= nd->retransmit_time);
         assert_se(max >= nd->retransmit_time);
@@ -375,7 +363,7 @@ static void test_timeout(void) {
         sd_ndisc *nd;
 
         if (verbose)
-                printf("* %s\n", __FUNCTION__);
+                printf("* %s\n", __func__);
 
         send_ra_function = test_timeout_value;
 

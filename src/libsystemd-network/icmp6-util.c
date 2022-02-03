@@ -34,16 +34,17 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         _cleanup_close_ int s = -1;
         int r;
 
+        assert(filter);
+        assert(mreq);
+
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter));
-        if (r < 0)
+        if (setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter)) < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq));
-        if (r < 0)
+        if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq)) < 0)
                 return -errno;
 
         /* RFC 3315, section 6.7, bullet point 2 may indicate that an
@@ -131,15 +132,13 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
         };
-        int r;
 
         assert(s >= 0);
         assert(ether_addr);
 
         rs.rs_opt_mac = *ether_addr;
 
-        r = sendmsg(s, &msg, 0);
-        if (r < 0)
+        if (sendmsg(s, &msg, 0) < 0)
                 return -errno;
 
         return 0;
@@ -148,8 +147,9 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
 int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                   triple_timestamp *ret_timestamp) {
 
+        /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
-                         CMSG_SPACE(sizeof(struct timeval))) control;
+                         CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = {};
         union sockaddr_union sa = {};
         struct msghdr msg = {
@@ -186,7 +186,6 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
 
         /* namelen == 0 only happens when running the test-suite over a socketpair */
 
-        assert(!(msg.msg_flags & MSG_CTRUNC));
         assert(!(msg.msg_flags & MSG_TRUNC));
 
         CMSG_FOREACH(cmsg, &msg) {

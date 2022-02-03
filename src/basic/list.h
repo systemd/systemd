@@ -134,7 +134,7 @@
         } while (false)
 
 #define LIST_JUST_US(name,item)                                         \
-        (!(item)->name##_prev && !(item)->name##_next)                  \
+        (!(item)->name##_prev && !(item)->name##_next)
 
 #define LIST_FOREACH(name,i,head)                                       \
         for ((i) = (head); (i); (i) = (i)->name##_next)
@@ -142,11 +142,8 @@
 #define LIST_FOREACH_SAFE(name,i,n,head)                                \
         for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
 
-#define LIST_FOREACH_BEFORE(name,i,p)                                   \
-        for ((i) = (p)->name##_prev; (i); (i) = (i)->name##_prev)
-
-#define LIST_FOREACH_AFTER(name,i,p)                                    \
-        for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
+#define LIST_FOREACH_BACKWARDS(name,i,p)                                \
+        for ((i) = (p); (i); (i) = (i)->name##_prev)
 
 /* Iterate through all the members of the list p is included in, but skip over p */
 #define LIST_FOREACH_OTHERS(name,i,p)                                   \
@@ -184,3 +181,12 @@
                 }                                                       \
                 (b) = NULL;                                             \
         } while (false)
+
+#define LIST_POP(name, a)                                               \
+        ({                                                              \
+                typeof(a)* _a = &(a);                                   \
+                typeof(a) _p = *_a;                                     \
+                if (_p)                                                 \
+                        LIST_REMOVE(name, *_a, _p);                     \
+                _p;                                                     \
+        })

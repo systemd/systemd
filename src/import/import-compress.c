@@ -190,7 +190,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
 #endif
 
         default:
-                assert_not_reached("Unknown compression");
+                assert_not_reached();
         }
 
         return 1;

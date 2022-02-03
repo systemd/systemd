@@ -1,22 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <linux/loop.h>
+#include <linux/fs.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "dissect-image.h"
+#include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "label.h"
 #include "libmount-util.h"
-#include "mkdir.h"
+#include "missing_mount.h"
+#include "missing_syscall.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -37,10 +43,7 @@ int mount_fd(const char *source,
              unsigned long mountflags,
              const void *data) {
 
-        char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-
-        xsprintf(path, "/proc/self/fd/%i", target_fd);
-        if (mount(source, path, filesystemtype, mountflags, data) < 0) {
+        if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
@@ -131,6 +134,31 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+
+static uint64_t ms_flags_to_mount_attr(unsigned long a) {
+        uint64_t f = 0;
+
+        if (FLAGS_SET(a, MS_RDONLY))
+                f |= MOUNT_ATTR_RDONLY;
+
+        if (FLAGS_SET(a, MS_NOSUID))
+                f |= MOUNT_ATTR_NOSUID;
+
+        if (FLAGS_SET(a, MS_NODEV))
+                f |= MOUNT_ATTR_NODEV;
+
+        if (FLAGS_SET(a, MS_NOEXEC))
+                f |= MOUNT_ATTR_NOEXEC;
+
+        if (FLAGS_SET(a, MS_NOSYMFOLLOW))
+                f |= MOUNT_ATTR_NOSYMFOLLOW;
+
+        return f;
+}
+
+static bool skip_mount_set_attr = false;
+
 /* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
@@ -140,12 +168,44 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
         assert(prefix);
-        assert(proc_self_mountinfo);
+
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list) && !skip_mount_set_attr) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, prefix, AT_SYMLINK_NOFOLLOW|AT_RECURSIVE,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        log_debug_errno(errno, "mount_setattr() failed, falling back to classic remounting: %m");
+
+                        /* We fall through to classic behaviour if not supported (i.e. kernel < 5.12). We
+                         * also do this for all other kinds of errors since they are so many different, and
+                         * mount_setattr() has no graceful mode where it continues despite seeing errors one
+                         * some mounts, but we want that. Moreover mount_setattr() only works on the mount
+                         * point inode itself, not a non-mount point inode, and we want to support arbitrary
+                         * prefixes here. */
+
+                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                                skip_mount_set_attr = true;
+                } else
+                        return 0; /* Nice, this worked! */
+        }
+
+        if (!proc_self_mountinfo) {
+                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
+                if (r < 0)
+                        return r;
+
+                proc_self_mountinfo = proc_self_mountinfo_opened;
+        }
 
         /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
          * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
@@ -247,7 +307,13 @@ int bind_remount_recursive_with_mountinfo(
 
                         r = hashmap_ensure_put(&todo, &path_hash_ops_free, d, ULONG_TO_PTR(flags));
                         if (r == -EEXIST)
-                                continue;
+                                /* If the same path was recorded, but with different mount flags, update it:
+                                 * it means a mount point is overmounted, and libmount returns the "bottom" (or
+                                 * older one) first, but we want to reapply the flags from the "top" (or newer
+                                 * one). See: https://github.com/systemd/systemd/issues/20032
+                                 * Note that this shouldn't really fail, as we were just told that the key
+                                 * exists, and it's an update so we want 'd' to be freed immediately. */
+                                r = hashmap_update(todo, d, ULONG_TO_PTR(flags));
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -334,22 +400,6 @@ int bind_remount_recursive_with_mountinfo(
         }
 }
 
-int bind_remount_recursive(
-                const char *prefix,
-                unsigned long new_flags,
-                unsigned long flags_mask,
-                char **deny_list) {
-
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        int r;
-
-        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
-        if (r < 0)
-                return r;
-
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, proc_self_mountinfo);
-}
-
 int bind_remount_one_with_mountinfo(
                 const char *path,
                 unsigned long new_flags,
@@ -364,6 +414,23 @@ int bind_remount_one_with_mountinfo(
 
         assert(path);
         assert(proc_self_mountinfo);
+
+        if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && !skip_mount_set_attr) {
+                /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
+
+                if (mount_setattr(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW,
+                                  &(struct mount_attr) {
+                                          .attr_set = ms_flags_to_mount_attr(new_flags & flags_mask),
+                                          .attr_clr = ms_flags_to_mount_attr(~new_flags & flags_mask),
+                                  }, MOUNT_ATTR_SIZE_VER0) < 0) {
+
+                        log_debug_errno(errno, "mount_setattr() didn't work, falling back to classic remounting: %m");
+
+                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                                skip_mount_set_attr = true;
+                } else
+                        return 0; /* Nice, this worked! */
+        }
 
         rewind(proc_self_mountinfo);
 
@@ -417,10 +484,7 @@ int mount_move_root(const char *path) {
         if (chroot(".") < 0)
                 return -errno;
 
-        if (chdir("/") < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(chdir("/"));
 }
 
 int repeat_unmount(const char *path, int flags) {
@@ -528,71 +592,54 @@ int mode_to_inaccessible_node(
         return 0;
 }
 
-#define FLAG(name) (flags & name ? STRINGIFY(name) "|" : "")
-static char* mount_flags_to_string(long unsigned flags) {
-        char *x;
-        _cleanup_free_ char *y = NULL;
-        long unsigned overflow;
+int mount_flags_to_string(long unsigned flags, char **ret) {
+        static const struct {
+                long unsigned flag;
+                const char *name;
+        } map[] = {
+                { .flag = MS_RDONLY,      .name = "MS_RDONLY",      },
+                { .flag = MS_NOSUID,      .name = "MS_NOSUID",      },
+                { .flag = MS_NODEV,       .name = "MS_NODEV",       },
+                { .flag = MS_NOEXEC,      .name = "MS_NOEXEC",      },
+                { .flag = MS_SYNCHRONOUS, .name = "MS_SYNCHRONOUS", },
+                { .flag = MS_REMOUNT,     .name = "MS_REMOUNT",     },
+                { .flag = MS_MANDLOCK,    .name = "MS_MANDLOCK",    },
+                { .flag = MS_DIRSYNC,     .name = "MS_DIRSYNC",     },
+                { .flag = MS_NOSYMFOLLOW, .name = "MS_NOSYMFOLLOW", },
+                { .flag = MS_NOATIME,     .name = "MS_NOATIME",     },
+                { .flag = MS_NODIRATIME,  .name = "MS_NODIRATIME",  },
+                { .flag = MS_BIND,        .name = "MS_BIND",        },
+                { .flag = MS_MOVE,        .name = "MS_MOVE",        },
+                { .flag = MS_REC,         .name = "MS_REC",         },
+                { .flag = MS_SILENT,      .name = "MS_SILENT",      },
+                { .flag = MS_POSIXACL,    .name = "MS_POSIXACL",    },
+                { .flag = MS_UNBINDABLE,  .name = "MS_UNBINDABLE",  },
+                { .flag = MS_PRIVATE,     .name = "MS_PRIVATE",     },
+                { .flag = MS_SLAVE,       .name = "MS_SLAVE",       },
+                { .flag = MS_SHARED,      .name = "MS_SHARED",      },
+                { .flag = MS_RELATIME,    .name = "MS_RELATIME",    },
+                { .flag = MS_KERNMOUNT,   .name = "MS_KERNMOUNT",   },
+                { .flag = MS_I_VERSION,   .name = "MS_I_VERSION",   },
+                { .flag = MS_STRICTATIME, .name = "MS_STRICTATIME", },
+                { .flag = MS_LAZYTIME,    .name = "MS_LAZYTIME",    },
+        };
+        _cleanup_free_ char *str = NULL;
 
-        overflow = flags & ~(MS_RDONLY |
-                             MS_NOSUID |
-                             MS_NODEV |
-                             MS_NOEXEC |
-                             MS_SYNCHRONOUS |
-                             MS_REMOUNT |
-                             MS_MANDLOCK |
-                             MS_DIRSYNC |
-                             MS_NOATIME |
-                             MS_NODIRATIME |
-                             MS_BIND |
-                             MS_MOVE |
-                             MS_REC |
-                             MS_SILENT |
-                             MS_POSIXACL |
-                             MS_UNBINDABLE |
-                             MS_PRIVATE |
-                             MS_SLAVE |
-                             MS_SHARED |
-                             MS_RELATIME |
-                             MS_KERNMOUNT |
-                             MS_I_VERSION |
-                             MS_STRICTATIME |
-                             MS_LAZYTIME);
+        assert(ret);
 
-        if (flags == 0 || overflow != 0)
-                if (asprintf(&y, "%lx", overflow) < 0)
-                        return NULL;
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag) {
+                        if (!strextend_with_separator(&str, "|", map[i].name))
+                                return -ENOMEM;
+                        flags &= ~map[i].flag;
+                }
 
-        x = strjoin(FLAG(MS_RDONLY),
-                    FLAG(MS_NOSUID),
-                    FLAG(MS_NODEV),
-                    FLAG(MS_NOEXEC),
-                    FLAG(MS_SYNCHRONOUS),
-                    FLAG(MS_REMOUNT),
-                    FLAG(MS_MANDLOCK),
-                    FLAG(MS_DIRSYNC),
-                    FLAG(MS_NOATIME),
-                    FLAG(MS_NODIRATIME),
-                    FLAG(MS_BIND),
-                    FLAG(MS_MOVE),
-                    FLAG(MS_REC),
-                    FLAG(MS_SILENT),
-                    FLAG(MS_POSIXACL),
-                    FLAG(MS_UNBINDABLE),
-                    FLAG(MS_PRIVATE),
-                    FLAG(MS_SLAVE),
-                    FLAG(MS_SHARED),
-                    FLAG(MS_RELATIME),
-                    FLAG(MS_KERNMOUNT),
-                    FLAG(MS_I_VERSION),
-                    FLAG(MS_STRICTATIME),
-                    FLAG(MS_LAZYTIME),
-                    y);
-        if (!x)
-                return NULL;
-        if (!y)
-                x[strlen(x) - 1] = '\0'; /* truncate the last | */
-        return x;
+        if (!str || flags != 0)
+                if (strextendf_with_separator(&str, "|", "%lx", flags) < 0)
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
 }
 
 int mount_verbose_full(
@@ -614,7 +661,7 @@ int mount_verbose_full(
                                       "Failed to mangle mount options %s: %m",
                                       strempty(options));
 
-        fl = mount_flags_to_string(f);
+        (void) mount_flags_to_string(f, &fl);
 
         if ((f & MS_REMOUNT) && !what && !type)
                 log_debug("Remounting %s (%s \"%s\")...",
@@ -633,7 +680,7 @@ int mount_verbose_full(
                           strna(what), strna(type), where, strnull(fl), strempty(o));
 
         if (follow_symlink)
-                r = mount(what, where, type, f, o) < 0 ? -errno : 0;
+                r = RET_NERRNO(mount(what, where, type, f, o));
         else
                 r = mount_nofollow(what, where, type, f, o);
         if (r < 0)
@@ -667,7 +714,6 @@ int mount_option_mangle(
 
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;
-        const char *p;
         int r;
 
         /* This extracts mount flags from the mount options, and store
@@ -692,12 +738,11 @@ int mount_option_mangle(
         if (!map)
                 return -EINVAL;
 
-        p = options;
-        for (;;) {
+        for (const char *p = options;;) {
                 _cleanup_free_ char *word = NULL;
                 const struct libmnt_optmap *ent;
 
-                r = extract_first_word(&p, &word, ",", EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -741,8 +786,7 @@ static int mount_in_namespace(
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
-        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p,
-                chased_src[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
@@ -775,9 +819,8 @@ static int mount_in_namespace(
         if (st.st_ino == self_mntns_st.st_ino && st.st_dev == self_mntns_st.st_dev)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
 
-        /* One day, when bind mounting /proc/self/fd/n works across
-         * namespace boundaries we should rework this logic to make
-         * use of it... */
+        /* One day, when bind mounting /proc/self/fd/n works across namespace boundaries we should rework
+         * this logic to make use of it... */
 
         p = strjoina(propagate_path, "/");
         r = laccess(p, F_OK);
@@ -787,7 +830,6 @@ static int mount_in_namespace(
         r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, NULL, &chased_src_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
-        xsprintf(chased_src, "/proc/self/fd/%i", chased_src_fd);
 
         if (fstat(chased_src_fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
@@ -832,9 +874,9 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src, mount_tmp, options, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, options, NULL, NULL, NULL, NULL);
         else
-                r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto finish;
 
@@ -985,4 +1027,106 @@ int mount_image_in_namespace(
                 const MountOptions *options) {
 
         return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, true);
+}
+
+int make_mount_point(const char *path) {
+        int r;
+
+        assert(path);
+
+        /* If 'path' is already a mount point, does nothing and returns 0. If it is not it makes it one, and returns 1. */
+
+        r = path_is_mount_point(path, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether '%s' is a mount point: %m", path);
+        if (r > 0)
+                return 0;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, path, path, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int make_userns(uid_t uid_shift, uid_t uid_range) {
+        char line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+        _cleanup_close_ int userns_fd = -1;
+
+        /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
+         * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
+
+        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
+
+        /* We always assign the same UID and GID ranges */
+        userns_fd = userns_acquire(line, line);
+        if (userns_fd < 0)
+                return log_debug_errno(userns_fd, "Failed to acquire new userns: %m");
+
+        return TAKE_FD(userns_fd);
+}
+
+int remount_idmap(
+                const char *p,
+                uid_t uid_shift,
+                uid_t uid_range) {
+
+        _cleanup_close_ int mount_fd = -1, userns_fd = -1;
+        int r;
+
+        assert(p);
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return -EINVAL;
+
+        /* Clone the mount point */
+        mount_fd = open_tree(-1, p, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
+
+        /* Create a user namespace mapping */
+        userns_fd = make_userns(uid_shift, uid_range);
+        if (userns_fd < 0)
+                return userns_fd;
+
+        /* Set the user namespace mapping attribute on the cloned mount point */
+        if (mount_setattr(mount_fd, "", AT_EMPTY_PATH | AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = MOUNT_ATTR_IDMAP,
+                                  .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to change bind mount attributes for '%s': %m", p);
+
+        /* Remove the old mount point */
+        r = umount_verbose(LOG_DEBUG, p, UMOUNT_NOFOLLOW);
+        if (r < 0)
+                return r;
+
+        /* And place the cloned version in its place */
+        if (move_mount(mount_fd, "", -1, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
+
+        return 0;
+}
+
+int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
+        assert(st);
+        assert(dest);
+
+        if (S_ISDIR(st->st_mode))
+                return mkdir_label(dest, mode);
+        else
+                return mknod(dest, S_IFREG|(mode & ~0111), 0);
+}
+
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
+        struct stat st;
+
+        assert(source);
+        assert(dest);
+
+        if (stat(source, &st) < 0)
+                return -errno;
+
+        return make_mount_point_inode_from_stat(&st, dest, mode);
 }
