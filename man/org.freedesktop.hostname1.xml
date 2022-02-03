@@ -58,8 +58,7 @@ node /org/freedesktop/hostname1 {
                   in  b interactive);
       GetProductUUID(in  b interactive,
                      out ay uuid);
-      GetHardwareSerial(in  b interactive,
-                        out s serial);
+      GetHardwareSerial(out s serial);
       Describe(out s json);
     properties:
       readonly s Hostname = '...';
