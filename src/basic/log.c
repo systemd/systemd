@@ -883,6 +883,7 @@ void log_assert_failed_return(
         PROTECT_ERRNO;
         log_assert(LOG_DEBUG, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
+        abort();
 }
 
 int log_oom_internal(int level, const char *file, int line, const char *func) {
