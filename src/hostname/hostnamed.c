@@ -185,15 +185,16 @@ static int get_dmi_data(const char *database_key, const char *regular_key, char 
         if (!s && regular_key)
                 (void) sd_device_get_property_value(device, regular_key, &s);
 
+        if (!ret)
+                return !!s;
+
         if (s) {
                 b = strdup(s);
                 if (!b)
                         return -ENOMEM;
         }
 
-        if (ret)
-                *ret = TAKE_PTR(b);
-
+        *ret = TAKE_PTR(b);
         return !!s;
 }
 
