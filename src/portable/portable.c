@@ -611,7 +611,7 @@ static int extract_image_and_extensions(
                         continue;
 
                 /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
-                extension_release_fd = fd_reopen(extension_release_meta->fd, O_CLOEXEC);
+                extension_release_fd = fd_reopen(extension_release_meta->fd, O_CLOEXEC|O_RDONLY);
                 if (extension_release_fd < 0)
                         return extension_release_fd;
 
