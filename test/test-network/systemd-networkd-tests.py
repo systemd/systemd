@@ -592,7 +592,7 @@ class Utilities():
         self.assertTrue(link_exists(link))
 
     def check_link_attr(self, *args):
-        self.assertEqual(read_link_attr(*args[:-1]), args[-1]);
+        self.assertEqual(read_link_attr(*args[:-1]), args[-1])
 
     def wait_activated(self, link, state='down', timeout=20, fail_assert=True):
         # wait for the interface is activated.
@@ -4475,9 +4475,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def _test_dhcp_client_ipv4_use_routes_gateway(self, use_routes, use_gateway, dns_and_ntp_routes, classless):
         testunit = 'dhcp-client-ipv4-use-routes-use-gateway.network'
         testunits = ['25-veth.netdev', 'dhcp-server-veth-peer.network', testunit]
-        testunits.append(f'{testunit}.d/use-routes-{use_routes}.conf');
-        testunits.append(f'{testunit}.d/use-gateway-{use_gateway}.conf');
-        testunits.append(f'{testunit}.d/use-dns-and-ntp-routes-{dns_and_ntp_routes}.conf');
+        testunits.append(f'{testunit}.d/use-routes-{use_routes}.conf')
+        testunits.append(f'{testunit}.d/use-gateway-{use_gateway}.conf')
+        testunits.append(f'{testunit}.d/use-dns-and-ntp-routes-{dns_and_ntp_routes}.conf')
         copy_unit_to_networkd_unit_path(*testunits, dropins=False)
 
         start_networkd()
