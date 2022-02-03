@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# pylint: disable=line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-arguments
+# pylint: disable=too-many-public-methods,too-many-boolean-expressions,invalid-name
+# pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 # systemd-networkd tests
 
 import argparse
@@ -276,6 +279,7 @@ def expectedFailureIfFQPIEIsNotAvailable():
     return f
 
 def setUpModule():
+    # pylint: disable=global-statement
     global running_units
 
     os.makedirs(network_unit_file_path, exist_ok=True)
@@ -380,6 +384,7 @@ def setUpModule():
     check_output('systemctl restart systemd-udevd')
 
 def tearDownModule():
+    # pylint: disable=global-statement
     global running_units
 
     shutil.rmtree(networkd_ci_path)
