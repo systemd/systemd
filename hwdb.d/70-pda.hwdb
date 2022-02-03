@@ -4,8 +4,19 @@
 # the seat owner.
 #
 # Permitted keys:
-#   Specify if a device is a signal analyzer
+#   Specify if a device is a handheld
 #   ID_PDA=1|0
+
+###########################################################
+# HP Inc.
+###########################################################
+# HP x9G+ Calculator
+usb:v03F0p0121*
+ ID_PDA=1
+
+# HP Prime
+usb:v03F0p1541*
+ ID_PDA=1
 
 ###########################################################
 # Texas Instruments
