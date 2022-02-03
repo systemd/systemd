@@ -486,9 +486,9 @@ def remove_unit_from_networkd_path(units):
     Drop-ins will be removed automatically.
     """
     for unit in units:
-        if (os.path.exists(os.path.join(network_unit_file_path, unit))):
+        if os.path.exists(os.path.join(network_unit_file_path, unit)):
             os.remove(os.path.join(network_unit_file_path, unit))
-            if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
+            if os.path.exists(os.path.join(network_unit_file_path, unit + '.d')):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
 def copy_networkd_conf_dropin(*dropins):
@@ -499,7 +499,7 @@ def copy_networkd_conf_dropin(*dropins):
 def remove_networkd_conf_dropin(dropins):
     """Remove previously copied networkd.conf dropin files from the testbed."""
     for dropin in dropins:
-        if (os.path.exists(os.path.join(networkd_conf_dropin_path, dropin))):
+        if os.path.exists(os.path.join(networkd_conf_dropin_path, dropin)):
             os.remove(os.path.join(networkd_conf_dropin_path, dropin))
 
 def start_dnsmasq(additional_options='', interface='veth-peer', ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20', lease_time='1h'):
@@ -3826,9 +3826,9 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')
         # CONFIG_BRIDGE_IGMP_SNOOPING=y
-        if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
+        if os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast'):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
-        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
+        if os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress'):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'priority'), '23')
@@ -3864,9 +3864,9 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')
         # CONFIG_BRIDGE_IGMP_SNOOPING=y
-        if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
+        if os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast'):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
-        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
+        if os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress'):
             self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'priority'), '23')
