@@ -439,8 +439,8 @@ def remove_blackhole_nexthops():
     ret = run('ip nexthop show dev lo', stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if ret.returncode == 0:
         for line in ret.stdout.rstrip().splitlines():
-            id = line.split()[1]
-            call(f'ip nexthop del id {id}')
+            dev_id = line.split()[1]
+            call(f'ip nexthop del id {dev_id}')
 
 def remove_l2tp_tunnels(tunnel_ids):
     output = check_output('ip l2tp show tunnel')
@@ -5852,7 +5852,7 @@ if __name__ == '__main__':
     parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     parser.add_argument('--with-coverage', help='Loosen certain sandbox restrictions to make gcov happy', dest='with_coverage', type=bool, nargs='?', const=True, default=with_coverage)
-    ns, args = parser.parse_known_args(namespace=unittest)
+    ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
         if ns.networkd_bin or ns.resolved_bin or ns.udevd_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
@@ -5907,6 +5907,6 @@ if __name__ == '__main__':
     if ubsan_options:
         env.update({ 'UBSAN_OPTIONS' : ubsan_options })
 
-    sys.argv[1:] = args
+    sys.argv[1:] = unknown_args
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=3))
