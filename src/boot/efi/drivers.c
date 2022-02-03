@@ -36,11 +36,11 @@ static EFI_STATUS load_one_driver(
 
         err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **)&loaded_image);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to find protocol in driver image s: %r", fname, err);
+                return log_error_status_stall(err, L"Failed to find protocol in driver image %s: %r", fname, err);
 
         if (loaded_image->ImageCodeType != EfiBootServicesCode &&
             loaded_image->ImageCodeType != EfiRuntimeServicesCode)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing: %r", fname);
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing.", fname);
 
         err = BS->StartImage(image, NULL, NULL);
         if (EFI_ERROR(err)) {
