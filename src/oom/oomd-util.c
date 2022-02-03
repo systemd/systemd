@@ -219,6 +219,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
 int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int n, r, ret = 0;
+        int dump_until;
 
         assert(h);
         assert(ret_selected);
@@ -227,6 +228,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         if (n < 0)
                 return n;
 
+        dump_until = MIN(n, DUMP_ON_KILL_COUNT);
         for (int i = 0; i < n; i++) {
                 /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure.
                  * Continue since there might be "avoid" cgroups at the end. */
@@ -242,12 +244,34 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                         continue; /* Try to find something else to kill */
                 }
 
+                dump_until = MAX(dump_until, i);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return r;
+                ret = r;
+                break;
         }
+
+        /* Try dumping top offendors, ignoring any errors that might happen. */
+        _cleanup_free_ char *dump = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t size;
+        f = open_memstream_unlocked(&dump, &size);
+        if (!f)
+                return ret;
+
+        fprintf(f, "Considered %d cgroups for killing, top candidates were:\n", n);
+        for (int i = 0; i < dump_until; i++)
+                oomd_dump_memory_pressure_cgroup_context(sorted[i], f, "\t");
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return ret;
+
+        f = safe_fclose(f);
+
+        log_dump(LOG_INFO, dump);
 
         return ret;
 }
@@ -255,6 +279,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
 int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int n, r, ret = 0;
+        int dump_until;
 
         assert(h);
         assert(ret_selected);
@@ -263,6 +288,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
         if (n < 0)
                 return n;
 
+        dump_until = MIN(n, DUMP_ON_KILL_COUNT);
         /* Try to kill cgroups with non-zero swap usage until we either succeed in killing or we get to a cgroup with
          * no swap usage. Threshold killing only cgroups with more than threshold swap usage. */
         for (int i = 0; i < n; i++) {
@@ -280,12 +306,34 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                         continue; /* Try to find something else to kill */
                 }
 
+                dump_until = MAX(dump_until, i);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
                 *ret_selected = selected;
-                return r;
+                ret = r;
+                break;
         }
+
+        /* Try dumping top offendors, ignoring any errors that might happen. */
+        _cleanup_free_ char *dump = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t size;
+        f = open_memstream_unlocked(&dump, &size);
+        if (!f)
+                return ret;
+
+        fprintf(f, "Considered %d cgroups for killing, top candidates were:\n", n);
+        for (int i = 0; i < dump_until; i++)
+                oomd_dump_swap_cgroup_context(sorted[i], f, "\t");
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return ret;
+
+        f = safe_fclose(f);
+
+        log_dump(LOG_INFO, dump);
 
         return ret;
 }
