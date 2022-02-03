@@ -13,7 +13,7 @@ typedef enum DHCPType {
         DHCP_TYPE_OFF,
         DHCP_TYPE_ON,
         DHCP_TYPE_ANY,
-        DHCP_TYPE_DHCP,
+        DHCP_TYPE_DHCP4,
         DHCP_TYPE_DHCP6,
         DHCP_TYPE_AUTO6,
         DHCP_TYPE_EITHER6,
@@ -59,6 +59,7 @@ struct Network {
         uint32_t mtu;
 
         /* [Network] */
+        bool keep_configuration;
         DHCPType dhcp_type;
         char **dns;
         char *vlan;
