@@ -64,7 +64,7 @@ static int warn_wall(Manager *m, usec_t n) {
 
         assert(m);
 
-        if (!m->enable_wall_messages)
+        if (!m->enable_wall_messages || !m->scheduled_shutdown_type)
                 return 0;
 
         left = m->scheduled_shutdown_timeout > n;
@@ -72,7 +72,7 @@ static int warn_wall(Manager *m, usec_t n) {
         r = asprintf(&l, "%s%sThe system is going down for %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
-                     handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)),
+                     handle_action_to_string(m->scheduled_shutdown_type->handle),
                      left ? "at " : "NOW",
                      left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
         if (r < 0) {

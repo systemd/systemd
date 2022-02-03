@@ -28,6 +28,7 @@ typedef struct ActionTableItem ActionTableItem;
 #include "sleep-config.h"
 
 struct ActionTableItem {
+        HandleAction handle;
         const char *target;
         InhibitWhat inhibit_what;
         const char *polkit_action;

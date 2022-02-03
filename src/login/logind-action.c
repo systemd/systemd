@@ -20,6 +20,7 @@
 
 static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_POWEROFF] = {
+                HANDLE_POWEROFF,
                 SPECIAL_POWEROFF_TARGET,
                 INHIBIT_SHUTDOWN,
                 "org.freedesktop.login1.power-off",
@@ -31,6 +32,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 "power-off",
                 },
         [HANDLE_REBOOT] = {
+                HANDLE_REBOOT,
                 SPECIAL_REBOOT_TARGET,
                 INHIBIT_SHUTDOWN,
                 "org.freedesktop.login1.reboot",
@@ -42,6 +44,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 "reboot",
                 },
         [HANDLE_HALT]  = {
+                HANDLE_HALT,
                 SPECIAL_HALT_TARGET,
                 INHIBIT_SHUTDOWN,
                 "org.freedesktop.login1.halt",
@@ -53,6 +56,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 "halt",
                 },
         [HANDLE_KEXEC]  = {
+                HANDLE_KEXEC,
                 SPECIAL_KEXEC_TARGET,
                 INHIBIT_SHUTDOWN,
                 "org.freedesktop.login1.reboot",
@@ -64,6 +68,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 "kexec",
                 },
         [HANDLE_SUSPEND]  = {
+                HANDLE_SUSPEND,
                 SPECIAL_SUSPEND_TARGET,
                 INHIBIT_SLEEP,
                 "org.freedesktop.login1.suspend",
@@ -72,6 +77,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 SLEEP_SUSPEND,
                 },
         [HANDLE_HIBERNATE]  = {
+                HANDLE_HIBERNATE,
                 SPECIAL_HIBERNATE_TARGET,
                 INHIBIT_SLEEP,
                 "org.freedesktop.login1.hibernate",
@@ -80,6 +86,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 SLEEP_HIBERNATE,
                 },
         [HANDLE_HYBRID_SLEEP]  = {
+                HANDLE_HYBRID_SLEEP,
                 SPECIAL_HYBRID_SLEEP_TARGET,
                 INHIBIT_SLEEP,
                 "org.freedesktop.login1.hibernate",
@@ -88,6 +95,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 SLEEP_HYBRID_SLEEP,
                 },
         [HANDLE_SUSPEND_THEN_HIBERNATE]  = {
+                HANDLE_SUSPEND_THEN_HIBERNATE,
                 SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
                 INHIBIT_SLEEP,
                 "org.freedesktop.login1.hibernate",
@@ -96,6 +104,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 SLEEP_SUSPEND_THEN_HIBERNATE,
                 },
         [HANDLE_FACTORY_RESET]  = {
+                HANDLE_FACTORY_RESET,
                 SPECIAL_FACTORY_RESET_TARGET,
                 _INHIBIT_WHAT_INVALID,
                 NULL,
@@ -120,12 +129,6 @@ const ActionTableItem* manager_item_for_handle(HandleAction handle) {
         assert(handle < (ssize_t) ELEMENTSOF(action_table));
 
         return &action_table[handle];
-}
-
-HandleAction manager_handle_for_item(const ActionTableItem* a) {
-        if (a && a < action_table + ELEMENTSOF(action_table))
-                return a - action_table;
-        return _HANDLE_ACTION_INVALID;
 }
 
 int manager_handle_action(
