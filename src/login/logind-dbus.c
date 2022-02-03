@@ -343,13 +343,14 @@ static int property_get_scheduled_shutdown(
         assert(bus);
         assert(reply);
         assert(m);
+        assert(m->scheduled_shutdown_type);
 
         r = sd_bus_message_open_container(reply, 'r', "st");
         if (r < 0)
                 return r;
 
         r = sd_bus_message_append(reply, "st",
-                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)),
+                handle_action_to_string(m->scheduled_shutdown_type->handle),
                 m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
@@ -1884,7 +1885,7 @@ static int method_do_shutdown_or_sleep(
                         return r;
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
-                if (manager_handle_for_item(a) != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
+                if (a->handle != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Reboot via kexec is only applicable with reboot operations");
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
@@ -2035,6 +2036,7 @@ static int update_schedule_file(Manager *m) {
         int r;
 
         assert(m);
+        assert(m->scheduled_shutdown_type);
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
@@ -2052,7 +2054,7 @@ static int update_schedule_file(Manager *m) {
                 "MODE=%s\n",
                 m->scheduled_shutdown_timeout,
                 m->enable_wall_messages,
-                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)));
+                handle_action_to_string(m->scheduled_shutdown_type->handle));
 
         if (!isempty(m->wall_message)) {
                 _cleanup_free_ char *t = NULL;
@@ -2238,9 +2240,10 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         int r;
 
         assert(m);
+        assert(m->scheduled_shutdown_type);
         assert(message);
 
-        cancelled = !IN_SET(manager_handle_for_item(m->scheduled_shutdown_type), HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
+        cancelled = !IN_SET(m->scheduled_shutdown_type->handle, HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
         if (!cancelled)
                 goto done;
 
