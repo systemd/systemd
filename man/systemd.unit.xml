@@ -630,8 +630,8 @@
         <para>If this unit gets activated, the units listed will be activated as well. If one of
         the other units fails to activate, and an ordering dependency <varname>After=</varname> on the
         failing unit is set, this unit will not be started. Besides, with or without specifying
-        <varname>After=</varname>, this unit will be stopped if one of the other units is explicitly
-        stopped.</para>
+        <varname>After=</varname>, this unit will be stopped (or restarted) if one of the other units is
+        explicitly stopped (or restarted).</para>
 
         <para>Often, it is a better choice to use <varname>Wants=</varname> instead of
         <varname>Requires=</varname> in order to achieve a system that is more robust when dealing with
