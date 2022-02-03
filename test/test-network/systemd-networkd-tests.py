@@ -586,8 +586,9 @@ def restart_networkd(sleep_sec=0, show_logs=True, remove_state_files=True):
     stop_networkd(show_logs, remove_state_files)
     start_networkd(sleep_sec)
 
-
 class Utilities():
+    # pylint: disable=no-member
+
     def check_link_exists(self, link):
         self.assertTrue(link_exists(link))
 
