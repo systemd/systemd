@@ -1606,7 +1606,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else if (r < 0)
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
-                (void) boot_entries_augment_from_loader(&config, efi_entries);
+                (void) boot_entries_augment_from_loader(&config, efi_entries, false);
 
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");

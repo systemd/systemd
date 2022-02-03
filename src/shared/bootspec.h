@@ -76,7 +76,7 @@ static inline BootEntry* boot_config_default_entry(BootConfig *config) {
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
-int boot_entries_augment_from_loader(BootConfig *config, char **list);
+int boot_entries_augment_from_loader(BootConfig *config, char **list, bool only_auto);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;
