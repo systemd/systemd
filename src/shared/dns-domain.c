@@ -1415,3 +1415,18 @@ int dns_name_dot_suffixed(const char *name) {
                         return false;
         }
 }
+
+bool dns_name_dont_resolve(const char *name) {
+
+        /* Never respond to some of the domains listed in RFC6303 */
+        if (dns_name_endswith(name, "0.in-addr.arpa") > 0 ||
+            dns_name_equal(name, "255.255.255.255.in-addr.arpa") > 0 ||
+            dns_name_equal(name, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+                return true;
+
+        /* Never respond to some of the domains listed in RFC6761 */
+        if (dns_name_endswith(name, "invalid") > 0)
+                return true;
+
+        return false;
+}
