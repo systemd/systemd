@@ -397,11 +397,8 @@ int dns_synthesize_answer(
                 if (dns_name_is_empty(name)) {
                         /* Do nothing. */
 
-                } else if (dns_name_endswith(name, "0.in-addr.arpa") > 0 ||
-                           dns_name_equal(name, "255.255.255.255.in-addr.arpa") > 0 ||
-                           dns_name_equal(name, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0 ||
-                           dns_name_endswith(name, "invalid") > 0) {
-
+                } else if (dns_name_dont_resolve(name)) {
+                        /* Synthesize NXDOMAIN for some of the domains in RFC6303 + RFC6761 */
                         nxdomain = true;
                         continue;
 
