@@ -192,7 +192,7 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                                 log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->file->path);
 
-                                r = copy_file_atomic(f->file->path, f->file->path, f->file->mode, 0, FS_NOCOW_FL, COPY_REPLACE | COPY_FSYNC | COPY_HOLES);
+                                r = copy_file_atomic(FORMAT_PROC_FD_PATH(f->file->fd), f->file->path, f->file->mode, 0, FS_NOCOW_FL, COPY_REPLACE | COPY_FSYNC | COPY_HOLES);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to rewrite %s: %m", f->file->path);
                                         continue;
