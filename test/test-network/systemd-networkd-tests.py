@@ -198,7 +198,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         try:
             with open('/sys/bus/netdevsim/new_device', mode='w') as f:
                 f.write('99 1')
-        except Exception:
+        except OSError:
             return unittest.expectedFailure(func)
 
         call('udevadm settle')
@@ -206,7 +206,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         try:
             with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
                 f.write('3')
-        except Exception:
+        except OSError:
             call('rmmod netdevsim', stderr=subprocess.DEVNULL)
             return unittest.expectedFailure(func)
 
