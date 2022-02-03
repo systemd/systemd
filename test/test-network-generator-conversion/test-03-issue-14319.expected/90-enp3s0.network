@@ -6,6 +6,7 @@ Name=enp3s0
 [Link]
 
 [Network]
+KeepConfiguration=yes
 DHCP=no
 
 [DHCP]

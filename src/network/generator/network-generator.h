@@ -59,6 +59,7 @@ struct Network {
         uint32_t mtu;
 
         /* [Network] */
+        bool keep_configuration;
         DHCPType dhcp_type;
         char **dns;
         char *vlan;
