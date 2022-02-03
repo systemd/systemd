@@ -23,6 +23,7 @@
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
+  nfsroot=[<server-ip>:]<root-dir>[,<nfs-options>] # The value is completely ignored, if the key is detected, then KeepConfiguration= is enabled.
 
   # .link
   ifname=<interface>:<MAC>
@@ -47,7 +48,7 @@ static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_OFF]     = "off",
         [DHCP_TYPE_ON]      = "on",
         [DHCP_TYPE_ANY]     = "any",
-        [DHCP_TYPE_DHCP]    = "dhcp",
+        [DHCP_TYPE_DHCP4]   = "dhcp",
         [DHCP_TYPE_DHCP6]   = "dhcp6",
         [DHCP_TYPE_AUTO6]   = "auto6",
         [DHCP_TYPE_EITHER6] = "either6",
@@ -62,7 +63,7 @@ static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_OFF]     = "no",
         [DHCP_TYPE_ON]      = "yes",
         [DHCP_TYPE_ANY]     = "yes",
-        [DHCP_TYPE_DHCP]    = "ipv4",
+        [DHCP_TYPE_DHCP4]   = "ipv4",
         [DHCP_TYPE_DHCP6]   = "ipv6",
         [DHCP_TYPE_AUTO6]   = "no",   /* TODO: enable other setting? */
         [DHCP_TYPE_EITHER6] = "ipv6", /* TODO: enable other setting? */
@@ -451,6 +452,21 @@ static int network_set_dhcp_use_dns(Context *context, const char *ifname, bool v
         return 0;
 }
 
+static int network_set_keep_configuration(Context *context, const char *ifname, bool value) {
+        Network *network;
+        int r;
+
+        network = network_get(context, ifname);
+        if (!network) {
+                r = network_new(context, ifname, &network);
+                if (r < 0)
+                        return r;
+        }
+
+        network->keep_configuration = value;
+        return 0;
+}
+
 static int network_set_vlan(Context *context, const char *ifname, const char *value) {
         Network *network;
         int r;
@@ -802,6 +818,13 @@ static int parse_cmdline_rd_peerdns(Context *context, const char *key, const cha
         return network_set_dhcp_use_dns(context, "", r);
 }
 
+static int parse_cmdline_nfsroot(Context *context, const char *key, const char *value) {
+        if (proc_cmdline_value_missing(key, value))
+                return -EINVAL;
+
+        return network_set_keep_configuration(context, "", true);
+}
+
 static int parse_cmdline_vlan(Context *context, const char *key, const char *value) {
         const char *name, *p;
         NetDev *netdev;
@@ -1017,6 +1040,8 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
                 return parse_cmdline_nameserver(context, key, value);
         if (streq(key, "rd.peerdns"))
                 return parse_cmdline_rd_peerdns(context, key, value);
+        if (streq(key, "nfsroot"))
+                return parse_cmdline_nfsroot(context, key, value);
         if (streq(key, "vlan"))
                 return parse_cmdline_vlan(context, key, value);
         if (streq(key, "bridge"))
@@ -1041,7 +1066,9 @@ int context_merge_networks(Context *context) {
         /* Copy settings about the following options
            rd.route=<net>/<netmask>:<gateway>[:<interface>]
            nameserver=<IP> [nameserver=<IP> ...]
-           rd.peerdns=0 */
+           rd.peerdns=0
+           nfsroot=
+        */
 
         all = network_get(context, "");
         if (!all)
@@ -1054,6 +1081,7 @@ int context_merge_networks(Context *context) {
                 if (network == all)
                         continue;
 
+                network->keep_configuration = all->keep_configuration;
                 network->dhcp_use_dns = all->dhcp_use_dns;
 
                 r = strv_extend_strv(&network->dns, all->dns, false);
@@ -1150,6 +1178,14 @@ void network_dump(Network *network, FILE *f) {
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", network->mtu);
 
         fputs("\n[Network]\n", f);
+
+        if (network->keep_configuration)
+                /* Here, we set "yes" even if neither static addresses nor routes are configured below,
+                 * as the kernel configures default gateway RTPROT_BOOT without preferred source even
+                 * when ip=dhcp, and we cannot distinguish the address is configured statically or
+                 * dynamically. Maybe, networkd should parse kernel command line to improve the
+                 * current situation. */
+                fprintf(f, "KeepConfiguration=yes\n");
 
         dhcp = networkd_dhcp_type_to_string(network->dhcp_type);
         if (dhcp)

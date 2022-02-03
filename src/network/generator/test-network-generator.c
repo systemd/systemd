@@ -450,5 +450,37 @@ int main(int argc, char *argv[]) {
                          "Gateway=192.168.0.1\n"
                          );
 
+        test_network_two("",
+                         "ip", "dhcp",
+                         "nfsroot", "hoge",
+                         "[Match]\n"
+                         "Name=*\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "KeepConfiguration=yes\n"
+                         "DHCP=ipv4\n"
+                         "\n[DHCP]\n"
+                         );
+
+        test_network_two("eth0",
+                         "ip", "192.168.0.10:192.168.0.2:192.168.0.1:255.255.255.0:hogehoge:eth0:on:10.10.10.10:10.10.10.11",
+                         "nfsroot", "hogehoge",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "KeepConfiguration=yes\n"
+                         "DHCP=yes\n"
+                         "DNS=10.10.10.10\n"
+                         "DNS=10.10.10.11\n"
+                         "\n[DHCP]\n"
+                         "Hostname=hogehoge\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "Peer=192.168.0.2\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
         return 0;
 }
