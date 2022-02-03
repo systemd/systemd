@@ -857,7 +857,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
                         r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
