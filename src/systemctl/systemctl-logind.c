@@ -389,12 +389,14 @@ int logind_show_shutdown(void) {
         if (isempty(action))
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
 
-        if (streq(action, "halt") || streq(action, "poweroff") || streq(action, "exit"))
+        if (STR_IN_SET(action, "halt", "poweroff", "exit"))
                 action = "Shutdown";
         else if (streq(action, "kexec"))
                 action = "Reboot via kexec";
         else if (streq(action, "reboot"))
                 action = "Reboot";
+
+        /* If we don't recognize the action string, we'll show it as-is */
 
         log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
                  action,
