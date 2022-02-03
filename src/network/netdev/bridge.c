@@ -167,8 +167,102 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
-                               netdev_destroy_callback, netdev);
+        if (link->network->use_bpdu >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->use_bpdu);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
+        }
+
+        if (link->network->hairpin >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
+        }
+
+        if (link->network->isolated >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_ISOLATED, link->network->isolated);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_ISOLATED attribute: %m");
+        }
+
+        if (link->network->fast_leave >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
+        }
+
+        if (link->network->allow_port_to_be_root >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
+        }
+
+        if (link->network->unicast_flood >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
+        }
+
+        if (link->network->multicast_flood >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_FLOOD, link->network->multicast_flood);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_FLOOD attribute: %m");
+        }
+
+        if (link->network->multicast_to_unicast >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_TO_UCAST, link->network->multicast_to_unicast);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_TO_UCAST attribute: %m");
+        }
+
+        if (link->network->neighbor_suppression >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_NEIGH_SUPPRESS, link->network->neighbor_suppression);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_NEIGH_SUPPRESS attribute: %m");
+        }
+
+        if (link->network->learning >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_LEARNING, link->network->learning);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_LEARNING attribute: %m");
+        }
+
+        if (link->network->bridge_proxy_arp >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP, link->network->bridge_proxy_arp);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP attribute: %m");
+        }
+
+        if (link->network->bridge_proxy_arp_wifi >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROXYARP_WIFI, link->network->bridge_proxy_arp_wifi);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROXYARP_WIFI attribute: %m");
+        }
+
+        if (link->network->cost != 0) {
+                r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
+        }
+
+        if (link->network->priority != LINK_BRIDGE_PORT_PRIORITY_INVALID) {
+                r = sd_netlink_message_append_u16(req, IFLA_BRPORT_PRIORITY, link->network->priority);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PRIORITY attribute: %m");
+        }
+
+        if (link->network->multicast_router != _MULTICAST_ROUTER_INVALID) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MULTICAST_ROUTER, link->network->multicast_router);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MULTICAST_ROUTER attribute: %m");
+        }
+
+        r = sd_netlink_message_close_container(req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bridge_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
