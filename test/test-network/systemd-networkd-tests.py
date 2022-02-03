@@ -916,6 +916,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ip6gretun97',
         'ip6gretun98',
         'ip6gretun99',
+        'ip6tnl-external',
         'ip6tnl-slaac',
         'ip6tnl97',
         'ip6tnl98',
@@ -1002,7 +1003,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-ip6gre-tunnel-local-any.netdev',
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel.netdev',
-        '25-ip6tnl-tunnel-any-any.netdev',
+        '25-ip6tnl-tunnel-external.netdev',
         '25-ip6tnl-tunnel-local-any.netdev',
         '25-ip6tnl-tunnel-local-slaac.netdev',
         '25-ip6tnl-tunnel-local-slaac.network',
@@ -1691,9 +1692,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                         '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                                         '25-veth.netdev', 'ip6tnl-slaac.network', 'ipv6-prefix.network',
-                                        '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network')
+                                        '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network',
+                                        '25-ip6tnl-external.netdev', 'netdev-link-local-addressing-yes.network')
         start_networkd()
-        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable', 'ip6tnl-slaac:degraded',
+        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
+                          'ip6tnl-slaac:degraded', 'ip6tnl-external:degraded',
                           'dummy98:degraded', 'veth99:routable', 'veth-peer:degraded'])
 
         output = check_output('ip -d link show ip6tnl99')
@@ -1705,6 +1708,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show ip6tnl97')
         print(output)
         self.assertRegex(output, 'ip6tnl ip6ip6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = check_output('ip -d link show ip6tnl-external')
+        print(output)
+        self.assertIn('ip6tnl-external@NONE:', output)
+        self.assertIn('ip6tnl external ', output)
         output = check_output('ip -d link show ip6tnl-slaac')
         print(output)
         self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
