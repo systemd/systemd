@@ -85,8 +85,8 @@ def expectedFailureIfERSPANModuleIsNotAvailable():
         if rc == 0:
             call('ip link del erspan99')
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -96,8 +96,8 @@ def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
         if rc == 0:
             call('ip rule del from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -107,8 +107,8 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
         if rc == 0:
             call('ip rule del not from 192.168.100.19 ipproto tcp table 7')
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -124,8 +124,8 @@ def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
 
         if support:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -141,8 +141,8 @@ def expectedFailureIfLinkFileFieldIsNotSet():
 
         if support:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -151,8 +151,8 @@ def expectedFailureIfNexthopIsNotAvailable():
         rc = call('ip nexthop list', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -165,8 +165,8 @@ def expectedFailureIfRTA_VIAIsNotSupported():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -183,8 +183,8 @@ def expectedFailureIfAlternativeNameIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if supported:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -222,8 +222,8 @@ def expectedFailureIfCAKEIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -234,8 +234,8 @@ def expectedFailureIfPIEIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -246,8 +246,8 @@ def expectedFailureIfHHFIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -258,8 +258,8 @@ def expectedFailureIfETSIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
@@ -270,8 +270,8 @@ def expectedFailureIfFQPIEIsNotAvailable():
         call('ip link del dummy98', stderr=subprocess.DEVNULL)
         if rc == 0:
             return func
-        else:
-            return unittest.expectedFailure(func)
+
+        return unittest.expectedFailure(func)
 
     return f
 
