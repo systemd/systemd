@@ -1082,21 +1082,17 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *serial = NULL;
         Context *c = userdata;
-        int interactive, r;
+        int r;
 
         assert(m);
         assert(c);
-
-        r = sd_bus_message_read(m, "b", &interactive);
-        if (r < 0)
-                return r;
 
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.get-hardware-serial",
                         NULL,
-                        interactive,
+                        false,
                         UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -1304,8 +1300,7 @@ static const sd_bus_vtable hostname_vtable[] = {
                                  method_get_product_uuid,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("GetHardwareSerial",
-                                 "b",
-                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
                                  "s",
                                  SD_BUS_PARAM(serial),
                                  method_get_hardware_serial,
