@@ -5,13 +5,11 @@
 #include "efi-loader.h"
 #include "macro.h"
 #include "time-util.h"
-#include "virt.h"
 
 int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader) {
         usec_t x = 0, y = 0, a;
         int r;
         dual_timestamp _n;
-        bool use_firmware = true;
 
         assert(firmware);
         assert(loader);
@@ -26,10 +24,6 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
                 r = efi_loader_get_boot_usec(&x, &y);
                 if (r < 0)
                         return r;
-
-                /* If we are running in a VM, the init timestamp would
-                 * be equivalent to the host uptime. */
-                use_firmware = detect_vm() <= 0;
         }
 
         /* Let's convert this to timestamps where the firmware
@@ -39,14 +33,12 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
          * the monotonic timestamps here as negative of the actual
          * value. */
 
-        if (use_firmware) {
-                firmware->monotonic = y;
-                a = n->monotonic + firmware->monotonic;
-                firmware->realtime = n->realtime > a ? n->realtime - a : 0;
-        } else
-                firmware->monotonic = firmware->realtime = 0;
-
+        firmware->monotonic = y;
         loader->monotonic = y - x;
+
+        a = n->monotonic + firmware->monotonic;
+        firmware->realtime = n->realtime > a ? n->realtime - a : 0;
+
         a = n->monotonic + loader->monotonic;
         loader->realtime = n->realtime > a ? n->realtime - a : 0;
 
