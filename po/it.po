@@ -918,19 +918,19 @@ msgstr ""
 
 #: src/core/dbus-unit.c:359
 msgid "Authentication is required to start '$(unit)'."
-msgstr "Autenticazione richiesta per avviare '${unit}'."
+msgstr "Autenticazione richiesta per avviare '$(unit)'."
 
 #: src/core/dbus-unit.c:360
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "Autenticazione richiesta per fermare '${unit}'."
+msgstr "Autenticazione richiesta per fermare '$(unit)'."
 
 #: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Autenticazione richiesta per ricaricare '${unit}'."
+msgstr "Autenticazione richiesta per ricaricare '$(unit)'."
 
 #: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "Autenticazione richiesta per riavviare '${unit}'."
+msgstr "Autenticazione richiesta per riavviare '$(unit)'."
 
 #: src/core/dbus-unit.c:535
 msgid ""
@@ -938,16 +938,16 @@ msgid ""
 "'$(unit)'."
 msgstr ""
 "Autenticazione richiesta per inviare un segnale UNIX ai processi di "
-"'${unit}'."
+"'$(unit)'."
 
 #: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '${unit}'."
+"Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '$(unit)'."
 
 #: src/core/dbus-unit.c:599
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autenticazione richiesta per configurare le proprietà di '${unit}'."
+msgstr "Autenticazione richiesta per configurare le proprietà di '$(unit)'."
 
 #: src/core/dbus-unit.c:708
 msgid ""
@@ -955,7 +955,7 @@ msgid ""
 "'$(unit)'."
 msgstr ""
 "Autenticazione richiesta per eliminare i file e le directory associate a "
-"'${unit}'."
+"'$(unit)'."
 
 #: src/core/dbus-unit.c:757
 msgid ""
