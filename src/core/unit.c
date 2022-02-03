@@ -5454,7 +5454,12 @@ int unit_prepare_exec(Unit *u) {
 
         /* Prepares everything so that we can fork of a process for this unit */
 
-        (void) unit_realize_cgroup(u);
+        r = unit_realize_cgroup(u);
+        if (r < 0 && IN_SET(u->type, UNIT_MOUNT, UNIT_SWAP)) {
+                /* Realizing the cgroup failed, but as a fallback we will run mount/unmount or swapon/swapoff in init.scope. */
+                log_warning_errno(r, "Could not realize the cgroup, unsetting cgroup path. Falling back to run the command in manager's cgroup: %m");
+                u->cgroup_path = mfree(u->cgroup_path);
+        }
 
         if (u->reset_accounting) {
                 (void) unit_reset_accounting(u);
