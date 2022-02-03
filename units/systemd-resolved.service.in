@@ -16,7 +16,7 @@ Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-resolver
 
 DefaultDependencies=no
 After=systemd-sysusers.service
-Before=network.target nss-lookup.target shutdown.target
+Before=sysinit.target network.target nss-lookup.target shutdown.target
 Conflicts=shutdown.target
 Wants=nss-lookup.target
 
@@ -54,5 +54,5 @@ User=systemd-resolve
 {{SERVICE_WATCHDOG}}
 
 [Install]
-WantedBy=basic.target
+WantedBy=sysinit.target
 Alias=dbus-org.freedesktop.resolve1.service
