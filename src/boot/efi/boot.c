@@ -2446,7 +2446,7 @@ static void config_load_all_entries(
                                       reboot_into_firmware);
 
         if (config->entry_count == 0)
-                return
+                return;
 
         config_write_entries_to_variable(config);
 
