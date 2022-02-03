@@ -177,7 +177,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, UNIT_NAME_MAX, table, NULL, u, ret);
+        return specifier_printf(format, UNIT_NAME_MAX_LONG, table, NULL, u, ret);
 }
 
 int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, char **ret) {
