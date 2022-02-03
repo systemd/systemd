@@ -501,10 +501,10 @@
     considered 'good' from then on.</para>
 
     <para>The boot menu takes the 'tries left' counter into account when sorting the menu entries: entries in 'bad'
-    state are ordered towards the end of the list, and entries in 'good' or 'indeterminate' towards the beginning.
-    The user can freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry
-    to boot is automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred as
-    boot entries are tried in sort order, and 'bad' entries will only be considered if there are no 'good' or
+    state are ordered at the beginning of the list, and entries in 'good' or 'indeterminate' at the end. The user can
+    freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry to boot is
+    automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred (as the bottom
+    item of the menu is the one booted by default), and 'bad' entries will only be considered if there are no 'good' or
     'indeterminate' entries left.</para>
 
     <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel
