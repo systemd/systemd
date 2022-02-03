@@ -4262,7 +4262,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.3', output)
         self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
@@ -4275,7 +4275,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.3', output)
         self.assertIn('DNS: 192.168.5.1', output)
         self.assertIn('NTP: 192.168.5.1', output)
@@ -4287,7 +4287,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, 'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.1', output)
         self.assertIn('Time Zone: Europe/Berlin', output)
 
@@ -4334,7 +4334,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'client', env=env)
         print(output)
-        self.assertRegex(output, 'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
 
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     links = [
