@@ -198,7 +198,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         try:
             with open('/sys/bus/netdevsim/new_device', mode='w') as f:
                 f.write('99 1')
-        except Exception as error:
+        except Exception:
             return unittest.expectedFailure(func)
 
         call('udevadm settle')
@@ -206,7 +206,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         try:
             with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
                 f.write('3')
-        except Exception as error:
+        except Exception:
             call('rmmod netdevsim', stderr=subprocess.DEVNULL)
             return unittest.expectedFailure(func)
 
@@ -2417,7 +2417,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
                                         'routing-policy-rule-dummy98.network', '12-dummy.netdev')
 
-        for trial in range(3):
+        for _ in range(3):
             # Remove state files only first time
             start_networkd(3)
             self.wait_online(['test1:degraded', 'dummy98:degraded'])
