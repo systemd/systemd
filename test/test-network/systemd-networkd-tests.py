@@ -2930,19 +2930,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotRegex(output, 'inet6* .* scope link')
 
-        '''
-        Documentation/networking/ip-sysctl.txt
-
-        addr_gen_mode - INTEGER
-        Defines how link-local and autoconf addresses are generated.
-
-        0: generate address based on EUI64 (default)
-        1: do no generate a link-local address, use EUI64 for addresses generated
-           from autoconf
-        2: generate stable privacy addresses, using the secret from
-           stable_secret (RFC7217)
-        3: generate stable privacy addresses, using a random secret if unset
-        '''
+        # Documentation/networking/ip-sysctl.txt
+        #
+        # addr_gen_mode - INTEGER
+        # Defines how link-local and autoconf addresses are generated.
+        #
+        # 0: generate address based on EUI64 (default)
+        # 1: do no generate a link-local address, use EUI64 for addresses generated
+        #    from autoconf
+        # 2: generate stable privacy addresses, using the secret from
+        #    stable_secret (RFC7217)
+        # 3: generate stable privacy addresses, using a random secret if unset
 
         self.assertEqual(read_ipv6_sysctl_attr('test1', 'stable_secret'), '0123:4567:89ab:cdef:0123:4567:89ab:cdef')
         self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
@@ -5238,16 +5236,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet6 3ffe:501:ffff:100::1/64 scope global', output)
 
-        '''
-        Link     Subnet IDs
-        test1:   0x00
-        dummy97: 0x01 (The link will appear later)
-        dummy98: 0x02
-        dummy99: auto -> 0x03 (No address assignment)
-        veth97:  0x08
-        veth98:  0x09
-        veth99:  0x10 (ignored, as it is upstream)
-        '''
+        # Link     Subnet IDs
+        # test1:   0x00
+        # dummy97: 0x01 (The link will appear later)
+        # dummy98: 0x02
+        # dummy99: auto -> 0x03 (No address assignment)
+        # veth97:  0x08
+        # veth98:  0x09
+        # veth99:  0x10 (ignored, as it is upstream)
 
         print('### ip -6 address show dev veth99 scope global')
         output = check_output('ip -6 address show dev veth99 scope global')
@@ -5418,16 +5414,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet 10.0.0.1/8 brd 10.255.255.255 scope global veth-peer', output)
 
-        '''
-        Link     Subnet IDs
-        test1:   0x00
-        dummy97: 0x01 (The link will appear later)
-        dummy98: 0x02
-        dummy99: auto -> 0x03 (No address assignment)
-        veth97:  0x08
-        veth98:  0x09
-        veth99:  0x10
-        '''
+        # Link     Subnet IDs
+        # test1:   0x00
+        # dummy97: 0x01 (The link will appear later)
+        # dummy98: 0x02
+        # dummy99: auto -> 0x03 (No address assignment)
+        # veth97:  0x08
+        # veth98:  0x09
+        # veth99:  0x10
 
         print('### ip -4 address show dev veth99 scope global')
         output = check_output('ip -4 address show dev veth99 scope global')
@@ -5604,11 +5598,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:routable'])
-        '''
-        ipv4masklen: 8
-        6rd-prefix: 2001:db8::/32
-        br-addresss: 10.0.0.1
-        '''
+
+        # ipv4masklen: 8
+        # 6rd-prefix: 2001:db8::/32
+        # br-addresss: 10.0.0.1
+
         start_dnsmasq(additional_options='--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01', ipv4_range='10.100.100.100,10.100.100.200', ipv4_router='10.0.0.1', lease_time='2m')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
