@@ -15,7 +15,16 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
 ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
 EOF
 
-udevadm control --reload
+udevadm control --reload --log-level=debug
+
+if [[ "$(uname -m)" == "ppc64le" ]]; then
+    trial=10
+else
+    trial=1
+fi
+
+for ((_i=0;_i<trial;_i++)); do
+
 SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
 test -f /run/udev/tags/added/c1:3
@@ -42,6 +51,11 @@ udevadm info /dev/null | grep -q 'E: TAGS=.*:added:.*'
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*'
 udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*'
 udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*' && { echo 'unexpected CURRENT_TAGS='; exit 1; }
+
+rm -f /run/udev/tags/added/c1:3
+rm -f /run/udev/tags/changed/c1:3
+
+done
 
 rm /run/udev/rules.d/50-testsuite.rules
 udevadm control --reload
