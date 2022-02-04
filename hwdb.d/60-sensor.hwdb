@@ -751,6 +751,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnPIPO:pnW2S:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# Pipo W2Pro
+sensor:modalias:acpi:KIOX0008*:dmi:*svnPIPO:pnW2pro:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 # Pipo W4
 sensor:modalias:acpi:SMO8500*:dmi:*:bvrV8L_WIN32_CHIPHD_*_DX:*:rvnAMICorporation:rnAptioCRB:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
