@@ -168,9 +168,15 @@ int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts, const uint8_t password[SOPASS_MAX]);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]);
-int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
-                              int autonegotiation, const uint32_t advertise[static N_ADVERTISE],
-                              uint64_t speed, Duplex duplex, NetDevPort port);
+int ethtool_set_glinksettings(
+                int *fd,
+                const char *ifname,
+                int autonegotiation,
+                const uint32_t advertise[static N_ADVERTISE],
+                uint64_t speed,
+                Duplex duplex,
+                NetDevPort port,
+                uint8_t mdix);
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
@@ -189,6 +195,7 @@ enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);
 CONFIG_PARSER_PROTOTYPE(config_parse_port);
+CONFIG_PARSER_PROTOTYPE(config_parse_mdix);
 CONFIG_PARSER_PROTOTYPE(config_parse_advertise);
 CONFIG_PARSER_PROTOTYPE(config_parse_ring_buffer_or_channel);
 CONFIG_PARSER_PROTOTYPE(config_parse_coalesce_u32);

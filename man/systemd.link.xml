@@ -947,6 +947,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MDI-X=</varname></term>
+        <listitem>
+          <para>Specifies MDI-X mode for the port. Takes a boolean value or special value
+          <literal>auto</literal>. When true, the MDI-X (crossover) mode will be used. When false, the
+          MDI (straight through) mode will be used. When <literal>auto</literal>, the MDI status is
+          automatically detected. Defaults to unset, and the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SR-IOVVirtualFunctions=</varname></term>
         <listitem>
           <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
