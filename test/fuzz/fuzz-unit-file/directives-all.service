@@ -160,6 +160,7 @@ MemoryLimit=
 MemoryLow=
 MemoryMax=
 MemorySwapMax=
+MemoryZSwapMax=
 MessageQueueMaxMessages=
 MessageQueueMessageSize=
 MountAPIVFS=
