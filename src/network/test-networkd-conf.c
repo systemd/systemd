@@ -6,6 +6,7 @@
 #include "net-condition.h"
 #include "networkd-address.h"
 #include "networkd-conf.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "strv.h"
 
@@ -166,11 +167,15 @@ static void test_config_parse_ether_addr(void) {
 }
 
 static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
 
+        assert_se(manager_new(&manager, /* test_mode = */ true) >= 0);
         assert_se(network = new0(Network, 1));
         network->n_ref = 1;
+        network->manager = manager;
         assert_se(network->filename = strdup("hogehoge.network"));
+
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
