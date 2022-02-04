@@ -2707,6 +2707,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -3277,6 +3279,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MemoryMax is not documented!-->
 
     <!--property MemorySwapMax is not documented!-->
+
+    <!--property MemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -3857,6 +3861,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -4595,6 +4601,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -5190,6 +5198,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property MemoryZSwapMax is not documented!-->
+
     <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
@@ -5763,6 +5773,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -6390,6 +6402,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -6913,6 +6927,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property MemoryZSwapMax is not documented!-->
+
     <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
@@ -7404,6 +7420,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -8158,6 +8176,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -8667,6 +8687,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property MemoryZSwapMax is not documented!-->
+
     <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
@@ -9144,6 +9166,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -9757,6 +9781,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -9907,6 +9933,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property MemoryMax is not documented!-->
 
     <!--property MemorySwapMax is not documented!-->
+
+    <!--property MemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -10065,6 +10093,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -10246,6 +10276,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
@@ -10414,6 +10446,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property MemoryMax is not documented!-->
 
     <!--property MemorySwapMax is not documented!-->
+
+    <!--property MemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -10600,6 +10634,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 

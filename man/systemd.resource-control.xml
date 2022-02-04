@@ -325,14 +325,15 @@
 
       <varlistentry>
         <term><varname>MemorySwapMax=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>MemoryZSwapMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
+          <para>Specify the absolute limit on (z)swap usage of the executed processes in this unit.</para>
 
           <para>Takes a swap size in bytes. If the value is suffixed with K, M, G or T, the specified swap size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
-          special value <literal>infinity</literal>, no swap limit is applied. This controls the
-          <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
+          special value <literal>infinity</literal>, no swap limit is applied. These settings control the
+          <literal>memory.(z)swap.max</literal> control group attributes. For details about these control group attributes,
           see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
         </listitem>
       </varlistentry>
