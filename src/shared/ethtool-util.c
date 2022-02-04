@@ -835,6 +835,8 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
                 .base.phy_address = ecmd.phy_address,
                 .base.autoneg = ecmd.autoneg,
                 .base.mdio_support = ecmd.mdio_support,
+                .base.eth_tp_mdix = ecmd.eth_tp_mdix,
+                .base.eth_tp_mdix_ctrl = ecmd.eth_tp_mdix_ctrl,
 
                 .link_modes.supported[0] = ecmd.supported,
                 .link_modes.advertising[0] = ecmd.advertising,
@@ -914,7 +916,8 @@ int ethtool_set_glinksettings(
                 const uint32_t advertise[static N_ADVERTISE],
                 uint64_t speed,
                 Duplex duplex,
-                NetDevPort port) {
+                NetDevPort port,
+                uint8_t mdix) {
 
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
@@ -926,7 +929,7 @@ int ethtool_set_glinksettings(
         assert(advertise);
 
         if (autonegotiation < 0 && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE) &&
-            speed == 0 && duplex < 0 && port < 0)
+            speed == 0 && duplex < 0 && port < 0 && mdix == ETH_TP_MDI_INVALID)
                 return 0;
 
         /* If autonegotiation is disabled, the speed and duplex represent the fixed link mode and are
@@ -957,7 +960,7 @@ int ethtool_set_glinksettings(
         if (r < 0) {
                 r = get_gset(*fd, &ifr, &u);
                 if (r < 0)
-                        return log_debug_errno(r, "ethtool: Cannot get device settings for %s : %m", ifname);
+                        return log_debug_errno(r, "ethtool: Cannot get device settings for %s: %m", ifname);
         }
 
         if (speed > 0)
@@ -982,6 +985,13 @@ int ethtool_set_glinksettings(
                 memcpy(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE);
                 memzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
                         ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
+        }
+
+        if (mdix != ETH_TP_MDI_INVALID) {
+                if (u->base.eth_tp_mdix_ctrl == ETH_TP_MDI_INVALID)
+                        log_debug("ethtool: setting MDI-X not supported, ignoring.");
+                else
+                        UPDATE(u->base.eth_tp_mdix_ctrl, mdix, changed);
         }
 
         if (!changed)
@@ -1259,6 +1269,45 @@ int config_parse_advertise(
 
                 advertise[mode / 32] |= 1UL << (mode % 32);
         }
+}
+
+int config_parse_mdix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *mdix = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *mdix = ETH_TP_MDI_INVALID;
+                return 0;
+        }
+
+        if (streq(rvalue, "auto")) {
+                *mdix = ETH_TP_MDI_AUTO;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse MDI-X setting, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *mdix = r ? ETH_TP_MDI_X : ETH_TP_MDI;
+        return 0;
 }
 
 int config_parse_ring_buffer_or_channel(
