@@ -487,6 +487,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
         SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
         SD_BUS_PROPERTY("MemorySwapMax", "t", NULL, offsetof(CGroupContext, memory_swap_max), 0),
+        SD_BUS_PROPERTY("MemoryZSwapMax", "t", NULL, offsetof(CGroupContext, memory_zswap_max), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
@@ -909,6 +910,7 @@ BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEI
 BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
+BUS_DEFINE_SET_CGROUP_LIMIT(zswap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 REENABLE_WARNING;
 
 static int bus_cgroup_set_tasks_max(
@@ -1067,6 +1069,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemorySwapMax"))
                 return bus_cgroup_set_swap(u, name, &c->memory_swap_max, message, flags, error);
+
+        if (streq(name, "MemoryZSwapMax"))
+                return bus_cgroup_set_swap(u, name, &c->memory_zswap_max, message, flags, error);
 
         if (streq(name, "MemoryMax"))
                 return bus_cgroup_set_memory(u, name, &c->memory_max, message, flags, error);
