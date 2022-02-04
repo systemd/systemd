@@ -248,10 +248,11 @@ int network_verify(Network *network) {
         }
 
         if (network->dhcp_critical >= 0) {
-                if (network->keep_configuration >= 0)
-                        log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
-                                    "Ignoring CriticalConnection=.", network->filename);
-                else if (network->dhcp_critical)
+                if (network->keep_configuration >= 0) {
+                        if (network->manager->keep_configuration < 0)
+                                log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
+                                            "Ignoring CriticalConnection=.", network->filename);
+                } else if (network->dhcp_critical)
                         /* CriticalConnection=yes also preserve foreign static configurations. */
                         network->keep_configuration = KEEP_CONFIGURATION_YES;
                 else
@@ -386,7 +387,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .allmulticast = -1,
                 .promiscuous = -1,
 
-                .keep_configuration = _KEEP_CONFIGURATION_INVALID,
+                .keep_configuration = manager->keep_configuration,
 
                 .dhcp_duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
