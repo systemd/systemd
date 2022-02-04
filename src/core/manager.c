@@ -4251,7 +4251,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
         struct buffer {
                 uid_t uid;
                 gid_t gid;
-                char unit_name[UNIT_NAME_MAX+1];
+                char unit_name[UNIT_NAME_MAX_LONG+1];
         } _packed_ buffer;
 
         Manager *m = userdata;
@@ -4279,7 +4279,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
-        if ((size_t) l > offsetof(struct buffer, unit_name) + UNIT_NAME_MAX) {
+        if ((size_t) l > offsetof(struct buffer, unit_name) + UNIT_NAME_MAX_LONG) {
                 log_warning("Received too long user lookup message, ignoring.");
                 return 0;
         }
