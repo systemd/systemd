@@ -108,19 +108,20 @@ done
 
 # If no user provided MACHINE_ID is given, read the files necessary to determine what to use as the
 # machine ID.
+[ -z "$MACHINE_ID" ] && [ -r /etc/os-release ] && . /etc/os-release
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
 # Try to find an existing directory. If we can find one, reuse it.
-for mid in "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
+for mid in "$IMAGE_ID" "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
     if [ -n "$mid"] && [ -d "$BOOT_ROOT/$mid" ]; then
         FINAL_MACHINE_ID="$mid"
         break
     fi
 done
 
-[ -z "$FINAL_MACHINE_ID" ] && for mid in "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
+[ -z "$FINAL_MACHINE_ID" ] && for mid in "$IMAGE_ID" "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
     if [ -n "$mid" ];
         FINAL_MACHINE_ID="$mid"
         break
