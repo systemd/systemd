@@ -102,6 +102,7 @@ Link.RxMaxCoalescedHighFrames,             config_parse_coalesce_u32,           
 Link.TxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_high)
 Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_high)
 Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
+Link.MDI,                                  config_parse_mdi,                      0,                             offsetof(LinkConfig, mdi)
 Link.SR-IOVVirtualFunctions,               config_parse_sr_iov_num_vfs,           0,                             offsetof(LinkConfig, sr_iov_num_vfs)
 SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.VLANId,                             config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)

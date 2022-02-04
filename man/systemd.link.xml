@@ -947,6 +947,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MDI=</varname></term>
+        <listitem>
+          <para>Specifies the medium dependent interface (MDI) mode for the interface. A MDI describes
+          the interface from a physical layer implementation to the physical medium used to carry the
+          transmission. Takes one of the following words: <literal>straight</literal> (or equivalently:
+          <literal>mdi</literal>), <literal>crossover</literal> (or equivalently:
+          <literal>mdi-x</literal>, <literal>mdix</literal>), and <literal>auto</literal>. When
+          <literal>straight</literal>, the MDI straight through mode will be used. When
+          <literal>crossover</literal>, the MDI crossover (MDI-X) mode will be used. When
+          <literal>auto</literal>, the MDI status is automatically detected. Defaults to unset, and the
+          kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SR-IOVVirtualFunctions=</varname></term>
         <listitem>
           <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
