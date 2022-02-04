@@ -629,7 +629,7 @@
           endpoint answers ARP requests from the local bridge on behalf
           of remote Distributed Overlay Virtual Ethernet
           <ulink url="https://en.wikipedia.org/wiki/Distributed_Overlay_Virtual_Ethernet">
-          (DVOE)</ulink> clients. Defaults to false.</para>
+          (DOVE)</ulink> clients. Defaults to false.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
