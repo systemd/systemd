@@ -28,6 +28,8 @@ struct Manager {
         Hashmap *polkit_registry;
         int ethtool_fd;
 
+        KeepConfiguration keep_configuration;
+
         bool test_mode;
         bool enumerating;
         bool dirty;

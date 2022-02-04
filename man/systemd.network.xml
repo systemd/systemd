@@ -944,8 +944,10 @@ Table=1234</programlisting></para>
           lease expires. This is contrary to the DHCP specification, but may be the best choice if,
           e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
           implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
-          <literal>dhcp</literal> and <literal>static</literal>. Defaults to <literal>no</literal>.
-          </para>
+          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
+          <literal>dhcp-on-stop</literal> when <command>systemd-networkd</command> is running in
+          initrd, <literal>yes</literal> when the root filesystem is a network filesystem, and
+          <literal>no</literal> otherwise.</para>
         </listitem>
       </varlistentry>
     </variablelist>
