@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
+
+[Distribution]
+Distribution=centos_epel
+
+[Output]
+Format=gpt_xfs
+HostonlyInitrd=no
+
+[Packages]
+BuildPackages=
+        diffutils
+        docbook-style-xsl
+        findutils
+        gcc
+        gettext
+        git
+        glibc-minimal-langpack
+        gnu-efi
+        gnu-efi-devel
+        gperf
+        lz4
+        meson
+        ninja-build
+        pam-devel
+        # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
+        libgcrypt-devel
+        pkgconfig
+        pkgconfig(audit)
+        pkgconfig(blkid)
+        pkgconfig(bzip2)
+        pkgconfig(dbus-1)
+        pkgconfig(fdisk)
+        pkgconfig(gnutls)
+        pkgconfig(libacl)
+        pkgconfig(libcap)
+        pkgconfig(libcryptsetup)
+        pkgconfig(libcurl)
+        pkgconfig(libdw)
+        pkgconfig(libidn2)
+        pkgconfig(libkmod)
+        pkgconfig(liblz4)
+        pkgconfig(liblzma)
+        pkgconfig(libmicrohttpd)
+        pkgconfig(libpcre2-8)
+        pkgconfig(libqrencode)
+        pkgconfig(libseccomp)
+        pkgconfig(libselinux)
+        pkgconfig(libzstd)
+        pkgconfig(mount)
+        pkgconfig(openssl)
+        pkgconfig(p11-kit-1)
+        pkgconfig(pwquality)
+        pkgconfig(tss2-esys)
+        pkgconfig(tss2-mu)
+        pkgconfig(tss2-rc)
+        pkgconfig(valgrind)
+        pkgconfig(xkbcommon)
+        python3dist(jinja2)
+        python3dist(lxml)
+        rpm
+        tree
+        zstd
+        /usr/bin/xsltproc
+
+Packages=
+        gdb
+        nano
+        # procps-ng provides a set of useful utilities (ps, free, etc)
+        procps-ng
+        strace
+        tpm2-tss
+        less
+        netcat
+        e2fsprogs
+        # Required to run systemd-networkd-tests.py
+        python3
+        iproute
+        iproute-tc
+        dnsmasq
+        wireguard-tools
+        dhcp-server
+        kernel-modules-extra

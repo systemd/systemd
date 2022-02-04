@@ -31,25 +31,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro:
-          - arch
-          - debian
-          - ubuntu
-          - fedora
-          - opensuse
+        include:
+          - distro: arch
+            release: rolling
+          - distro: debian
+            release: testing
+          - distro: ubuntu
+            release: focal
+          - distro: fedora
+            release: "35"
+          - distro: opensuse
+            release: tumbleweed
+          - distro: centos_epel
+            release: 8-stream
+          # TODO: Enable once https://github.com/systemd/mkosi/pull/915#issuecomment-1049035316 is fixed.
+          # - distro: centos_epel
+          #   release: 9-stream
 
     steps:
     - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
-    - uses: systemd/mkosi@30288805db1a953ea31045933adb93194f91e3da
+    - uses: systemd/mkosi@0dd39c20a4b3a2fab6efdc54da92bffad7c7b7ca
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
 
     - name: Configure
-      run: echo -e "[Distribution]\nDistribution=${{ matrix.distro }}\n" >mkosi.default
+      run: |
+        tee mkosi.default <<- EOF
+        [Distribution]
+        Distribution=${{ matrix.distro }}
+        Release=${{ matrix.release }}
+
+        [Content]
+        Environment=CI_BUILD=1
+
+        [Output]
+        KernelCommandLine=${{ env.KERNEL_CMDLINE }}
+        EOF
 
     - name: Build ${{ matrix.distro }}
-      run: ./.github/workflows/run_mkosi.sh --build-environment=CI_BUILD=1 --kernel-command-line "${{ env.KERNEL_CMDLINE }}" build
+      run: ./.github/workflows/run_mkosi.sh build
 
     - name: Show ${{ matrix.distro }} image summary
       run: ./.github/workflows/run_mkosi.sh summary
@@ -60,8 +81,14 @@ jobs:
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
+      # TODO: Remove CentOS exclusion once Ubuntu 22.04 is available in GA.
+      # See https://github.com/systemd/systemd/pull/22417 and https://github.com/systemd/mkosi/pull/907 for
+      # more information.
+
     - name: Boot ${{ matrix.distro }} QEMU
+      if: ${{ matrix.distro != 'centos_epel' }}
       run: ./.github/workflows/run_mkosi.sh qemu
 
     - name: Check ${{ matrix.distro }} QEMU
+      if: ${{ matrix.distro != 'centos_epel' }}
       run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
