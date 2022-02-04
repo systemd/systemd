@@ -5,6 +5,7 @@ enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 files = [['README',               ''],
          ['home.conf',            ''],
          ['journal-nocow.conf',   ''],
+         ['systemd-network.conf', 'ENABLE_NETWORKD'],
          ['systemd-nologin.conf', 'HAVE_PAM'],
          ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
          ['systemd-resolve.conf', 'ENABLE_RESOLVE'],
