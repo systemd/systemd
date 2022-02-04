@@ -734,15 +734,11 @@ int dns_query_go(DnsQuery *q) {
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
-                const char *name;
 
-                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
-                if (!name)
-                        continue;
-
-                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
+                match = dns_scope_good_domain(s, q);
                 if (match < 0) {
-                        log_debug("Couldn't check if '%s' matches against scope, ignoring.", name);
+                        log_debug("Couldn't check if '%s' matches against scope, ignoring.",
+                                  dns_question_first_name(dns_query_question_for_protocol(q, s->protocol)));
                         continue;
                 }
 
@@ -770,15 +766,11 @@ int dns_query_go(DnsQuery *q) {
 
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
-                const char *name;
 
-                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
-                if (!name)
-                        continue;
-
-                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
+                match = dns_scope_good_domain(s, q);
                 if (match < 0) {
-                        log_debug("Couldn't check if '%s' matches against scope, ignoring.", name);
+                        log_debug("Couldn't check if '%s' matches against scope, ignoring.",
+                                  dns_question_first_name(dns_query_question_for_protocol(q, s->protocol)));
                         continue;
                 }
 

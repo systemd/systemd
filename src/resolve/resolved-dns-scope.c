@@ -584,11 +584,13 @@ static DnsScopeMatch match_subnet_reverse_lookups(
 
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
-                int ifindex,
-                uint64_t flags,
-                const char *domain) {
+                DnsQuery *q) {
 
+        DnsQuestion *question;
         DnsSearchDomain *d;
+        const char *domain;
+        uint64_t flags;
+        int ifindex;
 
         /* This returns the following return values:
          *
@@ -602,7 +604,18 @@ DnsScopeMatch dns_scope_good_domain(
          */
 
         assert(s);
-        assert(domain);
+        assert(q);
+
+        question = dns_query_question_for_protocol(q, s->protocol);
+        if (!question)
+                return DNS_SCOPE_NO;
+
+        domain = dns_question_first_name(question);
+        if (!domain)
+                return DNS_SCOPE_NO;
+
+        ifindex = q->ifindex;
+        flags = q->flags;
 
         /* Checks if the specified domain is something to look up on this scope. Note that this accepts
          * non-qualified hostnames, i.e. those without any search path suffixed. */
@@ -611,10 +624,6 @@ DnsScopeMatch dns_scope_good_domain(
                 return DNS_SCOPE_NO;
 
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, false, false) & flags) == 0)
-                return DNS_SCOPE_NO;
-
-        /* Never resolve empty name. */
-        if (dns_name_is_empty(domain))
                 return DNS_SCOPE_NO;
 
         /* Never resolve any loopback hostname or IP address via DNS, LLMNR or mDNS. Instead, always rely on
@@ -638,6 +647,22 @@ DnsScopeMatch dns_scope_good_domain(
                 bool has_search_domains = false;
                 DnsScopeMatch m;
                 int n_best = -1;
+
+                if (dns_name_is_empty(domain)) {
+                        DnsResourceKey *t;
+                        bool found = false;
+
+                        /* Refuse empty name if only A and/or AAAA records are requested. */
+
+                        DNS_QUESTION_FOREACH(t, question)
+                                if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA)) {
+                                        found = true;
+                                        break;
+                                }
+
+                        if (!found)
+                                return DNS_SCOPE_NO;
+                }
 
                 /* Never route things to scopes that lack DNS servers */
                 if (!dns_scope_get_dns_server(s))
