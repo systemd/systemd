@@ -177,6 +177,24 @@ bool cg_kill_supported(void) {
         return supported;
 }
 
+bool cg_zswap_supported(void) {
+        static thread_local int supported = -1;
+
+        if (supported >= 0)
+                return supported;
+
+        if (cg_all_unified() <= 0)
+                supported = false;
+        else if (access("/sys/fs/cgroup/init.scope/memory.zswap.max", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if cgroup memory.zswap.max is available, assuming not: %m");
+                supported = false;
+        } else
+                supported = true;
+
+        return supported;
+}
+
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         _cleanup_free_ char *fs = NULL;
         int r;
