@@ -250,6 +250,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .txqueuelen = UINT32_MAX,
                 .coalesce.use_adaptive_rx_coalesce = -1,
                 .coalesce.use_adaptive_tx_coalesce = -1,
+                .mdi = ETH_TP_MDI_INVALID,
                 .sr_iov_num_vfs = UINT32_MAX,
         };
 
@@ -475,7 +476,7 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
 
         r = ethtool_set_glinksettings(ethtool_fd, name,
                                       config->autonegotiation, config->advertise,
-                                      config->speed, config->duplex, config->port);
+                                      config->speed, config->duplex, config->port, config->mdi);
         if (r < 0) {
                 if (config->autonegotiation >= 0)
                         log_link_warning_errno(link, r, "Could not %s auto negotiation, ignoring: %m",
@@ -495,6 +496,10 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
                 if (config->port >= 0)
                         log_link_warning_errno(link, r, "Could not set port to '%s', ignoring: %m",
                                                port_to_string(config->port));
+
+                if (config->mdi != ETH_TP_MDI_INVALID)
+                        log_link_warning_errno(link, r, "Could not set MDI-X to '%s', ignoring: %m",
+                                               mdi_to_string(config->mdi));
         }
 
         r = ethtool_set_wol(ethtool_fd, name, config->wol, config->wol_password);
