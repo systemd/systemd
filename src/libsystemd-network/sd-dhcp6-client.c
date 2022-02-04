@@ -799,8 +799,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 assert(client->lease);
 
                 r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
-                                                                 client->lease->ia.addresses ? &client->lease->ia : NULL,
-                                                                 client->lease->pd.addresses ? &client->lease->pd : NULL,
+                                                                 client->lease->ia_na.addresses ? &client->lease->ia_na : NULL,
+                                                                 client->lease->ia_pd.addresses ? &client->lease->ia_pd : NULL,
                                                                  NULL);
                 if (r < 0)
                         return r;
@@ -971,7 +971,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 if (event_source_is_enabled(client->timeout_resend_expire) <= 0) {
                         uint32_t expire = 0;
 
-                        r = dhcp6_lease_ia_rebind_expire(&client->lease->ia, &expire);
+                        r = dhcp6_lease_ia_rebind_expire(&client->lease->ia_na, &expire);
                         if (r < 0) {
                                 client_stop(client, r);
                                 return 0;
@@ -1159,16 +1159,16 @@ int client_parse_message(
                         if (r < 0)
                                 continue;
 
-                        if (lease->ia.addresses) {
+                        if (lease->ia_na.addresses) {
                                 log_dhcp6_client(client, "Received duplicate matching IA_NA option, ignoring.");
                                 continue;
                         }
 
-                        lease->ia = ia;
+                        lease->ia_na = ia;
                         ia = (DHCP6IA) {};
 
-                        lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t2));
+                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_na.ia_na.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_na.ia_na.lifetime_t2));
 
                         break;
                 }
@@ -1186,16 +1186,16 @@ int client_parse_message(
                         if (r < 0)
                                 continue;
 
-                        if (lease->pd.addresses) {
+                        if (lease->ia_pd.addresses) {
                                 log_dhcp6_client(client, "Received duplicate matching IA_PD option, ignoring.");
                                 continue;
                         }
 
-                        lease->pd = ia;
+                        lease->ia_pd = ia;
                         ia = (DHCP6IA) {};
 
-                        lt_t1 = MIN(lt_t1, be32toh(lease->pd.ia_pd.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->pd.ia_pd.lifetime_t2));
+                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_pd.ia_pd.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_pd.ia_pd.lifetime_t2));
 
                         break;
                 }
@@ -1267,17 +1267,17 @@ int client_parse_message(
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
                                                       dhcp6_message_type_to_string(message->type));
 
-                if (!lease->ia.addresses && !lease->pd.addresses)
+                if (!lease->ia_na.addresses && !lease->ia_pd.addresses)
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
-                if (lease->ia.addresses) {
-                        lease->ia.ia_na.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia.ia_na.lifetime_t2 = htobe32(lt_t2);
+                if (lease->ia_na.addresses) {
+                        lease->ia_na.ia_na.lifetime_t1 = htobe32(lt_t1);
+                        lease->ia_na.ia_na.lifetime_t2 = htobe32(lt_t2);
                 }
 
-                if (lease->pd.addresses) {
-                        lease->pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
-                        lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
+                if (lease->ia_pd.addresses) {
+                        lease->ia_pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
+                        lease->ia_pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
                 }
         }
 
@@ -1540,16 +1540,16 @@ static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
         assert_return(client, -EINVAL);
         assert_return(client->lease, -EINVAL);
 
-        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
-                *lifetime_t1 = be32toh(client->lease->ia.ia_na.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->ia.ia_na.lifetime_t2);
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia_na.addresses) {
+                *lifetime_t1 = be32toh(client->lease->ia_na.ia_na.lifetime_t1);
+                *lifetime_t2 = be32toh(client->lease->ia_na.ia_na.lifetime_t2);
 
                 return 0;
         }
 
-        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
-                *lifetime_t1 = be32toh(client->lease->pd.ia_pd.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->pd.ia_pd.lifetime_t2);
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->ia_pd.addresses) {
+                *lifetime_t1 = be32toh(client->lease->ia_pd.ia_pd.lifetime_t1);
+                *lifetime_t2 = be32toh(client->lease->ia_pd.ia_pd.lifetime_t2);
 
                 return 0;
         }

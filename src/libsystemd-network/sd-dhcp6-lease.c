@@ -193,7 +193,7 @@ int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr,
 
 void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
         if (lease)
-                lease->addr_iter = lease->ia.addresses;
+                lease->addr_iter = lease->ia_na.addresses;
 }
 
 int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
@@ -224,7 +224,7 @@ int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
 
 void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
         if (lease)
-                lease->prefix_iter = lease->pd.addresses;
+                lease->prefix_iter = lease->ia_pd.addresses;
 }
 
 int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
@@ -402,8 +402,8 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
 
         free(lease->clientid);
         free(lease->serverid);
-        dhcp6_lease_free_ia(&lease->ia);
-        dhcp6_lease_free_ia(&lease->pd);
+        dhcp6_lease_free_ia(&lease->ia_na);
+        dhcp6_lease_free_ia(&lease->ia_pd);
         free(lease->dns);
         free(lease->fqdn);
         strv_free(lease->domains);
@@ -425,7 +425,7 @@ int dhcp6_lease_new(sd_dhcp6_lease **ret) {
 
         lease->n_ref = 1;
 
-        LIST_HEAD_INIT(lease->ia.addresses);
+        LIST_HEAD_INIT(lease->ia_na.addresses);
 
         *ret = lease;
         return 0;

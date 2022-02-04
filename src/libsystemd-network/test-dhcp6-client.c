@@ -527,7 +527,7 @@ static void test_advertise_option(sd_event *e) {
                         val = htobe32(120);
                         assert_se(!memcmp(optval + 8, &val, sizeof(val)));
 
-                        assert_se(dhcp6_option_parse_ia(NULL, iaid, optcode, optlen, optval, &lease->ia) >= 0);
+                        assert_se(dhcp6_option_parse_ia(NULL, iaid, optcode, optlen, optval, &lease->ia_na) >= 0);
 
                         break;
                 }
@@ -708,7 +708,7 @@ static void test_client_verify_request(DHCP6Message *request, size_t len) {
                         assert_se(!memcmp(optval + 8, &val, sizeof(val)));
 
                         /* Then, this should refuse all addresses. */
-                        assert_se(dhcp6_option_parse_ia(NULL, test_iaid, optcode, optlen, optval, &lease->ia) == -ENODATA);
+                        assert_se(dhcp6_option_parse_ia(NULL, test_iaid, optcode, optlen, optval, &lease->ia_na) == -ENODATA);
 
                         break;
 
