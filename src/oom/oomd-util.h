@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "psi-util.h"
 
+#define DUMP_ON_KILL_COUNT 10
 #define GROWING_SIZE_PERCENTILE 80
 
 extern const struct hash_ops oomd_cgroup_ctx_hash_ops;
