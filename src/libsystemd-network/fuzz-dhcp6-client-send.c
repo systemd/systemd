@@ -44,14 +44,16 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_set_transaction_id(client, htobe32(0x00ffffff) & ((const DHCP6Message *) data)->transaction_id) == 0);
 
         triple_timestamp_get(&t);
-        if (client_receive_advertise(client, (DHCP6Message *) data, size, &t, NULL) != DHCP6_STATE_REQUEST)
+        r = client_receive_advertise(client, (DHCP6Message *) data, size, &t, NULL);
+        if (r < 0)
                 goto cleanup;
 
         r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 goto cleanup;
 
-        client->state = DHCP6_STATE_REQUEST;
+        if (r == DHCP6_STATE_REQUEST)
+                client->state = DHCP6_STATE_REQUEST;
         (void) client_send_message(client, time_now);
 cleanup:
         assert_se(sd_dhcp6_client_stop(client) >= 0);
