@@ -295,6 +295,7 @@ int cg_kernel_controllers(Set **controllers);
 bool cg_ns_supported(void);
 bool cg_freezer_supported(void);
 bool cg_kill_supported(void);
+bool cg_zswap_supported(void);
 
 int cg_all_unified(void);
 int cg_hybrid_unified(void);
