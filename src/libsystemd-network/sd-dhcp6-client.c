@@ -1153,7 +1153,7 @@ int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_na.id, optcode, optlen, optval, &ia);
+                        r = dhcp6_option_parse_ia(client, client->ia_na.ia_na.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
