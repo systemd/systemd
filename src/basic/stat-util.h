@@ -53,6 +53,7 @@ int fd_is_temporary_fs(int fd);
 int fd_is_network_fs(int fd);
 
 int path_is_temporary_fs(const char *path);
+int path_is_network_fs(const char *path);
 
 /* Because statfs.t_type can be int on some architectures, we have to cast
  * the const magic to the type, otherwise the compiler warns about
