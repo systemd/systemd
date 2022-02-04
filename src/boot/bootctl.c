@@ -1132,24 +1132,20 @@ static int install_machine_id_directory(const char *root) {
 static int install_machine_info_config(void) {
         _cleanup_free_ char *contents = NULL;
         size_t length;
-        bool need_install_layout = true, need_machine_id;
+        bool need_install_layout = true;
         int r;
 
         assert(arg_make_machine_id_directory >= 0);
-
-        /* We only want to save the machine-id if we created any directories using it. */
-        need_machine_id = arg_make_machine_id_directory;
 
         _cleanup_fclose_ FILE *orig = fopen("/etc/machine-info", "re");
         if (!orig && errno != ENOENT)
                 return log_error_errno(errno, "Failed to open /etc/machine-info: %m");
 
         if (orig) {
-                _cleanup_free_ char *install_layout = NULL, *machine_id = NULL;
+                _cleanup_free_ char *install_layout = NULL;
 
                 r = parse_env_file(orig, "/etc/machine-info",
-                                   "KERNEL_INSTALL_LAYOUT", &install_layout,
-                                   "KERNEL_INSTALL_MACHINE_ID", &machine_id);
+                                   "KERNEL_INSTALL_LAYOUT", &install_layout);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/machine-info: %m");
 
@@ -1158,12 +1154,8 @@ static int install_machine_info_config(void) {
                 if (!isempty(install_layout))
                         need_install_layout = false;
 
-                if (!isempty(machine_id))
-                        need_machine_id = false;
-
-                if (!need_install_layout && !need_machine_id) {
-                        log_debug("/etc/machine-info already has KERNEL_INSTALL_MACHINE_ID=%s and KERNEL_INSTALL_LAYOUT=%s.",
-                                  machine_id, install_layout);
+                if (!need_install_layout) {
+                        log_debug("/etc/machine-info already has KERNEL_INSTALL_LAYOUT=%s.", install_layout);
                         return 0;
                 }
 
@@ -1192,12 +1184,6 @@ static int install_machine_info_config(void) {
                 no_newline = false;
         }
 
-        const char *mid_string = SD_ID128_TO_STRING(arg_machine_id);
-        if (need_machine_id)
-                fprintf(dst, "%sKERNEL_INSTALL_MACHINE_ID=%s\n",
-                        no_newline ? "" : "\n",
-                        mid_string);
-
         r = fflush_and_check(dst);
         if (r < 0)
                 return log_error_errno(r, "Failed to write temporary copy of /etc/machine-info: %m");
@@ -1207,11 +1193,9 @@ static int install_machine_info_config(void) {
         if (rename(dst_tmp, "/etc/machine-info") < 0)
                 return log_error_errno(errno, "Failed to replace /etc/machine-info: %m");
 
-        log_info("%s /etc/machine-info with%s%s%s",
+        log_info("%s /etc/machine-info with%s",
                  orig ? "Updated" : "Created",
-                 need_install_layout ? " KERNEL_INSTALL_LAYOUT=bls" : "",
-                 need_machine_id ? " KERNEL_INSTALL_MACHINE_ID=" : "",
-                 need_machine_id ? mid_string : "");
+                 need_install_layout ? " KERNEL_INSTALL_LAYOUT=bls" : "");
         return 0;
 }
 
