@@ -23,8 +23,8 @@ struct sd_dhcp6_lease {
         triple_timestamp timestamp;
         struct in6_addr server_address;
 
-        DHCP6IA ia;
-        DHCP6IA pd;
+        DHCP6IA ia_na;
+        DHCP6IA ia_pd;
 
         DHCP6Address *addr_iter;
         DHCP6Address *prefix_iter;
