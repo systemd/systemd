@@ -89,13 +89,7 @@ elif [ -r "/usr/lib/kernel/install.conf" ]; then
     . /usr/lib/kernel/install.conf
 fi
 
-# Prefer to use an existing machine ID from /etc/machine-info or /etc/machine-id. If no machine ID is
-# found, use "Default".
-[ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
-[ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]   && read -r MACHINE_ID </etc/machine-id
-[ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
-
-[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
+[ -z "$BOOT_ROOT" ] && for suff in "loader/entries"; do
     for pref in "/efi" "/boot" "/boot/efi" ; do
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
@@ -112,6 +106,26 @@ done
 done
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
 
+# If no user provided MACHINE_ID is given, read the files necessary to determine what to use as the
+# machine ID.
+[ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info
+[ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id
+[ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
+
+# Try to find an existing directory. If we can find one, reuse it.
+for mid in "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
+    if [ -n "$mid"] && [ -d "$BOOT_ROOT/$mid" ]; then
+        FINAL_MACHINE_ID="$mid"
+        break
+    fi
+done
+
+[ -z "$FINAL_MACHINE_ID" ] && for mid in "$KERNEL_INSTALL_MACHINE_ID" "$MACHINE_ID"; do
+    if [ -n "$mid" ];
+        FINAL_MACHINE_ID="$mid"
+        break
+    fi
+done
 
 if [ -z "$layout" ]; then
     # Administrative decision: if not present, some scripts generate into /boot.
@@ -122,7 +136,7 @@ if [ -z "$layout" ]; then
     fi
 fi
 
-ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+ENTRY_DIR_ABS="$BOOT_ROOT/$FINAL_MACHINE_ID/$KERNEL_VERSION"
 
 # Provide a directory where to store generated initrds
 cleanup() {
@@ -133,7 +147,7 @@ trap cleanup EXIT
 
 KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t -p /tmp kernel-install.staging.XXXXXXX)"
 
-export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_MACHINE_ID="$FINAL_MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
