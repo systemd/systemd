@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -1082,6 +1083,10 @@ int device_update_db(sd_device *device) {
                 r = -errno;
                 goto fail;
         }
+
+        r = fsync_path_at(AT_FDCWD, path);
+        if (r < 0)
+                goto fail;
 
         log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
                          path, device->devpath);
