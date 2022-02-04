@@ -1365,9 +1365,13 @@ static int client_receive_advertise(
         if (r < 0)
                 return r;
 
-        r = dhcp6_lease_get_preference(client->lease, &pref_lease);
+        if (client->lease) {
+                r = dhcp6_lease_get_preference(client->lease, &pref_lease);
+                if (r < 0)
+                        return r;
+        }
 
-        if (r < 0 || pref_advertise > pref_lease) {
+        if (!client->lease || pref_advertise > pref_lease) {
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
                 r = 0;
