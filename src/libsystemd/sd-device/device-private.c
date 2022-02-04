@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -693,9 +694,15 @@ int device_set_watch_handle(sd_device *device, int wd) {
 
         device_remove_watch_handle(device);
 
-        if (wd < 0)
+        if (wd < 0) {
                 /* negative wd means that the caller requests to clear saved watch handle. */
+
+                r = fsync_path_at(AT_FDCWD, "/run/udev/watch");
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
                 return 0;
+        }
 
         r = device_get_device_id(device, &id);
         if (r < 0)
@@ -711,18 +718,36 @@ int device_set_watch_handle(sd_device *device, int wd) {
         if (symlink(id, path_wd) < 0)
                 return -errno;
 
+        r = fsync_path_at(AT_FDCWD, path_wd);
+        if (r < 0)
+                goto failure;
+
         if (symlink(path_wd + STRLEN("/run/udev/watch/"), path_id) < 0) {
                 r = -errno;
-                if (unlink(path_wd) < 0 && errno != ENOENT)
-                        log_device_debug_errno(device, errno,
-                                               "sd-device: failed to remove %s, ignoring: %m",
-                                               path_wd);
-                return r;
+                goto failure;
         }
+
+        r = fsync_path_at(AT_FDCWD, path_id);
+        if (r < 0)
+                goto failure;
 
         device->watch_handle = wd;
 
         return 0;
+
+failure:
+        if (unlink(path_wd) < 0 && errno != ENOENT)
+                log_device_debug_errno(device, errno,
+                                       "sd-device: failed to remove %s, ignoring: %m",
+                                       path_wd);
+
+        if (unlink(path_id) < 0 && errno != ENOENT)
+                log_device_debug_errno(device, errno,
+                                       "sd-device: failed to remove %s, ignoring: %m",
+                                       path_id);
+
+        (void) fsync_path_at(AT_FDCWD, "/run/udev/watch");
+        return r;
 }
 
 int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
@@ -929,10 +954,19 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
                 r = touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0444);
                 if (r < 0)
                         return r;
+
+                r = fsync_path_at(AT_FDCWD, path);
+                if (r < 0)
+                        return r;
         } else {
                 r = unlink(path);
                 if (r < 0 && errno != ENOENT)
                         return -errno;
+
+                path = strjoina("/run/udev/tags/", tag);
+                r = fsync_path_at(AT_FDCWD, path);
+                if (r < 0 && r != -ENOENT)
+                        return r;
         }
 
         return 0;
@@ -1082,6 +1116,10 @@ int device_update_db(sd_device *device) {
                 r = -errno;
                 goto fail;
         }
+
+        r = fsync_path_at(AT_FDCWD, path);
+        if (r < 0)
+                goto fail;
 
         log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
                          path, device->devpath);
