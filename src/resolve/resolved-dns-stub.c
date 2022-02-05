@@ -684,7 +684,8 @@ static int dns_stub_patch_bypass_reply_packet(
         return 0;
 }
 
-static void dns_stub_query_complete(DnsQuery *q) {
+static void dns_stub_query_complete(DnsQuery *query) {
+        _cleanup_(dns_query_freep) DnsQuery *q = query;
         int r;
 
         assert(q);
@@ -705,7 +706,6 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         else
                                 (void) dns_stub_send(q->manager, q->stub_listener_extra, q->request_stream, q->request_packet, reply);
 
-                        dns_query_free(q);
                         return;
                 }
         }
@@ -717,11 +717,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         q,
                         dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                         dns_stub_reply_with_edns0_do(q));
-        if (r < 0) {
-                log_debug_errno(r, "Failed to assign sections: %m");
-                dns_query_free(q);
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to assign sections: %m");
 
         switch (q->state) {
 
@@ -755,11 +752,10 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                  * packet doesn't answer our question. In that case let's restart the query,
                                  * now with the redirected question. We'll */
                                 r = dns_query_go(q);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to restart query: %m");
-                                        dns_query_free(q);
-                                }
+                                if (r < 0)
+                                        return (void) log_debug_errno(r, "Failed to restart query: %m");
 
+                                TAKE_PTR(q);
                                 return;
                         }
 
@@ -767,11 +763,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                         q,
                                         dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                                         dns_stub_reply_with_edns0_do(q));
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to assign sections: %m");
-                                dns_query_free(q);
-                                return;
-                        }
+                        if (r < 0)
+                                return (void) log_debug_errno(r, "Failed to assign sections: %m");
 
                         if (cname_result == DNS_QUERY_MATCH) /* A match? Then we are done, let's return what we got */
                                 break;
@@ -817,8 +810,6 @@ static void dns_stub_query_complete(DnsQuery *q) {
         default:
                 assert_not_reached("Impossible state");
         }
-
-        dns_query_free(q);
 }
 
 static int dns_stub_stream_complete(DnsStream *s, int error) {

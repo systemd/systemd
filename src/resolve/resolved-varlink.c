@@ -143,9 +143,10 @@ static bool validate_and_mangle_flags(
         return true;
 }
 
-static void vl_method_resolve_hostname_complete(DnsQuery *q) {
+static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q = query;
         _cleanup_free_ char *normalized = NULL;
         DnsResourceRecord *rr;
         DnsQuestion *question;
@@ -165,8 +166,11 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) {
+                /* This was a cname, and the query was restarted. */
+                TAKE_PTR(q);
                 return;
+        }
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
@@ -228,8 +232,6 @@ finish:
                 log_error_errno(r, "Failed to send hostname reply: %m");
                 r = varlink_error_errno(q->varlink_request, r);
         }
-
-        dns_query_free(q);
 }
 
 static int parse_as_address(Varlink *link, LookupParameters *p) {
@@ -284,7 +286,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        DnsQuery *q;
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -338,13 +340,10 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
 
         r = dns_query_go(q);
         if (r < 0)
-                goto fail;
+                return r;
 
+        TAKE_PTR(q);
         return 1;
-
-fail:
-        dns_query_free(q);
-        return r;
 }
 
 static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
@@ -382,8 +381,9 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
         return 0;
 }
 
-static void vl_method_resolve_address_complete(DnsQuery *q) {
+static void vl_method_resolve_address_complete(DnsQuery *query) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         int ifindex, r;
@@ -402,8 +402,11 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) {
+                /* This was a cname, and the query was restarted. */
+                TAKE_PTR(q);
                 return;
+        }
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
@@ -447,8 +450,6 @@ finish:
                 log_error_errno(r, "Failed to send address reply: %m");
                 r = varlink_error_errno(q->varlink_request, r);
         }
-
-        dns_query_free(q);
 }
 
 static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -464,7 +465,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        DnsQuery *q;
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -509,13 +510,10 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
 
         r = dns_query_go(q);
         if (r < 0)
-                goto fail;
+                return r;
 
+        TAKE_PTR(q);
         return 1;
-
-fail:
-        dns_query_free(q);
-        return r;
 }
 
 int manager_varlink_init(Manager *m) {
