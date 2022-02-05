@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "event-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
@@ -348,7 +349,7 @@ static void dns_query_stop(DnsQuery *q) {
 
         assert(q);
 
-        q->timeout_event_source = sd_event_source_disable_unref(q->timeout_event_source);
+        event_source_disable(q->timeout_event_source);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
                 dns_query_candidate_stop(c);
@@ -794,16 +795,15 @@ int dns_query_go(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        r = sd_event_add_time_relative(
+        r = event_reset_time_relative(
                         q->manager->event,
                         &q->timeout_event_source,
                         clock_boottime_or_monotonic(),
                         SD_RESOLVED_QUERY_TIMEOUT_USEC,
-                        0, on_query_timeout, q);
+                        0, on_query_timeout, q,
+                        0, "query-timeout", true);
         if (r < 0)
                 goto fail;
-
-        (void) sd_event_source_set_description(q->timeout_event_source, "query-timeout");
 
         q->state = DNS_TRANSACTION_PENDING;
         q->block_ready++;
