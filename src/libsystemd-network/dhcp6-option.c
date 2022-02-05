@@ -317,7 +317,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
                 break;
 
         default:
-                return -EINVAL;
+                assert_not_reached();
         }
 
         if (*buflen < offsetof(DHCP6Option, data) + len)
