@@ -819,7 +819,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         case DHCP6_STATE_REBIND:
                 message->type = DHCP6_MESSAGE_REBIND;
 
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA)) {
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
                         r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
                         if (r < 0)
                                 return r;
