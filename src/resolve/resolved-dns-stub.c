@@ -755,8 +755,10 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                  * packet doesn't answer our question. In that case let's restart the query,
                                  * now with the redirected question. We'll */
                                 r = dns_query_go(q);
-                                if (r < 0)
+                                if (r < 0) {
                                         log_debug_errno(r, "Failed to restart query: %m");
+                                        dns_query_free(q);
+                                }
 
                                 return;
                         }
