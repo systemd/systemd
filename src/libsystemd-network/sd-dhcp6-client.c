@@ -662,16 +662,94 @@ static void client_stop(sd_dhcp6_client *client, int error) {
         client_reset(client);
 }
 
+static int client_append_common_options_in_managed_mode(
+                sd_dhcp6_client *client,
+                uint8_t **opt,
+                size_t *optlen,
+                const DHCP6IA *ia_na,
+                const DHCP6IA *ia_pd,
+                const DHCP6Address *hint_pd_prefix) {
+
+        int r;
+
+        assert(client);
+        assert(IN_SET(client->state,
+                      DHCP6_STATE_SOLICITATION,
+                      DHCP6_STATE_REQUEST,
+                      DHCP6_STATE_RENEW,
+                      DHCP6_STATE_REBIND));
+        assert(opt);
+        assert(optlen);
+
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && ia_na) {
+                r = dhcp6_option_append_ia(opt, optlen, ia_na);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && ia_pd) {
+                r = dhcp6_option_append_pd(opt, optlen, ia_pd, hint_pd_prefix);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->fqdn) {
+                r = dhcp6_option_append_fqdn(opt, optlen, client->fqdn);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->user_class) {
+                r = dhcp6_option_append_user_class(opt, optlen, client->user_class);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->vendor_class) {
+                r = dhcp6_option_append_vendor_class(opt, optlen, client->vendor_class);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!ordered_hashmap_isempty(client->vendor_options)) {
+                r = dhcp6_option_append_vendor_option(opt, optlen, client->vendor_options);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) {
+        assert(client);
+
+        switch (client->state) {
+        case DHCP6_STATE_INFORMATION_REQUEST:
+                return DHCP6_MESSAGE_INFORMATION_REQUEST;
+        case DHCP6_STATE_SOLICITATION:
+                return DHCP6_MESSAGE_SOLICIT;
+        case DHCP6_STATE_REQUEST:
+                return DHCP6_MESSAGE_REQUEST;
+        case DHCP6_STATE_RENEW:
+                return DHCP6_MESSAGE_RENEW;
+        case DHCP6_STATE_REBIND:
+                return DHCP6_MESSAGE_REBIND;
+        default:
+                return -EINVAL;
+        }
+}
+
 static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
+        DHCP6MessageType message_type;
         struct sd_dhcp6_option *j;
         size_t len, optlen = 512;
         uint8_t *opt;
-        int r;
         usec_t elapsed_usec;
         be16_t elapsed_time;
+        int r;
 
         assert(client);
 
@@ -685,83 +763,29 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
         message->transaction_id = client->transaction_id;
 
-        switch(client->state) {
+        message_type = client_message_type_from_state(client);
+        if (message_type < 0)
+                return message_type;
+
+        message->type = message_type;
+
+        switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                message->type = DHCP6_MESSAGE_INFORMATION_REQUEST;
-
-                if (client->mudurl) {
-                        r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
-                                                client->mudurl);
-                        if (r < 0)
-                                return r;
-                }
-
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                message->type = DHCP6_MESSAGE_SOLICIT;
-
-                r = dhcp6_option_append(&opt, &optlen,
-                                        SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA)) {
-                        r = dhcp6_option_append_ia(&opt, &optlen,
-                                                   &client->ia_na);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->fqdn) {
-                        r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->mudurl) {
-                        r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
-                                                client->mudurl);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->user_class) {
-                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->vendor_class) {
-                        r = dhcp6_option_append_vendor_class(&opt, &optlen, client->vendor_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!ordered_hashmap_isempty(client->vendor_options)) {
-                        r = dhcp6_option_append_vendor_option(&opt, &optlen,
-                                                       client->vendor_options);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(&opt, &optlen, &client->ia_pd, &client->hint_pd_prefix);
-                        if (r < 0)
-                                return r;
-                }
-
+                r = client_append_common_options_in_managed_mode(client, &opt, &optlen, &client->ia_na,
+                                                                 &client->ia_pd, &client->hint_pd_prefix);
+                if (r < 0)
+                        return r;
                 break;
 
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
-
-                if (client->state == DHCP6_STATE_REQUEST)
-                        message->type = DHCP6_MESSAGE_REQUEST;
-                else
-                        message->type = DHCP6_MESSAGE_RENEW;
 
                 r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
@@ -769,100 +793,17 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
-                        r = dhcp6_option_append_ia(&opt, &optlen,
-                                                   &client->lease->ia);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->fqdn) {
-                        r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->mudurl) {
-                        r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
-                                                client->mudurl);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->user_class) {
-                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->vendor_class) {
-                        r = dhcp6_option_append_vendor_class(&opt, &optlen, client->vendor_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!ordered_hashmap_isempty(client->vendor_options)) {
-                        r = dhcp6_option_append_vendor_option(&opt, &optlen, client->vendor_options);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
-                        r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-                break;
-
+                _fallthrough_;
         case DHCP6_STATE_REBIND:
-                message->type = DHCP6_MESSAGE_REBIND;
 
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
-                        r = dhcp6_option_append_ia(&opt, &optlen, &client->lease->ia);
-                        if (r < 0)
-                                return r;
-                }
+                assert(client->lease);
 
-                if (client->fqdn) {
-                        r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->mudurl) {
-                        r = dhcp6_option_append(&opt, &optlen,
-                                                SD_DHCP6_OPTION_MUD_URL_V6, strlen(client->mudurl),
-                                                client->mudurl);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->user_class) {
-                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (client->vendor_class) {
-                        r = dhcp6_option_append_vendor_class(&opt, &optlen, client->vendor_class);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!ordered_hashmap_isempty(client->vendor_options)) {
-                        r = dhcp6_option_append_vendor_option(&opt, &optlen, client->vendor_options);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
-                        r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
+                r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
+                                                                 client->lease->ia.addresses ? &client->lease->ia : NULL,
+                                                                 client->lease->pd.addresses ? &client->lease->pd : NULL,
+                                                                 NULL);
+                if (r < 0)
+                        return r;
                 break;
 
         case DHCP6_STATE_STOPPED:
@@ -870,6 +811,13 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 return -EINVAL;
         default:
                 assert_not_reached();
+        }
+
+        if (client->mudurl) {
+                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_MUD_URL_V6,
+                                        strlen(client->mudurl), client->mudurl);
+                if (r < 0)
+                        return r;
         }
 
         r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
