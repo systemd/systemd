@@ -381,6 +381,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         if (!q)
                 return NULL;
 
+        q->timeout_event_source = sd_event_source_disable_unref(q->timeout_event_source);
+
         while (q->auxiliary_queries)
                 dns_query_free(q->auxiliary_queries);
 
