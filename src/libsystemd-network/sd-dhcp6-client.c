@@ -1133,6 +1133,8 @@ static int client_process_information(
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
+        log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
@@ -1162,6 +1164,8 @@ static int client_process_reply(
         r = dhcp6_lease_new_from_message(client, message, len, timestamp, server_address, &lease);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
+
+        log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
 
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
@@ -1202,6 +1206,8 @@ static int client_process_advertise_or_rapid_commit_reply(
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                       "Received reply message without rapid commit flag, ignoring.");
 
+                log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
 
@@ -1218,17 +1224,16 @@ static int client_process_advertise_or_rapid_commit_reply(
                         return r;
         }
 
+        log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
         if (!client->lease || pref_advertise > pref_lease) {
                 /* If this is the first advertise message or has higher preference, then save the lease. */
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
         }
 
-        if (pref_advertise == 255 || client->retransmit_count > 1) {
-                r = client_set_state(client, DHCP6_STATE_REQUEST);
-                if (r < 0)
-                        return r;
-        }
+        if (pref_advertise == 255 || client->retransmit_count > 1)
+                (void) client_set_state(client, DHCP6_STATE_REQUEST);
 
         return 0;
 }
@@ -1336,9 +1341,6 @@ static int client_receive_message(
         default:
                 assert_not_reached();
         }
-
-        log_dhcp6_client(client, "Recv %s",
-                         dhcp6_message_type_to_string(message->type));
 
         return 0;
 }
