@@ -1297,7 +1297,7 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
 
         r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
-                return r;
+                goto error;
 
         if (!client->receive_message) {
                 r = sd_event_add_io(client->event, &client->receive_message,
