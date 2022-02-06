@@ -944,8 +944,7 @@ error:
 
 static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = ASSERT_PTR(userdata);
-        usec_t time_now, init_retransmit_time = 0, max_retransmit_time = 0;
-        uint8_t max_retransmit_count = 0;
+        usec_t time_now, init_retransmit_time, max_retransmit_time;
         int r;
 
         assert(s);
@@ -955,7 +954,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         case DHCP6_STATE_INFORMATION_REQUEST:
                 init_retransmit_time = DHCP6_INF_TIMEOUT;
                 max_retransmit_time = DHCP6_INF_MAX_RT;
-
                 break;
 
         case DHCP6_STATE_SOLICITATION:
@@ -967,14 +965,17 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
 
                 init_retransmit_time = DHCP6_SOL_TIMEOUT;
                 max_retransmit_time = DHCP6_SOL_MAX_RT;
-
                 break;
 
         case DHCP6_STATE_REQUEST:
+
+                if (client->retransmit_count >= DHCP6_REQ_MAX_RC) {
+                        client_stop(client, SD_DHCP6_CLIENT_EVENT_RETRANS_MAX);
+                        return 0;
+                }
+
                 init_retransmit_time = DHCP6_REQ_TIMEOUT;
                 max_retransmit_time = DHCP6_REQ_MAX_RT;
-                max_retransmit_count = DHCP6_REQ_MAX_RC;
-
                 break;
 
         case DHCP6_STATE_RENEW:
@@ -984,7 +985,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 /* RFC 3315, section 18.1.3. says max retransmit duration will
                    be the remaining time until T2. Instead of setting MRD,
                    wait for T2 to trigger with the same end result */
-
                 break;
 
         case DHCP6_STATE_REBIND:
@@ -996,15 +996,8 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
 
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_BOUND:
-                return 0;
         default:
                 assert_not_reached();
-        }
-
-        if (max_retransmit_count > 0 &&
-            client->retransmit_count >= max_retransmit_count) {
-                client_stop(client, SD_DHCP6_CLIENT_EVENT_RETRANS_MAX);
-                return 0;
         }
 
         r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
