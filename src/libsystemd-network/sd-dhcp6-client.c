@@ -1050,6 +1050,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                       DHCP6_STATE_RENEW,
                       DHCP6_STATE_REBIND));
 
+        (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
 
         r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2, &lifetime_valid);
@@ -1345,8 +1346,6 @@ static int client_receive_message(
 
         case DHCP6_STATE_BOUND:
         case DHCP6_STATE_STOPPED:
-                return 0;
-
         default:
                 assert_not_reached();
         }
