@@ -844,7 +844,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         case DHCP6_STATE_SOLICITATION:
 
                 if (client->retransmit_count > 0 && client->lease) {
-                        client_set_state(client, DHCP6_STATE_REQUEST);
+                        (void) client_set_state(client, DHCP6_STATE_REQUEST);
                         return 0;
                 }
 
@@ -989,7 +989,7 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
         /* RFC 3315, section 18.1.4., says that "...the client may choose to
            use a Solicit message to locate a new DHCP server..." */
         if (state == DHCP6_STATE_REBIND)
-                client_set_state(client, DHCP6_STATE_SOLICITATION);
+                (void) client_set_state(client, DHCP6_STATE_SOLICITATION);
 
         return 0;
 }
@@ -1006,7 +1006,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T2");
 
-        client_set_state(client, DHCP6_STATE_REBIND);
+        (void) client_set_state(client, DHCP6_STATE_REBIND);
 
         return 0;
 }
@@ -1022,7 +1022,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T1");
 
-        client_set_state(client, DHCP6_STATE_RENEW);
+        (void) client_set_state(client, DHCP6_STATE_RENEW);
 
         return 0;
 }
