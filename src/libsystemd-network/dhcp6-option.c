@@ -696,7 +696,7 @@ int dhcp6_option_parse_ia(
                 DHCP6IA **ret) {
 
         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
-        uint32_t lt_t1, lt_t2, lt_min = UINT32_MAX;
+        uint32_t lt_t1, lt_t2;
         size_t header_len;
         int r;
 
@@ -772,22 +772,16 @@ int dhcp6_option_parse_ia(
                         r = dhcp6_option_parse_ia_address(client, ia, subdata, subdata_len);
                         if (r == -ENOMEM)
                                 return r;
-                        if (r < 0)
-                                /* Ignore non-critical errors in the sub-option. */
-                                continue;
 
-                        lt_min = MIN(lt_min, be32toh(ia->addresses->iaaddr.lifetime_valid));
+                        /* Ignore non-critical errors in the sub-option. */
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_PD_PREFIX: {
                         r = dhcp6_option_parse_ia_pdprefix(client, ia, subdata, subdata_len);
                         if (r == -ENOMEM)
                                 return r;
-                        if (r < 0)
-                                /* Ignore non-critical errors in the sub-option. */
-                                continue;
 
-                        lt_min = MIN(lt_min, be32toh(ia->addresses->iapdprefix.lifetime_valid));
+                        /* Ignore non-critical errors in the sub-option. */
                         break;
                 }
                 case SD_DHCP6_OPTION_STATUS_CODE: {
@@ -814,22 +808,6 @@ int dhcp6_option_parse_ia(
         if (!ia->addresses)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENODATA),
                                               "Received an IA option without valid IA addresses or PD prefixes, ignoring.");
-
-        if (lt_t2 == 0 && IN_SET(option_code, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_PD)) {
-
-                /* addresses or prefixes with zero valid lifetime are already ignored. */
-                assert(lt_min != UINT32_MAX);
-
-                lt_t1 = lt_min / 2;
-                lt_t2 = lt_min / 10 * 8;
-
-                ia->header.lifetime_t1 = htobe32(lt_t1);
-                ia->header.lifetime_t1 = htobe32(lt_t2);
-
-                log_dhcp6_client(client, "Received an IA option with both T1 and T2 equal to zero. "
-                                 "Adjusting them based on the minimum valid lifetime of IA addresses or PD prefixes: "
-                                 "T1=%"PRIu32"sec, T2=%"PRIu32"sec", lt_t1, lt_t2);
-        }
 
         *ret = TAKE_PTR(ia);
         return 0;
