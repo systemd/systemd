@@ -951,8 +951,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         assert(s);
         assert(client->event);
 
-        (void) event_source_disable(client->timeout_resend);
-
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
                 init_retransmit_time = DHCP6_INF_TIMEOUT;
@@ -1342,7 +1340,6 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                 assert_not_reached();
         }
 
-        (void) event_source_disable(client->timeout_resend);
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
