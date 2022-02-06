@@ -22,7 +22,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
-        triple_timestamp t = {};
         usec_t time_now;
         int r;
 
@@ -43,8 +42,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_start(client) >= 0);
         assert_se(sd_dhcp6_client_set_transaction_id(client, htobe32(0x00ffffff) & ((const DHCP6Message *) data)->transaction_id) == 0);
 
-        triple_timestamp_get(&t);
-        r = client_receive_advertise(client, (DHCP6Message *) data, size, &t, NULL);
+        r = client_process_advertise_or_rapid_commit_reply(client, (DHCP6Message *) data, size, NULL, NULL);
         if (r < 0)
                 goto cleanup;
 
@@ -52,8 +50,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (r < 0)
                 goto cleanup;
 
-        if (r == DHCP6_STATE_REQUEST)
-                client->state = DHCP6_STATE_REQUEST;
+        if (client->state != DHCP6_STATE_REQUEST)
+                client->state = DHCP6_STATE_SOLICITATION;
         (void) client_send_message(client, time_now);
 cleanup:
         assert_se(sd_dhcp6_client_stop(client) >= 0);
