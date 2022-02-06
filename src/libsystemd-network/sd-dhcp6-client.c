@@ -589,14 +589,13 @@ static void client_reset(sd_dhcp6_client *client) {
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
 
-        client->receive_message = sd_event_source_disable_unref(client->receive_message);
-
         client->transaction_id = 0;
         client->transaction_start = 0;
 
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
+        (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
         (void) event_source_disable(client->timeout_resend_expire);
         (void) event_source_disable(client->timeout_t1);
@@ -1358,24 +1357,6 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
         if (r < 0)
                 goto error;
 
-        if (!client->receive_message) {
-                r = sd_event_add_io(client->event, &client->receive_message,
-                                    client->fd, EPOLLIN, client_receive_message,
-                                    client);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_priority(client->receive_message,
-                                                 client->event_priority);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_description(client->receive_message,
-                                                    "dhcp6-receive-message");
-                if (r < 0)
-                        goto error;
-        }
-
         client->state = state;
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
         client->transaction_start = time_now;
@@ -1385,6 +1366,10 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                              0, 0,
                              client_timeout_resend, client,
                              client->event_priority, "dhcp6-resend-timeout", true);
+        if (r < 0)
+                goto error;
+
+        r = sd_event_source_set_enabled(client->receive_message, SD_EVENT_ON);
         if (r < 0)
                 goto error;
 
@@ -1401,6 +1386,7 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 
+        client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
         return 0;
@@ -1448,6 +1434,24 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 }
 
                 client->fd = r;
+        }
+
+        if (!client->receive_message) {
+                _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
+
+                r = sd_event_add_io(client->event, &s, client->fd, EPOLLIN, client_receive_message, client);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(s, client->event_priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_description(s, "dhcp6-receive-message");
+                if (r < 0)
+                        return r;
+
+                client->receive_message = TAKE_PTR(s);
         }
 
         if (client->information_request) {
