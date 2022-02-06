@@ -249,9 +249,14 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client, sd_dhcp6_option *
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
-        assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_put(&client->vendor_options, &dhcp6_option_hash_ops, v, v);
+        if (!v) {
+                /* Clear the previous assignments. */
+                ordered_set_clear(client->vendor_options);
+                return 0;
+        }
+
+        r = ordered_set_ensure_put(&client->vendor_options, &dhcp6_option_hash_ops, v);
         if (r < 0)
                 return r;
 
@@ -706,7 +711,7 @@ static int client_append_common_options_in_managed_mode(
                         return r;
         }
 
-        if (!ordered_hashmap_isempty(client->vendor_options)) {
+        if (!ordered_set_isempty(client->vendor_options)) {
                 r = dhcp6_option_append_vendor_option(opt, optlen, client->vendor_options);
                 if (r < 0)
                         return r;
@@ -1500,6 +1505,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         free(client->mudurl);
         dhcp6_ia_clear_addresses(&client->ia_pd);
         ordered_hashmap_free(client->extra_options);
+        ordered_set_free(client->vendor_options);
         strv_free(client->user_class);
         strv_free(client->vendor_class);
         free(client->ifname);

@@ -246,7 +246,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
         return 0;
 }
 
-int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options) {
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet *vendor_options) {
         sd_dhcp6_option *options;
         int r;
 
@@ -255,7 +255,7 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
         assert(buflen);
         assert(vendor_options);
 
-        ORDERED_HASHMAP_FOREACH(options, vendor_options) {
+        ORDERED_SET_FOREACH(options, vendor_options) {
                 _cleanup_free_ uint8_t *p = NULL;
                 size_t total;
 
