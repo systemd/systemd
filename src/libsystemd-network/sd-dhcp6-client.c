@@ -895,6 +895,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
         }
 
         client->state = DHCP6_STATE_BOUND;
+        client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
         return 0;
 
 error:
@@ -1139,12 +1140,7 @@ static int client_process_reply(
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
-        r = client_enter_bound_state(client);
-        if (r < 0)
-                return r;
-
-        client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
-        return 0;
+        return client_enter_bound_state(client);
 }
 
 static int client_process_advertise_or_rapid_commit_reply(
@@ -1183,12 +1179,7 @@ static int client_process_advertise_or_rapid_commit_reply(
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
 
-                r = client_enter_bound_state(client);
-                if (r < 0)
-                        return r;
-
-                client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
-                return 0;
+                return client_enter_bound_state(client);
         }
 
         r = dhcp6_lease_get_preference(lease, &pref_advertise);
