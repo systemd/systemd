@@ -173,10 +173,10 @@ int client_parse_message(
                 size_t len,
                 sd_dhcp6_lease *lease);
 
-const char *dhcp6_message_type_to_string(int s) _const_;
-int dhcp6_message_type_from_string(const char *s) _pure_;
-const char *dhcp6_message_status_to_string(int s) _const_;
-int dhcp6_message_status_from_string(const char *s) _pure_;
+const char *dhcp6_message_type_to_string(DHCP6MessageType t) _const_;
+DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
+const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
+DHCP6Status dhcp6_message_status_from_string(const char *s) _pure_;
 
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 
