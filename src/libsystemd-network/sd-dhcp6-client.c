@@ -702,7 +702,7 @@ static int client_append_common_options_in_managed_mode(
         }
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && ia_pd) {
-                r = dhcp6_option_append_pd(opt, optlen, ia_pd);
+                r = dhcp6_option_append_ia(opt, optlen, ia_pd);
                 if (r < 0)
                         return r;
         }

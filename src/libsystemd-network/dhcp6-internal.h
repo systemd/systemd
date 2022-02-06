@@ -81,7 +81,6 @@ bool dhcp6_option_can_request(uint16_t option);
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
-int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);

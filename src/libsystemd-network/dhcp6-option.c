@@ -282,10 +282,66 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
         return 0;
 }
 
+static int option_append_ia_address(uint8_t **buf, size_t *buflen, const struct iaaddr *address) {
+        struct iaaddr a;
+        int r;
+
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(address);
+
+        /* Do not append T1 and T2. */
+        a = (struct iaaddr) {
+                .address = address->address,
+        };
+
+        r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr));
+        if (r < 0)
+                return r;
+
+        memcpy(*buf, &a, sizeof(struct iaaddr));
+
+        *buf += sizeof(struct iaaddr);
+        *buflen -= sizeof(struct iaaddr);
+
+        return offsetof(DHCP6Option, data) + sizeof(struct iaaddr);
+}
+
+static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct iapdprefix *prefix) {
+        struct iapdprefix p;
+        int r;
+
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(prefix);
+
+        if (prefix->prefixlen == 0)
+                return -EINVAL;
+
+        /* Do not append T1 and T2. */
+        p = (struct iapdprefix) {
+                .prefixlen = prefix->prefixlen,
+                .address = prefix->address,
+        };
+
+        r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IA_PD_PREFIX, sizeof(struct iapdprefix));
+        if (r < 0)
+                return r;
+
+        memcpy(*buf, &p, sizeof(struct iapdprefix));
+
+        *buf += sizeof(struct iapdprefix);
+        *buflen -= sizeof(struct iapdprefix);
+
+        return offsetof(DHCP6Option, data) + sizeof(struct iapdprefix);
+}
+
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
-        size_t ia_buflen, ia_addrlen = 0;
         struct ia_header header;
-        DHCP6Address *addr;
+        const DHCP6Address *addr;
+        size_t ia_buflen;
         uint8_t *ia_hdr;
         uint16_t len;
         int r;
@@ -299,6 +355,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
 
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
+        case SD_DHCP6_OPTION_IA_PD:
                 len = sizeof(struct ia_header);
                 header = (struct ia_header) {
                         .id = ia->header.id,
@@ -322,89 +379,6 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         ia_hdr = *buf;
         ia_buflen = *buflen;
 
-        *buf += offsetof(DHCP6Option, data);
-        *buflen -= offsetof(DHCP6Option, data);
-
-        memcpy(*buf, &header, len);
-
-        *buf += len;
-        *buflen -= len;
-
-        LIST_FOREACH(addresses, addr, ia->addresses) {
-                struct iaaddr a = {
-                        .address = addr->iaaddr.address,
-                };
-
-                r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr));
-                if (r < 0)
-                        return r;
-
-                memcpy(*buf, &a, sizeof(struct iaaddr));
-
-                *buf += sizeof(struct iaaddr);
-                *buflen -= sizeof(struct iaaddr);
-
-                ia_addrlen += offsetof(DHCP6Option, data) + sizeof(struct iaaddr);
-        }
-
-        return option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
-}
-
-static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const DHCP6Address *prefix) {
-        struct iapdprefix p;
-        int r;
-
-        assert(buf);
-        assert(*buf);
-        assert(buflen);
-        assert(prefix);
-
-        if (prefix->iapdprefix.prefixlen == 0)
-                return -EINVAL;
-
-        /* Do not append T1 and T2. */
-
-        p = (struct iapdprefix) {
-                .prefixlen = prefix->iapdprefix.prefixlen,
-                .address = prefix->iapdprefix.address,
-        };
-
-        r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IA_PD_PREFIX, sizeof(struct iapdprefix));
-        if (r < 0)
-                return r;
-
-        memcpy(*buf, &p, sizeof(struct iapdprefix));
-
-        *buf += sizeof(struct iapdprefix);
-        *buflen -= sizeof(struct iapdprefix);
-
-        return offsetof(DHCP6Option, data) + sizeof(struct iapdprefix);
-}
-
-int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd) {
-        struct ia_header header;
-        size_t len, pd_buflen;
-        uint8_t *pd_hdr;
-        int r;
-
-        assert_return(buf, -EINVAL);
-        assert_return(*buf, -EINVAL);
-        assert_return(buflen, -EINVAL);
-        assert_return(pd, -EINVAL);
-        assert_return(pd->type == SD_DHCP6_OPTION_IA_PD, -EINVAL);
-
-        /* Do not set T1 and T2. */
-        len = sizeof(struct ia_header);
-        header = (struct ia_header) {
-                .id = pd->header.id,
-        };
-
-        if (*buflen < offsetof(DHCP6Option, data) + len)
-                return -ENOBUFS;
-
-        pd_hdr = *buf;
-        pd_buflen = *buflen;
-
         /* The header will be written at the end of this function. */
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
@@ -413,16 +387,18 @@ int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd) {
         *buf += len;
         *buflen -= len;
 
-        DHCP6Address *prefix;
-        LIST_FOREACH(addresses, prefix, pd->addresses) {
-                r = option_append_pd_prefix(buf, buflen, prefix);
+        LIST_FOREACH(addresses, addr, ia->addresses) {
+                if (ia->type == SD_DHCP6_OPTION_IA_PD)
+                        r = option_append_pd_prefix(buf, buflen, &addr->iapdprefix);
+                else
+                        r = option_append_ia_address(buf, buflen, &addr->iaaddr);
                 if (r < 0)
                         return r;
 
                 len += r;
         }
 
-        return option_append_hdr(&pd_hdr, &pd_buflen, pd->type, len);
+        return option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len);
 }
 
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
