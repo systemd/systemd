@@ -384,10 +384,27 @@ int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         return 0;
 }
 
-void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode) {
+static int client_ensure_iaid(sd_dhcp6_client *client) {
+        int r;
+        uint32_t iaid;
+
         assert(client);
 
-        client->test_mode = test_mode;
+        if (client->iaid_set)
+                return 0;
+
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
+                                     /* legacy_unstable_byteorder = */ true,
+                                     /* use_mac = */ client->test_mode,
+                                     &iaid);
+        if (r < 0)
+                return r;
+
+        client->ia_na.header.id = iaid;
+        client->ia_pd.header.id = iaid;
+        client->iaid_set = true;
+
+        return 0;
 }
 
 int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
@@ -400,6 +417,12 @@ int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
         *iaid = be32toh(client->ia_na.header.id);
 
         return 0;
+}
+
+void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode) {
+        assert(client);
+
+        client->test_mode = test_mode;
 }
 
 int sd_dhcp6_client_set_fqdn(
@@ -1018,29 +1041,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                                       client->event_priority, "dhcp6-resend-timer", true);
         if (r < 0)
                 client_stop(client, r);
-
-        return 0;
-}
-
-static int client_ensure_iaid(sd_dhcp6_client *client) {
-        int r;
-        uint32_t iaid;
-
-        assert(client);
-
-        if (client->iaid_set)
-                return 0;
-
-        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
-                                     /* legacy_unstable_byteorder = */ true,
-                                     /* use_mac = */ client->test_mode,
-                                     &iaid);
-        if (r < 0)
-                return r;
-
-        client->ia_na.header.id = iaid;
-        client->ia_pd.header.id = iaid;
-        client->iaid_set = true;
 
         return 0;
 }
