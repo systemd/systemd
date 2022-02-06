@@ -25,7 +25,7 @@ struct sd_dhcp6_lease {
         triple_timestamp timestamp;
         usec_t lifetime_t1;
         usec_t lifetime_t2;
-        usec_t max_retransmit_duration;
+        usec_t lifetime_valid;
         struct in6_addr server_address;
 
         DHCP6IA *ia_na;
@@ -49,8 +49,7 @@ void dhcp6_ia_clear_addresses(DHCP6IA *ia);
 DHCP6IA *dhcp6_ia_free(DHCP6IA *ia);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6IA*, dhcp6_ia_free);
 
-int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2);
-int dhcp6_lease_get_max_retransmit_duration(sd_dhcp6_lease *lease, usec_t *ret);
+int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid);
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
 int dhcp6_lease_get_clientid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);

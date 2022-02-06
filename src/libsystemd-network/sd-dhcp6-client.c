@@ -597,7 +597,7 @@ static void client_reset(sd_dhcp6_client *client) {
 
         (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
-        (void) event_source_disable(client->timeout_resend_expire);
+        (void) event_source_disable(client->timeout_expire);
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
 
@@ -811,6 +811,31 @@ static usec_t client_timeout_compute_random(usec_t val) {
         return usec_sub_unsigned(val, random_u64_range(val / 10));
 }
 
+static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userdata) {
+        sd_dhcp6_client *client = userdata;
+        DHCP6_CLIENT_DONT_DESTROY(client);
+        DHCP6State state;
+
+        assert(s);
+        assert(client);
+        assert(client->event);
+
+        (void) event_source_disable(client->timeout_expire);
+        (void) event_source_disable(client->timeout_t2);
+        (void) event_source_disable(client->timeout_t1);
+
+        state = client->state;
+
+        client_stop(client, SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE);
+
+        /* RFC 3315, section 18.1.4., says that "...the client may choose to
+           use a Solicit message to locate a new DHCP server..." */
+        if (state == DHCP6_STATE_REBIND)
+                client_set_state(client, DHCP6_STATE_SOLICITATION);
+
+        return 0;
+}
+
 static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
 
@@ -845,7 +870,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 }
 
 static int client_enter_bound_state(sd_dhcp6_client *client) {
-        usec_t lifetime_t1, lifetime_t2;
+        usec_t lifetime_t1, lifetime_t2, lifetime_valid;
         int r;
 
         assert(client);
@@ -856,10 +881,9 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                       DHCP6_STATE_RENEW,
                       DHCP6_STATE_REBIND));
 
-        (void) event_source_disable(client->timeout_resend_expire);
         (void) event_source_disable(client->timeout_resend);
 
-        r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2);
+        r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2, &lifetime_valid);
         if (r < 0)
                 goto error;
 
@@ -894,6 +918,21 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                         goto error;
         }
 
+        if (lifetime_valid == USEC_INFINITY) {
+                log_dhcp6_client(client, "Infinite valid lifetime");
+                event_source_disable(client->timeout_expire);
+        } else {
+                log_dhcp6_client(client, "Valid lifetime expires in %s", FORMAT_TIMESPAN(lifetime_valid, USEC_PER_SEC));
+
+                r = event_reset_time_relative(client->event, &client->timeout_expire,
+                                              clock_boottime_or_monotonic(),
+                                              lifetime_valid, USEC_PER_SEC,
+                                              client_timeout_expire, client,
+                                              client->event_priority, "dhcp6-lease-expire", true);
+                if (r < 0)
+                        goto error;
+        }
+
         client->state = DHCP6_STATE_BOUND;
         client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
         return 0;
@@ -903,36 +942,13 @@ error:
         return r;
 }
 
-static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp6_client *client = userdata;
-        DHCP6_CLIENT_DONT_DESTROY(client);
-        DHCP6State state;
-
-        assert(s);
-        assert(client);
-        assert(client->event);
-
-        state = client->state;
-
-        client_stop(client, SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE);
-
-        /* RFC 3315, section 18.1.4., says that "...the client may choose to
-           use a Solicit message to locate a new DHCP server..." */
-        if (state == DHCP6_STATE_REBIND)
-                client_set_state(client, DHCP6_STATE_SOLICITATION);
-
-        return 0;
-}
-
 static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userdata) {
-        int r = 0;
-        sd_dhcp6_client *client = userdata;
+        sd_dhcp6_client *client = ASSERT_PTR(userdata);
         usec_t time_now, init_retransmit_time = 0, max_retransmit_time = 0;
-        usec_t max_retransmit_duration = 0;
         uint8_t max_retransmit_count = 0;
+        int r;
 
         assert(s);
-        assert(client);
         assert(client->event);
 
         (void) event_source_disable(client->timeout_resend);
@@ -977,14 +993,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 init_retransmit_time = DHCP6_REB_TIMEOUT;
                 max_retransmit_time = DHCP6_REB_MAX_RT;
 
-                if (event_source_is_enabled(client->timeout_resend_expire) <= 0) {
-                        r = dhcp6_lease_get_max_retransmit_duration(client->lease, &max_retransmit_duration);
-                        if (r < 0) {
-                                client_stop(client, r);
-                                return 0;
-                        }
-                }
-
+                /* Also, instead of setting MRD, the expire timer is already set in client_enter_bound_state(). */
                 break;
 
         case DHCP6_STATE_STOPPED:
@@ -1034,24 +1043,10 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 goto error;
 
-        if (max_retransmit_duration > 0 && event_source_is_enabled(client->timeout_resend_expire) <= 0) {
-
-                log_dhcp6_client(client, "Max retransmission duration %"PRIu64" secs",
-                                 max_retransmit_duration / USEC_PER_SEC);
-
-                r = event_reset_time(client->event, &client->timeout_resend_expire,
-                                     clock_boottime_or_monotonic(),
-                                     time_now + max_retransmit_duration, USEC_PER_SEC,
-                                     client_timeout_resend_expire, client,
-                                     client->event_priority, "dhcp6-resend-expire-timer", true);
-                if (r < 0)
-                        goto error;
-        }
+        return 0;
 
 error:
-        if (r < 0)
-                client_stop(client, r);
-
+        client_stop(client, r);
         return 0;
 }
 
@@ -1347,7 +1342,6 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                 assert_not_reached();
         }
 
-        (void) event_source_disable(client->timeout_resend_expire);
         (void) event_source_disable(client->timeout_resend);
         client->retransmit_time = 0;
         client->retransmit_count = 0;
@@ -1508,7 +1502,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);
-        sd_event_source_disable_unref(client->timeout_resend_expire);
+        sd_event_source_disable_unref(client->timeout_expire);
         sd_event_source_disable_unref(client->timeout_t1);
         sd_event_source_disable_unref(client->timeout_t2);
 

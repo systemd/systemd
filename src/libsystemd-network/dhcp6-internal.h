@@ -98,8 +98,6 @@ typedef struct sd_dhcp6_client {
         uint16_t arp_type;
         DHCP6IA ia_na;
         DHCP6IA ia_pd;
-        sd_event_source *timeout_t1;
-        sd_event_source *timeout_t2;
         DHCP6RequestIA request_ia;
         be32_t transaction_id;
         usec_t transaction_start;
@@ -117,7 +115,9 @@ typedef struct sd_dhcp6_client {
         usec_t retransmit_time;
         uint8_t retransmit_count;
         sd_event_source *timeout_resend;
-        sd_event_source *timeout_resend_expire;
+        sd_event_source *timeout_expire;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
         sd_dhcp6_client_callback_t callback;
         void *userdata;
         struct duid duid;
