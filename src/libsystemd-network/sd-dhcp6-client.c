@@ -108,7 +108,7 @@ DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
-static int client_start(sd_dhcp6_client *client, DHCP6State state);
+static int client_set_state(sd_dhcp6_client *client, DHCP6State state);
 
 int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client *client,
@@ -820,7 +820,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T2");
 
-        client_start(client, DHCP6_STATE_REBIND);
+        client_set_state(client, DHCP6_STATE_REBIND);
 
         return 0;
 }
@@ -836,7 +836,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T1");
 
-        client_start(client, DHCP6_STATE_RENEW);
+        client_set_state(client, DHCP6_STATE_RENEW);
 
         return 0;
 }
@@ -857,7 +857,7 @@ static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void 
         /* RFC 3315, section 18.1.4., says that "...the client may choose to
            use a Solicit message to locate a new DHCP server..." */
         if (state == DHCP6_STATE_REBIND)
-                client_start(client, DHCP6_STATE_SOLICITATION);
+                client_set_state(client, DHCP6_STATE_SOLICITATION);
 
         return 0;
 }
@@ -889,7 +889,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         case DHCP6_STATE_SOLICITATION:
 
                 if (client->retransmit_count > 0 && client->lease) {
-                        client_start(client, DHCP6_STATE_REQUEST);
+                        client_set_state(client, DHCP6_STATE_REQUEST);
                         return 0;
                 }
 
@@ -1056,7 +1056,7 @@ static int client_process_information(
         client->lease = TAKE_PTR(lease);
 
         client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
-        r = client_start(client, DHCP6_STATE_STOPPED);
+        r = client_set_state(client, DHCP6_STATE_STOPPED);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1088,7 +1088,7 @@ static int client_process_reply(
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
-        r = client_start(client, DHCP6_STATE_BOUND);
+        r = client_set_state(client, DHCP6_STATE_BOUND);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1134,7 +1134,7 @@ static int client_process_advertise_or_rapid_commit_reply(
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
 
-                r = client_start(client, DHCP6_STATE_BOUND);
+                r = client_set_state(client, DHCP6_STATE_BOUND);
                 if (r < 0) {
                         client_stop(client, r);
                         return r;
@@ -1161,7 +1161,7 @@ static int client_process_advertise_or_rapid_commit_reply(
         }
 
         if (pref_advertise == 255 || client->retransmit_count > 1) {
-                r = client_start(client, DHCP6_STATE_REQUEST);
+                r = client_set_state(client, DHCP6_STATE_REQUEST);
                 if (r < 0) {
                         client_stop(client, r);
                         return r;
@@ -1281,7 +1281,7 @@ static int client_receive_message(
         return 0;
 }
 
-static int client_start(sd_dhcp6_client *client, DHCP6State state) {
+static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
         usec_t timeout, time_now, lifetime_t1, lifetime_t2;
         int r;
 
@@ -1470,7 +1470,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         log_dhcp6_client(client, "Started in %s mode",
                          client->information_request ? "Information request" : "Managed");
 
-        return client_start(client, state);
+        return client_set_state(client, state);
 }
 
 int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority) {
