@@ -49,7 +49,6 @@ void dhcp6_ia_clear_addresses(DHCP6IA *ia);
 DHCP6IA *dhcp6_ia_free(DHCP6IA *ia);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6IA*, dhcp6_ia_free);
 
-void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease);
 int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2);
 int dhcp6_lease_get_max_retransmit_duration(sd_dhcp6_lease *lease, usec_t *ret);
 
@@ -69,3 +68,10 @@ int dhcp6_lease_add_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t op
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
+int dhcp6_lease_new_from_message(
+                sd_dhcp6_client *client,
+                const DHCP6Message *message,
+                size_t len,
+                const triple_timestamp *timestamp,
+                const struct in6_addr *server_address,
+                sd_dhcp6_lease **ret);

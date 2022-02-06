@@ -401,9 +401,7 @@ static void test_client_parse_message_issue_22099(void) {
         assert_se(sd_dhcp6_client_set_iaid(client, 0xcc59117b) >= 0);
         assert_se(sd_dhcp6_client_set_duid(client, 2, duid, sizeof(duid)) >= 0);
 
-        assert_se(dhcp6_lease_new(&lease) >= 0);
-
-        assert_se(client_parse_message(client, (DHCP6Message*) msg, sizeof(msg), lease) >= 0);
+        assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
 }
 
 static uint8_t msg_advertise[198] = {
