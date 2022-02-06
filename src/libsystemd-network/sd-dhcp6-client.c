@@ -845,7 +845,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 }
 
 static int client_enter_bound_state(sd_dhcp6_client *client) {
-        usec_t timeout, lifetime_t1, lifetime_t2;
+        usec_t lifetime_t1, lifetime_t2;
         int r;
 
         assert(client);
@@ -863,34 +863,36 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
         if (r < 0)
                 goto error;
 
-        if (lifetime_t1 == USEC_INFINITY || lifetime_t2 == USEC_INFINITY) {
-                log_dhcp6_client(client, "Infinite T1 or T2");
-                return 0;
+        lifetime_t2 = client_timeout_compute_random(lifetime_t2);
+        lifetime_t1 = client_timeout_compute_random(MIN(lifetime_t1, lifetime_t2));
+
+        if (lifetime_t1 == USEC_INFINITY) {
+                log_dhcp6_client(client, "Infinite T1");
+                event_source_disable(client->timeout_t1);
+        } else {
+                log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(lifetime_t1, USEC_PER_SEC));
+                r = event_reset_time_relative(client->event, &client->timeout_t1,
+                                              clock_boottime_or_monotonic(),
+                                              lifetime_t1, 10 * USEC_PER_SEC,
+                                              client_timeout_t1, client,
+                                              client->event_priority, "dhcp6-t1-timeout", true);
+                if (r < 0)
+                        goto error;
         }
 
-        timeout = client_timeout_compute_random(lifetime_t1);
-
-        log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
-
-        r = event_reset_time_relative(client->event, &client->timeout_t1,
-                                      clock_boottime_or_monotonic(),
-                                      timeout, 10 * USEC_PER_SEC,
-                                      client_timeout_t1, client,
-                                      client->event_priority, "dhcp6-t1-timeout", true);
-        if (r < 0)
-                goto error;
-
-        timeout = client_timeout_compute_random(lifetime_t2);
-
-        log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
-
-        r = event_reset_time_relative(client->event, &client->timeout_t2,
-                                      clock_boottime_or_monotonic(),
-                                      timeout, 10 * USEC_PER_SEC,
-                                      client_timeout_t2, client,
-                                      client->event_priority, "dhcp6-t2-timeout", true);
-        if (r < 0)
-                goto error;
+        if (lifetime_t2 == USEC_INFINITY) {
+                log_dhcp6_client(client, "Infinite T2");
+                event_source_disable(client->timeout_t2);
+        } else {
+                log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(lifetime_t2, USEC_PER_SEC));
+                r = event_reset_time_relative(client->event, &client->timeout_t2,
+                                              clock_boottime_or_monotonic(),
+                                              lifetime_t2, 10 * USEC_PER_SEC,
+                                              client_timeout_t2, client,
+                                              client->event_priority, "dhcp6-t2-timeout", true);
+                if (r < 0)
+                        goto error;
+        }
 
         client->state = DHCP6_STATE_BOUND;
         return 0;
