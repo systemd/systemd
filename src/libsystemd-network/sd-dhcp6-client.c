@@ -981,14 +981,11 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 max_retransmit_time = DHCP6_REB_MAX_RT;
 
                 if (event_source_is_enabled(client->timeout_resend_expire) <= 0) {
-                        uint32_t expire = 0;
-
-                        r = dhcp6_lease_ia_rebind_expire(client->lease->ia_na, &expire);
+                        r = dhcp6_lease_get_max_retransmit_duration(client->lease, &max_retransmit_duration);
                         if (r < 0) {
                                 client_stop(client, r);
                                 return 0;
                         }
-                        max_retransmit_duration = expire * USEC_PER_SEC;
                 }
 
                 break;
@@ -1090,7 +1087,6 @@ int client_parse_message(
                 size_t len,
                 sd_dhcp6_lease *lease) {
 
-        uint32_t lt_t1 = UINT32_MAX, lt_t2 = UINT32_MAX;
         usec_t irt = IRT_DEFAULT;
         int r;
 
@@ -1178,10 +1174,6 @@ int client_parse_message(
 
                         dhcp6_ia_free(lease->ia_na);
                         lease->ia_na = TAKE_PTR(ia);
-
-                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_na->header.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_na->header.lifetime_t2));
-
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_PD: {
@@ -1205,10 +1197,6 @@ int client_parse_message(
 
                         dhcp6_ia_free(lease->ia_pd);
                         lease->ia_pd = TAKE_PTR(ia);
-
-                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_pd->header.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_pd->header.lifetime_t2));
-
                         break;
                 }
                 case SD_DHCP6_OPTION_RAPID_COMMIT:
@@ -1282,15 +1270,7 @@ int client_parse_message(
                 if (!lease->ia_na && !lease->ia_pd)
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
-                if (lease->ia_na) {
-                        lease->ia_na->header.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia_na->header.lifetime_t2 = htobe32(lt_t2);
-                }
-
-                if (lease->ia_pd) {
-                        lease->ia_pd->header.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia_pd->header.lifetime_t2 = htobe32(lt_t2);
-                }
+                dhcp6_lease_set_lifetime(lease);
         }
 
         client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
@@ -1551,32 +1531,9 @@ static int client_receive_message(
         return 0;
 }
 
-static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
-                               uint32_t *lifetime_t2) {
-        assert_return(client, -EINVAL);
-        assert_return(client->lease, -EINVAL);
-
-        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia_na) {
-                *lifetime_t1 = be32toh(client->lease->ia_na->header.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->ia_na->header.lifetime_t2);
-
-                return 0;
-        }
-
-        if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->ia_pd) {
-                *lifetime_t1 = be32toh(client->lease->ia_pd->header.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->ia_pd->header.lifetime_t2);
-
-                return 0;
-        }
-
-        return -ENOMSG;
-}
-
 static int client_start(sd_dhcp6_client *client, DHCP6State state) {
+        usec_t timeout, time_now, lifetime_t1, lifetime_t2;
         int r;
-        usec_t timeout, time_now;
-        uint32_t lifetime_t1, lifetime_t2;
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
@@ -1635,18 +1592,18 @@ static int client_start(sd_dhcp6_client *client, DHCP6State state) {
 
         case DHCP6_STATE_BOUND:
 
-                r = client_get_lifetime(client, &lifetime_t1, &lifetime_t2);
+                assert(client->lease);
+
+                r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2);
                 if (r < 0)
                         goto error;
 
-                if (lifetime_t1 == 0xffffffff || lifetime_t2 == 0xffffffff) {
-                        log_dhcp6_client(client, "Infinite T1 0x%08x or T2 0x%08x",
-                                         lifetime_t1, lifetime_t2);
-
+                if (lifetime_t1 == USEC_INFINITY || lifetime_t2 == USEC_INFINITY) {
+                        log_dhcp6_client(client, "Infinite T1 or T2");
                         return 0;
                 }
 
-                timeout = client_timeout_compute_random(lifetime_t1 * USEC_PER_SEC);
+                timeout = client_timeout_compute_random(lifetime_t1);
 
                 log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
@@ -1658,7 +1615,7 @@ static int client_start(sd_dhcp6_client *client, DHCP6State state) {
                 if (r < 0)
                         goto error;
 
-                timeout = client_timeout_compute_random(lifetime_t2 * USEC_PER_SEC);
+                timeout = client_timeout_compute_random(lifetime_t2);
 
                 log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 

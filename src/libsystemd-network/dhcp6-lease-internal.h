@@ -11,6 +11,7 @@
 
 #include "dhcp6-internal.h"
 #include "macro.h"
+#include "time-util.h"
 
 struct sd_dhcp6_lease {
         unsigned n_ref;
@@ -22,6 +23,9 @@ struct sd_dhcp6_lease {
         uint8_t preference;
         bool rapid_commit;
         triple_timestamp timestamp;
+        usec_t lifetime_t1;
+        usec_t lifetime_t2;
+        usec_t max_retransmit_duration;
         struct in6_addr server_address;
 
         DHCP6IA *ia_na;
@@ -41,11 +45,13 @@ struct sd_dhcp6_lease {
         char *fqdn;
 };
 
-int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire);
-
 void dhcp6_ia_clear_addresses(DHCP6IA *ia);
 DHCP6IA *dhcp6_ia_free(DHCP6IA *ia);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6IA*, dhcp6_ia_free);
+
+void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease);
+int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2);
+int dhcp6_lease_get_max_retransmit_duration(sd_dhcp6_lease *lease, usec_t *ret);
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
 int dhcp6_lease_get_clientid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);
