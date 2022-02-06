@@ -381,7 +381,7 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const DHCP6Add
         return offsetof(DHCP6Option, data) + sizeof(struct iapdprefix);
 }
 
-int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, const DHCP6Address *hint_pd_prefix) {
+int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd) {
         struct ia_header header;
         size_t len, pd_buflen;
         uint8_t *pd_hdr;
@@ -416,14 +416,6 @@ int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, con
         DHCP6Address *prefix;
         LIST_FOREACH(addresses, prefix, pd->addresses) {
                 r = option_append_pd_prefix(buf, buflen, prefix);
-                if (r < 0)
-                        return r;
-
-                len += r;
-        }
-
-        if (hint_pd_prefix && hint_pd_prefix->iapdprefix.prefixlen > 0) {
-                r = option_append_pd_prefix(buf, buflen, hint_pd_prefix);
                 if (r < 0)
                         return r;
 
