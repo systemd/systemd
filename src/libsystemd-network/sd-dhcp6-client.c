@@ -75,7 +75,7 @@ const char * dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_CONTACT]             = "Contact",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType);
 
 const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_SUCCESS]                      = "Success",
@@ -103,7 +103,7 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_EXCESSIVE_TIME_SKEW]          = "Excessive time skew",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
