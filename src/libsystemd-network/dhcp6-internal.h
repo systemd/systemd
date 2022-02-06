@@ -18,6 +18,7 @@
 #include "list.h"
 #include "macro.h"
 #include "network-common.h"
+#include "ordered-set.h"
 #include "sparse-endian.h"
 
 typedef struct sd_dhcp6_option {
@@ -124,7 +125,7 @@ typedef struct sd_dhcp6_client {
         usec_t information_request_time_usec;
         usec_t information_refresh_time_usec;
         OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
+        OrderedSet *vendor_options;
 
         /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
         bool test_mode;
@@ -137,7 +138,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);
-int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options);
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet *vendor_options);
 
 int dhcp6_option_parse(
                 const uint8_t *buf,
