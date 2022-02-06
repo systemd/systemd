@@ -45,7 +45,7 @@ int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
                         valid = t;
         }
 
-        t = be32toh(ia->ia_na.lifetime_t2);
+        t = be32toh(ia->header.lifetime_t2);
         if (t > valid)
                 return -EINVAL;
 

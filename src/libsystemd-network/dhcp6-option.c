@@ -284,12 +284,10 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         size_t ia_buflen, ia_addrlen = 0;
-        struct ia_na ia_na;
-        struct ia_ta ia_ta;
+        struct ia_header header;
         DHCP6Address *addr;
         uint8_t *ia_hdr;
         uint16_t len;
-        void *p;
         int r;
 
         assert_return(buf, -EINVAL);
@@ -301,19 +299,17 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
 
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
-                len = DHCP6_OPTION_IA_NA_LEN;
-                ia_na = (struct ia_na) {
-                        .id = ia->ia_na.id,
+                len = sizeof(struct ia_header);
+                header = (struct ia_header) {
+                        .id = ia->header.id,
                 };
-                p = &ia_na;
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
-                len = DHCP6_OPTION_IA_TA_LEN;
-                ia_ta = (struct ia_ta) {
-                        .id = ia->ia_ta.id,
+                len = sizeof(be32_t); /* IA_TA does not have lifetime. */
+                header = (struct ia_header) {
+                        .id = ia->header.id,
                 };
-                p = &ia_ta;
                 break;
 
         default:
@@ -329,7 +325,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
 
-        memcpy(*buf, p, len);
+        memcpy(*buf, &header, len);
 
         *buf += len;
         *buflen -= len;
@@ -386,7 +382,7 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const DHCP6Add
 }
 
 int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, const DHCP6Address *hint_pd_prefix) {
-        struct ia_pd ia_pd;
+        struct ia_header header;
         size_t len, pd_buflen;
         uint8_t *pd_hdr;
         int r;
@@ -398,10 +394,10 @@ int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, con
         assert_return(pd->type == SD_DHCP6_OPTION_IA_PD, -EINVAL);
 
         /* Do not set T1 and T2. */
-        ia_pd = (struct ia_pd) {
-                .id = pd->ia_pd.id,
+        len = sizeof(struct ia_header);
+        header = (struct ia_header) {
+                .id = pd->header.id,
         };
-        len = sizeof(struct ia_pd);
 
         if (*buflen < offsetof(DHCP6Option, data) + len)
                 return -ENOBUFS;
@@ -413,10 +409,9 @@ int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, con
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
 
-        memcpy(*buf, &ia_pd, len);
-
-        *buf += sizeof(struct ia_pd);
-        *buflen -= sizeof(struct ia_pd);
+        memcpy(*buf, &header, len);
+        *buf += len;
+        *buflen -= len;
 
         DHCP6Address *prefix;
         LIST_FOREACH(addresses, prefix, pd->addresses) {
@@ -601,7 +596,7 @@ int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_s
 static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t *buf, size_t buflen) {
         int r;
 
-        assert(buf);
+        assert(buf || buflen == 0);
 
         for(size_t offset = 0; offset < buflen;) {
                 const uint8_t *data;
@@ -619,15 +614,15 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
                         r = dhcp6_option_parse_status(data, data_len, &msg);
                         if (r == -ENOMEM)
                                 return r;
-                        if (r < 0)
-                                /* Let's log but ignore the invalid status option. */
-                                log_dhcp6_client_errno(client, r,
-                                                       "Received an IA address or PD prefix option with an invalid status sub option, ignoring: %m");
-                        else if (r > 0)
+                        if (r > 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "Received an IA address or PD prefix option with non-zero status: %s%s%s",
                                                               strempty(msg), isempty(msg) ? "" : ": ",
                                                               dhcp6_message_status_to_string(r));
+                        if (r < 0)
+                                /* Let's log but ignore the invalid status option. */
+                                log_dhcp6_client_errno(client, r,
+                                                       "Received an IA address or PD prefix option with an invalid status sub option, ignoring: %m");
                         break;
                 }
                 default:
@@ -638,19 +633,29 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
         return 0;
 }
 
-static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, const uint8_t *data, size_t len, DHCP6Address **ret) {
+static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, DHCP6IA *ia, const uint8_t *data, size_t len) {
+        _cleanup_free_ DHCP6Address *a = NULL;
         uint32_t lt_valid, lt_pref;
-        DHCP6Address *a;
         int r;
 
-        assert(data);
-        assert(ret);
+        assert(ia);
+        assert(data || len == 0);
+
+        if (!IN_SET(ia->type, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_TA))
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received an IA address sub-option in an invalid option, ignoring.");
 
         if (len < sizeof(struct iaaddr))
                 return -EBADMSG;
 
-        lt_valid = be32toh(((const struct iaaddr*) data)->lifetime_valid);
-        lt_pref = be32toh(((const struct iaaddr*) data)->lifetime_preferred);
+        a = new(DHCP6Address, 1);
+        if (!a)
+                return -ENOMEM;
+
+        memcpy(&a->iaaddr, data, sizeof(struct iaaddr));
+
+        lt_valid = be32toh(a->iaaddr.lifetime_valid);
+        lt_pref = be32toh(a->iaaddr.lifetime_preferred);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -667,27 +672,33 @@ static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, const uint8_t 
                         return r;
         }
 
+        LIST_PREPEND(addresses, ia->addresses, TAKE_PTR(a));
+        return 0;
+}
+
+static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, const uint8_t *data, size_t len) {
+        _cleanup_free_ DHCP6Address *a = NULL;
+        uint32_t lt_valid, lt_pref;
+        int r;
+
+        assert(ia);
+        assert(data || len == 0);
+
+        if (ia->type != SD_DHCP6_OPTION_IA_PD)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received an PD prefix sub-option in an invalid option, ignoring");
+
+        if (len < sizeof(struct iapdprefix))
+                return -EBADMSG;
+
         a = new(DHCP6Address, 1);
         if (!a)
                 return -ENOMEM;
 
-        LIST_INIT(addresses, a);
-        memcpy(&a->iaaddr, data, sizeof(struct iaaddr));
+        memcpy(&a->iapdprefix, data, sizeof(struct iapdprefix));
 
-        *ret = a;
-        return 0;
-}
-
-static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, const uint8_t *data, size_t len, DHCP6Address **ret) {
-        uint32_t lt_valid, lt_pref;
-        DHCP6Address *a;
-        int r;
-
-        if (len < sizeof(struct iapdprefix))
-                return -ENOMSG;
-
-        lt_valid = be32toh(((const struct iapdprefix*) data)->lifetime_valid);
-        lt_pref = be32toh(((const struct iapdprefix*) data)->lifetime_preferred);
+        lt_valid = be32toh(a->iapdprefix.lifetime_valid);
+        lt_pref = be32toh(a->iapdprefix.lifetime_preferred);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -704,14 +715,7 @@ static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, const uint8_t
                         return r;
         }
 
-        a = new(DHCP6Address, 1);
-        if (!a)
-                return -ENOMEM;
-
-        LIST_INIT(addresses, a);
-        memcpy(&a->iapdprefix, data, sizeof(struct iapdprefix));
-
-        *ret = a;
+        LIST_PREPEND(addresses, ia->addresses, TAKE_PTR(a));
         return 0;
 }
 
@@ -725,12 +729,11 @@ int dhcp6_option_parse_ia(
 
         _cleanup_(dhcp6_lease_free_ia) DHCP6IA ia = {};
         uint32_t lt_t1, lt_t2, lt_min = UINT32_MAX;
-        be32_t received_iaid;
-        size_t offset;
+        size_t header_len;
         int r;
 
         assert(IN_SET(option_code, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_TA, SD_DHCP6_OPTION_IA_PD));
-        assert(option_data);
+        assert(option_data || option_data_len == 0);
         assert(ret);
 
         /* This will return the following:
@@ -743,56 +746,45 @@ int dhcp6_option_parse_ia(
 
         switch (option_code) {
         case SD_DHCP6_OPTION_IA_NA:
-
-                if (option_data_len < DHCP6_OPTION_IA_NA_LEN)
-                        return -EBADMSG;
-
-                offset = DHCP6_OPTION_IA_NA_LEN;
-
-                received_iaid = ((const struct ia_na*) option_data)->id;
-                lt_t1 = be32toh(((const struct ia_na*) option_data)->lifetime_t1);
-                lt_t2 = be32toh(((const struct ia_na*) option_data)->lifetime_t2);
-                break;
-
         case SD_DHCP6_OPTION_IA_PD:
-
-                if (option_data_len < DHCP6_OPTION_IA_PD_LEN)
-                        return -EBADMSG;
-
-                offset = DHCP6_OPTION_IA_PD_LEN;
-
-                received_iaid = ((const struct ia_pd*) option_data)->id;
-                lt_t1 = be32toh(((const struct ia_pd*) option_data)->lifetime_t1);
-                lt_t2 = be32toh(((const struct ia_pd*) option_data)->lifetime_t2);
+                header_len = sizeof(struct ia_header);
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
-                if (option_data_len < DHCP6_OPTION_IA_TA_LEN)
-                        return -ENOMSG;
-
-                offset = DHCP6_OPTION_IA_TA_LEN;
-
-                received_iaid = ((const struct ia_ta*) option_data)->id;
-                lt_t1 = lt_t2 = 0; /* No lifetime for IA_TA. */
+                header_len = sizeof(be32_t); /* IA_TA does not have lifetime. */
                 break;
 
         default:
                 assert_not_reached();
         }
 
+        if (option_data_len < header_len)
+                return -EBADMSG;
+
+        ia.type = option_code;
+        memcpy(&ia.header, option_data, header_len);
+
         /* According to RFC8415, IAs which do not match the client's IAID should be ignored,
          * but not necessary to ignore or refuse the whole message. */
-        if (received_iaid != iaid)
+        if (ia.header.id != iaid)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENOANO),
                                               "Received an IA option with a different IAID "
                                               "from the one chosen by the client, ignoring.");
+
+        /* It is not necessary to check if the lifetime_t2 is zero here, as in that case it will be updated later. */
+        lt_t1 = be32toh(ia.header.lifetime_t1);
+        lt_t2 = be32toh(ia.header.lifetime_t2);
 
         if (lt_t1 > lt_t2)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "Received an IA option with T1 %"PRIu32"sec > T2 %"PRIu32"sec, ignoring.",
                                               lt_t1, lt_t2);
+        if (lt_t1 == 0 && lt_t2 > 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received an IA option with zero T1 and non-zero T2 (%"PRIu32"sec), ignoring.",
+                                              lt_t2);
 
-        for (; offset < option_data_len;) {
+        for (size_t offset = header_len; offset < option_data_len;) {
                 const uint8_t *subdata;
                 size_t subdata_len;
                 uint16_t subopt;
@@ -803,41 +795,25 @@ int dhcp6_option_parse_ia(
 
                 switch (subopt) {
                 case SD_DHCP6_OPTION_IAADDR: {
-                        DHCP6Address *a;
-
-                        if (!IN_SET(option_code, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_TA)) {
-                                log_dhcp6_client(client, "Received an IA_PD option with an IA address, ignoring.");
-                                continue;
-                        }
-
-                        r = dhcp6_option_parse_ia_address(client, subdata, subdata_len, &a);
+                        r = dhcp6_option_parse_ia_address(client, &ia, subdata, subdata_len);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
-                                /* Ignore the sub-option on non-critical errors. */
+                                /* Ignore non-critical errors in the sub-option. */
                                 continue;
 
-                        lt_min = MIN(lt_min, be32toh(a->iaaddr.lifetime_valid));
-                        LIST_PREPEND(addresses, ia.addresses, a);
+                        lt_min = MIN(lt_min, be32toh(ia.addresses->iaaddr.lifetime_valid));
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_PD_PREFIX: {
-                        DHCP6Address *a;
-
-                        if (option_code != SD_DHCP6_OPTION_IA_PD) {
-                                log_dhcp6_client(client, "Received an IA_NA or IA_TA option with an PD prefix, ignoring");
-                                continue;
-                        }
-
-                        r = dhcp6_option_parse_ia_pdprefix(client, subdata, subdata_len, &a);
+                        r = dhcp6_option_parse_ia_pdprefix(client, &ia, subdata, subdata_len);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
-                                /* Ignore the sub-option on non-critical errors. */
+                                /* Ignore non-critical errors in the sub-option. */
                                 continue;
 
-                        lt_min = MIN(lt_min, be32toh(a->iapdprefix.lifetime_valid));
-                        LIST_PREPEND(addresses, ia.addresses, a);
+                        lt_min = MIN(lt_min, be32toh(ia.addresses->iapdprefix.lifetime_valid));
                         break;
                 }
                 case SD_DHCP6_OPTION_STATUS_CODE: {
@@ -846,14 +822,14 @@ int dhcp6_option_parse_ia(
                         r = dhcp6_option_parse_status(subdata, subdata_len, &msg);
                         if (r == -ENOMEM)
                                 return r;
-                        if (r < 0)
-                                log_dhcp6_client_errno(client, r,
-                                                       "Received an IA option with an invalid status sub option, ignoring: %m");
-                        else if (r > 0)
+                        if (r > 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "Received an IA option with non-zero status: %s%s%s",
                                                               strempty(msg), isempty(msg) ? "" : ": ",
                                                               dhcp6_message_status_to_string(r));
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r,
+                                                       "Received an IA option with an invalid status sub option, ignoring: %m");
                         break;
                 }
                 default:
@@ -865,46 +841,24 @@ int dhcp6_option_parse_ia(
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENODATA),
                                               "Received an IA option without valid IA addresses or PD prefixes, ignoring.");
 
-        if (IN_SET(option_code, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_PD) &&
-            lt_t1 == 0 && lt_t2 == 0 && lt_min != UINT32_MAX) {
+        if (lt_t2 == 0 && IN_SET(option_code, SD_DHCP6_OPTION_IA_NA, SD_DHCP6_OPTION_IA_PD)) {
+
+                /* addresses or prefixes with zero valid lifetime are already ignored. */
+                assert(lt_min != UINT32_MAX);
+
                 lt_t1 = lt_min / 2;
                 lt_t2 = lt_min / 10 * 8;
+
+                ia.header.lifetime_t1 = htobe32(lt_t1);
+                ia.header.lifetime_t1 = htobe32(lt_t2);
 
                 log_dhcp6_client(client, "Received an IA option with both T1 and T2 equal to zero. "
                                  "Adjusting them based on the minimum valid lifetime of IA addresses or PD prefixes: "
                                  "T1=%"PRIu32"sec, T2=%"PRIu32"sec", lt_t1, lt_t2);
         }
 
-        switch(option_code) {
-        case SD_DHCP6_OPTION_IA_NA:
-                *ret = (DHCP6IA) {
-                        .type = option_code,
-                        .ia_na.id = iaid,
-                        .ia_na.lifetime_t1 = htobe32(lt_t1),
-                        .ia_na.lifetime_t2 = htobe32(lt_t2),
-                        .addresses = TAKE_PTR(ia.addresses),
-                };
-                break;
-        case SD_DHCP6_OPTION_IA_TA:
-                *ret = (DHCP6IA) {
-                        .type = option_code,
-                        .ia_ta.id = iaid,
-                        .addresses = TAKE_PTR(ia.addresses),
-                };
-                break;
-        case SD_DHCP6_OPTION_IA_PD:
-                *ret = (DHCP6IA) {
-                        .type = option_code,
-                        .ia_pd.id = iaid,
-                        .ia_pd.lifetime_t1 = htobe32(lt_t1),
-                        .ia_pd.lifetime_t2 = htobe32(lt_t2),
-                        .addresses = TAKE_PTR(ia.addresses),
-                };
-                break;
-        default:
-                assert_not_reached();
-        }
-
+        *ret = ia;
+        ret->addresses = TAKE_PTR(ia.addresses);
         return 0;
 }
 

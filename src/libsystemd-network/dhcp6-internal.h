@@ -62,32 +62,15 @@ struct DHCP6Address {
         };
 };
 
-/* Non-temporary Address option */
-struct ia_na {
+struct ia_header {
         be32_t id;
         be32_t lifetime_t1;
         be32_t lifetime_t2;
-} _packed_;
-
-/* Prefix Delegation option */
-struct ia_pd {
-        be32_t id;
-        be32_t lifetime_t1;
-        be32_t lifetime_t2;
-} _packed_;
-
-/* Temporary Address option */
-struct ia_ta {
-        be32_t id;
 } _packed_;
 
 typedef struct DHCP6IA {
         uint16_t type;
-        union {
-                struct ia_na ia_na;
-                struct ia_pd ia_pd;
-                struct ia_ta ia_ta;
-        };
+        struct ia_header header;
 
         LIST_HEAD(DHCP6Address, addresses);
 } DHCP6IA;
