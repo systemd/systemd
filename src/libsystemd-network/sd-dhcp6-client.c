@@ -1057,13 +1057,7 @@ static int client_process_information(
         client->lease = TAKE_PTR(lease);
 
         client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
-        r = client_set_state(client, DHCP6_STATE_STOPPED);
-        if (r < 0) {
-                client_stop(client, r);
-                return r;
-        }
-
-        return 0;
+        return client_set_state(client, DHCP6_STATE_STOPPED);
 }
 
 static int client_process_reply(
@@ -1090,10 +1084,8 @@ static int client_process_reply(
         client->lease = TAKE_PTR(lease);
 
         r = client_set_state(client, DHCP6_STATE_BOUND);
-        if (r < 0) {
-                client_stop(client, r);
+        if (r < 0)
                 return r;
-        }
 
         client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
         return 0;
@@ -1136,10 +1128,8 @@ static int client_process_advertise_or_rapid_commit_reply(
                 client->lease = TAKE_PTR(lease);
 
                 r = client_set_state(client, DHCP6_STATE_BOUND);
-                if (r < 0) {
-                        client_stop(client, r);
+                if (r < 0)
                         return r;
-                }
 
                 client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
                 return 0;
@@ -1163,10 +1153,8 @@ static int client_process_advertise_or_rapid_commit_reply(
 
         if (pref_advertise == 255 || client->retransmit_count > 1) {
                 r = client_set_state(client, DHCP6_STATE_REQUEST);
-                if (r < 0) {
-                        client_stop(client, r);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
@@ -1398,8 +1386,8 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
 
         return 0;
 
- error:
-        client_reset(client);
+error:
+        client_stop(client, r);
         return r;
 }
 
