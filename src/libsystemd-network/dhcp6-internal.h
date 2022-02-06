@@ -101,7 +101,7 @@ int dhcp6_option_parse_ia(
                 uint16_t option_code,
                 size_t option_data_len,
                 const uint8_t *option_data,
-                DHCP6IA *ret);
+                DHCP6IA **ret);
 int dhcp6_option_parse_addresses(
                 const uint8_t *optval,
                 size_t optlen,
