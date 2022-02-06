@@ -1328,7 +1328,26 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->ifindex > 0, -EINVAL);
-        assert_return(client->state != state, -EINVAL);
+
+        switch (state) {
+        case DHCP6_STATE_INFORMATION_REQUEST:
+        case DHCP6_STATE_SOLICITATION:
+                assert(client->state == DHCP6_STATE_STOPPED);
+                break;
+        case DHCP6_STATE_REQUEST:
+                assert(client->state == DHCP6_STATE_SOLICITATION);
+                break;
+        case DHCP6_STATE_RENEW:
+                assert(client->state == DHCP6_STATE_BOUND);
+                break;
+        case DHCP6_STATE_REBIND:
+                assert(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_RENEW));
+                break;
+        case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_BOUND:
+        default:
+                assert_not_reached();
+        }
 
         (void) event_source_disable(client->timeout_resend_expire);
         (void) event_source_disable(client->timeout_resend);
@@ -1357,27 +1376,7 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                         goto error;
         }
 
-        switch (state) {
-        case DHCP6_STATE_SOLICITATION:
-                client->state = DHCP6_STATE_SOLICITATION;
-
-                break;
-
-        case DHCP6_STATE_INFORMATION_REQUEST:
-        case DHCP6_STATE_REQUEST:
-        case DHCP6_STATE_RENEW:
-        case DHCP6_STATE_REBIND:
-
-                client->state = state;
-
-                break;
-
-        case DHCP6_STATE_STOPPED:
-        case DHCP6_STATE_BOUND:
-        default:
-                assert_not_reached();
-        }
-
+        client->state = state;
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
         client->transaction_start = time_now;
 
