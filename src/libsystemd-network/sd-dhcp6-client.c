@@ -1020,7 +1020,22 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         return 0;
 }
 
-static int client_receive_reply(
+static int log_invalid_message_type(sd_dhcp6_client *client, const DHCP6Message *message) {
+        const char *type_str;
+
+        assert(client);
+        assert(message);
+
+        type_str = dhcp6_message_type_to_string(message->type);
+        if (type_str)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received unexpected %s message, ignoring.", type_str);
+        else
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received unsupported message type %u, ignoring.", message->type);
+}
+
+static int client_process_information(
                 sd_dhcp6_client *client,
                 DHCP6Message *message,
                 size_t len,
@@ -1028,35 +1043,62 @@ static int client_receive_reply(
                 const struct in6_addr *server_address) {
 
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
-        bool rapid_commit;
+        int r;
+
+        if (message->type != DHCP6_MESSAGE_REPLY)
+                return log_invalid_message_type(client, message);
+
+        r = dhcp6_lease_new_from_message(client, message, len, timestamp, server_address, &lease);
+        if (r < 0)
+                return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
+
+        sd_dhcp6_lease_unref(client->lease);
+        client->lease = TAKE_PTR(lease);
+
+        client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
+        r = client_start(client, DHCP6_STATE_STOPPED);
+        if (r < 0) {
+                client_stop(client, r);
+                return r;
+        }
+
+        return 0;
+}
+
+static int client_process_reply(
+                sd_dhcp6_client *client,
+                DHCP6Message *message,
+                size_t len,
+                const triple_timestamp *timestamp,
+                const struct in6_addr *server_address) {
+
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         int r;
 
         assert(client);
         assert(message);
 
         if (message->type != DHCP6_MESSAGE_REPLY)
-                return 0;
+                return log_invalid_message_type(client, message);
 
         r = dhcp6_lease_new_from_message(client, message, len, timestamp, server_address, &lease);
         if (r < 0)
-                return r;
-
-        if (client->state == DHCP6_STATE_SOLICITATION) {
-                r = dhcp6_lease_get_rapid_commit(lease, &rapid_commit);
-                if (r < 0)
-                        return r;
-
-                if (!rapid_commit)
-                        return 0;
-        }
+                return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
-        return DHCP6_STATE_BOUND;
+        r = client_start(client, DHCP6_STATE_BOUND);
+        if (r < 0) {
+                client_stop(client, r);
+                return r;
+        }
+
+        client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
+        return 0;
 }
 
-static int client_receive_advertise(
+static int client_process_advertise_or_rapid_commit_reply(
                 sd_dhcp6_client *client,
                 DHCP6Message *message,
                 size_t len,
@@ -1064,18 +1106,43 @@ static int client_receive_advertise(
                 const struct in6_addr *server_address) {
 
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
-        uint8_t pref_advertise = 0, pref_lease = 0;
+        uint8_t pref_advertise, pref_lease = 0;
         int r;
 
         assert(client);
         assert(message);
 
-        if (message->type != DHCP6_MESSAGE_ADVERTISE)
-                return 0;
+        if (!IN_SET(message->type, DHCP6_MESSAGE_ADVERTISE, DHCP6_MESSAGE_REPLY))
+                return log_invalid_message_type(client, message);
 
         r = dhcp6_lease_new_from_message(client, message, len, timestamp, server_address, &lease);
         if (r < 0)
-                return r;
+                return log_dhcp6_client_errno(client, r, "Failed to process received %s message, ignoring: %m",
+                                              dhcp6_message_type_to_string(message->type));
+
+        if (message->type == DHCP6_MESSAGE_REPLY) {
+                bool rapid_commit;
+
+                r = dhcp6_lease_get_rapid_commit(lease, &rapid_commit);
+                if (r < 0)
+                        return r;
+
+                if (!rapid_commit)
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Received reply message without rapid commit flag, ignoring.");
+
+                sd_dhcp6_lease_unref(client->lease);
+                client->lease = TAKE_PTR(lease);
+
+                r = client_start(client, DHCP6_STATE_BOUND);
+                if (r < 0) {
+                        client_stop(client, r);
+                        return r;
+                }
+
+                client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
+                return 0;
+        }
 
         r = dhcp6_lease_get_preference(lease, &pref_advertise);
         if (r < 0)
@@ -1088,15 +1155,20 @@ static int client_receive_advertise(
         }
 
         if (!client->lease || pref_advertise > pref_lease) {
+                /* If this is the first advertise message or has higher preference, then save the lease. */
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
-                r = 0;
         }
 
-        if (pref_advertise == 255 || client->retransmit_count > 1)
-                r = DHCP6_STATE_REQUEST;
+        if (pref_advertise == 255 || client->retransmit_count > 1) {
+                r = client_start(client, DHCP6_STATE_REQUEST);
+                if (r < 0) {
+                        client_stop(client, r);
+                        return r;
+                }
+        }
 
-        return r;
+        return 0;
 }
 
 static int client_receive_message(
@@ -1124,7 +1196,6 @@ static int client_receive_message(
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr *server_address = NULL;
         ssize_t buflen, len;
-        int r = 0;
 
         assert(s);
         assert(client);
@@ -1175,73 +1246,31 @@ static int client_receive_message(
                         triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
         }
 
-        if (!IN_SET(message->type, DHCP6_MESSAGE_ADVERTISE, DHCP6_MESSAGE_REPLY, DHCP6_MESSAGE_RECONFIGURE)) {
-                const char *type_str = dhcp6_message_type_to_string(message->type);
-                if (type_str)
-                        log_dhcp6_client(client, "Received unexpected %s message, ignoring.", type_str);
-                else
-                        log_dhcp6_client(client, "Received unsupported message type %u, ignoring.", message->type);
-                return 0;
-        }
-
         if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
                 return 0;
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                r = client_receive_reply(client, message, len, &t, server_address);
-                if (r < 0) {
-                        log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
+                if (client_process_information(client, message, len, &t, server_address) < 0)
                         return 0;
-                }
-
-                client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
-
-                client_start(client, DHCP6_STATE_STOPPED);
-
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                r = client_receive_advertise(client, message, len, &t, server_address);
-                if (r < 0) {
-                        log_dhcp6_client_errno(client, r, "Failed to process received advertise message, ignoring: %m");
+                if (client_process_advertise_or_rapid_commit_reply(client, message, len, &t, server_address) < 0)
                         return 0;
-                }
+                break;
 
-                if (r == DHCP6_STATE_REQUEST) {
-                        client_start(client, r);
-                        break;
-                }
-
-                _fallthrough_; /* for Solicitation Rapid Commit option check */
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
         case DHCP6_STATE_REBIND:
-
-                r = client_receive_reply(client, message, len, &t, server_address);
-                if (r < 0) {
-                        log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
+                if (client_process_reply(client, message, len, &t, server_address) < 0)
                         return 0;
-                }
-
-                if (r == DHCP6_STATE_BOUND) {
-                        r = client_start(client, DHCP6_STATE_BOUND);
-                        if (r < 0) {
-                                client_stop(client, r);
-                                return 0;
-                        }
-
-                        client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
-                }
-
                 break;
 
         case DHCP6_STATE_BOUND:
-
-                break;
-
         case DHCP6_STATE_STOPPED:
                 return 0;
+
         default:
                 assert_not_reached();
         }
