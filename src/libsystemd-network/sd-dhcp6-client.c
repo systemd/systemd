@@ -808,6 +808,10 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         return 0;
 }
 
+static usec_t client_timeout_compute_random(usec_t val) {
+        return usec_sub_unsigned(val, random_u64_range(val / 10));
+}
+
 static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
 
@@ -859,10 +863,6 @@ static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void 
                 client_set_state(client, DHCP6_STATE_SOLICITATION);
 
         return 0;
-}
-
-static usec_t client_timeout_compute_random(usec_t val) {
-        return val - (random_u32() % USEC_PER_SEC) * val / 10 / USEC_PER_SEC;
 }
 
 static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userdata) {
