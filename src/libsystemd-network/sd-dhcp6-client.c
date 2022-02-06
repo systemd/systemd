@@ -690,7 +690,7 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         }
 }
 
-static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
+static int client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
@@ -698,11 +698,16 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         struct sd_dhcp6_option *j;
         size_t len, optlen = 512;
         uint8_t *opt;
-        usec_t elapsed_usec;
+        usec_t elapsed_usec, time_now;
         be16_t elapsed_time;
         int r;
 
         assert(client);
+        assert(client->event);
+
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
 
         len = sizeof(DHCP6Message) + optlen;
 
@@ -944,7 +949,7 @@ error:
 
 static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = ASSERT_PTR(userdata);
-        usec_t time_now, init_retransmit_time, max_retransmit_time;
+        usec_t init_retransmit_time, max_retransmit_time;
         int r;
 
         assert(s);
@@ -1000,44 +1005,32 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 assert_not_reached();
         }
 
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                goto error;
-
-        r = client_send_message(client, time_now);
+        r = client_send_message(client);
         if (r >= 0)
                 client->retransmit_count++;
 
         if (client->retransmit_time == 0) {
-                client->retransmit_time =
-                        client_timeout_compute_random(init_retransmit_time);
+                client->retransmit_time = client_timeout_compute_random(init_retransmit_time);
 
                 if (client->state == DHCP6_STATE_SOLICITATION)
                         client->retransmit_time += init_retransmit_time / 10;
 
-        } else {
-                assert(max_retransmit_time > 0);
-                if (client->retransmit_time > max_retransmit_time / 2)
-                        client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
-                else
-                        client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
-        }
+        } else if (client->retransmit_time > max_retransmit_time / 2)
+                client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
+        else
+                client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
 
         log_dhcp6_client(client, "Next retransmission in %s",
                          FORMAT_TIMESPAN(client->retransmit_time, USEC_PER_SEC));
 
-        r = event_reset_time(client->event, &client->timeout_resend,
-                             clock_boottime_or_monotonic(),
-                             time_now + client->retransmit_time, 10 * USEC_PER_MSEC,
-                             client_timeout_resend, client,
-                             client->event_priority, "dhcp6-resend-timer", true);
+        r = event_reset_time_relative(client->event, &client->timeout_resend,
+                                      clock_boottime_or_monotonic(),
+                                      client->retransmit_time, 10 * USEC_PER_MSEC,
+                                      client_timeout_resend, client,
+                                      client->event_priority, "dhcp6-resend-timer", true);
         if (r < 0)
-                goto error;
+                client_stop(client, r);
 
-        return 0;
-
-error:
-        client_stop(client, r);
         return 0;
 }
 
