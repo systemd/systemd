@@ -24,33 +24,72 @@ int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_
         return 0;
 }
 
+void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
+        uint32_t t1 = UINT32_MAX, t2 = UINT32_MAX, min_valid_lt = UINT32_MAX;
+        DHCP6Address *a;
+
+        assert(lease);
+        assert(lease->ia_na || lease->ia_pd);
+
+        if (lease->ia_na) {
+                t1 = MIN(t1, be32toh(lease->ia_na->header.lifetime_t1));
+                t2 = MIN(t2, be32toh(lease->ia_na->header.lifetime_t2));
+
+                LIST_FOREACH(addresses, a, lease->ia_na->addresses)
+                        min_valid_lt = MIN(min_valid_lt, be32toh(a->iaaddr.lifetime_valid));
+        }
+
+        if (lease->ia_pd) {
+                t1 = MIN(t1, be32toh(lease->ia_pd->header.lifetime_t1));
+                t2 = MIN(t2, be32toh(lease->ia_pd->header.lifetime_t2));
+
+                LIST_FOREACH(addresses, a, lease->ia_pd->addresses)
+                        min_valid_lt = MIN(min_valid_lt, be32toh(a->iapdprefix.lifetime_valid));
+        }
+
+        if (t2 == 0 || t2 > min_valid_lt) {
+                /* If T2 is zero or longer than the minimum valid lifetime of the addresses or prefixes,
+                 * then adjust lifetime with it. */
+                t1 = min_valid_lt / 2;
+                t2 = min_valid_lt / 10 * 8;
+        }
+
+        assert(t2 <= min_valid_lt);
+        lease->max_retransmit_duration = (min_valid_lt - t2) * USEC_PER_SEC;
+
+        lease->lifetime_t1 = t1 == UINT32_MAX ? USEC_INFINITY : t1 * USEC_PER_SEC;
+        lease->lifetime_t2 = t2 == UINT32_MAX ? USEC_INFINITY : t2 * USEC_PER_SEC;
+}
+
+int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2) {
+        assert(lease);
+
+        if (!lease->ia_na && !lease->ia_pd)
+                return -ENODATA;
+
+        if (ret_t1)
+                *ret_t1 = lease->lifetime_t1;
+        if (ret_t2)
+                *ret_t2 = lease->lifetime_t2;
+        return 0;
+}
+
+int dhcp6_lease_get_max_retransmit_duration(sd_dhcp6_lease *lease, usec_t *ret) {
+        assert(lease);
+
+        if (!lease->ia_na && !lease->ia_pd)
+                return -ENODATA;
+
+        if (ret)
+                *ret = lease->max_retransmit_duration;
+        return 0;
+}
+
 int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *ret) {
         assert_return(lease, -EINVAL);
         assert_return(ret, -EINVAL);
 
         *ret = lease->server_address;
-        return 0;
-}
-
-int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
-        DHCP6Address *addr;
-        uint32_t valid = 0, t;
-
-        assert(ia);
-        assert(expire);
-
-        LIST_FOREACH(addresses, addr, ia->addresses) {
-                t = be32toh(addr->iaaddr.lifetime_valid);
-                if (valid < t)
-                        valid = t;
-        }
-
-        t = be32toh(ia->header.lifetime_t2);
-        if (t > valid)
-                return -EINVAL;
-
-        *expire = valid - t;
-
         return 0;
 }
 
