@@ -1321,7 +1321,6 @@ static int client_receive_message(
 }
 
 static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
-        usec_t time_now;
         int r;
 
         assert_return(client, -EINVAL);
@@ -1353,13 +1352,12 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                goto error;
-
         client->state = state;
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
-        client->transaction_start = time_now;
+
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &client->transaction_start);
+        if (r < 0)
+                goto error;
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              clock_boottime_or_monotonic(),
