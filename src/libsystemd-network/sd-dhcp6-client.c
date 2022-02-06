@@ -845,7 +845,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 }
 
 static int client_enter_bound_state(sd_dhcp6_client *client) {
-        usec_t timeout, time_now, lifetime_t1, lifetime_t2;
+        usec_t timeout, lifetime_t1, lifetime_t2;
         int r;
 
         assert(client);
@@ -858,10 +858,6 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
 
         (void) event_source_disable(client->timeout_resend_expire);
         (void) event_source_disable(client->timeout_resend);
-
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                goto error;
 
         r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2);
         if (r < 0)
@@ -876,11 +872,11 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
 
         log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
-        r = event_reset_time(client->event, &client->timeout_t1,
-                             clock_boottime_or_monotonic(),
-                             time_now + timeout, 10 * USEC_PER_SEC,
-                             client_timeout_t1, client,
-                             client->event_priority, "dhcp6-t1-timeout", true);
+        r = event_reset_time_relative(client->event, &client->timeout_t1,
+                                      clock_boottime_or_monotonic(),
+                                      timeout, 10 * USEC_PER_SEC,
+                                      client_timeout_t1, client,
+                                      client->event_priority, "dhcp6-t1-timeout", true);
         if (r < 0)
                 goto error;
 
@@ -888,11 +884,11 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
 
         log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
-        r = event_reset_time(client->event, &client->timeout_t2,
-                             clock_boottime_or_monotonic(),
-                             time_now + timeout, 10 * USEC_PER_SEC,
-                             client_timeout_t2, client,
-                             client->event_priority, "dhcp6-t2-timeout", true);
+        r = event_reset_time_relative(client->event, &client->timeout_t2,
+                                      clock_boottime_or_monotonic(),
+                                      timeout, 10 * USEC_PER_SEC,
+                                      client_timeout_t2, client,
+                                      client->event_priority, "dhcp6-t2-timeout", true);
         if (r < 0)
                 goto error;
 
