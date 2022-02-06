@@ -108,7 +108,7 @@ DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
-static int client_set_state(sd_dhcp6_client *client, DHCP6State state);
+static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state);
 
 int sd_dhcp6_client_set_callback(
                 sd_dhcp6_client *client,
@@ -844,7 +844,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         case DHCP6_STATE_SOLICITATION:
 
                 if (client->retransmit_count > 0 && client->lease) {
-                        (void) client_set_state(client, DHCP6_STATE_REQUEST);
+                        (void) client_start_transaction(client, DHCP6_STATE_REQUEST);
                         return 0;
                 }
 
@@ -914,7 +914,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         return 0;
 }
 
-static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
+static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
         int r;
 
         assert_return(client, -EINVAL);
@@ -989,7 +989,7 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
         /* RFC 3315, section 18.1.4., says that "...the client may choose to
            use a Solicit message to locate a new DHCP server..." */
         if (state == DHCP6_STATE_REBIND)
-                (void) client_set_state(client, DHCP6_STATE_SOLICITATION);
+                (void) client_start_transaction(client, DHCP6_STATE_SOLICITATION);
 
         return 0;
 }
@@ -1006,7 +1006,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T2");
 
-        (void) client_set_state(client, DHCP6_STATE_REBIND);
+        (void) client_start_transaction(client, DHCP6_STATE_REBIND);
 
         return 0;
 }
@@ -1022,7 +1022,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
 
         log_dhcp6_client(client, "Timeout T1");
 
-        (void) client_set_state(client, DHCP6_STATE_RENEW);
+        (void) client_start_transaction(client, DHCP6_STATE_RENEW);
 
         return 0;
 }
@@ -1232,7 +1232,7 @@ static int client_process_advertise_or_rapid_commit_reply(
         }
 
         if (pref_advertise == 255 || client->retransmit_count > 1)
-                (void) client_set_state(client, DHCP6_STATE_REQUEST);
+                (void) client_start_transaction(client, DHCP6_STATE_REQUEST);
 
         return 0;
 }
@@ -1433,7 +1433,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         log_dhcp6_client(client, "Started in %s mode",
                          client->information_request ? "Information request" : "Managed");
 
-        return client_set_state(client, state);
+        return client_start_transaction(client, state);
 }
 
 int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority) {
