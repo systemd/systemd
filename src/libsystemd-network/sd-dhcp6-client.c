@@ -844,6 +844,66 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         return 0;
 }
 
+static int client_enter_bound_state(sd_dhcp6_client *client) {
+        usec_t timeout, time_now, lifetime_t1, lifetime_t2;
+        int r;
+
+        assert(client);
+        assert(client->lease);
+        assert(IN_SET(client->state,
+                      DHCP6_STATE_SOLICITATION,
+                      DHCP6_STATE_REQUEST,
+                      DHCP6_STATE_RENEW,
+                      DHCP6_STATE_REBIND));
+
+        (void) event_source_disable(client->timeout_resend_expire);
+        (void) event_source_disable(client->timeout_resend);
+
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                goto error;
+
+        r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2);
+        if (r < 0)
+                goto error;
+
+        if (lifetime_t1 == USEC_INFINITY || lifetime_t2 == USEC_INFINITY) {
+                log_dhcp6_client(client, "Infinite T1 or T2");
+                return 0;
+        }
+
+        timeout = client_timeout_compute_random(lifetime_t1);
+
+        log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+
+        r = event_reset_time(client->event, &client->timeout_t1,
+                             clock_boottime_or_monotonic(),
+                             time_now + timeout, 10 * USEC_PER_SEC,
+                             client_timeout_t1, client,
+                             client->event_priority, "dhcp6-t1-timeout", true);
+        if (r < 0)
+                goto error;
+
+        timeout = client_timeout_compute_random(lifetime_t2);
+
+        log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+
+        r = event_reset_time(client->event, &client->timeout_t2,
+                             clock_boottime_or_monotonic(),
+                             time_now + timeout, 10 * USEC_PER_SEC,
+                             client_timeout_t2, client,
+                             client->event_priority, "dhcp6-t2-timeout", true);
+        if (r < 0)
+                goto error;
+
+        client->state = DHCP6_STATE_BOUND;
+        return 0;
+
+error:
+        client_stop(client, r);
+        return r;
+}
+
 static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp6_client *client = userdata;
         DHCP6_CLIENT_DONT_DESTROY(client);
@@ -1081,7 +1141,7 @@ static int client_process_reply(
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
-        r = client_set_state(client, DHCP6_STATE_BOUND);
+        r = client_enter_bound_state(client);
         if (r < 0)
                 return r;
 
@@ -1125,7 +1185,7 @@ static int client_process_advertise_or_rapid_commit_reply(
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
 
-                r = client_set_state(client, DHCP6_STATE_BOUND);
+                r = client_enter_bound_state(client);
                 if (r < 0)
                         return r;
 
@@ -1269,7 +1329,7 @@ static int client_receive_message(
 }
 
 static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
-        usec_t timeout, time_now, lifetime_t1, lifetime_t2;
+        usec_t time_now;
         int r;
 
         assert_return(client, -EINVAL);
@@ -1328,45 +1388,6 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                 break;
 
         case DHCP6_STATE_BOUND:
-
-                assert(client->lease);
-
-                r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2);
-                if (r < 0)
-                        goto error;
-
-                if (lifetime_t1 == USEC_INFINITY || lifetime_t2 == USEC_INFINITY) {
-                        log_dhcp6_client(client, "Infinite T1 or T2");
-                        return 0;
-                }
-
-                timeout = client_timeout_compute_random(lifetime_t1);
-
-                log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
-
-                r = event_reset_time(client->event, &client->timeout_t1,
-                                     clock_boottime_or_monotonic(),
-                                     time_now + timeout, 10 * USEC_PER_SEC,
-                                     client_timeout_t1, client,
-                                     client->event_priority, "dhcp6-t1-timeout", true);
-                if (r < 0)
-                        goto error;
-
-                timeout = client_timeout_compute_random(lifetime_t2);
-
-                log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
-
-                r = event_reset_time(client->event, &client->timeout_t2,
-                                     clock_boottime_or_monotonic(),
-                                     time_now + timeout, 10 * USEC_PER_SEC,
-                                     client_timeout_t2, client,
-                                     client->event_priority, "dhcp6-t2-timeout", true);
-                if (r < 0)
-                        goto error;
-
-                client->state = state;
-
-                return 0;
         default:
                 assert_not_reached();
         }
