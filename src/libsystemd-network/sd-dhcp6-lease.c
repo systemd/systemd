@@ -176,7 +176,7 @@ int sd_dhcp6_lease_get_address(
         assert_return(lease, -EINVAL);
 
         if (!lease->addr_iter)
-                return -ENOMSG;
+                return -ENODATA;
 
         if (ret_addr)
                 *ret_addr = lease->addr_iter->iaaddr.address;
@@ -204,7 +204,7 @@ int sd_dhcp6_lease_get_pd(
         assert_return(lease, -EINVAL);
 
         if (!lease->prefix_iter)
-                return -ENOMSG;
+                return -ENODATA;
 
         if (ret_prefix)
                 *ret_prefix = lease->prefix_iter->iapdprefix.address;
@@ -238,7 +238,7 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
         assert_return(lease, -EINVAL);
 
         if (!lease->dns)
-                return -ENOENT;
+                return -ENODATA;
 
         if (ret)
                 *ret = lease->dns;
@@ -268,7 +268,7 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
         assert_return(ret, -EINVAL);
 
         if (!lease->domains)
-                return -ENOENT;
+                return -ENODATA;
 
         *ret = lease->domains;
         return strv_length(lease->domains);
@@ -349,14 +349,14 @@ int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
                 return lease->sntp_count;
         }
 
-        return -ENOENT;
+        return -ENODATA;
 }
 
 int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ret) {
         assert_return(lease, -EINVAL);
 
         if (!lease->ntp_fqdn)
-                return -ENOENT;
+                return -ENODATA;
 
         if (ret)
                 *ret = lease->ntp_fqdn;
@@ -390,7 +390,7 @@ int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret) {
         assert_return(ret, -EINVAL);
 
         if (!lease->fqdn)
-                return -ENOENT;
+                return -ENODATA;
 
         *ret = lease->fqdn;
         return 0;

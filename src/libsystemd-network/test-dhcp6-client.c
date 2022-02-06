@@ -571,16 +571,16 @@ static void test_advertise_option(sd_event *e) {
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
         assert_se(lt_pref == 150);
         assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
 
         sd_dhcp6_lease_reset_address_iter(lease);
         assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
         sd_dhcp6_lease_reset_address_iter(lease);
         assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
 
         assert_se(dhcp6_lease_get_serverid(lease, &opt, &len) >= 0);
         assert_se(len == 14);
@@ -735,7 +735,7 @@ static void test_client_verify_request(DHCP6Message *request, size_t len) {
         assert_se(found_clientid && found_iana && found_serverid && found_elapsed_time);
 
         sd_dhcp6_lease_reset_address_iter(lease);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
 }
 
 static void test_client_send_advertise(DHCP6Message *solicit) {
@@ -910,7 +910,7 @@ static void test_client_verify_information_request(DHCP6Message *information_req
 
         sd_dhcp6_lease_reset_address_iter(lease);
 
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
 }
 
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
