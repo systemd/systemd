@@ -589,8 +589,7 @@ static void client_reset(sd_dhcp6_client *client) {
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
 
-        client->receive_message =
-                sd_event_source_unref(client->receive_message);
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client->transaction_id = 0;
         client->transaction_start = 0;
@@ -1497,12 +1496,13 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
 static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         assert(client);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-        client->timeout_resend_expire = sd_event_source_unref(client->timeout_resend_expire);
-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+        sd_dhcp6_lease_unref(client->lease);
 
-        client_reset(client);
+        sd_event_source_disable_unref(client->receive_message);
+        sd_event_source_disable_unref(client->timeout_resend);
+        sd_event_source_disable_unref(client->timeout_resend_expire);
+        sd_event_source_disable_unref(client->timeout_t1);
+        sd_event_source_disable_unref(client->timeout_t2);
 
         client->fd = safe_close(client->fd);
 
