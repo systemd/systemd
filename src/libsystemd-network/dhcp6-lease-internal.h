@@ -10,6 +10,7 @@
 #include "sd-dhcp6-lease.h"
 
 #include "dhcp6-internal.h"
+#include "macro.h"
 
 struct sd_dhcp6_lease {
         unsigned n_ref;
@@ -23,8 +24,8 @@ struct sd_dhcp6_lease {
         triple_timestamp timestamp;
         struct in6_addr server_address;
 
-        DHCP6IA ia_na;
-        DHCP6IA ia_pd;
+        DHCP6IA *ia_na;
+        DHCP6IA *ia_pd;
 
         DHCP6Address *addr_iter;
         DHCP6Address *prefix_iter;
@@ -41,7 +42,10 @@ struct sd_dhcp6_lease {
 };
 
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire);
-DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia);
+
+void dhcp6_ia_clear_addresses(DHCP6IA *ia);
+DHCP6IA *dhcp6_ia_free(DHCP6IA *ia);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6IA*, dhcp6_ia_free);
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
 int dhcp6_lease_get_clientid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);

@@ -54,21 +54,24 @@ int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
         return 0;
 }
 
-DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
-        DHCP6Address *address;
+void dhcp6_ia_clear_addresses(DHCP6IA *ia) {
+        DHCP6Address *a, *n;
 
+        assert(ia);
+
+        LIST_FOREACH_SAFE(addresses, a, n, ia->addresses)
+                free(a);
+
+        ia->addresses = NULL;
+}
+
+DHCP6IA *dhcp6_ia_free(DHCP6IA *ia) {
         if (!ia)
                 return NULL;
 
-        while (ia->addresses) {
-                address = ia->addresses;
+        dhcp6_ia_clear_addresses(ia);
 
-                LIST_REMOVE(addresses, ia->addresses, address);
-
-                free(address);
-        }
-
-        return NULL;
+        return mfree(ia);
 }
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
@@ -188,7 +191,7 @@ int sd_dhcp6_lease_get_address(
 
 void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
         if (lease)
-                lease->addr_iter = lease->ia_na.addresses;
+                lease->addr_iter = lease->ia_na ? lease->ia_na->addresses : NULL;
 }
 
 int sd_dhcp6_lease_get_pd(
@@ -218,7 +221,7 @@ int sd_dhcp6_lease_get_pd(
 
 void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
         if (lease)
-                lease->prefix_iter = lease->ia_pd.addresses;
+                lease->prefix_iter = lease->ia_pd ? lease->ia_pd->addresses : NULL;
 }
 
 int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
@@ -399,8 +402,8 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
 
         free(lease->clientid);
         free(lease->serverid);
-        dhcp6_lease_free_ia(&lease->ia_na);
-        dhcp6_lease_free_ia(&lease->ia_pd);
+        dhcp6_ia_free(lease->ia_na);
+        dhcp6_ia_free(lease->ia_pd);
         free(lease->dns);
         free(lease->fqdn);
         strv_free(lease->domains);
@@ -423,8 +426,6 @@ int dhcp6_lease_new(sd_dhcp6_lease **ret) {
                 return -ENOMEM;
 
         lease->n_ref = 1;
-
-        LIST_HEAD_INIT(lease->ia_na.addresses);
 
         *ret = lease;
         return 0;
