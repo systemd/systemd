@@ -584,7 +584,7 @@ static void client_notify(sd_dhcp6_client *client, int event) {
                 client->callback(client, event, client->userdata);
 }
 
-static int client_reset(sd_dhcp6_client *client) {
+static void client_reset(sd_dhcp6_client *client) {
         assert(client);
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
@@ -604,8 +604,6 @@ static int client_reset(sd_dhcp6_client *client) {
         (void) event_source_disable(client->timeout_t2);
 
         client->state = DHCP6_STATE_STOPPED;
-
-        return 0;
 }
 
 static void client_stop(sd_dhcp6_client *client, int error) {
@@ -1407,9 +1405,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (!client->information_request && client->request_ia == 0)
                 return -EINVAL;
 
-        r = client_reset(client);
-        if (r < 0)
-                return r;
+        client_reset(client);
 
         r = client_ensure_iaid(client);
         if (r < 0)
