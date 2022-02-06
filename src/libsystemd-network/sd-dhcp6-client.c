@@ -37,7 +37,7 @@ static const uint16_t default_req_opts[] = {
         SD_DHCP6_OPTION_SNTP_SERVERS,
 };
 
-const char * dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
+static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_SOLICIT]             = "Solicit",
         [DHCP6_MESSAGE_ADVERTISE]           = "Advertise",
         [DHCP6_MESSAGE_REQUEST]             = "Request",
@@ -75,9 +75,9 @@ const char * dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_CONTACT]             = "Contact",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType);
 
-const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
+static const char * const dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_SUCCESS]                      = "Success",
         [DHCP6_STATUS_UNSPEC_FAIL]                  = "Unspecified failure",
         [DHCP6_STATUS_NO_ADDRS_AVAIL]               = "No addresses available",
@@ -103,7 +103,7 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_EXCESSIVE_TIME_SKEW]          = "Excessive time skew",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
