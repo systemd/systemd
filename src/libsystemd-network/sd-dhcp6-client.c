@@ -421,8 +421,8 @@ int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
-        client->ia_na.ia_na.id = htobe32(iaid);
-        client->ia_pd.ia_pd.id = htobe32(iaid);
+        client->ia_na.header.id = htobe32(iaid);
+        client->ia_pd.header.id = htobe32(iaid);
         client->iaid_set = true;
 
         return 0;
@@ -441,7 +441,7 @@ int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
         if (!client->iaid_set)
                 return -ENODATA;
 
-        *iaid = be32toh(client->ia_na.ia_na.id);
+        *iaid = be32toh(client->ia_na.header.id);
 
         return 0;
 }
@@ -1065,8 +1065,8 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        client->ia_na.ia_na.id = iaid;
-        client->ia_pd.ia_pd.id = iaid;
+        client->ia_na.header.id = iaid;
+        client->ia_pd.header.id = iaid;
         client->iaid_set = true;
 
         return 0;
@@ -1153,7 +1153,7 @@ int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, client->ia_na.ia_na.id, optcode, optlen, optval, &ia);
+                        r = dhcp6_option_parse_ia(client, client->ia_na.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
@@ -1167,8 +1167,8 @@ int client_parse_message(
                         lease->ia_na = ia;
                         ia = (DHCP6IA) {};
 
-                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_na.ia_na.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_na.ia_na.lifetime_t2));
+                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_na.header.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_na.header.lifetime_t2));
 
                         break;
                 }
@@ -1180,7 +1180,7 @@ int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_pd.id, optcode, optlen, optval, &ia);
+                        r = dhcp6_option_parse_ia(client, client->ia_pd.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
@@ -1194,8 +1194,8 @@ int client_parse_message(
                         lease->ia_pd = ia;
                         ia = (DHCP6IA) {};
 
-                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_pd.ia_pd.lifetime_t1));
-                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_pd.ia_pd.lifetime_t2));
+                        lt_t1 = MIN(lt_t1, be32toh(lease->ia_pd.header.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->ia_pd.header.lifetime_t2));
 
                         break;
                 }
@@ -1271,13 +1271,13 @@ int client_parse_message(
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
                 if (lease->ia_na.addresses) {
-                        lease->ia_na.ia_na.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia_na.ia_na.lifetime_t2 = htobe32(lt_t2);
+                        lease->ia_na.header.lifetime_t1 = htobe32(lt_t1);
+                        lease->ia_na.header.lifetime_t2 = htobe32(lt_t2);
                 }
 
                 if (lease->ia_pd.addresses) {
-                        lease->ia_pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia_pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
+                        lease->ia_pd.header.lifetime_t1 = htobe32(lt_t1);
+                        lease->ia_pd.header.lifetime_t2 = htobe32(lt_t2);
                 }
         }
 
@@ -1545,15 +1545,15 @@ static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
         assert_return(client->lease, -EINVAL);
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && client->lease->ia_na.addresses) {
-                *lifetime_t1 = be32toh(client->lease->ia_na.ia_na.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->ia_na.ia_na.lifetime_t2);
+                *lifetime_t1 = be32toh(client->lease->ia_na.header.lifetime_t1);
+                *lifetime_t2 = be32toh(client->lease->ia_na.header.lifetime_t2);
 
                 return 0;
         }
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && client->lease->ia_pd.addresses) {
-                *lifetime_t1 = be32toh(client->lease->ia_pd.ia_pd.lifetime_t1);
-                *lifetime_t2 = be32toh(client->lease->ia_pd.ia_pd.lifetime_t2);
+                *lifetime_t1 = be32toh(client->lease->ia_pd.header.lifetime_t1);
+                *lifetime_t2 = be32toh(client->lease->ia_pd.header.lifetime_t2);
 
                 return 0;
         }
