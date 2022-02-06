@@ -93,8 +93,7 @@ typedef struct sd_dhcp6_client {
         int ifindex;
         char *ifname;
         struct in6_addr local_address;
-        uint8_t mac_addr[HW_ADDR_MAX_SIZE];
-        size_t mac_addr_len;
+        struct hw_addr_data hw_addr;
         uint16_t arp_type;
         DHCP6IA ia_na;
         DHCP6IA ia_pd;

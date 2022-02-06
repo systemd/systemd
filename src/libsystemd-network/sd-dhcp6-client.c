@@ -185,12 +185,13 @@ int sd_dhcp6_client_set_local_address(
 
 int sd_dhcp6_client_set_mac(
                 sd_dhcp6_client *client,
-                const uint8_t *addr, size_t addr_len,
+                const uint8_t *addr,
+                size_t addr_len,
                 uint16_t arp_type) {
 
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_len <= HW_ADDR_MAX_SIZE, -EINVAL);
+        assert_return(addr_len <= sizeof(client->hw_addr.bytes), -EINVAL);
 
         /* Unlike the other setters, it is OK to set a new MAC address while the client is running,
          * as the MAC address is used only when setting DUID or IAID. */
@@ -201,12 +202,12 @@ int sd_dhcp6_client_set_mac(
                 assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
         else {
                 client->arp_type = ARPHRD_NONE;
-                client->mac_addr_len = 0;
+                client->hw_addr.length = 0;
                 return 0;
         }
 
-        memcpy(&client->mac_addr, addr, addr_len);
-        client->mac_addr_len = addr_len;
+        memcpy(client->hw_addr.bytes, addr, addr_len);
+        client->hw_addr.length = addr_len;
         client->arp_type = arp_type;
 
         return 0;
@@ -301,10 +302,10 @@ static int dhcp6_client_set_duid_internal(
         } else
                 switch (duid_type) {
                 case DUID_TYPE_LLT:
-                        if (client->mac_addr_len == 0)
+                        if (client->hw_addr.length == 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to set DUID-LLT, MAC address is not set.");
 
-                        r = dhcp_identifier_set_duid_llt(&client->duid, llt_time, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        r = dhcp_identifier_set_duid_llt(&client->duid, llt_time, client->hw_addr.bytes, client->hw_addr.length, client->arp_type, &client->duid_len);
                         if (r < 0)
                                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-LLT: %m");
                         break;
@@ -314,10 +315,10 @@ static int dhcp6_client_set_duid_internal(
                                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-EN: %m");
                         break;
                 case DUID_TYPE_LL:
-                        if (client->mac_addr_len == 0)
+                        if (client->hw_addr.length == 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to set DUID-LL, MAC address is not set.");
 
-                        r = dhcp_identifier_set_duid_ll(&client->duid, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        r = dhcp_identifier_set_duid_ll(&client->duid, client->hw_addr.bytes, client->hw_addr.length, client->arp_type, &client->duid_len);
                         if (r < 0)
                                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-LL: %m");
                         break;
@@ -410,7 +411,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->iaid_set)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
+        r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes, client->hw_addr.length,
                                      /* legacy_unstable_byteorder = */ true,
                                      /* use_mac = */ client->test_mode,
                                      &iaid);
