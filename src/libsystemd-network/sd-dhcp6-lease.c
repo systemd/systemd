@@ -460,11 +460,13 @@ int dhcp6_lease_new(sd_dhcp6_lease **ret) {
 
         assert(ret);
 
-        lease = new0(sd_dhcp6_lease, 1);
+        lease = new(sd_dhcp6_lease, 1);
         if (!lease)
                 return -ENOMEM;
 
-        lease->n_ref = 1;
+        *lease = (sd_dhcp6_lease) {
+                .n_ref = 1,
+        };
 
         *ret = lease;
         return 0;
