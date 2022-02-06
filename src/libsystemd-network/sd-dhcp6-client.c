@@ -820,6 +820,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client->lease);
 
         (void) event_source_disable(client->timeout_t2);
+        (void) event_source_disable(client->timeout_t1);
 
         log_dhcp6_client(client, "Timeout T2");
 
