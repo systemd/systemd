@@ -50,7 +50,6 @@ struct sd_dhcp6_client {
         int event_priority;
         int ifindex;
         char *ifname;
-        DHCP6Address hint_pd_prefix;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
@@ -261,16 +260,32 @@ int sd_dhcp6_client_set_mac(
 int sd_dhcp6_client_set_prefix_delegation_hint(
                 sd_dhcp6_client *client,
                 uint8_t prefixlen,
-                const struct in6_addr *pd_address) {
+                const struct in6_addr *pd_prefix) {
+
+        _cleanup_free_ DHCP6Address *prefix = NULL;
 
         assert_return(client, -EINVAL);
-        assert_return(pd_address, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
-        client->hint_pd_prefix.iapdprefix.address = *pd_address;
-        client->hint_pd_prefix.iapdprefix.prefixlen = prefixlen;
+        if (!pd_prefix) {
+                /* clear previous assignments. */
+                dhcp6_ia_clear_addresses(&client->ia_pd);
+                return 0;
+        }
 
-        return 0;
+        assert_return(prefixlen > 0 && prefixlen <= 128, -EINVAL);
+
+        prefix = new(DHCP6Address, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        *prefix = (DHCP6Address) {
+                .iapdprefix.address = *pd_prefix,
+                .iapdprefix.prefixlen = prefixlen,
+        };
+
+        LIST_PREPEND(addresses, client->ia_pd.addresses, TAKE_PTR(prefix));
+        return 1;
 }
 
 int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client, sd_dhcp6_option *v) {
@@ -667,8 +682,7 @@ static int client_append_common_options_in_managed_mode(
                 uint8_t **opt,
                 size_t *optlen,
                 const DHCP6IA *ia_na,
-                const DHCP6IA *ia_pd,
-                const DHCP6Address *hint_pd_prefix) {
+                const DHCP6IA *ia_pd) {
 
         int r;
 
@@ -688,7 +702,7 @@ static int client_append_common_options_in_managed_mode(
         }
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && ia_pd) {
-                r = dhcp6_option_append_pd(opt, optlen, ia_pd, hint_pd_prefix);
+                r = dhcp6_option_append_pd(opt, optlen, ia_pd);
                 if (r < 0)
                         return r;
         }
@@ -778,8 +792,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 if (r < 0)
                         return r;
 
-                r = client_append_common_options_in_managed_mode(client, &opt, &optlen, &client->ia_na,
-                                                                 &client->ia_pd, &client->hint_pd_prefix);
+                r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
+                                                                 &client->ia_na, &client->ia_pd);
                 if (r < 0)
                         return r;
                 break;
@@ -799,7 +813,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 assert(client->lease);
 
                 r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
-                                                                 client->lease->ia_na, client->lease->ia_pd, NULL);
+                                                                 client->lease->ia_na, client->lease->ia_pd);
                 if (r < 0)
                         return r;
                 break;
@@ -1804,7 +1818,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         free(client->req_opts);
         free(client->fqdn);
         free(client->mudurl);
-
+        dhcp6_ia_clear_addresses(&client->ia_pd);
         ordered_hashmap_free(client->extra_options);
         strv_free(client->user_class);
         strv_free(client->vendor_class);
@@ -1841,8 +1855,6 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
                 .req_opts_len = ELEMENTSOF(default_req_opts),
-                .hint_pd_prefix.iapdprefix.lifetime_preferred = (be32_t) -1,
-                .hint_pd_prefix.iapdprefix.lifetime_valid = (be32_t) -1,
                 .req_opts = TAKE_PTR(req_opts),
         };
 
