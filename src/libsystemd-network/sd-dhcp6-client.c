@@ -584,16 +584,14 @@ static void client_notify(sd_dhcp6_client *client, int event) {
                 client->callback(client, event, client->userdata);
 }
 
-static void client_reset(sd_dhcp6_client *client) {
+static void client_stop(sd_dhcp6_client *client, int error) {
+        DHCP6_CLIENT_DONT_DESTROY(client);
+
         assert(client);
 
+        client_notify(client, error);
+
         client->lease = sd_dhcp6_lease_unref(client->lease);
-
-        client->transaction_id = 0;
-        client->transaction_start = 0;
-
-        client->retransmit_time = 0;
-        client->retransmit_count = 0;
 
         (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
@@ -602,16 +600,6 @@ static void client_reset(sd_dhcp6_client *client) {
         (void) event_source_disable(client->timeout_t2);
 
         client->state = DHCP6_STATE_STOPPED;
-}
-
-static void client_stop(sd_dhcp6_client *client, int error) {
-        DHCP6_CLIENT_DONT_DESTROY(client);
-
-        assert(client);
-
-        client_notify(client, error);
-
-        client_reset(client);
 }
 
 static int client_append_common_options_in_managed_mode(
@@ -1388,7 +1376,9 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (!client->information_request && client->request_ia == 0)
                 return -EINVAL;
 
-        client_reset(client);
+        /* Even if the client is in the STOPPED state, the lease acquired in the previous information
+         * request may be stored. */
+        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         r = client_ensure_iaid(client);
         if (r < 0)
