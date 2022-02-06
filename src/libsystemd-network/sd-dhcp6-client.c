@@ -37,6 +37,18 @@ static const uint16_t default_req_opts[] = {
         SD_DHCP6_OPTION_SNTP_SERVERS,
 };
 
+static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
+        [DHCP6_STATE_STOPPED]             = "stopped",
+        [DHCP6_STATE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_STATE_SOLICITATION]        = "solicitation",
+        [DHCP6_STATE_REQUEST]             = "request",
+        [DHCP6_STATE_BOUND]               = "bound",
+        [DHCP6_STATE_RENEW]               = "renew",
+        [DHCP6_STATE_REBIND]              = "rebind",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
+
 static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_SOLICIT]             = "Solicit",
         [DHCP6_MESSAGE_ADVERTISE]           = "Advertise",
@@ -600,6 +612,18 @@ int sd_dhcp6_client_add_option(sd_dhcp6_client *client, sd_dhcp6_option *v) {
         return 0;
 }
 
+static void client_set_state(sd_dhcp6_client *client, DHCP6State state) {
+        assert(client);
+
+        if (client->state == state)
+                return;
+
+        log_dhcp6_client(client, "State changed: %s -> %s",
+                         dhcp6_state_to_string(client->state), dhcp6_state_to_string(state));
+
+        client->state = state;
+}
+
 static void client_notify(sd_dhcp6_client *client, int event) {
         assert(client);
 
@@ -622,7 +646,7 @@ static void client_stop(sd_dhcp6_client *client, int error) {
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
 
-        client->state = DHCP6_STATE_STOPPED;
+        client_set_state(client, DHCP6_STATE_STOPPED);
 }
 
 static int client_append_common_options_in_managed_mode(
@@ -941,7 +965,8 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
                 assert_not_reached();
         }
 
-        client->state = state;
+        client_set_state(client, state);
+
         client->retransmit_time = 0;
         client->retransmit_count = 0;
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
@@ -1091,7 +1116,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                         goto error;
         }
 
-        client->state = DHCP6_STATE_BOUND;
+        client_set_state(client, DHCP6_STATE_BOUND);
         client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
         return 0;
 
@@ -1138,7 +1163,7 @@ static int client_process_information(
         client->lease = TAKE_PTR(lease);
 
         (void) event_source_disable(client->timeout_resend);
-        client->state = DHCP6_STATE_STOPPED;
+        client_set_state(client, DHCP6_STATE_STOPPED);
 
         client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
         return 0;
@@ -1430,7 +1455,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 state = DHCP6_STATE_INFORMATION_REQUEST;
         }
 
-        log_dhcp6_client(client, "Started in %s mode",
+        log_dhcp6_client(client, "Starting in %s mode",
                          client->information_request ? "Information request" : "Managed");
 
         return client_start_transaction(client, state);
