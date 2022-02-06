@@ -1114,8 +1114,11 @@ static int client_process_information(
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
+        (void) event_source_disable(client->timeout_resend);
+        client->state = DHCP6_STATE_STOPPED;
+
         client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
-        return client_set_state(client, DHCP6_STATE_STOPPED);
+        return 0;
 }
 
 static int client_process_reply(
@@ -1355,14 +1358,6 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
         }
 
         switch (state) {
-        case DHCP6_STATE_STOPPED:
-                if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
-                        client->state = DHCP6_STATE_STOPPED;
-
-                        return 0;
-                }
-
-                _fallthrough_;
         case DHCP6_STATE_SOLICITATION:
                 client->state = DHCP6_STATE_SOLICITATION;
 
@@ -1377,6 +1372,7 @@ static int client_set_state(sd_dhcp6_client *client, DHCP6State state) {
 
                 break;
 
+        case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_BOUND:
         default:
                 assert_not_reached();
