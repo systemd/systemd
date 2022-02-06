@@ -845,7 +845,6 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event, void 
         assert_se(sd_dhcp6_lease_get_ntp_addrs(lease, &addrs) == 1);
         assert_se(!memcmp(addrs, &msg_advertise[159], 16));
 
-        assert_se(sd_dhcp6_client_set_information_request(client, false) == -EBUSY);
         assert_se(sd_dhcp6_client_set_callback(client, NULL, e) >= 0);
         assert_se(sd_dhcp6_client_stop(client) >= 0);
         assert_se(sd_dhcp6_client_set_information_request(client, false) >= 0);
