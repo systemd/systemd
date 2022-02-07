@@ -54,6 +54,15 @@
 #include "utmp-wtmp.h"
 #include "virt.h"
 
+/* As a random fun fact sysvinit had a 252 (256-(strlen(" \r\n")+1))
+ * character limit for the wall message.
+ * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72
+ * There is no real technical need for that but doesn't make sense
+ * to store arbitrary amounts either. As we are not stingy here, we
+ * allow 4k.
+ */
+#define WALL_MESSAGE_MAX 4096
+
 static void reset_scheduled_shutdown(Manager *m);
 
 static int get_sender_session(
@@ -3116,14 +3125,10 @@ static int method_set_wall_message(
         if (r < 0)
                 return r;
 
-        /* sysvinit has a 252 (256-(strlen(" \r\n")+1)) character
-         * limit for the wall message. There is no real technical
-         * need for that but doesn't make sense to store arbitrary
-         * amounts either.
-         * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72)
-        */
-        if (strlen(wall_message) > 252)
-                return -EMSGSIZE;
+        if (strlen(wall_message) > WALL_MESSAGE_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                        "Wall message too long, maximum permitted length is %u characters.",
+                        WALL_MESSAGE_MAX);
 
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
