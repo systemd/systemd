@@ -85,6 +85,7 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
 
+int dhcp6_client_send_message(sd_dhcp6_client *client);
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
 
