@@ -30,6 +30,10 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
         if (size >= sizeof(DHCP6Message))
                 assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message *) data)->transaction_id) == 0);
 
+        /* These states does not require lease to send message. */
+        if (IN_SET(client->state, DHCP6_STATE_INFORMATION_REQUEST, DHCP6_STATE_SOLICITATION))
+                assert_se(dhcp6_client_send_message(client) >= 0);
+
         assert_se(write(test_dhcp_fd[1], data, size) == (ssize_t) size);
 
         assert_se(sd_event_run(sd_dhcp6_client_get_event(client), UINT64_MAX) > 0);
@@ -50,6 +54,12 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
                         assert_not_reached();
                 }
 
+        /* Send message if the client has a lease. */
+        if (state != DHCP6_STATE_INFORMATION_REQUEST && sd_dhcp6_client_get_lease(client, NULL) >= 0) {
+                client->state = DHCP6_STATE_REQUEST;
+                dhcp6_client_send_message(client);
+        }
+
         assert_se(sd_dhcp6_client_stop(client) >= 0);
 
         test_dhcp_fd[1] = safe_close(test_dhcp_fd[1]);
@@ -69,6 +79,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
         dhcp6_client_set_test_mode(client, true);
+
+        /* Used when sending message. */
+        assert_se(sd_dhcp6_client_set_fqdn(client, "example.com") == 1);
+        assert_se(sd_dhcp6_client_set_request_mud_url(client, "https://www.example.com/mudfile.json") >= 0);
+        assert_se(sd_dhcp6_client_set_request_user_class(client, STRV_MAKE("u1", "u2", "u3")) >= 0);
+        assert_se(sd_dhcp6_client_set_request_vendor_class(client, STRV_MAKE("v1", "v2", "v3")) >= 0);
 
         fuzz_client(client, data, size, DHCP6_STATE_INFORMATION_REQUEST);
         fuzz_client(client, data, size, DHCP6_STATE_SOLICITATION);

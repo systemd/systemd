@@ -637,7 +637,7 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         }
 }
 
-static int client_send_message(sd_dhcp6_client *client) {
+int dhcp6_client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
@@ -813,7 +813,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 assert_not_reached();
         }
 
-        r = client_send_message(client);
+        r = dhcp6_client_send_message(client);
         if (r >= 0)
                 client->retransmit_count++;
 
