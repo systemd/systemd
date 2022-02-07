@@ -450,7 +450,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 bool iaid_append,
                 bool iaid_set,
                 uint32_t iaid,
-                uint16_t duid_type,
+                DUIDType duid_type,
                 const void *duid,
                 size_t duid_len,
                 usec_t llt_time) {
@@ -489,37 +489,19 @@ static int dhcp_client_set_iaid_duid_internal(
                 client->client_id.ns.duid.type = htobe16(duid_type);
                 memcpy(&client->client_id.ns.duid.raw.data, duid, duid_len);
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
-        } else
-                switch (duid_type) {
-                case DUID_TYPE_LLT:
-                        if (client->mac_addr_len == 0)
-                                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to set DUID-LLT, MAC address is not set.");
 
-                        r = dhcp_identifier_set_duid_llt(&client->client_id.ns.duid, llt_time, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
-                        if (r < 0)
-                                return log_dhcp_client_errno(client, r, "Failed to set DUID-LLT: %m");
-                        break;
-                case DUID_TYPE_EN:
-                        r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
-                        if (r < 0)
-                                return log_dhcp_client_errno(client, r, "Failed to set DUID-EN: %m");
-                        break;
-                case DUID_TYPE_LL:
-                        if (client->mac_addr_len == 0)
-                                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to set DUID-LL, MAC address is not set.");
-
-                        r = dhcp_identifier_set_duid_ll(&client->client_id.ns.duid, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
-                        if (r < 0)
-                                return log_dhcp_client_errno(client, r, "Failed to set DUID-LL: %m");
-                        break;
-                case DUID_TYPE_UUID:
-                        r = dhcp_identifier_set_duid_uuid(&client->client_id.ns.duid, &len);
-                        if (r < 0)
-                                return log_dhcp_client_errno(client, r, "Failed to set DUID-UUID: %m");
-                        break;
-                default:
-                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "Invalid DUID type");
-                }
+        } else {
+                r = dhcp_identifier_set_duid(duid_type, client->mac_addr, client->mac_addr_len,
+                                             client->arp_type, llt_time, &client->client_id.ns.duid, &len);
+                if (r == -EOPNOTSUPP)
+                        return log_dhcp_client_errno(client, r,
+                                                     "Failed to set %s. MAC address is not set or "
+                                                     "interface type is not supported.",
+                                                     duid_type_to_string(duid_type));
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to set %s: %m",
+                                                     duid_type_to_string(duid_type));
+        }
 
         client->client_id_len = sizeof(client->client_id.type) + len +
                                 (iaid_append ? sizeof(client->client_id.ns.iaid) : 0);
