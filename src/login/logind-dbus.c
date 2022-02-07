@@ -1499,13 +1499,13 @@ static int bus_manager_log_shutdown(
                 Manager *m,
                 const ActionTableItem *a) {
 
-        const char *message, *log_str;
+        const char *message, *log_message;
 
         assert(m);
         assert(a);
 
         message = a->message;
-        log_str = a->log_str;
+        log_message = a->log_message;
 
         if (message)
                 message = strjoina("MESSAGE=", message);
@@ -1517,13 +1517,13 @@ static int bus_manager_log_shutdown(
         else
                 message = strjoina(message, " (", m->wall_message, ").");
 
-        if (log_str)
-                log_str = strjoina("SHUTDOWN=", log_str);
+        if (log_message)
+                log_message = strjoina("SHUTDOWN=", log_message);
 
         return log_struct(LOG_NOTICE,
                         "MESSAGE_ID=%s", a->message_id ? a->message_id : SD_MESSAGE_SHUTDOWN_STR,
                         message,
-                        log_str);
+                        log_message);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
@@ -2244,7 +2244,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         cancelled = m->scheduled_shutdown_type
                 && !IN_SET(m->scheduled_shutdown_type->handle, HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
         if (!cancelled)
-                goto done;
+                return sd_bus_reply_method_return(message, "b", false);
 
         a = m->scheduled_shutdown_type;
         if (!a->polkit_action)
@@ -2283,8 +2283,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                           username, tty, logind_wall_tty_filter, m);
         }
 
-done:
-        return sd_bus_reply_method_return(message, "b", cancelled);
+        return sd_bus_reply_method_return(message, "b", true);
 }
 
 static int method_can_shutdown_or_sleep(
@@ -2330,7 +2329,7 @@ static int method_can_shutdown_or_sleep(
         if (handle >= 0) {
                 const char *target;
 
-                target = manager_target_for_action(handle);
+                target = manager_item_for_handle(handle)->target;
                 if (target) {
                         _cleanup_free_ char *load_state = NULL;
 
