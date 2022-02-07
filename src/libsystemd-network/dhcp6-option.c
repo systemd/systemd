@@ -9,14 +9,12 @@
 #include "sd-dhcp6-client.h"
 
 #include "alloc-util.h"
-#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
-#include "dhcp6-lease-internal.h"
+#include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "memory-util.h"
-#include "sparse-endian.h"
 #include "strv.h"
 #include "unaligned.h"
 
