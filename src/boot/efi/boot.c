@@ -2342,14 +2342,19 @@ static EFI_STATUS image_start(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
+        EFI_LOADED_IMAGE *loaded_image;
+        err = BS->OpenProtocol(
+                image,
+                &LoadedImageProtocol,
+                (void **) &loaded_image,
+                parent_image,
+                NULL,
+                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
+
         CHAR16 *options = options_initrd ?: entry->options;
         if (options) {
-                EFI_LOADED_IMAGE *loaded_image;
-
-                err = BS->OpenProtocol(image, &LoadedImageProtocol, (void **)&loaded_image,
-                                       parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-                if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = StrSize(options);
 
@@ -2359,14 +2364,31 @@ static EFI_STATUS image_start(
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
-        if (err != EFI_SUCCESS) {
+        if (err == EFI_SUCCESS)
                 /* Not using EFI_ERROR here because positive values are also errors like with any other
                  * (userspace) program. */
-                graphics_mode(FALSE);
-                return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
+                return err;
+
+        /* Try calling the kernel compat entry point if one exists. */
+        if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
+                UINT32 kernel_entry_address;
+
+                err = pe_alignment_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
+                if (EFI_ERROR(err)) {
+                        if (err != EFI_UNSUPPORTED)
+                                return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
+                } else {
+                        EFI_IMAGE_ENTRY_POINT kernel_entry =
+                                (EFI_IMAGE_ENTRY_POINT) ((UINT8 *) loaded_image->ImageBase + kernel_entry_address);
+
+                        err = kernel_entry(image, ST);
+                        if (err == EFI_SUCCESS)
+                                return err;
+                }
         }
 
-        return err;
+        graphics_mode(FALSE);
+        return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
 }
 
 static void config_free(Config *config) {
