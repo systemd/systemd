@@ -167,6 +167,8 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
 
+int dhcp6_client_send_message(sd_dhcp6_client *client);
+
 const char *dhcp6_message_type_to_string(DHCP6MessageType t) _const_;
 DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
