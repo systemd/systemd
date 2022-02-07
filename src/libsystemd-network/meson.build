@@ -17,6 +17,8 @@ sources = files('''
         dhcp6-lease-internal.h
         dhcp6-network.c
         dhcp6-option.c
+        dhcp6-option.h
+        dhcp6-protocol.c
         dhcp6-protocol.h
         icmp6-util.c
         icmp6-util.h

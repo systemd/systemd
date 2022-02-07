@@ -28,8 +28,8 @@ typedef struct DHCP6Message DHCP6Message;
 #define DHCP6_MIN_OPTIONS_SIZE \
         1280 - sizeof(struct ip6_hdr) - sizeof(struct udphdr)
 
-#define IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT \
-        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+#define IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT                 \
+        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,           \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02 } } }
 
 enum {
@@ -100,13 +100,15 @@ typedef enum DHCP6MessageType {
         DHCP6_MESSAGE_STATE                     = 34, /* RFC 8156 */
         DHCP6_MESSAGE_CONTACT                   = 35, /* RFC 8156 */
         _DHCP6_MESSAGE_TYPE_MAX,
-        _DHCP6_MESSAGE_TYPE_INVALID = -EINVAL,
+        _DHCP6_MESSAGE_TYPE_INVALID             = -EINVAL,
 } DHCP6MessageType;
 
 typedef enum DHCP6NTPSubOption {
         DHCP6_NTP_SUBOPTION_SRV_ADDR            = 1,
         DHCP6_NTP_SUBOPTION_MC_ADDR             = 2,
         DHCP6_NTP_SUBOPTION_SRV_FQDN            = 3,
+        _DHCP6_NTP_SUBOPTION_MAX,
+        _DHCP6_NTP_SUBOPTION_INVALID            = -EINVAL,
 } DHCP6NTPSubOption;
 
 /*
@@ -138,7 +140,7 @@ typedef enum DHCP6Status {
         DHCP6_STATUS_DNS_UPDATE_NOT_SUPPORTED     = 21,
         DHCP6_STATUS_EXCESSIVE_TIME_SKEW          = 22,
         _DHCP6_STATUS_MAX,
-        _DHCP6_STATUS_INVALID = -EINVAL,
+        _DHCP6_STATUS_INVALID                     = -EINVAL,
 } DHCP6Status;
 
 typedef enum DHCP6FQDNFlag {
@@ -146,3 +148,9 @@ typedef enum DHCP6FQDNFlag {
         DHCP6_FQDN_FLAG_O = 1 << 1,
         DHCP6_FQDN_FLAG_N = 1 << 2,
 } DHCP6FQDNFlag;
+
+const char *dhcp6_state_to_string(DHCP6State s) _const_;
+const char *dhcp6_message_type_to_string(DHCP6MessageType s) _const_;
+DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
+const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
+DHCP6Status dhcp6_message_status_from_string(const char *s) _pure_;
