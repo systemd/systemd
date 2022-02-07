@@ -2249,7 +2249,7 @@ static EFI_STATUS image_start(
                 const ConfigEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
-        EFI_HANDLE image;
+        _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
         CHAR16 *options;
         EFI_STATUS err;
@@ -2286,10 +2286,8 @@ static EFI_STATUS image_start(
 
                 err = BS->OpenProtocol(image, &LoadedImageProtocol, (void **)&loaded_image,
                                        parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-                if (EFI_ERROR(err)) {
-                        log_error_stall(L"Error getting LoadedImageProtocol handle: %r", err);
-                        goto out_unload;
-                }
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
@@ -2299,8 +2297,13 @@ static EFI_STATUS image_start(
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
-out_unload:
-        BS->UnloadImage(image);
+        if (err != EFI_SUCCESS) {
+                /* Not using EFI_ERROR here because positive values are also errors like with any other
+                 * (userspace) program. */
+                graphics_mode(FALSE);
+                return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
+        }
+
         return err;
 }
 
@@ -2548,11 +2551,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (void) process_random_seed(root_dir, config.random_seed_mode);
 
                 err = image_start(root_dir, image, &config, entry);
-                if (EFI_ERROR(err)) {
-                        graphics_mode(FALSE);
-                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
+                if (EFI_ERROR(err))
                         goto out;
-                }
 
                 menu = TRUE;
                 config.timeout_sec = 0;
