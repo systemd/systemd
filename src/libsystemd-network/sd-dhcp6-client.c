@@ -353,14 +353,6 @@ int sd_dhcp6_client_set_duid_llt(
         return dhcp6_client_set_duid_internal(client, DUID_TYPE_LLT, NULL, 0, llt_time);
 }
 
-static const char* const dhcp6_duid_type_table[_DUID_TYPE_MAX] = {
-        [DUID_TYPE_LLT]  = "DUID-LLT",
-        [DUID_TYPE_EN]   = "DUID-EN/Vendor",
-        [DUID_TYPE_LL]   = "DUID-LL",
-        [DUID_TYPE_UUID] = "UUID",
-};
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_duid_type, DUIDType);
-
 int sd_dhcp6_client_duid_as_string(
                 sd_dhcp6_client *client,
                 char **duid) {
@@ -372,7 +364,7 @@ int sd_dhcp6_client_duid_as_string(
         assert_return(client->duid_len > 0, -ENODATA);
         assert_return(duid, -EINVAL);
 
-        v = dhcp6_duid_type_to_string(be16toh(client->duid.type));
+        v = duid_type_to_string(be16toh(client->duid.type));
         if (v) {
                 s = strdup(v);
                 if (!s)

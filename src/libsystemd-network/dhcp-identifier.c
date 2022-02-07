@@ -8,18 +8,25 @@
 #include "sd-id128.h"
 
 #include "dhcp-identifier.h"
-#include "dhcp6-protocol.h"
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
-#include "stdio-util.h"
+#include "string-table.h"
 #include "udev-util.h"
-#include "virt.h"
 
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
 #define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
+
+static const char * const duid_type_table[_DUID_TYPE_MAX] = {
+        [DUID_TYPE_LLT]  = "DUID-LLT",
+        [DUID_TYPE_EN]   = "DUID-EN/Vendor",
+        [DUID_TYPE_LL]   = "DUID-LL",
+        [DUID_TYPE_UUID] = "UUID",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(duid_type, DUIDType);
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
         struct duid d;
