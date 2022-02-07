@@ -3118,7 +3118,7 @@ static int method_set_wall_message(
         /* sysvinit has a 252 (256-(strlen(" \r\n")+1)) character
          * limit for the wall message. There is no real technical
          * need for that but doesn't make sense to store arbitrary
-         * armounts either.
+         * amounts either.
          * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72)
         */
         if (strlen(wall_message) > 252)
