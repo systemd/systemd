@@ -518,7 +518,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - It's a good idea to use `O_NONBLOCK` when opening 'foreign' regular files,
   i.e.  file system objects that are supposed to be regular files whose paths
-  where specified by the user and hence might actually refer to other types of
+  were specified by the user and hence might actually refer to other types of
   file system objects. This is a good idea so that we don't end up blocking on
   'strange' file nodes, for example if the user pointed us to a FIFO or device
   node which may block when opening. Moreover even for actual regular files
