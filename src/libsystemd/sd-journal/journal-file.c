@@ -2163,6 +2163,41 @@ static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
         return 1;
 }
 
+static int bump_entry_array(JournalFile *f, Object *o, uint64_t offset, uint64_t first, direction_t direction, uint64_t *ret) {
+        uint64_t p, q;
+        int r;
+
+        assert(f);
+        assert(offset);
+        assert(ret);
+
+        if (direction == DIRECTION_DOWN)
+                return le64toh(o->entry_array.next_entry_array_offset);
+
+        /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
+         * to start iterating from the top. */
+
+        p = first;
+
+        while (p > 0 && p != offset) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, p, &o);
+                if (r < 0)
+                        return r;
+
+                q = p;
+                p = le64toh(o->entry_array.next_entry_array_offset);
+        }
+
+        /* If we can't find the previous entry array in the entry array chain, we're likely dealing with a
+         * corrupted journal file. */
+        if (p == 0)
+                return -EBADMSG;
+
+        *ret = q;
+
+        return 0;
+}
+
 static int generic_array_get(
                 JournalFile *f,
                 uint64_t first,
@@ -2189,6 +2224,28 @@ static int generic_array_get(
 
         while (a > 0) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* If there's corruption and we're going downwards, let's pretend we reached the
+                         * final entry in the entry array chain. */
+
+                        if (direction == DIRECTION_DOWN)
+                                return 0;
+
+                        /* If there's corruption and we're going upwards, move back to the previous entry
+                         * array and start iterating entries from there. */
+
+                        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+                        if (r < 0)
+                                return r;
+
+                        k = journal_file_entry_array_n_items(o);
+                        if (k == 0)
+                                break;
+
+                        i = k - 1;
+
+                        break;
+                }
                 if (r < 0)
                         return r;
 
@@ -2240,8 +2297,11 @@ static int generic_array_get(
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
                 } while (bump_array_index(&i, direction, k) > 0);
 
+                r = bump_entry_array(f, o, a, first, direction, &a);
+                if (r < 0)
+                        return r;
+
                 t += k;
-                a = le64toh(o->entry_array.next_entry_array_offset);
                 i = UINT64_MAX;
         }
 
