@@ -55,13 +55,14 @@ struct duid {
 } _packed_;
 
 int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
-int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
 int dhcp_identifier_set_duid(
                 DUIDType duid_type,
                 const uint8_t *addr,
                 size_t addr_len,
                 uint16_t arp_type,
                 usec_t llt_time,
+                bool test_mode,
                 struct duid *ret_duid,
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(
