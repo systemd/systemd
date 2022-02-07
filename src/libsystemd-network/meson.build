@@ -115,10 +115,6 @@ fuzzers += [
          [libshared,
           libsystemd_network]],
 
-        [files('fuzz-dhcp6-client-send.c'),
-         [libshared,
-          libsystemd_network]],
-
         [files('fuzz-dhcp-server.c'),
          [libsystemd_network,
           libshared]],
