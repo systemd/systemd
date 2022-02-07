@@ -82,7 +82,6 @@ typedef struct {
         CHAR16 *entry_default_efivar;
         CHAR16 *entry_oneshot;
         CHAR16 *entry_saved;
-        CHAR16 *options_edit;
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
@@ -139,24 +138,20 @@ static void cursor_right(
 }
 
 static BOOLEAN line_edit(
-                const CHAR16 *line_in,
-                CHAR16 **line_out,
+                CHAR16 **line_in,
                 UINTN x_max,
                 UINTN y_pos) {
 
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
         UINTN size, len, first = 0, cursor = 0, clear = 0;
 
-        assert(line_out);
+        assert(line_in);
 
-        if (!line_in)
-                line_in = L"";
-
-        len = StrLen(line_in);
+        len = strlen_ptr(*line_in);
         size = len + 1024;
         line = xnew(CHAR16, size);
         print = xnew(CHAR16, x_max + 1);
-        StrCpy(line, line_in);
+        StrCpy(line, strempty(*line_in));
 
         for (;;) {
                 EFI_STATUS err;
@@ -320,8 +315,10 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
-                        if (StrCmp(line, line_in) != 0)
-                                *line_out = TAKE_PTR(line);
+                        if (!streq(line, *line_in)) {
+                                FreePool(*line_in);
+                                *line_in = TAKE_PTR(line);
+                        }
                         return TRUE;
 
                 case KEYPRESS(0, 0, CHAR_BACKSPACE):
@@ -915,7 +912,7 @@ static BOOLEAN menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        exit = line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max - 2, y_status);
+                        exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
                         break;
 
@@ -1367,7 +1364,7 @@ good:
         prefix = xstrdup(file);
         prefix[i] = 0;
 
-        entry->next_name = xpool_print(L"%s+%" PRIuN L"-%" PRIuN L"%s", prefix, next_left, next_done, suffix ?: L"");
+        entry->next_name = xpool_print(L"%s+%" PRIuN L"-%" PRIuN L"%s", prefix, next_left, next_done, strempty(suffix));
 }
 
 static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
@@ -2318,16 +2315,13 @@ static void config_load_xbootldr(
 
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
-                const Config *config,
                 const ConfigEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
-        CHAR16 *options;
         EFI_STATUS err;
 
-        assert(config);
         assert(entry);
 
         /* If this loader entry has a special way to boot, try that first. */
@@ -2352,24 +2346,18 @@ static EFI_STATUS image_start(
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
 
-        if (config->options_edit)
-                options = config->options_edit;
-        else if (entry->options)
-                options = entry->options;
-        else
-                options = NULL;
-        if (options) {
+        if (entry->options) {
                 EFI_LOADED_IMAGE *loaded_image;
 
                 err = BS->OpenProtocol(image, &LoadedImageProtocol, (void **)&loaded_image,
                                        parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
-                loaded_image->LoadOptions = options;
+                loaded_image->LoadOptions = entry->options;
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (void) tpm_log_load_options(options);
+                (void) tpm_log_load_options(entry->options);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
@@ -2387,7 +2375,6 @@ static void config_free(Config *config) {
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
         FreePool(config->entry_default_config);
-        FreePool(config->options_edit);
         FreePool(config->entry_oneshot);
 }
 
@@ -2622,7 +2609,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
 
-                err = image_start(image, &config, entry);
+                err = image_start(image, entry);
                 if (err != EFI_SUCCESS)
                         /* Not using EFI_ERROR here because positive values are also errors like with any
                          * other (userspace) program. */
