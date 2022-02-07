@@ -256,6 +256,29 @@ static int link_set_ipv6ll_stable_secret(Link *link) {
         return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret", str);
 }
 
+static int link_set_ipv6_addr_gen_mode(Link *link) {
+        uint8_t mode;
+
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (!link_ipv6ll_enabled(link))
+                return 0;
+        else if (link->network->ipv6ll_address_gen_mode >= 0)
+                mode = link->network->ipv6ll_address_gen_mode;
+        else if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
+                mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        else
+                mode = IN6_ADDR_GEN_MODE_EUI64;
+
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode);
+}
+
 static int link_set_ipv4_accept_local(Link *link) {
         assert(link);
 
@@ -330,6 +353,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv6ll_stable_secret(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set stable secret address for IPv6 link local address: %m");
+
+        r = link_set_ipv6_addr_gen_mode(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 address generation mode: %m");
 
         r = link_set_ipv4_accept_local(link);
         if (r < 0)

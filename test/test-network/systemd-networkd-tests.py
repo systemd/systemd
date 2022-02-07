@@ -2952,6 +2952,32 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
+    def test_link_local_addressing_up_without_addr(self):
+        output = check_output('ip link add dummy98 type dummy')
+        print(output)
+
+        print('## do no generate a link-local address')
+        output = check_output('sysctl net.ipv6.conf.dummy98.addr_gen_mode=1')
+        print(output)
+
+        output = check_output('ip link set dummy98 up')
+        print(output)
+
+        output = check_output('ip address flush dummy98')
+        print(output)
+
+        print('## UP without ipv6ll')
+        output = check_output('ip address show dev dummy98')
+        print(output)
+
+        copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
+
+        start_networkd()
+        self.wait_online(['dummy98:degraded'])
+
+        output = check_output('ip address show dev dummy98')
+        print(output)
+
     def test_link_local_addressing_remove_ipv6ll(self):
         copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
         start_networkd()
@@ -2979,6 +3005,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'dad_transmits'), '3')
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'hop_limit'), '5')
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'proxy_ndp'), '1')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '0')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'accept_local'), '1')
