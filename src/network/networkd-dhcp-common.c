@@ -988,13 +988,13 @@ static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);
 
-static const char* const duid_type_table[_DUID_TYPE_MAX] = {
+static const char* const networkd_duid_type_table[_DUID_TYPE_MAX] = {
         [DUID_TYPE_LLT]  = "link-layer-time",
         [DUID_TYPE_EN]   = "vendor",
         [DUID_TYPE_LL]   = "link-layer",
         [DUID_TYPE_UUID] = "uuid",
 };
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(duid_type, DUIDType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(networkd_duid_type, DUIDType);
 
 int config_parse_duid_type(
                 const char *unit,
@@ -1037,7 +1037,7 @@ int config_parse_duid_type(
                 return 0;
         }
 
-        type = duid_type_from_string(type_string);
+        type = networkd_duid_type_from_string(type_string);
         if (type < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, type,
                            "Failed to parse DUID type '%s', ignoring.", type_string);
