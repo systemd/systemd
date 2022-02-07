@@ -68,7 +68,10 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *v1 = NULL, *v2 = NULL;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
+        struct in6_addr hint = { { { 0x3f, 0xfe, 0x05, 0x01, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } };
+        static const char *v1_data = "hogehoge", *v2_data = "foobar";
 
         if (size > 65536)
                 return 0;
@@ -85,6 +88,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_set_request_mud_url(client, "https://www.example.com/mudfile.json") >= 0);
         assert_se(sd_dhcp6_client_set_request_user_class(client, STRV_MAKE("u1", "u2", "u3")) >= 0);
         assert_se(sd_dhcp6_client_set_request_vendor_class(client, STRV_MAKE("v1", "v2", "v3")) >= 0);
+        assert_se(sd_dhcp6_client_set_prefix_delegation_hint(client, 48, &hint) >= 0);
+        assert_se(sd_dhcp6_option_new(123, v1_data, strlen(v1_data), 12345, &v1) >= 0);
+        assert_se(sd_dhcp6_option_new(456, v2_data, strlen(v2_data), 45678, &v2) >= 0);
+        assert_se(sd_dhcp6_client_add_vendor_option(client, v1) >= 0);
+        assert_se(sd_dhcp6_client_add_vendor_option(client, v2) >= 0);
 
         fuzz_client(client, data, size, DHCP6_STATE_INFORMATION_REQUEST);
         fuzz_client(client, data, size, DHCP6_STATE_SOLICITATION);
