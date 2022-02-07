@@ -120,20 +120,23 @@ static int dhcp_identifier_set_duid_ll(const uint8_t *addr, size_t addr_len, uin
         return 0;
 }
 
-int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len) {
+int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len) {
         sd_id128_t machine_id;
         uint64_t hash;
+        int r;
 
         assert(ret_duid);
         assert(ret_len);
 
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-        int r = sd_id128_get_machine(&machine_id);
-        if (r < 0)
-                return r;
-#else
-        machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
-#endif
+        if (!test_mode) {
+                r = sd_id128_get_machine(&machine_id);
+                if (r < 0)
+                        return r;
+        } else
+                /* For tests, especially for fuzzers, reproducibility is important.
+                 * Hence, use a static and constant machine ID.
+                 * See 9216fddc5a8ac2742e6cfa7660f95c20ca4f2193. */
+                machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
 
         unaligned_write_be16(&ret_duid->type, DUID_TYPE_EN);
         unaligned_write_be32(&ret_duid->en.pen, SYSTEMD_PEN);
@@ -144,6 +147,9 @@ int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len) {
         memcpy(ret_duid->en.id, &hash, sizeof(ret_duid->en.id));
 
         *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->en);
+
+        if (test_mode)
+                assert_se(memcmp(ret_duid, (const uint8_t[]) { 0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2 }, *ret_len) == 0);
 
         return 0;
 }
@@ -173,6 +179,7 @@ int dhcp_identifier_set_duid(
                 size_t addr_len,
                 uint16_t arp_type,
                 usec_t llt_time,
+                bool test_mode,
                 struct duid *ret_duid,
                 size_t *ret_len) {
 
@@ -180,7 +187,7 @@ int dhcp_identifier_set_duid(
         case DUID_TYPE_LLT:
                 return dhcp_identifier_set_duid_llt(addr, addr_len, arp_type, llt_time, ret_duid, ret_len);
         case DUID_TYPE_EN:
-                return dhcp_identifier_set_duid_en(ret_duid, ret_len);
+                return dhcp_identifier_set_duid_en(test_mode, ret_duid, ret_len);
         case DUID_TYPE_LL:
                 return dhcp_identifier_set_duid_ll(addr, addr_len, arp_type, ret_duid, ret_len);
         case DUID_TYPE_UUID:
