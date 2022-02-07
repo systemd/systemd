@@ -271,7 +271,7 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
         if (client->duid_len != 0)
                 return 0;
 
-        return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+        return dhcp_identifier_set_duid_en(client->test_mode, &client->duid, &client->duid_len);
 }
 
 /**
@@ -307,7 +307,7 @@ static int dhcp6_client_set_duid_internal(
 
         } else {
                 r = dhcp_identifier_set_duid(duid_type, client->hw_addr.bytes, client->hw_addr.length,
-                                             client->arp_type, llt_time, &client->duid, &client->duid_len);
+                                             client->arp_type, llt_time, client->test_mode, &client->duid, &client->duid_len);
                 if (r == -EOPNOTSUPP)
                         return log_dhcp6_client_errno(client, r,
                                                       "Failed to set %s. MAC address is not set or "
