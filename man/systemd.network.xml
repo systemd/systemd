@@ -3665,7 +3665,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <varlistentry>
               <term><option>src-host</option></term>
               <listitem><para>
-                Flows are defined only by source address. Equivalnet to the <literal>srchost</literal>
+                Flows are defined only by source address. Equivalent to the <literal>srchost</literal>
                 option for <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               </para></listitem>
@@ -3673,7 +3673,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <varlistentry>
               <term><option>dst-host</option></term>
               <listitem><para>
-                Flows are defined only by destination address. Equivalnet to the
+                Flows are defined only by destination address. Equivalent to the
                 <literal>srchost</literal> option for <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               </para></listitem>
@@ -3699,7 +3699,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <term><option>dual-src-host</option></term>
               <listitem><para>
                 Flows are defined by the 5-tuple (see <literal>flows</literal> in the above), and
-                fairness is applied first over source addresses, then over individual flows. Equivalnet
+                fairness is applied first over source addresses, then over individual flows. Equivalent
                 to the <literal>dual-srchost</literal> option for <command>tc qdisc</command> command.
                 See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
@@ -3710,7 +3710,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <listitem><para>
                 Flows are defined by the 5-tuple (see <literal>flows</literal> in the above), and
                 fairness is applied first over destination addresses, then over individual flows.
-                Equivalnet to the <literal>dual-dsthost</literal> option for
+                Equivalent to the <literal>dual-dsthost</literal> option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               </para></listitem>
@@ -3720,7 +3720,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <listitem><para>
                 Flows are defined by the 5-tuple (see <literal>flows</literal>), and fairness is
                 applied over source and destination addresses, and also over individual flows.
-                Equivalnet to the <literal>triple-isolate</literal> option for
+                Equivalent to the <literal>triple-isolate</literal> option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               </para></listitem>
