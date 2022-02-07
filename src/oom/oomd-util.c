@@ -227,7 +227,7 @@ static int dump_kill_candidates(OomdCGroupContext **sorted, int n, int dump_unti
 
         f = open_memstream_unlocked(&dump, &size);
         if (!f)
-                return -errno;;
+                return -errno;
 
         fprintf(f, "Considered %d cgroups for killing, top candidates were:\n", n);
         for (int i = 0; i < dump_until; i++)
@@ -236,8 +236,6 @@ static int dump_kill_candidates(OomdCGroupContext **sorted, int n, int dump_unti
         r = fflush_and_check(f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
 
         return log_dump(LOG_INFO, dump);
 }
