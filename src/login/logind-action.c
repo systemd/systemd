@@ -117,13 +117,6 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 },
 };
 
-const char* manager_target_for_action(HandleAction handle) {
-        assert(handle >= 0);
-        assert(handle < (ssize_t) ELEMENTSOF(action_table));
-
-        return action_table[handle].target;
-}
-
 const ActionTableItem* manager_item_for_handle(HandleAction handle) {
         assert(handle >= 0);
         assert(handle < (ssize_t) ELEMENTSOF(action_table));
