@@ -11,11 +11,14 @@
 #include "sd-event.h"
 #include "sd-dhcp6-client.h"
 
+#include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
+#include "ether-addr-util.h"
 #include "hashmap.h"
 #include "list.h"
 #include "macro.h"
 #include "network-common.h"
+#include "ordered-set.h"
 #include "sparse-endian.h"
 
 typedef struct sd_dhcp6_option {
@@ -62,47 +65,80 @@ struct DHCP6Address {
         };
 };
 
-/* Non-temporary Address option */
-struct ia_na {
+struct ia_header {
         be32_t id;
         be32_t lifetime_t1;
         be32_t lifetime_t2;
-} _packed_;
-
-/* Prefix Delegation option */
-struct ia_pd {
-        be32_t id;
-        be32_t lifetime_t1;
-        be32_t lifetime_t2;
-} _packed_;
-
-/* Temporary Address option */
-struct ia_ta {
-        be32_t id;
 } _packed_;
 
 typedef struct DHCP6IA {
         uint16_t type;
-        union {
-                struct ia_na ia_na;
-                struct ia_pd ia_pd;
-                struct ia_ta ia_ta;
-        };
+        struct ia_header header;
 
         LIST_HEAD(DHCP6Address, addresses);
 } DHCP6IA;
 
-typedef struct sd_dhcp6_client sd_dhcp6_client;
+/* what to request from the server, addresses (IA_NA) and/or prefixes (IA_PD) */
+typedef enum DHCP6RequestIA {
+        DHCP6_REQUEST_IA_NA = 1 << 0,
+        DHCP6_REQUEST_IA_TA = 1 << 1, /* currently not used */
+        DHCP6_REQUEST_IA_PD = 1 << 2,
+} DHCP6RequestIA;
+
+typedef struct sd_dhcp6_client {
+        unsigned n_ref;
+
+        DHCP6State state;
+        sd_event *event;
+        int event_priority;
+        int ifindex;
+        char *ifname;
+        struct in6_addr local_address;
+        struct hw_addr_data hw_addr;
+        uint16_t arp_type;
+        DHCP6IA ia_na;
+        DHCP6IA ia_pd;
+        DHCP6RequestIA request_ia;
+        be32_t transaction_id;
+        usec_t transaction_start;
+        struct sd_dhcp6_lease *lease;
+        int fd;
+        bool information_request;
+        bool iaid_set;
+        be16_t *req_opts;
+        size_t req_opts_len;
+        char *fqdn;
+        char *mudurl;
+        char **user_class;
+        char **vendor_class;
+        sd_event_source *receive_message;
+        usec_t retransmit_time;
+        uint8_t retransmit_count;
+        sd_event_source *timeout_resend;
+        sd_event_source *timeout_expire;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
+        sd_dhcp6_client_callback_t callback;
+        void *userdata;
+        struct duid duid;
+        size_t duid_len;
+        usec_t information_request_time_usec;
+        usec_t information_refresh_time_usec;
+        OrderedHashmap *extra_options;
+        OrderedSet *vendor_options;
+
+        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        bool test_mode;
+} sd_dhcp6_client;
 
 bool dhcp6_option_can_request(uint16_t option);
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
-int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, const DHCP6Address *hint_pd_prefix);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);
-int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options);
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet *vendor_options);
 
 int dhcp6_option_parse(
                 const uint8_t *buf,
@@ -118,7 +154,7 @@ int dhcp6_option_parse_ia(
                 uint16_t option_code,
                 size_t option_data_len,
                 const uint8_t *option_data,
-                DHCP6IA *ret);
+                DHCP6IA **ret);
 int dhcp6_option_parse_addresses(
                 const uint8_t *optval,
                 size_t optlen,
@@ -131,18 +167,15 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
                                   const void *packet, size_t len);
 
-int client_parse_message(
-                sd_dhcp6_client *client,
-                DHCP6Message *message,
-                size_t len,
-                sd_dhcp6_lease *lease);
+int dhcp6_client_send_message(sd_dhcp6_client *client);
 
-const char *dhcp6_message_type_to_string(int s) _const_;
-int dhcp6_message_type_from_string(const char *s) _pure_;
-const char *dhcp6_message_status_to_string(int s) _const_;
-int dhcp6_message_status_from_string(const char *s) _pure_;
+const char *dhcp6_message_type_to_string(DHCP6MessageType t) _const_;
+DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
+const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
+DHCP6Status dhcp6_message_status_from_string(const char *s) _pure_;
 
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
+int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \
