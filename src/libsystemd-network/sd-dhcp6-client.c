@@ -631,6 +631,11 @@ static void client_stop(sd_dhcp6_client *client, int error) {
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
 
+        /* Reset IRT here. Otherwise, we cannot restart the client in the information requesting mode,
+         * even though the lease is freed below. */
+        client->information_request_time_usec = 0;
+        client->information_refresh_time_usec = 0;
+
         (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
         (void) event_source_disable(client->timeout_expire);
