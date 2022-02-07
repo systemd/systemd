@@ -5,11 +5,11 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <stdint.h>
+#include <inttypes.h>
 
 #include "sd-dhcp6-lease.h"
 
-#include "dhcp6-internal.h"
+#include "dhcp6-option.h"
 #include "macro.h"
 #include "time-util.h"
 
@@ -45,12 +45,7 @@ struct sd_dhcp6_lease {
         char *fqdn;
 };
 
-void dhcp6_ia_clear_addresses(DHCP6IA *ia);
-DHCP6IA *dhcp6_ia_free(DHCP6IA *ia);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6IA*, dhcp6_ia_free);
-
 int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid);
-
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
 int dhcp6_lease_get_clientid(sd_dhcp6_lease *lease, uint8_t **ret_id, size_t *ret_len);
 int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
