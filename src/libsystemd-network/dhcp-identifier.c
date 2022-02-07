@@ -28,7 +28,7 @@ static const char * const duid_type_table[_DUID_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(duid_type, DUIDType);
 
-int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
+int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict) {
         struct duid d;
 
         assert_cc(sizeof(d.raw) >= MAX_DUID_LEN);
@@ -64,62 +64,68 @@ int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
         return 0;
 }
 
-int dhcp_identifier_set_duid_llt(struct duid *duid, usec_t t, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len) {
+static int dhcp_identifier_set_duid_llt(const uint8_t *addr, size_t addr_len, uint16_t arp_type, usec_t t, struct duid *ret_duid, size_t *ret_len) {
         uint16_t time_from_2000y;
 
-        assert(duid);
-        assert(len);
         assert(addr);
+        assert(ret_duid);
+        assert(ret_len);
+
+        if (addr_len == 0)
+                return -EOPNOTSUPP;
 
         if (arp_type == ARPHRD_ETHER)
                 assert_return(addr_len == ETH_ALEN, -EINVAL);
         else if (arp_type == ARPHRD_INFINIBAND)
                 assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
         else
-                return -EINVAL;
+                return -EOPNOTSUPP;
 
         if (t < USEC_2000)
                 time_from_2000y = 0;
         else
                 time_from_2000y = (uint16_t) (((t - USEC_2000) / USEC_PER_SEC) & 0xffffffff);
 
-        unaligned_write_be16(&duid->type, DUID_TYPE_LLT);
-        unaligned_write_be16(&duid->llt.htype, arp_type);
-        unaligned_write_be32(&duid->llt.time, time_from_2000y);
-        memcpy(duid->llt.haddr, addr, addr_len);
+        unaligned_write_be16(&ret_duid->type, DUID_TYPE_LLT);
+        unaligned_write_be16(&ret_duid->llt.htype, arp_type);
+        unaligned_write_be32(&ret_duid->llt.time, time_from_2000y);
+        memcpy(ret_duid->llt.haddr, addr, addr_len);
 
-        *len = sizeof(duid->type) + sizeof(duid->llt.htype) + sizeof(duid->llt.time) + addr_len;
+        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->llt.htype) + sizeof(ret_duid->llt.time) + addr_len;
 
         return 0;
 }
 
-int dhcp_identifier_set_duid_ll(struct duid *duid, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len) {
-        assert(duid);
-        assert(len);
+static int dhcp_identifier_set_duid_ll(const uint8_t *addr, size_t addr_len, uint16_t arp_type, struct duid *ret_duid, size_t *ret_len) {
         assert(addr);
+        assert(ret_duid);
+        assert(ret_len);
+
+        if (addr_len == 0)
+                return -EOPNOTSUPP;
 
         if (arp_type == ARPHRD_ETHER)
                 assert_return(addr_len == ETH_ALEN, -EINVAL);
         else if (arp_type == ARPHRD_INFINIBAND)
                 assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
         else
-                return -EINVAL;
+                return -EOPNOTSUPP;
 
-        unaligned_write_be16(&duid->type, DUID_TYPE_LL);
-        unaligned_write_be16(&duid->ll.htype, arp_type);
-        memcpy(duid->ll.haddr, addr, addr_len);
+        unaligned_write_be16(&ret_duid->type, DUID_TYPE_LL);
+        unaligned_write_be16(&ret_duid->ll.htype, arp_type);
+        memcpy(ret_duid->ll.haddr, addr, addr_len);
 
-        *len = sizeof(duid->type) + sizeof(duid->ll.htype) + addr_len;
+        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->ll.htype) + addr_len;
 
         return 0;
 }
 
-int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
+int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len) {
         sd_id128_t machine_id;
         uint64_t hash;
 
-        assert(duid);
-        assert(len);
+        assert(ret_duid);
+        assert(ret_len);
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
         int r = sd_id128_get_machine(&machine_id);
@@ -129,36 +135,59 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
 #endif
 
-        unaligned_write_be16(&duid->type, DUID_TYPE_EN);
-        unaligned_write_be32(&duid->en.pen, SYSTEMD_PEN);
-
-        *len = sizeof(duid->type) + sizeof(duid->en);
+        unaligned_write_be16(&ret_duid->type, DUID_TYPE_EN);
+        unaligned_write_be32(&ret_duid->en.pen, SYSTEMD_PEN);
 
         /* a bit of snake-oil perhaps, but no need to expose the machine-id
          * directly; duid->en.id might not be aligned, so we need to copy */
         hash = htole64(siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
-        memcpy(duid->en.id, &hash, sizeof(duid->en.id));
+        memcpy(ret_duid->en.id, &hash, sizeof(ret_duid->en.id));
+
+        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->en);
 
         return 0;
 }
 
-int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len) {
+static int dhcp_identifier_set_duid_uuid(struct duid *ret_duid, size_t *ret_len) {
         sd_id128_t machine_id;
         int r;
 
-        assert(duid);
-        assert(len);
+        assert(ret_duid);
+        assert(ret_len);
 
         r = sd_id128_get_machine_app_specific(APPLICATION_ID, &machine_id);
         if (r < 0)
                 return r;
 
-        unaligned_write_be16(&duid->type, DUID_TYPE_UUID);
-        memcpy(&duid->raw.data, &machine_id, sizeof(machine_id));
+        unaligned_write_be16(&ret_duid->type, DUID_TYPE_UUID);
+        memcpy(ret_duid->raw.data, &machine_id, sizeof(machine_id));
 
-        *len = sizeof(duid->type) + sizeof(machine_id);
+        *ret_len = sizeof(ret_duid->type) + sizeof(machine_id);
 
         return 0;
+}
+
+int dhcp_identifier_set_duid(
+                DUIDType duid_type,
+                const uint8_t *addr,
+                size_t addr_len,
+                uint16_t arp_type,
+                usec_t llt_time,
+                struct duid *ret_duid,
+                size_t *ret_len) {
+
+        switch (duid_type) {
+        case DUID_TYPE_LLT:
+                return dhcp_identifier_set_duid_llt(addr, addr_len, arp_type, llt_time, ret_duid, ret_len);
+        case DUID_TYPE_EN:
+                return dhcp_identifier_set_duid_en(ret_duid, ret_len);
+        case DUID_TYPE_LL:
+                return dhcp_identifier_set_duid_ll(addr, addr_len, arp_type, ret_duid, ret_len);
+        case DUID_TYPE_UUID:
+                return dhcp_identifier_set_duid_uuid(ret_duid, ret_len);
+        default:
+                return -EINVAL;
+        }
 }
 
 int dhcp_identifier_set_iaid(
@@ -167,7 +196,7 @@ int dhcp_identifier_set_iaid(
                 size_t mac_len,
                 bool legacy_unstable_byteorder,
                 bool use_mac,
-                void *_id) {
+                void *ret) {
 
         /* name is a pointer to memory in the sd_device struct, so must
          * have the same scope */
@@ -219,6 +248,6 @@ int dhcp_identifier_set_iaid(
                  * behavior. */
                 id32 = be32toh(id32);
 
-        unaligned_write_ne32(_id, id32);
+        unaligned_write_ne32(ret, id32);
         return 0;
 }
