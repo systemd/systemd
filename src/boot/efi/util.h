@@ -86,6 +86,11 @@ static inline void file_closep(EFI_FILE **handle) {
         (*handle)->Close(*handle);
 }
 
+static inline void unload_imagep(EFI_HANDLE *image) {
+        if (*image)
+                (void) BS->UnloadImage(*image);
+}
+
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
