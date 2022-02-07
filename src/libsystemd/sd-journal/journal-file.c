@@ -2224,6 +2224,24 @@ static int generic_array_get(
 
         while (a > 0) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* If there's corruption and we're going downwards, let's pretend we reached the
+                         * final entry in the entry array chain. */
+
+                        if (direction == DIRECTION_DOWN)
+                                return 0;
+
+                        /* If there's corruption and we're going upwards, move back to the previous entry
+                         * array and start iterating entries from there. */
+
+                        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+                        if (r < 0)
+                                return r;
+
+                        i = UINT64_MAX;
+
+                        break;
+                }
                 if (r < 0)
                         return r;
 
