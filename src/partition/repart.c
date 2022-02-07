@@ -195,6 +195,8 @@ struct Context {
         uint64_t start, end, total;
 
         struct fdisk_context *fdisk_context;
+        uint64_t sector_size;
+        uint64_t grain_size;
 
         sd_id128_t seed;
 };
@@ -407,8 +409,11 @@ static bool context_drop_one_priority(Context *context) {
         return true;
 }
 
-static uint64_t partition_min_size(const Partition *p) {
+static uint64_t partition_min_size(Context *context, const Partition *p) {
         uint64_t sz;
+
+        assert(context);
+        assert(p);
 
         /* Calculate the disk space we really need at minimum for this partition. If the partition already
          * exists the current size is what we really need. If it doesn't exist yet refuse to allocate less
@@ -428,29 +433,34 @@ static uint64_t partition_min_size(const Partition *p) {
                 uint64_t d = 0;
 
                 if (p->encrypt != ENCRYPT_OFF)
-                        d += round_up_size(LUKS2_METADATA_SIZE, 4096);
+                        d += round_up_size(LUKS2_METADATA_SIZE, context->grain_size);
 
                 if (p->copy_blocks_size != UINT64_MAX)
-                        d += round_up_size(p->copy_blocks_size, 4096);
+                        d += round_up_size(p->copy_blocks_size, context->grain_size);
                 else if (p->format || p->encrypt != ENCRYPT_OFF) {
                         uint64_t f;
 
                         /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
-                        f = p->format ? minimal_size_by_fs_name(p->format) : UINT64_MAX;
-                        d += f == UINT64_MAX ? 4096 : f;
+                        f = p->format ? round_up_size(minimal_size_by_fs_name(p->format), context->grain_size) : UINT64_MAX;
+                        d += f == UINT64_MAX ? context->grain_size : f;
                 }
 
                 if (d > sz)
                         sz = d;
         }
 
-        return MAX(p->size_min != UINT64_MAX ? p->size_min : DEFAULT_MIN_SIZE, sz);
+        return MAX(round_up_size(p->size_min != UINT64_MAX ? p->size_min : DEFAULT_MIN_SIZE, context->grain_size), sz);
 }
 
-static uint64_t partition_max_size(const Partition *p) {
+static uint64_t partition_max_size(const Context *context, const Partition *p) {
+        uint64_t sm;
+
         /* Calculate how large the partition may become at max. This is generally the configured maximum
          * size, except when it already exists and is larger than that. In that case it's the existing size,
          * since we never want to shrink partitions. */
+
+        assert(context);
+        assert(p);
 
         if (PARTITION_IS_FOREIGN(p)) {
                 /* Don't allow changing size of partitions not managed by us */
@@ -458,20 +468,25 @@ static uint64_t partition_max_size(const Partition *p) {
                 return p->current_size;
         }
 
-        if (p->current_size != UINT64_MAX)
-                return MAX(p->current_size, p->size_max);
+        sm = round_down_size(p->size_max, context->grain_size);
 
-        return p->size_max;
+        if (p->current_size != UINT64_MAX)
+                return MAX(p->current_size, sm);
+
+        return sm;
 }
 
-static uint64_t partition_min_size_with_padding(const Partition *p) {
+static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
         uint64_t sz;
 
         /* Calculate the disk space we need for this partition plus any free space coming after it. This
          * takes user configured padding into account as well as any additional whitespace needed to align
          * the next partition to 4K again. */
 
-        sz = partition_min_size(p);
+        assert(context);
+        assert(p);
+
+        sz = partition_min_size(context, p);
 
         if (p->padding_min != UINT64_MAX)
                 sz += p->padding_min;
@@ -479,11 +494,11 @@ static uint64_t partition_min_size_with_padding(const Partition *p) {
         if (PARTITION_EXISTS(p)) {
                 /* If the partition wasn't aligned, add extra space so that any we might add will be aligned */
                 assert(p->offset != UINT64_MAX);
-                return round_up_size(p->offset + sz, 4096) - p->offset;
+                return round_up_size(p->offset + sz, context->grain_size) - p->offset;
         }
 
         /* If this is a new partition we'll place it aligned, hence we just need to round up the required size here */
-        return round_up_size(sz, 4096);
+        return round_up_size(sz, context->grain_size);
 }
 
 static uint64_t free_area_available(const FreeArea *a) {
@@ -495,8 +510,11 @@ static uint64_t free_area_available(const FreeArea *a) {
         return a->size - a->allocated;
 }
 
-static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
+static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
         uint64_t avail;
+
+        assert(context);
+        assert(a);
 
         /* Similar to free_area_available(), but takes into account that the required size and padding of the
          * preceding partition is honoured. */
@@ -505,16 +523,16 @@ static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
         if (a->after) {
                 uint64_t need, space_end, new_end;
 
-                need = partition_min_size_with_padding(a->after);
+                need = partition_min_size_with_padding(context, a->after);
 
                 assert(a->after->offset != UINT64_MAX);
                 assert(a->after->current_size != UINT64_MAX);
 
                 /* Calculate where the free area ends, based on the offset of the partition preceding it */
-                space_end = round_up_size(a->after->offset + a->after->current_size, 4096) + avail;
+                space_end = round_up_size(a->after->offset + a->after->current_size, context->grain_size) + avail;
 
                 /* Calculate where the partition would end when we give it as much as it needs */
-                new_end = round_up_size(a->after->offset + need, 4096);
+                new_end = round_up_size(a->after->offset + need, context->grain_size);
 
                 /* Calculate saturated difference of the two: that's how much we have free for other partitions */
                 return LESS_BY(space_end, new_end);
@@ -523,15 +541,18 @@ static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
         return avail;
 }
 
-static int free_area_compare(FreeArea *const *a, FreeArea *const*b) {
-        return CMP(free_area_available_for_new_partitions(*a),
-                   free_area_available_for_new_partitions(*b));
+static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *context) {
+        assert(context);
+
+        return CMP(free_area_available_for_new_partitions(context, *a),
+                   free_area_available_for_new_partitions(context, *b));
 }
 
-static uint64_t charge_size(uint64_t total, uint64_t amount) {
+static uint64_t charge_size(Context *context, uint64_t total, uint64_t amount) {
+        assert(context);
         /* Subtract the specified amount from total, rounding up to multiple of 4K if there's room */
         assert(amount <= total);
-        return LESS_BY(total, round_up_size(amount, 4096));
+        return LESS_BY(total, round_up_size(amount, context->grain_size));
 }
 
 static uint64_t charge_weight(uint64_t total, uint64_t amount) {
@@ -545,14 +566,14 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
         assert(context);
 
         /* Sort free areas by size, putting smallest first */
-        typesafe_qsort(context->free_areas, context->n_free_areas, free_area_compare);
+        typesafe_qsort_r(context->free_areas, context->n_free_areas, free_area_compare, context);
 
         /* In any case return size of the largest free area (i.e. not the size of all free areas
          * combined!) */
         if (ret_largest_free_area)
                 *ret_largest_free_area =
                         context->n_free_areas == 0 ? 0 :
-                        free_area_available_for_new_partitions(context->free_areas[context->n_free_areas-1]);
+                        free_area_available_for_new_partitions(context, context->free_areas[context->n_free_areas-1]);
 
         /* A simple first-fit algorithm. We return true if we can fit the partitions in, otherwise false. */
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -565,13 +586,13 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                         continue;
 
                 /* How much do we need to fit? */
-                required = partition_min_size_with_padding(p);
-                assert(required % 4096 == 0);
+                required = partition_min_size_with_padding(context, p);
+                assert(required % context->grain_size == 0);
 
                 for (size_t i = 0; i < context->n_free_areas; i++) {
                         a = context->free_areas[i];
 
-                        if (free_area_available_for_new_partitions(a) >= required) {
+                        if (free_area_available_for_new_partitions(context, a) >= required) {
                                 fits = true;
                                 break;
                         }
@@ -683,8 +704,8 @@ static int context_grow_partitions_phase(
                         if (r < 0)
                                 return r;
 
-                        rsz = partition_min_size(p);
-                        xsz = partition_max_size(p);
+                        rsz = partition_min_size(context, p);
+                        xsz = partition_max_size(context, p);
 
                         if (phase == PHASE_OVERCHARGE && rsz > share) {
                                 /* This partition needs more than its calculated share. Let's assign
@@ -712,13 +733,13 @@ static int context_grow_partitions_phase(
                                         /* Never change of foreign partitions (i.e. those we don't manage) */
                                         p->new_size = p->current_size;
                                 else
-                                        p->new_size = MAX(round_down_size(share, 4096), rsz);
+                                        p->new_size = MAX(round_down_size(share, context->grain_size), rsz);
 
                                 charge = true;
                         }
 
                         if (charge) {
-                                *span = charge_size(*span, p->new_size);
+                                *span = charge_size(context, *span, p->new_size);
                                 *weight_sum = charge_weight(*weight_sum, p->weight);
                         }
 
@@ -742,7 +763,7 @@ static int context_grow_partitions_phase(
                                 charge = try_again = true;
                         } else if (phase == PHASE_DISTRIBUTE) {
 
-                                p->new_padding = round_down_size(share, 4096);
+                                p->new_padding = round_down_size(share, context->grain_size);
                                 if (p->padding_min != UINT64_MAX && p->new_padding < p->padding_min)
                                         p->new_padding = p->padding_min;
 
@@ -750,7 +771,7 @@ static int context_grow_partitions_phase(
                         }
 
                         if (charge) {
-                                *span = charge_size(*span, p->new_padding);
+                                *span = charge_size(context, *span, p->new_padding);
                                 *weight_sum = charge_weight(*weight_sum, p->padding_weight);
                         }
 
@@ -779,7 +800,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 assert(a->after->offset != UINT64_MAX);
                 assert(a->after->current_size != UINT64_MAX);
 
-                span += round_up_size(a->after->offset + a->after->current_size, 4096) - a->after->offset;
+                span += round_up_size(a->after->offset + a->after->current_size, context->grain_size) - a->after->offset;
         }
 
         for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;) {
@@ -799,13 +820,13 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 assert(a->after->new_size != UINT64_MAX);
 
                 /* Calculate new size and align (but ensure this doesn't shrink the size) */
-                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, 4096));
+                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, context->grain_size));
 
-                xsz = partition_max_size(a->after);
+                xsz = partition_max_size(context, a->after);
                 if (xsz != UINT64_MAX && m > xsz)
                         m = xsz;
 
-                span = charge_size(span, m - a->after->new_size);
+                span = charge_size(context, span, m - a->after->new_size);
                 a->after->new_size = m;
         }
 
@@ -824,13 +845,13 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                                 continue;
 
                         assert(p->new_size != UINT64_MAX);
-                        m = MAX(p->new_size, round_down_size(p->new_size + span, 4096));
+                        m = MAX(p->new_size, round_down_size(p->new_size + span, context->grain_size));
 
-                        xsz = partition_max_size(p);
+                        xsz = partition_max_size(context, p);
                         if (xsz != UINT64_MAX && m > xsz)
                                 m = xsz;
 
-                        span = charge_size(span, m - p->new_size);
+                        span = charge_size(context, span, m - p->new_size);
                         p->new_size = m;
 
                         if (span == 0)
@@ -910,7 +931,7 @@ static void context_place_partitions(Context *context) {
                 } else
                         start = context->start;
 
-                start = round_up_size(start, 4096);
+                start = round_up_size(start, context->grain_size);
                 left = a->size;
 
                 LIST_FOREACH(partitions, p, context->partitions) {
@@ -1422,6 +1443,8 @@ static int determine_current_padding(
                 struct fdisk_context *c,
                 struct fdisk_table *t,
                 struct fdisk_partition *p,
+                uint64_t secsz,
+                uint64_t grainsz,
                 uint64_t *ret) {
 
         size_t n_partitions;
@@ -1435,8 +1458,8 @@ static int determine_current_padding(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
 
         offset = fdisk_partition_get_end(p);
-        assert(offset < UINT64_MAX / 512);
-        offset *= 512;
+        assert(offset < UINT64_MAX / secsz);
+        offset *= secsz;
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
@@ -1454,8 +1477,8 @@ static int determine_current_padding(
                         continue;
 
                 start = fdisk_partition_get_start(q);
-                assert(start < UINT64_MAX / 512);
-                start *= 512;
+                assert(start < UINT64_MAX / secsz);
+                start *= secsz;
 
                 if (start >= offset && (next == UINT64_MAX || next > start))
                         next = start;
@@ -1467,16 +1490,16 @@ static int determine_current_padding(
                 assert(next < UINT64_MAX);
                 next++; /* The last LBA is one sector before the end */
 
-                assert(next < UINT64_MAX / 512);
-                next *= 512;
+                assert(next < UINT64_MAX / secsz);
+                next *= secsz;
 
                 if (offset > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
         }
 
         assert(next >= offset);
-        offset = round_up_size(offset, 4096);
-        next = round_down_size(next, 4096);
+        offset = round_up_size(offset, grainsz);
+        next = round_down_size(next, grainsz);
 
         *ret = LESS_BY(next, offset); /* Saturated subtraction, rounding might have fucked things up */
         return 0;
@@ -1549,6 +1572,8 @@ static int context_load_partition_table(
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
+        unsigned long secsz;
+        uint64_t grainsz;
         int r;
 
         assert(context);
@@ -1583,8 +1608,12 @@ static int context_load_partition_table(
                 if (r < 0)
                         return log_error_errno(errno, "Failed to stat block device '%s': %m", node);
 
-                if (S_ISREG(st.st_mode) && st.st_size == 0)
+                if (S_ISREG(st.st_mode) && st.st_size == 0) {
+                        /* User the fallback values if we have no better idea */
+                        context->sector_size = 512;
+                        context->grain_size = 4096;
                         return /* from_scratch = */ true;
+                }
 
                 r = -EINVAL;
         }
@@ -1601,6 +1630,23 @@ static int context_load_partition_table(
         /* Tell udev not to interfere while we are processing the device */
         if (flock(fdisk_get_devfd(c), arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
                 return log_error_errno(errno, "Failed to lock block device: %m");
+
+        /* The offsets/sizes libfdisk returns to us will be in multiple of the sector size of the
+         * device. This is typically 512, and sometimes 4096. Let's query libfdisk once for it, and then use
+         * it for all our needs. Note that the values we use ourselves always are in bytes though, thus mean
+         * the same thing universally. Also note that regardless what kind of sector size is in use we'll
+         * place partitions at multiples of 4K. */
+        secsz = fdisk_get_sector_size(c);
+
+        /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
+        if (secsz < 512 || secsz != 1UL << log2u64(secsz))
+                return log_error_errno(errno, "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
+
+        /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
+         * larger */
+        grainsz = secsz < 4096 ? 4096 : secsz;
+
+        log_debug("Sector size of device is %lu bytes. Using grain size of %" PRIu64 ".", secsz, grainsz);
 
         switch (arg_empty) {
 
@@ -1732,12 +1778,12 @@ static int context_load_partition_table(
                 }
 
                 sz = fdisk_partition_get_size(p);
-                assert_se(sz <= UINT64_MAX/512);
-                sz *= 512;
+                assert_se(sz <= UINT64_MAX/secsz);
+                sz *= secsz;
 
                 start = fdisk_partition_get_start(p);
-                assert_se(start <= UINT64_MAX/512);
-                start *= 512;
+                assert_se(start <= UINT64_MAX/secsz);
+                start *= secsz;
 
                 partno = fdisk_partition_get_partno(p);
 
@@ -1762,7 +1808,7 @@ static int context_load_partition_table(
                                 pp->current_partition = p;
                                 fdisk_ref_partition(p);
 
-                                r = determine_current_padding(c, t, p, &pp->current_padding);
+                                r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding);
                                 if (r < 0)
                                         return r;
 
@@ -1795,7 +1841,7 @@ static int context_load_partition_table(
                         np->current_partition = p;
                         fdisk_ref_partition(p);
 
-                        r = determine_current_padding(c, t, p, &np->current_padding);
+                        r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding);
                         if (r < 0)
                                 return r;
 
@@ -1812,26 +1858,26 @@ static int context_load_partition_table(
 
 add_initial_free_area:
         nsectors = fdisk_get_nsectors(c);
-        assert(nsectors <= UINT64_MAX/512);
-        nsectors *= 512;
+        assert(nsectors <= UINT64_MAX/secsz);
+        nsectors *= secsz;
 
         first_lba = fdisk_get_first_lba(c);
-        assert(first_lba <= UINT64_MAX/512);
-        first_lba *= 512;
+        assert(first_lba <= UINT64_MAX/secsz);
+        first_lba *= secsz;
 
         last_lba = fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
         last_lba++;
-        assert(last_lba <= UINT64_MAX/512);
-        last_lba *= 512;
+        assert(last_lba <= UINT64_MAX/secsz);
+        last_lba *= secsz;
 
         assert(last_lba >= first_lba);
 
         if (left_boundary == UINT64_MAX) {
                 /* No partitions at all? Then the whole disk is up for grabs. */
 
-                first_lba = round_up_size(first_lba, 4096);
-                last_lba = round_down_size(last_lba, 4096);
+                first_lba = round_up_size(first_lba, grainsz);
+                last_lba = round_down_size(last_lba, grainsz);
 
                 if (last_lba > first_lba) {
                         r = context_add_free_area(context, last_lba - first_lba, NULL);
@@ -1842,9 +1888,9 @@ add_initial_free_area:
                 /* Add space left of first partition */
                 assert(left_boundary >= first_lba);
 
-                first_lba = round_up_size(first_lba, 4096);
-                left_boundary = round_down_size(left_boundary, 4096);
-                last_lba = round_down_size(last_lba, 4096);
+                first_lba = round_up_size(first_lba, grainsz);
+                left_boundary = round_down_size(left_boundary, grainsz);
+                last_lba = round_down_size(last_lba, grainsz);
 
                 if (left_boundary > first_lba) {
                         r = context_add_free_area(context, left_boundary - first_lba, NULL);
@@ -1856,6 +1902,8 @@ add_initial_free_area:
         context->start = first_lba;
         context->end = last_lba;
         context->total = nsectors;
+        context->sector_size = secsz;
+        context->grain_size = grainsz;
         context->fdisk_context = TAKE_PTR(c);
 
         return from_scratch;
@@ -2360,7 +2408,7 @@ static int context_discard_range(
         if (S_ISBLK(st.st_mode)) {
                 uint64_t range[2], end;
 
-                range[0] = round_up_size(offset, 512);
+                range[0] = round_up_size(offset, context->sector_size);
 
                 if (offset > UINT64_MAX - size)
                         return -ERANGE;
@@ -2369,7 +2417,7 @@ static int context_discard_range(
                 if (end <= range[0])
                         return 0;
 
-                range[1] = round_down_size(end - range[0], 512);
+                range[1] = round_down_size(end - range[0], context->sector_size);
                 if (range[1] <= 0)
                         return 0;
 
@@ -2519,6 +2567,7 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
 }
 
 static int partition_encrypt(
+                Context *context,
                 Partition *p,
                 const char *node,
                 struct crypt_device **ret_cd,
@@ -2532,6 +2581,7 @@ static int partition_encrypt(
         sd_id128_t uuid;
         int r;
 
+        assert(context);
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
@@ -2579,7 +2629,7 @@ static int partition_encrypt(
                          volume_key_size,
                          &(struct crypt_params_luks2) {
                                  .label = strempty(p->new_label),
-                                 .sector_size = 512U,
+                                 .sector_size = context->sector_size,
                          });
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
@@ -2735,7 +2785,7 @@ static int context_copy_blocks(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to lock loopback device: %m");
 
-                        r = partition_encrypt(p, d->node, &cd, &encrypted, &encrypted_dev_fd);
+                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
 
@@ -2988,7 +3038,7 @@ static int context_mkfs(Context *context) {
                         return log_error_errno(r, "Failed to lock loopback device: %m");
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(p, d->node, &cd, &encrypted, &encrypted_dev_fd);
+                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
 
@@ -3307,13 +3357,13 @@ static int context_mangle_partitions(Context *context) {
 
                         if (p->new_size != p->current_size) {
                                 assert(p->new_size >= p->current_size);
-                                assert(p->new_size % 512 == 0);
+                                assert(p->new_size % context->sector_size == 0);
 
                                 r = fdisk_partition_size_explicit(p->current_partition, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                                r = fdisk_partition_set_size(p->current_partition, p->new_size / 512);
+                                r = fdisk_partition_set_size(p->current_partition, p->new_size / context->sector_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to grow partition: %m");
 
@@ -3353,8 +3403,8 @@ static int context_mangle_partitions(Context *context) {
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
 
                         assert(!p->new_partition);
-                        assert(p->offset % 512 == 0);
-                        assert(p->new_size % 512 == 0);
+                        assert(p->offset % context->sector_size == 0);
+                        assert(p->new_size % context->sector_size == 0);
                         assert(!sd_id128_is_null(p->new_uuid));
                         assert(p->new_label);
 
@@ -3378,11 +3428,11 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                        r = fdisk_partition_set_start(q, p->offset / 512);
+                        r = fdisk_partition_set_start(q, p->offset / context->sector_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to position partition: %m");
 
-                        r = fdisk_partition_set_size(q, p->new_size / 512);
+                        r = fdisk_partition_set_size(q, p->new_size / context->sector_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to grow partition: %m");
 
@@ -4746,10 +4796,12 @@ done:
 }
 
 static int determine_auto_size(Context *c) {
-        uint64_t sum = round_up_size(GPT_METADATA_SIZE, 4096);
+        uint64_t sum;
         Partition *p;
 
         assert_se(c);
+
+        sum = round_up_size(GPT_METADATA_SIZE, 4096);
 
         LIST_FOREACH(partitions, p, c->partitions) {
                 uint64_t m;
@@ -4757,7 +4809,7 @@ static int determine_auto_size(Context *c) {
                 if (p->dropped)
                         continue;
 
-                m = partition_min_size_with_padding(p);
+                m = partition_min_size_with_padding(c, p);
                 if (m > UINT64_MAX - sum)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Image would grow too large, refusing.");
 
