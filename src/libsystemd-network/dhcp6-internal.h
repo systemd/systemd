@@ -173,6 +173,7 @@ const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
 DHCP6Status dhcp6_message_status_from_string(const char *s) _pure_;
 
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
+int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \

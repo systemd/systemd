@@ -592,10 +592,13 @@ int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client, int request) {
         return 0;
 }
 
-int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id) {
-        assert_return(client, -EINVAL);
+int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id) {
+        assert(client);
+        assert(client->test_mode);
 
-        client->transaction_id = transaction_id;
+        /* This is for tests or fuzzers. */
+
+        client->transaction_id = transaction_id & htobe32(0x00ffffff);
 
         return 0;
 }

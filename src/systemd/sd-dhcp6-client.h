@@ -260,8 +260,6 @@ int sd_dhcp6_client_get_address_request(sd_dhcp6_client *client,
                                         int *request);
 int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client,
                                         int request);
-int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client,
-                                       uint32_t transaction_id);
 int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client,
                                       sd_dhcp6_option *v);
 
