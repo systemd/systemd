@@ -492,7 +492,8 @@ static int dhcp_client_set_iaid_duid_internal(
 
         } else {
                 r = dhcp_identifier_set_duid(duid_type, client->mac_addr, client->mac_addr_len,
-                                             client->arp_type, llt_time, &client->client_id.ns.duid, &len);
+                                             client->arp_type, llt_time, client->test_mode,
+                                             &client->client_id.ns.duid, &len);
                 if (r == -EOPNOTSUPP)
                         return log_dhcp_client_errno(client, r,
                                                      "Failed to set %s. MAC address is not set or "
@@ -858,7 +859,7 @@ static int client_message_init(
                 if (r < 0)
                         return r;
 
-                r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &duid_len);
+                r = dhcp_identifier_set_duid_en(client->test_mode, &client->client_id.ns.duid, &duid_len);
                 if (r < 0)
                         return r;
 
