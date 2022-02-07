@@ -39,7 +39,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_set_information_request(client, false) == 0);
         dhcp6_client_set_test_mode(client, true);
         assert_se(sd_dhcp6_client_start(client) >= 0);
-        assert_se(sd_dhcp6_client_set_transaction_id(client, htobe32(0x00ffffff) & ((const DHCP6Message *) data)->transaction_id) == 0);
+        assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message *) data)->transaction_id) == 0);
 
         r = client_process_advertise_or_rapid_commit_reply(client, (DHCP6Message *) data, size, NULL, NULL);
         if (r < 0)
