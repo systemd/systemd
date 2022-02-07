@@ -630,7 +630,12 @@ static int dhcp6_lease_parse_message(
                                               "The client ID in %s message does not match. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
-        if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
+        if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
+                client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
+                log_dhcp6_client(client, "New information request will be refused in %s.",
+                                 FORMAT_TIMESPAN(client->information_refresh_time_usec, USEC_PER_SEC));
+
+        } else {
                 r = dhcp6_lease_get_serverid(lease, NULL, NULL);
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
@@ -642,8 +647,6 @@ static int dhcp6_lease_parse_message(
 
                 dhcp6_lease_set_lifetime(lease);
         }
-
-        client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
 
         return 0;
 }
