@@ -137,17 +137,17 @@ static int open_watchdog(void) {
         if (r < 0)
                 return log_oom_debug();
 
-        watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
+        watchdog_fd = open(watchdog_device, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
-                return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
+                return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", watchdog_device);
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
-                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", fn);
+                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);
         else
                 log_info("Using hardware watchdog '%s', version %x, device %s",
                          ident.identity,
                          ident.firmware_version,
-                         fn);
+                         watchdog_device);
 
         r = update_timeout();
         if (r < 0)
