@@ -48,8 +48,14 @@
 #include "uid-alloc-range.h"
 #include "user-util.h"
 
-/* The maximum size up to which we process coredumps */
-#define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))
+/* The maximum size up to which we process coredumps. We use 1G on 32bit systems, and 32G on 64bit systems */
+#if __SIZEOF_POINTER__ == 4
+#define PROCESS_SIZE_MAX ((uint64_t) (1LLU*1024LLU*1024LLU*1024LLU))
+#elif __SIZEOF_POINTER__ == 8
+#define PROCESS_SIZE_MAX ((uint64_t) (32LLU*1024LLU*1024LLU*1024LLU))
+#else
+#error "Unexpected pointer size"
+#endif
 
 /* The maximum size up to which we leave the coredump around on disk */
 #define EXTERNAL_SIZE_MAX PROCESS_SIZE_MAX
