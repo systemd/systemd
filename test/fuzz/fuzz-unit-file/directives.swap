@@ -103,6 +103,7 @@ MemoryLow=
 MemoryMax=
 MemoryMin=
 MemorySwapMax=
+MemoryZSwapMax=
 MountAPIVFS=
 MountFlags=
 MountImages=
