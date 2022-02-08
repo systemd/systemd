@@ -12,6 +12,7 @@
 #include "drivers.h"
 #include "efivars-fundamental.h"
 #include "graphics.h"
+#include "initrd.h"
 #include "linux.h"
 #include "measure.h"
 #include "pe.h"
@@ -61,6 +62,7 @@ typedef struct {
         CHAR16 *loader;
         CHAR16 *devicetree;
         CHAR16 *options;
+        CHAR16 **initrd;
         CHAR16 key;
         EFI_STATUS (*call)(void);
         UINTN tries_done;
@@ -559,6 +561,8 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 if (entry->device)
                     Print(L"        device: %D\n", DevicePathFromHandle(entry->device));
                 ps_string(L"        loader: %s\n", entry->loader);
+                STRV_FOREACH(initrd, entry->initrd)
+                    Print(L"        initrd: %s\n", *initrd);
                 ps_string(L"    devicetree: %s\n", entry->devicetree);
                 ps_string(L"       options: %s\n", entry->options);
                   ps_bool(L" internal call: %s\n", !!entry->call);
@@ -1055,6 +1059,7 @@ static void config_entry_free(ConfigEntry *entry) {
         FreePool(entry->loader);
         FreePool(entry->devicetree);
         FreePool(entry->options);
+        strv_free(entry->initrd);
         FreePool(entry->path);
         FreePool(entry->current_name);
         FreePool(entry->next_name);
@@ -1427,10 +1432,9 @@ static void config_entry_add_from_file(
 
         _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
         CHAR8 *line;
-        UINTN pos = 0;
+        UINTN pos = 0, n_initrd = 0;
         CHAR8 *key, *value;
         EFI_STATUS err;
-        _cleanup_freepool_ CHAR16 *initrd = NULL;
 
         assert(config);
         assert(device);
@@ -1507,18 +1511,12 @@ static void config_entry_add_from_file(
                 }
 
                 if (strcmpa((CHAR8 *)"initrd", key) == 0) {
-                        _cleanup_freepool_ CHAR16 *new = NULL;
-
-                        new = xstra_to_path(value);
-                        if (initrd) {
-                                CHAR16 *s;
-
-                                s = xpool_print(L"%s initrd=%s", initrd, new);
-                                FreePool(initrd);
-                                initrd = s;
-                        } else
-                                initrd = xpool_print(L"initrd=%s", new);
-
+                        entry->initrd = xreallocate_pool(
+                                entry->initrd,
+                                n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(UINT16 *),
+                                (n_initrd + 2) * sizeof(UINT16 *));
+                        entry->initrd[n_initrd++] = xstra_to_path(value);
+                        entry->initrd[n_initrd] = NULL;
                         continue;
                 }
 
@@ -1547,18 +1545,6 @@ static void config_entry_add_from_file(
         err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return;
-
-        /* add initrd= to options */
-        if (entry->type == LOADER_LINUX && initrd) {
-                if (entry->options) {
-                        CHAR16 *s;
-
-                        s = xpool_print(L"%s %s", initrd, entry->options);
-                        FreePool(entry->options);
-                        entry->options = s;
-                } else
-                        entry->options = TAKE_PTR(initrd);
-        }
 
         entry->device = device;
         entry->id = xstrdup(file);
@@ -2313,6 +2299,41 @@ static void config_load_xbootldr(
         config_load_entries(config, new_device, root_dir, NULL);
 }
 
+static EFI_STATUS initrd_prepare(
+                EFI_FILE *root,
+                const ConfigEntry *entry,
+                CHAR16 **ret_options) {
+
+        assert(root);
+        assert(entry);
+        assert(ret_options);
+
+        if (entry->type != LOADER_LINUX || !entry->initrd) {
+                ret_options = NULL;
+                return EFI_SUCCESS;
+        }
+
+        /* Add initrd= to options for older kernels that do not support LINUX_INITRD_MEDIA. Should be dropped
+         * if linux_x86.c is dropped. */
+        _cleanup_freepool_ CHAR16 *options = NULL;
+
+        STRV_FOREACH(i, entry->initrd) {
+                _cleanup_freepool_ CHAR16 *o = options;
+                if (o)
+                        options = xpool_print(L"%s initrd=%s", o, *i);
+                else
+                        options = xpool_print(L"initrd=%s", *i);
+        }
+
+        if (entry->options) {
+                _cleanup_freepool_ CHAR16 *o = options;
+                options = xpool_print(L"%s %s", o, entry->options);
+        }
+
+        *ret_options = TAKE_PTR(options);
+        return EFI_SUCCESS;
+}
+
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
                 const ConfigEntry *entry) {
@@ -2336,6 +2357,11 @@ static EFI_STATUS image_start(
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
 
+        _cleanup_freepool_ CHAR16 *options_initrd = NULL;
+        err = initrd_prepare(image_root, entry, &options_initrd);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error preparing initrd: %r", err);
+
         err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
@@ -2346,18 +2372,19 @@ static EFI_STATUS image_start(
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
 
-        if (entry->options) {
+        CHAR16 *options = options_initrd ?: entry->options;
+        if (options) {
                 EFI_LOADED_IMAGE *loaded_image;
 
                 err = BS->OpenProtocol(image, &LoadedImageProtocol, (void **)&loaded_image,
                                        parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
-                loaded_image->LoadOptions = entry->options;
-                loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
+                loaded_image->LoadOptions = options;
+                loaded_image->LoadOptionsSize = StrSize(options);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (void) tpm_log_load_options(entry->options);
+                (void) tpm_log_load_options(options);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
