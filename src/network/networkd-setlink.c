@@ -228,23 +228,7 @@ static int link_configure_fill_message(
 
         switch (op) {
         case SET_LINK_ADDRESS_GENERATION_MODE:
-                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_open_container(req, AF_INET6);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, PTR_TO_UINT8(userdata));
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_close_container(req);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_close_container(req);
+                r = ipv6ll_addrgen_mode_fill_message(req, PTR_TO_UINT8(userdata));
                 if (r < 0)
                         return r;
                 break;
@@ -695,8 +679,8 @@ static int link_request_set_link(
 }
 
 int link_request_to_set_addrgen_mode(Link *link) {
+        IPv6LinkLocalAddressGenMode mode;
         Request *req;
-        uint8_t mode;
         int r;
 
         assert(link);
@@ -705,14 +689,7 @@ int link_request_to_set_addrgen_mode(Link *link) {
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        if (!link_ipv6ll_enabled(link))
-                mode = IN6_ADDR_GEN_MODE_NONE;
-        else if (link->network->ipv6ll_address_gen_mode >= 0)
-                mode = link->network->ipv6ll_address_gen_mode;
-        else if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
-                mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
-        else
-                mode = IN6_ADDR_GEN_MODE_EUI64;
+        mode = link_get_ipv6ll_addrgen_mode(link);
 
         r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
         if (r < 0)
