@@ -130,26 +130,8 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool mapping_matches(MMapMapping *m, uint64_t offset, size_t size) {
-        assert(m);
-        assert(size > 0);
-
-        return
-                offset >= m->offset &&
-                offset + size <= m->offset + m->size;
-}
-
-_pure_ static bool mapping_matches_fd(MMapMapping *m, MMapFileDescriptor *f, uint64_t offset, size_t size) {
-        assert(m);
-        assert(f);
-
-        return
-                m->fd == f &&
-                mapping_matches(m, offset, size);
-}
-
 _pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
-        return mapping_matches(&w->mapping, offset, size);
+        return mmap_mapping_matches(&w->mapping, offset, size);
 }
 
 static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always, uint64_t offset, size_t size, void *ptr) {
@@ -393,7 +375,7 @@ outofmem:
         return -ENOMEM;
 }
 
-static int mmap_cache_fd_get_slow(
+int mmap_cache_fd_get_slow(
                 MMapFileDescriptor *f,
                 unsigned context,
                 bool keep_always,
@@ -426,40 +408,6 @@ static int mmap_cache_fd_get_slow(
 
         /* Create a new mmap */
         return add_mmap(f, c, keep_always, offset, size, st, ret);
-}
-
-int mmap_cache_fd_get(
-                MMapFileDescriptor *f,
-                unsigned context,
-                bool keep_always,
-                uint64_t offset,
-                size_t size,
-                struct stat *st,
-                void **ret) {
-
-        MMapContextCache *cc;
-        MMapContext *c;
-
-        assert(f);
-        assert(size > 0);
-        assert(ret);
-        assert(context < MMAP_CACHE_MAX_CONTEXTS);
-
-        cc = *((MMapContextCache **)f);
-        assert(cc);
-
-        /* Check whether the current context is the right one already */
-        c = &cc->contexts[context];
-        if (c->mapping && mapping_matches_fd(c->mapping, f, offset, size)) {
-                c->mapping->keep_always = c->mapping->keep_always || keep_always;
-
-                *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
-                cc->n_context_cache_hit++;
-
-                return 1;
-        }
-
-        return mmap_cache_fd_get_slow(f, context, keep_always, offset, size, st, ret);
 }
 
 void mmap_cache_stats_log_debug(MMapCache *m) {
