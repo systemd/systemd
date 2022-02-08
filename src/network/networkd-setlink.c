@@ -691,6 +691,9 @@ int link_request_to_set_addrgen_mode(Link *link) {
 
         mode = link_get_ipv6ll_addrgen_mode(link);
 
+        if (mode == link->ipv6ll_address_gen_mode)
+                return 0;
+
         r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
         if (r < 0)
                 return r;
