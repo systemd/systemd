@@ -4,11 +4,35 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
+#include "list.h"
+
 /* One context per object type, plus one of the header, plus one "additional" one */
 #define MMAP_CACHE_MAX_CONTEXTS 9
 
 typedef struct MMapCache MMapCache;
 typedef struct MMapFileDescriptor MMapFileDescriptor;
+typedef struct MMapContext MMapContext;
+typedef struct MMapContextCache MMapContextCache;
+typedef struct MMapMapping MMapMapping;
+
+struct MMapMapping {
+        MMapFileDescriptor *fd;
+        uint64_t offset;
+        size_t size;
+        void *ptr;
+        bool keep_always:1;
+};
+
+struct MMapContext {
+        MMapMapping *mapping;
+
+        LIST_FIELDS(MMapContext, by_window);
+};
+
+struct MMapContextCache {
+        MMapContext contexts[MMAP_CACHE_MAX_CONTEXTS];
+        unsigned n_context_cache_hit;
+};
 
 MMapCache* mmap_cache_new(void);
 MMapCache* mmap_cache_ref(MMapCache *m);
