@@ -3967,12 +3967,14 @@ run_target(
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
-custom_target(
-        'export-dbus-interfaces',
-        output : dbus_interfaces_dir_name,
-        install : dbus_interfaces_dir != 'no',
-        install_dir : dbus_interfaces_dir_parent,
-        command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
+if not meson.is_cross_build()
+        custom_target(
+                'export-dbus-interfaces',
+                output : dbus_interfaces_dir_name,
+                install : dbus_interfaces_dir != 'no',
+                install_dir : dbus_interfaces_dir_parent,
+                command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
+endif
 
 ############################################################
 
