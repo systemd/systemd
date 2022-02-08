@@ -40,6 +40,10 @@ static UINT64 ticks_freq(void) {
 /* count TSC ticks during a millisecond delay */
 static UINT64 ticks_freq(void) {
         UINT64 ticks_start, ticks_end;
+        static UINT64 cache = 0;
+
+        if (cache != 0)
+                return cache;
 
         ticks_start = ticks_read();
         BS->Stall(1000);
@@ -49,23 +53,21 @@ static UINT64 ticks_freq(void) {
                                       * archs the value is 32bit) */
                 return 0;
 
-        return (ticks_end - ticks_start) * 1000UL;
+        cache = (ticks_end - ticks_start) * 1000UL;
+        return cache;
 }
 #endif
 
 UINT64 time_usec(void) {
-        UINT64 ticks;
-        static UINT64 freq;
+        UINT64 ticks, freq;
 
         ticks = ticks_read();
         if (ticks == 0)
                 return 0;
 
-        if (freq == 0) {
-                freq = ticks_freq();
-                if (freq == 0)
-                        return 0;
-        }
+        freq = ticks_freq();
+        if (freq == 0)
+                return 0;
 
         return 1000UL * 1000UL * ticks / freq;
 }
