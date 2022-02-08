@@ -16,17 +16,6 @@
 #include "sigbus.h"
 
 typedef struct Window Window;
-typedef struct MMapContext MMapContext;
-typedef struct MMapContextCache MMapContextCache;
-typedef struct MMapMapping MMapMapping;
-
-struct MMapMapping {
-        MMapFileDescriptor *fd;
-        uint64_t offset;
-        size_t size;
-        void *ptr;
-        bool keep_always:1;
-};
 
 struct Window {
         MMapMapping mapping; /* XXX: this must stay first member */
@@ -40,17 +29,6 @@ struct Window {
         LIST_FIELDS(Window, unused);
 
         LIST_HEAD(MMapContext, contexts);
-};
-
-struct MMapContext {
-        MMapMapping *mapping;
-
-        LIST_FIELDS(MMapContext, by_window);
-};
-
-struct MMapContextCache {
-        MMapContext contexts[MMAP_CACHE_MAX_CONTEXTS];
-        unsigned n_context_cache_hit;
 };
 
 struct MMapFileDescriptor {
