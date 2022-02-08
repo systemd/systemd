@@ -304,24 +304,9 @@ int logind_schedule_shutdown(void) {
         if (r < 0)
                 return r;
 
-        switch (arg_action) {
-        case ACTION_HALT:
-                action = "halt";
-                break;
-        case ACTION_POWEROFF:
-                action = "poweroff";
-                break;
-        case ACTION_KEXEC:
-                action = "kexec";
-                break;
-        case ACTION_EXIT:
-                action = "exit";
-                break;
-        case ACTION_REBOOT:
-        default:
-                action = "reboot";
-                break;
-        }
+        action = action_table[arg_action].verb;
+        if (!action)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scheduling not supported for this action.");
 
         if (arg_dry_run)
                 action = strjoina("dry-", action);
