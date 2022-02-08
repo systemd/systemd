@@ -2514,7 +2514,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not process new link message for netdev, ignoring: %m");
+                                log_netdev_warning_errno(netdev, r, "Could not process new link message for netdev, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -2529,32 +2529,30 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
                         r = link_update(link, message);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not process link message: %m");
+                                log_link_warning_errno(link, r, "Could not process link message: %m");
                                 link_enter_failed(link);
                                 return 0;
                         }
 
                         r = link_check_initialized(link);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to check link is initialized: %m");
+                                log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
                                 link_enter_failed(link);
                                 return 0;
                         }
                 } else {
                         r = link_update(link, message);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not process link message: %m");
+                                log_link_warning_errno(link, r, "Could not process link message: %m");
                                 link_enter_failed(link);
                                 return 0;
                         }
                 }
-
                 break;
 
         case RTM_DELLINK:
                 link_drop(link);
                 netdev_drop(netdev);
-
                 break;
 
         default:
