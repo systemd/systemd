@@ -2316,6 +2316,10 @@ static int link_update(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
+        r = link_update_ipv6ll_addrgen_mode(link, message);
+        if (r < 0)
+                return r;
+
         return link_update_flags(link, message);
 }
 
@@ -2388,6 +2392,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),
                 .kind = TAKE_PTR(kind),
+
+                .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
                 .state_file = TAKE_PTR(state_file),
                 .lease_file = TAKE_PTR(lease_file),

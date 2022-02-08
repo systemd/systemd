@@ -118,6 +118,65 @@ int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalA
         return 0;
 }
 
+int link_update_ipv6ll_addrgen_mode(Link *link, sd_netlink_message *message) {
+        uint8_t mode;
+        int family, r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_rtnl_message_get_family(message, &family);
+        if (r < 0)
+                return r;
+
+        if (family != AF_UNSPEC)
+                return 0;
+
+        r = sd_netlink_message_enter_container(message, IFLA_AF_SPEC);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_enter_container(message, AF_INET6);
+        if (r == -ENODATA)
+                return sd_netlink_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        mode = (uint8_t) link->ipv6ll_address_gen_mode;
+        r = sd_netlink_message_read_u8(message, IFLA_INET6_ADDR_GEN_MODE, &mode);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_netlink_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (mode == (uint8_t) link->ipv6ll_address_gen_mode)
+                return 0;
+
+        if (mode >= _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX) {
+                log_link_debug(link, "Received invalid IPv6 link-local address generation mode (%u), ignoring.", mode);
+                return 0;
+        }
+
+        if (link->ipv6ll_address_gen_mode < 0)
+                log_link_debug(link, "Saved IPv6 link-local address generation mode: %s",
+                               ipv6_link_local_address_gen_mode_to_string(mode));
+        else
+                log_link_debug(link, "IPv6 link-local address generation mode is changed: %s -> %s",
+                               ipv6_link_local_address_gen_mode_to_string(link->ipv6ll_address_gen_mode),
+                               ipv6_link_local_address_gen_mode_to_string(mode));
+
+        link->ipv6ll_address_gen_mode = mode;
+        return 0;
+}
+
 static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
         [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64]          = "eui64",
         [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE]           = "none",
