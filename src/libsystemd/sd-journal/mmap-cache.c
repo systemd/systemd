@@ -16,11 +16,11 @@
 #include "sigbus.h"
 
 typedef struct Window Window;
-typedef struct Context Context;
-typedef struct ContextCache ContextCache;
-typedef struct Mapping Mapping;
+typedef struct MMapContext MMapContext;
+typedef struct MMapContextCache MMapContextCache;
+typedef struct MMapMapping MMapMapping;
 
-struct Mapping {
+struct MMapMapping {
         MMapFileDescriptor *fd;
         uint64_t offset;
         size_t size;
@@ -29,7 +29,7 @@ struct Mapping {
 };
 
 struct Window {
-        Mapping mapping; /* XXX: this must stay first member */
+        MMapMapping mapping; /* XXX: this must stay first member */
 
         MMapCache *cache;
 
@@ -39,17 +39,17 @@ struct Window {
         LIST_FIELDS(Window, by_fd);
         LIST_FIELDS(Window, unused);
 
-        LIST_HEAD(Context, contexts);
+        LIST_HEAD(MMapContext, contexts);
 };
 
-struct Context {
-        Mapping *mapping;
+struct MMapContext {
+        MMapMapping *mapping;
 
-        LIST_FIELDS(Context, by_window);
+        LIST_FIELDS(MMapContext, by_window);
 };
 
-struct ContextCache {
-        Context contexts[MMAP_CACHE_MAX_CONTEXTS];
+struct MMapContextCache {
+        MMapContext contexts[MMAP_CACHE_MAX_CONTEXTS];
         unsigned n_context_cache_hit;
 };
 
@@ -63,7 +63,7 @@ struct MMapFileDescriptor {
 };
 
 struct MMapCache {
-        ContextCache context_cache; /* XXX: this must stay first member */
+        MMapContextCache context_cache; /* XXX: this must stay first member */
 
         unsigned n_ref;
         unsigned n_windows;
@@ -97,7 +97,7 @@ MMapCache* mmap_cache_new(void) {
 }
 
 static void window_detach_contexts(Window *w) {
-        Context *c;
+        MMapContext *c;
 
         assert (w);
 
@@ -152,7 +152,7 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool mapping_matches(Mapping *m, uint64_t offset, size_t size) {
+_pure_ static bool mapping_matches(MMapMapping *m, uint64_t offset, size_t size) {
         assert(m);
         assert(size > 0);
 
@@ -161,7 +161,7 @@ _pure_ static bool mapping_matches(Mapping *m, uint64_t offset, size_t size) {
                 offset + size <= m->offset + m->size;
 }
 
-_pure_ static bool mapping_matches_fd(Mapping *m, MMapFileDescriptor *f, uint64_t offset, size_t size) {
+_pure_ static bool mapping_matches_fd(MMapMapping *m, MMapFileDescriptor *f, uint64_t offset, size_t size) {
         assert(m);
         assert(f);
 
@@ -208,7 +208,7 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
         return w;
 }
 
-static void context_detach_window(MMapCache *m, Context *c) {
+static void context_detach_window(MMapCache *m, MMapContext *c) {
         Window *w;
 
         assert(m);
@@ -236,7 +236,7 @@ static void context_detach_window(MMapCache *m, Context *c) {
         }
 }
 
-static void context_attach_window(MMapCache *m, Context *c, Window *w) {
+static void context_attach_window(MMapCache *m, MMapContext *c, Window *w) {
         assert(m);
         assert(c);
         assert(w);
@@ -255,7 +255,7 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
                 w->in_unused = false;
         }
 
-        c->mapping = (Mapping *)w;
+        c->mapping = (MMapMapping *)w;
         LIST_PREPEND(by_window, w->contexts, c);
 }
 
@@ -287,7 +287,7 @@ static int make_room(MMapCache *m) {
 
 static int find_mmap(
                 MMapFileDescriptor *f,
-                Context *c,
+                MMapContext *c,
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
@@ -348,7 +348,7 @@ static int mmap_try_harder(MMapFileDescriptor *f, void *addr, int flags, uint64_
 
 static int add_mmap(
                 MMapFileDescriptor *f,
-                Context *c,
+                MMapContext *c,
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
@@ -424,7 +424,7 @@ static int mmap_cache_fd_get_slow(
                 struct stat *st,
                 void **ret) {
 
-        Context *c;
+        MMapContext *c;
         int r;
 
         assert(f);
@@ -459,15 +459,15 @@ int mmap_cache_fd_get(
                 struct stat *st,
                 void **ret) {
 
-        ContextCache *cc;
-        Context *c;
+        MMapContextCache *cc;
+        MMapContext *c;
 
         assert(f);
         assert(size > 0);
         assert(ret);
         assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
-        cc = *((ContextCache **)f);
+        cc = *((MMapContextCache **)f);
         assert(cc);
 
         /* Check whether the current context is the right one already */
