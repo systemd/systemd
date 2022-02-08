@@ -74,6 +74,50 @@ bool link_may_have_ipv6ll(Link *link) {
         return false;
 }
 
+IPv6LinkLocalAddressGenMode link_get_ipv6ll_addrgen_mode(Link *link) {
+        assert(link);
+
+        if (!link_ipv6ll_enabled(link))
+                return IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE;
+
+        if (link->network->ipv6ll_address_gen_mode >= 0)
+                return link->network->ipv6ll_address_gen_mode;
+
+        if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
+                return IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
+
+        return IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64;
+}
+
+int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalAddressGenMode mode) {
+        int r;
+
+        assert(message);
+        assert(mode >= 0 && mode < _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX);
+
+        r = sd_netlink_message_open_container(message, IFLA_AF_SPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(message, AF_INET6);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u8(message, IFLA_INET6_ADDR_GEN_MODE, mode);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
         [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64]          = "eui64",
         [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE]           = "none",

@@ -5,6 +5,8 @@
 #include <linux/if_link.h>
 #include <stdbool.h>
 
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "macro.h"
 
@@ -21,6 +23,9 @@ typedef enum IPv6LinkLocalAddressGenMode {
 
 bool link_ipv6ll_enabled(Link *link);
 bool link_may_have_ipv6ll(Link *link);
+
+IPv6LinkLocalAddressGenMode link_get_ipv6ll_addrgen_mode(Link *link);
+int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalAddressGenMode mode);
 
 const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
 IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;
