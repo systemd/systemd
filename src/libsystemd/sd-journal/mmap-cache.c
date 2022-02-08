@@ -18,19 +18,23 @@
 typedef struct Window Window;
 typedef struct Context Context;
 typedef struct ContextCache ContextCache;
+typedef struct Mapping Mapping;
+
+struct Mapping {
+        MMapFileDescriptor *fd;
+        uint64_t offset;
+        size_t size;
+        void *ptr;
+        bool keep_always:1;
+};
 
 struct Window {
         MMapCache *cache;
 
         bool invalidated:1;
-        bool keep_always:1;
         bool in_unused:1;
 
-        void *ptr;
-        uint64_t offset;
-        size_t size;
-
-        MMapFileDescriptor *fd;
+        Mapping mapping;
 
         LIST_FIELDS(Window, by_fd);
         LIST_FIELDS(Window, unused);
@@ -96,11 +100,11 @@ static void window_unlink(Window *w) {
 
         assert(w);
 
-        if (w->ptr)
-                munmap(w->ptr, w->size);
+        if (w->mapping.ptr)
+                munmap(w->mapping.ptr, w->mapping.size);
 
-        if (w->fd)
-                LIST_REMOVE(by_fd, w->fd->windows, w);
+        if (w->mapping.fd)
+                LIST_REMOVE(by_fd, w->mapping.fd->windows, w);
 
         if (w->in_unused) {
                 if (w->cache->last_unused == w)
@@ -117,7 +121,7 @@ static void window_unlink(Window *w) {
 
 static void window_invalidate(Window *w) {
         assert(w);
-        assert(w->fd);
+        assert(w->mapping.fd);
 
         if (w->invalidated)
                 return;
@@ -127,7 +131,7 @@ static void window_invalidate(Window *w) {
          * trigger any further SIGBUS, possibly overrunning the sigbus
          * queue. */
 
-        assert_se(mmap(w->ptr, w->size, w->fd->prot, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == w->ptr);
+        assert_se(mmap(w->mapping.ptr, w->mapping.size, w->mapping.fd->prot, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == w->mapping.ptr);
         w->invalidated = true;
 }
 
@@ -144,8 +148,8 @@ _pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
         assert(size > 0);
 
         return
-                offset >= w->offset &&
-                offset + size <= w->offset + w->size;
+                offset >= w->mapping.offset &&
+                offset + size <= w->mapping.offset + w->mapping.size;
 }
 
 _pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t offset, size_t size) {
@@ -153,7 +157,7 @@ _pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t 
         assert(f);
 
         return
-                w->fd == f &&
+                w->mapping.fd == f &&
                 window_matches(w, offset, size);
 }
 
@@ -179,11 +183,11 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
 
         *w = (Window) {
                 .cache = m,
-                .fd = f,
-                .keep_always = keep_always,
-                .offset = offset,
-                .size = size,
-                .ptr = ptr,
+                .mapping.fd = f,
+                .mapping.offset = offset,
+                .mapping.size = size,
+                .mapping.ptr = ptr,
+                .mapping.keep_always = keep_always,
         };
 
         LIST_PREPEND(by_fd, f->windows, w);
@@ -203,7 +207,7 @@ static void context_detach_window(MMapCache *m, Context *c) {
         w = TAKE_PTR(c->window);
         LIST_REMOVE(by_window, w->contexts, c);
 
-        if (!w->contexts && !w->keep_always) {
+        if (!w->contexts && !w->mapping.keep_always) {
                 /* Not used anymore? */
 #if ENABLE_DEBUG_MMAP_CACHE
                 /* Unmap unused windows immediately to expose use-after-unmap
@@ -293,12 +297,12 @@ static int try_context(
                 return 0;
         }
 
-        if (c->window->fd->sigbus)
+        if (c->window->mapping.fd->sigbus)
                 return -EIO;
 
-        c->window->keep_always = c->window->keep_always || keep_always;
+        c->window->mapping.keep_always = c->window->mapping.keep_always || keep_always;
 
-        *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
+        *ret = (uint8_t*) c->window->mapping.ptr + (offset - c->window->mapping.offset);
         f->cache->context_cache.n_context_cache_hit++;
 
         return 1;
@@ -331,9 +335,9 @@ static int find_mmap(
                 return 0;
 
         context_attach_window(f->cache, c, w);
-        w->keep_always = w->keep_always || keep_always;
+        w->mapping.keep_always = w->mapping.keep_always || keep_always;
 
-        *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        *ret = (uint8_t*) w->mapping.ptr + (offset - w->mapping.offset);
         f->cache->n_window_list_hit++;
 
         return 1;
@@ -425,7 +429,7 @@ static int add_mmap(
 
         context_attach_window(f->cache, c, w);
 
-        *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        *ret = (uint8_t*) w->mapping.ptr + (offset - w->mapping.offset);
 
         return 1;
 
@@ -503,8 +507,8 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                         Window *w;
 
                         LIST_FOREACH(by_fd, w, f->windows) {
-                                if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
-                                    (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
+                                if ((uint8_t*) addr >= (uint8_t*) w->mapping.ptr &&
+                                    (uint8_t*) addr < (uint8_t*) w->mapping.ptr + w->mapping.size) {
                                         found = ours = f->sigbus = true;
                                         break;
                                 }
