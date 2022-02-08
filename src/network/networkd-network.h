@@ -18,6 +18,7 @@
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
@@ -37,15 +38,6 @@ typedef enum KeepConfiguration {
         _KEEP_CONFIGURATION_MAX,
         _KEEP_CONFIGURATION_INVALID = -EINVAL,
 } KeepConfiguration;
-
-typedef enum IPv6LinkLocalAddressGenMode {
-       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64          = IN6_ADDR_GEN_MODE_EUI64,
-       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE           = IN6_ADDR_GEN_MODE_NONE,
-       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY = IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
-       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM         = IN6_ADDR_GEN_MODE_RANDOM,
-       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX,
-       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -EINVAL,
-} IPv6LinkLocalAddressGenMode;
 
 typedef enum ActivationPolicy {
         ACTIVATION_POLICY_UP,
@@ -386,7 +378,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_family_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
@@ -395,9 +386,6 @@ const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
-
-const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
-IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;
 
 const char* activation_policy_to_string(ActivationPolicy i) _const_;
 ActivationPolicy activation_policy_from_string(const char *s) _pure_;

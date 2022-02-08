@@ -1386,16 +1386,6 @@ static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
 
-static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
-        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64] = "eui64",
-        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE] = "none",
-        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY] = "stable-privacy",
-        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM] = "random",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_link_local_address_gen_mode, ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode, "Failed to parse IPv6 link local address generation mode");
-
 static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
         [ACTIVATION_POLICY_UP] =          "up",
         [ACTIVATION_POLICY_ALWAYS_UP] =   "always-up",
