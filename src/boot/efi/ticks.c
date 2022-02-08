@@ -45,6 +45,10 @@ UINT64 ticks_freq(void) {
         BS->Stall(1000);
         ticks_end = ticks_read();
 
+        if (ticks_end < ticks_start) /* Check for an overflow (which is not that unlikely, given on some
+                                      * archs the value is 32bit) */
+                return 0;
+
         return (ticks_end - ticks_start) * 1000UL;
 }
 #endif
