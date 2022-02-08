@@ -441,6 +441,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.watchdog_pretimeout_governor=</varname></term>
+
+        <listitem>
+          <para>Overrides the watchdog pre-timeout settings otherwise configured with
+          <varname>RuntimeWatchdogPreGovernor=</varname>. Takes a string value. For details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.cpu_affinity=</varname></term>
 
         <listitem>

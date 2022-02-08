@@ -1542,6 +1542,9 @@ Manager* manager_free(Manager *m) {
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
 
+        free(m->watchdog_pretimeout_governor);
+        free(m->watchdog_pretimeout_governor_overridden);
+
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
@@ -3261,6 +3264,52 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog_overridden[t] = timeout;
+}
+
+int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor, governor))
+                return 0;
+
+        p = strdup(governor);
+        if (!p)
+                return -ENOMEM;
+
+        r = watchdog_setup_pretimeout_governor(governor);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(m->watchdog_pretimeout_governor, p);
+}
+
+int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor_overridden, governor))
+                return 0;
+
+        p = strdup(governor);
+        if (!p)
+                return -ENOMEM;
+
+        r = watchdog_setup_pretimeout_governor(governor);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(m->watchdog_pretimeout_governor_overridden, p);
 }
 
 int manager_reload(Manager *m) {
