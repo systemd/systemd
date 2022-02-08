@@ -285,40 +285,6 @@ static int make_room(MMapCache *m) {
         return 1;
 }
 
-static int try_context(
-                MMapFileDescriptor *f,
-                unsigned context,
-                bool keep_always,
-                uint64_t offset,
-                size_t size,
-                void **ret) {
-
-        ContextCache *cc;
-        Context *c;
-
-        assert(f);
-        assert(c);
-        assert(size > 0);
-        assert(ret);
-        assert(context < MMAP_CACHE_MAX_CONTEXTS);
-
-        cc = *((ContextCache **)f);
-        c = &cc->contexts[context];
-
-        if (!c->mapping)
-                return 0;
-
-        if (!mapping_matches_fd(c->mapping, f, offset, size))
-                return 0;
-
-        c->mapping->keep_always = c->mapping->keep_always || keep_always;
-
-        *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
-        cc->n_context_cache_hit++;
-
-        return 1;
-}
-
 static int find_mmap(
                 MMapFileDescriptor *f,
                 Context *c,
@@ -493,16 +459,27 @@ int mmap_cache_fd_get(
                 struct stat *st,
                 void **ret) {
 
-        int r;
+        ContextCache *cc;
+        Context *c;
 
         assert(f);
         assert(size > 0);
         assert(ret);
+        assert(context < MMAP_CACHE_MAX_CONTEXTS);
+
+        cc = *((ContextCache **)f);
+        assert(cc);
 
         /* Check whether the current context is the right one already */
-        r = try_context(f, context, keep_always, offset, size, ret);
-        if (r != 0)
-                return r;
+        c = &cc->contexts[context];
+        if (c->mapping && mapping_matches_fd(c->mapping, f, offset, size)) {
+                c->mapping->keep_always = c->mapping->keep_always || keep_always;
+
+                *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
+                cc->n_context_cache_hit++;
+
+                return 1;
+        }
 
         return mmap_cache_fd_get_slow(f, context, keep_always, offset, size, st, ret);
 }
