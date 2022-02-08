@@ -17,6 +17,7 @@
 
 typedef struct Window Window;
 typedef struct Context Context;
+typedef struct ContextCache ContextCache;
 
 struct Window {
         MMapCache *cache;
@@ -43,6 +44,11 @@ struct Context {
         LIST_FIELDS(Context, by_window);
 };
 
+struct ContextCache {
+        Context contexts[MMAP_CACHE_MAX_CONTEXTS];
+        unsigned n_context_cache_hit;
+};
+
 struct MMapFileDescriptor {
         MMapCache *cache;
         int fd;
@@ -55,14 +61,14 @@ struct MMapCache {
         unsigned n_ref;
         unsigned n_windows;
 
-        unsigned n_context_cache_hit, n_window_list_hit, n_missed;
+        unsigned n_window_list_hit, n_missed;
 
         Hashmap *fds;
 
         LIST_HEAD(Window, unused);
         Window *last_unused;
 
-        Context contexts[MMAP_CACHE_MAX_CONTEXTS];
+        ContextCache context_cache;
 };
 
 #define WINDOWS_MIN 64
@@ -240,7 +246,7 @@ static MMapCache *mmap_cache_free(MMapCache *m) {
         assert(m);
 
         for (int i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
-                context_detach_window(m, &m->contexts[i]);
+                context_detach_window(m, &m->context_cache.contexts[i]);
 
         hashmap_free(m->fds);
 
@@ -293,7 +299,7 @@ static int try_context(
         c->window->keep_always = c->window->keep_always || keep_always;
 
         *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
-        f->cache->n_context_cache_hit++;
+        f->cache->context_cache.n_context_cache_hit++;
 
         return 1;
 }
@@ -447,7 +453,7 @@ int mmap_cache_fd_get(
         assert(ret);
         assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
-        c = &f->cache->contexts[context];
+        c = &f->cache->context_cache.contexts[context];
 
         /* Check whether the current context is the right one already */
         r = try_context(f, c, keep_always, offset, size, ret);
@@ -468,7 +474,11 @@ int mmap_cache_fd_get(
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
+        unsigned n_total_context_cache_hit = 0;
+
+        /* TODO: sum per-fd context cache hits */
+
+        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", n_total_context_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
