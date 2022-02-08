@@ -95,9 +95,18 @@ MMapCache* mmap_cache_new(void) {
         return m;
 }
 
-static void window_unlink(Window *w) {
+static void window_detach_contexts(Window *w) {
         Context *c;
 
+        assert (w);
+
+        LIST_FOREACH(by_window, c, w->contexts) {
+                assert((Window *)c->mapping == w);
+                c->mapping = NULL;
+        }
+}
+
+static void window_unlink(Window *w) {
         assert(w);
 
         if (w->mapping.ptr)
@@ -113,10 +122,7 @@ static void window_unlink(Window *w) {
                 LIST_REMOVE(unused, w->cache->unused, w);
         }
 
-        LIST_FOREACH(by_window, c, w->contexts) {
-                assert((Window *)c->mapping == w);
-                c->mapping = NULL;
-        }
+        window_detach_contexts(w);
 }
 
 static void window_invalidate(Window *w) {
