@@ -25,6 +25,7 @@ struct Mapping {
         uint64_t offset;
         size_t size;
         void *ptr;
+        bool keep_always:1;
 };
 
 struct Window {
@@ -33,7 +34,6 @@ struct Window {
         MMapCache *cache;
 
         bool invalidated:1;
-        bool keep_always:1;
         bool in_unused:1;
 
         LIST_FIELDS(Window, by_fd);
@@ -195,11 +195,11 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
 
         *w = (Window) {
                 .cache = m,
-                .keep_always = keep_always,
                 .mapping.fd = f,
                 .mapping.offset = offset,
                 .mapping.size = size,
                 .mapping.ptr = ptr,
+                .mapping.keep_always = keep_always,
         };
 
         LIST_PREPEND(by_fd, f->windows, w);
@@ -219,7 +219,7 @@ static void context_detach_window(MMapCache *m, Context *c) {
         w = ((Window *)TAKE_PTR(c->mapping));
         LIST_REMOVE(by_window, w->contexts, c);
 
-        if (!w->contexts && !w->keep_always) {
+        if (!w->contexts && !w->mapping.keep_always) {
                 /* Not used anymore? */
 #if ENABLE_DEBUG_MMAP_CACHE
                 /* Unmap unused windows immediately to expose use-after-unmap
@@ -305,7 +305,7 @@ static int try_context(
         if (!mapping_matches_fd(c->mapping, f, offset, size))
                 return 0;
 
-        ((Window *)c->mapping)->keep_always = ((Window *)c->mapping)->keep_always || keep_always;
+        c->mapping->keep_always = c->mapping->keep_always || keep_always;
 
         *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
         f->cache->context_cache.n_context_cache_hit++;
@@ -340,7 +340,7 @@ static int find_mmap(
                 return 0;
 
         context_attach_window(f->cache, c, w);
-        w->keep_always = w->keep_always || keep_always;
+        w->mapping.keep_always = w->mapping.keep_always || keep_always;
 
         *ret = (uint8_t*) w->mapping.ptr + (offset - w->mapping.offset);
         f->cache->n_window_list_hit++;
