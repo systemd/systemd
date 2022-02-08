@@ -1542,6 +1542,9 @@ Manager* manager_free(Manager *m) {
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
 
+        free(m->watchdog_pretimeout_governor);
+        free(m->watchdog_pretimeout_governor_overridden);
+
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
@@ -3262,6 +3265,38 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog_overridden[t] = timeout;
+}
+
+void manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor, governor))
+                return;
+
+        if (watchdog_setup_pretimeout_governor(governor) < 0)
+                return;
+
+        free_and_strdup(&m->watchdog_pretimeout_governor, governor);
+}
+
+void manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor_overridden, governor))
+                return;
+
+        if (watchdog_setup_pretimeout_governor(governor) < 0)
+                return;
+
+        free_and_strdup(&m->watchdog_pretimeout_governor_overridden, governor);
 }
 
 int manager_reload(Manager *m) {
