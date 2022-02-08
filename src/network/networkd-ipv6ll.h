@@ -29,6 +29,7 @@ int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalA
 int link_update_ipv6ll_addrgen_mode(Link *link, sd_netlink_message *message);
 
 int link_set_ipv6ll_stable_secret(Link *link);
+int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode);
 
 const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
 IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;
