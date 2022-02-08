@@ -18,6 +18,7 @@
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "shim.h"
+#include "ticks.h"
 #include "util.h"
 #include "xbootldr.h"
 

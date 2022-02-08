@@ -322,6 +322,7 @@ efi_headers = files(
         'secure-boot.h',
         'shim.h',
         'splash.h',
+        'ticks.h',
         'util.h',
         'xbootldr.h',
 )
@@ -334,6 +335,7 @@ common_sources = files(
         'measure.c',
         'pe.c',
         'secure-boot.c',
+        'ticks.c',
         'util.c',
 )
 

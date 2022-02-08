@@ -41,10 +41,6 @@
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
 
-UINT64 ticks_read(void);
-UINT64 ticks_freq(void);
-UINT64 time_usec(void);
-
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags);
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags);
