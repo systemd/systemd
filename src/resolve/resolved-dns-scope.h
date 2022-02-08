@@ -10,7 +10,7 @@ typedef struct DnsScope DnsScope;
 #include "resolved-dns-cache.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
-
+#include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
@@ -76,7 +76,7 @@ int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p);
 int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address);
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server);
 
-DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
+DnsScopeMatch dns_scope_good_domain(DnsScope *s, DnsQuery *q);
 bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key);
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s);
