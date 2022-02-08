@@ -54,7 +54,8 @@ struct ContextCache {
 };
 
 struct MMapFileDescriptor {
-        MMapCache *cache;
+        MMapCache *cache; /* XXX: this must stay first member */
+
         int fd;
         int prot;
         bool sigbus;
@@ -62,6 +63,8 @@ struct MMapFileDescriptor {
 };
 
 struct MMapCache {
+        ContextCache context_cache; /* XXX: this must stay first member */
+
         unsigned n_ref;
         unsigned n_windows;
 
@@ -71,8 +74,6 @@ struct MMapCache {
 
         LIST_HEAD(Window, unused);
         Window *last_unused;
-
-        ContextCache context_cache;
 };
 
 #define WINDOWS_MIN 64
@@ -286,18 +287,23 @@ static int make_room(MMapCache *m) {
 
 static int try_context(
                 MMapFileDescriptor *f,
-                Context *c,
+                unsigned context,
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
                 void **ret) {
 
+        ContextCache *cc;
+        Context *c;
+
         assert(f);
-        assert(f->cache);
-        assert(f->cache->n_ref > 0);
         assert(c);
         assert(size > 0);
         assert(ret);
+        assert(context < MMAP_CACHE_MAX_CONTEXTS);
+
+        cc = *((ContextCache **)f);
+        c = &cc->contexts[context];
 
         if (!c->mapping)
                 return 0;
@@ -308,7 +314,7 @@ static int try_context(
         c->mapping->keep_always = c->mapping->keep_always || keep_always;
 
         *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
-        f->cache->context_cache.n_context_cache_hit++;
+        cc->n_context_cache_hit++;
 
         return 1;
 }
@@ -443,7 +449,7 @@ outofmem:
         return -ENOMEM;
 }
 
-int mmap_cache_fd_get(
+static int mmap_cache_fd_get_slow(
                 MMapFileDescriptor *f,
                 unsigned context,
                 bool keep_always,
@@ -464,11 +470,6 @@ int mmap_cache_fd_get(
 
         c = &f->cache->context_cache.contexts[context];
 
-        /* Check whether the current context is the right one already */
-        r = try_context(f, c, keep_always, offset, size, ret);
-        if (r != 0)
-                return r;
-
         /* Drop the reference to the window, since it's unnecessary now */
         context_detach_window(f->cache, c);
 
@@ -481,6 +482,29 @@ int mmap_cache_fd_get(
 
         /* Create a new mmap */
         return add_mmap(f, c, keep_always, offset, size, st, ret);
+}
+
+int mmap_cache_fd_get(
+                MMapFileDescriptor *f,
+                unsigned context,
+                bool keep_always,
+                uint64_t offset,
+                size_t size,
+                struct stat *st,
+                void **ret) {
+
+        int r;
+
+        assert(f);
+        assert(size > 0);
+        assert(ret);
+
+        /* Check whether the current context is the right one already */
+        r = try_context(f, context, keep_always, offset, size, ret);
+        if (r != 0)
+                return r;
+
+        return mmap_cache_fd_get_slow(f, context, keep_always, offset, size, st, ret);
 }
 
 void mmap_cache_stats_log_debug(MMapCache *m) {
