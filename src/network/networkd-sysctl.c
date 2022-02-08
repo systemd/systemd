@@ -11,9 +11,6 @@
 #include "string-table.h"
 #include "sysctl-util.h"
 
-#define STABLE_SECRET_APP_ID_1 SD_ID128_MAKE(aa,05,1d,94,43,68,45,07,b9,73,f1,e8,e4,b7,34,52)
-#define STABLE_SECRET_APP_ID_2 SD_ID128_MAKE(52,c4,40,a0,9f,2f,48,58,a9,3a,f6,29,25,ba,7a,7d)
-
 static int link_update_ipv6_sysctl(Link *link) {
         assert(link);
 
@@ -212,48 +209,6 @@ int link_set_ipv6_mtu(Link *link) {
         }
 
         return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu);
-}
-
-static int link_set_ipv6ll_stable_secret(Link *link) {
-        _cleanup_free_ char *str = NULL;
-        struct in6_addr a;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        if (link->network->ipv6ll_address_gen_mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY)
-                return 0;
-
-        if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
-                a = link->network->ipv6ll_stable_secret;
-        else {
-                sd_id128_t key;
-                le64_t v;
-
-                /* Generate a stable secret address from machine-ID and the interface name. */
-
-                r = sd_id128_get_machine_app_specific(STABLE_SECRET_APP_ID_1, &key);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to generate key: %m");
-
-                v = htole64(siphash24_string(link->ifname, key.bytes));
-                memcpy(a.s6_addr, &v, sizeof(v));
-
-                r = sd_id128_get_machine_app_specific(STABLE_SECRET_APP_ID_2, &key);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to generate key: %m");
-
-                v = htole64(siphash24_string(link->ifname, key.bytes));
-                assert_cc(sizeof(v) * 2 == sizeof(a.s6_addr));
-                memcpy(a.s6_addr + sizeof(v), &v, sizeof(v));
-        }
-
-        r = in6_addr_to_string(&a, &str);
-        if (r < 0)
-                return r;
-
-        return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret", str);
 }
 
 static int link_set_ipv4_accept_local(Link *link) {
