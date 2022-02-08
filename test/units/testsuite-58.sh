@@ -189,6 +189,48 @@ grep -qF 'p2 : start=      104448, size=      100319,' /tmp/testsuite-58-issue-2
 rm /tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
 rm -r /tmp/testsuite-58-issue-21817-defs/
 
+testsector()
+{
+    echo "Running sector test with sector size $1..."
+
+    mkdir -p /tmp/testsuite-58-sector
+    cat > /tmp/testsuite-58-sector/a.conf <<EOF
+[Partition]
+Type=root
+SizeMaxBytes=15M
+SizeMinBytes=15M
+EOF
+    cat > /tmp/testsuite-58-sector/b.conf <<EOF
+[Partition]
+Type=linux-generic
+Weight=250
+EOF
+
+    cat > /tmp/testsuite-58-sector/c.conf <<EOF
+[Partition]
+Type=linux-generic
+Weight=750
+EOF
+
+    truncate -s 100m "/tmp/testsuite-58-sector-$1.img"
+    LOOP=$(losetup -b "$1" -P --show -f "/tmp/testsuite-58-sector-$1.img" )
+    systemd-repart --pretty=yes --definitions=/tmp/testsuite-58-sector/ --seed=750b6cd5c4ae4012a15e7be3c29e6a47 --empty=require --dry-run=no "$LOOP"
+    rm -rf /tmp/testsuite-58-sector
+    sfdisk --verify "$LOOP"
+    sfdisk --dump "$LOOP"
+    losetup -d "$LOOP"
+
+    rm "/tmp/testsuite-58-sector-$1.img"
+}
+
+# Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
+# must be powers of 2. Which leaves exactly four different ones to test on
+# typical hardware
+testsector 512
+testsector 1024
+testsector 2048
+testsector 4096
+
 echo OK >/testok
 
 exit 0
