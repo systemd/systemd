@@ -25,8 +25,7 @@ static UINT64 ticks_read(void) {
 }
 #else
 static UINT64 ticks_read(void) {
-        UINT64 val = 1;
-        return val;
+        return 0;
 }
 #endif
 
