@@ -738,6 +738,7 @@ LogLocation=
 LogTarget=
 RuntimeWatchdogSec=
 RuntimeWatchdogPreSec=
+RuntimeWatchdogPreGovernor=
 ShowStatus=
 RebootWatchdogSec=
 ShutdownWatchdogSec=
