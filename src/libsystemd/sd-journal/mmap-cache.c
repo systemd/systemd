@@ -302,12 +302,8 @@ static int try_context(
         if (!c->mapping)
                 return 0;
 
-        if (!mapping_matches_fd(c->mapping, f, offset, size)) {
-
-                /* Drop the reference to the window, since it's unnecessary now */
-                context_detach_window(f->cache, c);
+        if (!mapping_matches_fd(c->mapping, f, offset, size))
                 return 0;
-        }
 
         ((Window *)c->mapping)->keep_always = ((Window *)c->mapping)->keep_always || keep_always;
 
@@ -472,6 +468,9 @@ int mmap_cache_fd_get(
         r = try_context(f, c, keep_always, offset, size, ret);
         if (r != 0)
                 return r;
+
+        /* Drop the reference to the window, since it's unnecessary now */
+        context_detach_window(f->cache, c);
 
         /* Search for a matching mmap */
         r = find_mmap(f, c, keep_always, offset, size, ret);
