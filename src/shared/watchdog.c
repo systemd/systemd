@@ -22,6 +22,7 @@ static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don'
 static usec_t watchdog_pretimeout; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 static int supports_pretimeout = -1;
+static char *pretimeout_governor = NULL;
 
 /* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
  * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds
@@ -68,6 +69,26 @@ static int get_pretimeout_governor(char **ret_gov) {
         log_info("Watchdog: reading from %s", sys_fn);
 
         return read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN, ret_gov, NULL);
+}
+
+static int set_pretimeout_governor(const char *governor) {
+        _cleanup_free_ char *sys_fn = NULL;
+        int r;
+
+        if (strempty(governor))
+                return 0; /* Nothing to do */
+
+        r = get_watchdog_sysfs_path("pretimeout_governor", &sys_fn);
+        if (r < 0)
+                return r;
+
+        log_info("Watchdog: setting pretimeout_governor to '%s' via '%s'", governor, sys_fn);
+
+        r = write_string_file(sys_fn, governor, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set pretimeout_governor to '%s': %m", governor);
+
+        return r;
 }
 
 static int watchdog_set_enable(bool enable) {
@@ -347,6 +368,13 @@ int watchdog_setup_pretimeout(usec_t timeout) {
         watchdog_pretimeout = timeout;
 
         return update_pretimeout();
+}
+
+int watchdog_setup_pretimeout_governor(const char *governor) {
+        if (free_and_strdup(&pretimeout_governor, governor) < 0)
+                return -ENOMEM;
+
+        return set_pretimeout_governor(pretimeout_governor);
 }
 
 static usec_t calc_timeout(void) {
