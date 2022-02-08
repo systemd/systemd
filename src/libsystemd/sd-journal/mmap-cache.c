@@ -143,22 +143,26 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
-        assert(w);
+_pure_ static bool mapping_matches(Mapping *m, uint64_t offset, size_t size) {
+        assert(m);
         assert(size > 0);
 
         return
-                offset >= w->mapping.offset &&
-                offset + size <= w->mapping.offset + w->mapping.size;
+                offset >= m->offset &&
+                offset + size <= m->offset + m->size;
 }
 
-_pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t offset, size_t size) {
-        assert(w);
+_pure_ static bool mapping_matches_fd(Mapping *m, MMapFileDescriptor *f, uint64_t offset, size_t size) {
+        assert(m);
         assert(f);
 
         return
-                w->mapping.fd == f &&
-                window_matches(w, offset, size);
+                m->fd == f &&
+                mapping_matches(m, offset, size);
+}
+
+_pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
+        return mapping_matches(&w->mapping, offset, size);
 }
 
 static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always, uint64_t offset, size_t size, void *ptr) {
@@ -290,7 +294,7 @@ static int try_context(
         if (!c->mapping)
                 return 0;
 
-        if (!window_matches_fd((Window *)c->mapping, f, offset, size)) {
+        if (!mapping_matches_fd(c->mapping, f, offset, size)) {
 
                 /* Drop the reference to the window, since it's unnecessary now */
                 context_detach_window(f->cache, c);
