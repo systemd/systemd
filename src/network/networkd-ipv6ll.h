@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include <errno.h>
+#include <linux/if_link.h>
+#include <stdbool.h>
+
+#include "conf-parser.h"
+#include "macro.h"
+
+typedef struct Link Link;
+
+typedef enum IPv6LinkLocalAddressGenMode {
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64          = IN6_ADDR_GEN_MODE_EUI64,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE           = IN6_ADDR_GEN_MODE_NONE,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY = IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM         = IN6_ADDR_GEN_MODE_RANDOM,
+       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX,
+       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -EINVAL,
+} IPv6LinkLocalAddressGenMode;
+
+bool link_ipv6ll_enabled(Link *link);
+bool link_may_have_ipv6ll(Link *link);
+
+const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
+IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
