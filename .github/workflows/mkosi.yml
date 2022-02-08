@@ -58,7 +58,7 @@ jobs:
         sudo apt build-dep systemd
         meson build
         ninja -C build
-        sudo ln -svf $PWD/build/systemd-nspawn `which systemd-nspawn`
+        sudo ln -svf "$PWD/build/systemd-nspawn" "$(which systemd-nspawn)"
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}

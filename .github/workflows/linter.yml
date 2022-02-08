@@ -44,3 +44,4 @@ jobs:
           MULTI_STATUS: true
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
+          VALIDATE_GITHUB_ACTIONS: true
