@@ -132,6 +132,8 @@ static void window_invalidate(Window *w) {
         if (w->invalidated)
                 return;
 
+        window_detach_contexts(w);
+
         /* Replace the window with anonymous pages. This is useful
          * when we hit a SIGBUS and want to make sure the file cannot
          * trigger any further SIGBUS, possibly overrunning the sigbus
@@ -306,9 +308,6 @@ static int try_context(
                 context_detach_window(f->cache, c);
                 return 0;
         }
-
-        if (c->mapping->fd->sigbus)
-                return -EIO;
 
         ((Window *)c->mapping)->keep_always = ((Window *)c->mapping)->keep_always || keep_always;
 
