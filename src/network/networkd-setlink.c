@@ -694,6 +694,19 @@ int link_request_to_set_addrgen_mode(Link *link) {
         if (mode == link->ipv6ll_address_gen_mode)
                 return 0;
 
+        /* If the link is already up, then changing the mode by netlink does not take effect until the
+         * link goes down. Hence, we need to reset the interface. However, setting the mode by sysctl
+         * does not need that. Let's use the sysctl interface when the link is already up.
+         * See also issue #22424. */
+        if (mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE &&
+            FLAGS_SET(link->flags, IFF_UP)) {
+                r = link_set_ipv6ll_addrgen_mode(link, mode);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Cannot set IPv6 address generation mode, ignoring: %m");
+
+                return 0;
+        }
+
         r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
         if (r < 0)
                 return r;
