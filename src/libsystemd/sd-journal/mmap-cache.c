@@ -28,13 +28,13 @@ struct Mapping {
 };
 
 struct Window {
+        Mapping mapping; /* XXX: this must stay first member */
+
         MMapCache *cache;
 
         bool invalidated:1;
         bool keep_always:1;
         bool in_unused:1;
-
-        Mapping mapping;
 
         LIST_FIELDS(Window, by_fd);
         LIST_FIELDS(Window, unused);
@@ -43,7 +43,7 @@ struct Window {
 };
 
 struct Context {
-        Window *window;
+        Mapping *mapping;
 
         LIST_FIELDS(Context, by_window);
 };
@@ -201,10 +201,10 @@ static void context_detach_window(MMapCache *m, Context *c) {
         assert(m);
         assert(c);
 
-        if (!c->window)
+        if (!c->mapping)
                 return;
 
-        w = TAKE_PTR(c->window);
+        w = ((Window *)TAKE_PTR(c->mapping));
         LIST_REMOVE(by_window, w->contexts, c);
 
         if (!w->contexts && !w->keep_always) {
@@ -228,7 +228,7 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
         assert(c);
         assert(w);
 
-        if (c->window == w)
+        if ((Window *)c->mapping == w)
                 return;
 
         context_detach_window(m, c);
@@ -242,7 +242,7 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
                 w->in_unused = false;
         }
 
-        c->window = w;
+        c->mapping = (Mapping *)w;
         LIST_PREPEND(by_window, w->contexts, c);
 }
 
@@ -287,22 +287,22 @@ static int try_context(
         assert(size > 0);
         assert(ret);
 
-        if (!c->window)
+        if (!c->mapping)
                 return 0;
 
-        if (!window_matches_fd(c->window, f, offset, size)) {
+        if (!window_matches_fd((Window *)c->mapping, f, offset, size)) {
 
                 /* Drop the reference to the window, since it's unnecessary now */
                 context_detach_window(f->cache, c);
                 return 0;
         }
 
-        if (c->window.mapping->fd->sigbus)
+        if (c->mapping->fd->sigbus)
                 return -EIO;
 
-        c->window->keep_always = c->window->keep_always || keep_always;
+        ((Window *)c->mapping)->keep_always = ((Window *)c->mapping)->keep_always || keep_always;
 
-        *ret = (uint8_t*) c->window->mapping.ptr + (offset - c->window->mapping.offset);
+        *ret = (uint8_t*) c->mapping->ptr + (offset - c->mapping->offset);
         f->cache->context_cache.n_context_cache_hit++;
 
         return 1;
