@@ -2952,22 +2952,35 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
-    def test_link_local_addressing_remove_ipv6ll(self):
+    def test_link_local_addressing_ipv6ll(self):
         copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
         start_networkd()
         self.wait_online(['dummy98:degraded'])
 
+        # An IPv6LL address exists by default.
         output = check_output('ip address show dev dummy98')
         print(output)
         self.assertRegex(output, 'inet6 .* scope link')
 
         copy_unit_to_networkd_unit_path('25-link-local-addressing-no.network')
-        restart_networkd(1)
+        check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
         self.wait_online(['dummy98:carrier'])
 
+        # Check if the IPv6LL address is removed.
         output = check_output('ip address show dev dummy98')
         print(output)
-        self.assertNotRegex(output, 'inet6* .* scope link')
+        self.assertNotRegex(output, 'inet6 .* scope link')
+
+        remove_unit_from_networkd_path(['25-link-local-addressing-no.network'])
+        check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
+        self.wait_online(['dummy98:degraded'])
+
+        # Check if a new IPv6LL address is assigned.
+        output = check_output('ip address show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'inet6 .* scope link')
 
     def test_sysctl(self):
         copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
