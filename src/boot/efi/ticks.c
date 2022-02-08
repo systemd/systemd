@@ -6,39 +6,39 @@
 #include "ticks.h"
 
 #ifdef __x86_64__
-UINT64 ticks_read(void) {
+static UINT64 ticks_read(void) {
         UINT64 a, d;
         __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
         return (d << 32) | a;
 }
 #elif defined(__i386__)
-UINT64 ticks_read(void) {
+static UINT64 ticks_read(void) {
         UINT64 val;
         __asm__ volatile ("rdtsc" : "=A" (val));
         return val;
 }
 #elif defined(__aarch64__)
-UINT64 ticks_read(void) {
+static UINT64 ticks_read(void) {
         UINT64 val;
         __asm__ volatile ("mrs %0, cntpct_el0" : "=r" (val));
         return val;
 }
 #else
-UINT64 ticks_read(void) {
+static UINT64 ticks_read(void) {
         UINT64 val = 1;
         return val;
 }
 #endif
 
 #if defined(__aarch64__)
-UINT64 ticks_freq(void) {
+static UINT64 ticks_freq(void) {
         UINT64 freq;
         __asm__ volatile ("mrs %0, cntfrq_el0": "=r" (freq));
         return freq;
 }
 #else
 /* count TSC ticks during a millisecond delay */
-UINT64 ticks_freq(void) {
+static UINT64 ticks_freq(void) {
         UINT64 ticks_start, ticks_end;
 
         ticks_start = ticks_read();
