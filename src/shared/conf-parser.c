@@ -160,7 +160,7 @@ static int parse_line(
                 char **section,
                 unsigned *section_line,
                 bool *section_ignored,
-                char *l,
+                char *l, /* is modified */
                 void *userdata) {
 
         char *e;
@@ -171,10 +171,10 @@ static int parse_line(
         assert(l);
 
         l = strstrip(l);
-        if (!*l)
+        if (isempty(l))
                 return 0;
 
-        if (*l == '\n')
+        if (l[0] == '\n')
                 return 0;
 
         if (!utf8_is_valid(l))
@@ -195,14 +195,14 @@ static int parse_line(
                         return log_oom();
 
                 if (sections && !nulstr_contains(sections, n)) {
-                        bool ignore = flags & CONFIG_PARSE_RELAXED;
+                        bool ignore;
                         const char *t;
 
-                        ignore = ignore || startswith(n, "X-");
+                        ignore = (flags & CONFIG_PARSE_RELAXED) || startswith(n, "X-");
 
                         if (!ignore)
                                 NULSTR_FOREACH(t, sections)
-                                        if (streq_ptr(n, startswith(t, "-"))) {
+                                        if (streq_ptr(n, startswith(t, "-"))) { /* Ignore sections prefixed with "-" in valid section list */
                                                 ignore = true;
                                                 break;
                                         }
