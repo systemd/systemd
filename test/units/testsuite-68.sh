@@ -36,11 +36,29 @@ OnFailure=testservice-failure-exit-handler-68.service
 ExecStart=/bin/bash -c "exit 1"
 EOF
 
+cat >/run/systemd/system/testservice-failure-68-template.service <<EOF
+[Unit]
+Description=TEST-68-PROPAGATE-EXIT-STATUS with OnFailure= trigger (template)
+OnFailure=testservice-failure-exit-handler-68-template@%n.service
+
+[Service]
+ExecStart=/bin/bash -c "exit 1"
+EOF
+
 # Trigger testservice-success-exit-handler-68.service
 cat >/run/systemd/system/testservice-success-68.service <<EOF
 [Unit]
 Description=TEST-68-PROPAGATE-EXIT-STATUS with OnSuccess= trigger
 OnSuccess=testservice-success-exit-handler-68.service
+
+[Service]
+ExecStart=/bin/bash -c "exit 0"
+EOF
+
+cat >/run/systemd/system/testservice-success-68-template.service <<EOF
+[Unit]
+Description=TEST-68-PROPAGATE-EXIT-STATUS with OnSuccess= trigger (template)
+OnSuccess=testservice-success-exit-handler-68-template@%n.service
 
 [Service]
 ExecStart=/bin/bash -c "exit 0"
@@ -89,7 +107,7 @@ for SERVICE_MD in "\${ALL_SERVICE_MD[@]}"; do
         exit 1;
     fi
 
-    if [[ "\$UNIT" != "testservice-success-68.service" && "\$UNIT" != "testservice-transient-success-68.service" ]]; then
+    if [[ "\$UNIT" != "testservice-success-68.service" && "\$UNIT" != "testservice-success-68-template.service" && "\$UNIT" != "testservice-transient-success-68.service" ]]; then
         echo 'UNIT was "\$UNIT", expected "testservice-success-68{-transient}.service"';
         exit 1;
     fi
@@ -105,6 +123,17 @@ cat >/run/systemd/system/testservice-success-exit-handler-68.service <<EOF
 Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in success
 
 [Service]
+ExecStartPre=/tmp/check_on_success.sh
+ExecStart=/tmp/check_on_success.sh
+EOF
+
+# Template version.
+cat >/run/systemd/system/testservice-success-exit-handler-68-template@.service <<EOF
+[Unit]
+Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in success (template)
+
+[Service]
+ExecStartPre=echo "triggered by %i"
 ExecStartPre=/tmp/check_on_success.sh
 ExecStart=/tmp/check_on_success.sh
 EOF
@@ -152,7 +181,7 @@ for SERVICE_MD in "\${ALL_SERVICE_MD[@]}"; do
         exit 1;
     fi
 
-    if [[ "\$UNIT" != "testservice-failure-68.service" && "\$UNIT" != "testservice-transient-failure-68.service" ]]; then
+    if [[ "\$UNIT" != "testservice-failure-68.service" && "\$UNIT" != "testservice-failure-68-template.service" && "\$UNIT" != "testservice-transient-failure-68.service" ]]; then
         echo 'UNIT was "\$UNIT", expected "testservice-failure-68{-transient}.service"';
         exit 1;
     fi
@@ -173,6 +202,17 @@ ExecStartPre=/tmp/check_on_failure.sh
 ExecStart=/tmp/check_on_failure.sh
 EOF
 
+# Template version.
+cat >/run/systemd/system/testservice-failure-exit-handler-68-template@.service <<EOF
+[Unit]
+Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in failure (template)
+
+[Service]
+ExecStartPre=echo "triggered by %i"
+ExecStartPre=/tmp/check_on_failure.sh
+ExecStart=/tmp/check_on_failure.sh
+EOF
+
 systemctl daemon-reload
 
 systemctl start testservice-failure-68.service
@@ -185,6 +225,12 @@ systemd-run --unit=testservice-transient-success-68 --property=OnSuccess=testser
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 systemd-run --unit=testservice-transient-failure-68 --property=OnFailure=testservice-failure-exit-handler-68.service /bin/bash -c "exit 1;"
 wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
+
+# Test template handlers too
+systemctl start testservice-failure-68-template.service
+wait_on_state_or_fail "testservice-failure-exit-handler-68-template@testservice-failure-68-template.service.service" "inactive" "10"
+systemctl start testservice-success-68-template.service
+wait_on_state_or_fail "testservice-success-exit-handler-68-template@testservice-success-68-template.service.service" "inactive" "10"
 
 systemd-analyze log-level info
 echo OK >/testok
