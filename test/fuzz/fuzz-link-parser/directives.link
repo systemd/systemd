@@ -11,6 +11,7 @@ Virtualization=
 KernelCommandLine=
 KernelVersion=
 Architecture=
+Firmware=
 [Link]
 Description=
 MACAddressPolicy=
