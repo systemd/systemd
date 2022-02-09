@@ -22,6 +22,7 @@ int get_block_device_harder_fd(int fd, dev_t *dev);
 int get_block_device_harder(const char *path, dev_t *dev);
 
 int lock_whole_block_device(dev_t devt, int operation);
+int lookup_block_device(const char *p, dev_t *ret);
 
 int blockdev_partscan_enabled(int fd);
 
