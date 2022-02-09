@@ -9,6 +9,13 @@ CHANGES WITH 251:
           can still be used by explicitly configuring RouteTable= setting in
           .netdev files.
 
+        * $MONITOR_METADATA will only be passed to OnFailure=/OnSuccess= handlers
+          if exactly one unit was the trigger for their starting job. Therefore,
+          the content of $$MONITOR_METADATA no longer contains multiple sequences
+          of state variables separated by a semicolon, but a single sequence at
+          most, or it is not set at all. For cases when a single handler needs to
+          watch multiple units, use a templated handler.
+
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
 
