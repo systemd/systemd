@@ -97,7 +97,19 @@ fi
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]   && read -r MACHINE_ID </etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="$(systemd-id128 new)"
 
-[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "loader/entries"; do
+# Now that we determined the machine ID to use, let's determine the "token" for
+# the boot loader entry to generate. We use that for naming the directory below
+# $BOOT where we want to place the kernel/initrd and related resources, as well
+# for naming the .conf boot loader spec entry. Typically this is just the
+# machine ID, but it can be anything else, too, if we are told so.
+[ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token
+[ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$MACHINE_ID"
+
+# NB: The $MACHINE_ID is guaranteed to be a valid machine ID, but
+#     $ENTRY_TOKEN can be any string that fits into a VFAT filename, though
+#     typically is just the machine ID.
+
+[ -z "$BOOT_ROOT" ] && for suff in "$ENTRY_TOKEN" "loader/entries"; do
     for pref in "/efi" "/boot" "/boot/efi" ; do
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
@@ -117,14 +129,14 @@ done
 
 if [ -z "$layout" ]; then
     # Administrative decision: if not present, some scripts generate into /boot.
-    if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
+    if [ -d "$BOOT_ROOT/$ENTRY_TOKEN" ]; then
         layout="bls"
     else
         layout="other"
     fi
 fi
 
-ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+ENTRY_DIR_ABS="$BOOT_ROOT/$ENTRY_TOKEN/$KERNEL_VERSION"
 
 # Provide a directory where to store generated initrds
 cleanup() {
@@ -136,6 +148,7 @@ trap cleanup EXIT
 KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t -p /tmp kernel-install.staging.XXXXXXX)"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
@@ -168,7 +181,7 @@ case "$COMMAND" in
         fi
 
         if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
-            # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
+            # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$ENTRY_TOKEN
             # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
             # to serve as the indication to use or to not use the BLS
             if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
