@@ -36,16 +36,6 @@ OnFailure=testservice-failure-exit-handler-68.service
 ExecStart=/bin/bash -c "exit 1"
 EOF
 
-# Another service which triggers testservice-failure-exit-handler-68.service
-cat >/run/systemd/system/testservice-failure-68-additional.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS Additional service with OnFailure= trigger
-OnFailure=testservice-failure-exit-handler-68.service
-
-[Service]
-ExecStart=/bin/bash -c "exit 1"
-EOF
-
 # Trigger testservice-success-exit-handler-68.service
 cat >/run/systemd/system/testservice-success-68.service <<EOF
 [Unit]
@@ -56,21 +46,8 @@ OnSuccess=testservice-success-exit-handler-68.service
 ExecStart=/bin/bash -c "exit 0"
 EOF
 
-# Trigger testservice-success-exit-handler-68.service
-cat >/run/systemd/system/testservice-success-68-additional.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS Addition service with OnSuccess= trigger
-OnSuccess=testservice-success-exit-handler-68.service
-
-[Service]
-ExecStart=/bin/bash -c "exit 0"
-EOF
-
 # Script to check that when an OnSuccess= dependency fires, the correct
-# MONITOR* env variables are passed. This script handles the case where
-# multiple services triggered the unit that calls this script. In this
-# case we need to check the MONITOR_METADATA variable for >= 1 service
-# details since jobs may merge.
+# MONITOR* env variables are passed.
 cat >/tmp/check_on_success.sh <<EOF
 #!/usr/bin/env bash
 
@@ -112,8 +89,8 @@ for SERVICE_MD in "\${ALL_SERVICE_MD[@]}"; do
         exit 1;
     fi
 
-    if [[ "\$UNIT" != "testservice-success-68.service" && "\$UNIT" != "testservice-success-68-additional.service" && "\$UNIT" != "testservice-transient-success-68.service" ]]; then
-        echo 'UNIT was "\$UNIT", expected "testservice-success-68{-additional,-transient}.service"';
+    if [[ "\$UNIT" != "testservice-success-68.service" && "\$UNIT" != "testservice-transient-success-68.service" ]]; then
+        echo 'UNIT was "\$UNIT", expected "testservice-success-68{-transient}.service"';
         exit 1;
     fi
 done
@@ -133,10 +110,7 @@ ExecStart=/tmp/check_on_success.sh
 EOF
 
 # Script to check that when an OnFailure= dependency fires, the correct
-# MONITOR* env variables are passed. This script handles the case where
-# multiple services triggered the unit that calls this script. In this
-# case we need to check the MONITOR_METADATA variable for >=1 service
-# details since jobs may merge.
+# MONITOR* env variables are passed.
 cat >/tmp/check_on_failure.sh <<EOF
 #!/usr/bin/env bash
 
@@ -178,8 +152,8 @@ for SERVICE_MD in "\${ALL_SERVICE_MD[@]}"; do
         exit 1;
     fi
 
-    if [[ "\$UNIT" != "testservice-failure-68.service" && "\$UNIT" != "testservice-failure-68-additional.service" && "\$UNIT" != "testservice-transient-failure-68.service" ]]; then
-        echo 'UNIT was "\$UNIT", expected "testservice-failure-68{-additional,-transient}.service"';
+    if [[ "\$UNIT" != "testservice-failure-68.service" && "\$UNIT" != "testservice-transient-failure-68.service" ]]; then
+        echo 'UNIT was "\$UNIT", expected "testservice-failure-68{-transient}.service"';
         exit 1;
     fi
 done
@@ -201,15 +175,9 @@ EOF
 
 systemctl daemon-reload
 
-# The running of the OnFailure= and OnSuccess= jobs for all of these services
-# may result in jobs being merged.
 systemctl start testservice-failure-68.service
 wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
-systemctl start testservice-failure-68-additional.service
-wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
 systemctl start testservice-success-68.service
-wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
-systemctl start testservice-success-68-additional.service
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
 # Test some transient units since these exit very quickly.
@@ -217,12 +185,6 @@ systemd-run --unit=testservice-transient-success-68 --property=OnSuccess=testser
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 systemd-run --unit=testservice-transient-failure-68 --property=OnFailure=testservice-failure-exit-handler-68.service /bin/bash -c "exit 1;"
 wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
-
-# These yield a higher chance of resulting in jobs merging.
-systemctl start testservice-failure-68.service testservice-failure-68-additional.service --no-block
-wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
-systemctl start testservice-success-68.service testservice-success-68-additional.service --no-block
-wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
 systemd-analyze log-level info
 echo OK >/testok
