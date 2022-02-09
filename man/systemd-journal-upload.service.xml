@@ -45,7 +45,10 @@
     Unless limited by one of the options specified below, all journal entries accessible to the user
     the program is running as will be uploaded, and then the program will wait and send new entries
     as they become available.</para>
-
+    
+    <para><command>systemd-journal-upload</command> transfers the raw content of journal file and
+    uses HTTP as a transport protocol.</para> 
+    
     <para><filename>systemd-journal-upload.service</filename> is a system service that uses
     <command>systemd-journal-upload</command> to upload journal entries to a server. It uses the
     configuration in
