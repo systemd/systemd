@@ -569,7 +569,7 @@ finalize:
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
-                { "Upload",  "URL",                    config_parse_string,         0, &arg_url                  },
+                { "Upload",  "URL",                    config_parse_safe_string,    0, &arg_url                  },
                 { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key                  },
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust                },

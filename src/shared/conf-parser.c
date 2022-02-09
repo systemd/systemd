@@ -40,18 +40,18 @@ int config_item_table_lookup(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata) {
 
         const ConfigTableItem *t;
 
         assert(table);
         assert(lvalue);
-        assert(func);
-        assert(ltype);
-        assert(data);
+        assert(ret_func);
+        assert(ret_ltype);
+        assert(ret_data);
 
         for (t = table; t->lvalue; t++) {
 
@@ -61,12 +61,15 @@ int config_item_table_lookup(
                 if (!streq_ptr(section, t->section))
                         continue;
 
-                *func = t->parse;
-                *ltype = t->ltype;
-                *data = t->data;
+                *ret_func = t->parse;
+                *ret_ltype = t->ltype;
+                *ret_data = t->data;
                 return 1;
         }
 
+        *ret_func = NULL;
+        *ret_ltype = 0;
+        *ret_data = NULL;
         return 0;
 }
 
@@ -74,9 +77,9 @@ int config_item_perf_lookup(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata) {
 
         ConfigPerfItemLookup lookup = (ConfigPerfItemLookup) table;
@@ -84,9 +87,9 @@ int config_item_perf_lookup(
 
         assert(table);
         assert(lvalue);
-        assert(func);
-        assert(ltype);
-        assert(data);
+        assert(ret_func);
+        assert(ret_ltype);
+        assert(ret_data);
 
         if (section) {
                 const char *key;
@@ -95,12 +98,16 @@ int config_item_perf_lookup(
                 p = lookup(key, strlen(key));
         } else
                 p = lookup(lvalue, strlen(lvalue));
-        if (!p)
+        if (!p) {
+                *ret_func = NULL;
+                *ret_ltype = 0;
+                *ret_data = NULL;
                 return 0;
+        }
 
-        *func = p->parse;
-        *ltype = p->ltype;
-        *data = (uint8_t*) userdata + p->offset;
+        *ret_func = p->parse;
+        *ret_ltype = p->ltype;
+        *ret_data = (uint8_t*) userdata + p->offset;
         return 1;
 }
 
@@ -133,11 +140,11 @@ static int next_assignment(
         if (r < 0)
                 return r;
         if (r > 0) {
-                if (func)
-                        return func(unit, filename, line, section, section_line,
-                                    lvalue, ltype, rvalue, data, userdata);
+                if (!func)
+                        return 0;
 
-                return 0;
+                return func(unit, filename, line, section, section_line,
+                            lvalue, ltype, rvalue, data, userdata);
         }
 
         /* Warn about unknown non-extension fields. */
@@ -160,7 +167,7 @@ static int parse_line(
                 char **section,
                 unsigned *section_line,
                 bool *section_ignored,
-                char *l,
+                char *l, /* is modified */
                 void *userdata) {
 
         char *e;
@@ -171,18 +178,18 @@ static int parse_line(
         assert(l);
 
         l = strstrip(l);
-        if (!*l)
+        if (isempty(l))
                 return 0;
 
-        if (*l == '\n')
+        if (l[0] == '\n')
                 return 0;
 
         if (!utf8_is_valid(l))
                 return log_syntax_invalid_utf8(unit, LOG_WARNING, filename, line, l);
 
-        if (*l == '[') {
+        if (l[0] == '[') {
+                _cleanup_free_ char *n = NULL;
                 size_t k;
-                char *n;
 
                 k = strlen(l);
                 assert(k > 0);
@@ -194,15 +201,18 @@ static int parse_line(
                 if (!n)
                         return log_oom();
 
+                if (!string_is_safe(n))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Bad characters in section header '%s'", l);
+
                 if (sections && !nulstr_contains(sections, n)) {
-                        bool ignore = flags & CONFIG_PARSE_RELAXED;
+                        bool ignore;
                         const char *t;
 
-                        ignore = ignore || startswith(n, "X-");
+                        ignore = (flags & CONFIG_PARSE_RELAXED) || startswith(n, "X-");
 
                         if (!ignore)
                                 NULSTR_FOREACH(t, sections)
-                                        if (streq_ptr(n, startswith(t, "-"))) {
+                                        if (streq_ptr(n, startswith(t, "-"))) { /* Ignore sections prefixed with "-" in valid section list */
                                                 ignore = true;
                                                 break;
                                         }
@@ -210,7 +220,6 @@ static int parse_line(
                         if (!ignore)
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown section '%s'. Ignoring.", n);
 
-                        free(n);
                         *section = mfree(*section);
                         *section_line = 0;
                         *section_ignored = true;
@@ -633,6 +642,7 @@ DEFINE_PARSER(nsec, nsec_t, parse_nsec);
 DEFINE_PARSER(sec, usec_t, parse_sec);
 DEFINE_PARSER(sec_def_infinity, usec_t, parse_sec_def_infinity);
 DEFINE_PARSER(mode, mode_t, parse_mode);
+DEFINE_PARSER(pid, pid_t, parse_pid);
 
 int config_parse_iec_size(
                 const char* unit,
@@ -869,6 +879,33 @@ int config_parse_string(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
+}
+
+int config_parse_safe_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!string_is_safe(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Specified string contains unsafe characters, ignoring: %s", rvalue);
+                return 0;
+        }
 
         return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
