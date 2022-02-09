@@ -21,6 +21,14 @@ CHANGES WITH 251:
           for breaking backward compatibility instead, as nobody should be
           affected, given the state of the current interface.
 
+        * Service monitor environment variables will only be passed to OnFailure=/OnSuccess=
+          handlers if exactly one unit lists the handler unit as OnFailure=/OnSuccess=.
+          Therefore, $MONITOR_METADATA is no longer used, and instead separate
+          variables are used: $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE,
+          $MONITOR_EXIT_STATUS, $MONITOR_INVOCATION_ID and $MONITOR_UNIT.
+          For cases when a single handler needs to watch multiple units, use a
+          templated handler.
+
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
 
