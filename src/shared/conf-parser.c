@@ -873,6 +873,33 @@ int config_parse_string(
         return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
+int config_parse_safe_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!string_is_safe(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Specified string contains unsafe characters, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
+}
+
 int config_parse_path(
                 const char *unit,
                 const char *filename,
