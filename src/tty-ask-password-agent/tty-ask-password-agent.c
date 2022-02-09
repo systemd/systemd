@@ -174,13 +174,13 @@ static int process_one_password_file(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false, silent = false;
         uint64_t not_after = 0;
-        unsigned pid = 0;
+        pid_t pid = 0;
 
         const ConfigTableItem items[] = {
                 { "Ask", "Socket",       config_parse_safe_string, 0, &socket_name   },
                 { "Ask", "NotAfter",     config_parse_uint64,      0, &not_after     },
                 { "Ask", "Message",      config_parse_string,      0, &message       },
-                { "Ask", "PID",          config_parse_unsigned,    0, &pid           },
+                { "Ask", "PID",          config_parse_pid,         0, &pid           },
                 { "Ask", "AcceptCached", config_parse_bool,        0, &accept_cached },
                 { "Ask", "Echo",         config_parse_bool,        0, &echo          },
                 { "Ask", "Silent",       config_parse_bool,        0, &silent        },
@@ -212,14 +212,14 @@ static int process_one_password_file(const char *filename) {
 
         switch (arg_action) {
         case ACTION_LIST:
-                printf("'%s' (PID %u)\n", strna(message), pid);
+                printf("'%s' (PID " PID_FMT ")\n", strna(message), pid);
                 return 0;
 
         case ACTION_WALL: {
                  _cleanup_free_ char *wall = NULL;
 
                  if (asprintf(&wall,
-                              "Password entry required for \'%s\' (PID %u).\r\n"
+                              "Password entry required for \'%s\' (PID " PID_FMT ").\r\n"
                               "Please enter password with the systemd-tty-ask-password-agent tool.",
                               strna(message),
                               pid) < 0)
@@ -235,7 +235,7 @@ static int process_one_password_file(const char *filename) {
 
                 if (access(socket_name, W_OK) < 0) {
                         if (arg_action == ACTION_QUERY)
-                                log_info("Not querying '%s' (PID %u), lacking privileges.", strna(message), pid);
+                                log_info("Not querying '%s' (PID " PID_FMT "), lacking privileges.", strna(message), pid);
 
                         return 0;
                 }
