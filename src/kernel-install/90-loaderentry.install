@@ -70,10 +70,15 @@ else
     BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
 fi
 
-# Suffix with the machine ID we use, so that the machine ID remains stable,
-# even during factory reset, in the initrd (where the system's machine ID is
-# not directly accessible yet), and if the root file system is volatile.
-BOOT_OPTIONS="${BOOT_OPTIONS% } systemd.machine_id=$MACHINE_ID"
+BOOT_OPTIONS="${BOOT_OPTIONS% }"
+
+# If the boot entries are named after the machine ID, then suffix the kernel
+# command line with the machine ID we use, so that the machine ID remains
+# stable, even during factory reset, in the initrd (where the system's machine
+# ID is not directly accessible yet), and if the root file system is volatile.
+if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
+    BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
+fi
 
 if [ -r /etc/kernel/tries ]; then
     read -r TRIES </etc/kernel/tries
@@ -121,7 +126,10 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
 {
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
-    echo "machine-id $MACHINE_ID"
+    if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
+        # See similar logic above for the systemd.machine_id= kernel command line option
+        echo "machine-id $MACHINE_ID"
+    fi
     echo "options    $BOOT_OPTIONS"
     echo "linux      $ENTRY_DIR/linux"
 
