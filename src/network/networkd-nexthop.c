@@ -1220,7 +1220,7 @@ int config_parse_nexthop_family(
                 return 0;
         }
 
-        switch(a) {
+        switch (a) {
         case ADDRESS_FAMILY_IPV4:
                 n->family = AF_INET;
                 break;
