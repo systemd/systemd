@@ -12,6 +12,7 @@
 #include "systemctl-compat-halt.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-logind.h"
+#include "systemctl-start-unit.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
 #include "terminal-util.h"
@@ -144,30 +145,32 @@ int halt_parse_argv(int argc, char *argv[]) {
 int halt_main(void) {
         int r;
 
-        /* always try logind first */
-        if (arg_when > 0)
-                r = logind_schedule_shutdown();
-        else {
-                r = logind_check_inhibitors(arg_action);
-                if (r < 0)
+        if (arg_force == 0) {
+                /* always try logind first */
+                if (arg_when > 0)
+                        r = logind_schedule_shutdown();
+                else {
+                        r = logind_check_inhibitors(arg_action);
+                        if (r < 0)
+                                return r;
+
+                        r = logind_reboot(arg_action);
+                }
+                if (r >= 0)
                         return r;
+                if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                        /* Requested operation requires auth, is not supported on the local system or already in
+                         * progress */
+                        return r;
+                /* on all other errors, try low-level operation */
 
-                r = logind_reboot(arg_action);
+                /* In order to minimize the difference between operation with and without logind, we explicitly
+                 * enable non-blocking mode for this, as logind's shutdown operations are always non-blocking. */
+                arg_no_block = true;
+
+                if (!arg_dry_run)
+                        return start_with_fallback();
         }
-        if (r >= 0)
-                return r;
-        if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
-                /* Requested operation requires auth, is not supported on the local system or already in
-                 * progress */
-                return r;
-        /* on all other errors, try low-level operation */
-
-        /* In order to minimize the difference between operation with and without logind, we explicitly
-         * enable non-blocking mode for this, as logind's shutdown operations are always non-blocking. */
-        arg_no_block = true;
-
-        if (!arg_dry_run && !arg_force)
-                return start_with_fallback();
 
         if (geteuid() != 0) {
                 (void) must_be_root();
