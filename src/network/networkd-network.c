@@ -755,7 +755,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
-        ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
+        hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
         free(network->name);
 

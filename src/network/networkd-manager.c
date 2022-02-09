@@ -45,12 +45,14 @@
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "qdisc.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "tclass.h"
 #include "tmpfile-util.h"
 
 /* use 128 MB for receive socket kernel queue. */
@@ -308,6 +310,22 @@ static int manager_connect_rtnl(Manager *m) {
                 return r;
 
         r = netlink_add_match(m->rtnl, NULL, RTM_DELLINK, &manager_rtnl_process_link, NULL, m, "network-rtnl_process_link");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_NEWQDISC, &manager_rtnl_process_qdisc, NULL, m, "network-rtnl_process_qdisc");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_DELQDISC, &manager_rtnl_process_qdisc, NULL, m, "network-rtnl_process_qdisc");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_NEWTCLASS, &manager_rtnl_process_tclass, NULL, m, "network-rtnl_process_tclass");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_DELTCLASS, &manager_rtnl_process_tclass, NULL, m, "network-rtnl_process_tclass");
         if (r < 0)
                 return r;
 
@@ -671,6 +689,34 @@ static int manager_enumerate_links(Manager *m) {
         return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
 }
 
+static int manager_enumerate_qdisc(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_traffic_control(m->rtnl, &req, RTM_GETQDISC, 0, 0, 0);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_qdisc);
+}
+
+static int manager_enumerate_tclass(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+
+        r = sd_rtnl_message_new_traffic_control(m->rtnl, &req, RTM_GETTCLASS, 0, 0, 0);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_tclass);
+}
+
 static int manager_enumerate_addresses(Manager *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -796,6 +842,14 @@ int manager_enumerate(Manager *m) {
         r = manager_enumerate_links(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate links: %m");
+
+        r = manager_enumerate_qdisc(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate QDisc: %m");
+
+        r = manager_enumerate_tclass(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate TClass: %m");
 
         r = manager_enumerate_addresses(m);
         if (r < 0)

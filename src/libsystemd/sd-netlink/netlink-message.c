@@ -119,7 +119,8 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m->protocol != NETLINK_ROUTE ||
                       IN_SET(m->hdr->nlmsg_type,
                              RTM_GETLINK, RTM_GETLINKPROP, RTM_GETADDR, RTM_GETROUTE, RTM_GETNEIGH,
-                             RTM_GETRULE, RTM_GETADDRLABEL, RTM_GETNEXTHOP), -EINVAL);
+                             RTM_GETRULE, RTM_GETADDRLABEL, RTM_GETNEXTHOP, RTM_GETQDISC, RTM_GETTCLASS),
+                      -EINVAL);
 
         SET_FLAG(m->hdr->nlmsg_flags, NLM_F_DUMP, dump);
 
