@@ -68,7 +68,11 @@ elif [ -r /usr/lib/kernel/cmdline ]; then
 else
     BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
 fi
-BOOT_OPTIONS="${BOOT_OPTIONS% }"
+
+# Suffix with the machine ID we use, so that the machine ID remains stable,
+# even during factory reset, in the initrd (where the system's machine ID is
+# not directly accessible yet), and if the root file system is volatile.
+BOOT_OPTIONS="${BOOT_OPTIONS% } systemd.machine_id=$MACHINE_ID"
 
 if [ -r /etc/kernel/tries ]; then
     read -r TRIES </etc/kernel/tries
