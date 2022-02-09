@@ -590,7 +590,8 @@ static unsigned type_to_context(ObjectType type) {
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
-static int journal_file_move_to(
+/* XXX keep this inline, this is on a very hot path for things like journalctl matches */
+static inline int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
