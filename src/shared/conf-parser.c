@@ -180,9 +180,9 @@ static int parse_line(
         if (!utf8_is_valid(l))
                 return log_syntax_invalid_utf8(unit, LOG_WARNING, filename, line, l);
 
-        if (*l == '[') {
+        if (l[0] == '[') {
+                _cleanup_free_ char *n = NULL;
                 size_t k;
-                char *n;
 
                 k = strlen(l);
                 assert(k > 0);
@@ -210,7 +210,6 @@ static int parse_line(
                         if (!ignore)
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown section '%s'. Ignoring.", n);
 
-                        free(n);
                         *section = mfree(*section);
                         *section_line = 0;
                         *section_ignored = true;
