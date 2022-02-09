@@ -223,6 +223,7 @@ int main(int argc, char *argv[]) {
         assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_ROOT_SLICE, true, UNIT_DEPENDENCY_FILE) >= 0);
         assert_se(unit_add_dependency_by_name(stub, UNIT_REQUIRES, "non-existing.mount", true, UNIT_DEPENDENCY_FILE) >= 0);
         assert_se(unit_add_dependency_by_name(stub, UNIT_ON_FAILURE, "non-existing-on-failure.target", true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_ON_SUCCESS, "non-existing-on-success.target", true, UNIT_DEPENDENCY_FILE) >= 0);
 
         log_info("/* Merging a+stub, dumps before */");
         unit_dump(a, stderr, NULL);
@@ -237,7 +238,13 @@ int main(int argc, char *argv[]) {
         assert_se(unit_has_dependency(a, UNIT_ATOM_PULL_IN_START, manager_get_unit(m, "non-existing.mount")));
         assert_se(unit_has_dependency(a, UNIT_ATOM_RETROACTIVE_START_REPLACE, manager_get_unit(m, "non-existing.mount")));
         assert_se(unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, "non-existing-on-failure.target")));
+        assert_se(unit_has_dependency(manager_get_unit(m, "non-existing-on-failure.target"), UNIT_ATOM_ON_FAILURE_OF, a));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS, manager_get_unit(m, "non-existing-on-success.target")));
+        assert_se(unit_has_dependency(manager_get_unit(m, "non-existing-on-success.target"), UNIT_ATOM_ON_SUCCESS_OF, a));
         assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, "basic.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS, manager_get_unit(m, "basic.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE_OF, manager_get_unit(m, "basic.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS_OF, manager_get_unit(m, "basic.target")));
         assert_se(!unit_has_dependency(a, UNIT_ATOM_PROPAGATES_RELOAD_TO, manager_get_unit(m, "non-existing-on-failure.target")));
 
         assert_se(unit_has_name(a, "a.service"));
