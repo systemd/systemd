@@ -29,6 +29,7 @@ INITRD_OPTIONS_SHIFT=4
 [ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
 
 MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
 BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
@@ -41,10 +42,10 @@ fi
 case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION*.conf"
+            echo "Removing $BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION*.conf"
         exec rm -f \
-            "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf" \
-            "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
+            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf" \
+            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+"*".conf"
         ;;
     add)
         ;;
@@ -80,9 +81,9 @@ if [ -r /etc/kernel/tries ]; then
         echo "/etc/kernel/tries does not contain an integer." >&2
         exit 1
     fi
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.conf"
 else
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
 fi
 
 if ! [ -d "$ENTRY_DIR_ABS" ]; then
