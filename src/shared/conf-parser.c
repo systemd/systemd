@@ -194,6 +194,9 @@ static int parse_line(
                 if (!n)
                         return log_oom();
 
+                if (!string_is_safe(n))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Bad characters in section header '%s'", l);
+
                 if (sections && !nulstr_contains(sections, n)) {
                         bool ignore;
                         const char *t;
