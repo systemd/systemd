@@ -220,7 +220,7 @@ DHCPv4.SendHostname,                         config_parse_bool,                 
 DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCPv4.Label,                                config_parse_dhcp_label,                                  0,                             offsetof(Network, dhcp_label)
 DHCPv4.RequestBroadcast,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
-DHCPv4.VendorClassIdentifier,                config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCPv4.VendorClassIdentifier,                config_parse_safe_string,                                 0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCPv4.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp_mudurl)
 DHCPv4.MaxAttempts,                          config_parse_dhcp_max_attempts,                           0,                             0
 DHCPv4.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
@@ -539,7 +539,7 @@ DHCP.SendHostname,                           config_parse_bool,                 
 DHCP.Hostname,                               config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCP.RequestBroadcast,                       config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
-DHCP.VendorClassIdentifier,                  config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.VendorClassIdentifier,                  config_parse_safe_string,                                 0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.UserClass,                              config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
 DHCP.IAID,                                   config_parse_iaid,                                        AF_INET,                       0
 DHCP.DUIDType,                               config_parse_network_duid_type,                           0,                             0

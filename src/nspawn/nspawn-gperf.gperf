@@ -24,7 +24,7 @@ Exec.Ephemeral,               config_parse_tristate,       0,                 of
 Exec.ProcessTwo,              config_parse_pid2,           0,                 0
 Exec.Parameters,              config_parse_strv,           0,                 offsetof(Settings, parameters)
 Exec.Environment,             config_parse_strv,           0,                 offsetof(Settings, environment)
-Exec.User,                    config_parse_string,         0,                 offsetof(Settings, user)
+Exec.User,                    config_parse_safe_string,    0,                 offsetof(Settings, user)
 Exec.Capability,              config_parse_capability,     0,                 offsetof(Settings, capability)
 Exec.AmbientCapability,       config_parse_capability,     0,                 offsetof(Settings, ambient_capability)
 Exec.DropCapability,          config_parse_capability,     0,                 offsetof(Settings, drop_capability)
