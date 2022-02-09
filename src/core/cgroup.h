@@ -311,6 +311,7 @@ int unit_reset_accounting(Unit *u);
 
 bool manager_owns_host_root_cgroup(Manager *m);
 bool unit_has_host_root_cgroup(Unit *u);
+int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 

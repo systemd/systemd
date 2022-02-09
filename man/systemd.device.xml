@@ -36,8 +36,7 @@
     for the common options of all unit configuration files. The common
     configuration items are configured in the generic
     [Unit] and [Install]
-    sections. A separate [Device] section does not
-    exist, since no device-specific options may be configured.</para>
+    sections. Device specific options are supported in the [Device] section .</para>
 
     <para>systemd will dynamically create device units for all kernel devices that are marked with the
     <literal>systemd</literal> udev tag (by default all block and network devices, and a few others). Note
@@ -152,9 +151,145 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Device unit files may include [Unit] and [Install] sections, which are described in
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. No
-    options specific to this file type are supported.</para>
+    <para>Device unit files may include [Device], [Unit] and [Install] sections. [Device] section includes device specific properties. [Unit] and [Install] sections are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <variablelist class='unit-directives'>
+      <varlistentry>
+        <term><varname>IOCostQOSEnabled=</varname></term>
+        <listitem><para>Takes a boolean argument that is not assigned by default.
+        The user has to explicitly enable <varname>IOCostQOSEnabled=</varname> in order to use io.cost.qos.
+        If <option>yes</option> the io.cost.qos parameters are enabled. If <option>no</option> all other IOCostQOS fields are ignored.
+        This controls the first field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSCtrl=</varname></term>
+        <listitem><para>Takes the special options <option>auto</option> and <option>user</option>. No options will be applied if unspecified, hence this does not have a default value.
+        If <option>auto</option>, <varname>IOCostQOSRPercentile=</varname>, <varname>IOCostQOSRLat=</varname>, <varname>IOCostQOSWPercentile=</varname>, <varname>IOCostQOSRLat=</varname>, <varname>IOCostQOSWPercentile=</varname>,
+        <varname>IOCostQOSWLat=</varname>, <varname>IOCostQOSMin=</varname>, and <varname>IOCostQOSMax=</varname>
+        are all ignored. If <option>user</option> io.cost.qos parameters are controlled by the user and the properties listed for io.cost.qos will be applied. This controls the second field of <literal>io.cost.qos</literal>
+        control group attribute. For details about these control group attributes, see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSRPercentile=</varname></term>
+        <listitem><para>Configure io.cost.qos read latency percentile. Value between 0.00% and 100.00% inclusive accurate to two decimal places. Defaults to 0.00%.
+        This controls the third field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSRLat=</varname></term>
+        <listitem><para>Configure io.cost.qos read latency threshold in milliseconds. Value between 0 and <constant>UINT32_MAX</constant>. Defaults to 0.
+        The device is considered saturated if the 95th percentile of read completion latencies is above this threshold.
+        This controls the fourth field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSWPercentile=</varname></term>
+        <listitem><para>Configure io.cost.qos write latency percentile. Value between 0.00% and 100.00% accurate to two decimal places. Defaults to 0.00%.
+        This controls the fifth field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSWLat=</varname></term>
+        <listitem><para>Configure io.cost.qos write latency threshold in milliseconds. Value between 0 and <constant>UINT32_MAX</constant>. Defaults to 0.
+        The device is considered saturated if the 95th percentile of write completion latencies is above this threshold.
+        This controls the sixth field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSMin=</varname></term>
+        <listitem><para>Configure io.cost.qos min scaling percentage. Value between 1.00 and 10000.00 inclusive accurate to two decimal places and must be less than
+        or equal to <varname>IOCostQOSMax=</varname>. Defaults to 1.00. Note that this field requires two digits after the decimal point.
+        This value is clamped to the range supported by the kernel. Controller will adjust the overall IO rate between min and max percentiles based on internal device saturation state.
+        This controls the seventh field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSMax=</varname></term>
+        <listitem><para>Configure io.cost.qos max scaling percentage. Value between 1.00 and 10000.00 accurate to two decimal places and must be greater than
+        or equal to <varname>IOCostQOSMin=</varname>. Defaults to 1.00. Note that this field requires two digits after the decimal point.
+        This value is clamped to the range supported by the kernel. Controller will adjust the overall IO rate between min and max percentiles based on internal device saturation state.
+        This controls the eigth field of <literal>io.cost.qos</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelCtrl=</varname></term>
+        <listitem><para>Takes the special options <option>auto</option> and <option>user</option>. No options will be applied if unspecified, hence this does not have a default value.
+        If <option>auto</option>, <varname>IOCostModelRbps=</varname>, <varname>IOCostModelRSeqIops=</varname>, <varname>IOCostModelRRandIops=</varname>,
+        <varname>IOCostModelWbps=</varname>, <varname>IOCostModelWSeqIops=</varname>, and <varname>IOCostModelWRandIops=</varname>
+        are all ignored. If <option>user</option>, io.cost.model parameters are controlled by the user and the properties listed for io.cost.model will be applied.
+        This controls the first field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRbps=</varname></term>
+        <listitem><para> Maximum sequential read IO throughput in bytes per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the third field of <literal>io.cost.model</literal> control group attribute. Note that the second field is model, which is set to linear.
+        For details about these control group attributes, see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRSeqIops=</varname></term>
+        <listitem><para> Maximum sequential read IOs per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the fourth field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRRandIops=</varname></term>
+        <listitem><para> Maximum random read IOs per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the fifth field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWbps=</varname></term>
+        <listitem><para> Maximum sequential write IO throughput in bytes per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the sixth field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWSeqIops=</varname></term>
+        <listitem><para> Maximum sequential write IOs per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the seventh field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWRandIops=</varname></term>
+        <listitem><para> Maximum random write IOs per second. Value between 0 and <constant>UINT64_MAX</constant>. Defaults to 0.
+        This controls the eighth field of <literal>io.cost.model</literal> control group attribute. For details about these control group attributes,
+        see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
