@@ -2280,3 +2280,10 @@ static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MA
 };
 
 DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);
+
+static const char* const io_cost_ctrl_table[_IO_COST_CTRL_MAX] = {
+        [IO_COST_CTRL_AUTO] = "auto",
+        [IO_COST_CTRL_USER] = "user",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(io_cost_ctrl, IOCostCtrl);
