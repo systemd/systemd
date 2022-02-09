@@ -54,6 +54,15 @@
 #include "utmp-wtmp.h"
 #include "virt.h"
 
+/* As a random fun fact sysvinit had a 252 (256-(strlen(" \r\n")+1))
+ * character limit for the wall message.
+ * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72)
+ * There is no real technical need for that but doesn't make sense
+ * to store arbitrary amounts either. As we are not stingy here, we
+ * allow 4k.
+ */
+#define WALL_MESSAGE_MAX 4096
+
 static void reset_scheduled_shutdown(Manager *m);
 
 static int get_sender_session(
@@ -343,13 +352,14 @@ static int property_get_scheduled_shutdown(
         assert(bus);
         assert(reply);
         assert(m);
+        assert(m->scheduled_shutdown_type);
 
         r = sd_bus_message_open_container(reply, 'r', "st");
         if (r < 0)
                 return r;
 
         r = sd_bus_message_append(reply, "st",
-                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)),
+                handle_action_to_string(m->scheduled_shutdown_type->handle),
                 m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
@@ -1499,13 +1509,13 @@ static int bus_manager_log_shutdown(
                 Manager *m,
                 const ActionTableItem *a) {
 
-        const char *message, *log_str;
+        const char *message, *log_message;
 
         assert(m);
         assert(a);
 
         message = a->message;
-        log_str = a->log_str;
+        log_message = a->log_message;
 
         if (message)
                 message = strjoina("MESSAGE=", message);
@@ -1517,13 +1527,13 @@ static int bus_manager_log_shutdown(
         else
                 message = strjoina(message, " (", m->wall_message, ").");
 
-        if (log_str)
-                log_str = strjoina("SHUTDOWN=", log_str);
+        if (log_message)
+                log_message = strjoina("SHUTDOWN=", log_message);
 
         return log_struct(LOG_NOTICE,
                         "MESSAGE_ID=%s", a->message_id ? a->message_id : SD_MESSAGE_SHUTDOWN_STR,
                         message,
-                        log_str);
+                        log_message);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
@@ -1884,7 +1894,7 @@ static int method_do_shutdown_or_sleep(
                         return r;
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
-                if (manager_handle_for_item(a) != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
+                if (a->handle != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Reboot via kexec is only applicable with reboot operations");
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
@@ -2035,6 +2045,7 @@ static int update_schedule_file(Manager *m) {
         int r;
 
         assert(m);
+        assert(m->scheduled_shutdown_type);
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
@@ -2052,7 +2063,7 @@ static int update_schedule_file(Manager *m) {
                 "MODE=%s\n",
                 m->scheduled_shutdown_timeout,
                 m->enable_wall_messages,
-                handle_action_to_string(manager_handle_for_item(m->scheduled_shutdown_type)));
+                handle_action_to_string(m->scheduled_shutdown_type->handle));
 
         if (!isempty(m->wall_message)) {
                 _cleanup_free_ char *t = NULL;
@@ -2238,11 +2249,12 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         int r;
 
         assert(m);
+        assert(m->scheduled_shutdown_type);
         assert(message);
 
-        cancelled = !IN_SET(manager_handle_for_item(m->scheduled_shutdown_type), HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
+        cancelled = !IN_SET(m->scheduled_shutdown_type->handle, HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
         if (!cancelled)
-                goto done;
+                return sd_bus_reply_method_return(message, "b", false);
 
         a = m->scheduled_shutdown_type;
         if (!a->polkit_action)
@@ -2281,8 +2293,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                           username, tty, logind_wall_tty_filter, m);
         }
 
-done:
-        return sd_bus_reply_method_return(message, "b", cancelled);
+        return sd_bus_reply_method_return(message, "b", true);
 }
 
 static int method_can_shutdown_or_sleep(
@@ -2328,7 +2339,7 @@ static int method_can_shutdown_or_sleep(
         if (handle >= 0) {
                 const char *target;
 
-                target = manager_target_for_action(handle);
+                target = manager_item_for_handle(handle)->target;
                 if (target) {
                         _cleanup_free_ char *load_state = NULL;
 
@@ -3115,14 +3126,10 @@ static int method_set_wall_message(
         if (r < 0)
                 return r;
 
-        /* sysvinit has a 252 (256-(strlen(" \r\n")+1)) character
-         * limit for the wall message. There is no real technical
-         * need for that but doesn't make sense to store arbitrary
-         * amounts either.
-         * https://git.savannah.nongnu.org/cgit/sysvinit.git/tree/src/shutdown.c#n72)
-        */
-        if (strlen(wall_message) > 252)
-                return -EMSGSIZE;
+        if (strlen(wall_message) > WALL_MESSAGE_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                        "Wall message too long, maximum permitted length is %u characters.",
+                        WALL_MESSAGE_MAX);
 
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
