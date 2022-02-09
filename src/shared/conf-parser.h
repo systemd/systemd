@@ -69,18 +69,18 @@ typedef int (*ConfigItemLookup)(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata);
 
 /* Linear table search implementation of ConfigItemLookup, based on
  * ConfigTableItem arrays */
-int config_item_table_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_table_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *ret_func, int *ret_ltype, void **ret_data, void *userdata);
 
 /* gperf implementation of ConfigItemLookup, based on gperf
  * ConfigPerfItem tables */
-int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *ret_func, int *ret_ltype, void **ret_data, void *userdata);
 
 int config_parse(
                 const char *unit,

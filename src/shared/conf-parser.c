@@ -40,18 +40,18 @@ int config_item_table_lookup(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata) {
 
         const ConfigTableItem *t;
 
         assert(table);
         assert(lvalue);
-        assert(func);
-        assert(ltype);
-        assert(data);
+        assert(ret_func);
+        assert(ret_ltype);
+        assert(ret_data);
 
         for (t = table; t->lvalue; t++) {
 
@@ -61,12 +61,15 @@ int config_item_table_lookup(
                 if (!streq_ptr(section, t->section))
                         continue;
 
-                *func = t->parse;
-                *ltype = t->ltype;
-                *data = t->data;
+                *ret_func = t->parse;
+                *ret_ltype = t->ltype;
+                *ret_data = t->data;
                 return 1;
         }
 
+        *ret_func = NULL;
+        *ret_ltype = 0;
+        *ret_data = NULL;
         return 0;
 }
 
@@ -74,9 +77,9 @@ int config_item_perf_lookup(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata) {
 
         ConfigPerfItemLookup lookup = (ConfigPerfItemLookup) table;
@@ -84,9 +87,9 @@ int config_item_perf_lookup(
 
         assert(table);
         assert(lvalue);
-        assert(func);
-        assert(ltype);
-        assert(data);
+        assert(ret_func);
+        assert(ret_ltype);
+        assert(ret_data);
 
         if (section) {
                 const char *key;
@@ -95,12 +98,16 @@ int config_item_perf_lookup(
                 p = lookup(key, strlen(key));
         } else
                 p = lookup(lvalue, strlen(lvalue));
-        if (!p)
+        if (!p) {
+                *ret_func = NULL;
+                *ret_ltype = 0;
+                *ret_data = NULL;
                 return 0;
+        }
 
-        *func = p->parse;
-        *ltype = p->ltype;
-        *data = (uint8_t*) userdata + p->offset;
+        *ret_func = p->parse;
+        *ret_ltype = p->ltype;
+        *ret_data = (uint8_t*) userdata + p->offset;
         return 1;
 }
 
@@ -133,11 +140,11 @@ static int next_assignment(
         if (r < 0)
                 return r;
         if (r > 0) {
-                if (func)
-                        return func(unit, filename, line, section, section_line,
-                                    lvalue, ltype, rvalue, data, userdata);
+                if (!func)
+                        return 0;
 
-                return 0;
+                return func(unit, filename, line, section, section_line,
+                            lvalue, ltype, rvalue, data, userdata);
         }
 
         /* Warn about unknown non-extension fields. */

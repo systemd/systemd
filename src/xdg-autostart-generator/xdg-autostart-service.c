@@ -288,22 +288,22 @@ static int xdg_config_item_table_lookup(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata) {
 
         assert(lvalue);
 
         /* Ignore any keys with [] as those are translations. */
         if (strchr(lvalue, '[')) {
-                *func = NULL;
-                *ltype = 0;
-                *data = NULL;
+                *ret_func = NULL;
+                *ret_ltype = 0;
+                *ret_data = NULL;
                 return 1;
         }
 
-        return config_item_table_lookup(table, section, lvalue, func, ltype, data, userdata);
+        return config_item_table_lookup(table, section, lvalue, ret_func, ret_ltype, ret_data, userdata);
 }
 
 XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
