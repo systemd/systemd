@@ -34,6 +34,7 @@ Match.Virtualization,                      config_parse_net_condition,          
 Match.KernelCommandLine,                   config_parse_net_condition,            CONDITION_KERNEL_COMMAND_LINE, offsetof(LinkConfig, conditions)
 Match.KernelVersion,                       config_parse_net_condition,            CONDITION_KERNEL_VERSION,      offsetof(LinkConfig, conditions)
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
+Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
 Link.MACAddressPolicy,                     config_parse_mac_address_policy,       0,                             offsetof(LinkConfig, mac_address_policy)
 Link.MACAddress,                           config_parse_hw_addr,                  0,                             offsetof(LinkConfig, hw_addr)
