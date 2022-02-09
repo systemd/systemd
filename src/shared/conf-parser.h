@@ -195,6 +195,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ether_addrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
 CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
