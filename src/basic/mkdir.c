@@ -51,6 +51,9 @@ int mkdir_safe_internal(
                                                    _mkdirat);
         }
 
+        if (flags & MKDIR_IGNORE_EXISTING)
+                return 0;
+
         if (!S_ISDIR(st.st_mode))
                 return log_full_errno(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG, SYNTHETIC_ERRNO(ENOTDIR),
                                       "Path \"%s\" already exists and is not a directory, refusing.", path);
@@ -138,7 +141,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
                 s[n] = '\0';
 
                 if (!prefix || !path_startswith_full(prefix, path, /* accept_dot_dot= */ false)) {
-                        r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdirat);
+                        r = mkdir_safe_internal(path, mode, uid, gid, flags | MKDIR_IGNORE_EXISTING, _mkdirat);
                         if (r < 0 && r != -EEXIST)
                                 return r;
                 }
