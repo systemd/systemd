@@ -494,6 +494,8 @@ int manager_mdns_ipv4_fd(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv4: Failed to create event source: %m");
 
+        (void) sd_event_source_set_description(m->mdns_ipv4_event_source, "mdns-ipv4");
+
         return m->mdns_ipv4_fd = TAKE_FD(s);
 }
 
@@ -566,6 +568,8 @@ int manager_mdns_ipv6_fd(Manager *m) {
         r = sd_event_add_io(m->event, &m->mdns_ipv6_event_source, s, EPOLLIN, on_mdns_packet, m);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to create event source: %m");
+
+        (void) sd_event_source_set_description(m->mdns_ipv6_event_source, "mdns-ipv6");
 
         return m->mdns_ipv6_fd = TAKE_FD(s);
 }
