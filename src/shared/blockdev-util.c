@@ -240,6 +240,52 @@ int lock_whole_block_device(dev_t devt, int operation) {
         return TAKE_FD(lock_fd);
 }
 
+int lookup_block_device(const char *p, dev_t *ret) {
+        dev_t rdev, dev = 0;
+        mode_t mode;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        r = device_path_parse_major_minor(p, &mode, &rdev);
+        if (r == -ENODEV) { /* not a parsable device node, need to go to disk */
+                struct stat st;
+
+                if (stat(p, &st) < 0)
+                        return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+
+                mode = st.st_mode;
+                rdev = st.st_rdev;
+                dev = st.st_dev;
+        } else if (r < 0)
+                return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
+
+        if (S_ISCHR(mode))
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOTBLK),
+                                         "Device node '%s' is a character device, but block device needed.", p);
+        if (S_ISBLK(mode))
+                *ret = rdev;
+        else if (major(dev) != 0)
+                *ret = dev; /* If this is not a device node then use the block device this file is stored on */
+        else {
+                /* If this is btrfs, getting the backing block device is a bit harder */
+                r = btrfs_get_block_device(p, ret);
+                if (r == -ENOTTY)
+                        return log_warning_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                 "'%s' is not a block device node, and file system block device cannot be determined or is not local.", p);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to determine block device backing btrfs file system '%s': %m", p);
+        }
+
+        /* If this is a LUKS/DM device, recursively try to get the originating block device */
+        while (block_get_originating(*ret, ret) > 0);
+
+        /* If this is a partition, try to get the originating block device */
+        (void) block_get_whole_disk(*ret, ret);
+        return 0;
+}
+
 int blockdev_partscan_enabled(int fd) {
         _cleanup_free_ char *p = NULL, *buf = NULL;
         unsigned long long ull;
