@@ -21,6 +21,7 @@
 #include "log-link.h"
 #include "netif-util.h"
 #include "network-util.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
@@ -66,6 +67,9 @@ typedef struct Link {
         uint32_t original_mtu;
         sd_device *sd_device;
         char *driver;
+
+        /* link local addressing */
+        IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
 
         /* wlan */
         enum nl80211_iftype wlan_iftype;
@@ -220,8 +224,6 @@ static inline bool link_has_carrier(Link *link) {
 }
 
 bool link_ipv6_enabled(Link *link);
-bool link_ipv6ll_enabled(Link *link);
-bool link_may_have_ipv6ll(Link *link);
 int link_ipv6ll_gained(Link *link);
 
 bool link_ipv4ll_enabled(Link *link);
