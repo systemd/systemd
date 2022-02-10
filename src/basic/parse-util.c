@@ -415,7 +415,7 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) {
+int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu) {
         char *x = NULL;
         unsigned long long l;
 

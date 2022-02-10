@@ -94,7 +94,7 @@ int mount_option_mangle(
                 char **ret_remaining_options);
 
 int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest);
-int mount_flags_to_string(long unsigned flags, char **ret);
+int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
 static inline char* umount_and_rmdir_and_free(char *p) {
