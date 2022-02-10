@@ -18,7 +18,7 @@
 #include "tmpfile-util.h"
 
 static void test_mount_propagation_flags_one(const char *name, int ret, unsigned long expected) {
-        long unsigned flags;
+        unsigned long flags;
 
         log_info("/* %s(%s) */", __func__, name);
 

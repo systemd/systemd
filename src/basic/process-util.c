@@ -645,7 +645,7 @@ int get_process_environ(pid_t pid, char **ret) {
 
 int get_process_ppid(pid_t pid, pid_t *ret) {
         _cleanup_free_ char *line = NULL;
-        long unsigned ppid;
+        unsigned long ppid;
         const char *p;
         int r;
 
@@ -688,7 +688,7 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         if (ppid == 0)
                 return -EADDRNOTAVAIL;
 
-        if ((pid_t) ppid < 0 || (long unsigned) (pid_t) ppid != ppid)
+        if ((pid_t) ppid < 0 || (unsigned long) (pid_t) ppid != ppid)
                 return -ERANGE;
 
         if (ret)
