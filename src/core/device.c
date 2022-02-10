@@ -6,17 +6,19 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "ratelimit.h"
 #include "serialize.h"
+#include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"
@@ -90,6 +92,46 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         return 0;
 }
 
+static void io_cost_qos_reset(IOCostQos *io_cost_qos) {
+        assert(io_cost_qos);
+
+        io_cost_qos->enabled = -1;
+        io_cost_qos->ctrl = _IO_COST_CTRL_INVALID;
+        io_cost_qos->read_latency_percentile = 0;
+        io_cost_qos->read_latency_threshold = 0;
+        io_cost_qos->write_latency_percentile= 0;
+        io_cost_qos->write_latency_threshold= 0;
+        io_cost_qos->min= 0;
+        io_cost_qos->max= 0;
+        /* If either min or max is set to a value below 1
+         * the kernel will set to 1 */
+}
+
+static void io_cost_model_reset(IOCostModel *io_cost_model) {
+        assert(io_cost_model);
+
+        io_cost_model->ctrl = _IO_COST_CTRL_INVALID;
+        io_cost_model->rbps = 0;
+        io_cost_model->rseqiops = 0;
+        io_cost_model->rrandiops = 0;
+        io_cost_model->wbps = 0;
+        io_cost_model->wseqiops = 0;
+        io_cost_model->wrandiops = 0;
+}
+
+static bool verify_io_cost_supported(Device *d) {
+        /* io_cost_qos and io_cost_model only apply to cgroup v2 */
+        if (!cg_all_unified())
+                return false;
+
+        if (!d || !d->devname) {
+                log_debug("Device does not exist or does not have path under /dev");
+                return false;
+        }
+
+        return true;
+}
+
 static void device_init(Unit *u) {
         Device *d = DEVICE(u);
 
@@ -106,6 +148,10 @@ static void device_init(Unit *u) {
         u->ignore_on_isolate = true;
 
         d->deserialized_state = _DEVICE_STATE_INVALID;
+
+        io_cost_qos_reset(&d->io_cost_qos);
+
+        io_cost_model_reset(&d->io_cost_model);
 }
 
 static void device_done(Unit *u) {
@@ -114,12 +160,128 @@ static void device_done(Unit *u) {
         assert(d);
 
         device_unset_sysfs(d);
+        free(d->devname);
         d->wants_property = strv_free(d->wants_property);
 }
 
-static int device_load(Unit *u) {
+static int root_cgroup_apply_block_device_io_cost_qos(Unit *root_slice_unit, Device *d) {
+        char buf[DECIMAL_STR_MAX(dev_t)*2+9+(6+DECIMAL_STR_MAX(uint64_t)+1)*10+(6+DECIMAL_STR_MAX(loadavg_t)+1)*2];
+        IOCostQos *io_cost_qos;
+        dev_t dev;
         int r;
 
+        assert(root_slice_unit);
+        assert(d);
+
+        io_cost_qos = &d->io_cost_qos;
+
+        /* io_cost_qos enabled < 0 indicates that user did not set the enabled field */
+        if (io_cost_qos->enabled < 0)
+                return 0;
+
+        r = lookup_block_device(d->devname, &dev);
+        if (r < 0)
+                return r;
+
+        /* If ctrl is invalid but io_cost_qos is enabled there must be
+         * some misconfiguration by the user */
+        if (io_cost_qos->enabled && io_cost_qos->ctrl == _IO_COST_CTRL_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "io_cost_qos is enabled but ctrl is not set, parameters not valid");
+
+        /* Will consider ctrl value of auto to be the same as not enabled.
+         * In both cases the kernel will automatically fill all other io_cost_qos
+         * parameteters so we do not need to input them */
+        if (io_cost_qos->ctrl == IO_COST_CTRL_AUTO || !io_cost_qos->enabled) {
+                log_info("ctrl is set to auto or io_cost_qos is not enabled, setting all other values to kernel default");
+                xsprintf(buf, "%u:%u enable=%d ctrl=%.4s\n",
+                         major(dev),
+                         minor(dev),
+                         io_cost_qos->enabled,
+                         io_cost_ctrl_to_string(IO_COST_CTRL_AUTO));
+
+        } else if (io_cost_qos->ctrl == IO_COST_CTRL_USER) {
+                if (io_cost_qos->min > io_cost_qos->max)
+                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "io_cost_qos min is greater than max, not setting io.cost.qos");
+
+                xsprintf(buf, "%u:%u enable=%d ctrl=%.4s rpct=%u.%02u rlat=%u wpct=%u.%02u wlat=%u min=%lu.%02lu max=%lu.%02lu\n",
+                         major(dev),
+                         minor(dev),
+                         io_cost_qos->enabled,
+                         io_cost_ctrl_to_string(io_cost_qos->ctrl),
+                         io_cost_qos->read_latency_percentile / 100,
+                         io_cost_qos->read_latency_percentile % 100,
+                         io_cost_qos->read_latency_threshold,
+                         io_cost_qos->write_latency_percentile / 100,
+                         io_cost_qos->write_latency_percentile % 100,
+                         io_cost_qos->write_latency_threshold,
+                         LOADAVG_INT_SIDE(io_cost_qos->min),
+                         LOADAVG_DECIMAL_SIDE(io_cost_qos->min),
+                         LOADAVG_INT_SIDE(io_cost_qos->max),
+                         LOADAVG_DECIMAL_SIDE(io_cost_qos->max));
+
+        } else
+                return 0;
+
+        (void) set_attribute_and_warn(root_slice_unit, "io", "io.cost.qos", buf);
+
+        return 0;
+}
+
+static int root_cgroup_apply_block_device_io_cost_model(Unit *root_slice_unit, Device *d) {
+        char buf[DECIMAL_STR_MAX(dev_t)*2+9+12+(9+DECIMAL_STR_MAX(uint64_t)+1)*6];
+        IOCostModel *io_cost_model;
+        dev_t dev;
+        int r;
+
+        assert(root_slice_unit);
+        assert(d);
+
+        io_cost_model = &d->io_cost_model;
+
+        /* If ctrl is invalid it means that io_cost_model is not configured
+         * for this device */
+        if (io_cost_model->ctrl == _IO_COST_CTRL_INVALID)
+                return 0;
+
+        r = lookup_block_device(d->devname, &dev);
+        if (r < 0)
+                return r;
+
+        if (io_cost_model->ctrl == IO_COST_CTRL_AUTO) {
+                log_info("ctrl is set to auto for io_cost_model, setting all other values to kernel default");
+                xsprintf(buf, "%u:%u ctrl=%.4s\n",
+                         major(dev),
+                         minor(dev),
+                         io_cost_ctrl_to_string(IO_COST_CTRL_AUTO));
+
+        } else if (io_cost_model->ctrl == IO_COST_CTRL_USER) {
+                xsprintf(buf, "%u:%u ctrl=%.4s model=linear rbps=%" PRIu64 " rseqiops=%" PRIu64 " rrandiops=%" PRIu64 " wbps=%" PRIu64 " wseqiops=%" PRIu64 " wrandiops=%" PRIu64 "\n",
+                         major(dev),
+                         minor(dev),
+                         io_cost_ctrl_to_string(io_cost_model->ctrl),
+                         io_cost_model->rbps,
+                         io_cost_model->rseqiops,
+                         io_cost_model->rrandiops,
+                         io_cost_model->wbps,
+                         io_cost_model->wseqiops,
+                         io_cost_model->wrandiops);
+
+        } else
+                return 0;
+
+        (void) set_attribute_and_warn(root_slice_unit, "io", "io.cost.model", buf);
+
+        return 0;
+}
+
+static int device_load(Unit *u) {
+        Device *d = DEVICE(u);
+        Unit *root_slice_unit;
+        int r;
+
+        assert(d);
         r = unit_load_fragment_and_dropin(u, false);
         if (r < 0)
                 return r;
@@ -131,6 +293,23 @@ static int device_load(Unit *u) {
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to unescape name: %m");
         }
+
+        if (!verify_io_cost_supported(d)) {
+                log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "io cost is not supported");
+                return 0;
+        }
+
+        root_slice_unit = manager_get_unit(u->manager, SPECIAL_ROOT_SLICE);
+        if (!root_slice_unit)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root slice does not exist");
+
+        r = root_cgroup_apply_block_device_io_cost_qos(root_slice_unit, d);
+        if (r < 0)
+                return r;
+
+        r = root_cgroup_apply_block_device_io_cost_model(root_slice_unit, d);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -485,7 +664,7 @@ static void device_upgrade_mount_deps(Unit *u) {
 
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
         _cleanup_free_ char *e = NULL;
-        const char *sysfs = NULL;
+        const char *sysfs = NULL, *devname = NULL;
         Unit *u = NULL;
         bool delete;
         int r;
@@ -497,6 +676,13 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 r = sd_device_get_syspath(dev, &sysfs);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
+
+                /* There are devices that do not have a path under /dev
+                 * and thus do not have devname. We do not want to return
+                 * in that case. Hence below we only log. */
+                r = sd_device_get_devname(dev, &devname);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Couldn't get devname from device: %m");
         }
 
         r = unit_name_from_path(path, ".device", &e);
@@ -575,6 +761,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 if (main)
                         (void) device_add_udev_wants(u, dev);
         }
+
+        if (devname)
+                 r = free_and_strdup(&DEVICE(u)->devname, devname);
+
+        if (r < 0)
+                goto fail;
 
         (void) device_update_description(u, dev, path);
 
@@ -1098,6 +1290,7 @@ const UnitVTable device_vtable = {
                 "Unit\0"
                 "Device\0"
                 "Install\0",
+        .private_section = "Device",
 
         .gc_jobs = true,
 

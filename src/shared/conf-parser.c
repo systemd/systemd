@@ -1391,6 +1391,44 @@ int config_parse_permille(
         return 0;
 }
 
+int config_parse_io_cost_qos_scaling_percentage(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        loadavg_t *io_cost_qos_scaling_percentage = data;
+        loadavg_t result;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(io_cost_qos_scaling_percentage);
+
+        r = parse_loadavg_fixed_point(rvalue, &result);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse io_cost_qos_scaling_percentage value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* range supported by the kernel */
+        if (LOADAVG_INT_SIDE(result) < 1 || LOADAVG_INT_SIDE(result) > 10000)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "io_cost_qos scaling percentage invalid");
+
+        /* 100 in order to be accurate to two decimal places */
+        *io_cost_qos_scaling_percentage = result;
+
+        return 0;
+}
+
 int config_parse_vlanprotocol(
                 const char* unit,
                 const char *filename,
