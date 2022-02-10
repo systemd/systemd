@@ -96,6 +96,14 @@ helper_wait_for_lvm_activate() {
             if [[ "$(systemctl show -P SubState "$lvm_activate_svc")" == exited ]]; then
                 return 0
             fi
+        else
+            # Since lvm 2.03.15 the lvm-activate transient unit no longer remains
+            # after finishing, so we have to treat non-existent units as a success
+            # as well
+            # See: https://sourceware.org/git/?p=lvm2.git;a=commit;h=fbd8b0cf43dc67f51f86f060dce748f446985855
+            if [[ "$(systemctl show -P LoadState "$lvm_activate_svc")" == not-found ]]; then
+                return 0
+            fi
         fi
 
         sleep .5
