@@ -163,3 +163,48 @@ places:
 
 For infrastructure help, reaching out to Canonical via the #ubuntu-devel channel
 on libera.chat is an effective way to receive support in general.
+
+Manually running a part of the Ubuntu CI test suite
+===================================================
+
+In some situations one may want/need to run one of the tests run by Ubuntu CI
+locally for debugging purposes. For this, you need a machine (or a VM) with
+the same Ubuntu release as is used by Ubuntu CI (Focal ATTOW).
+
+First of all, clone the Debian systemd repository and sync it with the code of
+the PR (set by the $UPSTREAM_PULL_REQUEST env variable) you'd like to debug:
+
+# git clone https://salsa.debian.org/systemd-team/systemd.git
+# cd systemd
+# git checkout upstream-ci
+# TEST_UPSTREAM=1 UPSTREAM_PULL_REQUEST=12345 ./debian/extra/checkout-upstream
+
+Now install necessary build & test dependencies:
+
+## PPA with some newer Ubuntu packages required by upstream systemd
+# add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+# apt build-dep -y systemd
+# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+                 libzstd-dev libfdisk-dev libtss2-dev libfido2-dev libssl-dev \
+                 python3-jinja2 zstd
+
+Build systemd deb packages with debug info:
+
+# DEB_BUILD_OPTIONS="nocheck nostrip" dpkg-buildpackage -us -uc
+# cd ..
+
+Prepare a testbed image for autopkgtest (tweak the release as necessary):
+
+# autopkgtest-buildvm-ubuntu-cloud -v -a amd64 -r focal
+
+And finally run the autopkgtest itself:
+
+# autopkgtest -o logs *.deb systemd/ \
+              --timeout-factor=3 \
+              --test-name=boot-and-services \
+              --shell-fail \
+              -- autopkgtest-virt-qemu autopkgtest-focal-amd64.img
+
+where --test-name= is the name of the test you want to run/debug. The
+--shell-fail option will pause the execution in case the test fails and shows
+you the information how to connect to the testbed for further debugging.
