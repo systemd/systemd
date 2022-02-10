@@ -103,19 +103,38 @@ fi
 # for naming the .conf boot loader spec entry. Typically this is just the
 # machine ID, but it can be anything else, too, if we are told so.
 [ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token
-[ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$MACHINE_ID"
+if [ -z "$ENTRY_TOKEN" ]; then
+    # If not configured explicitly, then use a few candidates: the machine ID,
+    # the IMAGE_ID= and ID= fields from /etc/os-release and finally the fixed
+    # string "Default"
+    ENTRY_TOKEN_SEARCH="$MACHINE_ID"
+    [ -r /etc/os-release ] && . /etc/os-release
+    [ -n "$IMAGE_ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $IMAGE_ID"
+    [ -n "$ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $ID"
+    ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH Default"
+else
+    ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN"
+fi
 
 # NB: The $MACHINE_ID is guaranteed to be a valid machine ID, but
 #     $ENTRY_TOKEN can be any string that fits into a VFAT filename, though
 #     typically is just the machine ID.
 
-[ -z "$BOOT_ROOT" ] && for suff in "$ENTRY_TOKEN" "loader/entries"; do
-    for pref in "/efi" "/boot" "/boot/efi" ; do
+[ -z "$BOOT_ROOT" ] && for suff in $ENTRY_TOKEN_SEARCH; do
+    for pref in "/efi" "/boot" "/boot/efi"; do
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
+            ENTRY_TOKEN="$suff"
             break 2
         fi
     done
+done
+
+[ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot" "/boot/efi"; do
+    if [ -d "$pref/loader/entries" ]; then
+        BOOT_ROOT="$pref"
+        break
+    fi
 done
 
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
@@ -124,8 +143,10 @@ done
         break
     fi
 done
+
 [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
 
+[ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$MACHINE_ID"
 
 if [ -z "$layout" ]; then
     # Administrative decision: if not present, some scripts generate into /boot.
