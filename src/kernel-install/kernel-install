@@ -96,7 +96,8 @@ fi
 
 # If /etc/machine-id is initialized we'll use it, otherwise we'll use a freshly
 # generated one. If the user configured an explicit machine ID to use in
-# /etc/machine-info to use for our purpose, we'll use that instead.
+# /etc/machine-info to use for our purpose, we'll use that instead (for
+# compatibility).
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]   && read -r MACHINE_ID </etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="$(systemd-id128 new)"
