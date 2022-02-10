@@ -345,7 +345,7 @@ int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t opt
                 case DHCP6_NTP_SUBOPTION_SRV_ADDR:
                 case DHCP6_NTP_SUBOPTION_MC_ADDR:
                         if (sublen != 16)
-                                return 0;
+                                return -EINVAL;
 
                         r = dhcp6_option_parse_addresses(subval, sublen, &lease->ntp, &lease->ntp_count);
                         if (r < 0)
