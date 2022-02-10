@@ -5,10 +5,14 @@ Kind=bridge
 [Bridge]
 HelloTimeSec=9
 MaxAgeSec=9
-ForwardDelaySec=9
 AgeingTimeSec=9
+ForwardDelaySec=9
 Priority=9
-MulticastQuerier= true
-MulticastSnooping=true
+#GroupForwardMask=9 # This interferes other other settings
+DefaultPVID=9
+MulticastQuerier=yes
+MulticastSnooping=yes
+VLANFiltering=yes
+VLANProtocol=802.1ad
 STP=true
 MulticastIGMPVersion=3
