@@ -1185,6 +1185,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'STP: yes')
         self.assertRegex(output, 'Multicast IGMP Version: 3')
 
+        output = check_output('ip -d link show bridge99')
+        print(output)
+        self.assertIn('vlan_filtering 1 ', output)
+        self.assertIn('vlan_protocol 802.1ad ', output)
+        self.assertIn('vlan_default_pvid 9 ', output)
+
     def test_bond(self):
         copy_unit_to_networkd_unit_path('25-bond.netdev', '25-bond-balanced-tlb.netdev')
         start_networkd()
