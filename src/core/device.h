@@ -2,8 +2,12 @@
 #pragma once
 
 #include "unit.h"
+#include "parse-util.h"
 
 typedef struct Device Device;
+typedef struct IOCostQos IOCostQos;
+typedef struct IOCostModel IOCostModel;
+
 
 /* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up
  * asynchronously from each other at various places. For example, in very common case a device might already be mounted
@@ -17,10 +21,32 @@ typedef enum DeviceFound {
         DEVICE_FOUND_MASK  = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
+struct IOCostQos {
+        int enabled;
+        IOCostCtrl ctrl;
+        uint32_t read_latency_percentile;
+        uint32_t read_latency_threshold;
+        uint32_t write_latency_percentile;
+        uint32_t write_latency_threshold;
+        loadavg_t min;
+        loadavg_t max;
+};
+
+struct IOCostModel {
+        IOCostCtrl ctrl;
+        uint64_t rbps;
+        uint64_t rseqiops;
+        uint64_t rrandiops;
+        uint64_t wbps;
+        uint64_t wseqiops;
+        uint64_t wrandiops;
+};
+
 struct Device {
         Unit meta;
 
         char *sysfs;
+        char *devname;
 
         /* In order to be able to distinguish dependencies on different device nodes we might end up creating multiple
          * devices for the same sysfs path. We chain them up here. */
@@ -33,6 +59,9 @@ struct Device {
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
         char **wants_property;
+
+        IOCostQos io_cost_qos;
+        IOCostModel io_cost_model;
 };
 
 extern const UnitVTable device_vtable;
