@@ -25,6 +25,7 @@ usage()
     echo "Usage:"
     echo "  $0 [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE ...]"
     echo "  $0 [OPTIONS...] remove KERNEL-VERSION"
+    echo "  $0 [OPTIONS...] inspect"
     echo "Options:"
     echo "  -h, --help     Print this help"
     echo "  -v, --verbose  Increase verbosity"
@@ -72,13 +73,17 @@ else
     [ $# -ge 1 ] && shift
 fi
 
-if [ $# -lt 1 ]; then
-    echo "Error: not enough arguments" >&2
-    exit 1
-fi
+if [ "$COMMAND" = "inspect" ]; then
+    KERNEL_VERSION=""
+else
+    if [ $# -lt 1 ]; then
+        echo "Error: not enough arguments" >&2
+        exit 1
+    fi
 
-KERNEL_VERSION="$1"
-shift
+    KERNEL_VERSION="$1"
+    shift
+fi
 
 layout=
 initrd_generator=
@@ -237,6 +242,18 @@ case "$COMMAND" in
         fi
         ;;
 
+    inspect)
+        echo "KERNEL_INSTALL_MACHINE_ID: $KERNEL_INSTALL_MACHINE_ID"
+        echo "KERNEL_INSTALL_ENTRY_TOKEN: $KERNEL_INSTALL_ENTRY_TOKEN"
+        echo "KERNEL_INSTALL_BOOT_ROOT: $KERNEL_INSTALL_BOOT_ROOT"
+        echo "KERNEL_INSTALL_LAYOUT: $KERNEL_INSTALL_LAYOUT"
+        echo "KERNEL_INSTALL_INITRD_GENERATOR: $KERNEL_INSTALL_INITRD_GENERATOR"
+        echo "ENTRY_DIR_ABS: $KERNEL_INSTALL_BOOT_ROOT/$ENTRY_TOKEN/\$KERNEL_VERSION"
+
+        # Assert that ENTRY_DIR_ABS actually matches what we are printing here
+        [ "${ENTRY_DIR_ABS%/*}" = "$KERNEL_INSTALL_BOOT_ROOT/$ENTRY_TOKEN" ] || { echo "Assertion didn't pass." >&2; exit 1; }
+
+        ;;
     *)
         echo "Error: unknown command '$COMMAND'" >&2
         exit 1
