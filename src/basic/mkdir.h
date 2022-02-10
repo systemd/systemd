@@ -5,7 +5,8 @@
 
 typedef enum MkdirFlags {
         MKDIR_FOLLOW_SYMLINK = 1 << 0,
-        MKDIR_WARN_MODE      = 1 << 1,
+        MKDIR_IGNORE_MODE    = 1 << 1,    /* Quietly accept any existing directory */
+        MKDIR_WARN_MODE      = 1 << 2,    /* Log at LOG_WARNING when mode doesn't match */
 } MkdirFlags;
 
 int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode);
