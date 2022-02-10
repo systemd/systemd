@@ -592,9 +592,9 @@ int mode_to_inaccessible_node(
         return 0;
 }
 
-int mount_flags_to_string(long unsigned flags, char **ret) {
+int mount_flags_to_string(unsigned long flags, char **ret) {
         static const struct {
-                long unsigned flag;
+                unsigned long flag;
                 const char *name;
         } map[] = {
                 { .flag = MS_RDONLY,      .name = "MS_RDONLY",      },
