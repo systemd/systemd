@@ -726,6 +726,12 @@ static int client_send_message(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
+        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
+                r = dhcp6_option_append(&opt, &optlen, j->option, j->length, j->data);
+                if (r < 0)
+                        return r;
+        }
+
         /* RFC 8415 Section 21.9.
          * A client MUST include an Elapsed Time option in messages to indicate how long the client has
          * been trying to complete a DHCP message exchange. */
@@ -734,12 +740,6 @@ static int client_send_message(sd_dhcp6_client *client) {
         r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
-
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
-                r = dhcp6_option_append(&opt, &optlen, j->option, j->length, j->data);
-                if (r < 0)
-                        return r;
-        }
 
         r = dhcp6_network_send_udp_socket(client->fd, &all_servers, message,
                                           len - optlen);
