@@ -28,6 +28,7 @@ typedef struct ActionTableItem ActionTableItem;
 #include "sleep-config.h"
 
 struct ActionTableItem {
+        HandleAction handle;
         const char *target;
         InhibitWhat inhibit_what;
         const char *polkit_action;
@@ -36,8 +37,7 @@ struct ActionTableItem {
         SleepOperation sleep_operation;
         const char* message_id;
         const char* message;
-        const char* log_str;
-
+        const char* log_message;
 };
 
 int manager_handle_action(
@@ -50,7 +50,6 @@ int manager_handle_action(
 const char* handle_action_to_string(HandleAction h) _const_;
 HandleAction handle_action_from_string(const char *s) _pure_;
 
-const char* manager_target_for_action(HandleAction handle);
 const ActionTableItem* manager_item_for_handle(HandleAction handle);
 HandleAction manager_handle_for_item(const ActionTableItem* a);
 
