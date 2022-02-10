@@ -551,6 +551,21 @@ Path.TriggerLimitBurst,                  config_parse_unsigned,                 
 Scope.RuntimeMaxSec,                     config_parse_sec,                            0,                                  offsetof(Scope, runtime_max_usec)
 Scope.RuntimeRandomizedExtraSec,         config_parse_sec,                            0,                                  offsetof(Scope, runtime_rand_extra_usec)
 Scope.TimeoutStopSec,                    config_parse_sec,                            0,                                  offsetof(Scope, timeout_stop_usec)
+Device.IOCostQOSEnabled,                 config_parse_tristate,                       0,                                  offsetof(Device, io_cost_qos.enabled)
+Device.IOCostQOSCtrl,                    config_parse_io_cost_ctrl,                   0,                                  offsetof(Device, io_cost_qos.ctrl)
+Device.IOCostQOSRPercentile,             config_parse_permyriad,                      0,                                  offsetof(Device, io_cost_qos.read_latency_percentile)
+Device.IOCostQOSRLat,                    config_parse_uint32,                         0,                                  offsetof(Device, io_cost_qos.read_latency_threshold)
+Device.IOCostQOSWPercentile,             config_parse_permyriad,                      0,                                  offsetof(Device, io_cost_qos.write_latency_percentile)
+Device.IOCostQOSWLat,                    config_parse_uint32,                         0,                                  offsetof(Device, io_cost_qos.write_latency_threshold)
+Device.IOCostQOSMin,                     config_parse_io_cost_qos_scaling_percentage, 0,                                  offsetof(Device, io_cost_qos.min)
+Device.IOCostQOSMax,                     config_parse_io_cost_qos_scaling_percentage, 0,                                  offsetof(Device, io_cost_qos.max)
+Device.IOCostModelCtrl,                  config_parse_io_cost_ctrl,                   0,                                  offsetof(Device, io_cost_model.ctrl)
+Device.IOCostModelRbps,                  config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.rbps)
+Device.IOCostModelRSeqIops,              config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.rseqiops)
+Device.IOCostModelRRandIops,             config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.rrandiops)
+Device.IOCostModelWbps,                  config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.wbps)
+Device.IOCostModelWSeqIops,              config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.wseqiops)
+Device.IOCostModelWRandIops,             config_parse_uint64,                         0,                                  offsetof(Device, io_cost_model.wrandiops)
 {# The [Install] section is ignored here #}
 Install.Alias,                           NULL,                                        0,                                  0
 Install.WantedBy,                        NULL,                                        0,                                  0
