@@ -386,6 +386,7 @@ AllowPortToBeRoot=
 AllowedIPs=
 Anonymize=
 Architecture=
+Firmware=
 AutoJoin=
 AutoNegotiation=
 BindCarrier=
